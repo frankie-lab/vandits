@@ -51,6 +51,7 @@ export function useDatabaseSync(userId?: string | null) {
       console.log('[useDatabaseSync] Fetching locations...');
       const dbLocations = await fetchAllLocationsPaginated();
       console.log('[useDatabaseSync] Locations fetched:', dbLocations.length);
+      updateLoading('db-sync', 0, dbLocations.length);
 
       const adoptedFromIds = new Set<string>();
       const userDocIds = new Set(ownDocs.map(d => d.id));
