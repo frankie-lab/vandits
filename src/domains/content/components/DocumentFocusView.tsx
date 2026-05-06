@@ -200,7 +200,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
           .order('name', { ascending: true })
           .range(from, to);
         if (error) throw error;
-        const batch = data || [];
+        const batch = (data || []) as unknown as LocationRow[];
         allLocs.push(...batch);
         if (batch.length < CHUNK) break; // último lote, lista íntegra cargada
       }
