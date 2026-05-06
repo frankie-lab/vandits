@@ -165,6 +165,15 @@ export function ScrapeJobsList() {
               </div>
               <Badge variant={st.tone} className="text-[10px] shrink-0">{st.label}</Badge>
             </div>
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground tabular-nums">
+              <span>Inicio: {new Date(j.created_at).toLocaleString()}</span>
+              {(j.status === 'done' || j.status === 'error' || j.status === 'cancelled') && j.last_tick_at && (
+                <>
+                  <span>·</span>
+                  <span>Fin: {new Date(j.last_tick_at).toLocaleString()}</span>
+                </>
+              )}
+            </div>
             <Progress value={pct} className="h-1.5" />
             <div className="flex items-center justify-between text-[10px] text-muted-foreground">
               <span>{j.items_found} encontrados · {j.items_imported} importados · {j.items_skipped} omitidos</span>
