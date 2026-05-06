@@ -117,10 +117,11 @@ Deno.serve(async (req) => {
   const TIME_BUDGET_MS = 120_000;
 
   // Build the candidate query with optional scoping.
+  // "Pendiente" = falta country_id O falta continent_id (legacy de antes del trigger).
   let q = admin
     .from('locations')
-    .select('id, latitude, longitude')
-    .is('country_id', null)
+    .select('id, latitude, longitude, country_id, continent_id')
+    .or('country_id.is.null,continent_id.is.null')
     .is('deleted_at', null);
   if (callerUserId) q = q.eq('owner_user_id', callerUserId);
   if (documentId) q = q.eq('document_id', documentId);
