@@ -10,6 +10,7 @@ function toCollection(row: any): Collection {
     icon: row.icon,
     color: row.color,
     visibility: row.visibility,
+    inCatalog: row.in_catalog === true,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   };
