@@ -87,6 +87,7 @@ Deno.serve(async (req) => {
   const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
   const limit = Math.min(Math.max(Number(body.limit ?? 25), 1), 200);
   const dryRun = !!body.dryRun;
+  const force = body.force_renormalize === true;
   const documentId = typeof body.document_id === 'string' ? body.document_id : null;
 
   // Wall-clock budget: stop processing before edge function 150s idle timeout.
