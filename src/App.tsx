@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
 import DuplicatePolicy from "./pages/DuplicatePolicy";
+import { GlobalLoadingBar } from "@/shared/loading";
 
 
 const queryClient = new QueryClient();
@@ -43,7 +44,8 @@ const App = () => (
  <QueryClientProvider client={queryClient}>
  <IconLibraryProvider>
  <TooltipProvider>
-  <Toaster />
+   <Toaster />
+   <GlobalLoadingBar />
  <BrowserRouter>
  <Routes>
  <Route path="/auth" element={<Auth />} />
