@@ -96,7 +96,7 @@ export const createCustomIcon = (
             <stop offset="100%" style="stop-color:${applyStateColor(baseColor)}" />
           </linearGradient>
         </defs>
-        <circle cx="12" cy="12" r="11" fill="url(#dotGrad-${location?.id || 'default'})" stroke="white" stroke-width="${borderWidth}"/>
+        <circle cx="12" cy="12" r="11" fill="url(#dotGrad-${location?.id || 'default'})" stroke="white" stroke-width="1"/>
       </svg>
     </div>
     `,
