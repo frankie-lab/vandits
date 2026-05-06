@@ -241,7 +241,7 @@ Deno.serve(async (req) => {
   let remainingQ = admin
     .from('locations')
     .select('id', { count: 'exact', head: true })
-    .is('country_id', null)
+    .or('country_id.is.null,continent_id.is.null')
     .is('deleted_at', null);
   if (callerUserId) remainingQ = remainingQ.eq('owner_user_id', callerUserId);
   if (documentId) remainingQ = remainingQ.eq('document_id', documentId);
