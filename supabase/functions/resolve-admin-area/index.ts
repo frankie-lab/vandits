@@ -12,13 +12,13 @@ const corsHeaders = {
 };
 
 const LEVELS = [
-  { key: 'continent',   code: 'continent' },
-  { key: 'country',     code: 'country' },
-  { key: 'region',      code: 'region' },
-  { key: 'zone',        code: 'zone' },
-  { key: 'admin3',      code: 'admin_level_3' },
-  { key: 'locality',    code: 'locality' },
-  { key: 'sublocality', code: 'sublocality' },
+  { key: 'continent',   code: 'continent',     placeholder: '(sin continente)' },
+  { key: 'country',     code: 'country',       placeholder: '(sin país)' },
+  { key: 'region',      code: 'region',        placeholder: '(sin región)' },
+  { key: 'zone',        code: 'zone',          placeholder: '(sin provincia)' },
+  { key: 'admin3',      code: 'admin_level_3', placeholder: '(sin comarca)' },
+  { key: 'locality',    code: 'locality',      placeholder: '(sin localidad)' },
+  { key: 'sublocality', code: 'sublocality',   placeholder: '(sin barrio)' },
 ] as const;
 
 Deno.serve(async (req) => {
@@ -31,7 +31,6 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // Map place_type codes -> uuids (cached per request)
     const { data: types, error: tErr } = await supabase
       .from('place_types')
       .select('id, code')
@@ -41,20 +40,39 @@ Deno.serve(async (req) => {
 
     const ids: Record<string, string | null> = {};
     let parentId: string | null = null;
+    let lastDefinedIdx = -1;
 
-    for (const lv of LEVELS) {
+    // 1) Determinar el índice del último nivel definido (para no inventar
+    // placeholders por debajo de lo que el usuario realmente proporcionó).
+    let maxIdx = -1;
+    for (let i = 0; i < LEVELS.length; i++) {
+      const raw = body[LEVELS[i].key];
+      if (typeof raw === 'string' && raw.trim().length) maxIdx = i;
+    }
+
+    for (let i = 0; i < LEVELS.length; i++) {
+      const lv = LEVELS[i];
       const raw = body[lv.key];
-      const name = typeof raw === 'string' ? raw.trim() : '';
-      if (!name) {
-        ids[`${lv.key}_id`] = null;
-        // Reset parent chain — niveles ausentes interrumpen la cadena
-        // pero permitimos saltos: parentId se mantiene, los niveles posteriores
-        // colgarán del último conocido. Esto es deliberado.
-        continue;
-      }
+      const provided = typeof raw === 'string' ? raw.trim() : '';
       const typeId = typeIdByCode.get(lv.code)!;
 
-      // Try find
+      let name: string;
+      let isPlaceholder: boolean;
+
+      if (provided) {
+        name = provided;
+        isPlaceholder = false;
+      } else if (i < maxIdx && lastDefinedIdx >= 0) {
+        // Hueco intermedio: insertar placeholder para mantener cadena coherente.
+        name = lv.placeholder;
+        isPlaceholder = true;
+      } else {
+        // Nivel ausente al final: no se rellena.
+        ids[`${lv.key}_id`] = null;
+        continue;
+      }
+
+      // find
       const findQuery = supabase
         .from('admin_areas')
         .select('id')
@@ -71,11 +89,10 @@ Deno.serve(async (req) => {
       } else {
         const { data: inserted, error: iErr } = await supabase
           .from('admin_areas')
-          .insert({ type_id: typeId, name, parent_id: parentId })
+          .insert({ type_id: typeId, name, parent_id: parentId, is_placeholder: isPlaceholder })
           .select('id')
           .single();
         if (iErr) {
-          // Race condition fallback: re-query
           const retryQuery = supabase
             .from('admin_areas')
             .select('id')
@@ -93,6 +110,7 @@ Deno.serve(async (req) => {
       }
       ids[`${lv.key}_id`] = id;
       parentId = id;
+      if (!isPlaceholder) lastDefinedIdx = i;
     }
 
     return new Response(JSON.stringify({ ids }), {
