@@ -44,6 +44,7 @@ type ScrapeJob = {
   items_found: number;
   items_imported: number;
   items_skipped: number;
+  items_lost?: number | null;
   next_tick_at: string;
   paused_until: string | null;
   last_tick_at: string | null;
