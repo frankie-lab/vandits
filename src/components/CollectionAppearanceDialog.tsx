@@ -17,19 +17,22 @@ import {
 } from 'lucide-react';
 import type { Collection } from '@/domains/v2';
 
+// Sentinel para "sin color" (apariencia por defecto: anillo blanco/invisible).
+const NO_COLOR = '#ffffff';
+
 const SWATCHES = [
-  // Rojos / naranjas / ámbar / amarillos
-  '#dc2626', '#ef4444', '#fb7185', '#f97316',
-  '#fb923c', '#f59e0b', '#eab308', '#facc15',
-  // Limas / verdes / esmeralda / teal
-  '#a3e635', '#84cc16', '#22c55e', '#16a34a',
-  '#10b981', '#059669', '#14b8a6', '#0d9488',
-  // Cian / azul / índigo / violeta
-  '#06b6d4', '#0ea5e9', '#3b82f6', '#2563eb',
-  '#6366f1', '#4f46e5', '#8b5cf6', '#7c3aed',
-  // Fucsia / rosa / marrón / grises
-  '#a855f7', '#d946ef', '#ec4899', '#f43f5e',
-  '#92400e', '#b45309', '#6b7280', '#374151',
+  // Fila 1: sin color + rojos / naranjas / ámbar
+  NO_COLOR, '#dc2626', '#ef4444', '#fb7185',
+  '#f97316', '#fb923c', '#f59e0b', '#eab308',
+  // Fila 2: limas / verdes / esmeralda / teal
+  '#facc15', '#a3e635', '#84cc16', '#22c55e',
+  '#16a34a', '#10b981', '#059669', '#14b8a6',
+  // Fila 3: cian / azul / índigo / violeta
+  '#0d9488', '#06b6d4', '#0ea5e9', '#3b82f6',
+  '#2563eb', '#6366f1', '#4f46e5', '#8b5cf6',
+  // Fila 4: violeta / fucsia / rosa / marrón / grises
+  '#7c3aed', '#a855f7', '#d946ef', '#ec4899',
+  '#f43f5e', '#92400e', '#6b7280', '#374151',
 ];
 
 const ICONS: { key: string; Icon: React.ComponentType<any> }[] = [
@@ -143,16 +146,25 @@ export function CollectionAppearanceDialog({ open, collection, onClose, onSave }
           <div className="space-y-2">
             <Label className="text-xs">Color</Label>
             <div className="grid grid-cols-8 gap-2">
-              {SWATCHES.map(s => (
-                <button
-                  key={s}
-                  type="button"
-                  className={`h-8 w-8 rounded-full border-2 transition-transform ${color === s ? 'scale-110 border-foreground' : 'border-transparent hover:scale-105'}`}
-                  style={{ backgroundColor: s }}
-                  onClick={() => setColor(s)}
-                  aria-label={`Color ${s}`}
-                />
-              ))}
+              {SWATCHES.map(s => {
+                const isNoColor = s === NO_COLOR;
+                const selected = color === s;
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    className={`h-8 w-8 rounded-full transition-transform ${
+                      selected
+                        ? 'scale-110 ring-2 ring-foreground ring-offset-1 ring-offset-background'
+                        : 'hover:scale-105'
+                    } ${isNoColor ? 'border border-dashed border-muted-foreground/60' : 'border-2 border-transparent'}`}
+                    style={{ backgroundColor: s }}
+                    onClick={() => setColor(s)}
+                    aria-label={isNoColor ? 'Sin color (por defecto)' : `Color ${s}`}
+                    title={isNoColor ? 'Sin color (por defecto)' : s}
+                  />
+                );
+              })}
             </div>
             <p className="text-[11px] text-muted-foreground leading-snug">
               Los puntos que no pertenecen a ninguna colección visible no llevan
