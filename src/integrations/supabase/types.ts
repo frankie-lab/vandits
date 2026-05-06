@@ -1843,6 +1843,7 @@ export type Database = {
           max_items: number | null
           max_tick_seconds: number
           min_tick_seconds: number
+          new_collection_name: string | null
           next_tick_at: string
           pages_seen: number
           pause_after_max: number
@@ -1854,6 +1855,7 @@ export type Database = {
           seed_url: string
           source: string
           status: Database["public"]["Enums"]["scrape_job_status"]
+          target_collection_id: string | null
           updated_at: string
           user_id: string
         }
@@ -1872,6 +1874,7 @@ export type Database = {
           max_items?: number | null
           max_tick_seconds?: number
           min_tick_seconds?: number
+          new_collection_name?: string | null
           next_tick_at?: string
           pages_seen?: number
           pause_after_max?: number
@@ -1883,6 +1886,7 @@ export type Database = {
           seed_url: string
           source: string
           status?: Database["public"]["Enums"]["scrape_job_status"]
+          target_collection_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -1901,6 +1905,7 @@ export type Database = {
           max_items?: number | null
           max_tick_seconds?: number
           min_tick_seconds?: number
+          new_collection_name?: string | null
           next_tick_at?: string
           pages_seen?: number
           pause_after_max?: number
@@ -1912,10 +1917,19 @@ export type Database = {
           seed_url?: string
           source?: string
           status?: Database["public"]["Enums"]["scrape_job_status"]
+          target_collection_id?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "scrape_jobs_target_collection_id_fkey"
+            columns: ["target_collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transport_mode_compatibility: {
         Row: {
