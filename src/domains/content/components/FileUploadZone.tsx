@@ -377,19 +377,18 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      addDocument(document);
      toast.success(`Importado: ${document.locations.length} puntos${document.routes?.length ? ` y ${document.routes.length} rutas` : ''}`);
 
-     // Attach to collection (transversal helper)
+     // Diferir colección hasta aprobación: guardar intención en metadata.
      if (user && (collectionId === '__new__' || (collectionId && collectionId !== ''))) {
        try {
-         await attachDocumentToCollection({
-           docId: document.id,
-           userId: user.id,
+         const { setPendingCollection } = await import('@/services/pending-collection.service');
+         await setPendingCollection(document.id, {
            collectionId: collectionId !== '__new__' ? collectionId : null,
            newCollection: collectionId === '__new__'
              ? { name: newCollectionName.trim() || document.name, visibility: uploadConditions.visibility }
              : null,
          });
        } catch (e) {
-         console.warn('attachDocumentToCollection failed:', e);
+         console.warn('setPendingCollection failed:', e);
        }
      }
 
