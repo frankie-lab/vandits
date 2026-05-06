@@ -239,6 +239,20 @@ export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
       addDocument(doc);
       toast.success(`Importados ${doc.locations.length} puntos`);
 
+      // Attach to collection (transversal helper) BEFORE background processing
+      try {
+        await attachDocumentToCollection({
+          docId: doc.id,
+          userId: user.id,
+          collectionId: collectionId && collectionId !== '__new__' ? collectionId : null,
+          newCollection: collectionId === '__new__'
+            ? { name: newCollectionName.trim() || preview.documentName, visibility }
+            : null,
+        });
+      } catch (e) {
+        console.warn('attachDocumentToCollection failed:', e);
+      }
+
       processImportedDocument(doc.id, { autoEnrich }).catch((e) =>
         console.warn('Background processing failed:', e),
       );
