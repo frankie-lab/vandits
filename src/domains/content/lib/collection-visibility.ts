@@ -46,18 +46,6 @@ let initialized = false;
 let currentUserId: string | null = null;
 
 function broadcast() {
-  // Bump locations-store version SIEMPRE que cambie la visibilidad de
-  // colecciones, para forzar recálculo de getFilteredLocations en todos los
-  // consumidores (mapa, listas, galería). Esto evita depender de que un
-  // componente concreto (Index.tsx) escuche el evento.
-  try {
-    // Import dinámico para evitar ciclo (locations-store importa este helper).
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { useLocationsStore } = require('@/domains/content/store/locations-store');
-    const s: any = useLocationsStore;
-    s.setState({ _docVersion: (s.getState()._docVersion || 0) + 1 });
-  } catch { /* SSR / circular — ignore */ }
-
   window.dispatchEvent(new CustomEvent(COLLECTION_VISIBILITY_EVENT, {
     detail: { visible: { ...state.visible } },
   }));
