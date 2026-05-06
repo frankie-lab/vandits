@@ -277,6 +277,12 @@ export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
     }
   }, [user, preview, duplicates, excludedDuplicates, visibility, autoEnrich, addDocument]);
 
+    setSummaryDoc(null);
+    // reset collection selector state for next import
+    setCollectionId('');
+    setNewCollectionName('');
+  }, [user, preview, duplicates, excludedDuplicates, visibility, autoEnrich, addDocument, collectionId, newCollectionName]);
+
   const handleEnqueue = useCallback(async () => {
     if (!user) return;
     const trimmed = url.trim();
