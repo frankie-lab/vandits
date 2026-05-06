@@ -137,6 +137,8 @@ export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
   const [mode, setMode] = useState<Mode>('now');
   const [preset, setPreset] = useState<Preset>('normal');
   const [maxItems, setMaxItems] = useState<string>('');
+  const [collectionId, setCollectionId] = useState<string>('');
+  const [newCollectionName, setNewCollectionName] = useState<string>('');
   const [phase, setPhase] = useState<'idle' | 'testing' | 'saving' | 'enqueueing'>('idle');
 
   const [preview, setPreview] = useState<ScrapeResponse & { ok: true } | null>(null);
