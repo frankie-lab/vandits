@@ -158,28 +158,23 @@ Deno.serve(async (req) => {
       // Si no se pudo derivar, caemos al flujo normal de Nominatim.
     }
 
-    const addr = await reverseGeocode(row.latitude, row.longitude);
+    const canon = await reverseGeocodeCanonical(row.latitude, row.longitude);
     await sleep(RATE_LIMIT_MS);
 
-    if (!addr) {
+    if (!canon || !canon.country) {
       errors.push({ id: row.id, reason: 'reverse-geocode failed' });
       continue;
     }
 
-    const mapped = mapNominatimAddress(addr);
-    const cc = (addr.country_code ?? '').toUpperCase();
-    const continent = cc ? CONTINENT_BY_CC[cc] : undefined;
-
-    // Resolve UUIDs via existing edge function (idempotent)
     const { data: resolved, error: resErr } = await admin.functions.invoke('resolve-admin-area', {
       body: {
-        continent,
-        country: mapped.country,
-        region: mapped.region,
-        zone: mapped.zone,
-        admin3: mapped.admin3,
-        locality: mapped.locality,
-        sublocality: mapped.sublocality,
+        continent: canon.continent,
+        country: canon.country,
+        region: canon.region,
+        zone: canon.zone,
+        admin3: canon.admin3,
+        locality: canon.locality,
+        sublocality: canon.sublocality,
       },
     });
 
