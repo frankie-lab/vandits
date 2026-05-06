@@ -309,7 +309,7 @@
   position: absolute;
   inset: 0;
   border-radius: 9999px;
-  border: 1px solid var(--collection-tint, #6b7280);
+  border: 1.5px solid var(--collection-tint, #ffffff);
   opacity: 0.8;
   pointer-events: none;
   box-sizing: border-box;
