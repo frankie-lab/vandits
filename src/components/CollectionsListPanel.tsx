@@ -176,7 +176,7 @@ function CollectionRow({
             onClick={onToggleVisibility}
             title={
               collection.inCatalog
-                ? (isVisible ? 'Quitar tinte (sesión)' : 'Resaltar en el mapa (sesión)')
+                ? (isVisible ? 'Ocultar sus puntos del mapa (sesión)' : 'Mostrar sus puntos en el mapa (sesión)')
                 : (isVisible ? 'Ocultar puntos privados (sesión)' : 'Mostrar puntos privados en el mapa (sesión)')
             }
           >
