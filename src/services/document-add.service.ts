@@ -93,17 +93,35 @@ async function resolveLocationIds(
  *  this no longer touches `documents.status`: status is editorial metadata only.
  *  is_approved keeps its meaning as "curated by the owner" (Catalog vs Workspace
  *  classification used by the owner's UI). */
-export async function applyCatalog(opts: AddCatalogOptions): Promise<{ updated: number }> {
+export async function applyCatalog(opts: AddCatalogOptions): Promise<{ updated: number; skippedDuplicates: number }> {
   const ids = await resolveLocationIds(opts.docId, opts.scope, opts.selectedIds);
-  if (ids.length === 0) return { updated: 0 };
+  if (ids.length === 0) return { updated: 0, skippedDuplicates: 0 };
+
+  // Excluir puntos marcados como duplicados de catálogo (custom_data.duplicate_of).
+  // Aprobarlos crearía duplicados visuales con el canónico ya aprobado.
+  const PAGE = 1000;
+  const skippedIds = new Set<string>();
+  for (let i = 0; i < ids.length; i += PAGE) {
+    const slice = ids.slice(i, i + PAGE);
+    const { data } = await supabase
+      .from('locations')
+      .select('id, custom_data')
+      .in('id', slice);
+    for (const row of data ?? []) {
+      const dup = (row.custom_data as { duplicate_of?: string } | null)?.duplicate_of;
+      if (dup) skippedIds.add(row.id as string);
+    }
+  }
+  const targetIds = ids.filter((id) => !skippedIds.has(id));
+  if (targetIds.length === 0) return { updated: 0, skippedDuplicates: skippedIds.size };
 
   const { error } = await supabase
     .from('locations')
     .update({ is_approved: true, visibility: opts.visibility })
-    .in('id', ids);
+    .in('id', targetIds);
   if (error) throw error;
 
-  return { updated: ids.length };
+  return { updated: targetIds.length, skippedDuplicates: skippedIds.size };
 }
 
 /** Mode: collection — get/create collection then add the points as items.

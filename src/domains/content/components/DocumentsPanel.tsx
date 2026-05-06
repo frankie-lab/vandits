@@ -403,8 +403,14 @@ export function DocumentsPanel() {
                 if (integration.pendingApproval === 0 || isApproving) return;
                 setApprovingId(doc.id);
                 try {
-                  const { approved } = await approveAllDocumentLocations(doc.id);
-                  toast.success(`${approved} puntos integrados al catálogo`);
+                  const { approved, skippedDuplicates } = await approveAllDocumentLocations(doc.id);
+                  if (skippedDuplicates > 0) {
+                    toast.success(
+                      `${approved} puntos integrados al catálogo. ${skippedDuplicates} omitidos por coincidir con tu catálogo.`,
+                    );
+                  } else {
+                    toast.success(`${approved} puntos integrados al catálogo`);
+                  }
                   fetchDocs();
                 } catch (e) {
                   console.error('Error approving locations:', e);

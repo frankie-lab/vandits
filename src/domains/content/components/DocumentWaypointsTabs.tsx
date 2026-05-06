@@ -49,6 +49,7 @@ export interface DocWaypointRow {
   continent: string | null;
   country: string | null;
   region: string | null;
+  custom_data?: { duplicate_of?: string; duplicate_of_name?: string } | null;
 }
 
 export interface DocRouteRow {
@@ -348,6 +349,14 @@ function VirtualWaypointList({
                     </button>
                     {isEnriched && (
                       <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
+                    )}
+                    {loc.custom_data?.duplicate_of && (
+                      <span
+                        className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30"
+                        title={`Coincide con "${loc.custom_data.duplicate_of_name ?? 'punto del catálogo'}". Se omitirá al aprobar para evitar duplicados.`}
+                      >
+                        Ya en catálogo
+                      </span>
                     )}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
