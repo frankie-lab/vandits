@@ -571,9 +571,11 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 // recálculo de getFilteredLocations. Centralizado aquí para no depender de
 // que Index.tsx (u otro consumer) esté montado y escuchando.
 if (typeof window !== 'undefined') {
-  window.addEventListener('collection-visibility-changed', () => {
+  const bump = () => {
     const s: any = useLocationsStore;
     s.setState({ _docVersion: (s.getState()._docVersion || 0) + 1 });
-  });
+  };
+  window.addEventListener('collection-visibility-changed', bump);
+  window.addEventListener('orphan-points-changed', bump);
 }
 

@@ -16,8 +16,17 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Plus, Pencil, Trash2, Eye, EyeOff, Loader2, Check, X,
   ChevronRight, ChevronDown, MapPin, Route as RouteIcon, Palette,
-  MoreVertical, Globe, Lock,
+  MoreVertical, Globe, Lock, Inbox,
 } from 'lucide-react';
+import { useAuth } from '@/domains/identity';
+import {
+  recomputeOrphanPoints,
+  subscribeOrphanPoints,
+  getOrphanCount,
+  isOrphanGroupVisible,
+  toggleOrphanVisibility,
+  wireOrphanAutoRecompute,
+} from '@/domains/content/lib/orphan-points';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -48,6 +57,8 @@ interface Props {
   /** @deprecated Si no se pasa, usa toggleCollectionVisibility del helper. */
   onToggleVisibility?: (collection: Collection) => void;
   onFocusCollection: (collection: Collection) => void;
+  /** Click en la fila virtual "Sin colección". */
+  onFocusOrphans?: () => void;
 }
 
 interface ExpandedContent {
@@ -278,7 +289,8 @@ function CollectionRow({
   );
 }
 
-export function CollectionsListPanel({ visibleCollectionIds: visibleProp, onToggleVisibility, onFocusCollection }: Props) {
+export function CollectionsListPanel({ visibleCollectionIds: visibleProp, onToggleVisibility, onFocusCollection, onFocusOrphans }: Props) {
+  const { user } = useAuth();
   const { collections, loading, create, update, remove } = useCollections();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
@@ -289,6 +301,24 @@ export function CollectionsListPanel({ visibleCollectionIds: visibleProp, onTogg
   const [counts, setCounts] = useState<Map<string, Counts>>(new Map());
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+
+  // Grupo virtual "Sin colección".
+  const [orphanCount, setOrphanCount] = useState<number>(getOrphanCount());
+  const [orphanVisible, setOrphanVisible] = useState<boolean>(isOrphanGroupVisible());
+  useEffect(() => {
+    if (!user?.id) return;
+    wireOrphanAutoRecompute(user.id);
+    void recomputeOrphanPoints(user.id);
+    return subscribeOrphanPoints(() => {
+      setOrphanCount(getOrphanCount());
+      setOrphanVisible(isOrphanGroupVisible());
+    });
+  }, [user?.id]);
+  // Recomputar cuando cambian colecciones / items.
+  useEffect(() => {
+    if (!user?.id) return;
+    void recomputeOrphanPoints(user.id);
+  }, [user?.id, collections.length]);
 
   // Visibilidad: si el padre la pasa (legacy), la usamos. Si no, suscripción
   // directa al helper único (ADR 004), evitando un Set paralelo desincronizado.
@@ -487,7 +517,7 @@ export function CollectionsListPanel({ visibleCollectionIds: visibleProp, onTogg
         </Button>
       )}
 
-      {collections.length === 0 ? (
+      {collections.length === 0 && orphanCount === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           <p className="text-sm">No hay colecciones</p>
           <p className="text-xs mt-1">Crea tu primera colección para agrupar puntos</p>
@@ -495,6 +525,49 @@ export function CollectionsListPanel({ visibleCollectionIds: visibleProp, onTogg
       ) : (
         <ScrollArea className="flex-1 min-h-0 w-full [&>[data-radix-scroll-area-viewport]>div]:!block">
           <div className="space-y-2 pr-1 w-full min-w-0">
+            {orphanCount > 0 && (
+              <div
+                className={`w-full min-w-0 rounded-xl border transition-all overflow-hidden ${
+                  orphanVisible
+                    ? 'border-primary/30 bg-primary/5 shadow-sm'
+                    : 'border-border/60 bg-card hover:bg-accent/30 hover:border-border'
+                }`}
+              >
+                <div className="flex items-center gap-1 px-2 py-2 min-w-0">
+                  <div className="w-6 h-6 shrink-0" aria-hidden />
+                  <button
+                    type="button"
+                    onClick={() => onFocusOrphans?.()}
+                    className="flex items-center gap-2 min-w-0 flex-1 text-left"
+                    title="Ver puntos sin colección"
+                  >
+                    <span
+                      className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border bg-muted"
+                      style={{ borderColor: 'hsl(var(--border))' }}
+                    >
+                      <Inbox className="w-3.5 h-3.5 text-muted-foreground" />
+                    </span>
+                    <h4 className="font-bold text-sm truncate flex-1">Sin colección</h4>
+                    <span
+                      className="inline-flex items-center gap-1 text-[10px] tabular-nums text-muted-foreground bg-muted/60 rounded-full px-1.5 py-0.5 shrink-0"
+                      title={`${orphanCount} puntos sin colección`}
+                    >
+                      {orphanCount}
+                    </span>
+                  </button>
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <Button
+                      variant="ghost" size="sm"
+                      className={`h-6 w-6 p-0 rounded-full ${orphanVisible ? 'text-foreground' : 'text-muted-foreground'}`}
+                      onClick={() => { toggleOrphanVisibility(); }}
+                      title={orphanVisible ? 'Ocultar puntos sin colección del mapa (sesión)' : 'Mostrar puntos sin colección en el mapa (sesión)'}
+                    >
+                      {orphanVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
             {collections.map((c) => (
               <CollectionRow
                 key={c.id}

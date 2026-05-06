@@ -12,6 +12,7 @@ import { LocationPhotoMenu } from '@/components/LocationPhotoMenu';
 import { RoutesListPanel } from '@/components/RoutesListPanel';
 import { CollectionsListPanel } from '@/components/CollectionsListPanel';
 import { CollectionFocusView } from '@/components/CollectionFocusView';
+import { OrphanFocusView } from '@/components/OrphanFocusView';
 import {
   initSessionCollectionVisibility,
   resetSessionCollectionVisibility,
@@ -85,6 +86,7 @@ const Index = () => {
   // ─── Itineraries / Collections panel sub-tabs ───────────────────────────
   const [routesPanelTab, setRoutesPanelTab] = useState<'routes' | 'collections'>('routes');
   const [focusedCollection, setFocusedCollection] = useState<Collection | null>(null);
+  const [orphanFocus, setOrphanFocus] = useState(false);
 
   // Collection visibility: el panel se suscribe directamente al helper
   // (ADR 004). Index solo dispara init/reset por usuario.
@@ -468,9 +470,12 @@ const Index = () => {
                 collection={focusedCollection}
                 onBack={() => setFocusedCollection(null)}
               />
+            ) : orphanFocus ? (
+              <OrphanFocusView onBack={() => setOrphanFocus(false)} />
             ) : (
               <CollectionsListPanel
-                onFocusCollection={(c) => setFocusedCollection(c)}
+                onFocusCollection={(c) => { setOrphanFocus(false); setFocusedCollection(c); }}
+                onFocusOrphans={() => { setFocusedCollection(null); setOrphanFocus(true); }}
               />
             )}
           </PanelTabs.Content>
