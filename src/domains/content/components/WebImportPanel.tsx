@@ -442,19 +442,6 @@ export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
           {/* Visibilidad + Enriquecer (siempre que haya algo en la URL) */}
           {sourceKind !== 'empty' && sourceKind !== 'invalid' && (
             <>
-              <CollectionPicker
-                userId={user?.id}
-                value={collectionId}
-                onValueChange={setCollectionId}
-                newName={newCollectionName}
-                onNewNameChange={setNewCollectionName}
-                defaultNewName={preview?.documentName || (() => {
-                  try { return new URL(url).hostname.replace(/^www\./, ''); }
-                  catch { return ''; }
-                })()}
-                disabled={isWorking}
-              />
-
               <div>
                 <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Visibilidad
