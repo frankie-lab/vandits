@@ -20,6 +20,8 @@ import { useAuth } from '@/domains/identity';
 import { useLocationsStore, saveDocumentToDatabase } from '@/domains/content';
 import { processImportedDocument } from '@/domains/content/lib/process-imported-document';
 import { ImportSummaryDialog } from './ImportSummaryDialog';
+import { CollectionPicker } from './CollectionPicker';
+import { attachDocumentToCollection } from '@/services/document-add.service';
 import type { KMLDocument, GeoLocation, EnrichedLocationData } from '@/types/location';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -135,6 +137,8 @@ export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
   const [mode, setMode] = useState<Mode>('now');
   const [preset, setPreset] = useState<Preset>('normal');
   const [maxItems, setMaxItems] = useState<string>('');
+  const [collectionId, setCollectionId] = useState<string>('');
+  const [newCollectionName, setNewCollectionName] = useState<string>('');
   const [phase, setPhase] = useState<'idle' | 'testing' | 'saving' | 'enqueueing'>('idle');
 
   const [preview, setPreview] = useState<ScrapeResponse & { ok: true } | null>(null);
@@ -235,6 +239,20 @@ export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
       addDocument(doc);
       toast.success(`Importados ${doc.locations.length} puntos`);
 
+      // Attach to collection (transversal helper) BEFORE background processing
+      try {
+        await attachDocumentToCollection({
+          docId: doc.id,
+          userId: user.id,
+          collectionId: collectionId && collectionId !== '__new__' ? collectionId : null,
+          newCollection: collectionId === '__new__'
+            ? { name: newCollectionName.trim() || preview.documentName, visibility }
+            : null,
+        });
+      } catch (e) {
+        console.warn('attachDocumentToCollection failed:', e);
+      }
+
       processImportedDocument(doc.id, { autoEnrich }).catch((e) =>
         console.warn('Background processing failed:', e),
       );
@@ -251,13 +269,15 @@ export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
       setUrl('');
       setPreview(null);
       setDuplicates(new Set());
+      setCollectionId('');
+      setNewCollectionName('');
     } catch (e) {
       console.error('Import failed:', e);
       toast.error('Error al importar');
     } finally {
       setPhase('idle');
     }
-  }, [user, preview, duplicates, excludedDuplicates, visibility, autoEnrich, addDocument]);
+  }, [user, preview, duplicates, excludedDuplicates, visibility, autoEnrich, addDocument, collectionId, newCollectionName]);
 
   const handleEnqueue = useCallback(async () => {
     if (!user) return;
@@ -272,6 +292,8 @@ export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
           maxItems: maxItems ? Number(maxItems) : null,
           autoEnrich,
           visibility,
+          targetCollectionId: collectionId && collectionId !== '__new__' ? collectionId : null,
+          newCollectionName: collectionId === '__new__' ? (newCollectionName.trim() || null) : null,
         },
       });
       if (error) { toast.error(error.message); return; }
@@ -281,10 +303,12 @@ export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
       setMaxItems('');
       setPreview(null);
       setDuplicates(new Set());
+      setCollectionId('');
+      setNewCollectionName('');
     } finally {
       setPhase('idle');
     }
-  }, [url, user, preset, maxItems, autoEnrich, visibility]);
+  }, [url, user, preset, maxItems, autoEnrich, visibility, collectionId, newCollectionName]);
 
   const handleExecute = () => {
     if (mode === 'now') return handleImportNow();
@@ -418,6 +442,19 @@ export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
           {/* Visibilidad + Enriquecer (siempre que haya algo en la URL) */}
           {sourceKind !== 'empty' && sourceKind !== 'invalid' && (
             <>
+              <CollectionPicker
+                userId={user?.id}
+                value={collectionId}
+                onValueChange={setCollectionId}
+                newName={newCollectionName}
+                onNewNameChange={setNewCollectionName}
+                defaultNewName={preview?.documentName || (() => {
+                  try { return new URL(url).hostname.replace(/^www\./, ''); }
+                  catch { return ''; }
+                })()}
+                disabled={isWorking}
+              />
+
               <div>
                 <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Visibilidad

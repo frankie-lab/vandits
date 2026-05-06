@@ -15,6 +15,8 @@ import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { KMLDocument, GeoLocation, LocationVisibility } from '@/types/location';
 import { ImportSummaryDialog } from './ImportSummaryDialog';
+import { CollectionPicker } from './CollectionPicker';
+import { attachDocumentToCollection } from '@/services/document-add.service';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/domains/identity';
 import { documentV2Repository } from '@/repositories/document-v2.repository';
@@ -58,6 +60,8 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
   } | null>(null);
   const [showSummary, setShowSummary] = useState(false);
   const rawFileRef = useRef<File | null>(null);
+  const [collectionId, setCollectionId] = useState<string>('');
+  const [newCollectionName, setNewCollectionName] = useState<string>('');
 
   /** Find closest location within threshold */
   const findClosestLocation = (lat: number, lng: number, locations: GeoLocation[], thresholdMeters = 250): GeoLocation | null => {
@@ -372,6 +376,22 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      }
      addDocument(document);
      toast.success(`Importado: ${document.locations.length} puntos${document.routes?.length ? ` y ${document.routes.length} rutas` : ''}`);
+
+     // Attach to collection (transversal helper)
+     if (user && (collectionId === '__new__' || (collectionId && collectionId !== ''))) {
+       try {
+         await attachDocumentToCollection({
+           docId: document.id,
+           userId: user.id,
+           collectionId: collectionId !== '__new__' ? collectionId : null,
+           newCollection: collectionId === '__new__'
+             ? { name: newCollectionName.trim() || document.name, visibility: uploadConditions.visibility }
+             : null,
+         });
+       } catch (e) {
+         console.warn('attachDocumentToCollection failed:', e);
+       }
+     }
 
      // Routes (si las hay) se guardan igual que antes
      if (document.routes && document.routes.length > 0) {

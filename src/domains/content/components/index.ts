@@ -11,3 +11,4 @@ export { EnrichmentCriteriaConfig } from './EnrichmentCriteriaConfig';
 export { EnrichmentCardConfig } from './EnrichmentCardConfig';
 export { EnrichmentProgressIndicator } from './EnrichmentProgressIndicator';
 export { ExportPanel } from './ExportPanel';
+export { CollectionPicker } from './CollectionPicker';
