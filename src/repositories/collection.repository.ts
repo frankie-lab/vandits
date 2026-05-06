@@ -48,13 +48,19 @@ export const collectionRepository = {
       icon: collection.icon,
       color: collection.color,
       visibility: collection.visibility,
-    }).select().single();
+      in_catalog: collection.inCatalog,
+    } as any).select().single();
     if (error) throw error;
     return toCollection(data);
   },
 
-  async update(id: string, updates: Partial<Pick<Collection, 'name' | 'description' | 'icon' | 'color' | 'visibility'>>): Promise<Collection> {
-    const { data, error } = await supabase.from('collections').update(updates).eq('id', id).select().single();
+  async update(id: string, updates: Partial<Pick<Collection, 'name' | 'description' | 'icon' | 'color' | 'visibility' | 'inCatalog'>>): Promise<Collection> {
+    const dbUpdates: any = { ...updates };
+    if ('inCatalog' in dbUpdates) {
+      dbUpdates.in_catalog = dbUpdates.inCatalog;
+      delete dbUpdates.inCatalog;
+    }
+    const { data, error } = await supabase.from('collections').update(dbUpdates).eq('id', id).select().single();
     if (error) throw error;
     return toCollection(data);
   },
