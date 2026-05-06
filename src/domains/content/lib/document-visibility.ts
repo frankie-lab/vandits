@@ -27,6 +27,7 @@ import {
   isPointInAnyCatalogCollection,
   isPointInAnyVisibleCatalogCollection,
 } from '@/domains/content/lib/collection-visibility';
+import { isOrphan, isOrphanGroupVisible, isOrphanLoaded } from '@/domains/content/lib/orphan-points';
 
 /** Kept exported for legacy callers; status no longer affects visibility. */
 export type DocumentLifecycleStatus = 'draft' | 'in_review' | 'published';
