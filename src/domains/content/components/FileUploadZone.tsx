@@ -572,11 +572,20 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
            )}
           </label>
          ))}
-        </RadioGroup>
-       </div>
-      )}
+         </RadioGroup>
+        </div>
+       )}
 
-      {/* Conditions */}
+       {/* Collection picker (transversal) */}
+       <CollectionPicker
+         userId={user?.id}
+         value={collectionId}
+         onValueChange={setCollectionId}
+         newName={newCollectionName}
+         onNewNameChange={setNewCollectionName}
+       />
+
+       {/* Conditions */}
       <div className="space-y-1.5">
         <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Condiciones</Label>
         <div className="grid grid-cols-1 gap-2">
