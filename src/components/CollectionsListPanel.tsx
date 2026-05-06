@@ -40,6 +40,7 @@ import {
   getVisibleCollectionIds,
   toggleCollectionVisibility as toggleCollectionVisibilityHelper,
 } from '@/domains/content/lib/collection-visibility';
+import { getReadableForeground, isLightColor } from '@/shared/lib/color-contrast';
 
 interface Props {
   /** @deprecated Si no se pasa, el panel lee del helper único (ADR 004). */
@@ -134,10 +135,13 @@ function CollectionRow({
         {isRenaming ? (
           <div className="flex items-center gap-1 min-w-0 flex-1">
             <span
-              className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-              style={{ backgroundColor: tint }}
+              className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border"
+              style={{
+                backgroundColor: tint,
+                borderColor: isLightColor(tint) ? 'hsl(var(--border))' : 'transparent',
+              }}
             >
-              <Icon className="w-3.5 h-3.5 text-white" />
+              <Icon className="w-3.5 h-3.5" style={{ color: getReadableForeground(tint) }} />
             </span>
             <Input
               value={renameValue}
@@ -158,10 +162,13 @@ function CollectionRow({
             className="flex items-center gap-2 min-w-0 flex-1 text-left"
           >
             <span
-              className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-              style={{ backgroundColor: tint }}
+              className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border"
+              style={{
+                backgroundColor: tint,
+                borderColor: isLightColor(tint) ? 'hsl(var(--border))' : 'transparent',
+              }}
             >
-              <Icon className="w-3.5 h-3.5 text-white" />
+              <Icon className="w-3.5 h-3.5" style={{ color: getReadableForeground(tint) }} />
             </span>
             <h4 className="font-bold text-sm truncate flex-1">{collection.name}</h4>
             <span
