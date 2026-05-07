@@ -1,68 +1,58 @@
 ## Objetivo
 
-Crear un batch puntual (one-shot) que repase TODOS los puntos en catálogo (`is_approved=true`, `deleted_at IS NULL`) de TODOS los usuarios y rellene la jerarquía geográfica completa (8 niveles: continent → country → region → zone → admin3 → locality → sublocality + type) usando las nuevas normas de normalización.
+Re-normalizar geográficamente el **100%** de los **5.074 puntos activos** (todos `is_approved=true`) aplicando las nuevas reglas: 8 niveles (continent → country → region → zone → admin3 → locality → sublocality + type), doble pasada Nominatim (zoom 18 + 10) y FKs vía `resolve-admin-area`.
 
-## Contexto detectado
+## Diferencia con el batch anterior
 
-- `backfill-admin-fks` ya implementa la lógica correcta (Nominatim doble pasada zoom 18 + 10 → `resolve-admin-area` → UPDATE FKs → trigger `locations_sync_admin_cache` actualiza strings).
-- Predicado actual: `country_id IS NULL OR continent_id IS NULL`. Esto deja fuera ~1.500 puntos en catálogo con `country_id` resuelto pero faltando niveles intermedios (region/zone/locality/admin3/sublocality).
-- Hay scoping por `owner_user_id` cuando hay JWT y por `document_id`. No hay scope por "catálogo".
-- Existe flag `force_renormalize=true` para reprocesar todo.
+El runner actual (`backfill-catalog-geo-once`) sólo procesa los puntos con jerarquía incompleta (~2.230). Esta vez se quiere reprocesar **todos**, incluidos los que ya tienen FKs, para sobreescribir con la normalización nueva (placeholders deduplicados, path materializado, sublocality, etc.).
 
 ## Plan
 
-### 1. Extender el predicado "pendiente" en `backfill-admin-fks`
+### 1. Extender `backfill-catalog-geo-once` con flag `force`
 
-Reemplazar el filtro:
-```
-.or('country_id.is.null,continent_id.is.null')
-```
-por uno que detecte cualquier nivel faltante de la nueva jerarquía:
-```
-.or('continent_id.is.null,country_id.is.null,region_id.is.null,zone_id.is.null,locality_id.is.null')
-```
-(`admin3_id` y `sublocality_id` son opcionales por naturaleza — no todos los lugares los tienen — así que no entran en el predicado para evitar reprocesar infinito.)
+Añadir parámetro opcional `force: boolean` que se propaga a `backfill-admin-fks` como `force_renormalize: true`. Cuando `force=true`:
+- El predicado "pendiente" desaparece (ya implementado en `backfill-admin-fks`).
+- Procesa TODOS los puntos en catálogo en orden de creación.
+- El bucle del runner debe avanzar con `offset` acumulado (no por "remaining decreciente"), porque al forzar, `remaining` se mantiene constante.
 
-### 2. Añadir scope `catalog_only` al edge function
+### 2. Lanzar el batch en background con avance por offset
 
-Nuevo parámetro opcional `catalog_only: boolean` que añade `.eq('is_approved', true)` tanto al fetch como al cálculo de `remaining`. Compatible con el resto de scopes.
+Cambiar la estrategia de parada:
+- Modo normal (`force=false`): parar cuando `remaining=0` o `processed=0` (comportamiento actual).
+- Modo forzado (`force=true`): parar cuando `processed < limit_per_chunk` (no quedan filas en el rango) o se agote `max_iterations`. El runner pasa `offset` incremental a cada llamada.
 
-### 3. Crear batch runner one-shot
+### 3. Persistencia de estado entre invocaciones
 
-Nuevo edge function `backfill-catalog-geo-once`:
-- Llama a `backfill-admin-fks` en bucle con `{ catalog_only: true, limit: 100, force_renormalize: false }` (sin force — solo los que faltan según el nuevo predicado).
-- Sin scope de usuario (sin JWT → procesa todos).
-- Continúa hasta `remaining === 0` o hasta agotar presupuesto de tiempo.
-- Devuelve resumen acumulado: `total_processed`, `total_updated`, `total_failed`, `iterations`, `remaining`.
-- Idempotente: se puede invocar manualmente varias veces hasta drenar la cola.
+El runner es one-shot por edge function (~130s budget). Para 5.074 puntos × ~2.2s = ~3 horas, hace falta:
+- **Tabla ligera de control**: `geo_renormalization_jobs` (id, started_at, last_offset, total_target, processed, updated, failed, status). Permite reanudar.
+- O bien, **invocaciones manuales sucesivas**: el runner devuelve `next_offset` y el master vuelve a invocar con ese offset hasta agotar.
 
-### 4. CTA en panel admin (opcional, sólo invocador manual)
+Propuesta: **invocaciones sucesivas manuales** (más simple, sin schema nuevo). El runner devuelve `next_offset` y `done: boolean`. El master invoca desde consola en bucle.
 
-En `Admin > Mantenimiento` (o donde estén los jobs masters), un botón "Renormalizar catálogo global" que:
-- Llama a `backfill-catalog-geo-once`.
-- Muestra progreso reutilizando `useGeocodingJobStore` + `GeocodingProgressBar` (el bus único ya existente).
-- Sólo visible para `master` (RLS en `app_settings` ya cubre).
+### 4. CTA opcional en `AdminPanel`
 
-### 5. Consulta previa para confirmar magnitud
-
-Antes de lanzar, una `read_query` rápida:
-```sql
-SELECT COUNT(*) FROM locations
-WHERE deleted_at IS NULL AND is_approved = true
-AND (continent_id IS NULL OR country_id IS NULL
-     OR region_id IS NULL OR zone_id IS NULL OR locality_id IS NULL);
-```
-para saber el volumen real (~835 sin continent + ~1.500 con jerarquía incompleta = estimado 2.000-2.500 puntos).
+Botón "Renormalizar TODO el catálogo (forzado)" que:
+- Confirma con dialog ("Esto tomará ~3 horas, se ejecuta en chunks. ¿Continuar?").
+- Lanza un loop client-side que llama a `backfill-catalog-geo-once` con `force=true` y `offset` incremental.
+- Muestra progreso reutilizando `useGeocodingJobStore` + `GeocodingProgressBar`.
+- Solo visible para `master`.
 
 ## Detalle técnico
 
-- **Tasa Nominatim**: 1.1s entre llamadas + posibles 2 llamadas/punto (zoom 18 + 10) → ~2.000 puntos × 2.2s = ~75 min total. El runner one-shot lanza chunks de 100 (~3.5 min cada uno, dentro del límite 150s del edge function) iterando hasta drenar.
-- **Sin pérdida de datos**: la lógica de UPDATE sólo escribe los FKs nuevos; el trigger sincroniza strings sin tocar nada más. `enriched_data`, fotos, notas, colecciones intactas.
-- **Sin afectar mapa global**: la regla de visibilidad (`is_approved=true`) no cambia. Los puntos siguen visibles durante el proceso; sólo se enriquece su filtro geográfico.
+- **Tasa Nominatim**: 1.1s entre llamadas + posibles 2 llamadas/punto = ~2.2s/punto. Total: 5.074 × 2.2s ≈ **3h 6min**.
+- **Chunks**: 50 puntos por chunk del edge function (~110s) → ~102 chunks totales.
+- **Sin pérdida de datos**: sólo se reescriben los FKs y los strings derivados (vía trigger). `enriched_data`, fotos, notas, colecciones, `is_approved`, visibilidad: intactos.
+- **Sin afectar visibilidad del mapa**: la regla `is_approved=true` no cambia. Los puntos siguen visibles durante el proceso; sólo mejora su filtrado geográfico.
+- **Idempotente**: si `resolve-admin-area` devuelve los mismos UUIDs, el UPDATE es no-op funcional.
 
 ## Archivos a tocar
 
-1. `supabase/functions/backfill-admin-fks/index.ts` — extender predicado + parámetro `catalog_only`.
-2. `supabase/functions/backfill-catalog-geo-once/index.ts` — nuevo, runner one-shot.
-3. (Opcional) `src/app/admin/...` — botón "Renormalizar catálogo global".
-4. Memoria: actualizar `mem://logic/geocoding/unified-job` para mencionar el scope `catalog_only`.
+1. `supabase/functions/backfill-catalog-geo-once/index.ts` — añadir `force`, lógica de `offset`, devolver `next_offset` y `done`.
+2. `src/components/AdminPanel.tsx` — botón "Renormalizar TODO el catálogo" (sección Mantenimiento) con loop client-side y progreso.
+3. (Reutiliza) `useGeocodingJobStore` + `GeocodingProgressBar` para feedback.
+
+## Pregunta abierta
+
+¿Prefieres que el botón viva en `AdminPanel` con loop client-side visible, o que sea un script "dispara-y-olvida" que tú invocas desde consola (`supabase.functions.invoke('backfill-catalog-geo-once', { body: { force: true, offset: 0 } })` y vas avanzando offset)?
+
+Mi recomendación: **botón en AdminPanel** con barra de progreso (transversal, reusable, alineado con el resto del sistema de jobs).

@@ -59,6 +59,8 @@ Deno.serve(async (req) => {
   const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
   const limitPerChunk = Math.min(Math.max(Number(body.limit_per_chunk ?? 50), 1), 200);
   const maxIterations = Math.min(Math.max(Number(body.max_iterations ?? 30), 1), 100);
+  const force = body.force === true;
+  let offset = Math.max(0, Number(body.offset ?? 0));
 
   const startedAt = Date.now();
   let iterations = 0;
@@ -67,6 +69,7 @@ Deno.serve(async (req) => {
   let totalFailed = 0;
   let remaining: number | null = null;
   let timedOut = false;
+  let done = false;
 
   while (iterations < maxIterations) {
     if (Date.now() - startedAt > TIME_BUDGET_MS) {
@@ -75,7 +78,6 @@ Deno.serve(async (req) => {
     }
     iterations++;
 
-    // Invoke backfill via direct fetch with service-role auth (no caller scoping).
     const res = await fetch(`${SUPABASE_URL}/functions/v1/backfill-admin-fks`, {
       method: 'POST',
       headers: {
@@ -86,6 +88,8 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         limit: limitPerChunk,
         catalog_only: true,
+        force_renormalize: force,
+        offset: force ? offset : 0,
       }),
     });
 
@@ -99,19 +103,27 @@ Deno.serve(async (req) => {
           total_updated: totalUpdated,
           total_failed: totalFailed,
           remaining,
+          next_offset: offset,
+          done: false,
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
     const chunk = await res.json();
-    totalProcessed += Number(chunk.processed ?? 0);
+    const processedNow = Number(chunk.processed ?? 0);
+    totalProcessed += processedNow;
     totalUpdated += Number(chunk.updated ?? 0);
     totalFailed += Number(chunk.failed ?? 0);
     remaining = typeof chunk.remaining === 'number' ? chunk.remaining : remaining;
 
-    if ((chunk.processed ?? 0) === 0) break;
-    if (typeof chunk.remaining === 'number' && chunk.remaining === 0) break;
+    if (force) {
+      offset += processedNow;
+      if (processedNow < limitPerChunk) { done = true; break; }
+    } else {
+      if (processedNow === 0) { done = true; break; }
+      if (typeof chunk.remaining === 'number' && chunk.remaining === 0) { done = true; break; }
+    }
   }
 
   return new Response(
