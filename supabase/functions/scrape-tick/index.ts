@@ -329,6 +329,13 @@ async function processJob(job: any, deadline: number): Promise<void> {
   }
 
   const documentId = await ensureDocument(job);
+  // Lifecycle por canal — fuente única de verdad: shouldAutoApproveImport.
+  const { data: docRow } = await supabase
+    .from('documents')
+    .select('source_type')
+    .eq('id', documentId)
+    .maybeSingle();
+  const autoApprove = shouldAutoApproveImport(docRow?.source_type ?? 'web_import');
 
   // Count pending items to decide whether to expand pages or process items
   const { count: pendingItemsCount } = await supabase
