@@ -15,6 +15,7 @@
 import type { GeoLocation } from '@/types/location';
 import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
 import { canonicalCountry, canonicalContinent } from '@/shared/geography/canonical-names';
+import { continentLabelFromCoords } from '@/shared/geography/continent-bbox';
 
 export const HIERARCHY_LEVELS = [
   'continent',
@@ -76,8 +77,13 @@ export function getLocationHierarchy(
   const gd = loc.enrichedData?.datos_geograficos as
     | (NonNullable<GeoLocation['enrichedData']>['datos_geograficos'] & { calle?: string })
     | undefined;
+  const lat = loc.coordinates?.lat;
+  const lng = loc.coordinates?.lng;
+  const continentFallback = (typeof lat === 'number' && typeof lng === 'number')
+    ? continentLabelFromCoords(lat, lng)
+    : undefined;
   const raw = {
-    continent: canonicalContinent(norm(loc.continent ?? gd?.continente)),
+    continent: canonicalContinent(norm(loc.continent ?? gd?.continente)) ?? continentFallback,
     country: canonicalCountry(norm(loc.country ?? gd?.pais)),
     region: norm(loc.region ?? gd?.admin_nivel_1),
     zone: norm(loc.zone ?? gd?.admin_nivel_2),
