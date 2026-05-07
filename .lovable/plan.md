@@ -1,95 +1,57 @@
+# Cerrar los 835 puntos y blindar el origen
 
-## Causa raíz única (confirmada en BD)
+## Estado actual verificado en BD
 
-Los **3 síntomas que reportas** son el mismo bug:
+- 5074 locations activas en total.
+- 834 puntos recuperados con la migración anterior (ahora tienen `continent_id` correcto vía hierarquía canónica).
+- **Queda 1 punto huérfano**: `The Inselbergs` → `country = "GF"`, `country_id` apunta a una fila huérfana `admin_areas.name = "GF"`, `depth = 0`, sin `parent_id`, sin `iso_code`.
+- Causa: `GF` (Guayana Francesa) no estaba en el seed canónico de países y por eso la fusión recursiva no encontró pareja.
 
-1. "Buscar y Filtrar" muestra 159/249 de Portugal → faltan 90.
-2. La colección Atlas Obscura_Portugal dice "Sin localizar · 90" pero los puntos están dibujados sobre Portugal en el mapa.
-3. Esos 90 puntos aparecen con color de colección en el mapa general, pero no en el filtro Geo.
+## Plan en 2 pasos
 
-**Confirmado por query**: los 90 puntos de la colección tienen `country_id = 67ed072b…` (PT) y `continent_id = NULL`. Y `admin_areas` tiene **dos filas para Portugal**:
+### 1. Ampliar el catálogo canónico de países (migración de datos)
 
-| id | name | parent | uses |
-|---|---|---|---|
-| `67ed072b…` | **PT** | NULL (huérfano) | 90 puntos (los de la colección) |
-| `cb47a8fd…` | **Portugal** | Europe | 159 puntos (los que sí ves) |
+Añadir como canónicos los países que faltaban en el primer seed, todos con `iso_code` + `aliases` y `parent_id` apuntando al continente correcto. Lista mínima detectada como necesaria:
 
-Mismo problema con `FR`/`France` (163 puntos perdidos) y `ES`/`Spain` (580 puntos perdidos). Total: **~835 puntos invisibles en el árbol y marcados como "Sin localizar"** porque cuelgan de un país huérfano sin continente.
+- `GF` → "Guyane française" / "French Guiana" → parent: South America
+- Barrido genérico: para cualquier fila `admin_areas` con `depth = 0`, `type = country`, `parent_id IS NULL` y `name` de exactamente 2 caracteres en mayúsculas (patrón ISO-2), intentar resolver vía tabla canónica ISO → si existe canónico, fusionar con `_merge_admin_area`; si no, crear el canónico mínimo (continent inferido por ISO).
 
-### Por qué se generaron los duplicados
+Esto cubre `GF` y cualquier otro huérfano ISO que pueda haber quedado o entrar en el futuro por scraping.
 
-`resolve-admin-area` busca admin_areas por `ilike(name)` puro. Los dos pipelines de ingestión hablan idiomas distintos:
-- **Scraper Atlas Obscura** → `country: "PT"` (ISO‑2), sin continente → crea fila "PT" huérfana.
-- **Importador KML/Nominatim** → `country: "Portugal", continent: "Europe"` → encuentra/crea "Portugal" hijo de Europe.
+### 2. Endurecer `resolve-admin-area` (edge function)
 
-Sin clave canónica (ISO) ni mapa de aliases, son dos filas distintas para el mismo país.
+Sustituir el match por `ilike(name)` por una resolución determinista:
 
-### Por qué "Sin localizar"
+1. Si llega `country` con patrón ISO-2 (`/^[A-Z]{2}$/`): buscar por `iso_code`. Si existe canónico → usar ese row y propagar `parent_id` como `continent_id`.
+2. Si llega `country` como nombre: buscar por `aliases @> ARRAY[lower(name)]`, fallback a `name ilike`.
+3. Mismo patrón para `continent` (aliases ES/EN, M49 si llega).
+4. **Nunca** crear una fila nueva si ya existe una canónica con ese `iso_code` o `alias`.
+5. Si se crea una fila nueva (caso desconocido), forzar `parent_id` no nulo cuando el `type = country` (continente inferido o lanzar warning en logs).
 
-`getLocationHierarchy()` (frontend) lee la columna string `continent` para clasificar. Como esos 90 tienen `continent = NULL` (porque su country huérfano no tiene padre), caen en el bucket "Sin localizar". El mapa los pinta porque tienen lat/lng, pero el árbol no los agrupa.
+Esto elimina el origen del bug: el scraper de Atlas Obscura (que envía `country: "FR"`) y el importador KML (que envía `country: "France"`) acabarán siempre en la misma fila canónica.
 
----
-
-## Plan — arreglar el origen, no parchear
-
-### 1. Migración SQL única
-
-**a) Schema canónico**
-- Añadir `admin_areas.iso_code text` y `admin_areas.aliases text[]`.
-- Índice único parcial `(type_id, iso_code) WHERE iso_code IS NOT NULL`.
-
-**b) Seed canónico**
-- 7 continentes con aliases ES/EN: `Europe ↔ Europa`, `Africa ↔ África`, `North America ↔ América del Norte`, etc.
-- Países comunes con `iso_code` ISO‑3166‑alpha2 y aliases (`PT ↔ Portugal`, `FR ↔ France`, `ES ↔ Spain`, `GB ↔ United Kingdom`, `US ↔ United States`, `IT ↔ Italy`, etc.).
-
-**c) Fusión genérica (one‑shot dentro de la misma migración)**
-Para cada par detectado donde un `admin_areas` huérfano (depth=0, type=country, sin parent) coincide con la fila canónica por iso_code o alias:
-1. `UPDATE locations SET country_id = canonical_id WHERE country_id = orphan_id`.
-2. Idem para `continent_id` (rellenar desde el padre del canónico).
-3. Re-parentear cualquier hijo del huérfano al canónico.
-4. `DELETE` huérfano.
-
-Idem para continentes duplicados (`Europa` → `Europe`, `África` → `Africa`).
-
-El trigger `locations_sync_admin_cache` resincroniza los strings cache (`country`, `continent`) automáticamente al cambiar el FK. Cero cambios en frontend.
-
-### 2. `resolve-admin-area` — blindar el origen
-
-Cambiar la búsqueda de `ilike(name)` a:
-1. Si input matchea un `iso_code` → resolver a la fila canónica.
-2. Si input está en `aliases[]` de alguna fila → resolver a esa.
-3. Si no, fallback al matching actual por nombre.
-
-Para países con ISO‑2: si la fila canónica tiene `parent_id` definido, propagarlo automáticamente como `continent_id`. Esto cierra el bug en origen: futuros scrapes de Atlas Obscura ya no podrán crear "PT" huérfano.
-
-### 3. Verificación post-migración
+## Verificación post-cambios
 
 ```sql
 -- Debe ser 0
-SELECT COUNT(*) FROM admin_areas a
-JOIN place_types pt ON pt.id = a.type_id
-WHERE pt.code = 'country' AND a.parent_id IS NULL;
-
--- Debe ser 0  
 SELECT COUNT(*) FROM locations 
 WHERE country_id IS NOT NULL AND continent_id IS NULL AND deleted_at IS NULL;
+
+-- Debe ser 0
+SELECT COUNT(*) FROM admin_areas 
+WHERE depth = 0 AND parent_id IS NULL 
+  AND id IN (SELECT type_id FROM place_types WHERE code = 'country');
 ```
 
----
+## Archivos a tocar
 
-## Impacto
+- `supabase/migrations/<ts>_seed_remaining_iso_countries.sql` — ampliación canónica + barrido genérico de huérfanos ISO-2.
+- `supabase/functions/resolve-admin-area/index.ts` — resolución por `iso_code` / `aliases` con fallback, propagación automática de `parent_id` → `continent_id`.
 
-- **Cero código frontend tocado**. El árbol "Buscar y Filtrar", el contador "Sin localizar" de colecciones y el coloreado se arreglan solos al sincronizarse el string cache.
-- **Cero cambios en `geo-normalizer`, `backfill-admin-fks` o el flujo de import**.
-- **Bug cerrado en origen**: nuevos imports no podrán recrear duplicados.
+Sin cambios de frontend. El trigger `locations_sync_admin_cache` resincroniza los strings cache automáticamente.  
+  
+  
+antes de perder un punto, debes advertir de ello  
+cada punto es oro en esta APP
 
-## Archivos
-
-```text
-supabase/migrations/<ts>_canonical_admin_areas.sql   ← schema + seed + fusión + verificación
-supabase/functions/resolve-admin-area/index.ts       ← lookup por iso_code y aliases
-```
-
-## Pregunta previa
-
-¿Apruebo el plan tal cual o quieres que primero te muestre la lista completa de pares duplicados que la migración va a fusionar (para que valides cuáles son canónicos antes de tocar nada)?
+&nbsp;

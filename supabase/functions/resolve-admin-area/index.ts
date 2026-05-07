@@ -1,7 +1,15 @@
 // Domain: Geography — resolves/creates an administrative chain in admin_areas.
 // Input: any subset of { continent, country, region, zone, admin3, locality, sublocality }
-// Output: { ids: { continent_id, country_id, ... } } — UUIDs of the deepest provided level
-// and all ancestors. Idempotent: existing rows are not duplicated.
+// Output: { ids: { continent_id, country_id, ... } }
+//
+// HARDENED resolution order (per level):
+//   1. If value matches an existing canonical row by iso_code → reuse
+//   2. If value matches any row by aliases[] (case-insensitive) → reuse
+//   3. If value matches by name + parent_id → reuse
+//   4. Only as last resort: insert a new row (with parent_id propagated)
+//
+// For ISO-2 country codes, parent_id (continent) is auto-propagated from the canonical row,
+// so callers that only pass `country: "FR"` end up with the right `continent_id` too.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
@@ -20,6 +28,9 @@ const LEVELS = [
   { key: 'locality',    code: 'locality',      placeholder: '(sin localidad)' },
   { key: 'sublocality', code: 'sublocality',   placeholder: '(sin barrio)' },
 ] as const;
+
+const ISO2_RE = /^[A-Za-z]{2}$/;
+const ISO3_RE = /^[A-Za-z]{3}$/;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -42,8 +53,6 @@ Deno.serve(async (req) => {
     let parentId: string | null = null;
     let lastDefinedIdx = -1;
 
-    // 1) Determinar el índice del último nivel definido (para no inventar
-    // placeholders por debajo de lo que el usuario realmente proporcionó).
     let maxIdx = -1;
     for (let i = 0; i < LEVELS.length; i++) {
       const raw = body[LEVELS[i].key];
@@ -63,53 +72,131 @@ Deno.serve(async (req) => {
         name = provided;
         isPlaceholder = false;
       } else if (i < maxIdx && lastDefinedIdx >= 0) {
-        // Hueco intermedio: insertar placeholder para mantener cadena coherente.
         name = lv.placeholder;
         isPlaceholder = true;
       } else {
-        // Nivel ausente al final: no se rellena.
         ids[`${lv.key}_id`] = null;
         continue;
       }
 
-      // find
-      const findQuery = supabase
-        .from('admin_areas')
-        .select('id')
-        .eq('type_id', typeId)
-        .ilike('name', name)
-        .limit(1);
-      const { data: existing } = parentId
-        ? await findQuery.eq('parent_id', parentId)
-        : await findQuery.is('parent_id', null);
+      let resolvedId: string | null = null;
+      let resolvedParentId: string | null = null;
 
-      let id: string;
-      if (existing && existing.length) {
-        id = existing[0].id;
-      } else {
+      // ---- 1. ISO code match (canonical) — highest priority for continent/country
+      if (!isPlaceholder && (lv.code === 'country' || lv.code === 'continent')) {
+        const looksIso = ISO2_RE.test(name) || ISO3_RE.test(name);
+        if (looksIso) {
+          const isoUpper = name.toUpperCase();
+          const { data: byIso } = await supabase
+            .from('admin_areas')
+            .select('id, parent_id')
+            .eq('type_id', typeId)
+            .eq('iso_code', isoUpper)
+            .limit(1);
+          if (byIso && byIso.length) {
+            resolvedId = byIso[0].id;
+            resolvedParentId = (byIso[0] as any).parent_id ?? null;
+          }
+        }
+      }
+
+      // ---- 2. Aliases match (case-insensitive)
+      if (!resolvedId && !isPlaceholder) {
+        const lower = name.toLowerCase();
+        const { data: byAlias } = await supabase
+          .from('admin_areas')
+          .select('id, parent_id, aliases')
+          .eq('type_id', typeId)
+          .contains('aliases', [name])
+          .limit(5);
+        if (byAlias && byAlias.length) {
+          // Prefer rows with a parent (canonical hierarchy)
+          const sorted = [...byAlias].sort((a, b) =>
+            (b.parent_id ? 1 : 0) - (a.parent_id ? 1 : 0),
+          );
+          resolvedId = sorted[0].id;
+          resolvedParentId = (sorted[0] as any).parent_id ?? null;
+        } else {
+          // Try lowercase variant in aliases
+          const { data: byAliasLower } = await supabase
+            .from('admin_areas')
+            .select('id, parent_id')
+            .eq('type_id', typeId)
+            .contains('aliases', [lower])
+            .limit(1);
+          if (byAliasLower && byAliasLower.length) {
+            resolvedId = byAliasLower[0].id;
+            resolvedParentId = (byAliasLower[0] as any).parent_id ?? null;
+          }
+        }
+      }
+
+      // ---- 3. Name + parent match (legacy fallback)
+      if (!resolvedId) {
+        const findQuery = supabase
+          .from('admin_areas')
+          .select('id, parent_id')
+          .eq('type_id', typeId)
+          .ilike('name', name)
+          .limit(1);
+        const { data: existing } = parentId
+          ? await findQuery.eq('parent_id', parentId)
+          : await findQuery.is('parent_id', null);
+        if (existing && existing.length) {
+          resolvedId = existing[0].id;
+          resolvedParentId = (existing[0] as any).parent_id ?? null;
+        }
+      }
+
+      // ---- 4. Insert as last resort
+      if (!resolvedId) {
+        const insertParent = parentId; // chain-derived
         const { data: inserted, error: iErr } = await supabase
           .from('admin_areas')
-          .insert({ type_id: typeId, name, parent_id: parentId, is_placeholder: isPlaceholder })
-          .select('id')
+          .insert({
+            type_id: typeId,
+            name,
+            parent_id: insertParent,
+            is_placeholder: isPlaceholder,
+          })
+          .select('id, parent_id')
           .single();
         if (iErr) {
-          const retryQuery = supabase
+          // Race-condition retry
+          const { data: retry } = await supabase
             .from('admin_areas')
-            .select('id')
+            .select('id, parent_id')
             .eq('type_id', typeId)
             .ilike('name', name)
             .limit(1);
-          const { data: retry } = parentId
-            ? await retryQuery.eq('parent_id', parentId)
-            : await retryQuery.is('parent_id', null);
-          if (retry && retry.length) id = retry[0].id;
-          else throw iErr;
+          if (retry && retry.length) {
+            resolvedId = retry[0].id;
+            resolvedParentId = (retry[0] as any).parent_id ?? null;
+          } else {
+            throw iErr;
+          }
         } else {
-          id = inserted!.id;
+          resolvedId = inserted!.id;
+          resolvedParentId = (inserted as any).parent_id ?? null;
+        }
+        if (lv.code === 'country' && !insertParent) {
+          console.warn(`[resolve-admin-area] Created orphan country "${name}" — needs canonical seed`);
         }
       }
-      ids[`${lv.key}_id`] = id;
-      parentId = id;
+
+      ids[`${lv.key}_id`] = resolvedId;
+
+      // Propagate canonical parent into upstream id slot when missing.
+      // E.g. caller passed only `country: "FR"`. Canonical FR has parent_id = Europe.
+      // Set continent_id from there so locations never end up with country_id but no continent_id.
+      if (resolvedParentId && i > 0) {
+        const parentLv = LEVELS[i - 1];
+        if (!ids[`${parentLv.key}_id`]) {
+          ids[`${parentLv.key}_id`] = resolvedParentId;
+        }
+      }
+
+      parentId = resolvedId;
       if (!isPlaceholder) lastDefinedIdx = i;
     }
 
