@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense, lazy } from 'react';
 import {
   ChevronLeft, MapPin, Check, CheckCheck, CheckCircle, X, Sparkles, GripVertical,
   Pencil, Save, Loader2, Eye, EyeOff, Route as RouteIcon, Car,
@@ -122,9 +122,14 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
   type AddModeKey = 'catalog' | 'itinerary' | 'collection' | 'route' | 'tag';
   const [addModes, setAddModes] = useState<Set<AddModeKey>>(new Set());
   // Auto-open the multi-mode dialog when launched from the documents panel.
+  // Mantener paridad con `openCatalogDialog`: preseleccionar 'catalog',
+  // setear nombre de itinerario por defecto y disparar preview de catálogo.
   useEffect(() => {
     if (autoOpenAddDialog) {
+      setAddModes(prev => (prev.size === 0 ? new Set(['catalog']) : prev));
+      setItineraryName(prev => prev || docName);
       setShowCatalogDialog(true);
+      // computeCatalogPreview se dispara solo vía effect cuando addModes incluye 'catalog'.
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpenAddDialog]);
@@ -170,6 +175,10 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
     skippedDuplicates: number;
     loading: boolean;
   } | null>(null);
+  // Ref espejo para que `handleApplyAll` pueda hacer poll del preview sin
+  // depender del closure inicial de React.
+  const catalogPreviewRef = useRef(catalogPreview);
+  useEffect(() => { catalogPreviewRef.current = catalogPreview; }, [catalogPreview]);
 
   const [itineraryPreview, setItineraryPreview] = useState<{
     linkedCount: number;
@@ -585,11 +594,14 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
   }, [catalogOptions.scope, computeCatalogPreview, docName]);
 
   // Recompute preview when scope or route scope changes
+  // IMPORTANT: depender de `addModes.has('catalog')`, no del derivado `addMode`,
+  // para que marcar/desmarcar el checkbox dispare la recomputación del preview.
+  const hasCatalogMode = addModes.has('catalog');
   useEffect(() => {
-    if (showCatalogDialog && addModes.has('catalog')) {
+    if (showCatalogDialog && hasCatalogMode) {
       computeCatalogPreview(catalogOptions.scope);
     }
-  }, [catalogOptions.scope, catalogOptions.routeScope, selectedRouteIds, showCatalogDialog, addMode]);
+  }, [catalogOptions.scope, catalogOptions.routeScope, selectedRouteIds, showCatalogDialog, hasCatalogMode, computeCatalogPreview]);
 
   // Compute itinerary preview (linked vs new)
   const computeItineraryPreview = useCallback(async () => {
@@ -619,11 +631,12 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
     }
   }, [locations, docId]);
 
+  const hasItineraryMode = addModes.has('itinerary');
   useEffect(() => {
-    if (showCatalogDialog && addModes.has('itinerary')) {
+    if (showCatalogDialog && hasItineraryMode) {
       computeItineraryPreview();
     }
-  }, [showCatalogDialog, addMode, computeItineraryPreview]);
+  }, [showCatalogDialog, hasItineraryMode, computeItineraryPreview]);
 
   // Load user collections + routes when the Add dialog opens (collection/route modes)
   useEffect(() => {
@@ -751,16 +764,29 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
       }
     }
 
-    // ---- 2) Validación previa atómica ----
-    const errors: string[] = [];
+    // ---- 2) Validación previa (continue-on-error para 'catalog') ----
+    // Si el preview de catálogo aún no está listo, intentamos esperar hasta 3s.
+    // Si sigue sin estar listo, marcamos 'catalog' como skip y continuamos con
+    // los demás modos en vez de abortar todo el batch.
+    let skipCatalog = false;
     if (addModes.has('catalog')) {
-      if (!catalogPreview || catalogPreview.loading) {
-        errors.push('Catálogo: aún calculando vista previa');
+      const cur = catalogPreviewRef.current;
+      if (!cur || cur.loading) {
+        try { computeCatalogPreview(catalogOptions.scope); } catch { /* ignore */ }
+        const start = Date.now();
+        while (Date.now() - start < 3000) {
+          await new Promise(r => setTimeout(r, 100));
+          const c = catalogPreviewRef.current;
+          if (c && !c.loading) break;
+        }
+        const finalPreview = catalogPreviewRef.current;
+        if (!finalPreview || finalPreview.loading) {
+          skipCatalog = true;
+        }
       }
     }
-    if (addModes.has('itinerary')) {
-      // itineraryName cae a docName si está vacío → no es bloqueante
-    }
+
+    const errors: string[] = [];
     if (addModes.has('collection')) {
       if (collectionId === '__new__' && !newCollectionName.trim() && !docName.trim()) {
         errors.push('Colección: indica un nombre');
@@ -802,7 +828,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
       ? selectedIds.size
       : locations.length;
     const pointsForMode = (m: AddModeKey): number => {
-      if (m === 'catalog') return catalogPreview?.toAdd.length ?? 0;
+      if (m === 'catalog') return catalogPreviewRef.current?.toAdd.length ?? 0;
       if (m === 'itinerary') return locations.length;
       return scopedCount;
     };
@@ -820,8 +846,12 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
       };
       try {
         if (m === 'catalog') {
-          const targetIds = catalogPreview!.toAdd;
-          const routeIds = catalogPreview!.routesToAdd;
+          if (skipCatalog) {
+            throw new Error('Vista previa de catálogo no disponible');
+          }
+          const preview = catalogPreviewRef.current!;
+          const targetIds = preview.toAdd;
+          const routeIds = preview.routesToAdd;
           // Trozeamos el UPDATE de visibilidad para reportar progreso por puntos
           const CHUNK = 100;
           for (let i = 0; i < targetIds.length; i += CHUNK) {

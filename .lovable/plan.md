@@ -1,39 +1,43 @@
-# Checkbox "y aprobarlos" dentro de "Añadir a colección"
+# Fix: "Aplicar N acciones" no aplica nada
 
-## Contexto
+## Diagnóstico
 
-El diálogo "Añadir" de `DocumentFocusView` ya soporta combinar modos (catalog, itinerary, collection, route, tag) marcando varios checkboxes. El caso 99% es "añadir a colección Y aprobarlos", pero hoy requiere dos clics en sitios distintos del diálogo. La propuesta es un atajo visible junto a la colección elegida.
+El diálogo bloquea el apply con el toast `Catálogo: aún calculando vista previa` (visto en session replay) y aborta antes de tocar el resto de modos. Causas reales en `src/domains/content/components/DocumentFocusView.tsx`:
 
-## Cambio propuesto
+1. **Auto-apertura sin precarga.** Cuando el diálogo se abre desde el panel de documentos vía `autoOpenAddDialog` (líneas 125-130), solo se hace `setShowCatalogDialog(true)`. No se llama a `computeCatalogPreview` ni se preselecciona ningún modo. En cambio, el helper `openCatalogDialog` (580-585) sí precarga `'catalog'` y dispara el preview.
 
-Dentro de la tarjeta "A una colección" (`DocumentFocusView.tsx` ~líneas 1624-1647), debajo del `CollectionPicker`, añadir un checkbox secundario:
+2. **Effect ciego al toggle de modos.** El `useEffect` que recomputa el preview de catálogo (588-592) depende de `addMode` (derivado: primer elemento del Set, default `'catalog'`). Cuando el usuario marca/desmarca "Al catálogo general", `addModes` cambia pero `addMode` sigue siendo `'catalog'` → el effect no se vuelve a disparar y `catalogPreview` queda `null`.
 
-```
-[x] y publicarlos en mi catálogo (visibles en el mapa)
-```
+3. **Mismo problema con itinerario** (effect 622-626): depende de `addMode`, no de `addModes.has('itinerary')`.
 
-Comportamiento:
+4. **Validación atómica con `catalogPreview` null.** En `handleApplyAll` (756-759) la condición `!catalogPreview || catalogPreview.loading` empuja el error y, por ser validación atómica, NINGÚN otro modo (collection, tag) llega a ejecutarse.
 
-- **Marcado por defecto** (caso 99%).
-- Al marcarlo/desmarcarlo, llama a `toggleAddMode('catalog')` (o `setAddModes` añadiendo/quitando `'catalog'`) — reusa el modo existente sin lógica nueva.
-- Si el usuario abre la tarjeta `catalog` arriba a mano, el estado se mantiene sincronizado (es el mismo `Set`).
-- Si el atajo activa `catalog`, la tarjeta superior se ilumina automáticamente (ya está bindeada al mismo `addModes.has('catalog')`).
+## Cambios (solo UI, mismo archivo)
 
-Texto sutil debajo: "Si lo desmarcas, la colección se guardará pero los puntos quedarán en mesa de trabajo (solo visibles al abrir el documento)." — refleja literalmente la matriz que discutimos.
+### A. Efectos reactivos a `addModes`
+- Reemplazar la dependencia `addMode` por un proxy estable de pertenencia:
+  - Effect catálogo: depender de `addModes.has('catalog')` (vía variable derivada `hasCatalogMode`).
+  - Effect itinerario: depender de `addModes.has('itinerary')`.
+- Garantiza que al marcar el checkbox se dispare la computación del preview correspondiente.
 
-## Default del modo inicial
+### B. Auto-apertura coherente
+- En el effect `autoOpenAddDialog` (125-130), además de abrir el diálogo:
+  - Inicializar `addModes` a `new Set(['catalog'])` si está vacío.
+  - Setear `itineraryName` a `docName` (paridad con `openCatalogDialog`).
+  - Llamar a `computeCatalogPreview(catalogOptions.scope)`.
 
-Hoy `setAddModes(new Set(['catalog']))` al abrir el diálogo. Mantener ese default para que, al activar "collection", el checkbox de aprobar aparezca ya marcado y refleje la realidad.
+### C. Validación tolerante
+- Si el usuario marcó `catalog` pero el preview aún está `loading`, esperar (poll corto) en vez de abortar todo el batch. Implementación mínima: si `catalogPreview === null` al pulsar Aplicar, llamar `computeCatalogPreview` y `await` un microbucle hasta que `loading=false` (timeout 3s); si tras el timeout sigue null, reportar error solo del paso `catalog` y continuar con el resto (consistente con la filosofía "continue-on-error" del bloque 3 del handler, líneas 780+).
 
-## Alcance estricto
+## Fuera de alcance
 
-- Solo `src/domains/content/components/DocumentFocusView.tsx`, dentro del bloque `{/* 2.c — A una colección */}`.
-- Sin tocar `document-add.service.ts`, `applyCollection`, ni el resto de modos.
-- Sin migración ni cambios de memoria (el comportamiento subyacente no cambia, solo la UX del atajo).
+- No tocar `document-add.service.ts` ni los `applyX` (funcionan).
+- No cambiar la UI del diálogo (checkboxes, layout) — solo el cableado de estado.
+- No modificar el checkbox "y publicarlos en mi catálogo" añadido recientemente.
 
-## Detalles técnicos
+## QA
 
-- Reusar `Checkbox` de `@/components/ui/checkbox` y `Label` ya importados.
-- `id="mode-collection-also-approve"`.
-- `checked={addModes.has('catalog')}` / `onCheckedChange={() => toggleAddMode('catalog')}`.
-- Render condicional: solo cuando `addModes.has('collection')` (dentro del mismo bloque que ya muestra `CollectionPicker`).
+1. Abrir documento desde panel → diálogo se abre con "Catálogo" marcado y preview listo.
+2. Marcar adicionalmente "Colección" + nombre + "y publicarlos" + "Etiquetas" → "Aplicar 3 acciones" ejecuta los 3 pasos y muestra toast de éxito.
+3. Marcar SOLO "Colección" + "Etiquetas" (sin catálogo) → no se exige preview de catálogo, ambos pasos corren.
+4. Desmarcar y marcar "Catálogo" varias veces → preview se recomputa cada vez que se marca.
