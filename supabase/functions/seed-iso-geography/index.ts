@@ -222,8 +222,9 @@ Deno.serve(async (req) => {
       const cc = ccRaw.toUpperCase();
       const countryId = countryIdByCC.get(cc);
       if (!countryId) continue;
-      const dict = subs[ccRaw];
-      for (const [subCode, sub] of Object.entries(dict)) {
+      const dict = subs[ccRaw]?.divisions ?? {};
+      for (const [subCode, subNameRaw] of Object.entries(dict)) {
+        const sub: RawSubdivision = { name: subNameRaw, type: undefined };
         try {
           // ISO 3166-2 codes look like "ES-MD"; many sources strip the prefix.
           const fullCode = subCode.includes('-') ? subCode.toUpperCase() : `${cc}-${subCode.toUpperCase()}`;
