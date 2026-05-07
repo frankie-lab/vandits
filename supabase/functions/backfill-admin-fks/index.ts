@@ -89,6 +89,7 @@ Deno.serve(async (req) => {
   const dryRun = !!body.dryRun;
   const force = body.force_renormalize === true;
   const documentId = typeof body.document_id === 'string' ? body.document_id : null;
+  const catalogOnly = body.catalog_only === true;
 
   // Wall-clock budget: stop processing before edge function 150s idle timeout.
   const startedAt = Date.now();
