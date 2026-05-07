@@ -202,9 +202,11 @@ Deno.serve(async (req) => {
     updated++;
   }
 
-  // Remaining counter (for 'fill' uses pending criteria; for reconcile/overwrite returns null
-  // because every row is candidate and the count matches the table size, which is misleading).
+  // Remaining counter:
+  // - 'fill': pending = points still missing high-level FKs.
+  // - 'reconcile' / 'overwrite': total in scope − offset − processed.
   let remaining: number | null = null;
+  let totalInScope: number | null = null;
   if (mode === 'fill') {
     let remainingQ = admin
       .from('locations')
@@ -216,7 +218,21 @@ Deno.serve(async (req) => {
     if (documentId) remainingQ = remainingQ.eq('document_id', documentId);
     const { count } = await remainingQ;
     remaining = count ?? null;
+  } else {
+    let scopeQ = admin
+      .from('locations')
+      .select('id', { count: 'exact', head: true })
+      .is('deleted_at', null)
+      .not('latitude', 'is', null)
+      .not('longitude', 'is', null);
+    if (catalogOnly) scopeQ = scopeQ.eq('is_approved', true);
+    if (callerUserId) scopeQ = scopeQ.eq('owner_user_id', callerUserId);
+    if (documentId) scopeQ = scopeQ.eq('document_id', documentId);
+    const { count } = await scopeQ;
+    totalInScope = count ?? 0;
+    remaining = Math.max(0, totalInScope - (offset + processed));
   }
+  const nextOffset = offset + processed;
 
   return new Response(
     JSON.stringify({
