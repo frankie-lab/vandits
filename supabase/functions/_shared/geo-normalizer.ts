@@ -32,13 +32,21 @@ export interface NominatimAddress {
 export interface CanonicalGeo {
   continent?: string;
   country?: string;
+  /** ISO 3166-1 alpha-2 (mayúsculas), e.g. "ES", "FR". */
+  country_code?: string;
   region?: string;        // admin_nivel_1: comunidad/región/estado
+  /** Tipo administrativo local del nivel 1 ("Comunidad Autónoma", "Région", "State"…). */
+  region_type?: string;
   zone?: string;          // admin_nivel_2: provincia/departamento/condado
+  zone_type?: string;
   admin3?: string;        // comarca/municipio mayor
+  admin3_type?: string;
   locality?: string;      // ciudad/villa/pueblo
   sublocality?: string;   // barrio/distrito
   street?: string;
   postal_address?: string;
+  /** Código postal (UPU). */
+  postal_code?: string;
 }
 
 type FieldKey = keyof NominatimAddress;
