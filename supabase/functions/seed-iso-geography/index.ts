@@ -25,7 +25,7 @@ const corsHeaders = {
 const COUNTRIES_URL =
   'https://raw.githubusercontent.com/mledoze/countries/master/countries.json';
 const SUBDIVISIONS_URL =
-  'https://raw.githubusercontent.com/olahol/iso-3166-2.json/master/data/iso-3166-2.json';
+  'https://raw.githubusercontent.com/olahol/iso-3166-2.json/master/iso-3166-2.json';
 
 const REGION_TO_CONTINENT_ES: Record<string, string> = {
   Africa: 'África',
