@@ -1,77 +1,57 @@
-# Catálogo canónico de regiones (ISO-3166-2)
+# Conteos jerárquicos coherentes en el árbol Geo
 
-Mismo problema que con países, ahora a nivel de **región** (CCAA, états, Bundesländer, etc.) y de **provincias** mal clasificadas como regiones.
+## Diagnóstico (verificado en BD)
 
-## Diagnóstico verificado en BD
+`Castilla y León` tiene 175 puntos aprobados:
+- 140 con `zone IS NULL` (sin provincia, no escrito)
+- 29 con `zone = '(sin provincia)'` (placeholder textual ya escrito por `resolve-admin-area`)
+- 6 con `zone = 'El Bierzo'`
 
-- **España**: 17 CCAA reales repartidas en 49 filas distintas. Ej.: `Castile and León` (153 pts) + `Castilla y León` (22 pts) = misma región, dos filas.
-- **Francia**: 18 regiones repartidas en 60+ filas. Mezcla idiomas (`Brittany`/`Bretagne`/`Bretaña`), variantes tipográficas (`Île-de-France`/`Ile-de-France`), e incluso regiones antiguas pre-2016 (`Aquitaine`, `Languedoc-Roussillon`) que ya no existen oficialmente.
-- **Provincias colgando como región**: `Alicante`, `Málaga`, `Cádiz`, `Girona`, `A Coruña`, `La Rioja`, `Hérault` (FR)… deberían ser `zone`, no `region`.
+El árbol solo pinta como hijos los que tienen string (NULL + placeholder = 35), por eso el padre 175 no cuadra con la suma visible. A nivel global hay **1.077 zonas NULL** y **603 zonas con placeholder textual** — mismo síntoma en muchas ramas (Andalucía, Cataluña, Comunidad de Madrid…).
 
-Mismo origen: `resolve-admin-area` no aplica a regiones la lógica canónica `iso_code + aliases` que ya tenemos para países.
+Causa raíz en `src/components/filters/GeographyTree.tsx`: la construcción del árbol hace `if (!zone) return;` para cada nivel ausente, así el punto se cuenta en el padre pero no se añade a ningún hijo. Tampoco hay un único helper que normalice "ausente" (NULL o placeholder) → existen dos buckets para lo mismo (`(sin provincia)` aparece como nodo y los NULL desaparecen).
 
-## Plan en 3 pasos (cero pérdida de puntos)
+## Regla a aplicar (transversal)
 
-### 1. Seed canónico de regiones por código ISO-3166-2
+> Para cualquier nivel jerárquico, **el conteo del padre = suma de los conteos de sus hijos**. Si un punto no tiene valor en el nivel N pero sí en N-1, debe colgar de un nodo placeholder único `(sin {nivel})` bajo su padre. NULL y el string `(sin ...)` se fusionan en el **mismo nodo**.
 
-Añadir filas canónicas con `iso_code = "ES-AN"`, `"ES-CT"`, `"FR-IDF"`, etc. y `aliases text[]` con todas las variantes ES/EN/local.
+## Cambios
 
-Países a cubrir en la primera tanda (los que tienen >5 puntos en BD):
+### 1. Helper único de placeholders (`src/shared/geography/hierarchy.ts`)
+- Añadir `LEVEL_PLACEHOLDER_LABELS: Record<HierarchyLevel, string>` (continente / país / región / provincia / comarca / localidad / barrio / calle).
+- Modificar `getLocationHierarchy(loc)` para que **rellene el path completo**: en cuanto un nivel sea NULL o coincida con `/^\(sin /i`, devolver el placeholder canónico para ese nivel **y propagarlo a todos los descendientes** (de modo que un punto sin región tampoco tenga zona/comarca/etc reales: cuelga de `(sin región) → (sin provincia) → ...` bajo el país).
+- `compareLocationsHierarchical` y `groupLocationsByHierarchy` ya usan `UNCLASSIFIED_VALUE`; reusar la misma constante para mantener orden "placeholder al final" (ya implementado).
 
-- **ES**: 17 CCAA (AN, AR, AS, CB, CL, CM, CN, CT, EX, GA, IB, MD, MC, NC, PV, RI, VC) + Ceuta/Melilla.
-- **FR**: 13 regiones metropolitanas post-2016 + 5 ultramar.
-- **PT**: 7 distritos + 2 archipiélagos.
-- **IT**: 20 regiones.
-- **DE**: 16 Bundesländer.
-- **GB**: 4 nations + 9 regions Inglaterra.
-- **US**: 50 estados + DC.
+### 2. Árbol Geo (`src/components/filters/GeographyTree.tsx`)
+- Eliminar todos los `if (!zone) return;`, `if (!region) return;`, `if (!comarca) return;`, etc.
+- Construir el árbol siempre hasta el nivel más profundo disponible usando los valores de `getLocationHierarchy`, que ahora nunca devuelve undefined intermedio. Para los placeholders, usar la etiqueta canónica del helper.
+- `totalTree` (mapa de cuentas globales) se construye con la misma lógica → así "filtered/total" del badge sigue siendo coherente.
+- Los IDs siguen acumulándose en cada nivel (incluido el placeholder) → la checkbox y el contador "Seleccionar N puntos filtrados" siguen funcionando.
 
-Por cada canónico, `aliases` cubre: nombre oficial local, nombre EN, nombre ES, código ISO, sinónimos comunes y regiones históricas fusionadas (ej. `Aquitaine` → alias de `Nouvelle-Aquitaine`).
+### 3. Estilo del nodo placeholder (sin cambios visuales, ya existe)
+- `^\(sin /i` ya aplica `italic text-muted-foreground/70` y orden al final (cambio anterior). Reusar.
 
-### 2. Migración de fusión (helper `_merge_admin_area` ya existe)
+### 4. Filtro al hacer click en placeholder
+- En `selectNode`, cuando un segmento del path empieza por `(sin `, el filtro debe machear puntos con NULL **y** con placeholder. Ajustar `matchesLocationFilters` (geo) para que un valor de filtro `(sin xxx)` se traduzca a `valor IS NULL OR valor ILIKE '(sin %'` en ese nivel.
 
-Recorrer cada región huérfana (sin `iso_code`) y, si su nombre coincide con un alias canónico bajo el mismo país, llamar a `_merge_admin_area(orphan, canonical)`. Esto:
-- Re-puntea `region_id` en todos los locations afectados.
-- Re-parenta zonas/localidades hijas (manejando duplicados con merge recursivo).
-- Borra la fila huérfana.
-
-Resultado: ~840 puntos en España + ~600 en Francia + similares en otros países se reagrupan bajo la fila canónica correcta. **Cero locations borradas.**
-
-### 3. Endurecer `resolve-admin-area` para regiones
-
-Aplicar a `region` (y por extensión `zone`, `admin_level_3`, `locality`) la misma lógica que ya tiene `country`:
-
-1. Match por `iso_code` (ISO-3166-2 si llega como `"ES-AN"`).
-2. Match por `aliases @> [name]` bajo el mismo `parent_id`.
-3. Match por `name + parent_id` (legacy).
-4. Insert solo como último recurso, con warning en logs si parent canónico ya existe.
-
-Esto evita que el próximo importador KML en EN vuelva a crear `"Catalonia"` cuando ya tenemos `Cataluña` canónica.
-
-## Provincias mal clasificadas
-
-Aparte del seed: las filas tipo `Alicante`, `Málaga`, `Cádiz`, `Hérault`… colgando como `region` se reclasifican a `zone` (cambio de `type_id`) y se re-parentan a la CCAA/región canónica correcta. Los locations se mueven de `region_id` a `zone_id` automáticamente con un script SQL puntual incluido en la migración.
+### 5. (Opcional, no bloqueante) Limpieza de placeholders escritos en BD
+- A futuro: dejar `(sin ...)` solo como representación de UI y **no escribirlo nunca** en columnas de `locations`. Hoy `resolve-admin-area` los escribe como cadena (línea 75 de `supabase/functions/resolve-admin-area/index.ts`). No se cambia ahora — el helper de UI ya los unifica.
 
 ## Archivos a tocar
 
-- `supabase/migrations/<ts>_canonical_regions_iso2.sql` — seed canónico + fusión + reclasificación de provincias.
-- `supabase/functions/resolve-admin-area/index.ts` — extender lógica ISO/aliases a niveles `region`, `zone`, `admin_level_3`, `locality`.
-
-Sin cambios de frontend. El trigger `locations_sync_admin_cache` resincroniza los strings cache automáticamente. Memoria `mem://database/canonical-admin-areas` se actualiza para reflejar que la regla es transversal a todos los niveles, no solo país/continente.
-
-## Verificación post-migración
-
-```sql
--- Debe ser 0 (ninguna región huérfana sin iso_code en países cubiertos)
-SELECT COUNT(*) FROM admin_areas a
-JOIN admin_areas p ON p.id = a.parent_id
-WHERE a.type_id = (SELECT id FROM place_types WHERE code='region')
-  AND a.iso_code IS NULL
-  AND p.iso_code IN ('ES','FR','PT','IT','DE','GB','US');
-
--- En la captura del usuario: 17 filas (CCAA), no 49
-SELECT COUNT(DISTINCT a.id) FROM admin_areas a
-JOIN admin_areas p ON p.id = a.parent_id
-WHERE a.type_id = (SELECT id FROM place_types WHERE code='region')
-  AND p.iso_code = 'ES';
 ```
+src/shared/geography/hierarchy.ts                    (helper)
+src/components/filters/GeographyTree.tsx             (consumidor principal)
+src/domains/content/lib/location-filtering.ts        (matcher para filtro placeholder)
+```
+
+## Verificación post-implementación
+
+- Castilla y León debe mostrar `(sin provincia) 169` + `El Bierzo 6` = 175.
+- Spain debe mostrar suma de sus 17 CCAA + `(sin región) 39` + lo que toque sin región = 1292.
+- Para cada nodo padre del árbol: `count(padre) === sum(count(hijos))`.
+
+## Notas
+
+- Cambio puramente de **presentación + helpers**, sin migraciones de datos.
+- Cumple regla "App multiusuario — cambios transversales": toda la lógica geo pasa por `getLocationHierarchy`.
