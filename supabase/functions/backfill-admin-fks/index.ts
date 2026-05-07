@@ -240,6 +240,8 @@ Deno.serve(async (req) => {
       updated,
       failed: errors.length,
       remaining,
+      totalInScope,
+      nextOffset,
       mode,
       timedOut,
       durationMs: Date.now() - startedAt,
