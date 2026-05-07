@@ -429,6 +429,9 @@ async function processJob(job: any, deadline: number): Promise<void> {
       items_lost: lost,
     }).eq('id', job.id);
     try { await attachJobToCollection(job, documentId); } catch (e) { console.warn('attach collection failed', e); }
+    // Cierre del lifecycle (auto-approve, consume pending_collection,
+    // import_status='confirmed') vía helper único transversal.
+    try { await finalizeImportedDocument(supabase, documentId); } catch (e) { console.warn('finalize import failed', e); }
     return;
   }
 
@@ -452,7 +455,7 @@ async function processJob(job: any, deadline: number): Promise<void> {
         skipped++;
         continue;
       }
-      const locId = await persistPlace(job, documentId, place, autoApprove);
+      const locId = await persistPlace(job, documentId, place);
       await supabase.from('scrape_job_items').update({
         status: locId ? 'done' : 'skipped',
         location_id: locId,
