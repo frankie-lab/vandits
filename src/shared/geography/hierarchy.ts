@@ -15,6 +15,7 @@
 import type { GeoLocation } from '@/types/location';
 import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
 import { canonicalCountry, canonicalContinent } from '@/shared/geography/canonical-names';
+import { continentLabelFromCoords } from '@/shared/geography/continent-bbox';
 
 export const HIERARCHY_LEVELS = [
   'continent',
