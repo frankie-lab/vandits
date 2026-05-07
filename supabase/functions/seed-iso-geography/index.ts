@@ -51,7 +51,7 @@ interface RawSubdivision {
   name: string;
   type?: string;
 }
-type SubdivisionsByCountry = Record<string, Record<string, RawSubdivision>>;
+type SubdivisionsByCountry = Record<string, { name: string; divisions: Record<string, string> }>;
 
 function continentNameEs(country: RawCountry): string {
   const r = country.region;
