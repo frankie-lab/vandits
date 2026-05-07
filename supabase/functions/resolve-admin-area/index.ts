@@ -148,6 +148,12 @@ Deno.serve(async (req) => {
       // ---- 4. Insert as last resort
       if (!resolvedId) {
         const insertParent = parentId; // chain-derived
+        // Optional per-level metadata: body.meta = { region: { admin_type_local, name_lang }, ... }
+        const meta = (body?.meta?.[lv.key] ?? {}) as {
+          admin_type_local?: string;
+          name_lang?: string;
+          source?: string;
+        };
         const { data: inserted, error: iErr } = await supabase
           .from('admin_areas')
           .insert({
@@ -155,6 +161,9 @@ Deno.serve(async (req) => {
             name,
             parent_id: insertParent,
             is_placeholder: isPlaceholder,
+            admin_type_local: meta.admin_type_local ?? null,
+            name_lang: meta.name_lang ?? null,
+            source: meta.source ?? 'osm',
           })
           .select('id, parent_id')
           .single();

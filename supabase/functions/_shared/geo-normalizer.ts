@@ -32,13 +32,21 @@ export interface NominatimAddress {
 export interface CanonicalGeo {
   continent?: string;
   country?: string;
+  /** ISO 3166-1 alpha-2 (mayúsculas), e.g. "ES", "FR". */
+  country_code?: string;
   region?: string;        // admin_nivel_1: comunidad/región/estado
+  /** Tipo administrativo local del nivel 1 ("Comunidad Autónoma", "Région", "State"…). */
+  region_type?: string;
   zone?: string;          // admin_nivel_2: provincia/departamento/condado
+  zone_type?: string;
   admin3?: string;        // comarca/municipio mayor
+  admin3_type?: string;
   locality?: string;      // ciudad/villa/pueblo
   sublocality?: string;   // barrio/distrito
   street?: string;
   postal_address?: string;
+  /** Código postal (UPU). */
+  postal_code?: string;
 }
 
 type FieldKey = keyof NominatimAddress;
@@ -123,7 +131,11 @@ const CC_TO_CONTINENT: Record<string, string> = {
   au: 'Oceanía', nz: 'Oceanía', fj: 'Oceanía', pg: 'Oceanía', sb: 'Oceanía', vu: 'Oceanía', nc: 'Oceanía', pf: 'Oceanía',
 };
 
-function pickFirst(addr: NominatimAddress, keys: FieldKey[], used: Set<string>): string | undefined {
+function pickFirst(
+  addr: NominatimAddress,
+  keys: FieldKey[],
+  used: Set<string>,
+): { value?: string; sourceKey?: FieldKey } {
   for (const k of keys) {
     const raw = addr[k];
     if (typeof raw !== 'string') continue;
@@ -131,8 +143,53 @@ function pickFirst(addr: NominatimAddress, keys: FieldKey[], used: Set<string>):
     if (!v) continue;
     if (used.has(v.toLowerCase())) continue;
     used.add(v.toLowerCase());
-    return v;
+    return { value: v, sourceKey: k };
   }
+  return {};
+}
+
+// Mapeo del campo Nominatim al tipo administrativo localizado (ES) por país.
+// Sirve como hint genérico cuando la fuente no expone explícitamente el tipo.
+const NOMINATIM_FIELD_TO_TYPE_LABEL: Record<string, string> = {
+  state: 'Región/Estado',
+  region: 'Región',
+  province: 'Provincia',
+  state_district: 'Distrito estatal',
+  county: 'Condado/Provincia',
+  district: 'Distrito',
+  municipality: 'Municipio',
+  city_district: 'Distrito municipal',
+  borough: 'Barrio administrativo',
+  city: 'Ciudad',
+  town: 'Villa',
+  village: 'Pueblo',
+  hamlet: 'Aldea',
+  suburb: 'Suburbio',
+  neighbourhood: 'Barrio',
+  quarter: 'Barrio',
+};
+
+// Override por país: nombre real del nivel local. Cubre los casos más comunes.
+const COUNTRY_LEVEL_LABELS: Record<string, { region?: string; zone?: string; admin3?: string }> = {
+  es: { region: 'Comunidad Autónoma', zone: 'Provincia', admin3: 'Municipio' },
+  fr: { region: 'Région', zone: 'Département', admin3: 'Commune' },
+  it: { region: 'Regione', zone: 'Provincia', admin3: 'Comune' },
+  de: { region: 'Bundesland', zone: 'Kreis', admin3: 'Gemeinde' },
+  gb: { region: 'Country/Region', zone: 'County', admin3: 'District' },
+  uk: { region: 'Country/Region', zone: 'County', admin3: 'District' },
+  us: { region: 'State', zone: 'County', admin3: 'City' },
+  pt: { region: 'Distrito', zone: 'Concelho', admin3: 'Freguesia' },
+  ca: { region: 'Province/Territory', zone: 'County', admin3: 'Municipality' },
+  mx: { region: 'Estado', zone: 'Municipio' },
+  ar: { region: 'Provincia', zone: 'Departamento' },
+  br: { region: 'Estado', zone: 'Mesorregião', admin3: 'Município' },
+  jp: { region: '都道府県', zone: '郡' },
+};
+
+function labelFor(cc: string, level: 'region' | 'zone' | 'admin3', sourceKey?: FieldKey): string | undefined {
+  const overrides = COUNTRY_LEVEL_LABELS[cc];
+  if (overrides && overrides[level]) return overrides[level];
+  if (sourceKey) return NOMINATIM_FIELD_TO_TYPE_LABEL[sourceKey];
   return undefined;
 }
 
@@ -162,13 +219,18 @@ export function normalizeNominatim(addr: NominatimAddress): CanonicalGeo {
   return {
     continent: cc ? CC_TO_CONTINENT[cc] : undefined,
     country,
-    region,
-    zone,
-    admin3,
-    locality,
-    sublocality,
+    country_code: cc ? cc.toUpperCase() : undefined,
+    region: region.value,
+    region_type: region.value ? labelFor(cc, 'region', region.sourceKey) : undefined,
+    zone: zone.value,
+    zone_type: zone.value ? labelFor(cc, 'zone', zone.sourceKey) : undefined,
+    admin3: admin3.value,
+    admin3_type: admin3.value ? labelFor(cc, 'admin3', admin3.sourceKey) : undefined,
+    locality: locality.value,
+    sublocality: sublocality.value,
     street: typeof addr.road === 'string' ? addr.road.trim() || undefined : undefined,
     postal_address,
+    postal_code: typeof addr.postcode === 'string' ? addr.postcode.trim() || undefined : undefined,
   };
 }
 
@@ -177,13 +239,18 @@ export function mergeCanonical(low: CanonicalGeo, high: CanonicalGeo): Canonical
   return {
     continent: low.continent ?? high.continent,
     country: low.country ?? high.country,
+    country_code: low.country_code ?? high.country_code,
     region: low.region ?? high.region,
+    region_type: low.region_type ?? high.region_type,
     zone: low.zone ?? high.zone,
+    zone_type: low.zone_type ?? high.zone_type,
     admin3: low.admin3 ?? high.admin3,
+    admin3_type: low.admin3_type ?? high.admin3_type,
     locality: low.locality ?? high.locality,
     sublocality: low.sublocality ?? high.sublocality,
     street: low.street ?? high.street,
     postal_address: low.postal_address ?? high.postal_address,
+    postal_code: low.postal_code ?? high.postal_code,
   };
 }
 

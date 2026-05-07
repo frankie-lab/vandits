@@ -61,52 +61,76 @@ export type Database = {
       }
       admin_areas: {
         Row: {
+          admin_type_local: string | null
           aliases: string[]
           centroid_lat: number | null
           centroid_lng: number | null
           created_at: string
           depth: number
+          geonames_id: number | null
           id: string
           is_placeholder: boolean
           iso_code: string | null
+          iso_code_alpha3: string | null
+          m49_code: number | null
           name: string
+          name_lang: string | null
+          name_translations: Json
           osm_id: number | null
           parent_id: string | null
           path: string[]
+          source: string | null
+          timezone: string | null
           type_id: string
           updated_at: string
           wikidata_id: string | null
         }
         Insert: {
+          admin_type_local?: string | null
           aliases?: string[]
           centroid_lat?: number | null
           centroid_lng?: number | null
           created_at?: string
           depth?: number
+          geonames_id?: number | null
           id?: string
           is_placeholder?: boolean
           iso_code?: string | null
+          iso_code_alpha3?: string | null
+          m49_code?: number | null
           name: string
+          name_lang?: string | null
+          name_translations?: Json
           osm_id?: number | null
           parent_id?: string | null
           path?: string[]
+          source?: string | null
+          timezone?: string | null
           type_id: string
           updated_at?: string
           wikidata_id?: string | null
         }
         Update: {
+          admin_type_local?: string | null
           aliases?: string[]
           centroid_lat?: number | null
           centroid_lng?: number | null
           created_at?: string
           depth?: number
+          geonames_id?: number | null
           id?: string
           is_placeholder?: boolean
           iso_code?: string | null
+          iso_code_alpha3?: string | null
+          m49_code?: number | null
           name?: string
+          name_lang?: string | null
+          name_translations?: Json
           osm_id?: number | null
           parent_id?: string | null
           path?: string[]
+          source?: string | null
+          timezone?: string | null
           type_id?: string
           updated_at?: string
           wikidata_id?: string | null
@@ -775,11 +799,13 @@ export type Database = {
       }
       locations: {
         Row: {
+          admin1_iso: string | null
           admin3_id: string | null
           altitude: number | null
           continent: string | null
           continent_id: string | null
           country: string | null
+          country_code: string | null
           country_id: string | null
           created_at: string
           custom_data: Json | null
@@ -788,6 +814,9 @@ export type Database = {
           document_id: string | null
           enriched_data: Json | null
           enrichment_status: string | null
+          geo_confidence: number | null
+          geo_resolved_at: string | null
+          geo_source: string | null
           id: string
           is_approved: boolean
           latitude: number
@@ -798,10 +827,13 @@ export type Database = {
           personal_category_id: string | null
           pioneer_user_id: string | null
           place_type: string | null
+          postal_code: string | null
+          raw_geocode: Json | null
           region: string | null
           region_id: string | null
           street_name: string | null
           sublocality_id: string | null
+          timezone: string | null
           type_id: string | null
           updated_at: string
           user_image_url: string | null
@@ -811,11 +843,13 @@ export type Database = {
           zone_id: string | null
         }
         Insert: {
+          admin1_iso?: string | null
           admin3_id?: string | null
           altitude?: number | null
           continent?: string | null
           continent_id?: string | null
           country?: string | null
+          country_code?: string | null
           country_id?: string | null
           created_at?: string
           custom_data?: Json | null
@@ -824,6 +858,9 @@ export type Database = {
           document_id?: string | null
           enriched_data?: Json | null
           enrichment_status?: string | null
+          geo_confidence?: number | null
+          geo_resolved_at?: string | null
+          geo_source?: string | null
           id?: string
           is_approved?: boolean
           latitude: number
@@ -834,10 +871,13 @@ export type Database = {
           personal_category_id?: string | null
           pioneer_user_id?: string | null
           place_type?: string | null
+          postal_code?: string | null
+          raw_geocode?: Json | null
           region?: string | null
           region_id?: string | null
           street_name?: string | null
           sublocality_id?: string | null
+          timezone?: string | null
           type_id?: string | null
           updated_at?: string
           user_image_url?: string | null
@@ -847,11 +887,13 @@ export type Database = {
           zone_id?: string | null
         }
         Update: {
+          admin1_iso?: string | null
           admin3_id?: string | null
           altitude?: number | null
           continent?: string | null
           continent_id?: string | null
           country?: string | null
+          country_code?: string | null
           country_id?: string | null
           created_at?: string
           custom_data?: Json | null
@@ -860,6 +902,9 @@ export type Database = {
           document_id?: string | null
           enriched_data?: Json | null
           enrichment_status?: string | null
+          geo_confidence?: number | null
+          geo_resolved_at?: string | null
+          geo_source?: string | null
           id?: string
           is_approved?: boolean
           latitude?: number
@@ -870,10 +915,13 @@ export type Database = {
           personal_category_id?: string | null
           pioneer_user_id?: string | null
           place_type?: string | null
+          postal_code?: string | null
+          raw_geocode?: Json | null
           region?: string | null
           region_id?: string | null
           street_name?: string | null
           sublocality_id?: string | null
+          timezone?: string | null
           type_id?: string | null
           updated_at?: string
           user_image_url?: string | null
@@ -1127,6 +1175,7 @@ export type Database = {
           is_active: boolean
           name: string
           parent_type_id: string | null
+          sort_admin_level: number | null
           sort_order: number
           updated_at: string
         }
@@ -1139,6 +1188,7 @@ export type Database = {
           is_active?: boolean
           name: string
           parent_type_id?: string | null
+          sort_admin_level?: number | null
           sort_order?: number
           updated_at?: string
         }
@@ -1151,6 +1201,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           parent_type_id?: string | null
+          sort_admin_level?: number | null
           sort_order?: number
           updated_at?: string
         }
