@@ -13,7 +13,7 @@ import {
  TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
-import { getLocationHierarchy, UNCLASSIFIED_VALUE } from '@/shared/geography/hierarchy';
+import { getLocationHierarchy, getFilledLocationHierarchy, UNCLASSIFIED_VALUE, HIERARCHY_LEVELS, LEVEL_PLACEHOLDER_LABELS, type HierarchyLevel } from '@/shared/geography/hierarchy';
 
 type TreeLevel = 'continent' | 'country' | 'region' | 'zone' | 'comarca' | 'localidad' | 'sublocalidad' | 'calle';
 
