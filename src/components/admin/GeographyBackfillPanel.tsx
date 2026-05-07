@@ -3,7 +3,7 @@
 // Reuses useGeocodingJobStore + GeocodingProgressBar (do not introduce a
 // parallel progress system).
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Compass, Loader2, Play, RefreshCw, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
