@@ -1632,7 +1632,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
                 Agrupa los puntos en una colección personal existente o crea una nueva.
               </p>
               {addModes.has('collection') && (
-                <div className="ml-6 mt-3 border-l-2 border-border pl-3">
+                <div className="ml-6 mt-3 space-y-3 border-l-2 border-border pl-3">
                   <CollectionPicker
                     userId={userId}
                     value={collectionId}
@@ -1642,6 +1642,21 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
                     defaultNewName={docName}
                     allowNone={false}
                   />
+                  <div className="flex items-start gap-2 pt-1">
+                    <Checkbox
+                      id="mode-collection-also-approve"
+                      checked={addModes.has('catalog')}
+                      onCheckedChange={() => toggleAddMode('catalog')}
+                    />
+                    <div className="space-y-0.5">
+                      <Label htmlFor="mode-collection-also-approve" className="text-xs cursor-pointer">
+                        y publicarlos en mi catálogo (visibles en el mapa)
+                      </Label>
+                      <p className="text-[10px] text-muted-foreground">
+                        Si lo desmarcas, la colección se guardará pero los puntos quedarán en mesa de trabajo (solo visibles al abrir el documento).
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
