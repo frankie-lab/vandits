@@ -61,12 +61,14 @@ export type Database = {
       }
       admin_areas: {
         Row: {
+          aliases: string[]
           centroid_lat: number | null
           centroid_lng: number | null
           created_at: string
           depth: number
           id: string
           is_placeholder: boolean
+          iso_code: string | null
           name: string
           osm_id: number | null
           parent_id: string | null
@@ -76,12 +78,14 @@ export type Database = {
           wikidata_id: string | null
         }
         Insert: {
+          aliases?: string[]
           centroid_lat?: number | null
           centroid_lng?: number | null
           created_at?: string
           depth?: number
           id?: string
           is_placeholder?: boolean
+          iso_code?: string | null
           name: string
           osm_id?: number | null
           parent_id?: string | null
@@ -91,12 +95,14 @@ export type Database = {
           wikidata_id?: string | null
         }
         Update: {
+          aliases?: string[]
           centroid_lat?: number | null
           centroid_lng?: number | null
           created_at?: string
           depth?: number
           id?: string
           is_placeholder?: boolean
+          iso_code?: string | null
           name?: string
           osm_id?: number | null
           parent_id?: string | null
