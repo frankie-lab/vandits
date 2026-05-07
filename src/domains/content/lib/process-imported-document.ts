@@ -48,6 +48,8 @@ async function fetchAllPaginated<T>(
 }
 
 export type ProcessingStep =
+  | 'geo-normalize'
+  // Legacy aliases kept for event-bus backward compatibility.
   | 'geocoding'
   | 'fk-resolve'
   | 'catalog-match'
