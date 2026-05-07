@@ -31,6 +31,7 @@ interface GeocodingJobState {
   initialPending: number;
   failedThisBatch: number;
   scope: GeocodingScope | null;
+  startedAt: number | null;
   start: (initialPending: number, scope?: GeocodingScope) => Promise<void>;
   stop: () => void;
 }
