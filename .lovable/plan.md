@@ -1,57 +1,77 @@
-# Cerrar los 835 puntos y blindar el origen
+# Catálogo canónico de regiones (ISO-3166-2)
 
-## Estado actual verificado en BD
+Mismo problema que con países, ahora a nivel de **región** (CCAA, états, Bundesländer, etc.) y de **provincias** mal clasificadas como regiones.
 
-- 5074 locations activas en total.
-- 834 puntos recuperados con la migración anterior (ahora tienen `continent_id` correcto vía hierarquía canónica).
-- **Queda 1 punto huérfano**: `The Inselbergs` → `country = "GF"`, `country_id` apunta a una fila huérfana `admin_areas.name = "GF"`, `depth = 0`, sin `parent_id`, sin `iso_code`.
-- Causa: `GF` (Guayana Francesa) no estaba en el seed canónico de países y por eso la fusión recursiva no encontró pareja.
+## Diagnóstico verificado en BD
 
-## Plan en 2 pasos
+- **España**: 17 CCAA reales repartidas en 49 filas distintas. Ej.: `Castile and León` (153 pts) + `Castilla y León` (22 pts) = misma región, dos filas.
+- **Francia**: 18 regiones repartidas en 60+ filas. Mezcla idiomas (`Brittany`/`Bretagne`/`Bretaña`), variantes tipográficas (`Île-de-France`/`Ile-de-France`), e incluso regiones antiguas pre-2016 (`Aquitaine`, `Languedoc-Roussillon`) que ya no existen oficialmente.
+- **Provincias colgando como región**: `Alicante`, `Málaga`, `Cádiz`, `Girona`, `A Coruña`, `La Rioja`, `Hérault` (FR)… deberían ser `zone`, no `region`.
 
-### 1. Ampliar el catálogo canónico de países (migración de datos)
+Mismo origen: `resolve-admin-area` no aplica a regiones la lógica canónica `iso_code + aliases` que ya tenemos para países.
 
-Añadir como canónicos los países que faltaban en el primer seed, todos con `iso_code` + `aliases` y `parent_id` apuntando al continente correcto. Lista mínima detectada como necesaria:
+## Plan en 3 pasos (cero pérdida de puntos)
 
-- `GF` → "Guyane française" / "French Guiana" → parent: South America
-- Barrido genérico: para cualquier fila `admin_areas` con `depth = 0`, `type = country`, `parent_id IS NULL` y `name` de exactamente 2 caracteres en mayúsculas (patrón ISO-2), intentar resolver vía tabla canónica ISO → si existe canónico, fusionar con `_merge_admin_area`; si no, crear el canónico mínimo (continent inferido por ISO).
+### 1. Seed canónico de regiones por código ISO-3166-2
 
-Esto cubre `GF` y cualquier otro huérfano ISO que pueda haber quedado o entrar en el futuro por scraping.
+Añadir filas canónicas con `iso_code = "ES-AN"`, `"ES-CT"`, `"FR-IDF"`, etc. y `aliases text[]` con todas las variantes ES/EN/local.
 
-### 2. Endurecer `resolve-admin-area` (edge function)
+Países a cubrir en la primera tanda (los que tienen >5 puntos en BD):
 
-Sustituir el match por `ilike(name)` por una resolución determinista:
+- **ES**: 17 CCAA (AN, AR, AS, CB, CL, CM, CN, CT, EX, GA, IB, MD, MC, NC, PV, RI, VC) + Ceuta/Melilla.
+- **FR**: 13 regiones metropolitanas post-2016 + 5 ultramar.
+- **PT**: 7 distritos + 2 archipiélagos.
+- **IT**: 20 regiones.
+- **DE**: 16 Bundesländer.
+- **GB**: 4 nations + 9 regions Inglaterra.
+- **US**: 50 estados + DC.
 
-1. Si llega `country` con patrón ISO-2 (`/^[A-Z]{2}$/`): buscar por `iso_code`. Si existe canónico → usar ese row y propagar `parent_id` como `continent_id`.
-2. Si llega `country` como nombre: buscar por `aliases @> ARRAY[lower(name)]`, fallback a `name ilike`.
-3. Mismo patrón para `continent` (aliases ES/EN, M49 si llega).
-4. **Nunca** crear una fila nueva si ya existe una canónica con ese `iso_code` o `alias`.
-5. Si se crea una fila nueva (caso desconocido), forzar `parent_id` no nulo cuando el `type = country` (continente inferido o lanzar warning en logs).
+Por cada canónico, `aliases` cubre: nombre oficial local, nombre EN, nombre ES, código ISO, sinónimos comunes y regiones históricas fusionadas (ej. `Aquitaine` → alias de `Nouvelle-Aquitaine`).
 
-Esto elimina el origen del bug: el scraper de Atlas Obscura (que envía `country: "FR"`) y el importador KML (que envía `country: "France"`) acabarán siempre en la misma fila canónica.
+### 2. Migración de fusión (helper `_merge_admin_area` ya existe)
 
-## Verificación post-cambios
+Recorrer cada región huérfana (sin `iso_code`) y, si su nombre coincide con un alias canónico bajo el mismo país, llamar a `_merge_admin_area(orphan, canonical)`. Esto:
+- Re-puntea `region_id` en todos los locations afectados.
+- Re-parenta zonas/localidades hijas (manejando duplicados con merge recursivo).
+- Borra la fila huérfana.
 
-```sql
--- Debe ser 0
-SELECT COUNT(*) FROM locations 
-WHERE country_id IS NOT NULL AND continent_id IS NULL AND deleted_at IS NULL;
+Resultado: ~840 puntos en España + ~600 en Francia + similares en otros países se reagrupan bajo la fila canónica correcta. **Cero locations borradas.**
 
--- Debe ser 0
-SELECT COUNT(*) FROM admin_areas 
-WHERE depth = 0 AND parent_id IS NULL 
-  AND id IN (SELECT type_id FROM place_types WHERE code = 'country');
-```
+### 3. Endurecer `resolve-admin-area` para regiones
+
+Aplicar a `region` (y por extensión `zone`, `admin_level_3`, `locality`) la misma lógica que ya tiene `country`:
+
+1. Match por `iso_code` (ISO-3166-2 si llega como `"ES-AN"`).
+2. Match por `aliases @> [name]` bajo el mismo `parent_id`.
+3. Match por `name + parent_id` (legacy).
+4. Insert solo como último recurso, con warning en logs si parent canónico ya existe.
+
+Esto evita que el próximo importador KML en EN vuelva a crear `"Catalonia"` cuando ya tenemos `Cataluña` canónica.
+
+## Provincias mal clasificadas
+
+Aparte del seed: las filas tipo `Alicante`, `Málaga`, `Cádiz`, `Hérault`… colgando como `region` se reclasifican a `zone` (cambio de `type_id`) y se re-parentan a la CCAA/región canónica correcta. Los locations se mueven de `region_id` a `zone_id` automáticamente con un script SQL puntual incluido en la migración.
 
 ## Archivos a tocar
 
-- `supabase/migrations/<ts>_seed_remaining_iso_countries.sql` — ampliación canónica + barrido genérico de huérfanos ISO-2.
-- `supabase/functions/resolve-admin-area/index.ts` — resolución por `iso_code` / `aliases` con fallback, propagación automática de `parent_id` → `continent_id`.
+- `supabase/migrations/<ts>_canonical_regions_iso2.sql` — seed canónico + fusión + reclasificación de provincias.
+- `supabase/functions/resolve-admin-area/index.ts` — extender lógica ISO/aliases a niveles `region`, `zone`, `admin_level_3`, `locality`.
 
-Sin cambios de frontend. El trigger `locations_sync_admin_cache` resincroniza los strings cache automáticamente.  
-  
-  
-antes de perder un punto, debes advertir de ello  
-cada punto es oro en esta APP
+Sin cambios de frontend. El trigger `locations_sync_admin_cache` resincroniza los strings cache automáticamente. Memoria `mem://database/canonical-admin-areas` se actualiza para reflejar que la regla es transversal a todos los niveles, no solo país/continente.
 
-&nbsp;
+## Verificación post-migración
+
+```sql
+-- Debe ser 0 (ninguna región huérfana sin iso_code en países cubiertos)
+SELECT COUNT(*) FROM admin_areas a
+JOIN admin_areas p ON p.id = a.parent_id
+WHERE a.type_id = (SELECT id FROM place_types WHERE code='region')
+  AND a.iso_code IS NULL
+  AND p.iso_code IN ('ES','FR','PT','IT','DE','GB','US');
+
+-- En la captura del usuario: 17 filas (CCAA), no 49
+SELECT COUNT(DISTINCT a.id) FROM admin_areas a
+JOIN admin_areas p ON p.id = a.parent_id
+WHERE a.type_id = (SELECT id FROM place_types WHERE code='region')
+  AND p.iso_code = 'ES';
+```
