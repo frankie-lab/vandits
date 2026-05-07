@@ -28,6 +28,8 @@ import {
 } from '@/lib/duplicate-detection';
 import { dbLocationToGeoLocation } from './db-transformers';
 import { useLocationsStore } from '@/domains/content/store/locations-store';
+import { shouldAutoApproveImport } from './location-lifecycle';
+import { approveAllDocumentLocations } from './document-approval';
 
 /** Fetch all rows from a Supabase query bypassing the 1000-row default limit. */
 async function fetchAllPaginated<T>(
@@ -343,6 +345,28 @@ export async function processImportedDocument(
       }
     } else {
       emitStep(docId, 'enrich', 'skipped');
+    }
+
+    // ─── 5. Auto-approve por canal de importación ─────────────────────
+    // Lifecycle por canal (helper único `shouldAutoApproveImport`):
+    // - web_import / manual → confiables, se aprueban automáticamente y
+    //   materializan la pending_collection. Los puntos pasan al catálogo
+    //   sin acción manual del usuario.
+    // - kml/gpx/geojson/csv (bulk crudo) → quedan en `normalized`, visibles
+    //   solo en la vista del documento. El usuario aprueba con "Aprobar todos".
+    try {
+      const { data: docRow } = await supabase
+        .from('documents')
+        .select('source_type')
+        .eq('id', docId)
+        .maybeSingle();
+      if (shouldAutoApproveImport(docRow?.source_type as never)) {
+        const res = await approveAllDocumentLocations(docId);
+        (summary as Record<string, unknown>).autoApproved = res.approved;
+        (summary as Record<string, unknown>).autoCollectionAdded = res.collectionAdded ?? 0;
+      }
+    } catch (err) {
+      console.warn('[processImportedDocument] auto-approve failed:', err);
     }
   } finally {
     // Mark document as confirmed regardless of partial failures

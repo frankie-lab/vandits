@@ -1,68 +1,75 @@
-## Unificación: un solo paso "Normalizar geografía"
+## Diagnóstico
 
-### Objetivo
-Colapsar Geocodificar + Clasificar país/región/zona + Renormalizar en **un único paso automático** durante la importación, usando siempre el normalizador canónico (`geo-normalizer.ts` + doble pasada Nominatim + placeholders). Cero intervención manual para imports nuevos.
+Hoy tenemos **tres acciones paralelas** (Geocodificar, Renormalizar, Aprobar todos) que en realidad son **el mismo viaje**: pasar un punto recién importado al catálogo final. La fricción nace de tratar la "fuente" como una opción del usuario en lugar de como un **estado inicial automático**.
 
-### Garantía de no regresión
-La unificación reusa funciones que ya existen y funcionan:
-- `backfill-admin-fks` (con doble pasada + normalizador, ya validado).
-- `geocode-batch.ts` (forward geocoding para puntos sin lat/lng).
-- `resolve-admin-area` (placeholders, ya validado).
-- `geocoding-job-store` (barra global, ya operativa).
+Tu propuesta lo resuelve mejor: *si los canales son distintos, los puntos deben **nacer en estados distintos***. Cada canal sabe cuánta confianza merece su contenido y aplica el lifecycle adecuado **sin preguntar**.
 
-Nada se borra hasta que la nueva ruta esté verde. El botón "Renormalizar" se conserva como red de seguridad para puntos legacy.
+---
 
-### Cambios
+## Modelo de estados por canal de importación
 
-#### 1. `src/domains/content/lib/process-imported-document.ts`
-Fusionar el paso 1 (`geocoding`) y 2 (`fk-resolve` + 2.b reverse-geocode loop) en un solo paso `geo-normalize`:
+Un único campo lógico (`lifecycle_stage`, derivado de `is_approved` + `documents.metadata.import_source`) describe en qué punto del viaje está cada location:
 
 ```text
-Paso "Normalizar geografía":
-  a) Forward-geocode puntos sin lat/lng (geocodeLocations) → UPDATE coords
-  b) Llamar a backfill-admin-fks { document_id, force_renormalize: true, limit: 25 }
-     en bucle hasta remaining=0 (con cap zero-progress)
-  c) Emitir un único evento de progreso "geo-normalize"
+raw → normalized → approved (catálogo)
 ```
 
-Eliminar el bloque actual de `resolveAllFks` cliente-side (lo cubre la edge function con doble pasada). El estado de `fk-resolve` queda deprecated pero el evento se sigue emitiendo en `done` para compatibilidad con clientes antiguos del bus de eventos.
+| Canal de origen | Nace en | Normaliza | Aprueba | Acción manual restante |
+|---|---|---|---|---|
+| **Atlas Obscura / web scrape** (curado) | `approved` | sí, en background | sí, automático | ninguna |
+| **OneDrive fotos** (geo-tag confiable) | `approved` | sí, en background | sí, automático | ninguna |
+| **KML/GPX/GeoJSON/CSV importado** (bulk crudo) | `normalized` | sí, en background | NO (queda en workspace) | revisar y "Aprobar todos" si quiere publicarlo en catálogo |
+| **Punto manual** (clic en mapa, búsqueda, contexto) | `approved` | sí, inline | sí | ninguna |
+| **Punto adoptado de followee** | `approved` | hereda | sí | ninguna |
 
-#### 2. `src/domains/content/components/ImportSummaryDialog.tsx`
-- Reemplazar las dos filas (`geocoding` + `fk-resolve`) por **una sola**: "Normalizar geografía (coordenadas + país/región/zona)" con icono `Globe2`.
-- El array `STEPS` pasa de 3 a 3 entradas pero distintas: `geo-normalize`, `catalog-match`, opcional `enrich`.
-- Mantener compat: si llega un evento legacy `geocoding`/`fk-resolve` lo mapea a `geo-normalize`.
+**Consecuencia clave:** la normalización geográfica deja de ser una acción visible. **Siempre ocurre en el background del import**, en TODOS los canales. El usuario nunca ve "Geocodificar" ni "Renormalizar" como CTA.
 
-#### 3. `src/domains/content/components/DocumentsPanel.tsx`
-- Renombrar botón **"Renormalizar" → "Renormalizar geografía"**.
-- Mantenerlo visible siempre (red de seguridad para imports antiguos), pero mover a menú secundario `…` para reducir ruido visual. El CTA primario sigue siendo "Aprobar todos".
+---
 
-#### 4. `supabase/functions/backfill-admin-fks/index.ts`
-Sin cambios funcionales. Solo añadir comentario aclarando que ahora es la **única** vía de normalización geográfica.
+## Cambios concretos
 
-#### 5. `supabase/functions/batch-geocode/index.ts`
-Marcar como **legacy/no usar desde imports nuevos**. Ya hace doble pasada y normalizador, así que sigue funcionando si alguien lo invoca, pero el flujo de import ya no pasa por aquí (lo hace `backfill-admin-fks`, que es más rico al manejar también placeholders y FKs).
+### 1. Lifecycle como concepto de primera clase
+- Añadir helper transversal `getLocationLifecycle(loc, doc)` en `src/domains/content/lib/location-lifecycle.ts`:
+  - Devuelve `'raw' | 'normalized' | 'approved'` derivado de `is_approved`, presencia de FKs (`country_id`, `region_id`…) y `documents.metadata.import_source`.
+- Migración trivial: añadir `documents.metadata.import_source` (`'atlas' | 'onedrive' | 'file' | 'manual' | 'adopted'`) ya implícito en `documents.source` para que el helper pueda decidir el destino inicial.
 
-### Lo que NO cambia (zona segura)
-- `resolveAllFks` y `resolve-admin-area`: intactos. Siguen siendo el helper único para inserts puntuales (enrich-location, scrape-tick, saveDocumentToDatabase).
-- Triggers DB (`locations_sync_admin_cache`, `set_location_owner_user_id`).
-- `geocoding-job-store` y barra global.
-- Schema: cero migraciones.
-- Catálogo de match (`catalog-match`) y enrichment: pasos independientes, no se tocan.
+### 2. Auto-aprobación al importar (canales confiables)
+- En `processImportedDocument.ts`, tras `geo-normalize` + `catalog-match`, si `import_source ∈ {atlas, onedrive, manual, adopted}`:
+  - Llamar `approveAllDocumentLocations(docId)` automáticamente al final del pipeline.
+  - Materializar la `pending_collection` también automáticamente.
+- Si `import_source === 'file'` (KML/GPX/CSV bulk crudo): **no** auto-aprobar. Quedan en `normalized` (workspace, visibles solo en vista doc) hasta que el usuario revise.
 
-### Orden de ejecución
-1. Editar `process-imported-document.ts` → fusionar pasos.
-2. Editar `ImportSummaryDialog.tsx` → 1 fila en vez de 2.
-3. Editar `DocumentsPanel.tsx` → renombrar botón.
-4. Probar import KML pequeño y verificar:
-   - Aparece 1 sola fila "Normalizar geografía" con barra correcta.
-   - Tras finalizar, los puntos tienen `country_id` + jerarquía completa con placeholders donde toque.
-   - Botón "Renormalizar geografía" sigue funcionando para docs viejos.
+### 3. Eliminar las 3 acciones redundantes del UI
+- **`DocumentsPanel`**:
+  - Quitar "Geocodificar" (ya ocurre en import).
+  - Quitar "Renormalizar geografía" (ya ocurre en import; se ejecuta una vez en migración para legacy).
+  - Mantener **solo** "Aprobar todos" y **solo cuando** el doc esté en `lifecycle: normalized` (es decir, archivos KML/GPX/CSV bulk con puntos sin aprobar).
+- **`ImportSummaryDialog`**:
+  - Quitar el switch "Aprobar al terminar" (era implícito antes). El comportamiento depende del canal, no de un toggle.
+  - El paso `geo-normalize` se mantiene como progreso visible (informa, no pregunta).
+  - Para `import_source === 'file'`, añadir un mensaje final: *"Los puntos quedan en tu workspace. Revísalos y púlsalos a tu catálogo cuando estén listos."*
 
-### Archivos a modificar
-- `src/domains/content/lib/process-imported-document.ts`
-- `src/domains/content/components/ImportSummaryDialog.tsx`
-- `src/domains/content/components/DocumentsPanel.tsx`
+### 4. Backfill legacy (una sola vez)
+- Migración: para todos los `documents` existentes sin `metadata.import_source`, deducirlo de `documents.source`/`url`/`type`.
+- Edge function de mantenimiento: barrer `locations` con `country IS NOT NULL AND country_id IS NULL` y disparar `backfill-admin-fks` con `force_renormalize: true` en lotes. Sin UI; corre una vez tras el deploy.
 
-### Archivos no tocados pero relevantes
-- `src/shared/geography/geocode-batch.ts` (sigue siendo el forward-geocode helper)
-- `supabase/functions/backfill-admin-fks/index.ts` (motor único)
+### 5. Memoria de proyecto
+Añadir core rule:
+> **Lifecycle por canal**: cada `import_source` define `nace_en` (`approved` o `normalized`). Geografía se normaliza **siempre** en background del import, nunca como CTA. "Aprobar todos" SOLO aparece para `lifecycle: normalized`. No reintroducir botones de Geocodificar/Renormalizar en UI.
+
+---
+
+## Resultado UX
+
+- **Atlas / OneDrive / web / manual**: subes → ves los puntos en el catálogo en cuestión de segundos. Cero botones extra.
+- **KML/GPX bulk**: subes → quedan en workspace del documento → 1 sola acción visible: "Aprobar todos" cuando los hayas revisado.
+- **Renormalizar / Geocodificar**: desaparecen de la UI. Son detalles internos del pipeline.
+
+## Ficheros tocados
+
+- `src/domains/content/lib/location-lifecycle.ts` (nuevo, helper único)
+- `src/domains/content/lib/process-imported-document.ts` (auto-approve por canal)
+- `src/domains/content/components/DocumentsPanel.tsx` (acciones condicionales)
+- `src/domains/content/components/ImportSummaryDialog.tsx` (sin toggle, mensaje final)
+- 1 migración: añadir `import_source` a `documents.metadata` + backfill legacy + barrido de FKs faltantes
+- `mem://logic/content/import-lifecycle-by-channel` (nueva memoria)
