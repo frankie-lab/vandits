@@ -22,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content';
 import { hasRealEnrichment } from '@/domains/content/lib/enrichment-state';
 import { toast } from 'sonner';
+import { RenormalizeButton } from '@/shared/geography/RenormalizeButton';
 
 interface LocationRow {
   id: string;
@@ -957,6 +958,12 @@ export function PointContextActions({
           <DropdownMenuItem onClick={() => setReclassifySheet(true)}>
             <Tag className="mr-2 h-3.5 w-3.5" />
             Reclasificar tipo
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={(e) => { e.preventDefault(); }} asChild>
+            <div className="p-0">
+              <RenormalizeButton locationId={location.id} variant="menu" />
+            </div>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
