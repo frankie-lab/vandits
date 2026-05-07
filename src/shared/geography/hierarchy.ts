@@ -43,6 +43,28 @@ export const HIERARCHY_LEVEL_LABELS: Record<HierarchyLevel, string> = {
 const UNCLASSIFIED_SORT_KEY = '\uFFFFsin_clasificar';
 export const UNCLASSIFIED_VALUE = '__unclassified__';
 
+/** Etiquetas placeholder canónicas por nivel. UI única para "valor ausente"
+ *  fusionando NULL en BD y el string `(sin ...)` que escribe el resolver. */
+export const LEVEL_PLACEHOLDER_LABELS: Record<HierarchyLevel, string> = {
+  continent: '(sin continente)',
+  country: '(sin país)',
+  region: '(sin región)',
+  zone: '(sin provincia)',
+  admin_level_3: '(sin comarca)',
+  locality: '(sin localidad)',
+  sublocality: '(sin barrio)',
+  street: '(sin calle)',
+};
+
+/** Detecta cualquier string placeholder `(sin ...)` (idioma-agnóstico para
+ *  el prefijo). NULL/undefined/cadena vacía también cuentan como ausente. */
+export function isPlaceholderValue(v: string | undefined | null): boolean {
+  if (v == null) return true;
+  const t = String(v).trim();
+  if (!t.length) return true;
+  return /^\(sin /i.test(t);
+}
+
 /** Devuelve el path jerárquico canónico de 8 niveles para un punto.
  *  continent/country se canonicalizan al alias inglés (admin_areas) para
  *  evitar duplicados idiomáticos: "Francia" → "France", "España" → "Spain", etc.
@@ -54,7 +76,7 @@ export function getLocationHierarchy(
   const gd = loc.enrichedData?.datos_geograficos as
     | (NonNullable<GeoLocation['enrichedData']>['datos_geograficos'] & { calle?: string })
     | undefined;
-  return {
+  const raw = {
     continent: canonicalContinent(norm(loc.continent ?? gd?.continente)),
     country: canonicalCountry(norm(loc.country ?? gd?.pais)),
     region: norm(loc.region ?? gd?.admin_nivel_1),
@@ -63,7 +85,27 @@ export function getLocationHierarchy(
     locality: norm(gd?.localidad),
     sublocality: norm(gd?.sublocalidad),
     street: norm(gd?.calle),
-  };
+  } as Record<HierarchyLevel, string | undefined>;
+  // Placeholders escritos en BD (`(sin provincia)`) se tratan como ausentes
+  // para que la UI tenga un único bucket por nivel ausente.
+  for (const lv of HIERARCHY_LEVELS) {
+    if (isPlaceholderValue(raw[lv])) raw[lv] = undefined;
+  }
+  return raw;
+}
+
+/** Variante "rellena" del path: reemplaza cualquier nivel ausente por su
+ *  placeholder canónico. Garantiza que el árbol jerárquico tenga siempre
+ *  8 niveles, de modo que `count(padre) === sum(count(hijos))`. */
+export function getFilledLocationHierarchy(
+  loc: GeoLocation,
+): Record<HierarchyLevel, string> {
+  const h = getLocationHierarchy(loc);
+  const out = {} as Record<HierarchyLevel, string>;
+  for (const lv of HIERARCHY_LEVELS) {
+    out[lv] = h[lv] ?? LEVEL_PLACEHOLDER_LABELS[lv];
+  }
+  return out;
 }
 
 function norm(v: unknown): string | undefined {
@@ -71,6 +113,7 @@ function norm(v: unknown): string | undefined {
   const t = v.trim();
   return t.length ? t : undefined;
 }
+
 
 /** "Europa / España / Aragón / ... / Calle Mayor". Omite niveles vacíos. */
 export function getHierarchyBreadcrumb(loc: GeoLocation, separator = ' / '): string {
