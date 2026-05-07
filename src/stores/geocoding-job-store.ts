@@ -93,6 +93,7 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
   initialPending: 0,
   failedThisBatch: 0,
   scope: null,
+  startedAt: null,
 
   stop: () => {
     if (!get().running) return;
@@ -103,6 +104,7 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
   start: async (initialPending: number, scope?: GeocodingScope) => {
     if (get().running || runningPromise) return;
     cancelFlag = false;
+    const startedAt = Date.now();
     set({
       running: true,
       stopping: false,
@@ -111,6 +113,7 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
       initialPending,
       failedThisBatch: 0,
       scope: scope ?? null,
+      startedAt,
     });
 
     persist({
@@ -118,7 +121,7 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
       scope: scope ?? null,
       totalUpdated: 0,
       initialPending,
-      startedAt: Date.now(),
+      startedAt,
       heartbeatAt: Date.now(),
     });
 
@@ -186,7 +189,7 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
         console.error('[geocoding-job] failed:', err);
         toast.error('Error al geocodificar puntos');
       } finally {
-        set({ running: false, stopping: false, scope: null });
+        set({ running: false, stopping: false, scope: null, startedAt: null });
         cancelFlag = false;
         runningPromise = null;
         clearPersisted();
