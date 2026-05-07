@@ -100,27 +100,47 @@ export async function processImportedDocument(
   };
 
   try {
-    // ─── 1. Geocoding ──────────────────────────────────────────────
+    // ─── 1. Normalizar geografía (coords + país/región/zona) ────────
+    // Paso unificado: forward-geocode puntos sin coords + reverse-geocode
+    // canonical (doble pasada Nominatim + placeholders) vía
+    // backfill-admin-fks. Sustituye los antiguos pasos `geocoding` +
+    // `fk-resolve` que generaban jerarquías inconsistentes.
     try {
+      // 1.a — puntos sin coords válidas (forward-geocode).
       const rawRows = await fetchAllPaginated<any>((from, to) =>
         supabase.from('locations').select('*').eq('document_id', docId).order('id', { ascending: true }).range(from, to),
       );
       const docLocations = rawRows.map(dbLocationToGeoLocation);
 
-      const needsGeocode = docLocations.filter(
+      const needsForward = docLocations.filter(
         (l) =>
           !Number.isFinite(l.coordinates.lat) ||
           !Number.isFinite(l.coordinates.lng) ||
           (l.coordinates.lat === 0 && l.coordinates.lng === 0),
       );
 
-      const totalGeo = needsGeocode.length;
-      emitStep(docId, 'geocoding', 'running', { total: totalGeo, processed: 0 });
+      // 1.b — puntos pendientes de normalización admin.
+      const { count: pendingAdminCount } = await supabase
+        .from('locations')
+        .select('id', { count: 'exact', head: true })
+        .eq('document_id', docId)
+        .or('country_id.is.null,continent_id.is.null')
+        .is('deleted_at', null);
 
-      if (totalGeo > 0) {
-        const { locations: geocoded, geocodedCount } = await geocodeLocations(needsGeocode);
+      const totalForward = needsForward.length;
+      const totalAdmin = pendingAdminCount ?? 0;
+      const totalGeo = totalForward + totalAdmin;
+
+      emitStep(docId, 'geo-normalize', 'running', { total: totalGeo, processed: 0 });
+      // Compat con clientes legacy escuchando los nombres antiguos.
+      emitStep(docId, 'geocoding', 'running', { total: totalGeo, processed: 0 });
+      emitStep(docId, 'fk-resolve', 'running', { total: totalGeo, processed: 0 });
+
+      let processedGeo = 0;
+
+      if (totalForward > 0) {
+        const { locations: geocoded, geocodedCount } = await geocodeLocations(needsForward);
         summary.geocoded = geocodedCount;
-        let processed = 0;
         for (const loc of geocoded) {
           if (
             Number.isFinite(loc.coordinates.lat) &&
@@ -136,123 +156,60 @@ export async function processImportedDocument(
               })
               .eq('id', loc.id);
           }
-          processed++;
-          if (processed % 10 === 0 || processed === totalGeo) {
-            emitStep(docId, 'geocoding', 'running', { total: totalGeo, processed });
+          processedGeo++;
+          if (processedGeo % 10 === 0 || processedGeo === totalGeo) {
+            emitStep(docId, 'geo-normalize', 'running', { total: totalGeo, processed: processedGeo });
+            emitStep(docId, 'geocoding', 'running', { total: totalGeo, processed: processedGeo });
           }
         }
       }
+
+      // 1.c — Reverse-geocode canonical (única vía: doble pasada
+      // Nominatim, placeholders, FKs + strings cache en una sola escritura).
+      if (totalAdmin > 0) {
+        let processedAdmin = 0;
+        let zeroProgressStreak = 0;
+        const MAX_ZERO_PROGRESS = 5;
+        while (processedAdmin < totalAdmin) {
+          const { data, error } = await supabase.functions.invoke('backfill-admin-fks', {
+            body: { limit: 25, document_id: docId, force_renormalize: true },
+          });
+          if (error) {
+            zeroProgressStreak++;
+            if (zeroProgressStreak >= MAX_ZERO_PROGRESS) break;
+            continue;
+          }
+          const d = data as { updated?: number; failed?: number; remaining?: number } | null;
+          const upd = d?.updated ?? 0;
+          const failed = d?.failed ?? 0;
+          processedAdmin += upd;
+          summary.fkResolved += upd;
+          if (typeof d?.remaining === 'number' && d.remaining === 0) {
+            processedAdmin = totalAdmin;
+            break;
+          }
+          if (upd === 0 && failed === 0) {
+            zeroProgressStreak++;
+            if (zeroProgressStreak >= MAX_ZERO_PROGRESS) break;
+          } else {
+            zeroProgressStreak = 0;
+          }
+          const totalProcessed = Math.min(processedGeo + processedAdmin, totalGeo);
+          emitStep(docId, 'geo-normalize', 'running', { total: totalGeo, processed: totalProcessed });
+          emitStep(docId, 'fk-resolve', 'running', { total: totalGeo, processed: totalProcessed });
+        }
+      }
+
+      emitStep(docId, 'geo-normalize', 'done', { count: summary.geocoded + summary.fkResolved, total: totalGeo, processed: totalGeo });
       emitStep(docId, 'geocoding', 'done', { count: summary.geocoded, total: totalGeo, processed: totalGeo });
+      emitStep(docId, 'fk-resolve', 'done', { count: summary.fkResolved, total: totalGeo, processed: totalGeo });
     } catch (err) {
-      console.warn('[processImportedDocument] geocoding failed:', err);
+      console.warn('[processImportedDocument] geo-normalize failed:', err);
+      emitStep(docId, 'geo-normalize', 'error');
       emitStep(docId, 'geocoding', 'error');
-    }
-
-    // ─── 2. FK resolve ──────────────────────────────────────────────
-    try {
-      const rows = await fetchAllPaginated<any>((from, to) =>
-        supabase
-          .from('locations')
-          .select('id, continent, country, region, zone, place_type')
-          .eq('document_id', docId)
-          .is('country_id', null)
-          .order('id', { ascending: true })
-          .range(from, to),
-      );
-
-      const totalFk = rows.length;
-      emitStep(docId, 'fk-resolve', 'running', { total: totalFk, processed: 0 });
-
-      if (rows && rows.length > 0) {
-        let processed = 0;
-        const CONCURRENCY = 10;
-        for (let i = 0; i < rows.length; i += CONCURRENCY) {
-          const batch = rows.slice(i, i + CONCURRENCY);
-          await Promise.all(
-            batch.map(async (row) => {
-              try {
-                const fks = await resolveAllFks({
-                  continent: row.continent || undefined,
-                  country: row.country || undefined,
-                  region: row.region || undefined,
-                  zone: row.zone || undefined,
-                  placeTypeCode: (row.place_type as string | null) || undefined,
-                });
-                await supabase
-                  .from('locations')
-                  .update({
-                    continent_id: fks.continent_id,
-                    country_id: fks.country_id,
-                    region_id: fks.region_id,
-                    zone_id: fks.zone_id,
-                    admin3_id: fks.admin3_id,
-                    locality_id: fks.locality_id,
-                    sublocality_id: fks.sublocality_id,
-                    type_id: fks.type_id,
-                  })
-                  .eq('id', row.id);
-                summary.fkResolved++;
-              } catch (e) {
-                // skip individual failures
-              }
-            }),
-          );
-          processed += batch.length;
-          emitStep(docId, 'fk-resolve', 'running', { total: totalFk, processed });
-        }
-      }
-      // 2.b — Reverse geocoding bloqueante para puntos sin country/continent_id.
-      //       Sin tope: agotamos todos los pendientes (la edge function ya
-      //       respeta el rate-limit de Nominatim). Cap de seguridad por
-      //       iteraciones consecutivas SIN progreso.
-      try {
-        const { count: pendingCount } = await supabase
-          .from('locations')
-          .select('id', { count: 'exact', head: true })
-          .eq('document_id', docId)
-          .or('country_id.is.null,continent_id.is.null')
-          .is('deleted_at', null);
-
-        const initialPending = pendingCount ?? 0;
-        if (initialPending > 0) {
-          emitStep(docId, 'geocoding', 'running', { total: initialPending, processed: 0 });
-          let processed = 0;
-          let zeroProgressStreak = 0;
-          const MAX_ZERO_PROGRESS = 5;
-          while (processed < initialPending) {
-            const { data, error } = await supabase.functions.invoke('backfill-admin-fks', {
-              body: { limit: 25, document_id: docId },
-            });
-            if (error) {
-              zeroProgressStreak++;
-              if (zeroProgressStreak >= MAX_ZERO_PROGRESS) break;
-              continue;
-            }
-            const d = data as { updated?: number; failed?: number; remaining?: number } | null;
-            const upd = d?.updated ?? 0;
-            const failed = d?.failed ?? 0;
-            processed += upd;
-            if (typeof d?.remaining === 'number' && d.remaining === 0) {
-              emitStep(docId, 'geocoding', 'running', { total: initialPending, processed: initialPending });
-              break;
-            }
-            if (upd === 0 && failed === 0) {
-              zeroProgressStreak++;
-              if (zeroProgressStreak >= MAX_ZERO_PROGRESS) break;
-            } else {
-              zeroProgressStreak = 0;
-            }
-            emitStep(docId, 'geocoding', 'running', { total: initialPending, processed: Math.min(processed, initialPending) });
-          }
-        }
-      } catch (err) {
-        console.warn('[processImportedDocument] reverse-geocode loop failed:', err);
-      }
-      emitStep(docId, 'fk-resolve', 'done', { count: summary.fkResolved, total: totalFk, processed: totalFk });
-    } catch (err) {
-      console.warn('[processImportedDocument] fk-resolve failed:', err);
       emitStep(docId, 'fk-resolve', 'error');
     }
+
 
     // ─── 3. Catalog match (dedup against existing approved points) ──
     try {
