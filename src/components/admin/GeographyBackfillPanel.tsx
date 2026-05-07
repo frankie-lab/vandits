@@ -93,7 +93,7 @@ export function GeographyBackfillPanel() {
 
       await useGeocodingJobStore.getState().start(total, {
         label: MODE_LABELS[mode].title,
-        forceRenormalize: mode === 'overwrite',
+        mode,
       });
     } catch (err) {
       console.error('[backfill-start]', err);
