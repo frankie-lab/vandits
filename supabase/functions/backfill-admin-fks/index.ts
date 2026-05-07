@@ -219,7 +219,8 @@ Deno.serve(async (req) => {
     .from('locations')
     .select('id', { count: 'exact', head: true })
     .is('deleted_at', null);
-  if (!force) remainingQ = remainingQ.or('country_id.is.null,continent_id.is.null');
+  if (!force) remainingQ = remainingQ.or(PENDING_OR);
+  if (catalogOnly) remainingQ = remainingQ.eq('is_approved', true);
   if (callerUserId) remainingQ = remainingQ.eq('owner_user_id', callerUserId);
   if (documentId) remainingQ = remainingQ.eq('document_id', documentId);
   const { count: remaining } = await remainingQ;
