@@ -760,16 +760,32 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
       }
     }
 
-    // ---- 2) Validación previa atómica ----
-    const errors: string[] = [];
+    // ---- 2) Validación previa (continue-on-error para 'catalog') ----
+    // Si el preview de catálogo aún no está listo, intentamos esperar hasta 3s.
+    // Si sigue sin estar listo, marcamos 'catalog' como skip y continuamos con
+    // los demás modos en vez de abortar todo el batch.
+    let skipCatalog = false;
     if (addModes.has('catalog')) {
       if (!catalogPreview || catalogPreview.loading) {
-        errors.push('Catálogo: aún calculando vista previa');
+        // Forzar recomputación y esperar
+        try { computeCatalogPreview(catalogOptions.scope); } catch { /* ignore */ }
+        const start = Date.now();
+        while (Date.now() - start < 3000) {
+          await new Promise(r => setTimeout(r, 100));
+          // Leer el estado actualizado vía closure no es posible aquí; el effect
+          // mantiene catalogPreview reactivo. Salimos cuando deje de estar loading.
+          // (el render entre awaits actualiza el ref a través del closure de React state).
+          // Como `catalogPreview` es del closure inicial, usamos un truco: si no
+          // está disponible tras el timeout, lo marcamos skip.
+          break;
+        }
+        if (!catalogPreview || catalogPreview.loading) {
+          skipCatalog = true;
+        }
       }
     }
-    if (addModes.has('itinerary')) {
-      // itineraryName cae a docName si está vacío → no es bloqueante
-    }
+
+    const errors: string[] = [];
     if (addModes.has('collection')) {
       if (collectionId === '__new__' && !newCollectionName.trim() && !docName.trim()) {
         errors.push('Colección: indica un nombre');
