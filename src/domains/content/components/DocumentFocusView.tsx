@@ -35,6 +35,7 @@ import { NearbyPanel } from './PointContextActions';
 import { calculateDistance } from '@/lib/duplicate-detection';
 import { DocumentWaypointsTabs } from './DocumentWaypointsTabs';
 import { CollectionPicker } from './CollectionPicker';
+import { getDocumentIntegrationState } from '../lib/document-integration-state';
 
 /** Normalize a name for fuzzy comparison */
 function normalizeName(name: string): string {
@@ -392,6 +393,18 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
 
   const approvedCount = useMemo(() => locations.filter(l => l.is_approved).length, [locations]);
   const pendingCount = useMemo(() => locations.filter(l => !l.is_approved).length, [locations]);
+  const integration = useMemo(
+    () => getDocumentIntegrationState({ approved_count: approvedCount, location_count: locations.length }),
+    [approvedCount, locations.length],
+  );
+  const selectedPendingCount = useMemo(
+    () => locations.filter(l => selectedIds.has(l.id) && !l.is_approved).length,
+    [locations, selectedIds],
+  );
+  const selectedApprovedCount = useMemo(
+    () => locations.filter(l => selectedIds.has(l.id) && l.is_approved).length,
+    [locations, selectedIds],
+  );
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
