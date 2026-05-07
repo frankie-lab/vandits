@@ -457,7 +457,7 @@ async function processJob(job: any, deadline: number): Promise<void> {
         skipped++;
         continue;
       }
-      const locId = await persistPlace(job, documentId, place);
+      const locId = await persistPlace(job, documentId, place, autoApprove);
       await supabase.from('scrape_job_items').update({
         status: locId ? 'done' : 'skipped',
         location_id: locId,
