@@ -16,47 +16,17 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import {
-  normalizeNominatim,
-  mergeCanonical,
-  isMissingHighLevels,
-  type CanonicalGeo,
-  type NominatimAddress,
-} from '../_shared/geo-normalizer.ts';
+  reverseGeocodeCanonical,
+  geoConfidenceScore,
+  canonicalToResolveBody,
+  NOMINATIM_RATE_LIMIT_MS as RATE_LIMIT_MS,
+} from '../_shared/reverse-geocode.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
     'authorization, x-client-info, apikey, content-type',
 };
-
-const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/reverse';
-const USER_AGENT = 'VandIts-Backfill/1.0 (https://vandits.lovable.app)';
-const RATE_LIMIT_MS = 1100; // Nominatim policy: max 1 req/sec
-
-async function nominatimReverseRaw(lat: number, lng: number, zoom: number): Promise<NominatimAddress | null> {
-  const url = `${NOMINATIM_URL}?format=jsonv2&lat=${lat}&lon=${lng}&zoom=${zoom}&addressdetails=1&accept-language=es,en`;
-  try {
-    const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
-    if (!res.ok) return null;
-    const json = await res.json();
-    return (json?.address ?? null) as NominatimAddress | null;
-  } catch {
-    return null;
-  }
-}
-
-/** Doble llamada (zoom 18 detalle + zoom 10 si faltan niveles altos). */
-async function reverseGeocodeCanonical(lat: number, lng: number): Promise<CanonicalGeo | null> {
-  const detail = await nominatimReverseRaw(lat, lng, 18);
-  if (!detail) return null;
-  let canon = normalizeNominatim(detail);
-  if (isMissingHighLevels(canon)) {
-    await sleep(RATE_LIMIT_MS);
-    const coarse = await nominatimReverseRaw(lat, lng, 10);
-    if (coarse) canon = mergeCanonical(canon, normalizeNominatim(coarse));
-  }
-  return canon;
-}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
