@@ -77,8 +77,13 @@ export function getLocationHierarchy(
   const gd = loc.enrichedData?.datos_geograficos as
     | (NonNullable<GeoLocation['enrichedData']>['datos_geograficos'] & { calle?: string })
     | undefined;
+  // Fallback determinista por coordenadas SOLO para continente (sin red).
+  // Garantiza que ningún punto con lat/lng válida quede como `(sin continente)`.
+  const continentFallback = (typeof loc.latitude === 'number' && typeof loc.longitude === 'number')
+    ? continentLabelFromCoords(loc.latitude, loc.longitude)
+    : undefined;
   const raw = {
-    continent: canonicalContinent(norm(loc.continent ?? gd?.continente)),
+    continent: canonicalContinent(norm(loc.continent ?? gd?.continente)) ?? continentFallback,
     country: canonicalCountry(norm(loc.country ?? gd?.pais)),
     region: norm(loc.region ?? gd?.admin_nivel_1),
     zone: norm(loc.zone ?? gd?.admin_nivel_2),
