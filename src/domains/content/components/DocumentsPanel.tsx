@@ -479,7 +479,7 @@ export function DocumentsPanel() {
                     Abrir
                   </Button>
 
-                  {(integration.pendingApproval > 0 || integration.totalLocations === 0) && (
+                  {(integration.pendingApproval > 0 || integration.totalCount === 0) && (
                     <Button
                       variant="ghost"
                       size="sm"
