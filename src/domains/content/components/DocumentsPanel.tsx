@@ -559,12 +559,12 @@ export function DocumentsPanel() {
                       className="h-6 text-[11px] gap-1 px-2 text-sky-700 dark:text-sky-400 hover:text-sky-700 hover:bg-sky-500/10"
                       disabled={geocodingJob.running}
                       onClick={() => handleRenormalize(doc.id, displayName, doc.location_count)}
-                      title="Re-geocodificar todos los puntos con las nuevas reglas (rellena niveles faltantes con placeholders)"
+                      title="Renormalizar geografía: re-geocodifica los puntos con las reglas canónicas (rellena niveles faltantes con placeholders). Solo necesario para imports antiguos."
                     >
                       {geocodingJob.running && geocodingJob.scope?.documentId === doc.id
                         ? <Loader2 className="w-3 h-3 animate-spin" />
                         : <RefreshCw className="w-3 h-3" />}
-                      Renormalizar
+                      Renormalizar geografía
                     </Button>
                   )}
 
