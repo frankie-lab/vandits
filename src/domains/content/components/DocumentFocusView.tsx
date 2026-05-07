@@ -122,9 +122,14 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
   type AddModeKey = 'catalog' | 'itinerary' | 'collection' | 'route' | 'tag';
   const [addModes, setAddModes] = useState<Set<AddModeKey>>(new Set());
   // Auto-open the multi-mode dialog when launched from the documents panel.
+  // Mantener paridad con `openCatalogDialog`: preseleccionar 'catalog',
+  // setear nombre de itinerario por defecto y disparar preview de catálogo.
   useEffect(() => {
     if (autoOpenAddDialog) {
+      setAddModes(prev => (prev.size === 0 ? new Set(['catalog']) : prev));
+      setItineraryName(prev => prev || docName);
       setShowCatalogDialog(true);
+      // computeCatalogPreview se dispara solo vía effect cuando addModes incluye 'catalog'.
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpenAddDialog]);
