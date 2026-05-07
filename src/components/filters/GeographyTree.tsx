@@ -13,7 +13,7 @@ import {
  TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
-import { getLocationHierarchy, UNCLASSIFIED_VALUE } from '@/shared/geography/hierarchy';
+import { getLocationHierarchy, getFilledLocationHierarchy, UNCLASSIFIED_VALUE, HIERARCHY_LEVELS, LEVEL_PLACEHOLDER_LABELS, type HierarchyLevel } from '@/shared/geography/hierarchy';
 
 type TreeLevel = 'continent' | 'country' | 'region' | 'zone' | 'comarca' | 'localidad' | 'sublocalidad' | 'calle';
 
@@ -46,69 +46,42 @@ export function GeographyTree() {
  return !!(filters.searchTerm || filters.placeType || filters.tag || filters.onlyEnriched || filters.verified !== undefined);
  }, [filters]);
 
+  // Mapeo HierarchyLevel canónico → TreeLevel local del componente
+ const LEVEL_MAP: Record<HierarchyLevel, TreeLevel> = {
+ continent: 'continent',
+ country: 'country',
+ region: 'region',
+ zone: 'zone',
+ admin_level_3: 'comarca',
+ locality: 'localidad',
+ sublocality: 'sublocalidad',
+ street: 'calle',
+ };
+
   // Build tree from ALL locations (for total counts)
  const totalTree = useMemo(() => {
  if (allLocations.length === 0) return new Map<string, number>();
- 
- const counts = new Map<string, number>();
- 
- allLocations.forEach(loc => {
- const h = getLocationHierarchy(loc);
- const gd = loc.enrichedData?.datos_geograficos;
- 
- if (h.continent) {
- const key = h.continent;
- counts.set(key, (counts.get(key) || 0) + 1);
- 
- if (h.country) {
- const countryKey = `${h.continent}/${h.country}`;
- counts.set(countryKey, (counts.get(countryKey) || 0) + 1);
- 
- if (h.region) {
- const regionKey = `${h.continent}/${h.country}/${h.region}`;
- counts.set(regionKey, (counts.get(regionKey) || 0) + 1);
- 
- if (h.zone) {
- const zoneKey = `${h.continent}/${h.country}/${h.region}/${h.zone}`;
- counts.set(zoneKey, (counts.get(zoneKey) || 0) + 1);
- 
-              // Extended levels from enrichedData
- const comarca = gd?.admin_nivel_3;
- if (comarca) {
- const comarcaKey = `${h.continent}/${h.country}/${h.region}/${h.zone}/${comarca}`;
- counts.set(comarcaKey, (counts.get(comarcaKey) || 0) + 1);
- 
- const localidad = gd?.localidad;
- if (localidad) {
- const localidadKey = `${comarcaKey}/${localidad}`;
- counts.set(localidadKey, (counts.get(localidadKey) || 0) + 1);
- 
- const sublocalidad = gd?.sublocalidad;
- if (sublocalidad) {
- const subKey = `${localidadKey}/${sublocalidad}`;
- counts.set(subKey, (counts.get(subKey) || 0) + 1);
 
- const calle = (gd as any)?.calle;
- if (calle) {
- const calleKey = `${subKey}/${calle}`;
- counts.set(calleKey, (counts.get(calleKey) || 0) + 1);
- }
- }
- }
- }
- }
- }
- }
+ const counts = new Map<string, number>();
+
+ allLocations.forEach(loc => {
+ const h = getFilledLocationHierarchy(loc);
+ // Cuenta acumulada por nivel: el padre cuenta TODOS los descendientes,
+ // incluidos los que cuelgan de un placeholder `(sin ...)`.
+ let key = '';
+ for (const lv of HIERARCHY_LEVELS) {
+ key = key ? `${key}/${h[lv]}` : h[lv];
+ counts.set(key, (counts.get(key) || 0) + 1);
  }
  });
- 
+
  return counts;
  }, [allLocations]);
 
   // Get locations filtered by non-geography filters
  const filteredLocations = useMemo(() => {
  if (allLocations.length === 0) return [];
- 
+
   return allLocations.filter((loc) => matchesLocationFilters(loc, filters, { includeGeo: false }));
  }, [allLocations, filters]);
 
@@ -118,191 +91,53 @@ export function GeographyTree() {
 
  const nodes: TreeNode[] = [];
  const continentMap = new Map<string, TreeNode>();
- let unclassifiedCount = 0;
- let unclassifiedTotal = 0;
 
-  allLocations.forEach(loc => {
-  const h = getLocationHierarchy(loc);
-  if (!h.continent || !h.country) {
-  unclassifiedTotal++;
-  }
-  });
+ filteredLocations.forEach(loc => {
+ // Path COMPLETO de 8 niveles, con placeholders canónicos para los
+ // niveles ausentes. Esto garantiza padre = suma(hijos).
+ const h = getFilledLocationHierarchy(loc);
 
-  filteredLocations.forEach(loc => {
-  // Jerarquía canonicalizada: alias idiomáticos colapsados
-  const h = getLocationHierarchy(loc);
-  const gd = loc.enrichedData?.datos_geograficos;
-  const continent = h.continent;
-  const country = h.country;
-  const region = h.region;
-  const zone = h.zone;
-  const comarca = gd?.admin_nivel_3;
-  const localidad = gd?.localidad;
-  const sublocalidad = gd?.sublocalidad;
-  const calle = (gd as any)?.calle as string | undefined;
+ let parentChildren = nodes;
+ const accumPath: string[] = [];
+ let parentMap: Map<string, TreeNode> | null = continentMap;
 
- if (!continent || !country) {
- unclassifiedCount++;
- return;
+ for (let i = 0; i < HIERARCHY_LEVELS.length; i++) {
+ const hierarchyLevel = HIERARCHY_LEVELS[i];
+ const value = h[hierarchyLevel];
+ accumPath.push(value);
+ const treeLevel = LEVEL_MAP[hierarchyLevel];
+ const fullKey = accumPath.join('/');
+
+ // Lookup directo en el primer nivel (continentMap), búsqueda lineal en
+ // niveles internos (típicamente pocos hijos por nodo).
+ let node: TreeNode | undefined;
+ if (i === 0 && parentMap) {
+ node = parentMap.get(value);
+ } else {
+ node = parentChildren.find((c) => c.name === value);
  }
 
-      // Continent
- if (!continentMap.has(continent)) {
- continentMap.set(continent, {
- name: continent,
+ if (!node) {
+ node = {
+ name: value,
  count: 0,
- totalCount: totalTree.get(continent) || 0,
- level: 'continent',
+ totalCount: totalTree.get(fullKey) || 0,
+ level: treeLevel,
  children: [],
- path: [continent],
-  ids: [],
- });
- nodes.push(continentMap.get(continent)!);
- }
- const continentNode = continentMap.get(continent)!;
- continentNode.count++;
- continentNode.ids.push(loc.id);
-
-      // Country
- let countryNode = continentNode.children.find(c => c.name === country);
- if (!countryNode) {
- const countryKey = `${continent}/${country}`;
- countryNode = {
- name: country,
- count: 0,
- totalCount: totalTree.get(countryKey) || 0,
- level: 'country',
- children: [],
- path: [continent, country],
-  ids: [],
+ path: [...accumPath],
+ ids: [],
  };
- continentNode.children.push(countryNode);
+ parentChildren.push(node);
+ if (i === 0 && parentMap) parentMap.set(value, node);
  }
- countryNode.count++;
- countryNode.ids.push(loc.id);
-
- if (!region) return;
- 
-      // Region
- let regionNode = countryNode.children.find(r => r.name === region);
- if (!regionNode) {
- const regionKey = `${continent}/${country}/${region}`;
- regionNode = {
- name: region,
- count: 0,
- totalCount: totalTree.get(regionKey) || 0,
- level: 'region',
- children: [],
- path: [continent, country, region],
-  ids: [],
- };
- countryNode.children.push(regionNode);
+ node.count++;
+ node.ids.push(loc.id);
+ parentChildren = node.children;
+ parentMap = null;
  }
- regionNode.count++;
- regionNode.ids.push(loc.id);
-
- if (!zone) return;
- 
-      // Zone (Provincia)
- let zoneNode = regionNode.children.find(z => z.name === zone);
- if (!zoneNode) {
- const zoneKey = `${continent}/${country}/${region}/${zone}`;
- zoneNode = {
- name: zone,
- count: 0,
- totalCount: totalTree.get(zoneKey) || 0,
- level: 'zone',
- children: [],
- path: [continent, country, region, zone],
-  ids: [],
- };
- regionNode.children.push(zoneNode);
- }
- zoneNode.count++;
- zoneNode.ids.push(loc.id);
-
- if (!comarca) return;
- 
-      // Comarca (admin_nivel_3)
- let comarcaNode = zoneNode.children.find(c => c.name === comarca);
- if (!comarcaNode) {
- const comarcaKey = `${continent}/${country}/${region}/${zone}/${comarca}`;
- comarcaNode = {
- name: comarca,
- count: 0,
- totalCount: totalTree.get(comarcaKey) || 0,
- level: 'comarca',
- children: [],
- path: [continent, country, region, zone, comarca],
-  ids: [],
- };
- zoneNode.children.push(comarcaNode);
- }
- comarcaNode.count++;
- comarcaNode.ids.push(loc.id);
-
- if (!localidad) return;
- 
-      // Localidad
- let localidadNode = comarcaNode.children.find(l => l.name === localidad);
- if (!localidadNode) {
- const localidadKey = `${continent}/${country}/${region}/${zone}/${comarca}/${localidad}`;
- localidadNode = {
- name: localidad,
- count: 0,
- totalCount: totalTree.get(localidadKey) || 0,
- level: 'localidad',
- children: [],
- path: [continent, country, region, zone, comarca, localidad],
-  ids: [],
- };
- comarcaNode.children.push(localidadNode);
- }
- localidadNode.count++;
- localidadNode.ids.push(loc.id);
-
- if (!sublocalidad) return;
- 
-      // Sublocalidad (Barrio)
- let subNode = localidadNode.children.find(s => s.name === sublocalidad);
- if (!subNode) {
- const subKey = `${continent}/${country}/${region}/${zone}/${comarca}/${localidad}/${sublocalidad}`;
- subNode = {
- name: sublocalidad,
- count: 0,
- totalCount: totalTree.get(subKey) || 0,
- level: 'sublocalidad',
- children: [],
- path: [continent, country, region, zone, comarca, localidad, sublocalidad],
-  ids: [],
- };
- localidadNode.children.push(subNode);
- }
- subNode.count++;
- subNode.ids.push(loc.id);
-
- if (!calle) return;
-
-       // Calle (nivel 8)
- let calleNode = subNode.children.find(c => c.name === calle);
- if (!calleNode) {
- const calleKey = `${continent}/${country}/${region}/${zone}/${comarca}/${localidad}/${sublocalidad}/${calle}`;
- calleNode = {
- name: calle,
- count: 0,
- totalCount: totalTree.get(calleKey) || 0,
- level: 'calle',
- children: [],
- path: [continent, country, region, zone, comarca, localidad, sublocalidad, calle],
-  ids: [],
- };
- subNode.children.push(calleNode);
- }
- calleNode.count++;
- calleNode.ids.push(loc.id);
  });
 
-    // Sort all levels — placeholders "(sin ...)" siempre al final de su sección
+     // Sort all levels — placeholders "(sin ...)" siempre al final de su sección
  const isPlaceholder = (n: TreeNode) => /^\(sin /i.test(n.name);
  const sortNodes = (nodeList: TreeNode[]) => {
  nodeList.sort((a, b) => {
@@ -315,22 +150,8 @@ export function GeographyTree() {
  };
  sortNodes(nodes);
 
-    // Add "Sin clasificar" node
- if (unclassifiedCount > 0) {
- const unclassifiedIds = filteredLocations.filter(l => !l.continent || !l.country).map(l => l.id);
- nodes.push({
- name: 'Sin clasificar',
- count: unclassifiedCount,
- totalCount: unclassifiedTotal,
- level: 'continent',
- children: [],
- path: ['__unclassified__'],
-  ids: unclassifiedIds,
- });
- }
-
  return nodes;
- }, [filteredLocations, totalTree, allLocations]);
+ }, [filteredLocations, totalTree]);
 
  const toggleExpand = (path: string) => {
  const newExpanded = new Set(expandedNodes);
