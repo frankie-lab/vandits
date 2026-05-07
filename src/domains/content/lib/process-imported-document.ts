@@ -28,6 +28,8 @@ import {
 } from '@/lib/duplicate-detection';
 import { dbLocationToGeoLocation } from './db-transformers';
 import { useLocationsStore } from '@/domains/content/store/locations-store';
+import { shouldAutoApproveImport } from './location-lifecycle';
+import { approveAllDocumentLocations } from './document-approval';
 
 /** Fetch all rows from a Supabase query bypassing the 1000-row default limit. */
 async function fetchAllPaginated<T>(
