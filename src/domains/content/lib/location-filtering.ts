@@ -1,6 +1,6 @@
 import type { FilterCriteria, GeoLocation } from '@/types/location';
 import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
-import { getLocationHierarchy } from '@/shared/geography/hierarchy';
+import { getLocationHierarchy, isPlaceholderValue } from '@/shared/geography/hierarchy';
 
 /**
  * Matcher ÚNICO para filtros de exploración/navegación sobre un punto.
