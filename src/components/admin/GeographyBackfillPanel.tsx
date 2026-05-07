@@ -42,7 +42,16 @@ export function GeographyBackfillPanel() {
   const [coverage, setCoverage] = useState<Coverage | null>(null);
   const [loadingCov, setLoadingCov] = useState(true);
   const [mode, setMode] = useState<Mode>('reconcile');
+  const [, forceTick] = useState(0);
   const job = useGeocodingJobStore();
+
+  // Tick every second while job runs so elapsed/ETA refresh visually
+  // even if no new point comes back from the worker.
+  useEffect(() => {
+    if (!job.running) return;
+    const id = setInterval(() => forceTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [job.running]);
 
   const refreshCoverage = useCallback(async () => {
     setLoadingCov(true);
