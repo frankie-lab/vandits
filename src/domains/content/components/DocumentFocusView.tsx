@@ -828,7 +828,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
       ? selectedIds.size
       : locations.length;
     const pointsForMode = (m: AddModeKey): number => {
-      if (m === 'catalog') return catalogPreview?.toAdd.length ?? 0;
+      if (m === 'catalog') return catalogPreviewRef.current?.toAdd.length ?? 0;
       if (m === 'itinerary') return locations.length;
       return scopedCount;
     };
