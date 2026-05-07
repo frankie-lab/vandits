@@ -223,6 +223,7 @@ export async function resumeIfPending(): Promise<void> {
     initialPending: persisted.initialPending,
     remaining: Math.max(0, persisted.initialPending - persisted.totalUpdated),
     scope: persisted.scope,
+    startedAt: persisted.startedAt ?? Date.now(),
   });
 
   if (!isStale) {
