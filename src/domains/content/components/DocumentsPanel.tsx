@@ -33,6 +33,7 @@ import { DocumentContentManager } from './DocumentContentManager';
 import { DocumentFocusView } from './DocumentFocusView';
 import { getDocumentIntegrationState } from '../lib/document-integration-state';
 import { approveAllDocumentLocations } from '../lib/document-approval';
+import { reconcileDocumentImportStatus } from '../lib/document-reconcile';
 // useGeocodingJobStore: ya no se usa aquí (renormalización automática en import).
 
 // Legacy type kept for backward compat with the documents.status column.
@@ -123,6 +124,15 @@ export function DocumentsPanel() {
       );
 
       setDocs(enriched);
+
+      // Auto-heal best-effort: docs trusted con todo aprobado pero
+      // import_status='reviewing' (legacy) → marcar confirmed + consumir
+      // pending_collection. Nunca bloqueante.
+      void Promise.all(
+        enriched
+          .filter((d) => d.location_count > 0 && d.approved_count === d.location_count)
+          .map((d) => reconcileDocumentImportStatus(d.id).catch(() => null)),
+      );
     } catch (e) {
       console.error('Error fetching documents:', e);
       toast.error('Error al cargar documentos');
