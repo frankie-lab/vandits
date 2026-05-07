@@ -19,6 +19,8 @@ export interface GeocodingScope {
   label?: string;
   /** Force re-normalize already-geocoded points using the latest canonical rules. */
   forceRenormalize?: boolean;
+  /** Backfill mode for `backfill-admin-fks`: 'fill' (default), 'reconcile', 'overwrite'. */
+  mode?: 'fill' | 'reconcile' | 'overwrite';
 }
 
 interface GeocodingJobState {
@@ -147,6 +149,7 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
             body: {
               limit: 1,
               ...(scope?.documentId ? { document_id: scope.documentId } : {}),
+              ...(scope?.mode ? { mode: scope.mode } : {}),
               ...(scope?.forceRenormalize ? { force_renormalize: true } : {}),
             },
           });
