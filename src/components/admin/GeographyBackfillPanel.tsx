@@ -3,12 +3,13 @@
 // Reuses useGeocodingJobStore + GeocodingProgressBar (do not introduce a
 // parallel progress system).
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Compass, Loader2, Play, RefreshCw, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useGeocodingJobStore } from '@/stores/geocoding-job-store';
+import { computeEta, formatDuration, formatClock, formatRate } from '@/shared/geography/eta';
 
 type Mode = 'fill' | 'reconcile' | 'overwrite';
 
