@@ -302,9 +302,15 @@ export function GeographyTree() {
  calleNode.ids.push(loc.id);
  });
 
-    // Sort all levels
+    // Sort all levels — placeholders "(sin ...)" siempre al final de su sección
+ const isPlaceholder = (n: TreeNode) => /^\(sin /i.test(n.name);
  const sortNodes = (nodeList: TreeNode[]) => {
- nodeList.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+ nodeList.sort((a, b) => {
+ const ap = isPlaceholder(a);
+ const bp = isPlaceholder(b);
+ if (ap !== bp) return ap ? 1 : -1;
+ return b.count - a.count || a.name.localeCompare(b.name);
+ });
  nodeList.forEach(n => sortNodes(n.children));
  };
  sortNodes(nodes);
