@@ -28,8 +28,9 @@ import {
 } from '@/components/ui/alert-dialog';
 
 import { AuditPanel } from './AuditPanel';
+import { GeographyBackfillPanel } from './admin/GeographyBackfillPanel';
 
-type AdminTab = 'users' | 'permissions' | 'markers' | 'routes' | 'icons' | 'enrichment' | 'audit';
+type AdminTab = 'users' | 'permissions' | 'markers' | 'routes' | 'icons' | 'enrichment' | 'audit' | 'geography';
 
 interface AdminPanelProps {
  onClose: () => void;
