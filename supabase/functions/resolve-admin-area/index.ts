@@ -82,9 +82,15 @@ Deno.serve(async (req) => {
       let resolvedId: string | null = null;
       let resolvedParentId: string | null = null;
 
-      // ---- 1. ISO code match (canonical) — highest priority for continent/country
-      if (!isPlaceholder && (lv.code === 'country' || lv.code === 'continent')) {
-        const looksIso = ISO2_RE.test(name) || ISO3_RE.test(name);
+      // ---- 1. ISO code match (canonical) — applies to ALL levels
+      // Country: ISO-2/3 (e.g. "FR", "FRA")
+      // Region:  ISO-3166-2 (e.g. "ES-AN", "FR-IDF")
+      // Continent: M49 / 2-letter (e.g. "EU")
+      if (!isPlaceholder) {
+        const looksIso =
+          ISO2_RE.test(name) ||
+          ISO3_RE.test(name) ||
+          /^[A-Za-z]{2}-[A-Za-z0-9]{1,3}$/.test(name);
         if (looksIso) {
           const isoUpper = name.toUpperCase();
           const { data: byIso } = await supabase
