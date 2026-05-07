@@ -96,12 +96,15 @@ Deno.serve(async (req) => {
   const TIME_BUDGET_MS = 120_000;
 
   // Build the candidate query with optional scoping.
-  // "Pendiente" = falta country_id O falta continent_id (legacy de antes del trigger).
+  // "Pendiente" = falta cualquier nivel alto/medio de la jerarquía nueva.
+  // admin3_id y sublocality_id son opcionales por naturaleza (no todos los lugares los tienen).
+  const PENDING_OR = 'continent_id.is.null,country_id.is.null,region_id.is.null,zone_id.is.null,locality_id.is.null';
   let q = admin
     .from('locations')
     .select('id, latitude, longitude, country_id, continent_id')
     .is('deleted_at', null);
-  if (!force) q = q.or('country_id.is.null,continent_id.is.null');
+  if (!force) q = q.or(PENDING_OR);
+  if (catalogOnly) q = q.eq('is_approved', true);
   if (callerUserId) q = q.eq('owner_user_id', callerUserId);
   if (documentId) q = q.eq('document_id', documentId);
   const offset = Math.max(0, Number(body.offset ?? 0));
