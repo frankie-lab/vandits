@@ -2580,6 +2580,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _merge_admin_area: {
+        Args: { _canonical: string; _orphan: string }
+        Returns: undefined
+      }
       can_view_deleted_location: {
         Args: { loc_row: Database["public"]["Tables"]["locations"]["Row"] }
         Returns: boolean
