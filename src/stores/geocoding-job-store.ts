@@ -134,24 +134,29 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
     runningPromise = (async () => {
       try {
         let totalUpdated = 0;
+        let totalProcessed = 0;
         let remaining = initialPending;
         let failStreak = 0;
+        let offset = 0;
+        const mode = scope?.mode ?? (scope?.forceRenormalize ? 'overwrite' : 'fill');
+        // 'fill' shrinks naturally (filter excludes already-resolved rows), so no offset.
+        // 'reconcile'/'overwrite' walk the full scope → must paginate via offset.
+        const useOffset = mode !== 'fill';
+        // Higher limit reduces round-trips; Nominatim 1 req/s is enforced inside the function.
+        const PAGE_SIZE = 25;
 
-        // Single-point loop: process one location per invocation so the UI
-        // counter advances point-by-point and "Parar" reacts immediately
-        // (cancellation checked between every single geocode).
-        // Nominatim's 1 req/sec policy is respected inside the edge function.
         while (true) {
           if (cancelFlag) {
             toast.message(
-              `Geocodificación detenida. ${totalUpdated} puntos geocodificados, quedan ${remaining}.`,
+              `Geocodificación detenida. ${totalUpdated} actualizados de ${totalProcessed} procesados, quedan ${remaining}.`,
             );
             return;
           }
 
           const { data, error } = await supabase.functions.invoke('backfill-admin-fks', {
             body: {
-              limit: 1,
+              limit: PAGE_SIZE,
+              ...(useOffset ? { offset } : {}),
               ...(scope?.documentId ? { document_id: scope.documentId } : {}),
               ...(scope?.mode ? { mode: scope.mode } : {}),
               ...(scope?.forceRenormalize ? { force_renormalize: true } : {}),
@@ -162,7 +167,7 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
             failStreak++;
             if (failStreak >= 5) {
               toast.error(
-                `Geocodificación detenida tras varios errores. ${totalUpdated} geocodificados, quedan ${remaining}.`,
+                `Geocodificación detenida tras varios errores. ${totalUpdated} actualizados, quedan ${remaining}.`,
               );
               return;
             }
@@ -170,19 +175,39 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
           }
           failStreak = 0;
 
-          const d = data as { updated?: number; failed?: number; remaining?: number } | null;
+          const d = data as {
+            processed?: number;
+            updated?: number;
+            failed?: number;
+            remaining?: number;
+            totalInScope?: number;
+            nextOffset?: number;
+          } | null;
+          const proc = d?.processed ?? 0;
           const upd = d?.updated ?? 0;
           const failed = d?.failed ?? 0;
           if (typeof d?.remaining === 'number') remaining = d.remaining;
           totalUpdated += upd;
+          totalProcessed += proc;
+
+          if (useOffset) {
+            offset = typeof d?.nextOffset === 'number' ? d.nextOffset : offset + proc;
+          }
 
           set({ totalUpdated, remaining, failedThisBatch: failed });
           persist({ totalUpdated, heartbeatAt: Date.now() });
 
-          if (remaining === 0) break;
-          if (upd === 0 && failed === 0) break;
+          // Termination:
+          //   fill            → server's `remaining` reaches 0
+          //   reconcile/over  → page returned 0 rows (cursor exhausted)
+          if (mode === 'fill') {
+            if (remaining === 0) break;
+            if (proc === 0 && failed === 0) break; // safety: nothing to chew
+          } else {
+            if (proc === 0) break;
+          }
         }
-        toast.success(`Geocodificación completada: ${get().totalUpdated} puntos${ctxLabel}`);
+        toast.success(`Geocodificación completada: ${get().totalUpdated} actualizados${ctxLabel}`);
         window.dispatchEvent(new CustomEvent('locations:refresh'));
         window.dispatchEvent(new CustomEvent('locations:changed'));
       } catch (err) {
