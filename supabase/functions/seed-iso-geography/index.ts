@@ -218,7 +218,8 @@ Deno.serve(async (req) => {
       (countryRows ?? []).map((r) => [r.iso_code as string, r.id as string]),
     );
 
-    const ccList = limit ? Object.keys(subs).slice(0, limit) : Object.keys(subs);
+    const allCCs = Object.keys(subs);
+    const ccList = limit ? allCCs.slice(offset, offset + limit) : allCCs.slice(offset);
     for (const ccRaw of ccList) {
       const cc = ccRaw.toUpperCase();
       const countryId = countryIdByCC.get(cc);
