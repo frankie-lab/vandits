@@ -1,43 +1,60 @@
-# Fix: "Aplicar N acciones" no aplica nada
+## Hallazgo del caso concreto
 
-## Diagnóstico
+Doc `87a7d58c…` (Atlas Obscura, "Parcial 580/581"): 1 punto pendiente real (`Pinsapar de Grazalema`), insertado 8h después del documento, **no es duplicado**. Mismo patrón en `b1fac96a` (90/90).
 
-El diálogo bloquea el apply con el toast `Catálogo: aún calculando vista previa` (visto en session replay) y aborta antes de tocar el resto de modos. Causas reales en `src/domains/content/components/DocumentFocusView.tsx`:
+**Causa raíz:** `scrape-tick/index.ts:289` hardcodea `is_approved: false` para TODOS los inserts, ignorando el canal del documento. El helper único `shouldAutoApproveImport(sourceType)` ya define la regla correcta por canal, pero el scraper no lo consulta. Cuando el job termina, `processImportedDocument` aprueba lo existente, pero los puntos que el scraper inserta más tarde nacen pendientes y nadie los vuelve a aprobar.
 
-1. **Auto-apertura sin precarga.** Cuando el diálogo se abre desde el panel de documentos vía `autoOpenAddDialog` (líneas 125-130), solo se hace `setShowCatalogDialog(true)`. No se llama a `computeCatalogPreview` ni se preselecciona ningún modo. En cambio, el helper `openCatalogDialog` (580-585) sí precarga `'catalog'` y dispara el preview.
+## Principio rector
 
-2. **Effect ciego al toggle de modos.** El `useEffect` que recomputa el preview de catálogo (588-592) depende de `addMode` (derivado: primer elemento del Set, default `'catalog'`). Cuando el usuario marca/desmarca "Al catálogo general", `addModes` cambia pero `addMode` sigue siendo `'catalog'` → el effect no se vuelve a disparar y `catalogPreview` queda `null`.
+**Cero hardcoding por canal.** Toda decisión de auto-approve en cualquier punto de inserción (cliente, edge function, scrape, manual, futuras fuentes) debe pasar por `shouldAutoApproveImport(document.source_type)`. Es ya el helper único declarado en memoria — solo falta que el scraper lo use.
 
-3. **Mismo problema con itinerario** (effect 622-626): depende de `addMode`, no de `addModes.has('itinerary')`.
+## Cambios
 
-4. **Validación atómica con `catalogPreview` null.** En `handleApplyAll` (756-759) la condición `!catalogPreview || catalogPreview.loading` empuja el error y, por ser validación atómica, NINGÚN otro modo (collection, tag) llega a ejecutarse.
+### 1. `supabase/functions/scrape-tick/index.ts` — usar el helper
 
-## Cambios (solo UI, mismo archivo)
+- Añadir versión Deno-compatible de `shouldAutoApproveImport` (importar el TS del cliente no es viable en edge function; replicar la regla en un módulo `_shared/lifecycle.ts` reutilizable por cualquier edge function actual o futura).
+- En `processJob`, leer `documents.source_type` una vez y cachear `autoApprove = shouldAutoApproveImport(sourceType)`.
+- En el insert (línea 289), `is_approved: autoApprove` en lugar de literal `false`.
 
-### A. Efectos reactivos a `addModes`
-- Reemplazar la dependencia `addMode` por un proxy estable de pertenencia:
-  - Effect catálogo: depender de `addModes.has('catalog')` (vía variable derivada `hasCatalogMode`).
-  - Effect itinerario: depender de `addModes.has('itinerary')`.
-- Garantiza que al marcar el checkbox se dispare la computación del preview correspondiente.
+Esto cubre **cualquier futura fuente**: si mañana se añade `instagram_import`, `mastodon_import`, etc., basta con declararlo en el helper único y todos los puntos de inserción lo respetan.
 
-### B. Auto-apertura coherente
-- En el effect `autoOpenAddDialog` (125-130), además de abrir el diálogo:
-  - Inicializar `addModes` a `new Set(['catalog'])` si está vacío.
-  - Setear `itineraryName` a `docName` (paridad con `openCatalogDialog`).
-  - Llamar a `computeCatalogPreview(catalogOptions.scope)`.
+### 2. Sweep de huérfanos pre-existentes (one-shot, NO hardcoded por documento)
 
-### C. Validación tolerante
-- Si el usuario marcó `catalog` pero el preview aún está `loading`, esperar (poll corto) en vez de abortar todo el batch. Implementación mínima: si `catalogPreview === null` al pulsar Aplicar, llamar `computeCatalogPreview` y `await` un microbucle hasta que `loading=false` (timeout 3s); si tras el timeout sigue null, reportar error solo del paso `catalog` y continuar con el resto (consistente con la filosofía "continue-on-error" del bloque 3 del handler, líneas 780+).
+Update genérico que aplica la misma regla del helper a TODO el histórico:
 
-## Fuera de alcance
+```sql
+UPDATE locations l
+SET is_approved = true
+FROM documents d
+WHERE l.document_id = d.id
+  AND d.source_type IN ('web_import','manual')
+  AND l.is_approved = false
+  AND l.deleted_at IS NULL
+  AND (l.custom_data->>'duplicate_of') IS NULL;
+```
 
-- No tocar `document-add.service.ts` ni los `applyX` (funcionan).
-- No cambiar la UI del diálogo (checkboxes, layout) — solo el cableado de estado.
-- No modificar el checkbox "y publicarlos en mi catálogo" añadido recientemente.
+La lista de canales (`web_import, manual`) está alineada con `shouldAutoApproveImport`. No menciona ningún documento concreto.
 
-## QA
+### 3. Auditoría transversal de inserts a `locations`
 
-1. Abrir documento desde panel → diálogo se abre con "Catálogo" marcado y preview listo.
-2. Marcar adicionalmente "Colección" + nombre + "y publicarlos" + "Etiquetas" → "Aplicar 3 acciones" ejecuta los 3 pasos y muestra toast de éxito.
-3. Marcar SOLO "Colección" + "Etiquetas" (sin catálogo) → no se exige preview de catálogo, ambos pasos corren.
-4. Desmarcar y marcar "Catálogo" varias veces → preview se recomputa cada vez que se marca.
+Verificar que **ningún otro insert** decida `is_approved` por su cuenta:
+- `src/lib/database/saveDocumentToDatabase.ts`
+- `enrich-location` edge function
+- Edge functions de import (`fetch-remote-kml`, etc.)
+- Cualquier otro caller localizado vía `rg "is_approved" supabase/functions src/lib`
+
+Cualquiera que hardcodee el flag debe migrarse a `shouldAutoApproveImport(sourceType)`. Si alguno ya lo hacía bien, dejarlo igual.
+
+### 4. UI — ocultar acciones inaplicables (transversal, sin condicionales por canal)
+
+`DocumentsPanel.tsx`: la regla se basa **solo** en estado derivado, no en source_type:
+- "Aprobar todos" — ya condicionado a `pendingApproval > 0`. Mantener.
+- "Añadir…" — ocultar cuando `pendingApproval === 0 && !document.metadata?.pending_collection`. Sigue accesible desde "Abrir" → vista de documento.
+
+Resultado uniforme para cualquier canal: docs 100% integrados muestran solo Abrir + Eliminar.
+
+## Memorias a actualizar
+
+- `mem://logic/import/scrape-direct-enrichment`: añadir "scrape-tick respeta `shouldAutoApproveImport(source_type)`; nunca hardcodea `is_approved`".
+- `mem://logic/content/import-lifecycle-by-channel`: ampliar para incluir TODOS los puntos de inserción (cliente + edge functions). El helper es ley para cualquier insert nuevo.
+- `mem://ui/documents-panel-actions`: añadir regla de ocultar "Añadir…" cuando ya está integrado.

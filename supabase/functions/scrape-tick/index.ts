@@ -3,6 +3,7 @@
 // with jitter and long pauses to look like human traffic.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { shouldAutoApproveImport } from '../_shared/lifecycle.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -232,7 +233,7 @@ async function resolveAdminFks(input: {
   }
 }
 
-async function persistPlace(job: any, documentId: string, place: ScrapedPlace): Promise<string | null> {
+async function persistPlace(job: any, documentId: string, place: ScrapedPlace, autoApprove: boolean): Promise<string | null> {
   // Dedupe within job
   const { data: existing } = await supabase
     .from('locations')
@@ -286,7 +287,7 @@ async function persistPlace(job: any, documentId: string, place: ScrapedPlace): 
     user_image_visibility: 'private',
     enriched_data: null,
     enrichment_status: null,
-    is_approved: false,
+    is_approved: autoApprove,
     visibility: job.default_visibility ?? 'followers',
     custom_data: {
       source: job.source,
@@ -328,6 +329,13 @@ async function processJob(job: any, deadline: number): Promise<void> {
   }
 
   const documentId = await ensureDocument(job);
+  // Lifecycle por canal — fuente única de verdad: shouldAutoApproveImport.
+  const { data: docRow } = await supabase
+    .from('documents')
+    .select('source_type')
+    .eq('id', documentId)
+    .maybeSingle();
+  const autoApprove = shouldAutoApproveImport(docRow?.source_type ?? 'web_import');
 
   // Count pending items to decide whether to expand pages or process items
   const { count: pendingItemsCount } = await supabase
@@ -449,7 +457,7 @@ async function processJob(job: any, deadline: number): Promise<void> {
         skipped++;
         continue;
       }
-      const locId = await persistPlace(job, documentId, place);
+      const locId = await persistPlace(job, documentId, place, autoApprove);
       await supabase.from('scrape_job_items').update({
         status: locId ? 'done' : 'skipped',
         location_id: locId,
