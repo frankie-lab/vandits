@@ -54,12 +54,12 @@ interface StepProgress {
 }
 
 const STEPS: StepInfo[] = [
-  { step: 'geocoding', label: 'Obtener coordenadas (puntos sin lat/lng)', icon: MapPin },
-  { step: 'fk-resolve', label: 'Clasificar por país/región/zona', icon: Globe2 },
+  { step: 'geo-normalize', label: 'Normalizar geografía (coordenadas + país/región/zona)', icon: Globe2 },
   { step: 'catalog-match', label: 'Buscar duplicados en tu catálogo', icon: Layers },
 ];
 
 const initialProgress = (): Record<ProcessingStep, StepProgress> => ({
+  'geo-normalize': { status: 'pending', total: 0, processed: 0 },
   geocoding: { status: 'pending', total: 0, processed: 0 },
   'fk-resolve': { status: 'pending', total: 0, processed: 0 },
   'catalog-match': { status: 'pending', total: 0, processed: 0 },
