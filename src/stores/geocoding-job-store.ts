@@ -19,6 +19,8 @@ export interface GeocodingScope {
   label?: string;
   /** Force re-normalize already-geocoded points using the latest canonical rules. */
   forceRenormalize?: boolean;
+  /** Backfill mode for `backfill-admin-fks`: 'fill' (default), 'reconcile', 'overwrite'. */
+  mode?: 'fill' | 'reconcile' | 'overwrite';
 }
 
 interface GeocodingJobState {
