@@ -194,6 +194,47 @@ export async function initSessionCollectionVisibility(userId: string): Promise<v
     };
     window.removeEventListener('collection-items-changed', handler as EventListener);
     window.addEventListener('collection-items-changed', handler as EventListener);
+
+    // Refrescar metadata (color/icon/inCatalog) tras editar apariencia de
+    // cualquier colección. Evita que el cache mantenga el color viejo y los
+    // marcadores no reflejen el cambio hasta cerrar sesión.
+    const metaHandler = async () => {
+      if (!currentUserId) return;
+      try {
+        const all = await collectionService.findByUser(currentUserId);
+        const byId = new Map(all.map(c => [c.id, c]));
+        let inCatalogChanged = false;
+
+        for (const id of Object.keys(state.visible)) {
+          const c = byId.get(id);
+          if (!c) {
+            // Colección eliminada → quitar de visibles.
+            delete state.visible[id];
+            inCatalogChanged = true;
+            continue;
+          }
+          const prev = state.visible[id];
+          const nextInCatalog = c.inCatalog === true;
+          if (prev.inCatalog !== nextInCatalog) inCatalogChanged = true;
+          state.visible[id] = {
+            ...prev,
+            color: c.color || '#6b7280',
+            icon: c.icon || 'folder',
+            inCatalog: nextInCatalog,
+          };
+        }
+
+        if (inCatalogChanged) {
+          await rebuildCatalogMembership(currentUserId);
+        }
+        persistVisibleIds();
+        broadcast();
+      } catch (e) {
+        console.warn('[collection-visibility] meta refresh failed', e);
+      }
+    };
+    window.removeEventListener('collections-updated', metaHandler as EventListener);
+    window.addEventListener('collections-updated', metaHandler as EventListener);
   }
 }
 
