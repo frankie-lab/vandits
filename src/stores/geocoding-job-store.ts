@@ -1,16 +1,19 @@
 /**
  * Global singleton store for the geocoding (backfill-admin-fks) job.
- * Survives panel/component unmount so the counter persists when the user
- * closes the Geography filter panel. A footer indicator subscribes to this.
  *
- * Persistence: we mirror running/scope/totals to localStorage with a heartbeat
- * so a page refresh can auto-resume the loop (the JS bucle dies on unload but
- * the DB still has pending points). resumeIfPending() must be called once on
- * app mount.
+ * Architecture (v2 — server-side):
+ *  - The job runs on the server: a `geocoding_jobs` row drives a pg_cron
+ *    that ticks `geocoding-job-tick` every minute. The browser is no longer
+ *    needed once the job is created. Closing the tab / shutting the laptop
+ *    does NOT pause progress.
+ *  - The client only: (1) inserts the job row, (2) subscribes to it via
+ *    realtime to mirror counters in the UI, (3) sets `status='canceling'`
+ *    when the user clicks Stop.
  */
 import { create } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface GeocodingScope {
   /** Restrict the backfill to a single document. Omit to process all of the user's pending points. */
@@ -19,13 +22,19 @@ export interface GeocodingScope {
   label?: string;
   /** Force re-normalize already-geocoded points using the latest canonical rules. */
   forceRenormalize?: boolean;
-  /** Backfill mode for `backfill-admin-fks`: 'fill' (default), 'reconcile', 'overwrite'. */
+  /** Backfill mode: 'fill' (default), 'reconcile', 'overwrite'. */
   mode?: 'fill' | 'reconcile' | 'overwrite';
+  /** Limit to approved/catalog points. */
+  catalogOnly?: boolean;
 }
+
+type JobStatus = 'running' | 'canceling' | 'canceled' | 'completed' | 'failed';
 
 interface GeocodingJobState {
   running: boolean;
   stopping: boolean;
+  jobId: string | null;
+  status: JobStatus | null;
   totalUpdated: number;
   remaining: number;
   initialPending: number;
@@ -33,61 +42,75 @@ interface GeocodingJobState {
   scope: GeocodingScope | null;
   startedAt: number | null;
   start: (initialPending: number, scope?: GeocodingScope) => Promise<void>;
-  stop: () => void;
+  stop: () => Promise<void>;
 }
 
-let cancelFlag = false;
-let runningPromise: Promise<void> | null = null;
+let channel: RealtimeChannel | null = null;
+let lastNotifiedComplete = false;
 
-const PERSIST_KEY = 'geocoding-job-state';
-const HEARTBEAT_STALE_MS = 30_000;
-
-interface PersistedJob {
-  running: boolean;
-  scope: GeocodingScope | null;
-  totalUpdated: number;
-  initialPending: number;
-  startedAt: number;
-  heartbeatAt: number;
+function unsubscribe() {
+  if (channel) {
+    try { supabase.removeChannel(channel); } catch { /* noop */ }
+    channel = null;
+  }
 }
 
-const persist = (patch: Partial<PersistedJob>) => {
-  if (typeof window === 'undefined') return;
-  try {
-    const prev = readPersisted() ?? {
-      running: false,
-      scope: null,
-      totalUpdated: 0,
-      initialPending: 0,
-      startedAt: Date.now(),
-      heartbeatAt: Date.now(),
-    };
-    const next = { ...prev, ...patch };
-    localStorage.setItem(PERSIST_KEY, JSON.stringify(next));
-  } catch {
-    /* ignore quota/serialization errors */
-  }
-};
+function applyRow(row: Record<string, any>) {
+  const status = row.status as JobStatus;
+  const isActive = status === 'running' || status === 'canceling';
+  const totalInScope = row.total_in_scope ?? 0;
 
-const clearPersisted = () => {
-  if (typeof window === 'undefined') return;
-  try { localStorage.removeItem(PERSIST_KEY); } catch { /* noop */ }
-};
+  useGeocodingJobStore.setState({
+    jobId: row.id,
+    status,
+    running: isActive,
+    stopping: status === 'canceling',
+    totalUpdated: row.updated ?? 0,
+    failedThisBatch: row.failed ?? 0,
+    remaining: row.remaining ?? Math.max(0, totalInScope - (row.processed ?? 0)),
+    initialPending: totalInScope || (row.processed ?? 0) + (row.remaining ?? 0),
+    scope: {
+      documentId: row.document_id ?? undefined,
+      label: row.label ?? undefined,
+      mode: row.mode ?? 'fill',
+      catalogOnly: row.catalog_only ?? false,
+    },
+    startedAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+  });
 
-const readPersisted = (): PersistedJob | null => {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(PERSIST_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as PersistedJob;
-  } catch {
-    return null;
+  if (!isActive) {
+    if (status === 'completed' && !lastNotifiedComplete) {
+      lastNotifiedComplete = true;
+      toast.success(`Geocodificación completada: ${row.updated ?? 0} puntos actualizados`);
+      window.dispatchEvent(new CustomEvent('locations:refresh'));
+      window.dispatchEvent(new CustomEvent('locations:changed'));
+    } else if (status === 'canceled') {
+      toast.message(`Geocodificación detenida. ${row.updated ?? 0} actualizados.`);
+    } else if (status === 'failed') {
+      toast.error('La geocodificación falló. Revisa el panel de geografía.');
+    }
+    unsubscribe();
   }
-};
+}
+
+function subscribeToJob(jobId: string) {
+  unsubscribe();
+  lastNotifiedComplete = false;
+  channel = supabase
+    .channel(`geocoding-job-${jobId}`)
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'geocoding_jobs', filter: `id=eq.${jobId}` },
+      (payload) => applyRow(payload.new as Record<string, any>),
+    )
+    .subscribe();
+}
 
 export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
   running: false,
   stopping: false,
+  jobId: null,
+  status: null,
   totalUpdated: 0,
   remaining: 0,
   initialPending: 0,
@@ -95,200 +118,106 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
   scope: null,
   startedAt: null,
 
-  stop: () => {
-    if (!get().running) return;
-    cancelFlag = true;
+  stop: async () => {
+    const { jobId, running } = get();
+    if (!running || !jobId) return;
     set({ stopping: true });
+    const { error } = await supabase
+      .from('geocoding_jobs')
+      .update({ status: 'canceling' })
+      .eq('id', jobId);
+    if (error) {
+      console.error('[geocoding-job] cancel failed:', error);
+      toast.error('No se pudo detener la geocodificación.');
+      set({ stopping: false });
+    }
   },
 
   start: async (initialPending: number, scope?: GeocodingScope) => {
-    if (get().running || runningPromise) return;
-    cancelFlag = false;
-    const startedAt = Date.now();
-    set({
-      running: true,
-      stopping: false,
-      totalUpdated: 0,
-      remaining: initialPending,
-      initialPending,
-      failedThisBatch: 0,
-      scope: scope ?? null,
-      startedAt,
-    });
+    if (get().running) return;
 
-    persist({
-      running: true,
-      scope: scope ?? null,
-      totalUpdated: 0,
-      initialPending,
-      startedAt,
-      heartbeatAt: Date.now(),
-    });
+    const { data: userData } = await supabase.auth.getUser();
+    const uid = userData?.user?.id;
+    if (!uid) {
+      toast.error('Debes iniciar sesión para geocodificar.');
+      return;
+    }
 
-    const ctxLabel = scope?.label
-      ? ` de "${scope.label}"`
-      : scope?.documentId
-        ? ' del documento'
-        : '';
+    const mode = scope?.mode ?? (scope?.forceRenormalize ? 'overwrite' : 'fill');
 
-    runningPromise = (async () => {
-      try {
-        let totalUpdated = 0;
-        let totalProcessed = 0;
-        let remaining = initialPending;
-        let failStreak = 0;
-        let offset = 0;
-        const mode = scope?.mode ?? (scope?.forceRenormalize ? 'overwrite' : 'fill');
-        // 'fill' shrinks naturally (filter excludes already-resolved rows), so no offset.
-        // 'reconcile'/'overwrite' walk the full scope → must paginate via offset.
-        const useOffset = mode !== 'fill';
-        // Higher limit reduces round-trips; Nominatim 1 req/s is enforced inside the function.
-        const PAGE_SIZE = 25;
+    // If this user already has an active job, attach to it instead of creating a new one.
+    const { data: existing } = await supabase
+      .from('geocoding_jobs')
+      .select('*')
+      .eq('user_id', uid)
+      .in('status', ['running', 'canceling'])
+      .maybeSingle();
 
-        while (true) {
-          if (cancelFlag) {
-            toast.message(
-              `Geocodificación detenida. ${totalUpdated} actualizados de ${totalProcessed} procesados, quedan ${remaining}.`,
-            );
-            return;
-          }
+    if (existing) {
+      applyRow(existing);
+      subscribeToJob(existing.id);
+      toast.message('Ya hay una geocodificación en curso. Mostrando progreso.');
+      return;
+    }
 
-          const { data, error } = await supabase.functions.invoke('backfill-admin-fks', {
-            body: {
-              limit: PAGE_SIZE,
-              ...(useOffset ? { offset } : {}),
-              ...(scope?.documentId ? { document_id: scope.documentId } : {}),
-              ...(scope?.mode ? { mode: scope.mode } : {}),
-              ...(scope?.forceRenormalize ? { force_renormalize: true } : {}),
-            },
-          });
+    const insertPayload = {
+      user_id: uid,
+      status: 'running' as const,
+      mode,
+      document_id: scope?.documentId ?? null,
+      catalog_only: !!scope?.catalogOnly,
+      label: scope?.label ?? null,
+      scope: scope ? (scope as unknown as Record<string, unknown>) : {},
+      total_in_scope: initialPending > 0 ? initialPending : null,
+      remaining: initialPending > 0 ? initialPending : null,
+    };
 
-          if (error) {
-            failStreak++;
-            if (failStreak >= 5) {
-              toast.error(
-                `Geocodificación detenida tras varios errores. ${totalUpdated} actualizados, quedan ${remaining}.`,
-              );
-              return;
-            }
-            continue;
-          }
-          failStreak = 0;
+    const { data: created, error } = await supabase
+      .from('geocoding_jobs')
+      .insert(insertPayload)
+      .select()
+      .single();
 
-          const d = data as {
-            processed?: number;
-            updated?: number;
-            failed?: number;
-            remaining?: number;
-            totalInScope?: number;
-            nextOffset?: number;
-          } | null;
-          const proc = d?.processed ?? 0;
-          const upd = d?.updated ?? 0;
-          const failed = d?.failed ?? 0;
-          if (typeof d?.remaining === 'number') remaining = d.remaining;
-          totalUpdated += upd;
-          totalProcessed += proc;
+    if (error || !created) {
+      console.error('[geocoding-job] insert failed:', error);
+      toast.error('No se pudo iniciar la geocodificación.');
+      return;
+    }
 
-          if (useOffset) {
-            offset = typeof d?.nextOffset === 'number' ? d.nextOffset : offset + proc;
-          }
+    applyRow(created);
+    subscribeToJob(created.id);
 
-          set({ totalUpdated, remaining, failedThisBatch: failed });
-          persist({ totalUpdated, heartbeatAt: Date.now() });
+    // Trigger a tick immediately so the user sees progress without waiting for cron.
+    void supabase.functions.invoke('geocoding-job-tick', { body: {} }).catch(() => { /* noop */ });
 
-          // Termination:
-          //   fill            → server's `remaining` reaches 0
-          //   reconcile/over  → page returned 0 rows (cursor exhausted)
-          if (mode === 'fill') {
-            if (remaining === 0) break;
-            if (proc === 0 && failed === 0) break; // safety: nothing to chew
-          } else {
-            if (proc === 0) break;
-          }
-        }
-        toast.success(`Geocodificación completada: ${get().totalUpdated} actualizados${ctxLabel}`);
-        window.dispatchEvent(new CustomEvent('locations:refresh'));
-        window.dispatchEvent(new CustomEvent('locations:changed'));
-      } catch (err) {
-        console.error('[geocoding-job] failed:', err);
-        toast.error('Error al geocodificar puntos');
-      } finally {
-        set({ running: false, stopping: false, scope: null, startedAt: null });
-        cancelFlag = false;
-        runningPromise = null;
-        clearPersisted();
-      }
-    })();
-
-    await runningPromise;
+    toast.message(
+      `Geocodificación lanzada. Continúa en segundo plano${scope?.label ? ` (${scope.label})` : ''}.`,
+    );
   },
 }));
 
 /**
- * Hydrate UI from persisted state and auto-resume the loop if a previous
- * session was still running when the tab unloaded. Call once at app mount.
- *
- * - Fresh heartbeat (<30s): another tab is still running; just mirror the
- *   counters in the UI without launching a second worker.
- * - Stale heartbeat: the previous loop died (refresh / crash). Re-fetch the
- *   real remaining count from the DB and resume.
+ * Hydrate the store on app mount: if the user already has an active job
+ * (because they closed the tab earlier and reopened), surface it in the UI.
  */
 export async function resumeIfPending(): Promise<void> {
-  const persisted = readPersisted();
-  if (!persisted || !persisted.running) return;
-
-  const isStale = Date.now() - persisted.heartbeatAt > HEARTBEAT_STALE_MS;
-
-  // Mirror persisted counters immediately so the banner shows "Parar" on first paint.
-  useGeocodingJobStore.setState({
-    running: true,
-    stopping: false,
-    totalUpdated: persisted.totalUpdated,
-    initialPending: persisted.initialPending,
-    remaining: Math.max(0, persisted.initialPending - persisted.totalUpdated),
-    scope: persisted.scope,
-    startedAt: persisted.startedAt ?? Date.now(),
-  });
-
-  if (!isStale) {
-    // Another tab owns the worker. Don't launch a duplicate.
-    return;
-  }
-
-  // Stale: previous worker is dead, re-fetch remaining and resume.
   try {
     const { data: userData } = await supabase.auth.getUser();
     const uid = userData?.user?.id;
-    if (!uid) {
-      // Not logged in — clear stale state, can't resume.
-      clearPersisted();
-      useGeocodingJobStore.setState({ running: false, scope: null });
-      return;
+    if (!uid) return;
+
+    const { data: row } = await supabase
+      .from('geocoding_jobs')
+      .select('*')
+      .eq('user_id', uid)
+      .in('status', ['running', 'canceling'])
+      .maybeSingle();
+
+    if (row) {
+      applyRow(row);
+      subscribeToJob(row.id);
     }
-
-    let q = supabase
-      .from('locations')
-      .select('id', { count: 'exact', head: true })
-      .or('country_id.is.null,continent_id.is.null')
-      .is('deleted_at', null)
-      .eq('owner_user_id', uid);
-    if (persisted.scope?.documentId) q = q.eq('document_id', persisted.scope.documentId);
-    const { count } = await q;
-    const remaining = count ?? 0;
-
-    if (remaining === 0) {
-      clearPersisted();
-      useGeocodingJobStore.setState({ running: false, scope: null });
-      return;
-    }
-
-    // Reset running flag so start() doesn't short-circuit on the persisted mirror.
-    useGeocodingJobStore.setState({ running: false });
-    void useGeocodingJobStore.getState().start(remaining, persisted.scope ?? undefined);
   } catch (err) {
     console.error('[geocoding-job] resume failed:', err);
-    clearPersisted();
-    useGeocodingJobStore.setState({ running: false, scope: null });
   }
 }
