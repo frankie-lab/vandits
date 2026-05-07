@@ -175,6 +175,10 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
     skippedDuplicates: number;
     loading: boolean;
   } | null>(null);
+  // Ref espejo para que `handleApplyAll` pueda hacer poll del preview sin
+  // depender del closure inicial de React.
+  const catalogPreviewRef = useRef(catalogPreview);
+  useEffect(() => { catalogPreviewRef.current = catalogPreview; }, [catalogPreview]);
 
   const [itineraryPreview, setItineraryPreview] = useState<{
     linkedCount: number;
