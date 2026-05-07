@@ -179,6 +179,11 @@ Deno.serve(async (req) => {
         admin3: canon.admin3,
         locality: canon.locality,
         sublocality: canon.sublocality,
+        meta: {
+          region: canon.region_type ? { admin_type_local: canon.region_type, source: 'osm' } : undefined,
+          zone: canon.zone_type ? { admin_type_local: canon.zone_type, source: 'osm' } : undefined,
+          admin3: canon.admin3_type ? { admin_type_local: canon.admin3_type, source: 'osm' } : undefined,
+        },
       },
     });
 
