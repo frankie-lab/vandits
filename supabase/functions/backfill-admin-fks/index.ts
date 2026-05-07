@@ -194,6 +194,15 @@ Deno.serve(async (req) => {
       continue;
     }
 
+    // Compute confidence score from canonical resolution.
+    // 100 base, -10 for each missing high level, capped at [0,100].
+    let confidence = 100;
+    if (!canon.region) confidence -= 10;
+    if (!canon.zone) confidence -= 10;
+    if (!canon.admin3) confidence -= 5;
+    if (!canon.locality) confidence -= 5;
+    confidence = Math.max(0, Math.min(100, confidence));
+
     const { error: updErr } = await admin
       .from('locations')
       .update({
@@ -204,6 +213,13 @@ Deno.serve(async (req) => {
         admin3_id: ids.admin3_id ?? null,
         locality_id: ids.locality_id ?? null,
         sublocality_id: ids.sublocality_id ?? null,
+        // Fase 1 — capa universal
+        country_code: canon.country_code ?? null,
+        postal_code: canon.postal_code ?? null,
+        geo_source: 'nominatim',
+        geo_confidence: confidence,
+        geo_resolved_at: new Date().toISOString(),
+        raw_geocode: canon as unknown as Record<string, unknown>,
       })
       .eq('id', row.id);
 
