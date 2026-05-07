@@ -141,20 +141,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: resolved, error: resErr } = await admin.functions.invoke('resolve-admin-area', {
-      body: {
-        continent: canon.continent,
-        country: canon.country,
-        region: canon.region,
-        zone: canon.zone,
-        admin3: canon.admin3,
-        locality: canon.locality,
-        sublocality: canon.sublocality,
-        meta: {
-          region: canon.region_type ? { admin_type_local: canon.region_type, source: 'osm' } : undefined,
-          zone: canon.zone_type ? { admin_type_local: canon.zone_type, source: 'osm' } : undefined,
-          admin3: canon.admin3_type ? { admin_type_local: canon.admin3_type, source: 'osm' } : undefined,
-        },
-      },
+      body: canonicalToResolveBody(canon),
     });
 
     if (resErr) {
@@ -169,14 +156,7 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    // Compute confidence score from canonical resolution.
-    // 100 base, -10 for each missing high level, capped at [0,100].
-    let confidence = 100;
-    if (!canon.region) confidence -= 10;
-    if (!canon.zone) confidence -= 10;
-    if (!canon.admin3) confidence -= 5;
-    if (!canon.locality) confidence -= 5;
-    confidence = Math.max(0, Math.min(100, confidence));
+    const confidence = geoConfidenceScore(canon);
 
     const { error: updErr } = await admin
       .from('locations')
