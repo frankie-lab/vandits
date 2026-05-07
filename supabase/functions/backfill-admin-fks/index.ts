@@ -16,47 +16,17 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import {
-  normalizeNominatim,
-  mergeCanonical,
-  isMissingHighLevels,
-  type CanonicalGeo,
-  type NominatimAddress,
-} from '../_shared/geo-normalizer.ts';
+  reverseGeocodeCanonical,
+  geoConfidenceScore,
+  canonicalToResolveBody,
+  NOMINATIM_RATE_LIMIT_MS as RATE_LIMIT_MS,
+} from '../_shared/reverse-geocode.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
     'authorization, x-client-info, apikey, content-type',
 };
-
-const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/reverse';
-const USER_AGENT = 'VandIts-Backfill/1.0 (https://vandits.lovable.app)';
-const RATE_LIMIT_MS = 1100; // Nominatim policy: max 1 req/sec
-
-async function nominatimReverseRaw(lat: number, lng: number, zoom: number): Promise<NominatimAddress | null> {
-  const url = `${NOMINATIM_URL}?format=jsonv2&lat=${lat}&lon=${lng}&zoom=${zoom}&addressdetails=1&accept-language=es,en`;
-  try {
-    const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
-    if (!res.ok) return null;
-    const json = await res.json();
-    return (json?.address ?? null) as NominatimAddress | null;
-  } catch {
-    return null;
-  }
-}
-
-/** Doble llamada (zoom 18 detalle + zoom 10 si faltan niveles altos). */
-async function reverseGeocodeCanonical(lat: number, lng: number): Promise<CanonicalGeo | null> {
-  const detail = await nominatimReverseRaw(lat, lng, 18);
-  if (!detail) return null;
-  let canon = normalizeNominatim(detail);
-  if (isMissingHighLevels(canon)) {
-    await sleep(RATE_LIMIT_MS);
-    const coarse = await nominatimReverseRaw(lat, lng, 10);
-    if (coarse) canon = mergeCanonical(canon, normalizeNominatim(coarse));
-  }
-  return canon;
-}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -171,20 +141,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: resolved, error: resErr } = await admin.functions.invoke('resolve-admin-area', {
-      body: {
-        continent: canon.continent,
-        country: canon.country,
-        region: canon.region,
-        zone: canon.zone,
-        admin3: canon.admin3,
-        locality: canon.locality,
-        sublocality: canon.sublocality,
-        meta: {
-          region: canon.region_type ? { admin_type_local: canon.region_type, source: 'osm' } : undefined,
-          zone: canon.zone_type ? { admin_type_local: canon.zone_type, source: 'osm' } : undefined,
-          admin3: canon.admin3_type ? { admin_type_local: canon.admin3_type, source: 'osm' } : undefined,
-        },
-      },
+      body: canonicalToResolveBody(canon),
     });
 
     if (resErr) {
@@ -199,14 +156,7 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    // Compute confidence score from canonical resolution.
-    // 100 base, -10 for each missing high level, capped at [0,100].
-    let confidence = 100;
-    if (!canon.region) confidence -= 10;
-    if (!canon.zone) confidence -= 10;
-    if (!canon.admin3) confidence -= 5;
-    if (!canon.locality) confidence -= 5;
-    confidence = Math.max(0, Math.min(100, confidence));
+    const confidence = geoConfidenceScore(canon);
 
     const { error: updErr } = await admin
       .from('locations')
