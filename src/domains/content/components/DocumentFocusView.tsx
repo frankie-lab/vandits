@@ -770,20 +770,17 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
     // los demás modos en vez de abortar todo el batch.
     let skipCatalog = false;
     if (addModes.has('catalog')) {
-      if (!catalogPreview || catalogPreview.loading) {
-        // Forzar recomputación y esperar
+      const cur = catalogPreviewRef.current;
+      if (!cur || cur.loading) {
         try { computeCatalogPreview(catalogOptions.scope); } catch { /* ignore */ }
         const start = Date.now();
         while (Date.now() - start < 3000) {
           await new Promise(r => setTimeout(r, 100));
-          // Leer el estado actualizado vía closure no es posible aquí; el effect
-          // mantiene catalogPreview reactivo. Salimos cuando deje de estar loading.
-          // (el render entre awaits actualiza el ref a través del closure de React state).
-          // Como `catalogPreview` es del closure inicial, usamos un truco: si no
-          // está disponible tras el timeout, lo marcamos skip.
-          break;
+          const c = catalogPreviewRef.current;
+          if (c && !c.loading) break;
         }
-        if (!catalogPreview || catalogPreview.loading) {
+        const finalPreview = catalogPreviewRef.current;
+        if (!finalPreview || finalPreview.loading) {
           skipCatalog = true;
         }
       }
