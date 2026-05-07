@@ -67,6 +67,7 @@ Deno.serve(async (req) => {
   const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
   const mode = (body.mode ?? 'all') as 'countries' | 'subdivisions' | 'all';
   const limit = typeof body.limit === 'number' ? body.limit : undefined;
+  const offset = typeof body.offset === 'number' ? body.offset : 0;
 
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,
