@@ -97,18 +97,25 @@ export function matchesLocationFilters(
 
   if (includeGeo) {
     const hierarchy = getLocationHierarchy(loc);
+    // Match-helper: si el filtro es un placeholder `(sin ...)`, machea
+    // cualquier valor ausente (NULL o el propio placeholder en BD).
+    const matchLevel = (filterVal: string | undefined, locVal: string | undefined) => {
+      if (!filterVal) return true;
+      if (isPlaceholderValue(filterVal)) return locVal == null;
+      return locVal === filterVal;
+    };
     if (continent === '__unclassified__') {
       if (hierarchy.continent && hierarchy.country) return false;
     } else {
-      if (continent && hierarchy.continent !== continent) return false;
-      if (country && hierarchy.country !== country) return false;
-      if (region && hierarchy.region !== region) return false;
-      if (zone && hierarchy.zone !== zone) return false;
+      if (!matchLevel(continent, hierarchy.continent)) return false;
+      if (!matchLevel(country, hierarchy.country)) return false;
+      if (!matchLevel(region, hierarchy.region)) return false;
+      if (!matchLevel(zone, hierarchy.zone)) return false;
     }
-    if (comarca && hierarchy.admin_level_3 !== comarca) return false;
-    if (localidad && hierarchy.locality !== localidad) return false;
-    if (sublocalidad && hierarchy.sublocality !== sublocalidad) return false;
-    if (street && hierarchy.street !== street) return false;
+    if (!matchLevel(comarca, hierarchy.admin_level_3)) return false;
+    if (!matchLevel(localidad, hierarchy.locality)) return false;
+    if (!matchLevel(sublocalidad, hierarchy.sublocality)) return false;
+    if (!matchLevel(street, hierarchy.street)) return false;
   }
 
   if (includeClassification && classificationCode) {
