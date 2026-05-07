@@ -3,6 +3,7 @@
 // with jitter and long pauses to look like human traffic.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { shouldAutoApproveImport } from '../_shared/lifecycle.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
