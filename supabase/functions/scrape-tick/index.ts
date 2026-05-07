@@ -233,7 +233,7 @@ async function resolveAdminFks(input: {
   }
 }
 
-async function persistPlace(job: any, documentId: string, place: ScrapedPlace): Promise<string | null> {
+async function persistPlace(job: any, documentId: string, place: ScrapedPlace, autoApprove: boolean): Promise<string | null> {
   // Dedupe within job
   const { data: existing } = await supabase
     .from('locations')
