@@ -189,6 +189,27 @@ export function GeographyBackfillPanel() {
                 style={{ width: `${pct(job.totalUpdated, Math.max(1, job.initialPending))}%` }}
               />
             </div>
+            {(() => {
+              const eta = computeEta({
+                startedAt: job.startedAt,
+                totalUpdated: job.totalUpdated,
+                remaining: job.remaining,
+              });
+              return (
+                <div className="text-xs text-muted-foreground tabular-nums">
+                  Transcurrido <strong className="text-foreground">{formatDuration(eta.elapsedMs)}</strong>
+                  {eta.ratePerMin > 0 && <> · {formatRate(eta.ratePerMin)}</>}
+                  {eta.etaMs !== null && eta.finishAt ? (
+                    <>
+                      {' '}· ETA ~<strong className="text-foreground">{formatDuration(eta.etaMs)}</strong>
+                      {' '}· termina ~{formatClock(eta.finishAt)}
+                    </>
+                  ) : (
+                    <> · Calculando ETA…</>
+                  )}
+                </div>
+              );
+            })()}
             <Button variant="destructive" size="sm" onClick={() => useGeocodingJobStore.getState().stop()} disabled={job.stopping}>
               <Square className="w-3.5 h-3.5 mr-2" />
               {job.stopping ? 'Deteniendo…' : 'Detener'}
