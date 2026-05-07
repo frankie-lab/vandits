@@ -508,6 +508,11 @@ export function UserMenu({
                <FileText className="w-4 h-4 mr-2 text-emerald-500" />
                Estructura de fichas
                </DropdownMenuItem>
+
+               <DropdownMenuItem onClick={() => onOpenAdmin?.('geography')} className="cursor-pointer">
+               <Compass className="w-4 h-4 mr-2 text-amber-500" />
+               Geografía universal
+               </DropdownMenuItem>
    </>
    )}
 
