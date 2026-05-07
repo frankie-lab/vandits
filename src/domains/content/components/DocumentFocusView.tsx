@@ -846,8 +846,12 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
       };
       try {
         if (m === 'catalog') {
-          const targetIds = catalogPreview!.toAdd;
-          const routeIds = catalogPreview!.routesToAdd;
+          if (skipCatalog) {
+            throw new Error('Vista previa de catálogo no disponible');
+          }
+          const preview = catalogPreviewRef.current!;
+          const targetIds = preview.toAdd;
+          const routeIds = preview.routesToAdd;
           // Trozeamos el UPDATE de visibilidad para reportar progreso por puntos
           const CHUNK = 100;
           for (let i = 0; i < targetIds.length; i += CHUNK) {
