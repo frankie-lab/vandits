@@ -2628,7 +2628,19 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_geo_coverage: {
+        Row: {
+          avg_confidence: number | null
+          resolved: number | null
+          total: number | null
+          user_id: string | null
+          with_admin1: number | null
+          with_country: number | null
+          with_postal: number | null
+          with_timezone: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       _merge_admin_area: {
