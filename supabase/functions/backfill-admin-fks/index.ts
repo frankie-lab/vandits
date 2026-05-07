@@ -56,12 +56,19 @@ Deno.serve(async (req) => {
   const accessToken = authHeader.toLowerCase().startsWith('bearer ')
     ? authHeader.slice(7).trim()
     : '';
-  if (accessToken) {
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+  const isServiceRole = !!accessToken && accessToken === serviceRoleKey;
+  if (accessToken && !isServiceRole) {
     const { data: userData } = await admin.auth.getUser(accessToken);
     callerUserId = userData?.user?.id ?? null;
   }
 
   const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
+  // When invoked with the service role key (e.g. by geocoding-job-tick),
+  // trust an explicit user_id in the body to scope the work.
+  if (isServiceRole && typeof body.user_id === 'string') {
+    callerUserId = body.user_id;
+  }
   const limit = Math.min(Math.max(Number(body.limit ?? 25), 1), 200);
   const dryRun = !!body.dryRun;
   const documentId = typeof body.document_id === 'string' ? body.document_id : null;

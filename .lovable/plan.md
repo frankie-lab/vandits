@@ -1,57 +1,91 @@
-## Diagnóstico
+# Geocoding job server-side (autocompletable)
 
-El toast "Geocodificación completada: 0 puntos" no es un fallo silencioso: el bucle termina tras **1 sola iteración** porque en modos `reconcile` y `overwrite` se conjugan dos defectos:
+Hoy el bucle vive en el navegador (`useGeocodingJobStore`). Si cierras el portátil, el avance ya guardado se conserva, pero el bucle no progresa hasta volver a abrir la app.
 
-### Bug A — el store siempre pide la misma fila
+Objetivo: convertirlo en un **job de servidor** que, una vez lanzado, siga procesando hasta terminar — independientemente del navegador o del equipo del usuario. Solo se detiene si el usuario pulsa "Detener".
 
-`useGeocodingJobStore.start()` invoca la edge function con `limit: 1` y **sin `offset**`. En cada vuelta vuelve a pedir la primera fila ordenada por `created_at ASC`. En modo `fill` esto funciona porque la fila procesada deja de cumplir el `OR` de FKs nulos y "desaparece" del cursor; en `reconcile`/`overwrite` el cursor abarca **todas** las filas, así que siempre devuelve el mismo primer registro.
+## Arquitectura
 
-### Bug B — el bucle termina al primer skip
-
-En la edge function, `reconcile` con primera fila ya consistente devuelve `processed=1, updated=0, failed=0, remaining=null`. El store tiene esta guardia:
-
-```ts
-if (upd === 0 && failed === 0) break;
+```text
+[UI] ──► insert geocoding_jobs (status='running', scope, totals)
+            │
+            │  realtime subscription
+            ▼
+[UI] ◄── progreso (totals, ETA) en vivo
+            ▲
+            │
+[pg_cron 1×min] ──► geocoding-job-tick (edge function)
+                         │
+                         ├─ lee próximo job 'running' (FIFO, lock con updated_at)
+                         ├─ procesa N filas (reusa lógica de backfill-admin-fks)
+                         ├─ actualiza job row: processed/updated/remaining/heartbeat
+                         └─ si remaining=0  → status='completed'
+                            si status='canceling' → status='canceled'
 ```
 
-→ Sale del bucle a la primera y muestra "0 puntos".
+El navegador deja de ser necesario. La edge function se invoca cada minuto desde Postgres (pg_cron + pg_net), procesa un lote, y termina. Al siguiente minuto retoma. Nominatim sigue limitado a 1 req/s dentro del tick.
 
-Por eso el modo recomendado parece no hacer nada.
+## Cambios
 
-## Fix
+### 1. Base de datos (migration)
+Nueva tabla `public.geocoding_jobs`:
+- `id`, `user_id`, `created_at`, `updated_at`
+- `status` enum: `running | canceling | canceled | completed | failed`
+- `scope` jsonb: `{ documentId?, label?, mode, catalogOnly? }`
+- `mode` text (denormalizado para índice)
+- `offset` int, `page_size` int (default 25)
+- `total_in_scope` int, `processed` int, `updated` int, `failed` int, `remaining` int
+- `last_tick_at` timestamptz, `last_error` text
+- Índice parcial `WHERE status IN ('running','canceling')` para el cron
+- RLS: cada usuario ve/cancela solo sus jobs; service_role hace todo
+- Realtime habilitado (`ALTER PUBLICATION supabase_realtime ADD TABLE`)
 
-### 1. `supabase/functions/backfill-admin-fks/index.ts`
+### 2. Edge function `geocoding-job-tick`
+- Sin auth (la invoca pg_cron). `verify_jwt = false` en `supabase/config.toml`.
+- Cada llamada:
+  1. Selecciona 1 job con `status='running'` y `last_tick_at IS NULL OR < now()-30s` (lock optimista vía `update ... where updated_at = ...`).
+  2. Si `status='canceling'` → marca `canceled` y retorna.
+  3. Si no tiene `total_in_scope`, lo calcula con `head: true` y guarda.
+  4. Procesa hasta `TIME_BUDGET_MS=120s` lotes de `page_size`, reusando la lógica actual de `backfill-admin-fks` (extraer a `_shared/backfill-core.ts`).
+  5. Actualiza `processed/updated/failed/remaining/offset/last_tick_at`.
+  6. Si `remaining=0` o no quedan filas → `status='completed'`.
 
-- En `**reconcile**` y `**overwrite**` devolver `remaining` calculado como `total_in_scope − offset − processed` (count rápido `head: true` con los mismos filtros sin paginar).
-- Devolver también `nextOffset` = `offset + processed` para que el cliente avance el cursor sin recalcular.
-- Subir `limit` por defecto razonable (sigue siendo configurable).
+### 3. Cron (pg_cron + pg_net)
+SQL vía `supabase--insert` (no migration: contiene URL+anon key del proyecto):
+```sql
+select cron.schedule(
+  'geocoding-job-tick-every-minute', '* * * * *',
+  $$ select net.http_post(
+       url:='https://nolmcafkzqwfmpleyfkx.supabase.co/functions/v1/geocoding-job-tick',
+       headers:='{"Content-Type":"application/json","apikey":"<anon>"}'::jsonb,
+       body:='{}'::jsonb
+     ); $$
+);
+```
 
-### 2. `src/stores/geocoding-job-store.ts`
+### 4. Cliente — `useGeocodingJobStore` se simplifica
+- `start()` → `insert` en `geocoding_jobs` con la scope. **No** lanza bucle local.
+- `stop()` → `update status='canceling'` en el job propio activo.
+- Suscripción realtime al row del job → expone `processed/updated/remaining/total_in_scope/status` al UI.
+- ETA se sigue calculando en cliente con los mismos `eta.ts` (input: `processed`, `total_in_scope`, `last_tick_at`).
+- Borrar `runningPromise`, `cancelFlag`, `resumeIfPending`, heartbeat en localStorage. Si quedan jobs `running` al abrir la app, la suscripción los muestra automáticamente.
 
-- Mantener un `offsetRef` local en el bucle.
-- En cada llamada enviar `offset: offsetRef`, leer `nextOffset` o calcular `offsetRef += processed`.
-- Cambiar las condiciones de salida:
-  - **fill** (igual que hoy): salir cuando `remaining === 0`.
-  - **reconcile / overwrite**: salir solo cuando `processed === 0` (ya no quedan filas en el scope) — `updated===0 && failed===0` deja de ser señal de fin.
-- Subir `limit` a un valor más útil (p.ej. `25`) para ahorrar round-trips; el respeto a Nominatim (1 req/s) sigue dentro de la edge function.
-- Recalcular `remaining` real:
-  - fill → como hoy (server lo manda).
-  - reconcile/overwrite → usar `nextOffset` y un `total_in_scope` que el server envía solo en el primer tick (cachear en el store).
+### 5. UI (`GeographyBackfillPanel` + `GeocodingProgressBar`)
+- Sin cambios visuales relevantes: ya consumen el store.
+- Añadir nota: "El proceso continúa en segundo plano aunque cierres la app".
 
-### 3. UI
-
-- `GeographyBackfillPanel` ya muestra "Procesados X / total". Ahora `total` será el `total_in_scope` del primer tick para reconcile/overwrite (hoy lo calcula el panel antes de arrancar y queda correcto, así que sin cambios de UI necesarios).
-- ETA seguirá funcionando porque `totalUpdated` ahora avanza de verdad.
+## Nota técnica
+- **Concurrencia**: 1 job por usuario activo a la vez (constraint parcial UNIQUE en `user_id WHERE status IN ('running','canceling')`).
+- **Idempotencia**: el tick es seguro de repetir; el offset se persiste por job.
+- **Coste**: 1 invocación cron/min sin trabajo si no hay jobs activos (early return).
+- **Resiliencia**: si un tick crashea, el siguiente minuto re-bloquea el job (lock por `last_tick_at < now()-30s`).
 
 ## Archivos
-
-- editar `supabase/functions/backfill-admin-fks/index.ts` (devolver `remaining` y `nextOffset` en todos los modos)
-- editar `src/stores/geocoding-job-store.ts` (offset local, nuevas condiciones de salida, subir limit)
-
-## Verificación
-
-1. Lanzar reconcile en cuenta con 5074 puntos → contador debe avanzar de 1 en 1 hasta completar todos los puntos. El objetivo es completar todos los puntos y normalizarlos.
-2. Ver que ETA se calcula tras los primeros segundos.
-3. Pulsar "Detener" → corta entre ticks y respeta la cancelación.
-4. Refrescar pestaña a media ejecución → `resumeIfPending` recoge el progreso desde la BD.  
-ser persistente
+- **migration**: nueva tabla + enum + RLS + realtime
+- **insert** (cron): schedule de `geocoding-job-tick`
+- `supabase/functions/_shared/backfill-core.ts` (nuevo): extrae el procesamiento por lotes
+- `supabase/functions/backfill-admin-fks/index.ts`: usa el shared (compatible con clientes legacy)
+- `supabase/functions/geocoding-job-tick/index.ts` (nuevo)
+- `supabase/config.toml`: `[functions.geocoding-job-tick] verify_jwt = false`
+- `src/stores/geocoding-job-store.ts`: reescrito (insert + realtime, sin bucle local)
+- `mem://logic/geocoding/unified-job`: actualizar

@@ -222,6 +222,9 @@ export function GeographyBackfillPanel() {
           </Button>
         )}
         <div className="text-[11px] text-muted-foreground">
+          El proceso se ejecuta en el servidor: continúa aunque cierres el navegador o apagues el ordenador. Solo se detiene si pulsas "Detener".
+        </div>
+        <div className="text-[11px] text-muted-foreground">
           Una vez termine en modo reconcile/overwrite, el árbol "Buscar y filtrar" mostrará la cascada
           postal completa (p.ej. Galicia → 4 provincias → ayuntamientos → localidades → barrios/calles).
         </div>
