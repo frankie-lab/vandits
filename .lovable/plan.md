@@ -1,58 +1,95 @@
-## Objetivo
 
-Re-normalizar geográficamente el **100%** de los **5.074 puntos activos** (todos `is_approved=true`) aplicando las nuevas reglas: 8 niveles (continent → country → region → zone → admin3 → locality → sublocality + type), doble pasada Nominatim (zoom 18 + 10) y FKs vía `resolve-admin-area`.
+## Causa raíz única (confirmada en BD)
 
-## Diferencia con el batch anterior
+Los **3 síntomas que reportas** son el mismo bug:
 
-El runner actual (`backfill-catalog-geo-once`) sólo procesa los puntos con jerarquía incompleta (~2.230). Esta vez se quiere reprocesar **todos**, incluidos los que ya tienen FKs, para sobreescribir con la normalización nueva (placeholders deduplicados, path materializado, sublocality, etc.).
+1. "Buscar y Filtrar" muestra 159/249 de Portugal → faltan 90.
+2. La colección Atlas Obscura_Portugal dice "Sin localizar · 90" pero los puntos están dibujados sobre Portugal en el mapa.
+3. Esos 90 puntos aparecen con color de colección en el mapa general, pero no en el filtro Geo.
 
-## Plan
+**Confirmado por query**: los 90 puntos de la colección tienen `country_id = 67ed072b…` (PT) y `continent_id = NULL`. Y `admin_areas` tiene **dos filas para Portugal**:
 
-### 1. Extender `backfill-catalog-geo-once` con flag `force`
+| id | name | parent | uses |
+|---|---|---|---|
+| `67ed072b…` | **PT** | NULL (huérfano) | 90 puntos (los de la colección) |
+| `cb47a8fd…` | **Portugal** | Europe | 159 puntos (los que sí ves) |
 
-Añadir parámetro opcional `force: boolean` que se propaga a `backfill-admin-fks` como `force_renormalize: true`. Cuando `force=true`:
-- El predicado "pendiente" desaparece (ya implementado en `backfill-admin-fks`).
-- Procesa TODOS los puntos en catálogo en orden de creación.
-- El bucle del runner debe avanzar con `offset` acumulado (no por "remaining decreciente"), porque al forzar, `remaining` se mantiene constante.
+Mismo problema con `FR`/`France` (163 puntos perdidos) y `ES`/`Spain` (580 puntos perdidos). Total: **~835 puntos invisibles en el árbol y marcados como "Sin localizar"** porque cuelgan de un país huérfano sin continente.
 
-### 2. Lanzar el batch en background con avance por offset
+### Por qué se generaron los duplicados
 
-Cambiar la estrategia de parada:
-- Modo normal (`force=false`): parar cuando `remaining=0` o `processed=0` (comportamiento actual).
-- Modo forzado (`force=true`): parar cuando `processed < limit_per_chunk` (no quedan filas en el rango) o se agote `max_iterations`. El runner pasa `offset` incremental a cada llamada.
+`resolve-admin-area` busca admin_areas por `ilike(name)` puro. Los dos pipelines de ingestión hablan idiomas distintos:
+- **Scraper Atlas Obscura** → `country: "PT"` (ISO‑2), sin continente → crea fila "PT" huérfana.
+- **Importador KML/Nominatim** → `country: "Portugal", continent: "Europe"` → encuentra/crea "Portugal" hijo de Europe.
 
-### 3. Persistencia de estado entre invocaciones
+Sin clave canónica (ISO) ni mapa de aliases, son dos filas distintas para el mismo país.
 
-El runner es one-shot por edge function (~130s budget). Para 5.074 puntos × ~2.2s = ~3 horas, hace falta:
-- **Tabla ligera de control**: `geo_renormalization_jobs` (id, started_at, last_offset, total_target, processed, updated, failed, status). Permite reanudar.
-- O bien, **invocaciones manuales sucesivas**: el runner devuelve `next_offset` y el master vuelve a invocar con ese offset hasta agotar.
+### Por qué "Sin localizar"
 
-Propuesta: **invocaciones sucesivas manuales** (más simple, sin schema nuevo). El runner devuelve `next_offset` y `done: boolean`. El master invoca desde consola en bucle.
+`getLocationHierarchy()` (frontend) lee la columna string `continent` para clasificar. Como esos 90 tienen `continent = NULL` (porque su country huérfano no tiene padre), caen en el bucket "Sin localizar". El mapa los pinta porque tienen lat/lng, pero el árbol no los agrupa.
 
-### 4. CTA opcional en `AdminPanel`
+---
 
-Botón "Renormalizar TODO el catálogo (forzado)" que:
-- Confirma con dialog ("Esto tomará ~3 horas, se ejecuta en chunks. ¿Continuar?").
-- Lanza un loop client-side que llama a `backfill-catalog-geo-once` con `force=true` y `offset` incremental.
-- Muestra progreso reutilizando `useGeocodingJobStore` + `GeocodingProgressBar`.
-- Solo visible para `master`.
+## Plan — arreglar el origen, no parchear
 
-## Detalle técnico
+### 1. Migración SQL única
 
-- **Tasa Nominatim**: 1.1s entre llamadas + posibles 2 llamadas/punto = ~2.2s/punto. Total: 5.074 × 2.2s ≈ **3h 6min**.
-- **Chunks**: 50 puntos por chunk del edge function (~110s) → ~102 chunks totales.
-- **Sin pérdida de datos**: sólo se reescriben los FKs y los strings derivados (vía trigger). `enriched_data`, fotos, notas, colecciones, `is_approved`, visibilidad: intactos.
-- **Sin afectar visibilidad del mapa**: la regla `is_approved=true` no cambia. Los puntos siguen visibles durante el proceso; sólo mejora su filtrado geográfico.
-- **Idempotente**: si `resolve-admin-area` devuelve los mismos UUIDs, el UPDATE es no-op funcional.
+**a) Schema canónico**
+- Añadir `admin_areas.iso_code text` y `admin_areas.aliases text[]`.
+- Índice único parcial `(type_id, iso_code) WHERE iso_code IS NOT NULL`.
 
-## Archivos a tocar
+**b) Seed canónico**
+- 7 continentes con aliases ES/EN: `Europe ↔ Europa`, `Africa ↔ África`, `North America ↔ América del Norte`, etc.
+- Países comunes con `iso_code` ISO‑3166‑alpha2 y aliases (`PT ↔ Portugal`, `FR ↔ France`, `ES ↔ Spain`, `GB ↔ United Kingdom`, `US ↔ United States`, `IT ↔ Italy`, etc.).
 
-1. `supabase/functions/backfill-catalog-geo-once/index.ts` — añadir `force`, lógica de `offset`, devolver `next_offset` y `done`.
-2. `src/components/AdminPanel.tsx` — botón "Renormalizar TODO el catálogo" (sección Mantenimiento) con loop client-side y progreso.
-3. (Reutiliza) `useGeocodingJobStore` + `GeocodingProgressBar` para feedback.
+**c) Fusión genérica (one‑shot dentro de la misma migración)**
+Para cada par detectado donde un `admin_areas` huérfano (depth=0, type=country, sin parent) coincide con la fila canónica por iso_code o alias:
+1. `UPDATE locations SET country_id = canonical_id WHERE country_id = orphan_id`.
+2. Idem para `continent_id` (rellenar desde el padre del canónico).
+3. Re-parentear cualquier hijo del huérfano al canónico.
+4. `DELETE` huérfano.
 
-## Pregunta abierta
+Idem para continentes duplicados (`Europa` → `Europe`, `África` → `Africa`).
 
-¿Prefieres que el botón viva en `AdminPanel` con loop client-side visible, o que sea un script "dispara-y-olvida" que tú invocas desde consola (`supabase.functions.invoke('backfill-catalog-geo-once', { body: { force: true, offset: 0 } })` y vas avanzando offset)?
+El trigger `locations_sync_admin_cache` resincroniza los strings cache (`country`, `continent`) automáticamente al cambiar el FK. Cero cambios en frontend.
 
-Mi recomendación: **botón en AdminPanel** con barra de progreso (transversal, reusable, alineado con el resto del sistema de jobs).
+### 2. `resolve-admin-area` — blindar el origen
+
+Cambiar la búsqueda de `ilike(name)` a:
+1. Si input matchea un `iso_code` → resolver a la fila canónica.
+2. Si input está en `aliases[]` de alguna fila → resolver a esa.
+3. Si no, fallback al matching actual por nombre.
+
+Para países con ISO‑2: si la fila canónica tiene `parent_id` definido, propagarlo automáticamente como `continent_id`. Esto cierra el bug en origen: futuros scrapes de Atlas Obscura ya no podrán crear "PT" huérfano.
+
+### 3. Verificación post-migración
+
+```sql
+-- Debe ser 0
+SELECT COUNT(*) FROM admin_areas a
+JOIN place_types pt ON pt.id = a.type_id
+WHERE pt.code = 'country' AND a.parent_id IS NULL;
+
+-- Debe ser 0  
+SELECT COUNT(*) FROM locations 
+WHERE country_id IS NOT NULL AND continent_id IS NULL AND deleted_at IS NULL;
+```
+
+---
+
+## Impacto
+
+- **Cero código frontend tocado**. El árbol "Buscar y Filtrar", el contador "Sin localizar" de colecciones y el coloreado se arreglan solos al sincronizarse el string cache.
+- **Cero cambios en `geo-normalizer`, `backfill-admin-fks` o el flujo de import**.
+- **Bug cerrado en origen**: nuevos imports no podrán recrear duplicados.
+
+## Archivos
+
+```text
+supabase/migrations/<ts>_canonical_admin_areas.sql   ← schema + seed + fusión + verificación
+supabase/functions/resolve-admin-area/index.ts       ← lookup por iso_code y aliases
+```
+
+## Pregunta previa
+
+¿Apruebo el plan tal cual o quieres que primero te muestre la lista completa de pares duplicados que la migración va a fusionar (para que valides cuáles son canónicos antes de tocar nada)?
