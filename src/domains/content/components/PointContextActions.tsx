@@ -22,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content';
 import { hasRealEnrichment } from '@/domains/content/lib/enrichment-state';
 import { toast } from 'sonner';
+import { RenormalizeButton } from '@/shared/geography/RenormalizeButton';
 
 interface LocationRow {
   id: string;
