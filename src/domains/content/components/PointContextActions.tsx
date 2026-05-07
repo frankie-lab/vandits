@@ -958,6 +958,12 @@ export function PointContextActions({
             <Tag className="mr-2 h-3.5 w-3.5" />
             Reclasificar tipo
           </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={(e) => { e.preventDefault(); }} asChild>
+            <div className="p-0">
+              <RenormalizeButton locationId={location.id} variant="menu" />
+            </div>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
