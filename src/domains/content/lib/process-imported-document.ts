@@ -18,7 +18,8 @@
 // Helper único transversal — no duplicar esta lógica en otros componentes.
 import { supabase } from '@/integrations/supabase/client';
 import type { GeoLocation, KMLDocument } from '@/types/location';
-import { resolveAllFks } from '@/shared/geography/resolve-admin-fks';
+// Note: resolveAllFks no longer used here — backfill-admin-fks handles
+// the full canonical normalization (double Nominatim pass + placeholders).
 import { geocodeLocations } from '@/shared/geography/geocode-batch';
 import {
   deduplicateLocations,
