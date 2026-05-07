@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useGeocodingJobStore } from '@/stores/geocoding-job-store';
+import { computeEta, formatDuration, formatClock, formatRate } from '@/shared/geography/eta';
 
 type Mode = 'fill' | 'reconcile' | 'overwrite';
 
@@ -41,7 +42,16 @@ export function GeographyBackfillPanel() {
   const [coverage, setCoverage] = useState<Coverage | null>(null);
   const [loadingCov, setLoadingCov] = useState(true);
   const [mode, setMode] = useState<Mode>('reconcile');
+  const [, forceTick] = useState(0);
   const job = useGeocodingJobStore();
+
+  // Tick every second while job runs so elapsed/ETA refresh visually
+  // even if no new point comes back from the worker.
+  useEffect(() => {
+    if (!job.running) return;
+    const id = setInterval(() => forceTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [job.running]);
 
   const refreshCoverage = useCallback(async () => {
     setLoadingCov(true);
@@ -179,6 +189,27 @@ export function GeographyBackfillPanel() {
                 style={{ width: `${pct(job.totalUpdated, Math.max(1, job.initialPending))}%` }}
               />
             </div>
+            {(() => {
+              const eta = computeEta({
+                startedAt: job.startedAt,
+                totalUpdated: job.totalUpdated,
+                remaining: job.remaining,
+              });
+              return (
+                <div className="text-xs text-muted-foreground tabular-nums">
+                  Transcurrido <strong className="text-foreground">{formatDuration(eta.elapsedMs)}</strong>
+                  {eta.ratePerMin > 0 && <> · {formatRate(eta.ratePerMin)}</>}
+                  {eta.etaMs !== null && eta.finishAt ? (
+                    <>
+                      {' '}· ETA ~<strong className="text-foreground">{formatDuration(eta.etaMs)}</strong>
+                      {' '}· termina ~{formatClock(eta.finishAt)}
+                    </>
+                  ) : (
+                    <> · Calculando ETA…</>
+                  )}
+                </div>
+              );
+            })()}
             <Button variant="destructive" size="sm" onClick={() => useGeocodingJobStore.getState().stop()} disabled={job.stopping}>
               <Square className="w-3.5 h-3.5 mr-2" />
               {job.stopping ? 'Deteniendo…' : 'Detener'}
