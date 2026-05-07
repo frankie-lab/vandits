@@ -35,6 +35,7 @@ import { NearbyPanel } from './PointContextActions';
 import { calculateDistance } from '@/lib/duplicate-detection';
 import { DocumentWaypointsTabs } from './DocumentWaypointsTabs';
 import { CollectionPicker } from './CollectionPicker';
+import { getDocumentIntegrationState } from '../lib/document-integration-state';
 
 /** Normalize a name for fuzzy comparison */
 function normalizeName(name: string): string {
@@ -392,6 +393,18 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
 
   const approvedCount = useMemo(() => locations.filter(l => l.is_approved).length, [locations]);
   const pendingCount = useMemo(() => locations.filter(l => !l.is_approved).length, [locations]);
+  const integration = useMemo(
+    () => getDocumentIntegrationState({ approved_count: approvedCount, location_count: locations.length }),
+    [approvedCount, locations.length],
+  );
+  const selectedPendingCount = useMemo(
+    () => locations.filter(l => selectedIds.has(l.id) && !l.is_approved).length,
+    [locations, selectedIds],
+  );
+  const selectedApprovedCount = useMemo(
+    () => locations.filter(l => selectedIds.has(l.id) && l.is_approved).length,
+    [locations, selectedIds],
+  );
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -1249,8 +1262,8 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <p className="text-sm font-medium truncate">{docName}</p>
-              <Badge variant={docStatus === 'published' ? 'default' : 'secondary'} className="text-[9px] h-4 shrink-0">
-                {docStatus === 'published' ? 'Catálogo' : 'Mesa de trabajo'}
+              <Badge variant="outline" className={`text-[9px] h-4 shrink-0 ${integration.className}`}>
+                {integration.label}
               </Badge>
             </div>
             <p className="text-[11px] text-muted-foreground">
@@ -1280,7 +1293,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
 
         {/* Workspace / Catalog actions */}
         <div className="flex items-center gap-1.5">
-          {docStatus !== 'published' ? (
+          {integration.kind !== 'full' ? (
             <Button
               variant="default"
               size="sm"
@@ -1326,26 +1339,36 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
               <Badge variant="secondary" className="text-[10px] h-5">
                 {selectedIds.size + selectedRouteIds.size} sel.
               </Badge>
-              <Button
-                variant="default"
-                size="sm"
-                className="h-6 text-[11px] gap-1"
-                disabled={approving}
-                onClick={() => handleApprove(Array.from(selectedIds), true)}
-              >
-                {approving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                Aprobar
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 text-[11px] gap-1"
-                disabled={approving}
-                onClick={() => handleApprove(Array.from(selectedIds), false)}
-              >
-                <X className="w-3 h-3" />
-                Retirar
-              </Button>
+              {selectedPendingCount > 0 && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-6 text-[11px] gap-1"
+                  disabled={approving}
+                  onClick={() => handleApprove(
+                    locations.filter(l => selectedIds.has(l.id) && !l.is_approved).map(l => l.id),
+                    true,
+                  )}
+                >
+                  {approving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                  Aprobar ({selectedPendingCount})
+                </Button>
+              )}
+              {selectedApprovedCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 text-[11px] gap-1"
+                  disabled={approving}
+                  onClick={() => handleApprove(
+                    locations.filter(l => selectedIds.has(l.id) && l.is_approved).map(l => l.id),
+                    false,
+                  )}
+                >
+                  <X className="w-3 h-3" />
+                  Retirar ({selectedApprovedCount})
+                </Button>
+              )}
             </>
           )}
         </div>
