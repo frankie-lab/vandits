@@ -287,7 +287,7 @@ async function persistPlace(job: any, documentId: string, place: ScrapedPlace, a
     user_image_visibility: 'private',
     enriched_data: null,
     enrichment_status: null,
-    is_approved: false,
+    is_approved: autoApprove,
     visibility: job.default_visibility ?? 'followers',
     custom_data: {
       source: job.source,
