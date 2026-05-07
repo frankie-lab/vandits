@@ -1,60 +1,82 @@
-## Hallazgo del caso concreto
+## Diagnóstico
 
-Doc `87a7d58c…` (Atlas Obscura, "Parcial 580/581"): 1 punto pendiente real (`Pinsapar de Grazalema`), insertado 8h después del documento, **no es duplicado**. Mismo patrón en `b1fac96a` (90/90).
+La lógica unificada de importación (`processImportedDocument`) hoy SOLO corre desde el cliente (FileUpload + WebImportPanel). El scraper server-side (`scrape-tick`) inserta puntos directamente y nunca finaliza el ciclo de vida según la norma `mem://logic/content/import-lifecycle-by-channel`.
 
-**Causa raíz:** `scrape-tick/index.ts:289` hardcodea `is_approved: false` para TODOS los inserts, ignorando el canal del documento. El helper único `shouldAutoApproveImport(sourceType)` ya define la regla correcta por canal, pero el scraper no lo consulta. Cuando el job termina, `processImportedDocument` aprueba lo existente, pero los puntos que el scraper inserta más tarde nacen pendientes y nadie los vuelve a aprobar.
+Resultado en BD del caso `b1fac96a` (Atlas Obscura, 90/90 aprobados):
+- `is_approved=true` (correcto, vía `autoApprove` del fix previo).
+- `import_status='reviewing'` ❌ — debería ser `confirmed`.
+- `status='draft'` (metadata editorial, OK).
+- `metadata.pending_collection` nunca consumida → la colección que el usuario pidió al lanzar el scrape no se materializa nunca.
+- No hay catalog-match contra puntos previos del usuario → posibles duplicados >250m no quedan en cola.
 
-## Principio rector
+Misma asimetría afectará a cualquier futuro canal server-side (OneDrive bulk, RSS, integraciones). La única vía sostenible es **un helper único de finalización** invocable desde cliente Y desde edge functions.
 
-**Cero hardcoding por canal.** Toda decisión de auto-approve en cualquier punto de inserción (cliente, edge function, scrape, manual, futuras fuentes) debe pasar por `shouldAutoApproveImport(document.source_type)`. Es ya el helper único declarado en memoria — solo falta que el scraper lo use.
+---
 
-## Cambios
+## Plan transversal
 
-### 1. `supabase/functions/scrape-tick/index.ts` — usar el helper
+### 1. Extraer "Lifecycle Finalization" a un helper compartido
 
-- Añadir versión Deno-compatible de `shouldAutoApproveImport` (importar el TS del cliente no es viable en edge function; replicar la regla en un módulo `_shared/lifecycle.ts` reutilizable por cualquier edge function actual o futura).
-- En `processJob`, leer `documents.source_type` una vez y cachear `autoApprove = shouldAutoApproveImport(sourceType)`.
-- En el insert (línea 289), `is_approved: autoApprove` en lugar de literal `false`.
+Nuevo helper `finalizeImportedDocument(docId, supabaseClient, options)` colocado en:
+- `supabase/functions/_shared/finalize-import.ts` (Deno, source of truth).
+- Re-exportado/mirroreado para el cliente desde `src/domains/content/lib/finalize-import.ts` con la misma firma usando el `supabase` del SDK.
 
-Esto cubre **cualquier futura fuente**: si mañana se añade `instagram_import`, `mastodon_import`, etc., basta con declararlo en el helper único y todos los puntos de inserción lo respetan.
+Lo que hace, por orden:
+1. **Catalog match** (dedup vs catálogo del usuario, threshold 250m). Marca `custom_data.duplicate_of` y encola posibles duplicados (250m–1km).
+2. **Auto-approve por canal** vía `shouldAutoApproveImport(source_type)`:
+   - `web_import` / `manual` → `approveAllDocumentLocations(docId)` (que ya consume `pending_collection`).
+   - resto → no aprueba; los puntos esperan acción manual.
+3. **Auto-enrich** (opcional, si `options.autoEnrich`).
+4. **Reconcile lifecycle**: si `approved == total > 0` o el canal es trusted, marca `import_status='confirmed'`; en cualquier caso garantiza coherencia.
+5. Emite `document:processed` con summary.
 
-### 2. Sweep de huérfanos pre-existentes (one-shot, NO hardcoded por documento)
+`processImportedDocument` actual queda como wrapper cliente: corre primero geo-normalización (forward + backfill-admin-fks vía edge function) y luego delega en `finalizeImportedDocument`.
 
-Update genérico que aplica la misma regla del helper a TODO el histórico:
+### 2. Conectar `scrape-tick` al helper
 
-```sql
-UPDATE locations l
-SET is_approved = true
-FROM documents d
-WHERE l.document_id = d.id
-  AND d.source_type IN ('web_import','manual')
-  AND l.is_approved = false
-  AND l.deleted_at IS NULL
-  AND (l.custom_data->>'duplicate_of') IS NULL;
-```
+En `processJob`, cuando el job termina (`!items || items.length === 0`):
+- Tras `attachJobToCollection`, llamar `await finalizeImportedDocument(documentId, supabase, { sourceType: 'web_import' })`.
+- Esto cubre catalog-match, auto-approve, consumo de `pending_collection` y `import_status='confirmed'` server-side, sin esperar a que el usuario abra la app.
 
-La lista de canales (`web_import, manual`) está alineada con `shouldAutoApproveImport`. No menciona ningún documento concreto.
+`persistPlace` deja de hardcodear `is_approved`; pasa a insertar siempre con `is_approved=false`. La aprobación se decide en la finalización (única fuente: `shouldAutoApproveImport`). Esto elimina la duplicación de la decisión y evita el caso "puntos aprobados pero `import_status=reviewing`".
 
-### 3. Auditoría transversal de inserts a `locations`
+### 3. Reconciliar documentos legacy
 
-Verificar que **ningún otro insert** decida `is_approved` por su cuenta:
-- `src/lib/database/saveDocumentToDatabase.ts`
-- `enrich-location` edge function
-- Edge functions de import (`fetch-remote-kml`, etc.)
-- Cualquier otro caller localizado vía `rg "is_approved" supabase/functions src/lib`
+Helper idempotente `reconcileImportStatus(docId)` dentro de `finalize-import`:
+- Si `total>0 && approved==total && import_status!='confirmed'` → marca `confirmed` y dispara `consumePendingCollection` si aplica.
+- Lo invoca también `DocumentsPanel.fetchDocs` (best-effort por documento visible en la lista) para auto-curar docs antiguos como `b1fac96a` sin migración manual.
+- One-shot SQL via migration: marca `import_status='confirmed'` para todos los docs ya 100% aprobados de canales trusted.
 
-Cualquiera que hardcodee el flag debe migrarse a `shouldAutoApproveImport(sourceType)`. Si alguno ya lo hacía bien, dejarlo igual.
+### 4. Aprovechar para limpiar UI desincronizada (`DocumentFocusView`)
 
-### 4. UI — ocultar acciones inaplicables (transversal, sin condicionales por canal)
+Pendiente del plan anterior, no se hizo: el header del focus view sigue usando `docStatus === 'published'` en lugar del helper único `getDocumentIntegrationState`. Mismo cambio transversal:
+- Badge derivado de `approved/total`, no de `documents.status`.
+- CTA "Añadir" oculto cuando `integration.kind === 'full'`.
+- Bulk actions "Aprobar"/"Retirar" sensibles al estado de la selección (sólo aparece "Aprobar" si hay pendientes seleccionados, sólo "Retirar" si hay aprobados).
 
-`DocumentsPanel.tsx`: la regla se basa **solo** en estado derivado, no en source_type:
-- "Aprobar todos" — ya condicionado a `pendingApproval > 0`. Mantener.
-- "Añadir…" — ocultar cuando `pendingApproval === 0 && !document.metadata?.pending_collection`. Sigue accesible desde "Abrir" → vista de documento.
+### 5. Memoria
 
-Resultado uniforme para cualquier canal: docs 100% integrados muestran solo Abrir + Eliminar.
+- Actualizar `mem://logic/content/import-lifecycle-by-channel`: el ciclo de vida es **un único helper** (`finalizeImportedDocument`) consumido por cliente y edge functions; ningún canal puede saltárselo.
+- Actualizar `mem://logic/import/scrape-direct-enrichment`: scrape-tick inserta crudo y delega en `finalizeImportedDocument` al cerrar el job; ya no decide `is_approved` en el insert.
+- Actualizar `mem://ui/documents-panel-actions` añadiendo que la regla aplica también a `DocumentFocusView`.
 
-## Memorias a actualizar
+---
 
-- `mem://logic/import/scrape-direct-enrichment`: añadir "scrape-tick respeta `shouldAutoApproveImport(source_type)`; nunca hardcodea `is_approved`".
-- `mem://logic/content/import-lifecycle-by-channel`: ampliar para incluir TODOS los puntos de inserción (cliente + edge functions). El helper es ley para cualquier insert nuevo.
-- `mem://ui/documents-panel-actions`: añadir regla de ocultar "Añadir…" cuando ya está integrado.
+## Archivos a tocar
+
+| Archivo | Cambio |
+|---|---|
+| `supabase/functions/_shared/finalize-import.ts` (nuevo) | Helper único: catalog-match + auto-approve + reconcile + opcional enrich |
+| `supabase/functions/scrape-tick/index.ts` | `persistPlace` siempre `is_approved=false`; al cerrar job llama `finalizeImportedDocument` |
+| `src/domains/content/lib/finalize-import.ts` (nuevo) | Wrapper cliente que reusa la misma lógica con el SDK |
+| `src/domains/content/lib/process-imported-document.ts` | Tras geo-normalize, delega los pasos 3–5 en `finalizeImportedDocument` |
+| `src/domains/content/components/DocumentFocusView.tsx` | Badge + CTA + bulk actions vía `getDocumentIntegrationState` |
+| `src/domains/content/components/DocumentsPanel.tsx` | Llamar `reconcileImportStatus` por doc visible (best-effort) |
+| Migration SQL one-shot | `UPDATE documents SET import_status='confirmed' WHERE source_type IN ('web_import','manual') AND import_status='reviewing' AND id IN (…todos aprobados…)` |
+| Memorias `mem://logic/content/import-lifecycle-by-channel`, `mem://logic/import/scrape-direct-enrichment`, `mem://ui/documents-panel-actions` | Sincronizar con la nueva arquitectura |
+
+## Lo que NO se toca
+
+- Reglas de aprobación por canal (`shouldAutoApproveImport`) — siguen igual, ahora en un único punto de decisión.
+- `documents.status` — sigue como metadata editorial libre, sin gobernar UI ni lifecycle.
+- Geo-normalización (forward + backfill-admin-fks) — sigue siendo paso cliente, no aplica al scraper porque `persistPlace` ya resuelve FKs vía `resolve-admin-area`.
