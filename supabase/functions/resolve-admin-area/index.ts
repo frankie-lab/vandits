@@ -106,34 +106,25 @@ Deno.serve(async (req) => {
         }
       }
 
-      // ---- 2. Aliases match (case-insensitive)
+      // ---- 2. Aliases match (case-insensitive). Prefer rows under current parent.
       if (!resolvedId && !isPlaceholder) {
         const lower = name.toLowerCase();
+        // Try both original casing and lowercase variants
         const { data: byAlias } = await supabase
           .from('admin_areas')
           .select('id, parent_id, aliases')
           .eq('type_id', typeId)
-          .contains('aliases', [name])
-          .limit(5);
+          .or(`aliases.cs.{${name}},aliases.cs.{${lower}}`)
+          .limit(10);
         if (byAlias && byAlias.length) {
-          // Prefer rows with a parent (canonical hierarchy)
-          const sorted = [...byAlias].sort((a, b) =>
-            (b.parent_id ? 1 : 0) - (a.parent_id ? 1 : 0),
-          );
+          // Prefer rows under the current parentId (canonical hierarchy)
+          const sorted = [...byAlias].sort((a, b) => {
+            const aMatch = parentId && a.parent_id === parentId ? 2 : (a.parent_id ? 1 : 0);
+            const bMatch = parentId && b.parent_id === parentId ? 2 : (b.parent_id ? 1 : 0);
+            return bMatch - aMatch;
+          });
           resolvedId = sorted[0].id;
           resolvedParentId = (sorted[0] as any).parent_id ?? null;
-        } else {
-          // Try lowercase variant in aliases
-          const { data: byAliasLower } = await supabase
-            .from('admin_areas')
-            .select('id, parent_id')
-            .eq('type_id', typeId)
-            .contains('aliases', [lower])
-            .limit(1);
-          if (byAliasLower && byAliasLower.length) {
-            resolvedId = byAliasLower[0].id;
-            resolvedParentId = (byAliasLower[0] as any).parent_id ?? null;
-          }
         }
       }
 
