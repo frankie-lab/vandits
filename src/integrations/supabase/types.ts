@@ -679,6 +679,72 @@ export type Database = {
           },
         ]
       }
+      geocoding_jobs: {
+        Row: {
+          catalog_only: boolean
+          created_at: string
+          document_id: string | null
+          failed: number
+          id: string
+          label: string | null
+          last_error: string | null
+          last_tick_at: string | null
+          mode: string
+          offset: number
+          page_size: number
+          processed: number
+          remaining: number | null
+          scope: Json
+          status: Database["public"]["Enums"]["geocoding_job_status"]
+          total_in_scope: number | null
+          updated: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          catalog_only?: boolean
+          created_at?: string
+          document_id?: string | null
+          failed?: number
+          id?: string
+          label?: string | null
+          last_error?: string | null
+          last_tick_at?: string | null
+          mode?: string
+          offset?: number
+          page_size?: number
+          processed?: number
+          remaining?: number | null
+          scope?: Json
+          status?: Database["public"]["Enums"]["geocoding_job_status"]
+          total_in_scope?: number | null
+          updated?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          catalog_only?: boolean
+          created_at?: string
+          document_id?: string | null
+          failed?: number
+          id?: string
+          label?: string | null
+          last_error?: string | null
+          last_tick_at?: string | null
+          mode?: string
+          offset?: number
+          page_size?: number
+          processed?: number
+          remaining?: number | null
+          scope?: Json
+          status?: Database["public"]["Enums"]["geocoding_job_status"]
+          total_in_scope?: number | null
+          updated?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       global_enrichment_jobs: {
         Row: {
           created_at: string
@@ -2780,6 +2846,12 @@ export type Database = {
         | "web_import"
       document_status: "draft" | "in_review" | "published"
       follow_status: "pending" | "accepted" | "rejected"
+      geocoding_job_status:
+        | "running"
+        | "canceling"
+        | "canceled"
+        | "completed"
+        | "failed"
       map_context_type: "personal" | "document" | "social"
       route_status: "draft" | "completed"
       route_stop_type:
@@ -2976,6 +3048,13 @@ export const Constants = {
       ],
       document_status: ["draft", "in_review", "published"],
       follow_status: ["pending", "accepted", "rejected"],
+      geocoding_job_status: [
+        "running",
+        "canceling",
+        "canceled",
+        "completed",
+        "failed",
+      ],
       map_context_type: ["personal", "document", "social"],
       route_status: ["draft", "completed"],
       route_stop_type: [
