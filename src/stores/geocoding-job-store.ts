@@ -160,21 +160,24 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
       return;
     }
 
-    const insertPayload = {
+    const insertPayload: Record<string, unknown> = {
       user_id: uid,
-      status: 'running' as const,
+      status: 'running',
       mode,
-      document_id: scope?.documentId ?? null,
       catalog_only: !!scope?.catalogOnly,
-      label: scope?.label ?? null,
       scope: scope ? (scope as unknown as Record<string, unknown>) : {},
-      total_in_scope: initialPending > 0 ? initialPending : null,
-      remaining: initialPending > 0 ? initialPending : null,
     };
+    if (scope?.documentId) insertPayload.document_id = scope.documentId;
+    if (scope?.label) insertPayload.label = scope.label;
+    if (initialPending > 0) {
+      insertPayload.total_in_scope = initialPending;
+      insertPayload.remaining = initialPending;
+    }
 
     const { data: created, error } = await supabase
       .from('geocoding_jobs')
-      .insert(insertPayload)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .insert(insertPayload as any)
       .select()
       .single();
 
