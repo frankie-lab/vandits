@@ -33,7 +33,7 @@ export async function reconcileDocumentImportStatus(
   if (!doc) return result;
 
   // Auto-approve si el canal es trusted y queda algo pendiente.
-  if (shouldAutoApproveImport((doc as { source_type?: string | null }).source_type ?? null)) {
+  if (shouldAutoApproveImport(((doc as { source_type?: string | null }).source_type ?? null) as never)) {
     const { count: pendingCount } = await supabase
       .from('locations')
       .select('id', { count: 'exact', head: true })
@@ -58,7 +58,7 @@ export async function reconcileDocumentImportStatus(
   ]);
   const total = totalCount ?? 0;
   const approved = approvedCount ?? 0;
-  const trusted = shouldAutoApproveImport((doc as { source_type?: string | null }).source_type ?? null);
+  const trusted = shouldAutoApproveImport(((doc as { source_type?: string | null }).source_type ?? null) as never);
   const isConfirmed = (doc as { import_status?: string | null }).import_status === 'confirmed';
   const shouldConfirm = !isConfirmed && ((total > 0 && approved === total) || (trusted && total === 0));
   if (shouldConfirm) {
