@@ -590,11 +590,14 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
   }, [catalogOptions.scope, computeCatalogPreview, docName]);
 
   // Recompute preview when scope or route scope changes
+  // IMPORTANT: depender de `addModes.has('catalog')`, no del derivado `addMode`,
+  // para que marcar/desmarcar el checkbox dispare la recomputación del preview.
+  const hasCatalogMode = addModes.has('catalog');
   useEffect(() => {
-    if (showCatalogDialog && addModes.has('catalog')) {
+    if (showCatalogDialog && hasCatalogMode) {
       computeCatalogPreview(catalogOptions.scope);
     }
-  }, [catalogOptions.scope, catalogOptions.routeScope, selectedRouteIds, showCatalogDialog, addMode]);
+  }, [catalogOptions.scope, catalogOptions.routeScope, selectedRouteIds, showCatalogDialog, hasCatalogMode, computeCatalogPreview]);
 
   // Compute itinerary preview (linked vs new)
   const computeItineraryPreview = useCallback(async () => {
@@ -624,11 +627,12 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
     }
   }, [locations, docId]);
 
+  const hasItineraryMode = addModes.has('itinerary');
   useEffect(() => {
-    if (showCatalogDialog && addModes.has('itinerary')) {
+    if (showCatalogDialog && hasItineraryMode) {
       computeItineraryPreview();
     }
-  }, [showCatalogDialog, addMode, computeItineraryPreview]);
+  }, [showCatalogDialog, hasItineraryMode, computeItineraryPreview]);
 
   // Load user collections + routes when the Add dialog opens (collection/route modes)
   useEffect(() => {
