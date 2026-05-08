@@ -2921,6 +2921,13 @@ export type Database = {
         Args: { doc_user_id: string }
         Returns: boolean
       }
+      cancel_geocoding_job: {
+        Args: { _job_id: string }
+        Returns: {
+          new_status: string
+          updated_count: number
+        }[]
+      }
       cleanup_old_deleted_locations: { Args: never; Returns: number }
       count_locations_with_broken_geo_chain: {
         Args: { _user_id: string }
