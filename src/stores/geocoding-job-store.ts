@@ -150,14 +150,32 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
 
   stop: async () => {
     const { jobId, running } = get();
-    if (!running || !jobId) return;
+    if (!running || !jobId) {
+      console.warn('[geocoding-job] stop ignored: no active job', { jobId, running });
+      return;
+    }
     set({ stopping: true });
-    const { error } = await supabase
-      .from('geocoding_jobs')
-      .update({ status: 'canceling' })
-      .eq('id', jobId);
-    if (error) {
-      console.error('[geocoding-job] cancel failed:', error);
+    try {
+      // Use SECURITY DEFINER RPC so cancel works even when the regular
+      // UPDATE policy would be filtered (cross-user admin cancellations,
+      // edge cases, etc.). RPC also returns affected row count so we can
+      // confirm the cancel landed in the DB.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any).rpc('cancel_geocoding_job', {
+        _job_id: jobId,
+      });
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      const updated = (row?.updated_count ?? 0) as number;
+      if (updated === 0) {
+        console.warn('[geocoding-job] cancel returned 0 rows', { jobId, row });
+        toast.message('El trabajo ya había terminado o no se encontró.');
+        set({ stopping: false });
+        return;
+      }
+      toast.message('Deteniendo… puede tardar unos segundos en reaccionar.');
+    } catch (err) {
+      console.error('[geocoding-job] cancel failed:', err);
       toast.error('No se pudo detener la geocodificación.');
       set({ stopping: false });
     }
