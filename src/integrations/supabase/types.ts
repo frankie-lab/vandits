@@ -2709,6 +2709,10 @@ export type Database = {
       }
     }
     Functions: {
+      _collapse_admin_duplicates: {
+        Args: { _parent_id: string }
+        Returns: number
+      }
       _merge_admin_area: {
         Args: { _canonical: string; _orphan: string }
         Returns: undefined
