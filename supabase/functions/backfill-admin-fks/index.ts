@@ -75,6 +75,19 @@ Deno.serve(async (req) => {
   const catalogOnly = body.catalog_only === true;
   const offset = Math.max(0, Number(body.offset ?? 0));
 
+  // SAFETY: el backfill SIEMPRE debe correr con scope de usuario.
+  // Nunca se permite ejecutar a nivel global (ni siquiera para masters/service role).
+  if (!callerUserId) {
+    return new Response(
+      JSON.stringify({
+        error: 'missing_user_scope',
+        message:
+          'backfill-admin-fks requires a user scope. Provide a user JWT or user_id in body when using service role.',
+      }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  }
+
   // Mode resolution: explicit `mode`, fallback to legacy `force_renormalize`.
   let mode: Mode = (body.mode as Mode) ?? 'fill';
   if (body.force_renormalize === true && mode === 'fill') mode = 'overwrite';
