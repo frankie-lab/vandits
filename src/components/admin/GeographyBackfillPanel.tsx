@@ -260,22 +260,25 @@ export function GeographyBackfillPanel() {
           {job.running ? (
             <>
               <div className="text-sm">
-                Procesados <strong>{job.totalUpdated}</strong> / {job.initialPending} · quedan{' '}
+                Procesados <strong>{job.totalProcessed}</strong> / {job.initialPending} · quedan{' '}
                 {job.remaining}
+                {job.totalUpdated !== job.totalProcessed && (
+                  <> · actualizados {job.totalUpdated}</>
+                )}
                 {job.failedThisBatch > 0 && <> · errores {job.failedThisBatch}</>}
               </div>
               <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full bg-primary transition-all"
                   style={{
-                    width: `${pct(job.totalUpdated, Math.max(1, job.initialPending))}%`,
+                    width: `${pct(job.totalProcessed, Math.max(1, job.initialPending))}%`,
                   }}
                 />
               </div>
               {(() => {
                 const eta = computeEta({
                   startedAt: job.startedAt,
-                  totalUpdated: job.totalUpdated,
+                  totalProcessed: job.totalProcessed,
                   remaining: job.remaining,
                 });
                 return (
