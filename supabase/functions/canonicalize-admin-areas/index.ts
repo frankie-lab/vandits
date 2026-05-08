@@ -201,11 +201,16 @@ Deno.serve(async (req) => {
   }
 
   // ---- PASS 2: collapse by (type_id, parent_id, normalized name) ----
-  // Re-fetch to skip rows already merged.
-  const { data: rows2 } = await admin
-    .from('admin_areas')
-    .select('id, name, parent_id, type_id, iso_code, created_at, aliases');
-  const remaining = (rows2 ?? []) as AdminRow[];
+  // Re-fetch (paginated) to skip rows already merged.
+  let remaining: AdminRow[];
+  try {
+    remaining = await fetchAllAdminAreas();
+  } catch (e) {
+    return new Response(JSON.stringify({ error: String(e) }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
 
   const nameGroups = new Map<string, AdminRow[]>();
   for (const r of remaining) {
