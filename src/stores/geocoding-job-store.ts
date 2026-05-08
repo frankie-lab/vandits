@@ -174,24 +174,31 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
     }
 
     const mode = scope?.mode ?? (scope?.forceRenormalize ? 'overwrite' : 'fill');
+    const ownerId = scope?.targetUserId ?? uid;
+    const isCrossUser = ownerId !== uid;
 
-    // If this user already has an active job, attach to it instead of creating a new one.
+    // If the target user already has an active job, attach to it (admins included).
     const { data: existing } = await supabase
       .from('geocoding_jobs')
       .select('*')
-      .eq('user_id', uid)
+      .eq('user_id', ownerId)
       .in('status', ['running', 'canceling'])
       .maybeSingle();
 
     if (existing) {
       applyRow(existing);
       subscribeToJob(existing.id);
-      toast.message('Ya hay una geocodificación en curso. Mostrando progreso.');
+      toast.message(
+        isCrossUser
+          ? 'Ese usuario ya tiene una geocodificación en curso. Mostrando progreso.'
+          : 'Ya hay una geocodificación en curso. Mostrando progreso.',
+      );
       return;
     }
 
     const insertPayload: Record<string, unknown> = {
-      user_id: uid,
+      user_id: ownerId,
+      created_by: uid,
       status: 'running',
       mode,
       catalog_only: !!scope?.catalogOnly,
