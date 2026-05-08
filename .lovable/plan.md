@@ -1,96 +1,82 @@
-## Objetivo
+## Cambios al panel "Geografía universal"
 
-Permitir desde `GeographyBackfillPanel` acotar el backfill por:
-1. **Cascada admin** (Continente → País → Región → Zona) usando `admin_areas`.
-2. **Lista accionable de POIs** que caen en ese scope, con checkbox por fila para procesar solo los marcados.
+Tres problemas a resolver de una vez:
 
-Sin tocar lógica de enriquecimiento, mapa ni otros paneles. Cambio transversal al pipeline existente (`geocoding_jobs` → `geocoding-job-tick` → `backfill-admin-fks`).
+1. **Combos no despliegan**: aunque subimos z-index a `z-[100]`, el `SelectContent` sigue tapado por el chrome del panel/Dialog que usa capas más altas. La solución correcta es eliminar los `Select` y usar otro patrón.
+2. **Limitación de la cascada**: solo permite UN país de UN continente. Imposible "Spain + France", o "Spain + Mexico".
+3. **Layout poco aprovechado**: las 4 secciones apiladas (Cobertura · Ámbito · Modo · Lanzar) desperdician el ancho del panel.
 
-## UX (en el panel actual)
+### Solución propuesta
 
-Bajo "Cobertura" y antes de "Modo", nueva sección **"Ámbito"**:
+**Layout en 2 columnas** dentro del panel:
 
 ```text
-Ámbito
-[Continente ▾] [País ▾] [Región ▾] [Zona ▾]   [Limpiar]
-─────────────────────────────────────────────
-Puntos en ámbito: 1.234        [Seleccionar todos] [Ninguno]
-┌──────────────────────────────────────────┐
-│ ☐  Nombre POI         · País · Región    │  ← virtualizada
-│ ☐  ...                                   │
-└──────────────────────────────────────────┘
-Seleccionados: 87
+┌────────────────────────────────────┬──────────────────────────────┐
+│ COLUMNA IZQUIERDA — Selección      │ COLUMNA DERECHA — Acciones   │
+│                                    │                              │
+│ [árbol Geo multi-check]            │ Cobertura geográfica         │
+│  ▾ Europe         (4537)           │  Total: 5074                 │
+│   ▸ ☐ Spain       (1292)           │  Resueltos: 4747 (94%)       │
+│    ▾ ☑ Galicia    (180)            │  ...                         │
+│     ▸ ☐ A Coruña  (62)             │                              │
+│   ▸ ☑ France      (1067)           │ Modo de normalización        │
+│   ▸ ☐ Italy       (990)            │  ◉ Reconciliar (recomend.)   │
+│   ...                              │  ○ Rellenar huecos           │
+│  ▾ Americas       (...)            │  ○ Reescribir todo           │
+│   ▸ ☐ Mexico      (...)            │                              │
+│                                    │ [▶ Lanzar sobre selección    │
+│ Mostrando rama por defecto         │     (1247)              ]    │
+│ Sin coincidencias para…            │                              │
+└────────────────────────────────────┴──────────────────────────────┘
 ```
 
-Botón inferior cambia dinámicamente:
-- 0 selección + ámbito vacío → "Lanzar (todos mis puntos)"
-- ámbito activo, 0 marcados → "Lanzar sobre ámbito (1.234)"
-- N marcados → "Lanzar sobre selección (N)"
+En pantallas estrechas (< ~900px de panel) cae a una sola columna apilada (árbol arriba, acciones abajo) usando `lg:grid-cols-[1fr_320px]`.
 
-## Implementación
+### Árbol de selección (columna izquierda)
 
-### 1. Frontend (`GeographyBackfillPanel.tsx`)
+- **Mismo patrón visual** que `GeographyTree` de "Buscar y Filtrar" (jerarquía continente → país → región → zona → ... con expand/collapse y badges de conteo).
+- **Pero independiente del store de filtros** (`useLocationsStore`): este árbol NO debe filtrar el mapa global; solo recolectar IDs de POIs para el job de geografía.
+- Cada nodo tiene un **checkbox tri-estado**:
+  - vacío → ningún descendiente seleccionado
+  - check → todos los descendientes seleccionados
+  - indeterminado → selección parcial
+- Marcar un nodo padre selecciona todos sus descendientes (cascada). Permite combinaciones libres (Spain + France + Mexico simultáneamente).
+- **Fuente de datos**: `getAllLocations()` del propio store (ya está cargado en el cliente — son los POIs del usuario). Calculamos el árbol con el helper canónico `getLocationHierarchy` / `getFilledLocationHierarchy`. Esto evita pegarse contra `admin_areas` y refleja exactamente lo que el usuario ve.
+- **Búsqueda rápida** opcional arriba del árbol (input "Filtrar nodos…") para encontrar "Galicia" sin expandir todo.
+- **Footer del árbol**: contador `N seleccionados · Limpiar`.
+- **Altura**: ocupa todo el alto disponible del cuerpo del panel con scroll interno.
 
-- 4 `<Select>` en cascada. Cada uno consulta `admin_areas` filtrando por `parent_id` del nivel superior y por `type_id` del nivel correspondiente (resuelto vía `place_types.code` = continent/country/region/zone). Al cambiar un nivel superior se resetean los inferiores.
-- Query de POIs: `locations` con `eq('owner_user_id', uid)`, `is('deleted_at', null)` y FK del nivel más profundo seleccionado (`continent_id` / `country_id` / `region_id` / `zone_id`). Paginada (50 inicial + scroll virtualizado con la lib que ya usa la app — ver `Document view tabs` mem).
-- Estado local `selectedIds: Set<string>`. Checkboxes por fila + cabecera "Seleccionar todos / Ninguno".
-- Botón único `handleStart` resuelve modo:
-  - Si hay `selectedIds.size > 0` → manda `location_ids: Array.from(selectedIds)`.
-  - Si no, mantiene comportamiento actual con `scope_filter` por FK admin.
+### Columna derecha — Acciones
 
-### 2. Store (`stores/geocoding-job-store.ts`)
+Tres bloques compactos (los que ya existen, pero apilados en menor ancho):
 
-Extender `GeocodingScope`:
-```ts
-locationIds?: string[];           // selección explícita de POIs
-adminScope?: {
-  continentId?: string;
-  countryId?: string;
-  regionId?: string;
-  zoneId?: string;
-};
-```
-Persistir ambos en columnas nuevas del job: `location_ids uuid[]`, `admin_scope jsonb`. Reflejar en `applyRow`.
+1. **Cobertura geográfica** (sin cambios funcionales).
+2. **Modo de normalización** (sin cambios funcionales).
+3. **Ejecución**:
+   - Botón único `Lanzar sobre selección (N)` donde N = total de IDs en `selectedIds`.
+   - Si N = 0 → label `Lanzar (todos mis puntos)` y se manda sin filtro.
+   - Mientras corre: barra de progreso, ETA y botón Detener (idéntico a hoy).
 
-### 3. Migración SQL
+### Limpieza
 
-```sql
-ALTER TABLE public.geocoding_jobs
-  ADD COLUMN IF NOT EXISTS location_ids uuid[],
-  ADD COLUMN IF NOT EXISTS admin_scope jsonb;
-```
-Sin cambios de RLS (ya filtra por `user_id`).
+- Se **elimina** la sección "Ámbito" actual con sus 4 `Select` y la lista plana de POIs (innecesaria: el árbol ya muestra la jerarquía y los conteos).
+- Se conserva 100% del backend: el job sigue mandando `location_ids` al edge `backfill-admin-fks`. **No se toca** `geocoding-job-store`, `geocoding-job-tick` ni la migración SQL.
 
-### 4. Edge `geocoding-job-tick`
+### Archivos a editar
 
-Pasar `location_ids` y `admin_scope` al body de `backfill-admin-fks` cuando estén presentes. También usarlos para calcular `total_in_scope` en la primera tick.
+- `src/components/admin/GeographyBackfillPanel.tsx` — reescribir layout y estado de selección.
+- **Nuevo** `src/components/admin/GeographyScopeTree.tsx` — árbol multi-check reutilizable, leyendo de `useLocationsStore.getAllLocations()` y emitiendo `Set<string>` de IDs al padre vía callback. No toca `filters` del store.
 
-### 5. Edge `backfill-admin-fks`
+### Fuera de alcance
 
-Aceptar nuevos parámetros en body:
-- `location_ids?: string[]` → si viene, sustituye TODA la selección por `.in('id', location_ids)`.
-- `admin_scope?: { continent_id, country_id, region_id, zone_id }` → aplicar `eq()` por cada FK no nula (la más profunda implica las superiores, pero aplicar todas es inocuo y robusto si la jerarquía no estuviera completa).
+- No se modifica `GeographyTree` de filtros (sigue su rol en "Buscar y Filtrar").
+- No se cambia el contrato del job ni los edge functions.
+- No se añade selección por colección/documento (puede ser una iteración futura).
 
-Ambos se aplican antes del filtro de `mode === 'fill'` (que sigue añadiendo el OR de huecos).
+### Verificación
 
-Conteo total (líneas 220-232) replica los mismos filtros para que la barra de progreso refleje el ámbito real.
-
-## Detalles técnicos
-
-- **Cascada admin**: respeta lo que ya hay en mem `Geographic catalog` y `Canonical admin areas`. Lookups por `type_id` resueltos contra `place_types` (cacheados al montar el panel).
-- **POIs sin FK**: si el usuario elige solo "Continente = Europa" y un POI no tiene `continent_id`, no aparece. Es correcto (esos puntos se cubren con "Lanzar todos" o modo `fill`).
-- **Lista virtualizada**: reutilizar el patrón de `Document view tabs` (paginación 1000) — en este panel basta con 200 visibles + "Cargar más" para no inflar.
-- **Persistencia entre sesiones**: NO. La selección es efímera; el job ya queda registrado en `geocoding_jobs.location_ids`.
-
-## Out of scope
-
-- Selectores por debajo de `zone` (admin3/locality/sublocality/street) — la cascada se queda en 4 niveles como pediste.
-- Cambios en `EnrichmentCriteriaConfig`, `GeographyTree`, `Documents panel`.
-- Cambios en `mode` (fill/reconcile/overwrite siguen igual).
-- No se reintroducen botones "Geocodificar" en otros paneles (norma transversal vigente).
-
-## Verificación
-
-1. Elegir España → Galicia → ver lista de POIs, marcar 5, lanzar `reconcile`. Ver job con `location_ids` correctos y barra de progreso = 5.
-2. Elegir solo Europa, sin selección → "Lanzar sobre ámbito (N)". Comprobar que `backfill-admin-fks` filtra por `continent_id`.
-3. Sin scope ni selección → comportamiento actual intacto.
+- Abrir panel → ver árbol a la izquierda, acciones a la derecha.
+- Marcar `Spain` y `France` → contador "1247 seleccionados", botón "Lanzar sobre selección (1247)".
+- Expandir Spain → Galicia → marcar solo Galicia → botón "Lanzar sobre selección (180)".
+- Sin selección → botón "Lanzar (todos mis puntos)".
+- Reducir el ancho del panel → layout cae a una columna.
