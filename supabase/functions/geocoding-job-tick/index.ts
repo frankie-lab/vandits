@@ -133,6 +133,12 @@ Deno.serve(async (req) => {
     if (useOffset) invokeBody.offset = offset;
     if (job.document_id) invokeBody.document_id = job.document_id;
     if (job.catalog_only) invokeBody.catalog_only = true;
+    if (Array.isArray(job.location_ids) && job.location_ids.length > 0) {
+      invokeBody.location_ids = job.location_ids;
+    }
+    if (job.admin_scope && typeof job.admin_scope === 'object') {
+      invokeBody.admin_scope = job.admin_scope;
+    }
 
     const resp = await fetch(`${SUPABASE_URL}/functions/v1/backfill-admin-fks`, {
       method: 'POST',
