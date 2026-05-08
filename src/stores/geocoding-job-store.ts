@@ -37,6 +37,8 @@ export interface GeocodingScope {
   locationIds?: string[];
   /** Admin-area scope (any combination of continent/country/region/zone). */
   adminScope?: GeocodingAdminScope;
+  /** When an admin/master launches the job against a different user. */
+  targetUserId?: string;
 }
 
 type JobStatus = 'running' | 'canceling' | 'canceled' | 'completed' | 'failed';
