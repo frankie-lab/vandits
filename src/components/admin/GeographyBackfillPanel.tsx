@@ -206,7 +206,8 @@ export function GeographyBackfillPanel() {
 
   // Launch ----------------------------------------------------------------
   const isCrossUser = isAdmin && targetUser && targetUser.user_id !== selfUserId;
-  const treeLocations = isCrossUser ? brokenLocations : ownLocations;
+  const isAdminTargeted = isAdmin && !!targetUser;
+  const treeLocations = isAdminTargeted ? brokenLocations : ownLocations;
 
   const handleStart = async () => {
     if (job.running) return;
