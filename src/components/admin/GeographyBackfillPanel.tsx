@@ -2,16 +2,36 @@
 // backfill (fill / reconcile / overwrite) and inspect coverage stats.
 // Reuses useGeocodingJobStore + GeocodingProgressBar (do not introduce a
 // parallel progress system).
+//
+// Scope selector (added): cascading admin selectors (Continent → Country →
+// Region → Zone) + actionable POI list with checkboxes. Both filter the same
+// canonical pipeline (geocoding_jobs → geocoding-job-tick → backfill-admin-fks).
 
-import { useEffect, useState, useCallback } from 'react';
-import { Compass, Loader2, Play, RefreshCw, Square } from 'lucide-react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { Compass, Loader2, Play, RefreshCw, Square, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useGeocodingJobStore } from '@/stores/geocoding-job-store';
+import { useGeocodingJobStore, type GeocodingAdminScope } from '@/stores/geocoding-job-store';
 import { computeEta, formatDuration, formatClock, formatRate } from '@/shared/geography/eta';
 
 type Mode = 'fill' | 'reconcile' | 'overwrite';
+type AdminLevel = 'continent' | 'country' | 'region' | 'zone';
+const LEVEL_ORDER: AdminLevel[] = ['continent', 'country', 'region', 'zone'];
+const LEVEL_LABEL: Record<AdminLevel, string> = {
+  continent: 'Continente', country: 'País', region: 'Región', zone: 'Zona',
+};
+const FK_BY_LEVEL: Record<AdminLevel, 'continent_id' | 'country_id' | 'region_id' | 'zone_id'> = {
+  continent: 'continent_id', country: 'country_id', region: 'region_id', zone: 'zone_id',
+};
+
+interface AdminOption { id: string; name: string; }
+interface PoiRow { id: string; name: string; country: string | null; region: string | null; }
+const POI_PAGE = 200;
 
 interface Coverage {
   total: number;
