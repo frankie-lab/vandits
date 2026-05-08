@@ -18,11 +18,11 @@ export function GeocodingJobIndicator() {
   if (!job.running) return null;
 
   const total = Math.max(1, job.initialPending);
-  const done = job.totalUpdated;
+  const done = job.totalProcessed;
   const pct = Math.min(100, Math.round((done / total) * 100));
   const eta = computeEta({
     startedAt: job.startedAt,
-    totalUpdated: job.totalUpdated,
+    totalProcessed: job.totalProcessed,
     remaining: job.remaining,
   });
 
