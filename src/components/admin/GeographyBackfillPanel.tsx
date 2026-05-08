@@ -117,14 +117,19 @@ export function GeographyBackfillPanel() {
         const row = Array.isArray(data) ? data[0] : data;
         setCoverage((row as Coverage) ?? null);
       } else {
-        const { data, error } = await supabase
-          .from('v_geo_coverage')
-          .select(
-            'total, with_country, with_admin1, with_timezone, with_postal, resolved, avg_confidence',
-          )
-          .maybeSingle();
-        if (error) throw error;
-        setCoverage((data as Coverage) ?? null);
+        if (!selfUserId) {
+          setCoverage(null);
+        } else {
+          const { data, error } = await supabase
+            .from('v_geo_coverage')
+            .select(
+              'total, with_country, with_admin1, with_timezone, with_postal, resolved, avg_confidence',
+            )
+            .eq('user_id', selfUserId)
+            .maybeSingle();
+          if (error) throw error;
+          setCoverage((data as Coverage) ?? null);
+        }
       }
     } catch (err) {
       console.error('[geo-coverage]', err);
