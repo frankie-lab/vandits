@@ -2,16 +2,36 @@
 // backfill (fill / reconcile / overwrite) and inspect coverage stats.
 // Reuses useGeocodingJobStore + GeocodingProgressBar (do not introduce a
 // parallel progress system).
+//
+// Scope selector (added): cascading admin selectors (Continent → Country →
+// Region → Zone) + actionable POI list with checkboxes. Both filter the same
+// canonical pipeline (geocoding_jobs → geocoding-job-tick → backfill-admin-fks).
 
-import { useEffect, useState, useCallback } from 'react';
-import { Compass, Loader2, Play, RefreshCw, Square } from 'lucide-react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { Compass, Loader2, Play, RefreshCw, Square, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useGeocodingJobStore } from '@/stores/geocoding-job-store';
+import { useGeocodingJobStore, type GeocodingAdminScope } from '@/stores/geocoding-job-store';
 import { computeEta, formatDuration, formatClock, formatRate } from '@/shared/geography/eta';
 
 type Mode = 'fill' | 'reconcile' | 'overwrite';
+type AdminLevel = 'continent' | 'country' | 'region' | 'zone';
+const LEVEL_ORDER: AdminLevel[] = ['continent', 'country', 'region', 'zone'];
+const LEVEL_LABEL: Record<AdminLevel, string> = {
+  continent: 'Continente', country: 'País', region: 'Región', zone: 'Zona',
+};
+const FK_BY_LEVEL: Record<AdminLevel, 'continent_id' | 'country_id' | 'region_id' | 'zone_id'> = {
+  continent: 'continent_id', country: 'country_id', region: 'region_id', zone: 'zone_id',
+};
+
+interface AdminOption { id: string; name: string; }
+interface PoiRow { id: string; name: string; country: string | null; region: string | null; }
+const POI_PAGE = 200;
 
 interface Coverage {
   total: number;
@@ -44,6 +64,21 @@ export function GeographyBackfillPanel() {
   const [mode, setMode] = useState<Mode>('reconcile');
   const [, forceTick] = useState(0);
   const job = useGeocodingJobStore();
+
+  // Scope state
+  const [typeIdByLevel, setTypeIdByLevel] = useState<Record<AdminLevel, string | null>>({
+    continent: null, country: null, region: null, zone: null,
+  });
+  const [optionsByLevel, setOptionsByLevel] = useState<Record<AdminLevel, AdminOption[]>>({
+    continent: [], country: [], region: [], zone: [],
+  });
+  const [selectedByLevel, setSelectedByLevel] = useState<Record<AdminLevel, string | null>>({
+    continent: null, country: null, region: null, zone: null,
+  });
+  const [pois, setPois] = useState<PoiRow[]>([]);
+  const [poiCount, setPoiCount] = useState<number>(0);
+  const [loadingPois, setLoadingPois] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Tick every second while job runs so elapsed/ETA refresh visually
   // even if no new point comes back from the worker.
@@ -81,6 +116,125 @@ export function GeographyBackfillPanel() {
     }
   }, [job.running, refreshCoverage]);
 
+  // Load place_types ids for the 4 admin levels (one-time).
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('place_types')
+        .select('id, code')
+        .in('code', LEVEL_ORDER);
+      const map: Record<AdminLevel, string | null> = { continent: null, country: null, region: null, zone: null };
+      (data ?? []).forEach((row: { id: string; code: string }) => {
+        if ((LEVEL_ORDER as string[]).includes(row.code)) map[row.code as AdminLevel] = row.id;
+      });
+      setTypeIdByLevel(map);
+    })();
+  }, []);
+
+  // Load options for a level whenever its parent selection or type id changes.
+  const loadOptions = useCallback(async (level: AdminLevel, parentId: string | null) => {
+    const typeId = typeIdByLevel[level];
+    if (!typeId) { setOptionsByLevel(o => ({ ...o, [level]: [] })); return; }
+    let q = supabase.from('admin_areas').select('id, name').eq('type_id', typeId);
+    if (level === 'continent') {
+      q = q.is('parent_id', null);
+    } else {
+      if (!parentId) { setOptionsByLevel(o => ({ ...o, [level]: [] })); return; }
+      q = q.eq('parent_id', parentId);
+    }
+    const { data } = await q.order('name').limit(500);
+    setOptionsByLevel(o => ({ ...o, [level]: (data ?? []) as AdminOption[] }));
+  }, [typeIdByLevel]);
+
+  useEffect(() => { loadOptions('continent', null); }, [loadOptions]);
+  useEffect(() => { loadOptions('country', selectedByLevel.continent); }, [loadOptions, selectedByLevel.continent]);
+  useEffect(() => { loadOptions('region', selectedByLevel.country); }, [loadOptions, selectedByLevel.country]);
+  useEffect(() => { loadOptions('zone', selectedByLevel.region); }, [loadOptions, selectedByLevel.region]);
+
+  const adminScope: GeocodingAdminScope = useMemo(() => {
+    const s: GeocodingAdminScope = {};
+    if (selectedByLevel.continent) s.continent_id = selectedByLevel.continent;
+    if (selectedByLevel.country)   s.country_id   = selectedByLevel.country;
+    if (selectedByLevel.region)    s.region_id    = selectedByLevel.region;
+    if (selectedByLevel.zone)      s.zone_id      = selectedByLevel.zone;
+    return s;
+  }, [selectedByLevel]);
+
+  const hasAnyScope = Object.keys(adminScope).length > 0;
+
+  // Fetch POIs in scope (and total count). Re-runs whenever scope changes.
+  const refreshPois = useCallback(async () => {
+    setLoadingPois(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData?.user?.id;
+      if (!uid) return;
+      let baseList = supabase
+        .from('locations')
+        .select('id, name, country, region')
+        .eq('owner_user_id', uid)
+        .is('deleted_at', null)
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null);
+      let baseCount = supabase
+        .from('locations')
+        .select('id', { count: 'exact', head: true })
+        .eq('owner_user_id', uid)
+        .is('deleted_at', null)
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null);
+      (Object.entries(adminScope) as Array<[keyof GeocodingAdminScope, string]>).forEach(([k, v]) => {
+        baseList = baseList.eq(k, v);
+        baseCount = baseCount.eq(k, v);
+      });
+      const [{ data: rows }, { count }] = await Promise.all([
+        baseList.order('name').limit(POI_PAGE),
+        baseCount,
+      ]);
+      setPois((rows ?? []) as PoiRow[]);
+      setPoiCount(count ?? 0);
+      // Drop any selected ids no longer in scope.
+      setSelectedIds(prev => {
+        const visible = new Set((rows ?? []).map(r => r.id));
+        const next = new Set<string>();
+        prev.forEach(id => { if (visible.has(id)) next.add(id); });
+        return next;
+      });
+    } catch (err) {
+      console.error('[geo-scope-pois]', err);
+    } finally {
+      setLoadingPois(false);
+    }
+  }, [adminScope]);
+
+  useEffect(() => { refreshPois(); }, [refreshPois]);
+
+  const resetScope = () => {
+    setSelectedByLevel({ continent: null, country: null, region: null, zone: null });
+    setSelectedIds(new Set());
+  };
+
+  const setLevel = (level: AdminLevel, value: string | null) => {
+    setSelectedByLevel(prev => {
+      const next = { ...prev, [level]: value };
+      // Reset descendants
+      const idx = LEVEL_ORDER.indexOf(level);
+      LEVEL_ORDER.slice(idx + 1).forEach(l => { next[l] = null; });
+      return next;
+    });
+  };
+
+  const allInPageSelected = pois.length > 0 && pois.every(p => selectedIds.has(p.id));
+  const togglePoi = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const selectAllInPage = () => setSelectedIds(new Set(pois.map(p => p.id)));
+  const clearSelection = () => setSelectedIds(new Set());
+
   const handleStart = async () => {
     if (job.running) return;
     try {
@@ -88,28 +242,49 @@ export function GeographyBackfillPanel() {
       const uid = userData?.user?.id;
       if (!uid) { toast.error('Sesión expirada'); return; }
 
-      // Compute total to process
-      let q = supabase.from('locations').select('id', { count: 'exact', head: true })
-        .is('deleted_at', null)
-        .not('latitude', 'is', null)
-        .not('longitude', 'is', null)
-        .eq('owner_user_id', uid);
-      if (mode === 'fill') {
-        q = q.or('continent_id.is.null,country_id.is.null,region_id.is.null,zone_id.is.null,locality_id.is.null');
+      const useExplicit = selectedIds.size > 0;
+      let total = 0;
+      let label = MODE_LABELS[mode].title;
+
+      if (useExplicit) {
+        total = selectedIds.size;
+        label = `${MODE_LABELS[mode].title} · ${total} POIs`;
+      } else {
+        let q = supabase.from('locations').select('id', { count: 'exact', head: true })
+          .is('deleted_at', null)
+          .not('latitude', 'is', null)
+          .not('longitude', 'is', null)
+          .eq('owner_user_id', uid);
+        if (mode === 'fill') {
+          q = q.or('continent_id.is.null,country_id.is.null,region_id.is.null,zone_id.is.null,locality_id.is.null');
+        }
+        (Object.entries(adminScope) as Array<[keyof GeocodingAdminScope, string]>).forEach(([k, v]) => {
+          q = q.eq(k, v);
+        });
+        const { count } = await q;
+        total = count ?? 0;
+        if (hasAnyScope) label = `${MODE_LABELS[mode].title} · ámbito (${total})`;
       }
-      const { count } = await q;
-      const total = count ?? 0;
+
       if (total === 0) { toast.message('No hay puntos para procesar'); return; }
 
       await useGeocodingJobStore.getState().start(total, {
-        label: MODE_LABELS[mode].title,
+        label,
         mode,
+        adminScope: hasAnyScope ? adminScope : undefined,
+        locationIds: useExplicit ? Array.from(selectedIds) : undefined,
       });
     } catch (err) {
       console.error('[backfill-start]', err);
       toast.error('No se pudo lanzar el backfill');
     }
   };
+
+  const launchLabel = selectedIds.size > 0
+    ? `Lanzar sobre selección (${selectedIds.size})`
+    : hasAnyScope
+      ? `Lanzar sobre ámbito (${poiCount})`
+      : `Lanzar (todos mis puntos)`;
 
   const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
 
@@ -139,6 +314,94 @@ export function GeographyBackfillPanel() {
             <CovRow label="Con timezone" value={`${coverage.with_timezone} (${pct(coverage.with_timezone, coverage.total)}%)`} />
             <CovRow label="Con código postal" value={`${coverage.with_postal} (${pct(coverage.with_postal, coverage.total)}%)`} />
             <CovRow label="Confianza media" value={coverage.avg_confidence ?? '—'} />
+          </div>
+        )}
+      </section>
+
+      {/* Ámbito */}
+      <section className="rounded-lg border p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Ámbito</h3>
+          {(hasAnyScope || selectedIds.size > 0) && (
+            <Button variant="ghost" size="sm" className="h-7" onClick={resetScope}>
+              <X className="w-3.5 h-3.5 mr-1" /> Limpiar
+            </Button>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {LEVEL_ORDER.map(level => {
+            const opts = optionsByLevel[level];
+            const value = selectedByLevel[level];
+            const idx = LEVEL_ORDER.indexOf(level);
+            const parentReady = level === 'continent' || !!selectedByLevel[LEVEL_ORDER[idx - 1]];
+            return (
+              <Select
+                key={level}
+                value={value ?? '__all'}
+                onValueChange={(v) => setLevel(level, v === '__all' ? null : v)}
+                disabled={!parentReady || opts.length === 0}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder={LEVEL_LABEL[level]} />
+                </SelectTrigger>
+                <SelectContent className="max-h-72 bg-popover z-50">
+                  <SelectItem value="__all">{LEVEL_LABEL[level]} — todos</SelectItem>
+                  {opts.map(o => (
+                    <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            Puntos en ámbito: <strong className="text-foreground tabular-nums">{poiCount}</strong>
+            {pois.length < poiCount && <> · mostrando {pois.length}</>}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="h-7" onClick={selectAllInPage} disabled={pois.length === 0}>
+              {allInPageSelected ? 'Deseleccionar página' : 'Seleccionar página'}
+            </Button>
+            {selectedIds.size > 0 && (
+              <Button variant="ghost" size="sm" className="h-7" onClick={clearSelection}>Ninguno</Button>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-md border max-h-72 overflow-y-auto divide-y">
+          {loadingPois ? (
+            <div className="p-3 text-xs text-muted-foreground flex items-center gap-2">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando POIs…
+            </div>
+          ) : pois.length === 0 ? (
+            <div className="p-3 text-xs text-muted-foreground">
+              {hasAnyScope ? 'No hay POIs en este ámbito.' : 'Selecciona un ámbito para ver POIs.'}
+            </div>
+          ) : (
+            pois.map(p => (
+              <label
+                key={p.id}
+                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted/30"
+              >
+                <Checkbox
+                  checked={selectedIds.has(p.id)}
+                  onCheckedChange={() => togglePoi(p.id)}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium truncate">{p.name}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    {[p.country, p.region].filter(Boolean).join(' · ') || '—'}
+                  </div>
+                </div>
+              </label>
+            ))
+          )}
+        </div>
+        {selectedIds.size > 0 && (
+          <div className="text-[11px] text-muted-foreground">
+            Seleccionados: <strong className="text-foreground">{selectedIds.size}</strong>. Solo se procesarán esos POIs.
           </div>
         )}
       </section>
@@ -218,7 +481,7 @@ export function GeographyBackfillPanel() {
         ) : (
           <Button onClick={handleStart} className="w-full">
             <Play className="w-3.5 h-3.5 mr-2" />
-            Lanzar backfill ({MODE_LABELS[mode].title})
+            {launchLabel}
           </Button>
         )}
         <div className="text-[11px] text-muted-foreground">

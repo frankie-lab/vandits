@@ -1,81 +1,96 @@
 ## Objetivo
 
-Hacer que el panel **"Geografía universal"** (Rellenar / Reconciliar / Reescribir) produzca la jerarquía correcta para cualquier punto del mundo — sin scripts ad-hoc por país. Cero código España/Galicia. Toda la lógica vive en el motor que el panel ya invoca.
+Permitir desde `GeographyBackfillPanel` acotar el backfill por:
+1. **Cascada admin** (Continente → País → Región → Zona) usando `admin_areas`.
+2. **Lista accionable de POIs** que caen en ese scope, con checkbox por fila para procesar solo los marcados.
 
-## Diagnóstico (universal)
+Sin tocar lógica de enriquecimiento, mapa ni otros paneles. Cambio transversal al pipeline existente (`geocoding_jobs` → `geocoding-job-tick` → `backfill-admin-fks`).
 
-El panel y el job server-side ya funcionan. Lo que falla es el motor que invocan:
+## UX (en el panel actual)
 
-1. **`reverse-geocode` ignora `osm_admin_level`**. Nominatim devuelve `address.state/county/municipality/city/...` pero los volcamos a slots fijos sin mirar el nivel administrativo real. Resultado: provincias, condados, comarcas y municipios caen todos en `zone`.
-2. **`resolve-admin-area` no reclasifica entre niveles**. Si el mismo nombre (Galicia, Île-de-France, Tokyo, California…) llega una vez como `region` y otra como `zone`, crea duplicados en lugar de fusionar al nodo canónico.
-3. **`backfill-admin-fks` modo `fill`** tiene un fast-path que solo rellena `continent_id` desde `country.path` y se salta el resto — los puntos legacy nunca completan jerarquía.
-4. **`place_types` ya tiene los niveles extendidos** (Phase 1 añadió `province`, `municipality`, `village`, `hamlet`, etc.), pero el resolver solo emite los 7 legacy.
+Bajo "Cobertura" y antes de "Modo", nueva sección **"Ámbito"**:
 
-## Cambios (todos detrás del panel — el panel NO se toca)
+```text
+Ámbito
+[Continente ▾] [País ▾] [Región ▾] [Zona ▾]   [Limpiar]
+─────────────────────────────────────────────
+Puntos en ámbito: 1.234        [Seleccionar todos] [Ninguno]
+┌──────────────────────────────────────────┐
+│ ☐  Nombre POI         · País · Región    │  ← virtualizada
+│ ☐  ...                                   │
+└──────────────────────────────────────────┘
+Seleccionados: 87
+```
 
-### 1. `supabase/functions/_shared/geo-normalizer.ts`
-- Extender `CanonicalGeo` con un mapa `admin_levels: Record<'2'|'4'|'6'|'7'|'8'|'9'|'10', { name; type?; iso? }>` y poblarlo desde el `address` de Nominatim.
-- Mantener los slots derivados (`region/zone/admin3/locality/sublocality`) como vista compatibilidad para el resto del código.
+Botón inferior cambia dinámicamente:
+- 0 selección + ámbito vacío → "Lanzar (todos mis puntos)"
+- ámbito activo, 0 marcados → "Lanzar sobre ámbito (1.234)"
+- N marcados → "Lanzar sobre selección (N)"
 
-### 2. `supabase/functions/_shared/reverse-geocode.ts`
-- Pedir `extratags=1&namedetails=1`.
-- Mapear el `admin_level` OSM a slots canónicos (regla universal):
-  - `4` → `region`        (estado/comunidad/región)
-  - `6` → `zone`          (provincia/condado/département/prefecture)
-  - `7` → `admin3`        (comarca/arrondissement/distrito)
-  - `8` → `locality`      (municipio/ciudad/pueblo)
-  - `10` → `sublocality`  (barrio)
-- Conservar el dato local en `*_type` (`province`, `condado`, `comarca`, `arrondissement`…) para escribirlo en `admin_type_local`.
+## Implementación
 
-### 3. `supabase/functions/resolve-admin-area/index.ts`
-- **Clave de unicidad** por nivel: `iso_code` cuando exista; si no, `(parent_id, lower(name), type_id)`.
-- **Anti-duplicado entre niveles**: antes de insertar, buscar el mismo nombre bajo el mismo padre con cualquier `type_id`; si existe en otro nivel y el nuevo es más específico, ejecutar `_reclassify_admin_area` (helper SQL ya existe) en lugar de duplicar.
-- Aceptar `place_type` derivado del meta (`region | province | municipality | village | hamlet | sublocality | …`) y elegir el `type_id` real, no el del LEVELS[i] hardcodeado.
-- Escribir `admin_type_local` con el tipo OSM/local cuando venga.
+### 1. Frontend (`GeographyBackfillPanel.tsx`)
 
-### 4. `supabase/functions/backfill-admin-fks/index.ts`
-- Eliminar el fast-path de `mode='fill'` (líneas 142-161): que `fill` recorra la misma ruta canónica que `reconcile`/`overwrite` cuando falte cualquier FK alto. Lógica única.
-- Pasar al resolver el meta con `osm_admin_level` y `place_type` por nivel.
+- 4 `<Select>` en cascada. Cada uno consulta `admin_areas` filtrando por `parent_id` del nivel superior y por `type_id` del nivel correspondiente (resuelto vía `place_types.code` = continent/country/region/zone). Al cambiar un nivel superior se resetean los inferiores.
+- Query de POIs: `locations` con `eq('owner_user_id', uid)`, `is('deleted_at', null)` y FK del nivel más profundo seleccionado (`continent_id` / `country_id` / `region_id` / `zone_id`). Paginada (50 inicial + scroll virtualizado con la lib que ya usa la app — ver `Document view tabs` mem).
+- Estado local `selectedIds: Set<string>`. Checkboxes por fila + cabecera "Seleccionar todos / Ninguno".
+- Botón único `handleStart` resuelve modo:
+  - Si hay `selectedIds.size > 0` → manda `location_ids: Array.from(selectedIds)`.
+  - Si no, mantiene comportamiento actual con `scope_filter` por FK admin.
 
-### 5. Migración SQL (estructural — sin datos país-específicos)
-- Índice único parcial `UNIQUE (type_id, parent_id, lower(name)) WHERE iso_code IS NULL` sobre `admin_areas` para impedir duplicados futuros.
-- Índice GIN sobre `aliases` (acelera el lookup del resolver).
-- `_collapse_admin_duplicates(_parent_id uuid)` que recorre hijos y aplica `_merge_admin_area` / `_reclassify_admin_area` a colisiones nombre+padre. Lo invoca el resolver al detectar reclasificación.
+### 2. Store (`stores/geocoding-job-store.ts`)
 
-## Flujo final desde el panel (UI sin cambios)
+Extender `GeocodingScope`:
+```ts
+locationIds?: string[];           // selección explícita de POIs
+adminScope?: {
+  continentId?: string;
+  countryId?: string;
+  regionId?: string;
+  zoneId?: string;
+};
+```
+Persistir ambos en columnas nuevas del job: `location_ids uuid[]`, `admin_scope jsonb`. Reflejar en `applyRow`.
 
-1. Usuario elige modo y pulsa "Lanzar".
-2. `geocoding-job-store` inserta en `geocoding_jobs` (ya hace esto).
-3. `pg_cron` dispara `geocoding-job-tick` cada minuto (ya configurado).
-4. Tick procesa lotes invocando `backfill-admin-fks`.
-5. Cada punto: reverse-geocode → mapeo OSM `admin_level` → resolver clasifica al `place_type` correcto → 8 FKs canónicos → fusiones automáticas si detecta colisión nombre+padre en otro nivel.
-6. Job sigue aunque cierre el navegador. Al terminar, `v_geo_coverage` y `GeographyTree` reflejan la cascada real para cualquier país.
+### 3. Migración SQL
+
+```sql
+ALTER TABLE public.geocoding_jobs
+  ADD COLUMN IF NOT EXISTS location_ids uuid[],
+  ADD COLUMN IF NOT EXISTS admin_scope jsonb;
+```
+Sin cambios de RLS (ya filtra por `user_id`).
+
+### 4. Edge `geocoding-job-tick`
+
+Pasar `location_ids` y `admin_scope` al body de `backfill-admin-fks` cuando estén presentes. También usarlos para calcular `total_in_scope` en la primera tick.
+
+### 5. Edge `backfill-admin-fks`
+
+Aceptar nuevos parámetros en body:
+- `location_ids?: string[]` → si viene, sustituye TODA la selección por `.in('id', location_ids)`.
+- `admin_scope?: { continent_id, country_id, region_id, zone_id }` → aplicar `eq()` por cada FK no nula (la más profunda implica las superiores, pero aplicar todas es inocuo y robusto si la jerarquía no estuviera completa).
+
+Ambos se aplican antes del filtro de `mode === 'fill'` (que sigue añadiendo el OR de huecos).
+
+Conteo total (líneas 220-232) replica los mismos filtros para que la barra de progreso refleje el ámbito real.
 
 ## Detalles técnicos
 
-```text
-admin_areas (estructura existente, sin cambios)
-  ├─ continent  (sin parent)
-  ├─ country     iso_code = ISO 3166-1 α2/α3
-  ├─ region      iso_code = ISO 3166-2          (admin_level=4)
-  ├─ zone        provincia/condado/préfecture   (admin_level=6)
-  ├─ admin3      comarca/arrondissement         (admin_level=7)
-  ├─ locality    municipio/ciudad               (admin_level=8)
-  └─ sublocality barrio                          (admin_level=10)
-```
+- **Cascada admin**: respeta lo que ya hay en mem `Geographic catalog` y `Canonical admin areas`. Lookups por `type_id` resueltos contra `place_types` (cacheados al montar el panel).
+- **POIs sin FK**: si el usuario elige solo "Continente = Europa" y un POI no tiene `continent_id`, no aparece. Es correcto (esos puntos se cubren con "Lanzar todos" o modo `fill`).
+- **Lista virtualizada**: reutilizar el patrón de `Document view tabs` (paginación 1000) — en este panel basta con 200 visibles + "Cargar más" para no inflar.
+- **Persistencia entre sesiones**: NO. La selección es efímera; el job ya queda registrado en `geocoding_jobs.location_ids`.
 
-`place_types` ya contiene los códigos extendidos. Los slots de FK en `locations` no cambian.
+## Out of scope
 
-## Verificación tras el cambio
+- Selectores por debajo de `zone` (admin3/locality/sublocality/street) — la cascada se queda en 4 niveles como pediste.
+- Cambios en `EnrichmentCriteriaConfig`, `GeographyTree`, `Documents panel`.
+- Cambios en `mode` (fill/reconcile/overwrite siguen igual).
+- No se reintroducen botones "Geocodificar" en otros paneles (norma transversal vigente).
 
-1. Lanzar `Reconciliar` desde el panel.
-2. `v_geo_coverage`: `with_admin1` sube y aparecen valores en niveles `zone`/`admin3`.
-3. `SELECT name, parent_id, count(*) FROM admin_areas GROUP BY 1,2 HAVING count(*)>1` → cero filas.
-4. Abrir `GeographyTree` y comprobar la cascada en puntos de varios países (España, Francia, Japón, US) — todos siguen la regla OSM `admin_level`.
+## Verificación
 
-## Fuera de alcance
-
-- Tocar UI del panel (ya está bien).
-- Scripts ad-hoc para España/Galicia o cualquier país.
-- Tipos no-administrativos (POI/landform/airport…): los resuelve `enrich-location` por separado.
-- Cambios en `GeographyTree` (consume `path`/`depth`, queda automático).
+1. Elegir España → Galicia → ver lista de POIs, marcar 5, lanzar `reconcile`. Ver job con `location_ids` correctos y barra de progreso = 5.
+2. Elegir solo Europa, sin selección → "Lanzar sobre ámbito (N)". Comprobar que `backfill-admin-fks` filtra por `continent_id`.
+3. Sin scope ni selección → comportamiento actual intacto.

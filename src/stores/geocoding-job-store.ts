@@ -15,6 +15,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
+export interface GeocodingAdminScope {
+  continent_id?: string;
+  country_id?: string;
+  region_id?: string;
+  zone_id?: string;
+}
+
 export interface GeocodingScope {
   /** Restrict the backfill to a single document. Omit to process all of the user's pending points. */
   documentId?: string;
@@ -26,6 +33,10 @@ export interface GeocodingScope {
   mode?: 'fill' | 'reconcile' | 'overwrite';
   /** Limit to approved/catalog points. */
   catalogOnly?: boolean;
+  /** Explicit POI ids to process (overrides dynamic selection). */
+  locationIds?: string[];
+  /** Admin-area scope (any combination of continent/country/region/zone). */
+  adminScope?: GeocodingAdminScope;
 }
 
 type JobStatus = 'running' | 'canceling' | 'canceled' | 'completed' | 'failed';
@@ -169,6 +180,12 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
     };
     if (scope?.documentId) insertPayload.document_id = scope.documentId;
     if (scope?.label) insertPayload.label = scope.label;
+    if (scope?.locationIds && scope.locationIds.length > 0) {
+      insertPayload.location_ids = scope.locationIds;
+    }
+    if (scope?.adminScope && Object.values(scope.adminScope).some(Boolean)) {
+      insertPayload.admin_scope = scope.adminScope;
+    }
     if (initialPending > 0) {
       insertPayload.total_in_scope = initialPending;
       insertPayload.remaining = initialPending;

@@ -74,6 +74,27 @@ Deno.serve(async (req) => {
   const documentId = typeof body.document_id === 'string' ? body.document_id : null;
   const catalogOnly = body.catalog_only === true;
   const offset = Math.max(0, Number(body.offset ?? 0));
+  // Optional explicit POI selection: if provided, completely replaces the
+  // dynamic selection (mode/catalog/document filters still apply for safety).
+  const locationIds: string[] | null = Array.isArray(body.location_ids)
+    ? (body.location_ids as unknown[]).filter((x): x is string => typeof x === 'string')
+    : null;
+  // Optional admin-area scope: any of the four FK levels.
+  const adminScope: {
+    continent_id?: string;
+    country_id?: string;
+    region_id?: string;
+    zone_id?: string;
+  } = (body.admin_scope && typeof body.admin_scope === 'object') ? body.admin_scope : {};
+
+  const applyAdminScope = <T extends { eq: (col: string, val: unknown) => T }>(q: T): T => {
+    let out = q;
+    if (adminScope.continent_id) out = out.eq('continent_id', adminScope.continent_id);
+    if (adminScope.country_id)   out = out.eq('country_id', adminScope.country_id);
+    if (adminScope.region_id)    out = out.eq('region_id', adminScope.region_id);
+    if (adminScope.zone_id)      out = out.eq('zone_id', adminScope.zone_id);
+    return out;
+  };
 
   // SAFETY: el backfill SIEMPRE debe correr con scope de usuario.
   // Nunca se permite ejecutar a nivel global (ni siquiera para masters/service role).
@@ -111,6 +132,8 @@ Deno.serve(async (req) => {
   if (catalogOnly) q = q.eq('is_approved', true);
   if (callerUserId) q = q.eq('owner_user_id', callerUserId);
   if (documentId) q = q.eq('document_id', documentId);
+  if (locationIds && locationIds.length > 0) q = q.in('id', locationIds);
+  q = applyAdminScope(q);
   q = q.order('created_at', { ascending: true }).range(offset, offset + limit - 1);
 
   const { data: rows, error: fetchErr } = await q;
@@ -217,6 +240,8 @@ Deno.serve(async (req) => {
     if (catalogOnly) remainingQ = remainingQ.eq('is_approved', true);
     if (callerUserId) remainingQ = remainingQ.eq('owner_user_id', callerUserId);
     if (documentId) remainingQ = remainingQ.eq('document_id', documentId);
+    if (locationIds && locationIds.length > 0) remainingQ = remainingQ.in('id', locationIds);
+    remainingQ = applyAdminScope(remainingQ);
     const { count } = await remainingQ;
     remaining = count ?? null;
   } else {
@@ -229,6 +254,8 @@ Deno.serve(async (req) => {
     if (catalogOnly) scopeQ = scopeQ.eq('is_approved', true);
     if (callerUserId) scopeQ = scopeQ.eq('owner_user_id', callerUserId);
     if (documentId) scopeQ = scopeQ.eq('document_id', documentId);
+    if (locationIds && locationIds.length > 0) scopeQ = scopeQ.in('id', locationIds);
+    scopeQ = applyAdminScope(scopeQ);
     const { count } = await scopeQ;
     totalInScope = count ?? 0;
     remaining = Math.max(0, totalInScope - (offset + processed));
