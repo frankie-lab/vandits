@@ -5,7 +5,7 @@
 // jerarquía geográfica del usuario), derecha cobertura + modo + ejecución.
 // El árbol no toca filtros del mapa: solo recolecta IDs para el job.
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Compass, Loader2, Play, RefreshCw, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -50,7 +50,11 @@ export function GeographyBackfillPanel() {
   const job = useGeocodingJobStore();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const allLocations = useLocationsStore((s) => s.getAllLocations());
+  // Subscribe to documents (stable reference) and derive the flat list with
+  // useMemo. Calling `getAllLocations()` inside a zustand selector returns a
+  // new array on every render → infinite loop.
+  const documents = useLocationsStore((s) => s.documents);
+  const allLocations = useMemo(() => documents.flatMap((d) => d.locations), [documents]);
 
   // Tick every second while job runs so elapsed/ETA refresh visually
   // even if no new point comes back from the worker.
