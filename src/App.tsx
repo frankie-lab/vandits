@@ -45,8 +45,9 @@ const App = () => (
  <QueryClientProvider client={queryClient}>
  <IconLibraryProvider>
  <TooltipProvider>
-   <Toaster />
-   <GlobalLoadingBar />
+    <Toaster />
+    <GlobalLoadingBar />
+    <GeocodingJobIndicator />
  <BrowserRouter>
  <Routes>
  <Route path="/auth" element={<Auth />} />
