@@ -681,6 +681,7 @@ export type Database = {
       }
       geocoding_jobs: {
         Row: {
+          admin_scope: Json | null
           catalog_only: boolean
           created_at: string
           document_id: string | null
@@ -689,6 +690,7 @@ export type Database = {
           label: string | null
           last_error: string | null
           last_tick_at: string | null
+          location_ids: string[] | null
           mode: string
           offset: number
           page_size: number
@@ -702,6 +704,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          admin_scope?: Json | null
           catalog_only?: boolean
           created_at?: string
           document_id?: string | null
@@ -710,6 +713,7 @@ export type Database = {
           label?: string | null
           last_error?: string | null
           last_tick_at?: string | null
+          location_ids?: string[] | null
           mode?: string
           offset?: number
           page_size?: number
@@ -723,6 +727,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          admin_scope?: Json | null
           catalog_only?: boolean
           created_at?: string
           document_id?: string | null
@@ -731,6 +736,7 @@ export type Database = {
           label?: string | null
           last_error?: string | null
           last_tick_at?: string | null
+          location_ids?: string[] | null
           mode?: string
           offset?: number
           page_size?: number
