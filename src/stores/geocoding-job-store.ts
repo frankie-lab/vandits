@@ -46,6 +46,7 @@ interface GeocodingJobState {
   stopping: boolean;
   jobId: string | null;
   status: JobStatus | null;
+  totalProcessed: number;
   totalUpdated: number;
   remaining: number;
   initialPending: number;
@@ -76,6 +77,7 @@ function applyRow(row: Record<string, any>) {
     status,
     running: isActive,
     stopping: status === 'canceling',
+    totalProcessed: row.processed ?? 0,
     totalUpdated: row.updated ?? 0,
     failedThisBatch: row.failed ?? 0,
     remaining: row.remaining ?? Math.max(0, totalInScope - (row.processed ?? 0)),
@@ -122,6 +124,7 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
   stopping: false,
   jobId: null,
   status: null,
+  totalProcessed: 0,
   totalUpdated: 0,
   remaining: 0,
   initialPending: 0,
