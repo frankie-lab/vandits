@@ -1,71 +1,81 @@
 ## Objetivo
 
-Reorganizar la jerarquía geográfica para que respete los 17 niveles definidos, deduplicar admin_areas, y reasignar los puntos de los usuarios a los nodos canónicos.
+Hacer que el panel **"Geografía universal"** (Rellenar / Reconciliar / Reescribir) produzca la jerarquía correcta para cualquier punto del mundo — sin scripts ad-hoc por país. Cero código España/Galicia. Toda la lógica vive en el motor que el panel ya invoca.
 
-## Fase 1 — Ampliar la taxonomía `place_types`
+## Diagnóstico (universal)
 
-Añadir los niveles que faltan, manteniendo los actuales como aliases compatibles:
+El panel y el job server-side ya funcionan. Lo que falla es el motor que invocan:
 
-```
-continent → country → region → province → admin_level_3 (comarca)
-  → municipality → locality (city) → village → hamlet
-  → sublocality (neighborhood) → street
-```
+1. **`reverse-geocode` ignora `osm_admin_level`**. Nominatim devuelve `address.state/county/municipality/city/...` pero los volcamos a slots fijos sin mirar el nivel administrativo real. Resultado: provincias, condados, comarcas y municipios caen todos en `zone`.
+2. **`resolve-admin-area` no reclasifica entre niveles**. Si el mismo nombre (Galicia, Île-de-France, Tokyo, California…) llega una vez como `region` y otra como `zone`, crea duplicados en lugar de fusionar al nodo canónico.
+3. **`backfill-admin-fks` modo `fill`** tiene un fast-path que solo rellena `continent_id` desde `country.path` y se salta el resto — los puntos legacy nunca completan jerarquía.
+4. **`place_types` ya tiene los niveles extendidos** (Phase 1 añadió `province`, `municipality`, `village`, `hamlet`, etc.), pero el resolver solo emite los 7 legacy.
 
-Y los tipos no-administrativos (sin jerarquía padre, todos hijos de `locality`/`sublocality` o sin parent):
-```
-landform, road, airport, station, building, establishment, poi, unclassified
-```
+## Cambios (todos detrás del panel — el panel NO se toca)
 
-Cada `place_type` recibe `sort_admin_level` para poder ordenarlos.
+### 1. `supabase/functions/_shared/geo-normalizer.ts`
+- Extender `CanonicalGeo` con un mapa `admin_levels: Record<'2'|'4'|'6'|'7'|'8'|'9'|'10', { name; type?; iso? }>` y poblarlo desde el `address` de Nominatim.
+- Mantener los slots derivados (`region/zone/admin3/locality/sublocality`) como vista compatibilidad para el resto del código.
 
-## Fase 2 — Deduplicación de `admin_areas`
+### 2. `supabase/functions/_shared/reverse-geocode.ts`
+- Pedir `extratags=1&namedetails=1`.
+- Mapear el `admin_level` OSM a slots canónicos (regla universal):
+  - `4` → `region`        (estado/comunidad/región)
+  - `6` → `zone`          (provincia/condado/département/prefecture)
+  - `7` → `admin3`        (comarca/arrondissement/distrito)
+  - `8` → `locality`      (municipio/ciudad/pueblo)
+  - `10` → `sublocality`  (barrio)
+- Conservar el dato local en `*_type` (`province`, `condado`, `comarca`, `arrondissement`…) para escribirlo en `admin_type_local`.
 
-Pasada SQL idempotente que usa el helper existente `_merge_admin_area`:
+### 3. `supabase/functions/resolve-admin-area/index.ts`
+- **Clave de unicidad** por nivel: `iso_code` cuando exista; si no, `(parent_id, lower(name), type_id)`.
+- **Anti-duplicado entre niveles**: antes de insertar, buscar el mismo nombre bajo el mismo padre con cualquier `type_id`; si existe en otro nivel y el nuevo es más específico, ejecutar `_reclassify_admin_area` (helper SQL ya existe) en lugar de duplicar.
+- Aceptar `place_type` derivado del meta (`region | province | municipality | village | hamlet | sublocality | …`) y elegir el `type_id` real, no el del LEVELS[i] hardcodeado.
+- Escribir `admin_type_local` con el tipo OSM/local cuando venga.
 
-1. **Países**: fusionar `España`→`Spain`, y cualquier país sin ISO con su gemelo ISO (regla: ganador = el que tiene `iso_code` no nulo).
-2. **Regiones**: fusionar `Galicia` (sin ISO)→`Galicia` (ES-GA). Generalizable a todas las regiones con duplicados por nombre.
-3. **Provincias mal clasificadas**: nodos tipo `region` con ISO `ES-PO`, `ES-LU`, `ES-C`, `ES-OR` (y resto de provincias españolas) → reclasificar a `province` y reparentarlos a `Galicia`/`Spain` según ISO 3166-2.
-4. **Comarcas en slot `zone`**: las que tienen parent=Galicia y no son provincia → mantener como `admin_level_3` (comarca) pero reparentadas bajo su provincia correcta vía centroide (PostGIS-less: mediante tabla auxiliar de mapeo comarca→provincia que se siembra en la migración para España; otros países en fases siguientes).
-5. **Ciudades como `zone`**: nodos tipo `zone` cuyo nombre coincide con un `locality` existente (Vigo, Lugo, Santiago, Ferrol, A Coruña…) → fusionar al `locality`.
+### 4. `supabase/functions/backfill-admin-fks/index.ts`
+- Eliminar el fast-path de `mode='fill'` (líneas 142-161): que `fill` recorra la misma ruta canónica que `reconcile`/`overwrite` cuando falte cualquier FK alto. Lógica única.
+- Pasar al resolver el meta con `osm_admin_level` y `place_type` por nivel.
 
-## Fase 3 — Reescribir `resolve-admin-area`
+### 5. Migración SQL (estructural — sin datos país-específicos)
+- Índice único parcial `UNIQUE (type_id, parent_id, lower(name)) WHERE iso_code IS NULL` sobre `admin_areas` para impedir duplicados futuros.
+- Índice GIN sobre `aliases` (acelera el lookup del resolver).
+- `_collapse_admin_duplicates(_parent_id uuid)` que recorre hijos y aplica `_merge_admin_area` / `_reclassify_admin_area` a colisiones nombre+padre. Lo invoca el resolver al detectar reclasificación.
 
-Edge function:
-- **Clave de unicidad** = `iso_code` cuando exista, si no `(parent_id, lower(name), type_id)`.
-- **Nunca** crea un `zone` si ya existe el mismo nombre como `region`/`province`/`locality` bajo el mismo padre.
-- Clasifica al `place_type` correcto a partir de `admin_level` OSM o `instanceOf` Wikidata.
-- Devuelve los 8 FKs (`continent_id…sublocality_id`) consistentes con la jerarquía canónica.
+## Flujo final desde el panel (UI sin cambios)
 
-## Fase 4 — Re-lanzar el job sobre tus puntos
-
-Sobre los 4.747 puntos del usuario, marca `geo_resolved_at = NULL` para los que sigan apuntando a admin_areas eliminadas o reclasificadas, y deja que el job server-side existente (`geocoding-job-tick` + `backfill-admin-fks`) reasigne FKs a los nodos canónicos.
-
-## Fase 5 — `GeographyTree` (frontend)
-
-No cambia: ya consume `path`/`depth` de `admin_areas` vía el helper `getLocationHierarchy`. Solo verificamos que muestre todos los `place_types` nuevos en orden por `sort_admin_level`.
+1. Usuario elige modo y pulsa "Lanzar".
+2. `geocoding-job-store` inserta en `geocoding_jobs` (ya hace esto).
+3. `pg_cron` dispara `geocoding-job-tick` cada minuto (ya configurado).
+4. Tick procesa lotes invocando `backfill-admin-fks`.
+5. Cada punto: reverse-geocode → mapeo OSM `admin_level` → resolver clasifica al `place_type` correcto → 8 FKs canónicos → fusiones automáticas si detecta colisión nombre+padre en otro nivel.
+6. Job sigue aunque cierre el navegador. Al terminar, `v_geo_coverage` y `GeographyTree` reflejan la cascada real para cualquier país.
 
 ## Detalles técnicos
 
-- Migración SQL única para Fase 1+2 (idempotente).
-- Tabla auxiliar **temporal** `_es_comarca_provincia(comarca_name, provincia_iso)` con las ~50 comarcas gallegas + asturianas + catalanas + vascas para reparentar correctamente. Países adicionales en fases sucesivas (mismo patrón).
-- `resolve-admin-area` queda con tests por país (España como referencia).
-- El cron `geocoding-job-tick` ya está activo, no requiere cambios.
-- Memoria `mem://database/canonical-admin-areas` se actualiza con la nueva estructura.
+```text
+admin_areas (estructura existente, sin cambios)
+  ├─ continent  (sin parent)
+  ├─ country     iso_code = ISO 3166-1 α2/α3
+  ├─ region      iso_code = ISO 3166-2          (admin_level=4)
+  ├─ zone        provincia/condado/préfecture   (admin_level=6)
+  ├─ admin3      comarca/arrondissement         (admin_level=7)
+  ├─ locality    municipio/ciudad               (admin_level=8)
+  └─ sublocality barrio                          (admin_level=10)
+```
 
-## Fuera de alcance (fases siguientes)
+`place_types` ya contiene los códigos extendidos. Los slots de FK en `locations` no cambian.
 
-- Tipos no-administrativos para puntos sin clasificar (POI, building, road, airport, station): la migración los crea pero no reasigna puntos masivamente — eso lo hace el enriquecimiento natural.
-- Reparentado de comarcas fuera de España: requiere fuente de mapeo equivalente.
-- UI nueva en GeographyTree para los niveles añadidos.
+## Verificación tras el cambio
 
-## Archivos
+1. Lanzar `Reconciliar` desde el panel.
+2. `v_geo_coverage`: `with_admin1` sube y aparecen valores en niveles `zone`/`admin3`.
+3. `SELECT name, parent_id, count(*) FROM admin_areas GROUP BY 1,2 HAVING count(*)>1` → cero filas.
+4. Abrir `GeographyTree` y comprobar la cascada en puntos de varios países (España, Francia, Japón, US) — todos siguen la regla OSM `admin_level`.
 
-- `supabase/migrations/<new>.sql` — Fase 1 + 2.
-- `supabase/functions/resolve-admin-area/index.ts` — Fase 3.
-- Re-deploy `geocoding-job-tick` (sin cambios de código, solo asegurar consistencia).
-- `mem://database/canonical-admin-areas` — actualizar.
+## Fuera de alcance
 
-## Confirmación
-
-¿Procedo con este plan en una sola tanda (España como caso piloto, resto de países en fases sucesivas)?
+- Tocar UI del panel (ya está bien).
+- Scripts ad-hoc para España/Galicia o cualquier país.
+- Tipos no-administrativos (POI/landform/airport…): los resuelve `enrich-location` por separado.
+- Cambios en `GeographyTree` (consume `path`/`depth`, queda automático).
