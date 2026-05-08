@@ -2943,6 +2943,7 @@ export type Database = {
           place_type: string
         }[]
       }
+      refresh_locations_admin_cache: { Args: never; Returns: number }
       refresh_user_stats: { Args: { _user_id: string }; Returns: undefined }
       upsert_trunk_place: {
         Args: {
