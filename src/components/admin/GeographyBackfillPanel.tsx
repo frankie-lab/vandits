@@ -206,7 +206,8 @@ export function GeographyBackfillPanel() {
 
   // Launch ----------------------------------------------------------------
   const isCrossUser = isAdmin && targetUser && targetUser.user_id !== selfUserId;
-  const treeLocations = isCrossUser ? brokenLocations : ownLocations;
+  const isAdminTargeted = isAdmin && !!targetUser;
+  const treeLocations = isAdminTargeted ? brokenLocations : ownLocations;
 
   const handleStart = async () => {
     if (job.running) return;
@@ -309,15 +310,15 @@ export function GeographyBackfillPanel() {
       <section className="rounded-lg border flex flex-col min-h-0 overflow-hidden">
         <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/20">
           <div className="flex items-center gap-2">
-            {isCrossUser && <Wrench className="w-4 h-4 text-destructive" />}
+            {isAdminTargeted && <Wrench className="w-4 h-4 text-destructive" />}
             <h3 className="text-sm font-semibold">
-              {isCrossUser
+              {isAdminTargeted
                 ? `Cadenas rotas · ${targetUser!.display_name || targetUser!.username || targetUser!.user_id.slice(0, 8)}`
                 : 'Selección de POIs'}
             </h3>
           </div>
           <span className="text-[11px] text-muted-foreground">
-            {isCrossUser
+            {isAdminTargeted
               ? loadingBroken
                 ? 'Cargando…'
                 : `${brokenLocations.length} puntos rotos`
@@ -330,7 +331,7 @@ export function GeographyBackfillPanel() {
               Selecciona un usuario en la lista de la izquierda para ver sus puntos
               con cadenas geográficas rotas.
             </div>
-          ) : isCrossUser && loadingBroken ? (
+          ) : isAdminTargeted && loadingBroken ? (
             <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin mr-2" /> Cargando puntos rotos…
             </div>
