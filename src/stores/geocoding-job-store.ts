@@ -29,8 +29,8 @@ export interface GeocodingScope {
   label?: string;
   /** Force re-normalize already-geocoded points using the latest canonical rules. */
   forceRenormalize?: boolean;
-  /** Backfill mode: 'fill' (default), 'reconcile', 'overwrite'. */
-  mode?: 'fill' | 'reconcile' | 'overwrite';
+  /** Backfill mode: 'fill' (default), 'reconcile', 'overwrite', 'repair'. */
+  mode?: 'fill' | 'reconcile' | 'overwrite' | 'repair';
   /** Limit to approved/catalog points. */
   catalogOnly?: boolean;
   /** Explicit POI ids to process (overrides dynamic selection). */
