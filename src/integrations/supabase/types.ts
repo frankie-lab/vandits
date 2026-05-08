@@ -59,12 +59,57 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_area_names: {
+        Row: {
+          area_id: string
+          confidence: number | null
+          created_at: string
+          id: string
+          language: string
+          name: string
+          name_kind: string
+          source: string | null
+          updated_at: string
+        }
+        Insert: {
+          area_id: string
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          language: string
+          name: string
+          name_kind?: string
+          source?: string | null
+          updated_at?: string
+        }
+        Update: {
+          area_id?: string
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          language?: string
+          name?: string
+          name_kind?: string
+          source?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_area_names_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_areas: {
         Row: {
           admin_type_local: string | null
           aliases: string[]
           centroid_lat: number | null
           centroid_lng: number | null
+          confidence: number | null
           created_at: string
           depth: number
           geonames_id: number | null
@@ -90,6 +135,7 @@ export type Database = {
           aliases?: string[]
           centroid_lat?: number | null
           centroid_lng?: number | null
+          confidence?: number | null
           created_at?: string
           depth?: number
           geonames_id?: number | null
@@ -115,6 +161,7 @@ export type Database = {
           aliases?: string[]
           centroid_lat?: number | null
           centroid_lng?: number | null
+          confidence?: number | null
           created_at?: string
           depth?: number
           geonames_id?: number | null
@@ -787,6 +834,63 @@ export type Database = {
         }
         Relationships: []
       }
+      location_geo_provenance: {
+        Row: {
+          area_id: string | null
+          confidence: number | null
+          field_type: string
+          id: string
+          location_id: string
+          normalized_language: string | null
+          normalized_value: string | null
+          original_language: string | null
+          original_value: string | null
+          resolved_at: string
+          source: string | null
+        }
+        Insert: {
+          area_id?: string | null
+          confidence?: number | null
+          field_type: string
+          id?: string
+          location_id: string
+          normalized_language?: string | null
+          normalized_value?: string | null
+          original_language?: string | null
+          original_value?: string | null
+          resolved_at?: string
+          source?: string | null
+        }
+        Update: {
+          area_id?: string | null
+          confidence?: number | null
+          field_type?: string
+          id?: string
+          location_id?: string
+          normalized_language?: string | null
+          normalized_value?: string | null
+          original_language?: string | null
+          original_value?: string | null
+          resolved_at?: string
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_geo_provenance_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_geo_provenance_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       location_notes: {
         Row: {
           content: string
@@ -1287,6 +1391,30 @@ export type Database = {
           },
         ]
       }
+      place_types_i18n: {
+        Row: {
+          code: string
+          created_at: string
+          label: string
+          language: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          label: string
+          language: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          label?: string
+          language?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       places: {
         Row: {
           altitude: number | null
@@ -1439,6 +1567,8 @@ export type Database = {
           icon_library: string
           id: string
           is_private: boolean
+          language: string
+          language_fallback: string
           map_center_mode: string
           measurement_units: string
           priority_ranking: Json | null
@@ -1463,6 +1593,8 @@ export type Database = {
           icon_library?: string
           id: string
           is_private?: boolean
+          language?: string
+          language_fallback?: string
           map_center_mode?: string
           measurement_units?: string
           priority_ranking?: Json | null
@@ -1487,6 +1619,8 @@ export type Database = {
           icon_library?: string
           id?: string
           is_private?: boolean
+          language?: string
+          language_fallback?: string
           map_center_mode?: string
           measurement_units?: string
           priority_ranking?: Json | null
