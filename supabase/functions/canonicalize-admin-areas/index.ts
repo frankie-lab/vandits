@@ -104,19 +104,35 @@ Deno.serve(async (req) => {
     sample: [] as Array<{ canonical: string; merged_from: string[] }>,
   };
 
-  // Pull all admin_areas (typically <10k rows; safe in one shot)
-  const { data: allRows, error: fetchErr } = await admin
-    .from('admin_areas')
-    .select('id, name, parent_id, type_id, iso_code, created_at, aliases')
-    .order('created_at', { ascending: true });
-  if (fetchErr) {
-    return new Response(JSON.stringify({ error: fetchErr.message }), {
+  // Paginated fetch (admin_areas can exceed PostgREST default 1000-row cap).
+  async function fetchAllAdminAreas(): Promise<AdminRow[]> {
+    const PAGE = 1000;
+    const out: AdminRow[] = [];
+    let from = 0;
+    while (true) {
+      const { data, error } = await admin
+        .from('admin_areas')
+        .select('id, name, parent_id, type_id, iso_code, created_at, aliases')
+        .order('created_at', { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) throw error;
+      const batch = (data ?? []) as AdminRow[];
+      out.push(...batch);
+      if (batch.length < PAGE) break;
+      from += PAGE;
+    }
+    return out;
+  }
+
+  let rows: AdminRow[];
+  try {
+    rows = await fetchAllAdminAreas();
+  } catch (e) {
+    return new Response(JSON.stringify({ error: String(e) }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-
-  const rows = (allRows ?? []) as AdminRow[];
 
   // ---- PASS 1: collapse by iso_code (within same type_id) ----
   const isoGroups = new Map<string, AdminRow[]>();
@@ -185,11 +201,16 @@ Deno.serve(async (req) => {
   }
 
   // ---- PASS 2: collapse by (type_id, parent_id, normalized name) ----
-  // Re-fetch to skip rows already merged.
-  const { data: rows2 } = await admin
-    .from('admin_areas')
-    .select('id, name, parent_id, type_id, iso_code, created_at, aliases');
-  const remaining = (rows2 ?? []) as AdminRow[];
+  // Re-fetch (paginated) to skip rows already merged.
+  let remaining: AdminRow[];
+  try {
+    remaining = await fetchAllAdminAreas();
+  } catch (e) {
+    return new Response(JSON.stringify({ error: String(e) }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
 
   const nameGroups = new Map<string, AdminRow[]>();
   for (const r of remaining) {
