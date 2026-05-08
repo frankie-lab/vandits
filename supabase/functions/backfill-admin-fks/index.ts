@@ -264,6 +264,7 @@ Deno.serve(async (req) => {
 
   // Remaining counter:
   // - 'fill': pending = points still missing high-level FKs.
+  // - 'repair': pending = points whose admin chain is still broken.
   // - 'reconcile' / 'overwrite': total in scope − offset − processed.
   let remaining: number | null = null;
   let totalInScope: number | null = null;
@@ -280,6 +281,12 @@ Deno.serve(async (req) => {
     remainingQ = applyAdminScope(remainingQ);
     const { count } = await remainingQ;
     remaining = count ?? null;
+  } else if (mode === 'repair') {
+    const { data: cnt } = await admin.rpc('count_locations_with_broken_geo_chain', {
+      _user_id: callerUserId,
+    });
+    remaining = typeof cnt === 'number' ? cnt : Number(cnt ?? 0);
+    totalInScope = remaining;
   } else {
     let scopeQ = admin
       .from('locations')
