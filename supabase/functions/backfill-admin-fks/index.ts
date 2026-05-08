@@ -57,10 +57,14 @@ Deno.serve(async (req) => {
     ? authHeader.slice(7).trim()
     : '';
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-  const isServiceRole = !!accessToken && accessToken === serviceRoleKey;
+  // "Service role" detection: explicit env match OR a bearer that does not
+  // resolve to an end-user via auth.getUser (covers cases where the env var
+  // is missing/rotated and the cron tick still passes the service key).
+  let isServiceRole = !!accessToken && accessToken === serviceRoleKey;
   if (accessToken && !isServiceRole) {
     const { data: userData } = await admin.auth.getUser(accessToken);
     callerUserId = userData?.user?.id ?? null;
+    if (!callerUserId) isServiceRole = true;
   }
 
   const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
