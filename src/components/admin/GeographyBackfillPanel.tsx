@@ -481,7 +481,7 @@ export function GeographyBackfillPanel() {
         ) : (
           <Button onClick={handleStart} className="w-full">
             <Play className="w-3.5 h-3.5 mr-2" />
-            Lanzar backfill ({MODE_LABELS[mode].title})
+            {launchLabel}
           </Button>
         )}
         <div className="text-[11px] text-muted-foreground">
