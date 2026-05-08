@@ -65,6 +65,21 @@ export function GeographyBackfillPanel() {
   const [, forceTick] = useState(0);
   const job = useGeocodingJobStore();
 
+  // Scope state
+  const [typeIdByLevel, setTypeIdByLevel] = useState<Record<AdminLevel, string | null>>({
+    continent: null, country: null, region: null, zone: null,
+  });
+  const [optionsByLevel, setOptionsByLevel] = useState<Record<AdminLevel, AdminOption[]>>({
+    continent: [], country: [], region: [], zone: [],
+  });
+  const [selectedByLevel, setSelectedByLevel] = useState<Record<AdminLevel, string | null>>({
+    continent: null, country: null, region: null, zone: null,
+  });
+  const [pois, setPois] = useState<PoiRow[]>([]);
+  const [poiCount, setPoiCount] = useState<number>(0);
+  const [loadingPois, setLoadingPois] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   // Tick every second while job runs so elapsed/ETA refresh visually
   // even if no new point comes back from the worker.
   useEffect(() => {
@@ -101,6 +116,125 @@ export function GeographyBackfillPanel() {
     }
   }, [job.running, refreshCoverage]);
 
+  // Load place_types ids for the 4 admin levels (one-time).
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('place_types')
+        .select('id, code')
+        .in('code', LEVEL_ORDER);
+      const map: Record<AdminLevel, string | null> = { continent: null, country: null, region: null, zone: null };
+      (data ?? []).forEach((row: { id: string; code: string }) => {
+        if ((LEVEL_ORDER as string[]).includes(row.code)) map[row.code as AdminLevel] = row.id;
+      });
+      setTypeIdByLevel(map);
+    })();
+  }, []);
+
+  // Load options for a level whenever its parent selection or type id changes.
+  const loadOptions = useCallback(async (level: AdminLevel, parentId: string | null) => {
+    const typeId = typeIdByLevel[level];
+    if (!typeId) { setOptionsByLevel(o => ({ ...o, [level]: [] })); return; }
+    let q = supabase.from('admin_areas').select('id, name').eq('type_id', typeId);
+    if (level === 'continent') {
+      q = q.is('parent_id', null);
+    } else {
+      if (!parentId) { setOptionsByLevel(o => ({ ...o, [level]: [] })); return; }
+      q = q.eq('parent_id', parentId);
+    }
+    const { data } = await q.order('name').limit(500);
+    setOptionsByLevel(o => ({ ...o, [level]: (data ?? []) as AdminOption[] }));
+  }, [typeIdByLevel]);
+
+  useEffect(() => { loadOptions('continent', null); }, [loadOptions]);
+  useEffect(() => { loadOptions('country', selectedByLevel.continent); }, [loadOptions, selectedByLevel.continent]);
+  useEffect(() => { loadOptions('region', selectedByLevel.country); }, [loadOptions, selectedByLevel.country]);
+  useEffect(() => { loadOptions('zone', selectedByLevel.region); }, [loadOptions, selectedByLevel.region]);
+
+  const adminScope: GeocodingAdminScope = useMemo(() => {
+    const s: GeocodingAdminScope = {};
+    if (selectedByLevel.continent) s.continent_id = selectedByLevel.continent;
+    if (selectedByLevel.country)   s.country_id   = selectedByLevel.country;
+    if (selectedByLevel.region)    s.region_id    = selectedByLevel.region;
+    if (selectedByLevel.zone)      s.zone_id      = selectedByLevel.zone;
+    return s;
+  }, [selectedByLevel]);
+
+  const hasAnyScope = Object.keys(adminScope).length > 0;
+
+  // Fetch POIs in scope (and total count). Re-runs whenever scope changes.
+  const refreshPois = useCallback(async () => {
+    setLoadingPois(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData?.user?.id;
+      if (!uid) return;
+      let baseList = supabase
+        .from('locations')
+        .select('id, name, country, region')
+        .eq('owner_user_id', uid)
+        .is('deleted_at', null)
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null);
+      let baseCount = supabase
+        .from('locations')
+        .select('id', { count: 'exact', head: true })
+        .eq('owner_user_id', uid)
+        .is('deleted_at', null)
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null);
+      (Object.entries(adminScope) as Array<[keyof GeocodingAdminScope, string]>).forEach(([k, v]) => {
+        baseList = baseList.eq(k, v);
+        baseCount = baseCount.eq(k, v);
+      });
+      const [{ data: rows }, { count }] = await Promise.all([
+        baseList.order('name').limit(POI_PAGE),
+        baseCount,
+      ]);
+      setPois((rows ?? []) as PoiRow[]);
+      setPoiCount(count ?? 0);
+      // Drop any selected ids no longer in scope.
+      setSelectedIds(prev => {
+        const visible = new Set((rows ?? []).map(r => r.id));
+        const next = new Set<string>();
+        prev.forEach(id => { if (visible.has(id)) next.add(id); });
+        return next;
+      });
+    } catch (err) {
+      console.error('[geo-scope-pois]', err);
+    } finally {
+      setLoadingPois(false);
+    }
+  }, [adminScope]);
+
+  useEffect(() => { refreshPois(); }, [refreshPois]);
+
+  const resetScope = () => {
+    setSelectedByLevel({ continent: null, country: null, region: null, zone: null });
+    setSelectedIds(new Set());
+  };
+
+  const setLevel = (level: AdminLevel, value: string | null) => {
+    setSelectedByLevel(prev => {
+      const next = { ...prev, [level]: value };
+      // Reset descendants
+      const idx = LEVEL_ORDER.indexOf(level);
+      LEVEL_ORDER.slice(idx + 1).forEach(l => { next[l] = null; });
+      return next;
+    });
+  };
+
+  const allInPageSelected = pois.length > 0 && pois.every(p => selectedIds.has(p.id));
+  const togglePoi = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const selectAllInPage = () => setSelectedIds(new Set(pois.map(p => p.id)));
+  const clearSelection = () => setSelectedIds(new Set());
+
   const handleStart = async () => {
     if (job.running) return;
     try {
@@ -108,28 +242,49 @@ export function GeographyBackfillPanel() {
       const uid = userData?.user?.id;
       if (!uid) { toast.error('Sesión expirada'); return; }
 
-      // Compute total to process
-      let q = supabase.from('locations').select('id', { count: 'exact', head: true })
-        .is('deleted_at', null)
-        .not('latitude', 'is', null)
-        .not('longitude', 'is', null)
-        .eq('owner_user_id', uid);
-      if (mode === 'fill') {
-        q = q.or('continent_id.is.null,country_id.is.null,region_id.is.null,zone_id.is.null,locality_id.is.null');
+      const useExplicit = selectedIds.size > 0;
+      let total = 0;
+      let label = MODE_LABELS[mode].title;
+
+      if (useExplicit) {
+        total = selectedIds.size;
+        label = `${MODE_LABELS[mode].title} · ${total} POIs`;
+      } else {
+        let q = supabase.from('locations').select('id', { count: 'exact', head: true })
+          .is('deleted_at', null)
+          .not('latitude', 'is', null)
+          .not('longitude', 'is', null)
+          .eq('owner_user_id', uid);
+        if (mode === 'fill') {
+          q = q.or('continent_id.is.null,country_id.is.null,region_id.is.null,zone_id.is.null,locality_id.is.null');
+        }
+        (Object.entries(adminScope) as Array<[keyof GeocodingAdminScope, string]>).forEach(([k, v]) => {
+          q = q.eq(k, v);
+        });
+        const { count } = await q;
+        total = count ?? 0;
+        if (hasAnyScope) label = `${MODE_LABELS[mode].title} · ámbito (${total})`;
       }
-      const { count } = await q;
-      const total = count ?? 0;
+
       if (total === 0) { toast.message('No hay puntos para procesar'); return; }
 
       await useGeocodingJobStore.getState().start(total, {
-        label: MODE_LABELS[mode].title,
+        label,
         mode,
+        adminScope: hasAnyScope ? adminScope : undefined,
+        locationIds: useExplicit ? Array.from(selectedIds) : undefined,
       });
     } catch (err) {
       console.error('[backfill-start]', err);
       toast.error('No se pudo lanzar el backfill');
     }
   };
+
+  const launchLabel = selectedIds.size > 0
+    ? `Lanzar sobre selección (${selectedIds.size})`
+    : hasAnyScope
+      ? `Lanzar sobre ámbito (${poiCount})`
+      : `Lanzar (todos mis puntos)`;
 
   const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
 
