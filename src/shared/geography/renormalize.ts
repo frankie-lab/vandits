@@ -56,6 +56,7 @@ export async function renormalizeLocation(locationId: string): Promise<boolean> 
     const c = (canon ?? {}) as { country?: string; region?: string; locality?: string };
     const summary = [c.locality, c.region, c.country].filter(Boolean).join(', ');
     toast.success(summary ? `Renormalizado: ${summary}` : 'Renormalizado', { id: t });
+    window.dispatchEvent(new CustomEvent('reload-locations'));
     window.dispatchEvent(new CustomEvent('locations:refresh'));
     window.dispatchEvent(new CustomEvent('locations:changed'));
     return true;
