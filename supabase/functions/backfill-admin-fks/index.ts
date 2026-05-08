@@ -240,6 +240,8 @@ Deno.serve(async (req) => {
     if (catalogOnly) remainingQ = remainingQ.eq('is_approved', true);
     if (callerUserId) remainingQ = remainingQ.eq('owner_user_id', callerUserId);
     if (documentId) remainingQ = remainingQ.eq('document_id', documentId);
+    if (locationIds && locationIds.length > 0) remainingQ = remainingQ.in('id', locationIds);
+    remainingQ = applyAdminScope(remainingQ);
     const { count } = await remainingQ;
     remaining = count ?? null;
   } else {
@@ -252,6 +254,8 @@ Deno.serve(async (req) => {
     if (catalogOnly) scopeQ = scopeQ.eq('is_approved', true);
     if (callerUserId) scopeQ = scopeQ.eq('owner_user_id', callerUserId);
     if (documentId) scopeQ = scopeQ.eq('document_id', documentId);
+    if (locationIds && locationIds.length > 0) scopeQ = scopeQ.in('id', locationIds);
+    scopeQ = applyAdminScope(scopeQ);
     const { count } = await scopeQ;
     totalInScope = count ?? 0;
     remaining = Math.max(0, totalInScope - (offset + processed));
