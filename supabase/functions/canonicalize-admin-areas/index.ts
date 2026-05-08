@@ -251,20 +251,13 @@ Deno.serve(async (req) => {
 
   // ---- PASS 3: refresh text cache in locations from canonical FK names ----
   if (!dryRun) {
-    const refreshLevels = ['continent_id', 'country_id', 'region_id', 'zone_id'] as const;
-    for (const col of refreshLevels) {
-      const { data: stale } = await admin
-        .from('locations')
-        .select(`id, ${col}`)
-        .not(col, 'is', null)
-        .limit(5000);
-      if (!stale) continue;
-      for (const row of stale) {
-        const value = (row as Record<string, unknown>)[col] as string | null;
-        if (!value) continue;
-        await admin.from('locations').update({ [col]: value }).eq('id', row.id);
-        summary.cache_rows_refreshed++;
-      }
+    const { data: refreshed, error: refErr } = await admin.rpc(
+      'refresh_locations_admin_cache',
+    );
+    if (refErr) {
+      console.warn('[canonicalize] refresh_locations_admin_cache failed', refErr);
+    } else {
+      summary.cache_rows_refreshed = (refreshed as number) ?? 0;
     }
   }
 
