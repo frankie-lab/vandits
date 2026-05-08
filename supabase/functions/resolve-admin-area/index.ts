@@ -106,25 +106,44 @@ Deno.serve(async (req) => {
         }
       }
 
-      // ---- 2. Aliases match (case-insensitive). Prefer rows under current parent.
+      // ---- 2. admin_area_names match (multilingual). Prefer rows under current parent.
       if (!resolvedId && !isPlaceholder) {
         const lower = name.toLowerCase();
-        // Try both original casing and lowercase variants
-        const { data: byAlias } = await supabase
-          .from('admin_areas')
-          .select('id, parent_id, aliases')
-          .eq('type_id', typeId)
-          .or(`aliases.cs.{${name}},aliases.cs.{${lower}}`)
+        const { data: byMultiLang } = await supabase
+          .from('admin_area_names')
+          .select('area_id, admin_areas!inner(id, parent_id, type_id)')
+          .ilike('name', name)
+          .eq('admin_areas.type_id', typeId)
           .limit(10);
-        if (byAlias && byAlias.length) {
-          // Prefer rows under the current parentId (canonical hierarchy)
-          const sorted = [...byAlias].sort((a, b) => {
-            const aMatch = parentId && a.parent_id === parentId ? 2 : (a.parent_id ? 1 : 0);
-            const bMatch = parentId && b.parent_id === parentId ? 2 : (b.parent_id ? 1 : 0);
+        if (byMultiLang && byMultiLang.length) {
+          const sorted = [...byMultiLang].sort((a, b) => {
+            const aP = (a as any).admin_areas?.parent_id ?? null;
+            const bP = (b as any).admin_areas?.parent_id ?? null;
+            const aMatch = parentId && aP === parentId ? 2 : (aP ? 1 : 0);
+            const bMatch = parentId && bP === parentId ? 2 : (bP ? 1 : 0);
             return bMatch - aMatch;
           });
-          resolvedId = sorted[0].id;
-          resolvedParentId = (sorted[0] as any).parent_id ?? null;
+          const hit = sorted[0] as any;
+          resolvedId = hit.admin_areas?.id ?? hit.area_id;
+          resolvedParentId = hit.admin_areas?.parent_id ?? null;
+        }
+        // ---- 2b. Aliases array on admin_areas (legacy)
+        if (!resolvedId) {
+          const { data: byAlias } = await supabase
+            .from('admin_areas')
+            .select('id, parent_id, aliases')
+            .eq('type_id', typeId)
+            .or(`aliases.cs.{${name}},aliases.cs.{${lower}}`)
+            .limit(10);
+          if (byAlias && byAlias.length) {
+            const sorted = [...byAlias].sort((a, b) => {
+              const aMatch = parentId && a.parent_id === parentId ? 2 : (a.parent_id ? 1 : 0);
+              const bMatch = parentId && b.parent_id === parentId ? 2 : (b.parent_id ? 1 : 0);
+              return bMatch - aMatch;
+            });
+            resolvedId = sorted[0].id;
+            resolvedParentId = (sorted[0] as any).parent_id ?? null;
+          }
         }
       }
 
