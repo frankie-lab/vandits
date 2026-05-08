@@ -196,6 +196,7 @@ Deno.serve(async (req) => {
     // Termination: empty batch in any mode means we're done.
     if (proc === 0) { done = true; break; }
     if (mode === 'fill' && remaining === 0) { done = true; break; }
+    if (mode === 'repair' && remaining === 0) { done = true; break; }
     if (useOffset && totalInScope !== null && offset >= totalInScope) { done = true; break; }
   }
 
