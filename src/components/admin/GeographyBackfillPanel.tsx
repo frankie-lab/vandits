@@ -1,12 +1,20 @@
 // Domain: Geography — Admin panel block to launch the universal geography
-// backfill (fill / reconcile / overwrite) and inspect coverage stats.
+// backfill (fill / reconcile / overwrite / repair) and inspect coverage stats.
 //
-// Layout: 2 columns — izquierda árbol multi-select de POIs (reagrupado por
-// jerarquía geográfica del usuario), derecha cobertura + modo + ejecución.
+// Layout:
+//  - Para usuarios sin rol admin/master: 2 columnas (árbol propio + acciones).
+//  - Para admin/master: 3 columnas (usuarios con cadenas rotas + árbol del
+//    usuario seleccionado + acciones).
+//
 // El árbol no toca filtros del mapa: solo recolecta IDs para el job.
+//
+// Job "repair" cross-user: el admin puede lanzar reparación contra el
+// usuario seleccionado. La inserción en geocoding_jobs registra
+// `created_by = admin.uid` y `user_id = target.uid`; el cron sigue
+// procesando con permisos de service role como hasta ahora.
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Compass, Loader2, Play, RefreshCw, Square } from 'lucide-react';
+import { Compass, Loader2, Play, RefreshCw, Square, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -14,8 +22,10 @@ import { useGeocodingJobStore } from '@/stores/geocoding-job-store';
 import { useLocationsStore } from '@/domains/content';
 import { computeEta, formatDuration, formatClock, formatRate } from '@/shared/geography/eta';
 import { GeographyScopeTree } from './GeographyScopeTree';
+import { AdminBrokenUsersList, type BrokenUser } from './AdminBrokenUsersList';
+import type { GeoLocation } from '@/types/location';
 
-type Mode = 'fill' | 'reconcile' | 'overwrite';
+type Mode = 'fill' | 'reconcile' | 'overwrite' | 'repair';
 
 interface Coverage {
   total: number;
@@ -28,12 +38,16 @@ interface Coverage {
 }
 
 const MODE_LABELS: Record<Mode, { title: string; desc: string }> = {
+  repair: {
+    title: 'Reparar cadenas rotas',
+    desc: 'Reprocesa solo los puntos con jerarquía inconsistente (region.parent ≠ country, country_code mismatch, etc.).',
+  },
   fill: {
     title: 'Rellenar huecos',
     desc: 'Solo procesa puntos sin jerarquía completa. No toca nada existente.',
   },
   reconcile: {
-    title: 'Reconciliar (recomendado)',
+    title: 'Reconciliar',
     desc: 'Recorre TODOS los puntos. Sobrescribe niveles que difieran de OSM y guarda histórico en raw_geocode.previous.',
   },
   overwrite: {
@@ -50,69 +64,173 @@ export function GeographyBackfillPanel() {
   const job = useGeocodingJobStore();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Subscribe to documents (stable reference) and derive the flat list with
-  // useMemo. Calling `getAllLocations()` inside a zustand selector returns a
-  // new array on every render → infinite loop.
-  const documents = useLocationsStore((s) => s.documents);
-  const allLocations = useMemo(() => documents.flatMap((d) => d.locations), [documents]);
+  // Admin detection ---------------------------------------------------------
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [selfUserId, setSelfUserId] = useState<string | null>(null);
+  const [targetUser, setTargetUser] = useState<BrokenUser | null>(null);
+  const [brokenLocations, setBrokenLocations] = useState<GeoLocation[]>([]);
+  const [loadingBroken, setLoadingBroken] = useState(false);
+  const [refreshUsersKey, setRefreshUsersKey] = useState(0);
 
-  // Tick every second while job runs so elapsed/ETA refresh visually
-  // even if no new point comes back from the worker.
+  // Subscribe to documents (own data) — kept for the non-admin layout.
+  const documents = useLocationsStore((s) => s.documents);
+  const ownLocations = useMemo(() => documents.flatMap((d) => d.locations), [documents]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData?.user?.id ?? null;
+      if (cancelled) return;
+      setSelfUserId(uid);
+      if (!uid) return;
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', uid);
+      if (cancelled) return;
+      const has = (roles ?? []).some((r) => r.role === 'admin' || r.role === 'master');
+      setIsAdmin(has);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Tick every second while job runs.
   useEffect(() => {
     if (!job.running) return;
     const id = setInterval(() => forceTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, [job.running]);
 
+  // Coverage --------------------------------------------------------------
   const refreshCoverage = useCallback(async () => {
     setLoadingCov(true);
     try {
-      const { data, error } = await supabase
-        .from('v_geo_coverage')
-        .select('total, with_country, with_admin1, with_timezone, with_postal, resolved, avg_confidence')
-        .maybeSingle();
-      if (error) throw error;
-      setCoverage((data as Coverage) ?? null);
+      if (isAdmin && targetUser && targetUser.user_id !== selfUserId) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase as any).rpc('admin_geo_coverage', {
+          _user_id: targetUser.user_id,
+        });
+        if (error) throw error;
+        const row = Array.isArray(data) ? data[0] : data;
+        setCoverage((row as Coverage) ?? null);
+      } else {
+        const { data, error } = await supabase
+          .from('v_geo_coverage')
+          .select(
+            'total, with_country, with_admin1, with_timezone, with_postal, resolved, avg_confidence',
+          )
+          .maybeSingle();
+        if (error) throw error;
+        setCoverage((data as Coverage) ?? null);
+      }
     } catch (err) {
       console.error('[geo-coverage]', err);
     } finally {
       setLoadingCov(false);
     }
-  }, []);
+  }, [isAdmin, targetUser, selfUserId]);
 
   useEffect(() => {
     refreshCoverage();
   }, [refreshCoverage]);
 
-  // Refresh coverage when job ends AND request a fresh DB pull so the
-  // geography tree (this panel + Buscar y Filtrar) reflects the new FKs.
+  // Refresh coverage + broken list when job ends.
   useEffect(() => {
     if (!job.running) {
       const t = setTimeout(() => {
         refreshCoverage();
-        window.dispatchEvent(new CustomEvent('reload-locations'));
+        setRefreshUsersKey((k) => k + 1);
+        if (isAdmin && targetUser) {
+          void loadBroken(targetUser.user_id);
+        } else {
+          window.dispatchEvent(new CustomEvent('reload-locations'));
+        }
       }, 500);
       return () => clearTimeout(t);
     }
-  }, [job.running, refreshCoverage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job.running, refreshCoverage, isAdmin, targetUser]);
+
+  // Broken locations of the target user ----------------------------------
+  const loadBroken = useCallback(async (userId: string) => {
+    setLoadingBroken(true);
+    setSelectedIds(new Set());
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any).rpc('admin_broken_locations_for_user', {
+        _user_id: userId,
+      });
+      if (error) throw error;
+      // Map to a minimal GeoLocation-compatible shape (the tree only reads
+      // continent/country/region/zone/name/id).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mapped: GeoLocation[] = ((data ?? []) as any[]).map((r) => ({
+        id: r.id,
+        name: r.name ?? 'Sin nombre',
+        latitude: r.latitude,
+        longitude: r.longitude,
+        continent: r.continent ?? undefined,
+        country: r.country ?? undefined,
+        region: r.region ?? undefined,
+        zone: r.zone ?? undefined,
+        country_code: r.country_code ?? undefined,
+        place_type: r.place_type ?? undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      })) as any;
+      setBrokenLocations(mapped);
+    } catch (err) {
+      console.error('[admin-broken-for-user]', err);
+      toast.error('No se pudieron cargar los puntos rotos');
+      setBrokenLocations([]);
+    } finally {
+      setLoadingBroken(false);
+    }
+  }, []);
+
+  const handleSelectUser = useCallback(
+    (u: BrokenUser) => {
+      setTargetUser(u);
+      setMode('repair');
+      void loadBroken(u.user_id);
+    },
+    [loadBroken],
+  );
+
+  // Launch ----------------------------------------------------------------
+  const isCrossUser = isAdmin && targetUser && targetUser.user_id !== selfUserId;
+  const treeLocations = isCrossUser ? brokenLocations : ownLocations;
 
   const handleStart = async () => {
     if (job.running) return;
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const uid = userData?.user?.id;
-      if (!uid) {
+      const useExplicit = selectedIds.size > 0;
+      let total = 0;
+      let label = MODE_LABELS[mode].title;
+      const ownerId = isCrossUser ? targetUser!.user_id : selfUserId;
+      if (!ownerId) {
         toast.error('Sesión expirada');
         return;
       }
 
-      const useExplicit = selectedIds.size > 0;
-      let total = 0;
-      let label = MODE_LABELS[mode].title;
-
       if (useExplicit) {
         total = selectedIds.size;
         label = `${MODE_LABELS[mode].title} · ${total} POIs`;
+      } else if (isCrossUser && mode === 'repair') {
+        total = brokenLocations.length;
+        label = `Reparar @${targetUser!.username ?? targetUser!.user_id.slice(0, 8)} · ${total}`;
+      } else if (isCrossUser) {
+        // Count target user points
+        const { count } = await supabase
+          .from('locations')
+          .select('id', { count: 'exact', head: true })
+          .is('deleted_at', null)
+          .not('latitude', 'is', null)
+          .not('longitude', 'is', null)
+          .eq('owner_user_id', ownerId);
+        total = count ?? 0;
       } else {
         let q = supabase
           .from('locations')
@@ -120,9 +238,11 @@ export function GeographyBackfillPanel() {
           .is('deleted_at', null)
           .not('latitude', 'is', null)
           .not('longitude', 'is', null)
-          .eq('owner_user_id', uid);
+          .eq('owner_user_id', ownerId);
         if (mode === 'fill') {
-          q = q.or('continent_id.is.null,country_id.is.null,region_id.is.null,zone_id.is.null,locality_id.is.null');
+          q = q.or(
+            'continent_id.is.null,country_id.is.null,region_id.is.null,zone_id.is.null,locality_id.is.null',
+          );
         }
         const { count } = await q;
         total = count ?? 0;
@@ -133,10 +253,19 @@ export function GeographyBackfillPanel() {
         return;
       }
 
+      // For cross-user repair without explicit selection, pass the broken IDs
+      // explicitly so the worker iterates only those.
+      const explicitIds = useExplicit
+        ? Array.from(selectedIds)
+        : isCrossUser && mode === 'repair'
+          ? brokenLocations.map((l) => l.id)
+          : undefined;
+
       await useGeocodingJobStore.getState().start(total, {
         label,
         mode,
-        locationIds: useExplicit ? Array.from(selectedIds) : undefined,
+        locationIds: explicitIds,
+        targetUserId: isCrossUser ? targetUser!.user_id : undefined,
       });
     } catch (err) {
       console.error('[backfill-start]', err);
@@ -144,40 +273,82 @@ export function GeographyBackfillPanel() {
     }
   };
 
-  const launchLabel =
-    selectedIds.size > 0
-      ? `Lanzar sobre selección (${selectedIds.size})`
-      : `Lanzar (todos mis puntos)`;
+  const launchLabel = (() => {
+    if (selectedIds.size > 0) return `Lanzar sobre selección (${selectedIds.size})`;
+    if (isCrossUser) {
+      return mode === 'repair'
+        ? `Reparar ${brokenLocations.length} puntos rotos`
+        : `Lanzar sobre @${targetUser!.username ?? 'usuario'} (todos)`;
+    }
+    return `Lanzar (todos mis puntos)`;
+  })();
 
   const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
 
+  const gridCols = isAdmin
+    ? 'lg:grid-cols-[280px_1fr_340px]'
+    : 'lg:grid-cols-[1fr_340px]';
+
   return (
-    <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 p-4 overflow-hidden">
-      {/* COLUMNA IZQUIERDA — Árbol de selección */}
+    <div className={`flex-1 min-h-0 grid grid-cols-1 ${gridCols} gap-4 p-4 overflow-hidden`}>
+      {/* COL 1 — Lista de usuarios (solo admin) */}
+      {isAdmin && (
+        <AdminBrokenUsersList
+          selectedUserId={targetUser?.user_id ?? null}
+          onSelect={handleSelectUser}
+          refreshKey={refreshUsersKey}
+        />
+      )}
+
+      {/* COL 2 — Árbol jerárquico */}
       <section className="rounded-lg border flex flex-col min-h-0 overflow-hidden">
         <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/20">
-          <h3 className="text-sm font-semibold">Selección de POIs</h3>
+          <div className="flex items-center gap-2">
+            {isCrossUser && <Wrench className="w-4 h-4 text-destructive" />}
+            <h3 className="text-sm font-semibold">
+              {isCrossUser
+                ? `Cadenas rotas · ${targetUser!.display_name || targetUser!.username || targetUser!.user_id.slice(0, 8)}`
+                : 'Selección de POIs'}
+            </h3>
+          </div>
           <span className="text-[11px] text-muted-foreground">
-            {allLocations.length} puntos · jerarquía geográfica
+            {isCrossUser
+              ? loadingBroken
+                ? 'Cargando…'
+                : `${brokenLocations.length} puntos rotos`
+              : `${ownLocations.length} puntos · jerarquía geográfica`}
           </span>
         </div>
         <div className="flex-1 min-h-0">
-          <GeographyScopeTree
-            locations={allLocations}
-            selectedIds={selectedIds}
-            onChange={setSelectedIds}
-          />
+          {isAdmin && !targetUser ? (
+            <div className="h-full flex items-center justify-center text-xs text-muted-foreground p-6 text-center">
+              Selecciona un usuario en la lista de la izquierda para ver sus puntos
+              con cadenas geográficas rotas.
+            </div>
+          ) : isCrossUser && loadingBroken ? (
+            <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin mr-2" /> Cargando puntos rotos…
+            </div>
+          ) : (
+            <GeographyScopeTree
+              locations={treeLocations}
+              selectedIds={selectedIds}
+              onChange={setSelectedIds}
+            />
+          )}
         </div>
       </section>
 
-      {/* COLUMNA DERECHA — Acciones */}
+      {/* COL 3 — Acciones */}
       <aside className="flex flex-col min-h-0 overflow-y-auto space-y-4 pb-2">
         {/* Cobertura */}
         <section className="rounded-lg border p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Compass className="w-4 h-4 text-amber-500" />
-              <h3 className="text-sm font-semibold">Cobertura geográfica</h3>
+              <h3 className="text-sm font-semibold">
+                Cobertura{isCrossUser ? ' del usuario' : ' geográfica'}
+              </h3>
             </div>
             <Button
               variant="ghost"
@@ -196,7 +367,9 @@ export function GeographyBackfillPanel() {
           {loadingCov && !coverage ? (
             <div className="text-sm text-muted-foreground">Cargando…</div>
           ) : !coverage || coverage.total === 0 ? (
-            <div className="text-sm text-muted-foreground">No hay puntos en tu cuenta.</div>
+            <div className="text-sm text-muted-foreground">
+              {isCrossUser ? 'El usuario no tiene puntos.' : 'No hay puntos en tu cuenta.'}
+            </div>
           ) : (
             <div className="grid grid-cols-1 gap-1.5 text-sm">
               <CovRow label="Total puntos" value={coverage.total} />
@@ -229,7 +402,7 @@ export function GeographyBackfillPanel() {
         <section className="rounded-lg border p-4 space-y-3">
           <h3 className="text-sm font-semibold">Modo de normalización</h3>
           <div className="space-y-2">
-            {(['fill', 'reconcile', 'overwrite'] as Mode[]).map((m) => (
+            {(['repair', 'fill', 'reconcile', 'overwrite'] as Mode[]).map((m) => (
               <label
                 key={m}
                 className={`flex items-start gap-3 p-2.5 rounded-md border cursor-pointer transition-colors ${
@@ -244,7 +417,10 @@ export function GeographyBackfillPanel() {
                   className="mt-1"
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium">{MODE_LABELS[m].title}</div>
+                  <div className="text-sm font-medium flex items-center gap-1.5">
+                    {m === 'repair' && <Wrench className="w-3.5 h-3.5 text-destructive" />}
+                    {MODE_LABELS[m].title}
+                  </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5">
                     {MODE_LABELS[m].desc}
                   </div>
@@ -314,7 +490,11 @@ export function GeographyBackfillPanel() {
               </Button>
             </>
           ) : (
-            <Button onClick={handleStart} className="w-full">
+            <Button
+              onClick={handleStart}
+              className="w-full"
+              disabled={isAdmin && !targetUser && false /* allow self when no target */}
+            >
               <Play className="w-3.5 h-3.5 mr-2" />
               {launchLabel}
             </Button>
@@ -324,10 +504,16 @@ export function GeographyBackfillPanel() {
               El proceso se ejecuta en el servidor: continúa aunque cierres el navegador. Solo se
               detiene si pulsas "Detener".
             </p>
+            {isCrossUser && (
+              <p>
+                Lanzando como administrador sobre <strong>@{targetUser!.username ?? targetUser!.user_id.slice(0, 8)}</strong>.
+                Quedará registrado en <code>created_by</code>.
+              </p>
+            )}
             <p>
-              Al terminar verás los cambios en: cobertura geográfica (arriba), árbol de selección
-              (izquierda) y árbol de "Buscar y Filtrar" (panel principal). Si un punto ya tenía la
-              jerarquía correcta, no aparecerá ningún cambio visible aunque se haya procesado.
+              Al terminar verás los cambios en: cobertura geográfica (arriba), árbol de selección y
+              árbol de "Buscar y Filtrar". Si un punto ya tenía la jerarquía correcta, no aparecerá
+              ningún cambio visible aunque se haya procesado.
             </p>
           </div>
         </section>
