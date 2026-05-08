@@ -96,8 +96,10 @@ Deno.serve(async (req) => {
   let lastError: string | null = null;
   let done = false;
 
-  const mode = (job.mode as 'fill' | 'reconcile' | 'overwrite') ?? 'fill';
-  const useOffset = mode !== 'fill';
+  const mode = (job.mode as 'fill' | 'reconcile' | 'overwrite' | 'repair') ?? 'fill';
+  // 'fill' and 'repair' both use a self-paginating selection (RPC / OR filter)
+  // — they don't carry an offset across batches.
+  const useOffset = mode !== 'fill' && mode !== 'repair';
   const pageSize: number = job.page_size ?? 25;
 
   while (Date.now() - startedAt < TIME_BUDGET_MS) {
