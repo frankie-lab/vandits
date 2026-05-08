@@ -132,6 +132,8 @@ Deno.serve(async (req) => {
   if (catalogOnly) q = q.eq('is_approved', true);
   if (callerUserId) q = q.eq('owner_user_id', callerUserId);
   if (documentId) q = q.eq('document_id', documentId);
+  if (locationIds && locationIds.length > 0) q = q.in('id', locationIds);
+  q = applyAdminScope(q);
   q = q.order('created_at', { ascending: true }).range(offset, offset + limit - 1);
 
   const { data: rows, error: fetchErr } = await q;
