@@ -344,7 +344,7 @@ export function GeographyBackfillPanel() {
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder={LEVEL_LABEL[level]} />
                 </SelectTrigger>
-                <SelectContent className="max-h-72 bg-popover z-50">
+                <SelectContent className="max-h-72 bg-popover z-[100]">
                   <SelectItem value="__all">{LEVEL_LABEL[level]} — todos</SelectItem>
                   {opts.map(o => (
                     <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
