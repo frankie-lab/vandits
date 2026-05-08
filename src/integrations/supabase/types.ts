@@ -2874,6 +2874,10 @@ export type Database = {
         Returns: boolean
       }
       cleanup_old_deleted_locations: { Args: never; Returns: number }
+      count_locations_with_broken_geo_chain: {
+        Args: { _user_id: string }
+        Returns: number
+      }
       get_my_home: {
         Args: never
         Returns: {
@@ -2923,6 +2927,12 @@ export type Database = {
         Returns: boolean
       }
       is_curator: { Args: { _user_id: string }; Returns: boolean }
+      locations_with_broken_geo_chain: {
+        Args: { _limit?: number; _offset?: number; _user_id: string }
+        Returns: {
+          id: string
+        }[]
+      }
       lookup_trunk_place: {
         Args: {
           _latitude: number

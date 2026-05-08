@@ -82,17 +82,26 @@ Deno.serve(async (req) => {
       let resolvedId: string | null = null;
       let resolvedParentId: string | null = null;
 
+      // Per-level ISO hint from caller meta (e.g. country.iso_code = "FR").
+      const metaIso: string | undefined = (() => {
+        const m = body?.meta?.[lv.key];
+        const v = m && typeof m === 'object' ? (m as any).iso_code : undefined;
+        return typeof v === 'string' && v.trim() ? v.trim().toUpperCase() : undefined;
+      })();
+
       // ---- 1. ISO code match (canonical) — applies to ALL levels
       // Country: ISO-2/3 (e.g. "FR", "FRA")
       // Region:  ISO-3166-2 (e.g. "ES-AN", "FR-IDF")
       // Continent: M49 / 2-letter (e.g. "EU")
       if (!isPlaceholder) {
+        const candidates: string[] = [];
+        if (metaIso) candidates.push(metaIso);
         const looksIso =
           ISO2_RE.test(name) ||
           ISO3_RE.test(name) ||
           /^[A-Za-z]{2}-[A-Za-z0-9]{1,3}$/.test(name);
-        if (looksIso) {
-          const isoUpper = name.toUpperCase();
+        if (looksIso) candidates.push(name.toUpperCase());
+        for (const isoUpper of candidates) {
           const { data: byIso } = await supabase
             .from('admin_areas')
             .select('id, parent_id')
@@ -102,11 +111,15 @@ Deno.serve(async (req) => {
           if (byIso && byIso.length) {
             resolvedId = byIso[0].id;
             resolvedParentId = (byIso[0] as any).parent_id ?? null;
+            break;
           }
         }
       }
 
-      // ---- 2. admin_area_names match (multilingual). Prefer rows under current parent.
+      // ---- 2. admin_area_names match (multilingual).
+      // CRITICAL: when we already have a parent in the chain, REQUIRE the matched
+      // row to hang under that parent. Otherwise we'd reuse e.g. "Centro" (PT)
+      // for a French point because PT-Centro happens to share the name.
       if (!resolvedId && !isPlaceholder) {
         const lower = name.toLowerCase();
         const { data: byMultiLang } = await supabase
@@ -114,18 +127,16 @@ Deno.serve(async (req) => {
           .select('area_id, admin_areas!inner(id, parent_id, type_id)')
           .ilike('name', name)
           .eq('admin_areas.type_id', typeId)
-          .limit(10);
+          .limit(20);
         if (byMultiLang && byMultiLang.length) {
-          const sorted = [...byMultiLang].sort((a, b) => {
-            const aP = (a as any).admin_areas?.parent_id ?? null;
-            const bP = (b as any).admin_areas?.parent_id ?? null;
-            const aMatch = parentId && aP === parentId ? 2 : (aP ? 1 : 0);
-            const bMatch = parentId && bP === parentId ? 2 : (bP ? 1 : 0);
-            return bMatch - aMatch;
-          });
-          const hit = sorted[0] as any;
-          resolvedId = hit.admin_areas?.id ?? hit.area_id;
-          resolvedParentId = hit.admin_areas?.parent_id ?? null;
+          const filtered = parentId
+            ? byMultiLang.filter((r) => ((r as any).admin_areas?.parent_id ?? null) === parentId)
+            : byMultiLang;
+          if (filtered.length) {
+            const hit = filtered[0] as any;
+            resolvedId = hit.admin_areas?.id ?? hit.area_id;
+            resolvedParentId = hit.admin_areas?.parent_id ?? null;
+          }
         }
         // ---- 2b. Aliases array on admin_areas (legacy)
         if (!resolvedId) {
@@ -134,15 +145,15 @@ Deno.serve(async (req) => {
             .select('id, parent_id, aliases')
             .eq('type_id', typeId)
             .or(`aliases.cs.{${name}},aliases.cs.{${lower}}`)
-            .limit(10);
+            .limit(20);
           if (byAlias && byAlias.length) {
-            const sorted = [...byAlias].sort((a, b) => {
-              const aMatch = parentId && a.parent_id === parentId ? 2 : (a.parent_id ? 1 : 0);
-              const bMatch = parentId && b.parent_id === parentId ? 2 : (b.parent_id ? 1 : 0);
-              return bMatch - aMatch;
-            });
-            resolvedId = sorted[0].id;
-            resolvedParentId = (sorted[0] as any).parent_id ?? null;
+            const filtered = parentId
+              ? byAlias.filter((r) => r.parent_id === parentId)
+              : byAlias;
+            if (filtered.length) {
+              resolvedId = filtered[0].id;
+              resolvedParentId = (filtered[0] as any).parent_id ?? null;
+            }
           }
         }
       }
