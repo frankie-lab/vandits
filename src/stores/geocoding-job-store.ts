@@ -180,6 +180,12 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
     };
     if (scope?.documentId) insertPayload.document_id = scope.documentId;
     if (scope?.label) insertPayload.label = scope.label;
+    if (scope?.locationIds && scope.locationIds.length > 0) {
+      insertPayload.location_ids = scope.locationIds;
+    }
+    if (scope?.adminScope && Object.values(scope.adminScope).some(Boolean)) {
+      insertPayload.admin_scope = scope.adminScope;
+    }
     if (initialPending > 0) {
       insertPayload.total_in_scope = initialPending;
       insertPayload.remaining = initialPending;
