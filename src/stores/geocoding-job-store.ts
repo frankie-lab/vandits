@@ -15,6 +15,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
+export interface GeocodingAdminScope {
+  continent_id?: string;
+  country_id?: string;
+  region_id?: string;
+  zone_id?: string;
+}
+
 export interface GeocodingScope {
   /** Restrict the backfill to a single document. Omit to process all of the user's pending points. */
   documentId?: string;
@@ -26,6 +33,10 @@ export interface GeocodingScope {
   mode?: 'fill' | 'reconcile' | 'overwrite';
   /** Limit to approved/catalog points. */
   catalogOnly?: boolean;
+  /** Explicit POI ids to process (overrides dynamic selection). */
+  locationIds?: string[];
+  /** Admin-area scope (any combination of continent/country/region/zone). */
+  adminScope?: GeocodingAdminScope;
 }
 
 type JobStatus = 'running' | 'canceling' | 'canceled' | 'completed' | 'failed';
