@@ -50,7 +50,10 @@ export function GeographyBackfillPanel() {
   const job = useGeocodingJobStore();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const allLocations = useLocationsStore((s) => s.getAllLocations());
+  // Subscribe to the raw locations map; derive the array with useMemo so the
+  // selector returns a stable reference (otherwise zustand re-renders forever).
+  const locationsById = useLocationsStore((s) => s.locations);
+  const allLocations = useMemo(() => Object.values(locationsById), [locationsById]);
 
   // Tick every second while job runs so elapsed/ETA refresh visually
   // even if no new point comes back from the worker.
