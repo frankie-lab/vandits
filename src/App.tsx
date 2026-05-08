@@ -12,6 +12,7 @@ import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
 import DuplicatePolicy from "./pages/DuplicatePolicy";
 import { GlobalLoadingBar } from "@/shared/loading";
+import { GeocodingJobIndicator } from "@/shared/components/GeocodingJobIndicator";
 
 
 const queryClient = new QueryClient();
@@ -44,8 +45,9 @@ const App = () => (
  <QueryClientProvider client={queryClient}>
  <IconLibraryProvider>
  <TooltipProvider>
-   <Toaster />
-   <GlobalLoadingBar />
+    <Toaster />
+    <GlobalLoadingBar />
+    <GeocodingJobIndicator />
  <BrowserRouter>
  <Routes>
  <Route path="/auth" element={<Auth />} />

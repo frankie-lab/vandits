@@ -73,6 +73,18 @@ Deno.serve(async (req) => {
     });
   }
 
+  // 3.b. SAFETY: a job without user_id can never run (would leak across users).
+  if (!job.user_id) {
+    await admin
+      .from('geocoding_jobs')
+      .update({ status: 'failed', last_error: 'missing user_id' })
+      .eq('id', job.id);
+    return new Response(JSON.stringify({ ok: false, error: 'missing user_id', job_id: job.id }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   // 4. Process batches for up to TIME_BUDGET_MS.
   const startedAt = Date.now();
   let totalProcessed = job.processed ?? 0;

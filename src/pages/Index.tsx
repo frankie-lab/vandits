@@ -118,11 +118,14 @@ const Index = () => {
       const tab = (e as CustomEvent<{ tab?: string }>).detail?.tab ?? 'map';
       open('profileEditor', { tab });
     };
+    const onOpenGeography = () => open('adminPanel', { tab: 'geography' });
     window.addEventListener('vandits:open-upload', onOpenUpload);
     window.addEventListener('vandits:open-profile', onOpenProfile as EventListener);
+    window.addEventListener('admin:open-geography', onOpenGeography);
     return () => {
       window.removeEventListener('vandits:open-upload', onOpenUpload);
       window.removeEventListener('vandits:open-profile', onOpenProfile as EventListener);
+      window.removeEventListener('admin:open-geography', onOpenGeography);
     };
   }, [open]);
 
