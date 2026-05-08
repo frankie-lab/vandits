@@ -318,6 +318,94 @@ export function GeographyBackfillPanel() {
         )}
       </section>
 
+      {/* Ámbito */}
+      <section className="rounded-lg border p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Ámbito</h3>
+          {(hasAnyScope || selectedIds.size > 0) && (
+            <Button variant="ghost" size="sm" className="h-7" onClick={resetScope}>
+              <X className="w-3.5 h-3.5 mr-1" /> Limpiar
+            </Button>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {LEVEL_ORDER.map(level => {
+            const opts = optionsByLevel[level];
+            const value = selectedByLevel[level];
+            const idx = LEVEL_ORDER.indexOf(level);
+            const parentReady = level === 'continent' || !!selectedByLevel[LEVEL_ORDER[idx - 1]];
+            return (
+              <Select
+                key={level}
+                value={value ?? '__all'}
+                onValueChange={(v) => setLevel(level, v === '__all' ? null : v)}
+                disabled={!parentReady || opts.length === 0}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder={LEVEL_LABEL[level]} />
+                </SelectTrigger>
+                <SelectContent className="max-h-72 bg-popover z-50">
+                  <SelectItem value="__all">{LEVEL_LABEL[level]} — todos</SelectItem>
+                  {opts.map(o => (
+                    <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            Puntos en ámbito: <strong className="text-foreground tabular-nums">{poiCount}</strong>
+            {pois.length < poiCount && <> · mostrando {pois.length}</>}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="h-7" onClick={selectAllInPage} disabled={pois.length === 0}>
+              {allInPageSelected ? 'Deseleccionar página' : 'Seleccionar página'}
+            </Button>
+            {selectedIds.size > 0 && (
+              <Button variant="ghost" size="sm" className="h-7" onClick={clearSelection}>Ninguno</Button>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-md border max-h-72 overflow-y-auto divide-y">
+          {loadingPois ? (
+            <div className="p-3 text-xs text-muted-foreground flex items-center gap-2">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando POIs…
+            </div>
+          ) : pois.length === 0 ? (
+            <div className="p-3 text-xs text-muted-foreground">
+              {hasAnyScope ? 'No hay POIs en este ámbito.' : 'Selecciona un ámbito para ver POIs.'}
+            </div>
+          ) : (
+            pois.map(p => (
+              <label
+                key={p.id}
+                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted/30"
+              >
+                <Checkbox
+                  checked={selectedIds.has(p.id)}
+                  onCheckedChange={() => togglePoi(p.id)}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium truncate">{p.name}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    {[p.country, p.region].filter(Boolean).join(' · ') || '—'}
+                  </div>
+                </div>
+              </label>
+            ))
+          )}
+        </div>
+        {selectedIds.size > 0 && (
+          <div className="text-[11px] text-muted-foreground">
+            Seleccionados: <strong className="text-foreground">{selectedIds.size}</strong>. Solo se procesarán esos POIs.
+          </div>
+        )}
+      </section>
+
       {/* Modo */}
       <section className="rounded-lg border p-4 space-y-3">
         <h3 className="text-sm font-semibold">Modo de normalización</h3>
