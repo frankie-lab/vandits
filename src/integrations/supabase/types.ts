@@ -731,6 +731,7 @@ export type Database = {
           admin_scope: Json | null
           catalog_only: boolean
           created_at: string
+          created_by: string | null
           document_id: string | null
           failed: number
           id: string
@@ -754,6 +755,7 @@ export type Database = {
           admin_scope?: Json | null
           catalog_only?: boolean
           created_at?: string
+          created_by?: string | null
           document_id?: string | null
           failed?: number
           id?: string
@@ -777,6 +779,7 @@ export type Database = {
           admin_scope?: Json | null
           catalog_only?: boolean
           created_at?: string
+          created_by?: string | null
           document_id?: string | null
           failed?: number
           id?: string
@@ -2853,6 +2856,7 @@ export type Database = {
         Args: { _parent_id: string }
         Returns: number
       }
+      _is_admin_or_master: { Args: { _uid: string }; Returns: boolean }
       _merge_admin_area: {
         Args: { _canonical: string; _orphan: string }
         Returns: undefined
@@ -2860,6 +2864,50 @@ export type Database = {
       _reclassify_admin_area: {
         Args: { _new_parent: string; _new_type: string; _node_id: string }
         Returns: undefined
+      }
+      admin_broken_locations_for_user: {
+        Args: { _user_id: string }
+        Returns: {
+          admin3_id: string
+          continent: string
+          continent_id: string
+          country: string
+          country_code: string
+          country_id: string
+          id: string
+          latitude: number
+          locality_id: string
+          longitude: number
+          name: string
+          place_type: string
+          region: string
+          region_id: string
+          sublocality_id: string
+          zone: string
+          zone_id: string
+        }[]
+      }
+      admin_geo_coverage: {
+        Args: { _user_id: string }
+        Returns: {
+          avg_confidence: number
+          resolved: number
+          total: number
+          with_admin1: number
+          with_country: number
+          with_postal: number
+          with_timezone: number
+        }[]
+      }
+      admin_users_with_broken_geo_chain: {
+        Args: never
+        Returns: {
+          broken_count: number
+          display_name: string
+          total_locations: number
+          user_id: string
+          username: string
+        }[]
       }
       can_view_deleted_location: {
         Args: { loc_row: Database["public"]["Tables"]["locations"]["Row"] }
