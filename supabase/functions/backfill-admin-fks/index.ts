@@ -31,7 +31,7 @@ const corsHeaders = {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-type Mode = 'fill' | 'reconcile' | 'overwrite';
+type Mode = 'fill' | 'reconcile' | 'overwrite' | 'repair';
 
 const FK_KEYS = [
   'continent_id',
@@ -116,15 +116,32 @@ Deno.serve(async (req) => {
   // Mode resolution: explicit `mode`, fallback to legacy `force_renormalize`.
   let mode: Mode = (body.mode as Mode) ?? 'fill';
   if (body.force_renormalize === true && mode === 'fill') mode = 'overwrite';
-  if (!['fill', 'reconcile', 'overwrite'].includes(mode)) mode = 'fill';
+  if (!['fill', 'reconcile', 'overwrite', 'repair'].includes(mode)) mode = 'fill';
 
   const startedAt = Date.now();
   const TIME_BUDGET_MS = 120_000;
 
   // Selection: in 'fill' we restrict to points missing high levels.
   // In 'reconcile' / 'overwrite' we walk the full scope.
+  // In 'repair' we only touch rows with a broken admin chain.
   const PENDING_OR =
     'continent_id.is.null,country_id.is.null,region_id.is.null,zone_id.is.null,locality_id.is.null';
+
+  // 'repair' mode: ask the DB which rows have broken chains for this user.
+  let repairIds: string[] | null = null;
+  if (mode === 'repair') {
+    const { data: brokenRows, error: brokenErr } = await admin.rpc(
+      'locations_with_broken_geo_chain',
+      { _user_id: callerUserId, _limit: limit, _offset: offset },
+    );
+    if (brokenErr) {
+      return new Response(JSON.stringify({ error: brokenErr.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    repairIds = (brokenRows ?? []).map((r: { id: string }) => r.id);
+  }
 
   let q = admin
     .from('locations')
@@ -137,8 +154,23 @@ Deno.serve(async (req) => {
   if (callerUserId) q = q.eq('owner_user_id', callerUserId);
   if (documentId) q = q.eq('document_id', documentId);
   if (locationIds && locationIds.length > 0) q = q.in('id', locationIds);
+  if (repairIds) {
+    if (repairIds.length === 0) {
+      return new Response(JSON.stringify({
+        processed: 0, updated: 0, failed: 0,
+        remaining: 0, totalInScope: 0, nextOffset: offset,
+        mode, timedOut: false, durationMs: 0, errors: [],
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+    q = q.in('id', repairIds);
+  }
   q = applyAdminScope(q);
-  q = q.order('created_at', { ascending: true }).range(offset, offset + limit - 1);
+  // 'repair' already paginated via RPC; do not re-apply range to avoid double-skipping.
+  if (mode !== 'repair') {
+    q = q.order('created_at', { ascending: true }).range(offset, offset + limit - 1);
+  } else {
+    q = q.order('created_at', { ascending: true });
+  }
 
   const { data: rows, error: fetchErr } = await q;
 
