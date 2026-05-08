@@ -291,8 +291,8 @@ export function GeographyBackfillPanel() {
   const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
 
   const gridCols = isAdmin
-    ? 'lg:grid-cols-[280px_1fr_340px]'
-    : 'lg:grid-cols-[1fr_340px]';
+    ? 'lg:grid-cols-[220px_minmax(0,1fr)_300px]'
+    : 'lg:grid-cols-[minmax(0,1fr)_300px]';
 
   return (
     <div className={`flex-1 min-h-0 grid grid-cols-1 ${gridCols} gap-4 p-4 overflow-hidden`}>
