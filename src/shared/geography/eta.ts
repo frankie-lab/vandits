@@ -5,7 +5,7 @@
 
 export interface EtaInput {
   startedAt: number | null;
-  totalUpdated: number;
+  totalProcessed: number;
   remaining: number;
   /** Optional reference time (defaults to Date.now()). Useful for tests. */
   now?: number;
@@ -22,16 +22,16 @@ export interface EtaResult {
 const MIN_ELAPSED_MS = 5_000;
 const MIN_SAMPLES = 2;
 
-export function computeEta({ startedAt, totalUpdated, remaining, now }: EtaInput): EtaResult {
+export function computeEta({ startedAt, totalProcessed, remaining, now }: EtaInput): EtaResult {
   const ts = now ?? Date.now();
   if (!startedAt) {
     return { elapsedMs: 0, ratePerMin: 0, etaMs: null, finishAt: null };
   }
   const elapsedMs = Math.max(0, ts - startedAt);
   const elapsedMin = elapsedMs / 60_000;
-  const ratePerMin = elapsedMin > 0 ? totalUpdated / elapsedMin : 0;
+  const ratePerMin = elapsedMin > 0 ? totalProcessed / elapsedMin : 0;
 
-  const enoughSignal = elapsedMs >= MIN_ELAPSED_MS && totalUpdated >= MIN_SAMPLES && ratePerMin > 0;
+  const enoughSignal = elapsedMs >= MIN_ELAPSED_MS && totalProcessed >= MIN_SAMPLES && ratePerMin > 0;
   if (!enoughSignal || remaining <= 0) {
     return { elapsedMs, ratePerMin, etaMs: null, finishAt: null };
   }
