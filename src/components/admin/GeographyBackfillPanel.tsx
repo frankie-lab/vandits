@@ -84,10 +84,14 @@ export function GeographyBackfillPanel() {
     refreshCoverage();
   }, [refreshCoverage]);
 
-  // Refresh when job ends
+  // Refresh coverage when job ends AND request a fresh DB pull so the
+  // geography tree (this panel + Buscar y Filtrar) reflects the new FKs.
   useEffect(() => {
     if (!job.running) {
-      const t = setTimeout(refreshCoverage, 500);
+      const t = setTimeout(() => {
+        refreshCoverage();
+        window.dispatchEvent(new CustomEvent('reload-locations'));
+      }, 500);
       return () => clearTimeout(t);
     }
   }, [job.running, refreshCoverage]);
@@ -315,9 +319,16 @@ export function GeographyBackfillPanel() {
               {launchLabel}
             </Button>
           )}
-          <div className="text-[11px] text-muted-foreground">
-            El proceso se ejecuta en el servidor: continúa aunque cierres el navegador. Solo se
-            detiene si pulsas "Detener".
+          <div className="text-[11px] text-muted-foreground space-y-1.5">
+            <p>
+              El proceso se ejecuta en el servidor: continúa aunque cierres el navegador. Solo se
+              detiene si pulsas "Detener".
+            </p>
+            <p>
+              Al terminar verás los cambios en: cobertura geográfica (arriba), árbol de selección
+              (izquierda) y árbol de "Buscar y Filtrar" (panel principal). Si un punto ya tenía la
+              jerarquía correcta, no aparecerá ningún cambio visible aunque se haya procesado.
+            </p>
           </div>
         </section>
       </aside>

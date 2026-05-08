@@ -94,11 +94,25 @@ function applyRow(row: Record<string, any>) {
   if (!isActive) {
     if (status === 'completed' && !lastNotifiedComplete) {
       lastNotifiedComplete = true;
-      toast.success(`Geocodificación completada: ${row.updated ?? 0} puntos actualizados`);
+      const updated = row.updated ?? 0;
+      const processed = row.processed ?? 0;
+      toast.success(
+        updated > 0
+          ? `Geocodificación completada: ${updated} de ${processed} puntos actualizados. La jerarquía se ha refrescado en el mapa y en "Buscar y Filtrar".`
+          : `Geocodificación completada: ${processed} puntos revisados, ninguno necesitaba cambios.`,
+        { duration: 6000 },
+      );
+      // Trigger a FULL store reload so the geographic hierarchy (continent /
+      // country / region / zone strings cached on each location) reflects the
+      // updated FKs in every tree, list and filter. Realtime UPDATEs alone are
+      // unreliable at scale and `locations:refresh` was not wired to the
+      // database sync hook.
+      window.dispatchEvent(new CustomEvent('reload-locations'));
       window.dispatchEvent(new CustomEvent('locations:refresh'));
       window.dispatchEvent(new CustomEvent('locations:changed'));
     } else if (status === 'canceled') {
       toast.message(`Geocodificación detenida. ${row.updated ?? 0} actualizados.`);
+      window.dispatchEvent(new CustomEvent('reload-locations'));
     } else if (status === 'failed') {
       toast.error('La geocodificación falló. Revisa el panel de geografía.');
     }
