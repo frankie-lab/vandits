@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      // ---- 3. Name + parent match (legacy fallback)
+      // ---- 3a. Name + parent + same type match (canonical fallback)
       if (!resolvedId) {
         const findQuery = supabase
           .from('admin_areas')
@@ -142,6 +142,43 @@ Deno.serve(async (req) => {
         if (existing && existing.length) {
           resolvedId = existing[0].id;
           resolvedParentId = (existing[0] as any).parent_id ?? null;
+        }
+      }
+
+      // ---- 3b. CROSS-LEVEL dedup: same name+parent under any other type.
+      //     If found we REUSE it (and reclassify to the requested type when the
+      //     incoming classification looks more specific). Prevents creating a
+      //     "Galicia" twin at type=zone when one already exists at type=region.
+      if (!resolvedId && !isPlaceholder) {
+        const crossQuery = supabase
+          .from('admin_areas')
+          .select('id, parent_id, type_id, iso_code')
+          .neq('type_id', typeId)
+          .ilike('name', name)
+          .limit(5);
+        const { data: crossMatches } = parentId
+          ? await crossQuery.eq('parent_id', parentId)
+          : await crossQuery.is('parent_id', null);
+        if (crossMatches && crossMatches.length) {
+          // Prefer rows with iso_code (canonical).
+          const sorted = [...crossMatches].sort(
+            (a, b) => (b.iso_code ? 1 : 0) - (a.iso_code ? 1 : 0),
+          );
+          const hit = sorted[0];
+          // Only reclassify when the existing row has no ISO (not canonical).
+          if (!hit.iso_code) {
+            try {
+              await supabase.rpc('_reclassify_admin_area', {
+                _node_id: hit.id,
+                _new_type: typeId,
+                _new_parent: parentId,
+              });
+            } catch (e) {
+              console.warn('[resolve-admin-area] reclassify failed', e);
+            }
+          }
+          resolvedId = hit.id;
+          resolvedParentId = (hit as any).parent_id ?? null;
         }
       }
 

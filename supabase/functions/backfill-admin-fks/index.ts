@@ -138,27 +138,8 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    // Fast path (fill only): country_id known, derive continent from path.
-    if (mode === 'fill' && row.country_id && !row.continent_id) {
-      const { data: countryRow } = await admin
-        .from('admin_areas')
-        .select('path')
-        .eq('id', row.country_id)
-        .maybeSingle();
-      const continentId = Array.isArray(countryRow?.path) && countryRow.path.length > 0
-        ? countryRow.path[0]
-        : null;
-      if (continentId && continentId !== row.country_id) {
-        if (dryRun) { updated++; continue; }
-        const { error: updErr } = await admin
-          .from('locations')
-          .update({ continent_id: continentId })
-          .eq('id', row.id);
-        if (updErr) errors.push({ id: row.id, reason: `continent backfill failed: ${updErr.message}` });
-        else updated++;
-        continue;
-      }
-    }
+    // (Fast-path eliminado: en cualquier modo se recorre la ruta canónica
+    // completa via reverse-geocode + resolve-admin-area. Lógica única.)
 
     const canon = await reverseGeocodeCanonical(row.latitude, row.longitude);
     await sleep(RATE_LIMIT_MS);
