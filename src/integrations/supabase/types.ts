@@ -2713,6 +2713,10 @@ export type Database = {
         Args: { _canonical: string; _orphan: string }
         Returns: undefined
       }
+      _reclassify_admin_area: {
+        Args: { _new_parent: string; _new_type: string; _node_id: string }
+        Returns: undefined
+      }
       can_view_deleted_location: {
         Args: { loc_row: Database["public"]["Tables"]["locations"]["Row"] }
         Returns: boolean
