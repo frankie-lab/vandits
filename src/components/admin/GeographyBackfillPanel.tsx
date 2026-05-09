@@ -324,7 +324,10 @@ export function GeographyBackfillPanel() {
         mode: toBackendMode(mode, forceOverwrite),
         locationIds: explicitIds,
         targetUserId: isCrossUser ? targetUser!.user_id : undefined,
-        healthFilter,
+        // Cuando hay selección explícita, los IDs ya están filtrados por
+        // estado: NO enviamos healthFilter para evitar que el backfill
+        // recalcule el universo entero del modo.
+        healthFilter: useExplicit ? undefined : healthFilter,
       });
     } catch (err) {
       console.error('[backfill-start]', err);
