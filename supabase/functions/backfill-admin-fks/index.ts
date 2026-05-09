@@ -186,6 +186,9 @@ Deno.serve(async (req) => {
       _country: geoNode.country ?? null,
       _region: geoNode.region ?? null,
       _zone: geoNode.zone ?? null,
+      _admin_level_3: geoNode.admin_level_3 ?? null,
+      _locality: geoNode.locality ?? null,
+      _sublocality: geoNode.sublocality ?? null,
       _limit: limit,
       _offset: 0,
     });
@@ -358,6 +361,9 @@ Deno.serve(async (req) => {
       _country: geoNode.country ?? null,
       _region: geoNode.region ?? null,
       _zone: geoNode.zone ?? null,
+      _admin_level_3: geoNode.admin_level_3 ?? null,
+      _locality: geoNode.locality ?? null,
+      _sublocality: geoNode.sublocality ?? null,
       _limit: 100000,
       _offset: 0,
     });

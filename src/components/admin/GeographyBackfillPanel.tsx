@@ -241,6 +241,8 @@ export function GeographyBackfillPanel() {
             region: r.region ?? undefined,
             zone: r.zone ?? undefined,
             place_type: r.place_type ?? undefined,
+            health: r.health ?? undefined,
+            health_reason: r.health_reason ?? undefined,
             // Inject deeper levels via enrichedData.datos_geograficos so that
             // getLocationHierarchy() in shared/geography/hierarchy.ts builds
             // the full 7-level tree (admin3/locality/sublocality).
