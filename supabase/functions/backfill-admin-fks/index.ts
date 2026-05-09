@@ -91,6 +91,20 @@ Deno.serve(async (req) => {
     zone_id?: string;
   } = (body.admin_scope && typeof body.admin_scope === 'object') ? body.admin_scope : {};
 
+  // NEW: health-based scope. When provided, the selection of points to process
+  // comes from the unified geo-health view (admin_user_geo_scope_ids RPC).
+  // This is the SAME SOURCE OF TRUTH as the panel's counters and tabs, so
+  // total_in_scope / remaining can never diverge from the UI.
+  const healthFilter: string[] | null = Array.isArray(body.health_filter)
+    ? (body.health_filter as unknown[]).filter((x): x is string => typeof x === 'string')
+    : null;
+  const geoNode: {
+    continent?: string | null;
+    country?: string | null;
+    region?: string | null;
+    zone?: string | null;
+  } = (body.geo_node && typeof body.geo_node === 'object') ? body.geo_node : {};
+
   const applyAdminScope = <T extends { eq: (col: string, val: unknown) => T }>(q: T): T => {
     let out = q;
     if (adminScope.continent_id) out = out.eq('continent_id', adminScope.continent_id);
