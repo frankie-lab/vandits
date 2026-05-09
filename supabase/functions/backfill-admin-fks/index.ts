@@ -157,17 +157,48 @@ Deno.serve(async (req) => {
     repairIds = (brokenRows ?? []).map((r: { id: string }) => r.id);
   }
 
+  // Health-filter scope: ask the unified RPC for a page of matching IDs.
+  // These IDs are then processed exactly like an explicit `location_ids` set.
+  let healthScopeIds: string[] | null = null;
+  if (healthFilter && healthFilter.length > 0) {
+    const { data: scopeRows, error: scopeErr } = await admin.rpc('admin_user_geo_scope_ids', {
+      _user_id: callerUserId,
+      _health_filter: healthFilter,
+      _continent: geoNode.continent ?? null,
+      _country: geoNode.country ?? null,
+      _region: geoNode.region ?? null,
+      _zone: geoNode.zone ?? null,
+      _limit: limit,
+      _offset: 0,
+    });
+    if (scopeErr) {
+      return new Response(JSON.stringify({ error: scopeErr.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    healthScopeIds = (scopeRows ?? []).map((r: { id: string }) => r.id);
+    if (healthScopeIds.length === 0) {
+      return new Response(JSON.stringify({
+        processed: 0, updated: 0, failed: 0,
+        remaining: 0, totalInScope: 0, nextOffset: offset,
+        mode, timedOut: false, durationMs: 0, errors: [],
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+  }
+
   let q = admin
     .from('locations')
     .select('id, latitude, longitude, country_id, continent_id, region_id, zone_id, admin3_id, locality_id, sublocality_id')
     .is('deleted_at', null)
     .not('latitude', 'is', null)
     .not('longitude', 'is', null);
-  if (mode === 'fill') q = q.or(PENDING_OR);
+  if (mode === 'fill' && !healthScopeIds) q = q.or(PENDING_OR);
   if (catalogOnly) q = q.eq('is_approved', true);
   if (callerUserId) q = q.eq('owner_user_id', callerUserId);
   if (documentId) q = q.eq('document_id', documentId);
   if (locationIds && locationIds.length > 0) q = q.in('id', locationIds);
+  if (healthScopeIds) q = q.in('id', healthScopeIds);
   if (repairIds) {
     if (repairIds.length === 0) {
       return new Response(JSON.stringify({
@@ -179,8 +210,8 @@ Deno.serve(async (req) => {
     q = q.in('id', repairIds);
   }
   q = applyAdminScope(q);
-  // 'repair' already paginated via RPC; do not re-apply range to avoid double-skipping.
-  if (mode !== 'repair') {
+  // 'repair' and health-scope already paginated via RPC; do not re-apply range.
+  if (mode !== 'repair' && !healthScopeIds) {
     q = q.order('created_at', { ascending: true }).range(offset, offset + limit - 1);
   } else {
     q = q.order('created_at', { ascending: true });
