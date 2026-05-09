@@ -150,6 +150,7 @@ Deno.serve(async (req) => {
     }
 
     const invokeBody: Record<string, unknown> = {
+      job_id: job.id,
       limit: pageSize,
       mode,
       user_id: job.user_id,
