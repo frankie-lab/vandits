@@ -111,10 +111,18 @@ Deno.serve(async (req) => {
     : (jobScope.geo_node && typeof jobScope.geo_node === 'object')
       ? jobScope.geo_node as Record<string, string | null>
       : null;
+  const hasExplicitIds = Array.isArray(job.location_ids) && job.location_ids.length > 0;
   // 'fill', 'repair' and health-scoped jobs use a self-paginating selection
   // (RPC / OR filter / health view) — they don't carry an offset across batches.
-  const useOffset = mode !== 'fill' && mode !== 'repair' && !(healthFilter && healthFilter.length > 0);
+  // Cuando viene una selección explícita por `location_ids`, SÍ paginamos por
+  // offset (backfill aplica .range()) para no procesar lotes solapados.
+  const useOffset = hasExplicitIds
+    || (mode !== 'fill' && mode !== 'repair' && !(healthFilter && healthFilter.length > 0));
   const pageSize: number = job.page_size ?? 25;
+  // Si hay selección explícita, fijamos total_in_scope al tamaño de la
+  // selección y NO permitimos que la respuesta del backfill lo sobrescriba.
+  const pinnedTotal: number | null = hasExplicitIds ? (job.location_ids as string[]).length : null;
+  if (pinnedTotal !== null) totalInScope = pinnedTotal;
 
   while (Date.now() - startedAt < TIME_BUDGET_MS) {
     // Re-check cancel intent inside the loop.
