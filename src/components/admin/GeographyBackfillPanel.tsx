@@ -23,7 +23,7 @@
 // procesando con permisos de service role como hasta ahora.
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Loader2, Play, Square, Wrench, Sparkles, RotateCcw, Plus } from 'lucide-react';
+import { Loader2, Play, Square, Wrench, RotateCcw, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
