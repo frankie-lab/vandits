@@ -1,76 +1,38 @@
-## Job "Reparar cadenas rotas" multiusuario en Geografía universal
+## Plan: paginar `admin_broken_locations_for_user` para superar el tope de 1000
 
-Ampliar el panel `GeographyBackfillPanel` para que un admin/master pueda lanzar `mode: 'repair'` sobre **cualquier usuario** del sistema (no solo el propio), viendo en la columna izquierda las cadenas rotas de ese usuario con el mismo selector jerárquico (continente / país / región / zona / …).
+**Diagnóstico**
 
-### Cambios
+- `admin_users_with_broken_geo_chain` cuenta correctamente los 2417 puntos rotos de Frankie (una sola fila por usuario, no choca con el tope).
+- `admin_broken_locations_for_user` no tiene `LIMIT` interno, pero PostgREST aplica un tope de 1000 filas a las RPC y el `.range(0, 99999)` que añadí no lo desactiva en RPCs SECURITY DEFINER.
+- Resultado: el árbol del centro recibe 1000 filas, la cabecera muestra "1000 puntos rotos" y la suma 1+23+976=1000 cuadra con el truncado, no con la realidad.
 
-#### 1. Backend (RPCs nuevas, security definer + check de rol)
+**Cambios**
 
-- `admin_users_with_broken_geo_chain()` → `(user_id uuid, username text, display_name text, broken_count int)`
-  Lista usuarios con `count_locations_with_broken_geo_chain(user_id) > 0`, ordenado desc.
-  Bloqueada salvo `has_role(auth.uid(),'admin'|'master')`.
-- `admin_count_locations_with_broken_geo_chain(_user_id uuid)` → `int`
-  Wrapper con check de rol que delega en la función existente.
-- `admin_broken_locations_for_user(_user_id uuid)` → filas con `id, name, latitude, longitude, continent, country, region, zone, continent_id, country_id, region_id, zone_id`
-  Devuelve TODAS las filas con cadena rota (sin paginar) para que la columna izquierda pueda agruparlas por jerarquía. Se cachea en cliente.
+1. **Migración SQL** — sustituir la RPC por una versión paginable manteniendo la misma firma para `_user_id` y añadiendo dos parámetros:
+   ```
+   admin_broken_locations_for_user(_user_id uuid, _limit int default 1000, _offset int default 0)
+   ```
+   - Mantiene el chequeo `_is_admin_or_master`, las mismas columnas devueltas y el mismo orden.
+   - Añade `LIMIT _limit OFFSET _offset` al final del SELECT.
+   - Defaults compatibles con cualquier llamada existente.
 
-Nota: las funciones existentes `locations_with_broken_geo_chain` / `count_locations_with_broken_geo_chain` se mantienen tal cual (son las que usa el cron `geocoding-job-tick` para iterar). Solo añadimos la capa admin.
+2. **Cliente — `src/components/admin/GeographyBackfillPanel.tsx`** (helper `loadBroken`):
+   - Reemplazar la llamada única por un bucle que pida páginas de 1000 con `_offset` creciente hasta que una página devuelva menos de 1000 filas.
+   - Concatenar resultados y volcar en `setBrokenLocations`.
+   - Quitar el `.range(0, 99999)` (irrelevante con paginación explícita).
+   - Mientras carga, ir actualizando `brokenLocations` por páginas para que el contador de la cabecera ("X puntos rotos") avance de 1000 → 2000 → 2417 en vivo.
 
-#### 2. Edge function `backfill-admin-fks`
+3. **UI — cabecera y selección**:
+   - El texto "1000 puntos rotos" pasa a leerse de `brokenLocations.length` (ya lo hace), por lo que mostrará 2417 al terminar.
+   - El pie "0 / 1000 seleccionados" también se basa en el total real, no en la página.
 
-- Aceptar `target_user_id` cuando lo invoca el cron con un `geocoding_jobs.user_id` cuyo dueño es admin/master y el job apunta a otro usuario. Hoy `repair` ya usa `job.user_id` como filtro; basta con permitir que `geocoding_jobs.user_id` sea el del **objetivo**, manteniendo `created_by` aparte.
+**No se toca**
 
-#### 3. Tabla `geocoding_jobs`
+- `admin_users_with_broken_geo_chain`, RLS, geocodificación, ni ninguna otra parte de la UI.
+- Lógica del botón "Reparar cadenas rotas": ahora recibirá los 2417 IDs reales en lugar de 1000.
 
-- Añadir columna `created_by uuid` (nullable, FK lógica a auth.users).
-- En el cliente, al lanzar como admin contra otro usuario:
-  - `user_id = targetUserId` (sigue siendo dueño de los datos a reparar → RLS y cron actuales no cambian de comportamiento).
-  - `created_by = auth.uid()` (admin que lo lanzó, para auditoría).
-- Política RLS extra: admins/masters pueden `INSERT` filas con `user_id != auth.uid()` solo si `has_role(...)`.
+**Resultado esperado**
 
-#### 4. UI — `GeographyBackfillPanel`
-
-Reorganización en 3 columnas cuando `isAdmin`:
-
-```text
-┌──────────────┬──────────────────────────┬──────────────┐
-│ Usuarios     │ Cadenas rotas (árbol     │ Cobertura    │
-│ con cadenas  │ jerárquico geográfico    │ + Modo       │
-│ rotas        │ del usuario seleccionado)│ + Ejecución  │
-└──────────────┴──────────────────────────┴──────────────┘
-```
-
-- **Col 1 (nueva, solo admin)**: lista virtualizada de usuarios devuelta por `admin_users_with_broken_geo_chain`, con badge de `broken_count`. Click selecciona usuario activo.
-- **Col 2**: misma `GeographyScopeTree` que ya existe, pero alimentada con las locations de `admin_broken_locations_for_user(targetUserId)` en vez del store local. Mismo agrupado continent → country → region → zone → admin3 → locality. Multi-select de IDs idéntico.
-- **Col 3**: cobertura (filtrada por `targetUserId`), modo (forzado a `repair` por defecto cuando hay cadenas rotas; `fill`/`reconcile`/`overwrite` siguen disponibles), botón Lanzar.
-
-Para usuario sin rol admin, la UI cae al layout actual de 2 columnas operando solo sobre sí mismo (sin regresión).
-
-#### 5. Lanzamiento del job
-
-`useGeocodingJobStore.start()` recibe nuevo campo opcional `targetUserId`. Si presente y el caller es admin:
-- Inserta `geocoding_jobs` con `user_id = targetUserId, created_by = auth.uid(), mode: 'repair'`.
-- Resto del flujo (realtime, ETA, parar) sin cambios.
-
-#### 6. Cobertura por usuario
-
-- `v_geo_coverage` actual filtra por `auth.uid()`. Añadir RPC `admin_geo_coverage(_user_id)` que devuelve la misma estructura pero filtrada por usuario objetivo, con check de rol.
-
-### Permisos
-
-- Solo `master` y `admin` ven la columna 1, las RPCs `admin_*`, y la opción de lanzar contra otros.
-- Para todos los demás roles el panel se comporta como hoy.
-
-### Archivos a tocar
-
-- `supabase/migrations/<new>.sql` — RPCs `admin_*`, columna `created_by`, RLS para insert cross-user.
-- `supabase/functions/backfill-admin-fks/index.ts` — usar `job.user_id` como target sin asumir que es el caller (ya casi lo hace).
-- `src/stores/geocoding-job-store.ts` — soportar `targetUserId` y `created_by`.
-- `src/components/admin/GeographyBackfillPanel.tsx` — tres columnas, fetch admin, selector de usuario.
-- `src/components/admin/GeographyScopeTree.tsx` — aceptar lista externa de locations precalculada (ya recibe `locations` por prop, sin cambios estructurales).
-- Nuevo `src/components/admin/AdminBrokenUsersList.tsx`.
-
-### Fuera de alcance
-
-- No tocamos lógica de `resolve-admin-area` ni la pipeline de geocodificación; solo se expone el `repair` existente a admins.
-- No hay cambios en el mapa principal ni en filtros de usuarios finales.
+- Frankie GMZ (2417 cadenas rotas) muestra cabecera "2417 puntos rotos" y un árbol con la suma exacta por continente/país/región.
+- Sandbox Agent (131) sigue funcionando con una sola página.
+- Cualquier usuario futuro con > 1000 puntos rotos verá el total correcto.

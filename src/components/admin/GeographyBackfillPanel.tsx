@@ -163,29 +163,43 @@ export function GeographyBackfillPanel() {
   const loadBroken = useCallback(async (userId: string) => {
     setLoadingBroken(true);
     setSelectedIds(new Set());
+    setBrokenLocations([]);
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
-        .rpc('admin_broken_locations_for_user', { _user_id: userId })
-        .range(0, 99999);
-      if (error) throw error;
-      // Map to a minimal GeoLocation-compatible shape (the tree only reads
-      // continent/country/region/zone/name/id).
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mapped: GeoLocation[] = ((data ?? []) as any[]).map((r) => ({
-        id: r.id,
-        name: r.name ?? 'Sin nombre',
-        latitude: r.latitude,
-        longitude: r.longitude,
-        continent: r.continent ?? undefined,
-        country: r.country ?? undefined,
-        region: r.region ?? undefined,
-        zone: r.zone ?? undefined,
-        country_code: r.country_code ?? undefined,
-        place_type: r.place_type ?? undefined,
+      const PAGE_SIZE = 1000;
+      let offset = 0;
+      const accumulated: GeoLocation[] = [];
+      // Page through the RPC until we drain all broken rows. PostgREST caps
+      // single RPC responses at 1000 rows, so we must paginate explicitly.
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      })) as any;
-      setBrokenLocations(mapped);
+        const { data, error } = await (supabase as any).rpc('admin_broken_locations_for_user', {
+          _user_id: userId,
+          _limit: PAGE_SIZE,
+          _offset: offset,
+        });
+        if (error) throw error;
+        const rows = (data ?? []) as Array<Record<string, unknown>>;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mapped: GeoLocation[] = rows.map((r: any) => ({
+          id: r.id,
+          name: r.name ?? 'Sin nombre',
+          latitude: r.latitude,
+          longitude: r.longitude,
+          continent: r.continent ?? undefined,
+          country: r.country ?? undefined,
+          region: r.region ?? undefined,
+          zone: r.zone ?? undefined,
+          country_code: r.country_code ?? undefined,
+          place_type: r.place_type ?? undefined,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        })) as any;
+        accumulated.push(...mapped);
+        // Update progressively so the header counter advances live.
+        setBrokenLocations([...accumulated]);
+        if (rows.length < PAGE_SIZE) break;
+        offset += PAGE_SIZE;
+      }
     } catch (err) {
       console.error('[admin-broken-for-user]', err);
       toast.error('No se pudieron cargar los puntos rotos');
