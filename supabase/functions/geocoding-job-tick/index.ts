@@ -119,9 +119,16 @@ Deno.serve(async (req) => {
   const useOffset = hasExplicitIds
     || (mode !== 'fill' && mode !== 'repair' && !(healthFilter && healthFilter.length > 0));
   const pageSize: number = job.page_size ?? 25;
-  // Si hay selección explícita, fijamos total_in_scope al tamaño de la
-  // selección y NO permitimos que la respuesta del backfill lo sobrescriba.
-  const pinnedTotal: number | null = hasExplicitIds ? (job.location_ids as string[]).length : null;
+  // FIJAMOS total_in_scope al valor inicial del job (lo que el usuario vio
+  // al lanzar) para TODOS los modos. Si hay IDs explícitos, usamos su
+  // longitud; si no, respetamos el `total_in_scope` con el que se creó el
+  // job (que viene del `universeTotal` del panel). Así el denominador del
+  // progreso nunca se mueve y `processed` no puede superar al universo.
+  const pinnedTotal: number | null = hasExplicitIds
+    ? (job.location_ids as string[]).length
+    : (typeof job.total_in_scope === 'number' && job.total_in_scope > 0
+        ? job.total_in_scope
+        : null);
   if (pinnedTotal !== null) totalInScope = pinnedTotal;
 
   while (Date.now() - startedAt < TIME_BUDGET_MS) {
@@ -149,9 +156,14 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Cap el lote al universo restante para no procesar más de lo declarado.
+    const remainingCap = pinnedTotal !== null
+      ? Math.max(1, pinnedTotal - totalProcessed)
+      : pageSize;
+    const batchLimit = Math.min(pageSize, remainingCap);
     const invokeBody: Record<string, unknown> = {
       job_id: job.id,
-      limit: pageSize,
+      limit: batchLimit,
       mode,
       user_id: job.user_id,
     };
@@ -252,6 +264,9 @@ Deno.serve(async (req) => {
     if (mode === 'fill' && remaining === 0) { done = true; break; }
     if (mode === 'repair' && remaining === 0) { done = true; break; }
     if (useOffset && totalInScope !== null && offset >= totalInScope) { done = true; break; }
+    // Hard cap: never procesamos más puntos de los que el usuario vio al
+    // lanzar el job. Si el universo declarado se ha alcanzado, paramos.
+    if (pinnedTotal !== null && totalProcessed >= pinnedTotal) { done = true; break; }
   }
 
   if (done) {
