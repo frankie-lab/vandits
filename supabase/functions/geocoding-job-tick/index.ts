@@ -200,7 +200,15 @@ Deno.serve(async (req) => {
     totalUpdated += upd;
     totalFailed += failed;
     if (typeof d.remaining === 'number') remaining = d.remaining;
-    if (typeof d.totalInScope === 'number') totalInScope = d.totalInScope;
+    if (typeof d.totalInScope === 'number' && pinnedTotal === null) totalInScope = d.totalInScope;
+    if (pinnedTotal !== null) {
+      // Clamp remaining a [0, pinnedTotal] y derivar de offset+processed si backfill no lo pasa.
+      const derived = Math.max(0, pinnedTotal - (totalProcessed));
+      remaining = typeof d.remaining === 'number'
+        ? Math.min(Math.max(0, d.remaining), pinnedTotal)
+        : derived;
+      totalInScope = pinnedTotal;
+    }
     if (useOffset) {
       offset = typeof d.nextOffset === 'number' ? d.nextOffset : offset + proc;
     }
