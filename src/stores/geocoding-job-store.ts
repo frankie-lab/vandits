@@ -22,23 +22,27 @@ export interface GeocodingAdminScope {
   zone_id?: string;
 }
 
+export interface GeocodingGeoNode {
+  continent?: string | null;
+  country?: string | null;
+  region?: string | null;
+  zone?: string | null;
+}
+
+export type GeoHealth = 'empty' | 'broken' | 'partial' | 'stale_name' | 'ok';
+
 export interface GeocodingScope {
-  /** Restrict the backfill to a single document. Omit to process all of the user's pending points. */
   documentId?: string;
-  /** Human-readable label used in toasts (e.g. document filename). */
   label?: string;
-  /** Force re-normalize already-geocoded points using the latest canonical rules. */
   forceRenormalize?: boolean;
-  /** Backfill mode: 'fill' (default), 'reconcile', 'overwrite', 'repair'. */
   mode?: 'fill' | 'reconcile' | 'overwrite' | 'repair';
-  /** Limit to approved/catalog points. */
   catalogOnly?: boolean;
-  /** Explicit POI ids to process (overrides dynamic selection). */
   locationIds?: string[];
-  /** Admin-area scope (any combination of continent/country/region/zone). */
   adminScope?: GeocodingAdminScope;
-  /** When an admin/master launches the job against a different user. */
   targetUserId?: string;
+  /** Unified health-based scope. Same source of truth as the panel's tabs/tree. */
+  healthFilter?: GeoHealth[];
+  geoNode?: GeocodingGeoNode;
 }
 
 type JobStatus = 'running' | 'canceling' | 'canceled' | 'completed' | 'failed';
