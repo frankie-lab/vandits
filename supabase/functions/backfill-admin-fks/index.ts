@@ -131,9 +131,21 @@ Deno.serve(async (req) => {
   let mode: Mode = (body.mode as Mode) ?? 'fill';
   if (body.force_renormalize === true && mode === 'fill') mode = 'overwrite';
   if (!['fill', 'reconcile', 'overwrite', 'repair'].includes(mode)) mode = 'fill';
+  const jobId = typeof body.job_id === 'string' ? body.job_id : null;
 
   const startedAt = Date.now();
   const TIME_BUDGET_MS = 120_000;
+  let canceled = false;
+
+  const shouldCancel = async () => {
+    if (!jobId) return false;
+    const { data: jobRow } = await admin
+      .from('geocoding_jobs')
+      .select('status')
+      .eq('id', jobId)
+      .maybeSingle();
+    return jobRow?.status === 'canceling';
+  };
 
   // Selection: in 'fill' we restrict to points missing high levels.
   // In 'reconcile' / 'overwrite' we walk the full scope.
@@ -238,6 +250,10 @@ Deno.serve(async (req) => {
   let timedOut = false;
 
   for (const row of rows ?? []) {
+    if (await shouldCancel()) {
+      canceled = true;
+      break;
+    }
     if (Date.now() - startedAt > TIME_BUDGET_MS) {
       timedOut = true;
       break;
@@ -254,6 +270,11 @@ Deno.serve(async (req) => {
     const canon = await reverseGeocodeCanonical(row.latitude, row.longitude);
     await sleep(RATE_LIMIT_MS);
 
+    if (await shouldCancel()) {
+      canceled = true;
+      break;
+    }
+
     if (!canon || !canon.country) {
       errors.push({ id: row.id, reason: 'reverse-geocode failed' });
       continue;
@@ -266,6 +287,11 @@ Deno.serve(async (req) => {
     if (resErr) {
       errors.push({ id: row.id, reason: `resolve failed: ${resErr.message}` });
       continue;
+    }
+
+    if (await shouldCancel()) {
+      canceled = true;
+      break;
     }
 
     const ids = (resolved as { ids?: Record<string, string | null> })?.ids ?? {};
@@ -380,6 +406,7 @@ Deno.serve(async (req) => {
       processed,
       updated,
       failed: errors.length,
+      canceled,
       remaining,
       totalInScope,
       nextOffset,
