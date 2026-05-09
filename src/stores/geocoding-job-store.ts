@@ -47,6 +47,18 @@ export interface GeocodingScope {
 
 type JobStatus = 'running' | 'canceling' | 'canceled' | 'completed' | 'failed';
 
+export interface GeocodingJobLastResult {
+  finishedAt: number;
+  status: 'completed' | 'canceled' | 'failed';
+  mode: string;
+  label?: string;
+  totalProcessed: number;
+  totalUpdated: number;
+  failed: number;
+  durationMs: number;
+  initialPending: number;
+}
+
 interface GeocodingJobState {
   running: boolean;
   stopping: boolean;
@@ -59,8 +71,10 @@ interface GeocodingJobState {
   failedThisBatch: number;
   scope: GeocodingScope | null;
   startedAt: number | null;
+  lastResult: GeocodingJobLastResult | null;
   start: (initialPending: number, scope?: GeocodingScope) => Promise<void>;
   stop: () => Promise<void>;
+  clearLastResult: () => void;
 }
 
 let channel: RealtimeChannel | null = null;
@@ -103,6 +117,23 @@ function applyRow(row: Record<string, any>) {
   });
 
   if (!isActive) {
+    const startedAtMs = row.created_at ? new Date(row.created_at).getTime() : Date.now();
+    const finishedAt = row.updated_at ? new Date(row.updated_at).getTime() : Date.now();
+    if (status === 'completed' || status === 'canceled' || status === 'failed') {
+      useGeocodingJobStore.setState({
+        lastResult: {
+          finishedAt,
+          status,
+          mode: row.mode ?? 'fill',
+          label: row.label ?? undefined,
+          totalProcessed: row.processed ?? 0,
+          totalUpdated: row.updated ?? 0,
+          failed: row.failed ?? 0,
+          durationMs: Math.max(0, finishedAt - startedAtMs),
+          initialPending: totalInScope || (row.processed ?? 0),
+        },
+      });
+    }
     if (status === 'completed' && !lastNotifiedComplete) {
       lastNotifiedComplete = true;
       const updated = row.updated ?? 0;
@@ -113,11 +144,6 @@ function applyRow(row: Record<string, any>) {
           : `Geocodificación completada: ${processed} puntos revisados, ninguno necesitaba cambios.`,
         { duration: 6000 },
       );
-      // Trigger a FULL store reload so the geographic hierarchy (continent /
-      // country / region / zone strings cached on each location) reflects the
-      // updated FKs in every tree, list and filter. Realtime UPDATEs alone are
-      // unreliable at scale and `locations:refresh` was not wired to the
-      // database sync hook.
       window.dispatchEvent(new CustomEvent('reload-locations'));
       window.dispatchEvent(new CustomEvent('locations:refresh'));
       window.dispatchEvent(new CustomEvent('locations:changed'));
@@ -170,6 +196,10 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
   failedThisBatch: 0,
   scope: null,
   startedAt: null,
+  lastResult: null,
+
+  clearLastResult: () => set({ lastResult: null }),
+
 
   stop: async () => {
     const { jobId, running } = get();
