@@ -36,7 +36,7 @@ interface Props {
   maxDepth?: number;
 }
 
-const DEFAULT_MAX_DEPTH = 4; // continent → country → region → zone
+const DEFAULT_MAX_DEPTH = 7; // continent → country → region → zone → admin3 → locality → sublocality
 
 export function GeographyScopeTree({
   locations,

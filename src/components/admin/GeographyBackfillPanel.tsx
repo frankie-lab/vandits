@@ -241,6 +241,16 @@ export function GeographyBackfillPanel() {
             region: r.region ?? undefined,
             zone: r.zone ?? undefined,
             place_type: r.place_type ?? undefined,
+            // Inject deeper levels via enrichedData.datos_geograficos so that
+            // getLocationHierarchy() in shared/geography/hierarchy.ts builds
+            // the full 7-level tree (admin3/locality/sublocality).
+            enrichedData: {
+              datos_geograficos: {
+                admin_nivel_3: r.admin_level_3 ?? undefined,
+                localidad: r.locality ?? undefined,
+                sublocalidad: r.sublocality ?? undefined,
+              },
+            },
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
           })) as any;
           accumulated.push(...mapped);
