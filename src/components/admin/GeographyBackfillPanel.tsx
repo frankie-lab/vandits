@@ -130,6 +130,7 @@ export function GeographyBackfillPanel() {
   const [selfUserId, setSelfUserId] = useState<string | null>(null);
   const [targetUser, setTargetUser] = useState<BrokenUser | null>(null);
   const [refreshUsersKey, setRefreshUsersKey] = useState(0);
+  const [forceOverwrite, setForceOverwrite] = useState(false);
 
   // Universe (driven by mode) ----------------------------------------------
   const [summary, setSummary] = useState<HealthSummary | null>(null);
