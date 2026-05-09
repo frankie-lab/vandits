@@ -61,32 +61,39 @@ interface CountryRule {
   sublocality: FieldKey[];
 }
 
+// REGLA UNIVERSAL (ISO 3166-2):
+//   region    = nivel admin 1 (CCAA, state, région, Bundesland) → Nominatim "state"
+//   zone      = nivel admin 2 PROVINCIA (province, county, département) → Nominatim "province" PRIMERO
+//   admin3    = nivel admin 3 COMARCA (county en ES/IT, distrito municipal en otros)
+// Nominatim a veces NO devuelve `province` y solo `county`. En ese caso preferimos
+// `state_district` antes que `county` para España/Italia/Portugal porque `county`
+// suele contener la COMARCA, no la provincia.
 const GENERIC: CountryRule = {
-  region: ['state', 'region', 'province'],
-  zone: ['county', 'state_district', 'district'],
-  admin3: ['municipality', 'city_district', 'borough'],
+  region: ['state', 'region'],
+  zone: ['province', 'state_district', 'county'],
+  admin3: ['district', 'municipality', 'city_district', 'borough'],
   locality: ['city', 'town', 'village', 'hamlet'],
   sublocality: ['suburb', 'neighbourhood', 'quarter'],
 };
 
 const COUNTRY_RULES: Record<string, CountryRule> = {
-  // España: state=CCAA, county=provincia
-  es: { region: ['state'], zone: ['county'], admin3: ['municipality'], locality: ['city', 'town', 'village', 'hamlet'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
-  // Francia: state=región, county=departamento
-  fr: { region: ['state'], zone: ['county'], admin3: ['municipality'], locality: ['city', 'town', 'village', 'hamlet'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
-  // Italia: state=región, county=provincia
-  it: { region: ['state'], zone: ['county'], admin3: ['municipality'], locality: ['city', 'town', 'village', 'hamlet'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
-  // Alemania: state=Land, county=Kreis
-  de: { region: ['state'], zone: ['county', 'state_district'], admin3: ['municipality', 'city_district'], locality: ['city', 'town', 'village', 'hamlet'], sublocality: ['suburb', 'borough', 'neighbourhood'] },
-  // Reino Unido: state suele ser country/region constituyente
-  gb: { region: ['state', 'state_district'], zone: ['county'], admin3: ['city_district', 'borough'], locality: ['city', 'town', 'village', 'hamlet'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
-  uk: { region: ['state', 'state_district'], zone: ['county'], admin3: ['city_district', 'borough'], locality: ['city', 'town', 'village', 'hamlet'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
-  // USA
-  us: { region: ['state'], zone: ['county'], admin3: ['city_district'], locality: ['city', 'town', 'village', 'hamlet'], sublocality: ['neighbourhood', 'suburb', 'quarter'] },
-  // Portugal: distrito + concelho + freguesia
-  pt: { region: ['state', 'district'], zone: ['county', 'municipality'], admin3: ['suburb' as FieldKey /* parish */], locality: ['city', 'town', 'village'], sublocality: ['neighbourhood', 'quarter'] },
-  // Canadá
-  ca: { region: ['state'], zone: ['county', 'state_district'], admin3: ['city_district', 'borough'], locality: ['city', 'town', 'village', 'hamlet'], sublocality: ['neighbourhood', 'suburb', 'quarter'] },
+  // España: state=CCAA, province=provincia oficial, county=comarca
+  es: { region: ['state'], zone: ['province', 'state_district'], admin3: ['county', 'municipality'], locality: ['city', 'town', 'village', 'hamlet'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
+  // Francia: state=région, province/state_district=département, county=arrondissement
+  fr: { region: ['state'], zone: ['province', 'state_district', 'county'], admin3: ['municipality', 'city_district'], locality: ['city', 'town', 'village', 'hamlet'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
+  // Italia: state=regione, province=provincia, county=zona/comune mayor
+  it: { region: ['state'], zone: ['province', 'state_district'], admin3: ['county', 'municipality'], locality: ['city', 'town', 'village', 'hamlet'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
+  // Alemania: state=Land, county/state_district=Kreis, municipality=Gemeinde
+  de: { region: ['state'], zone: ['county', 'state_district', 'province'], admin3: ['municipality', 'city_district'], locality: ['city', 'town', 'village', 'hamlet'], sublocality: ['suburb', 'borough', 'neighbourhood'] },
+  // Reino Unido: state=nación constituyente, county=condado
+  gb: { region: ['state'], zone: ['county', 'state_district', 'province'], admin3: ['city_district', 'borough', 'district'], locality: ['city', 'town', 'village', 'hamlet'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
+  uk: { region: ['state'], zone: ['county', 'state_district', 'province'], admin3: ['city_district', 'borough', 'district'], locality: ['city', 'town', 'village', 'hamlet'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
+  // USA: state=estado, county=condado
+  us: { region: ['state'], zone: ['county', 'state_district'], admin3: ['city_district'], locality: ['city', 'town', 'village', 'hamlet'], sublocality: ['neighbourhood', 'suburb', 'quarter'] },
+  // Portugal: state/district=distrito, municipality=concelho, suburb=freguesia
+  pt: { region: ['state', 'district'], zone: ['province', 'state_district', 'county'], admin3: ['municipality'], locality: ['city', 'town', 'village'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
+  // Canadá: state=provincia/territorio, county=condado
+  ca: { region: ['state'], zone: ['county', 'state_district', 'province'], admin3: ['city_district', 'borough'], locality: ['city', 'town', 'village', 'hamlet'], sublocality: ['neighbourhood', 'suburb', 'quarter'] },
   // Países nórdicos: state=región/condado
   se: { ...GENERIC },
   no: { ...GENERIC },
