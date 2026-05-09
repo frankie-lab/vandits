@@ -535,20 +535,36 @@ export function GeographyBackfillPanel() {
 
             {job.running ? (
               <>
-                <div className="text-sm">
-                  Procesados <strong>{job.totalProcessed}</strong> / {job.initialPending} · quedan{' '}
-                  {job.remaining}
-                  {job.totalUpdated !== job.totalProcessed && (
-                    <> · actualizados {job.totalUpdated}</>
-                  )}
-                  {job.failedThisBatch > 0 && <> · errores {job.failedThisBatch}</>}
-                </div>
                 <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                   <div
                     className="h-full bg-primary transition-all"
                     style={{
                       width: `${pct(job.totalProcessed, Math.max(1, job.initialPending))}%`,
                     }}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <StatCell
+                    label="Revisados"
+                    value={`${job.totalProcessed} / ${job.initialPending}`}
+                    tone="primary"
+                  />
+                  <StatCell label="Restantes" value={job.remaining} tone="muted" />
+                  <StatCell label="Actualizados" value={job.totalUpdated} tone="emerald" />
+                  <StatCell
+                    label="Sin cambios"
+                    value={Math.max(0, job.totalProcessed - job.totalUpdated - job.failedThisBatch)}
+                    tone="muted"
+                  />
+                  <StatCell
+                    label="Errores"
+                    value={job.failedThisBatch}
+                    tone={job.failedThisBatch > 0 ? 'destructive' : 'muted'}
+                  />
+                  <StatCell
+                    label="Progreso"
+                    value={`${pct(job.totalProcessed, Math.max(1, job.initialPending))}%`}
+                    tone="muted"
                   />
                 </div>
                 {(() => {
@@ -629,6 +645,38 @@ function SummaryRow({ label, value }: { label: string; value: string | number })
     <div className="flex items-center justify-between gap-2">
       <span className="text-muted-foreground">{label}</span>
       <span className="font-medium tabular-nums truncate">{value}</span>
+    </div>
+  );
+}
+
+const STAT_TONE: Record<'primary' | 'emerald' | 'destructive' | 'muted', string> = {
+  primary: 'border-primary/30 bg-primary/5 text-primary',
+  emerald:
+    'border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300',
+  destructive: 'border-destructive/30 bg-destructive/5 text-destructive',
+  muted: 'border-border bg-muted/30 text-foreground',
+};
+
+function StatCell({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string | number;
+  tone: 'primary' | 'emerald' | 'destructive' | 'muted';
+}) {
+  return (
+    <div
+      className={cn(
+        'rounded-md border px-2.5 py-1.5 flex flex-col gap-0.5',
+        STAT_TONE[tone],
+      )}
+    >
+      <span className="text-[10px] uppercase tracking-wide font-medium opacity-70">
+        {label}
+      </span>
+      <span className="text-sm font-semibold tabular-nums leading-tight">{value}</span>
     </div>
   );
 }
