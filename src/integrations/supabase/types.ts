@@ -1015,6 +1015,7 @@ export type Database = {
           enriched_data: Json | null
           enrichment_status: string | null
           geo_confidence: number | null
+          geo_health: string | null
           geo_resolved_at: string | null
           geo_source: string | null
           id: string
@@ -1059,6 +1060,7 @@ export type Database = {
           enriched_data?: Json | null
           enrichment_status?: string | null
           geo_confidence?: number | null
+          geo_health?: string | null
           geo_resolved_at?: string | null
           geo_source?: string | null
           id?: string
@@ -1103,6 +1105,7 @@ export type Database = {
           enriched_data?: Json | null
           enrichment_status?: string | null
           geo_confidence?: number | null
+          geo_health?: string | null
           geo_resolved_at?: string | null
           geo_source?: string | null
           id?: string
@@ -2898,6 +2901,44 @@ export type Database = {
           zone: string | null
           zone_id: string | null
         }
+        Insert: {
+          continent?: string | null
+          continent_id?: string | null
+          country?: string | null
+          country_code?: string | null
+          country_id?: string | null
+          document_id?: string | null
+          health?: string | null
+          id?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          name?: string | null
+          owner_user_id?: string | null
+          place_type?: string | null
+          region?: string | null
+          region_id?: string | null
+          zone?: string | null
+          zone_id?: string | null
+        }
+        Update: {
+          continent?: string | null
+          continent_id?: string | null
+          country?: string | null
+          country_code?: string | null
+          country_id?: string | null
+          document_id?: string | null
+          health?: string | null
+          id?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          name?: string | null
+          owner_user_id?: string | null
+          place_type?: string | null
+          region?: string | null
+          region_id?: string | null
+          zone?: string | null
+          zone_id?: string | null
+        }
         Relationships: [
           {
             foreignKeyName: "locations_continent_id_fkey"
@@ -2959,6 +3000,21 @@ export type Database = {
           _region_str: string
           _z_name: string
           _z_parent: string
+          _zone_id: string
+          _zone_str: string
+        }
+        Returns: string
+      }
+      _compute_location_geo_health_lookup: {
+        Args: {
+          _continent_id: string
+          _country_code: string
+          _country_id: string
+          _country_str: string
+          _lat: number
+          _lng: number
+          _region_id: string
+          _region_str: string
           _zone_id: string
           _zone_str: string
         }
