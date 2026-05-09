@@ -416,6 +416,22 @@ export function GeographyBackfillPanel() {
             );
           })}
         </div>
+        {mode === 'review' && (
+          <div className="px-4 py-2.5 border-t bg-background/50 flex items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-border accent-primary"
+                checked={forceOverwrite}
+                onChange={(e) => setForceOverwrite(e.target.checked)}
+              />
+              <span className="text-xs font-medium">Forzar reescritura</span>
+            </label>
+            <span className="text-[11px] text-muted-foreground leading-snug">
+              Refresca todos los puntos aunque ya coincidan con OSM. Útil tras renombrar o fusionar áreas administrativas.
+            </span>
+          </div>
+        )}
       </section>
 
       {/* PASOS 2 + 3 */}
