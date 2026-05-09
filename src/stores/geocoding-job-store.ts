@@ -196,6 +196,10 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
   failedThisBatch: 0,
   scope: null,
   startedAt: null,
+  lastResult: null,
+
+  clearLastResult: () => set({ lastResult: null }),
+
 
   stop: async () => {
     const { jobId, running } = get();
