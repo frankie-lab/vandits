@@ -16,6 +16,7 @@ import {
   HIERARCHY_LEVELS,
   LEVEL_PLACEHOLDER_LABELS,
   getFilledLocationHierarchy,
+  compareGeoTreeNodes,
   type HierarchyLevel,
 } from '@/shared/geography/hierarchy';
 
