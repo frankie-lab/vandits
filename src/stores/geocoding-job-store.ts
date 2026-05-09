@@ -27,6 +27,9 @@ export interface GeocodingGeoNode {
   country?: string | null;
   region?: string | null;
   zone?: string | null;
+  admin_level_3?: string | null;
+  locality?: string | null;
+  sublocality?: string | null;
 }
 
 export type GeoHealth = 'empty' | 'broken' | 'partial' | 'stale_name' | 'ok';

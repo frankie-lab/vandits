@@ -2883,6 +2883,8 @@ export type Database = {
       }
       v_location_geo_health: {
         Row: {
+          admin_level_3: string | null
+          admin3_id: string | null
           continent: string | null
           continent_id: string | null
           country: string | null
@@ -2890,56 +2892,30 @@ export type Database = {
           country_id: string | null
           document_id: string | null
           health: string | null
+          health_reason: string | null
           id: string | null
           latitude: number | null
+          locality: string | null
+          locality_id: string | null
           longitude: number | null
           name: string | null
           owner_user_id: string | null
           place_type: string | null
           region: string | null
           region_id: string | null
+          sublocality: string | null
+          sublocality_id: string | null
           zone: string | null
           zone_id: string | null
         }
-        Insert: {
-          continent?: string | null
-          continent_id?: string | null
-          country?: string | null
-          country_code?: string | null
-          country_id?: string | null
-          document_id?: string | null
-          health?: string | null
-          id?: string | null
-          latitude?: number | null
-          longitude?: number | null
-          name?: string | null
-          owner_user_id?: string | null
-          place_type?: string | null
-          region?: string | null
-          region_id?: string | null
-          zone?: string | null
-          zone_id?: string | null
-        }
-        Update: {
-          continent?: string | null
-          continent_id?: string | null
-          country?: string | null
-          country_code?: string | null
-          country_id?: string | null
-          document_id?: string | null
-          health?: string | null
-          id?: string | null
-          latitude?: number | null
-          longitude?: number | null
-          name?: string | null
-          owner_user_id?: string | null
-          place_type?: string | null
-          region?: string | null
-          region_id?: string | null
-          zone?: string | null
-          zone_id?: string | null
-        }
         Relationships: [
+          {
+            foreignKeyName: "locations_admin3_id_fkey"
+            columns: ["admin3_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "locations_continent_id_fkey"
             columns: ["continent_id"]
@@ -2962,8 +2938,22 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "locations_locality_id_fkey"
+            columns: ["locality_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "locations_region_id_fkey"
             columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_sublocality_id_fkey"
+            columns: ["sublocality_id"]
             isOneToOne: false
             referencedRelation: "admin_areas"
             referencedColumns: ["id"]
@@ -3088,36 +3078,46 @@ export type Database = {
       }
       admin_user_geo_locations: {
         Args: {
+          _admin_level_3?: string
           _continent?: string
           _country?: string
           _health_filter?: string[]
           _limit?: number
+          _locality?: string
           _offset?: number
           _region?: string
+          _sublocality?: string
           _user_id: string
           _zone?: string
         }
         Returns: {
+          admin_level_3: string
           continent: string
           country: string
           health: string
+          health_reason: string
           id: string
           latitude: number
+          locality: string
           longitude: number
           name: string
           place_type: string
           region: string
+          sublocality: string
           zone: string
         }[]
       }
       admin_user_geo_scope_ids: {
         Args: {
+          _admin_level_3?: string
           _continent?: string
           _country?: string
           _health_filter?: string[]
           _limit?: number
+          _locality?: string
           _offset?: number
           _region?: string
+          _sublocality?: string
           _user_id: string
           _zone?: string
         }
@@ -3139,14 +3139,17 @@ export type Database = {
       admin_user_geo_tree: {
         Args: { _health_filter?: string[]; _user_id: string }
         Returns: {
+          admin_level_3: string
           broken: number
           continent: string
           country: string
           empty: number
+          locality: string
           ok: number
           partial: number
           region: string
           stale_name: number
+          sublocality: string
           total: number
           zone: string
         }[]

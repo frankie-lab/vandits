@@ -103,6 +103,9 @@ Deno.serve(async (req) => {
     country?: string | null;
     region?: string | null;
     zone?: string | null;
+    admin_level_3?: string | null;
+    locality?: string | null;
+    sublocality?: string | null;
   } = (body.geo_node && typeof body.geo_node === 'object') ? body.geo_node : {};
 
   const applyAdminScope = <T extends { eq: (col: string, val: unknown) => T }>(q: T): T => {
