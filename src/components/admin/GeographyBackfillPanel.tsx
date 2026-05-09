@@ -689,3 +689,75 @@ function StatCell({
     </div>
   );
 }
+
+const STATUS_META: Record<'completed' | 'canceled' | 'failed', { label: string; tone: string }> = {
+  completed: { label: 'Completado', tone: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30' },
+  canceled: { label: 'Detenido', tone: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30' },
+  failed: { label: 'Fallido', tone: 'bg-destructive/15 text-destructive border-destructive/30' },
+};
+
+function formatRelative(ts: number): string {
+  const diff = Math.max(0, Date.now() - ts);
+  const s = Math.round(diff / 1000);
+  if (s < 60) return `hace ${s}s`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `hace ${m}m`;
+  const h = Math.round(m / 60);
+  return `hace ${h}h`;
+}
+
+function LastResultCard({
+  result,
+  onClose,
+}: {
+  result: import('@/stores/geocoding-job-store').GeocodingJobLastResult;
+  onClose: () => void;
+}) {
+  const meta = STATUS_META[result.status];
+  const noChanges = Math.max(0, result.totalProcessed - result.totalUpdated - result.failed);
+  const minutes = result.durationMs / 60000;
+  const rate = minutes > 0 ? Math.round(result.totalProcessed / minutes) : 0;
+  return (
+    <div className="rounded-lg border bg-muted/20 p-3 space-y-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-xs font-semibold truncate">Resumen del último proceso</span>
+          <span className={cn('text-[10px] px-1.5 py-0.5 rounded border font-medium uppercase tracking-wide', meta.tone)}>
+            {meta.label}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-[11px] text-muted-foreground hover:text-foreground"
+        >
+          Cerrar
+        </button>
+      </div>
+      {result.label && (
+        <div className="text-[11px] text-muted-foreground truncate" title={result.label}>
+          {result.label}
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-1.5">
+        <StatCell
+          label="Revisados"
+          value={`${result.totalProcessed} / ${result.initialPending}`}
+          tone="primary"
+        />
+        <StatCell label="Actualizados" value={result.totalUpdated} tone="emerald" />
+        <StatCell label="Sin cambios" value={noChanges} tone="muted" />
+        <StatCell
+          label="Errores"
+          value={result.failed}
+          tone={result.failed > 0 ? 'destructive' : 'muted'}
+        />
+        <StatCell label="Duración" value={formatDuration(result.durationMs)} tone="muted" />
+        <StatCell label="Tasa" value={rate > 0 ? `${rate}/min` : '—'} tone="muted" />
+      </div>
+      <div className="text-[11px] text-muted-foreground tabular-nums">
+        Finalizado {formatRelative(result.finishedAt)}
+      </div>
+    </div>
+  );
+}
