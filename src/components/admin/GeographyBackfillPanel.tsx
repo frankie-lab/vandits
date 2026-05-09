@@ -89,17 +89,11 @@ const MODE_META: Record<Mode, ModeMeta> = {
     icon: Plus,
     iconClass: 'text-amber-600',
   },
-  reconcile: {
-    title: 'Reconciliar',
-    desc: 'Recorre todos los puntos no vacíos. Sobrescribe niveles que difieran de OSM.',
+  review: {
+    title: 'Revisar normalizados',
+    desc: 'Recorre todos los puntos no vacíos y sobrescribe niveles que difieran de OSM.',
     icon: RotateCcw,
     iconClass: 'text-primary',
-  },
-  overwrite: {
-    title: 'Reescribir todo',
-    desc: 'Todos los puntos, sobrescribe siempre. Más coste; tras cambios de catálogo.',
-    icon: Sparkles,
-    iconClass: 'text-purple-500',
   },
 };
 
