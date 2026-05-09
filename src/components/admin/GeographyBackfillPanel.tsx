@@ -606,14 +606,22 @@ export function GeographyBackfillPanel() {
                 </Button>
               </>
             ) : (
-              <Button
-                onClick={handleStart}
-                className="w-full"
-                disabled={!activeUserId || universeTotal === 0}
-              >
-                <Play className="w-3.5 h-3.5 mr-2" />
-                {launchLabel}
-              </Button>
+              <>
+                {job.lastResult && (
+                  <LastResultCard
+                    result={job.lastResult}
+                    onClose={() => useGeocodingJobStore.getState().clearLastResult()}
+                  />
+                )}
+                <Button
+                  onClick={handleStart}
+                  className="w-full"
+                  disabled={!activeUserId || universeTotal === 0}
+                >
+                  <Play className="w-3.5 h-3.5 mr-2" />
+                  {launchLabel}
+                </Button>
+              </>
             )}
             <div className="text-[11px] text-muted-foreground space-y-1.5">
               <p>
