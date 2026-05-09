@@ -150,6 +150,7 @@ Deno.serve(async (req) => {
     }
 
     const invokeBody: Record<string, unknown> = {
+      job_id: job.id,
       limit: pageSize,
       mode,
       user_id: job.user_id,
@@ -188,6 +189,7 @@ Deno.serve(async (req) => {
       processed?: number;
       updated?: number;
       failed?: number;
+      canceled?: boolean;
       remaining?: number | null;
       totalInScope?: number | null;
       nextOffset?: number;
@@ -226,6 +228,24 @@ Deno.serve(async (req) => {
         total_in_scope: totalInScope,
       })
       .eq('id', job.id);
+
+    if (d.canceled) {
+      await admin
+        .from('geocoding_jobs')
+        .update({
+          status: 'canceled',
+          processed: totalProcessed,
+          updated: totalUpdated,
+          failed: totalFailed,
+          offset,
+          remaining,
+          total_in_scope: totalInScope,
+        })
+        .eq('id', job.id);
+      return new Response(JSON.stringify({ ok: true, canceled: job.id }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Termination: empty batch in any mode means we're done.
     if (proc === 0) { done = true; break; }
