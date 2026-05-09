@@ -535,20 +535,36 @@ export function GeographyBackfillPanel() {
 
             {job.running ? (
               <>
-                <div className="text-sm">
-                  Procesados <strong>{job.totalProcessed}</strong> / {job.initialPending} · quedan{' '}
-                  {job.remaining}
-                  {job.totalUpdated !== job.totalProcessed && (
-                    <> · actualizados {job.totalUpdated}</>
-                  )}
-                  {job.failedThisBatch > 0 && <> · errores {job.failedThisBatch}</>}
-                </div>
                 <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                   <div
                     className="h-full bg-primary transition-all"
                     style={{
                       width: `${pct(job.totalProcessed, Math.max(1, job.initialPending))}%`,
                     }}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <StatCell
+                    label="Revisados"
+                    value={`${job.totalProcessed} / ${job.initialPending}`}
+                    tone="primary"
+                  />
+                  <StatCell label="Restantes" value={job.remaining} tone="muted" />
+                  <StatCell label="Actualizados" value={job.totalUpdated} tone="emerald" />
+                  <StatCell
+                    label="Sin cambios"
+                    value={Math.max(0, job.totalProcessed - job.totalUpdated - job.failedThisBatch)}
+                    tone="muted"
+                  />
+                  <StatCell
+                    label="Errores"
+                    value={job.failedThisBatch}
+                    tone={job.failedThisBatch > 0 ? 'destructive' : 'muted'}
+                  />
+                  <StatCell
+                    label="Progreso"
+                    value={`${pct(job.totalProcessed, Math.max(1, job.initialPending))}%`}
+                    tone="muted"
                   />
                 </div>
                 {(() => {
