@@ -306,7 +306,7 @@ export function GeographyBackfillPanel() {
 
       await useGeocodingJobStore.getState().start(total, {
         label,
-        mode,
+        mode: toBackendMode(mode, forceOverwrite),
         locationIds: explicitIds,
         targetUserId: isCrossUser ? targetUser!.user_id : undefined,
         healthFilter,
