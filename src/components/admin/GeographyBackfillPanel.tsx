@@ -648,3 +648,35 @@ function SummaryRow({ label, value }: { label: string; value: string | number })
     </div>
   );
 }
+
+const STAT_TONE: Record<'primary' | 'emerald' | 'destructive' | 'muted', string> = {
+  primary: 'border-primary/30 bg-primary/5 text-primary',
+  emerald:
+    'border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300',
+  destructive: 'border-destructive/30 bg-destructive/5 text-destructive',
+  muted: 'border-border bg-muted/30 text-foreground',
+};
+
+function StatCell({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string | number;
+  tone: 'primary' | 'emerald' | 'destructive' | 'muted';
+}) {
+  return (
+    <div
+      className={cn(
+        'rounded-md border px-2.5 py-1.5 flex flex-col gap-0.5',
+        STAT_TONE[tone],
+      )}
+    >
+      <span className="text-[10px] uppercase tracking-wide font-medium opacity-70">
+        {label}
+      </span>
+      <span className="text-sm font-semibold tabular-nums leading-tight">{value}</span>
+    </div>
+  );
+}
