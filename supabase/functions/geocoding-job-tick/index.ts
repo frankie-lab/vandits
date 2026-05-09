@@ -259,6 +259,9 @@ Deno.serve(async (req) => {
     if (mode === 'fill' && remaining === 0) { done = true; break; }
     if (mode === 'repair' && remaining === 0) { done = true; break; }
     if (useOffset && totalInScope !== null && offset >= totalInScope) { done = true; break; }
+    // Hard cap: never procesamos más puntos de los que el usuario vio al
+    // lanzar el job. Si el universo declarado se ha alcanzado, paramos.
+    if (pinnedTotal !== null && totalProcessed >= pinnedTotal) { done = true; break; }
   }
 
   if (done) {
