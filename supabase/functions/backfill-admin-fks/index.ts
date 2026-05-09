@@ -313,7 +313,26 @@ Deno.serve(async (req) => {
   // - 'reconcile' / 'overwrite': total in scope − offset − processed.
   let remaining: number | null = null;
   let totalInScope: number | null = null;
-  if (mode === 'fill') {
+  if (healthScopeIds) {
+    // Recount via the same RPC after this batch — points that were fixed have
+    // dropped out of the unhealthy set automatically.
+    const { data: stillIds, error: stillErr } = await admin.rpc('admin_user_geo_scope_ids', {
+      _user_id: callerUserId,
+      _health_filter: healthFilter,
+      _continent: geoNode.continent ?? null,
+      _country: geoNode.country ?? null,
+      _region: geoNode.region ?? null,
+      _zone: geoNode.zone ?? null,
+      _limit: 100000,
+      _offset: 0,
+    });
+    if (stillErr) {
+      remaining = 0;
+    } else {
+      remaining = (stillIds ?? []).length;
+    }
+    totalInScope = remaining;
+  } else if (mode === 'fill') {
     let remainingQ = admin
       .from('locations')
       .select('id', { count: 'exact', head: true })
