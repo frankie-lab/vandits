@@ -3151,6 +3151,16 @@ export type Database = {
           zone: string
         }[]
       }
+      admin_users_geo_universe: {
+        Args: { _health_filter?: string[] }
+        Returns: {
+          display_name: string
+          total_locations: number
+          universe_count: number
+          user_id: string
+          username: string
+        }[]
+      }
       admin_users_with_broken_geo_chain: {
         Args: never
         Returns: {
