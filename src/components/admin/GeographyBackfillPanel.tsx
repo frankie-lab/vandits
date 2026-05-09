@@ -310,6 +310,7 @@ export function GeographyBackfillPanel() {
         toast.message('No hay puntos en el universo del modo actual.');
         return;
       }
+      useGeocodingJobStore.getState().clearLastResult();
 
       const explicitIds = useExplicit ? Array.from(selectedIds) : undefined;
       const userLabel = isCrossUser
