@@ -159,8 +159,11 @@ Deno.serve(async (req) => {
 
   // Health-filter scope: ask the unified RPC for a page of matching IDs.
   // These IDs are then processed exactly like an explicit `location_ids` set.
+  // CRITICAL: si llega `location_ids`, esa selección manda. No mezclamos con
+  // health_filter porque los .in() en cadena se sobrescriben en PostgREST y
+  // además el recount usaría el universo del filtro, pisando total_in_scope.
   let healthScopeIds: string[] | null = null;
-  if (healthFilter && healthFilter.length > 0) {
+  if (healthFilter && healthFilter.length > 0 && !(locationIds && locationIds.length > 0)) {
     const { data: scopeRows, error: scopeErr } = await admin.rpc('admin_user_geo_scope_ids', {
       _user_id: callerUserId,
       _health_filter: healthFilter,
