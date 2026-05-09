@@ -1,64 +1,45 @@
-## Problema
+## Diagnóstico
 
-La columna 1 ("Usuarios con cadenas rotas") siempre muestra los mismos números para cada usuario, independientemente del modo elegido:
+El job se lanzó correctamente con `location_ids = [70 ids]` y `total_in_scope = 70`, pero el primer tick lo sobrescribió a un universo mucho mayor. La causa está en `supabase/functions/backfill-admin-fks/index.ts`:
 
-- Frankie GMZ: **2427 / de 4747**
-- Sandbox Agent: **132 / de 327**
+Cuando el modo es **Revisar normalizados** (o cualquier modo con `health_filter`), la edge function:
 
-Esos números vienen del RPC `admin_users_with_broken_geo_chain`, que devuelve un único `broken_count` (= todo lo no-`ok`) y `total_locations`. Por eso:
+1. Pide al RPC `admin_user_geo_scope_ids` la página de IDs del **health_filter**, ignorando `location_ids` del cuerpo.
+2. Aplica al query tanto `.in('id', locationIds)` como `.in('id', healthScopeIds)` — en PostgREST el segundo `.in` sobre la misma columna **sobrescribe** al primero, así que la selección de 70 IDs desaparece.
+3. Recalcula `remaining` / `totalInScope` llamando otra vez al RPC con `_limit: 100000` y SIN filtrar por `location_ids`. Eso es lo que pisa `total_in_scope` al universo del health_filter (de ahí el "1000" / "1 / 1000" en pantalla; el RPC además parece tener un cap interno de 1000).
 
-1. En modo **Rellenar huecos** (universo = 10 puntos) la lista sigue diciendo "2427/4747" en Frankie, cuando solo 10 de esos puntos pertenecen al universo del modo.
-2. En modo **Revisar normalizados** (universo = 4747) Frankie debería poner "4747/4747", pero pone "2427/4747".
-3. No puedes saber qué usuario contribuye al universo del modo activo, ni decidir lanzar el job sobre el total de un usuario sin abrir su árbol.
-4. El título "Usuarios con cadenas rotas" miente cuando estás en Rellenar o Revisar.
+Resultado visible: con 70 seleccionados, el job procesa el universo entero del modo (4747 en review) y la barra muestra "Procesados 8 / 1000 · quedan 1000".
 
-## Solución
+## Cambios
 
-Hacer que la columna 1 sea **mode-aware**: cuente puntos del universo del modo activo por usuario.
+### 1. `supabase/functions/backfill-admin-fks/index.ts`
 
-### 1. Nuevo RPC `admin_users_geo_universe(_health_filter text[])`
+**Selección de filas (intersección):**
+- Cuando llegan `location_ids` Y `health_filter`, NO llamar al RPC `admin_user_geo_scope_ids` con la página completa. Tratar `location_ids` como la verdad: usar solo `q.in('id', locationIds)` y dejar que el filtrado por estado lo aplique el RPC sobre el subconjunto, o más simple: omitir el path de `healthScopeIds` cuando `location_ids` está presente y aplicar el `health_filter` filtrando los IDs vía RPC `admin_user_geo_scope_ids` con `_limit: location_ids.length` después de pasar la lista (requiere parámetro nuevo) — alternativa simple y suficiente: cuando ambos llegan, **prevalece `location_ids`**, se ignora `health_filter` para selección y para el recount. Los 70 IDs ya fueron filtrados por estado en el cliente al construir la selección, así que esto es seguro.
+- Añadir paginación local cuando `location_ids` está presente: `q.range(offset, offset + limit - 1)` para que cada tick procese su lote en lugar de intentar todo de golpe.
 
-Devuelve, para cada usuario con ≥1 punto en `v_location_geo_health` cuyo `health` cae en `_health_filter`:
+**Recount (`remaining` / `totalInScope`):**
+- En la rama `healthScopeIds`, si vino `location_ids`, devolver `totalInScope = location_ids.length` y `remaining = max(0, totalInScope - (offset + processed))`.
+- Mismo tratamiento en las ramas `fill` / `else` ya respetan `location_ids` en el `count('exact', head)`, pero hay que asegurarse de que el `total_in_scope` del **primer tick** no degrade lo que el cliente ya escribió. Para eso:
 
-```text
-user_id | username | display_name | universe_count | total_locations
-```
+### 2. `supabase/functions/geocoding-job-tick/index.ts`
 
-`SECURITY DEFINER`, exige `_is_admin_or_master(auth.uid())`. Reutiliza el índice ya creado en `locations(owner_user_id, geo_health)`.
+- Cuando `job.location_ids` tiene longitud `> 0`, **fijar `totalInScope = job.location_ids.length`** al inicio del tick y **no sobrescribirlo** con el `d.totalInScope` que devuelva backfill. Solo actualizar `remaining` (clamp a `[0, totalInScope]`).
+- Activar `useOffset = true` cuando hay `location_ids` (aunque exista `health_filter`), para que la paginación avance y el job termine de forma natural en `offset >= totalInScope`.
 
-El antiguo `admin_users_with_broken_geo_chain` se mantiene para no romper otros consumidores, pero el panel deja de usarlo.
+### 3. (Opcional, defensivo) `src/components/admin/GeographyBackfillPanel.tsx`
 
-### 2. `AdminBrokenUsersList` → `AdminGeoUniverseUsersList`
+- Cuando hay selección explícita, no enviar `healthFilter` en el `scope` (el cliente ya filtró por estado al construir la selección). Esto elimina la ambigüedad por completo desde el origen y vuelve la fix anterior redundante pero segura.
 
-- Acepta props `healthFilter: GeoHealth[]` y `modeTitle: string`.
-- Llama al nuevo RPC cada vez que cambia `healthFilter`.
-- Reemplaza el título por algo dinámico: "Usuarios · {modeTitle}".
-- Reordena descendente por `universe_count`.
-- Oculta usuarios con `universe_count === 0` (no aportan al modo activo).
-- El badge superior pasa a ser `universe_count` con el tono del modo (rojo Reparar / ámbar Rellenar / primario Revisar) en vez de siempre rojo.
-- El subtexto "de N" sigue mostrando `total_locations` para conservar contexto.
+## Resultado
 
-### 3. Integración en `GeographyBackfillPanel`
-
-- Sustituye `<AdminBrokenUsersList>` por `<AdminGeoUniverseUsersList healthFilter={healthFilter} modeTitle={MODE_META[mode].title} />`.
-- Si el usuario auto-seleccionado (self) queda con `universe_count === 0` en el modo activo, se desmarca y se selecciona el primer usuario con puntos. Si la lista está vacía, columna 2 muestra "Sin puntos en este modo".
-- `selectedIds` se vacía cuando cambia el modo (ya lo hacía).
-
-### 4. Resultado UX
-
-- Cambias a **Rellenar**: la lista filtra a los usuarios con `empty`+`partial`. Frankie aparece como `10/4747`, Sandbox desaparece si no aporta.
-- Cambias a **Revisar**: cada usuario muestra `total/total`.
-- Cambias a **Reparar**: `broken+stale_name / total`.
-
-Con eso ya puedes elegir un usuario, ver de un vistazo cuántos puntos aporta al modo, y lanzar sobre todo su universo o fraccionarlo en el árbol de la columna 2.
-
-## Ficheros tocados
-
-- **Nuevo migration** `..._admin_users_geo_universe.sql` con el RPC.
-- `src/components/admin/AdminBrokenUsersList.tsx` — renombrado a `AdminGeoUniverseUsersList.tsx` con la nueva firma. Se conserva el export de `BrokenUser` como alias para no tocar imports externos.
-- `src/components/admin/GeographyBackfillPanel.tsx` — pasa `healthFilter` y `modeTitle`, ajusta el efecto de auto-selección para saltar a un usuario con puntos cuando el actual queda fuera del universo.
+Con 70 seleccionados en "Revisar normalizados":
+- `total_in_scope = 70` durante todo el job.
+- Cada tick procesa hasta `page_size` IDs de los 70 hasta agotarlos.
+- La tarjeta Lanzar muestra "Procesados N / 70 · quedan 70-N".
+- El job completa al cubrir los 70.
 
 ## Fuera de alcance
 
-- No se toca el RPC viejo `admin_users_with_broken_geo_chain` (puede usarse en otros sitios).
-- No se cambia el árbol (columna 2) ni el panel Lanzar (columna 3).
+- No se toca el RPC `admin_user_geo_scope_ids` ni el cap interno de 1000 (irrelevante una vez que `location_ids` manda).
+- No se cambia el comportamiento sin selección (universo completo sigue funcionando como hoy).
