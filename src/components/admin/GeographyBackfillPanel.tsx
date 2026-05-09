@@ -97,7 +97,7 @@ const MODE_META: Record<Mode, ModeMeta> = {
   },
 };
 
-const ALL_HEALTH: GeoHealth[] = ['empty', 'broken', 'partial', 'stale_name', 'ok'];
+
 
 /** SOURCE OF TRUTH: cada modo define qué estados de salud entran en el universo. */
 export function modeToHealthFilter(mode: Mode): GeoHealth[] {
