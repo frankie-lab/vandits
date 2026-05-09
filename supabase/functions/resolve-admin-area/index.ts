@@ -19,11 +19,13 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+// IMPORTANT: la columna locations.zone_id alberga la PROVINCIA (ISO 3166-2 nivel 2).
+// La columna locations.admin3_id alberga la COMARCA / condado / county.
 const LEVELS = [
   { key: 'continent',   code: 'continent',     placeholder: '(sin continente)' },
   { key: 'country',     code: 'country',       placeholder: '(sin país)' },
   { key: 'region',      code: 'region',        placeholder: '(sin región)' },
-  { key: 'zone',        code: 'zone',          placeholder: '(sin provincia)' },
+  { key: 'zone',        code: 'province',      placeholder: '(sin provincia)' },
   { key: 'admin3',      code: 'admin_level_3', placeholder: '(sin comarca)' },
   { key: 'locality',    code: 'locality',      placeholder: '(sin localidad)' },
   { key: 'sublocality', code: 'sublocality',   placeholder: '(sin barrio)' },
