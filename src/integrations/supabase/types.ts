@@ -2865,28 +2865,51 @@ export type Database = {
         Args: { _new_parent: string; _new_type: string; _node_id: string }
         Returns: undefined
       }
-      admin_broken_locations_for_user: {
-        Args: { _user_id: string }
-        Returns: {
-          admin3_id: string
-          continent: string
-          continent_id: string
-          country: string
-          country_code: string
-          country_id: string
-          id: string
-          latitude: number
-          locality_id: string
-          longitude: number
-          name: string
-          place_type: string
-          region: string
-          region_id: string
-          sublocality_id: string
-          zone: string
-          zone_id: string
-        }[]
-      }
+      admin_broken_locations_for_user:
+        | {
+            Args: { _user_id: string }
+            Returns: {
+              admin3_id: string
+              continent: string
+              continent_id: string
+              country: string
+              country_code: string
+              country_id: string
+              id: string
+              latitude: number
+              locality_id: string
+              longitude: number
+              name: string
+              place_type: string
+              region: string
+              region_id: string
+              sublocality_id: string
+              zone: string
+              zone_id: string
+            }[]
+          }
+        | {
+            Args: { _limit?: number; _offset?: number; _user_id: string }
+            Returns: {
+              admin3_id: string
+              continent: string
+              continent_id: string
+              country: string
+              country_code: string
+              country_id: string
+              id: string
+              latitude: number
+              locality_id: string
+              longitude: number
+              name: string
+              place_type: string
+              region: string
+              region_id: string
+              sublocality_id: string
+              zone: string
+              zone_id: string
+            }[]
+          }
       admin_geo_coverage: {
         Args: { _user_id: string }
         Returns: {
