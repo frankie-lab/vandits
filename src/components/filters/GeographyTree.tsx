@@ -13,7 +13,7 @@ import {
  TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
-import { getLocationHierarchy, getFilledLocationHierarchy, UNCLASSIFIED_VALUE, HIERARCHY_LEVELS, LEVEL_PLACEHOLDER_LABELS, type HierarchyLevel } from '@/shared/geography/hierarchy';
+import { getLocationHierarchy, getFilledLocationHierarchy, UNCLASSIFIED_VALUE, HIERARCHY_LEVELS, LEVEL_PLACEHOLDER_LABELS, compareGeoTreeNodes, type HierarchyLevel } from '@/shared/geography/hierarchy';
 
 type TreeLevel = 'continent' | 'country' | 'region' | 'zone' | 'comarca' | 'localidad' | 'sublocalidad' | 'calle';
 
@@ -137,18 +137,13 @@ export function GeographyTree() {
  }
  });
 
-     // Sort all levels — placeholders "(sin ...)" siempre al final de su sección
- const isPlaceholder = (n: TreeNode) => /^\(sin /i.test(n.name);
- const sortNodes = (nodeList: TreeNode[]) => {
- nodeList.sort((a, b) => {
- const ap = isPlaceholder(a);
- const bp = isPlaceholder(b);
- if (ap !== bp) return ap ? 1 : -1;
- return b.count - a.count || a.name.localeCompare(b.name);
- });
- nodeList.forEach(n => sortNodes(n.children));
- };
- sortNodes(nodes);
+     // Orden canónico único para árboles geo: A→Z con placeholders al final.
+     // No ordenar por count u otros criterios — ver compareGeoTreeNodes.
+  const sortNodes = (nodeList: TreeNode[]) => {
+  nodeList.sort(compareGeoTreeNodes);
+  nodeList.forEach(n => sortNodes(n.children));
+  };
+  sortNodes(nodes);
 
  return nodes;
  }, [filteredLocations, totalTree]);
