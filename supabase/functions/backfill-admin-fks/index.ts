@@ -91,6 +91,20 @@ Deno.serve(async (req) => {
     zone_id?: string;
   } = (body.admin_scope && typeof body.admin_scope === 'object') ? body.admin_scope : {};
 
+  // NEW: health-based scope. When provided, the selection of points to process
+  // comes from the unified geo-health view (admin_user_geo_scope_ids RPC).
+  // This is the SAME SOURCE OF TRUTH as the panel's counters and tabs, so
+  // total_in_scope / remaining can never diverge from the UI.
+  const healthFilter: string[] | null = Array.isArray(body.health_filter)
+    ? (body.health_filter as unknown[]).filter((x): x is string => typeof x === 'string')
+    : null;
+  const geoNode: {
+    continent?: string | null;
+    country?: string | null;
+    region?: string | null;
+    zone?: string | null;
+  } = (body.geo_node && typeof body.geo_node === 'object') ? body.geo_node : {};
+
   const applyAdminScope = <T extends { eq: (col: string, val: unknown) => T }>(q: T): T => {
     let out = q;
     if (adminScope.continent_id) out = out.eq('continent_id', adminScope.continent_id);
@@ -143,17 +157,48 @@ Deno.serve(async (req) => {
     repairIds = (brokenRows ?? []).map((r: { id: string }) => r.id);
   }
 
+  // Health-filter scope: ask the unified RPC for a page of matching IDs.
+  // These IDs are then processed exactly like an explicit `location_ids` set.
+  let healthScopeIds: string[] | null = null;
+  if (healthFilter && healthFilter.length > 0) {
+    const { data: scopeRows, error: scopeErr } = await admin.rpc('admin_user_geo_scope_ids', {
+      _user_id: callerUserId,
+      _health_filter: healthFilter,
+      _continent: geoNode.continent ?? null,
+      _country: geoNode.country ?? null,
+      _region: geoNode.region ?? null,
+      _zone: geoNode.zone ?? null,
+      _limit: limit,
+      _offset: 0,
+    });
+    if (scopeErr) {
+      return new Response(JSON.stringify({ error: scopeErr.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    healthScopeIds = (scopeRows ?? []).map((r: { id: string }) => r.id);
+    if (healthScopeIds.length === 0) {
+      return new Response(JSON.stringify({
+        processed: 0, updated: 0, failed: 0,
+        remaining: 0, totalInScope: 0, nextOffset: offset,
+        mode, timedOut: false, durationMs: 0, errors: [],
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+  }
+
   let q = admin
     .from('locations')
     .select('id, latitude, longitude, country_id, continent_id, region_id, zone_id, admin3_id, locality_id, sublocality_id')
     .is('deleted_at', null)
     .not('latitude', 'is', null)
     .not('longitude', 'is', null);
-  if (mode === 'fill') q = q.or(PENDING_OR);
+  if (mode === 'fill' && !healthScopeIds) q = q.or(PENDING_OR);
   if (catalogOnly) q = q.eq('is_approved', true);
   if (callerUserId) q = q.eq('owner_user_id', callerUserId);
   if (documentId) q = q.eq('document_id', documentId);
   if (locationIds && locationIds.length > 0) q = q.in('id', locationIds);
+  if (healthScopeIds) q = q.in('id', healthScopeIds);
   if (repairIds) {
     if (repairIds.length === 0) {
       return new Response(JSON.stringify({
@@ -165,8 +210,8 @@ Deno.serve(async (req) => {
     q = q.in('id', repairIds);
   }
   q = applyAdminScope(q);
-  // 'repair' already paginated via RPC; do not re-apply range to avoid double-skipping.
-  if (mode !== 'repair') {
+  // 'repair' and health-scope already paginated via RPC; do not re-apply range.
+  if (mode !== 'repair' && !healthScopeIds) {
     q = q.order('created_at', { ascending: true }).range(offset, offset + limit - 1);
   } else {
     q = q.order('created_at', { ascending: true });
@@ -268,7 +313,26 @@ Deno.serve(async (req) => {
   // - 'reconcile' / 'overwrite': total in scope − offset − processed.
   let remaining: number | null = null;
   let totalInScope: number | null = null;
-  if (mode === 'fill') {
+  if (healthScopeIds) {
+    // Recount via the same RPC after this batch — points that were fixed have
+    // dropped out of the unhealthy set automatically.
+    const { data: stillIds, error: stillErr } = await admin.rpc('admin_user_geo_scope_ids', {
+      _user_id: callerUserId,
+      _health_filter: healthFilter,
+      _continent: geoNode.continent ?? null,
+      _country: geoNode.country ?? null,
+      _region: geoNode.region ?? null,
+      _zone: geoNode.zone ?? null,
+      _limit: 100000,
+      _offset: 0,
+    });
+    if (stillErr) {
+      remaining = 0;
+    } else {
+      remaining = (stillIds ?? []).length;
+    }
+    totalInScope = remaining;
+  } else if (mode === 'fill') {
     let remainingQ = admin
       .from('locations')
       .select('id', { count: 'exact', head: true })

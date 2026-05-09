@@ -26,6 +26,7 @@ import { AdminBrokenUsersList, type BrokenUser } from './AdminBrokenUsersList';
 import type { GeoLocation } from '@/types/location';
 
 type Mode = 'fill' | 'reconcile' | 'overwrite' | 'repair';
+type Health = 'empty' | 'broken' | 'partial' | 'stale_name' | 'ok';
 
 interface Coverage {
   total: number;
@@ -36,6 +37,24 @@ interface Coverage {
   resolved: number;
   avg_confidence: number | null;
 }
+
+interface HealthSummary {
+  total: number;
+  empty: number;
+  broken: number;
+  partial: number;
+  stale_name: number;
+  ok: number;
+}
+
+const HEALTH_LABELS: Record<Health | 'all', string> = {
+  all: 'Todos',
+  empty: 'Vacíos',
+  broken: 'Rotos',
+  partial: 'Parciales',
+  stale_name: 'Desactualizados',
+  ok: 'Correctos',
+};
 
 const MODE_LABELS: Record<Mode, { title: string; desc: string }> = {
   repair: {

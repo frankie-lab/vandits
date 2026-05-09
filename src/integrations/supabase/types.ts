@@ -892,6 +892,13 @@ export type Database = {
             referencedRelation: "locations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "location_geo_provenance_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "v_location_geo_health"
+            referencedColumns: ["id"]
+          },
         ]
       }
       location_notes: {
@@ -928,6 +935,13 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_notes_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "v_location_geo_health"
             referencedColumns: ["id"]
           },
         ]
@@ -972,6 +986,13 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_photos_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "v_location_geo_health"
             referencedColumns: ["id"]
           },
         ]
@@ -1941,6 +1962,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "route_waypoints_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "v_location_geo_health"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "route_waypoints_route_id_fkey"
             columns: ["route_id"]
             isOneToOne: false
@@ -2850,11 +2878,91 @@ export type Database = {
         }
         Relationships: []
       }
+      v_location_geo_health: {
+        Row: {
+          continent: string | null
+          continent_id: string | null
+          country: string | null
+          country_code: string | null
+          country_id: string | null
+          document_id: string | null
+          health: string | null
+          id: string | null
+          latitude: number | null
+          longitude: number | null
+          name: string | null
+          owner_user_id: string | null
+          place_type: string | null
+          region: string | null
+          region_id: string | null
+          zone: string | null
+          zone_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locations_continent_id_fkey"
+            columns: ["continent_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       _collapse_admin_duplicates: {
         Args: { _parent_id: string }
         Returns: number
+      }
+      _compute_location_geo_health: {
+        Args: {
+          _c_iso: string
+          _c_name: string
+          _c_parent: string
+          _continent_id: string
+          _country_code: string
+          _country_id: string
+          _country_str: string
+          _lat: number
+          _lng: number
+          _r_name: string
+          _r_parent: string
+          _region_id: string
+          _region_str: string
+          _z_name: string
+          _z_parent: string
+          _zone_id: string
+          _zone_str: string
+        }
+        Returns: string
       }
       _is_admin_or_master: { Args: { _uid: string }; Returns: boolean }
       _merge_admin_area: {
@@ -2920,6 +3028,71 @@ export type Database = {
           with_country: number
           with_postal: number
           with_timezone: number
+        }[]
+      }
+      admin_user_geo_locations: {
+        Args: {
+          _continent?: string
+          _country?: string
+          _health_filter?: string[]
+          _limit?: number
+          _offset?: number
+          _region?: string
+          _user_id: string
+          _zone?: string
+        }
+        Returns: {
+          continent: string
+          country: string
+          health: string
+          id: string
+          latitude: number
+          longitude: number
+          name: string
+          place_type: string
+          region: string
+          zone: string
+        }[]
+      }
+      admin_user_geo_scope_ids: {
+        Args: {
+          _continent?: string
+          _country?: string
+          _health_filter?: string[]
+          _limit?: number
+          _offset?: number
+          _region?: string
+          _user_id: string
+          _zone?: string
+        }
+        Returns: {
+          id: string
+        }[]
+      }
+      admin_user_geo_summary: {
+        Args: { _user_id: string }
+        Returns: {
+          broken: number
+          empty: number
+          ok: number
+          partial: number
+          stale_name: number
+          total: number
+        }[]
+      }
+      admin_user_geo_tree: {
+        Args: { _health_filter?: string[]; _user_id: string }
+        Returns: {
+          broken: number
+          continent: string
+          country: string
+          empty: number
+          ok: number
+          partial: number
+          region: string
+          stale_name: number
+          total: number
+          zone: string
         }[]
       }
       admin_users_with_broken_geo_chain: {

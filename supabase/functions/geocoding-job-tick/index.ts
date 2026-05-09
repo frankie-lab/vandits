@@ -97,9 +97,23 @@ Deno.serve(async (req) => {
   let done = false;
 
   const mode = (job.mode as 'fill' | 'reconcile' | 'overwrite' | 'repair') ?? 'fill';
-  // 'fill' and 'repair' both use a self-paginating selection (RPC / OR filter)
-  // — they don't carry an offset across batches.
-  const useOffset = mode !== 'fill' && mode !== 'repair';
+  // Health-filter scope: drives selection from v_location_geo_health.
+  // When present, paginates by re-querying the unhealthy set each batch
+  // (fixed points drop out automatically) — no offset bookkeeping needed.
+  const jobScope = (job.scope && typeof job.scope === 'object') ? job.scope as Record<string, unknown> : {};
+  const healthFilter = Array.isArray(jobScope.healthFilter)
+    ? (jobScope.healthFilter as unknown[]).filter((x): x is string => typeof x === 'string')
+    : Array.isArray(jobScope.health_filter)
+      ? (jobScope.health_filter as unknown[]).filter((x): x is string => typeof x === 'string')
+      : null;
+  const geoNode = (jobScope.geoNode && typeof jobScope.geoNode === 'object')
+    ? jobScope.geoNode as Record<string, string | null>
+    : (jobScope.geo_node && typeof jobScope.geo_node === 'object')
+      ? jobScope.geo_node as Record<string, string | null>
+      : null;
+  // 'fill', 'repair' and health-scoped jobs use a self-paginating selection
+  // (RPC / OR filter / health view) — they don't carry an offset across batches.
+  const useOffset = mode !== 'fill' && mode !== 'repair' && !(healthFilter && healthFilter.length > 0);
   const pageSize: number = job.page_size ?? 25;
 
   while (Date.now() - startedAt < TIME_BUDGET_MS) {
@@ -140,6 +154,10 @@ Deno.serve(async (req) => {
     }
     if (job.admin_scope && typeof job.admin_scope === 'object') {
       invokeBody.admin_scope = job.admin_scope;
+    }
+    if (healthFilter && healthFilter.length > 0) {
+      invokeBody.health_filter = healthFilter;
+      if (geoNode) invokeBody.geo_node = geoNode;
     }
 
     const resp = await fetch(`${SUPABASE_URL}/functions/v1/backfill-admin-fks`, {
