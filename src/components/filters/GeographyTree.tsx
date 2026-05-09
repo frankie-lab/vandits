@@ -137,18 +137,13 @@ export function GeographyTree() {
  }
  });
 
-     // Sort all levels — placeholders "(sin ...)" siempre al final de su sección
- const isPlaceholder = (n: TreeNode) => /^\(sin /i.test(n.name);
- const sortNodes = (nodeList: TreeNode[]) => {
- nodeList.sort((a, b) => {
- const ap = isPlaceholder(a);
- const bp = isPlaceholder(b);
- if (ap !== bp) return ap ? 1 : -1;
- return b.count - a.count || a.name.localeCompare(b.name);
- });
- nodeList.forEach(n => sortNodes(n.children));
- };
- sortNodes(nodes);
+     // Orden canónico único para árboles geo: A→Z con placeholders al final.
+     // No ordenar por count u otros criterios — ver compareGeoTreeNodes.
+  const sortNodes = (nodeList: TreeNode[]) => {
+  nodeList.sort(compareGeoTreeNodes);
+  nodeList.forEach(n => sortNodes(n.children));
+  };
+  sortNodes(nodes);
 
  return nodes;
  }, [filteredLocations, totalTree]);
