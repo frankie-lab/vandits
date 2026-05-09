@@ -156,9 +156,14 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Cap el lote al universo restante para no procesar más de lo declarado.
+    const remainingCap = pinnedTotal !== null
+      ? Math.max(1, pinnedTotal - totalProcessed)
+      : pageSize;
+    const batchLimit = Math.min(pageSize, remainingCap);
     const invokeBody: Record<string, unknown> = {
       job_id: job.id,
-      limit: pageSize,
+      limit: batchLimit,
       mode,
       user_id: job.user_id,
     };
