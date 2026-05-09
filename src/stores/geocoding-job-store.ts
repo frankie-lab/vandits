@@ -64,12 +64,17 @@ interface GeocodingJobState {
 }
 
 let channel: RealtimeChannel | null = null;
+let pollTimer: ReturnType<typeof setInterval> | null = null;
 let lastNotifiedComplete = false;
 
 function unsubscribe() {
   if (channel) {
     try { supabase.removeChannel(channel); } catch { /* noop */ }
     channel = null;
+  }
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
   }
 }
 
@@ -137,6 +142,20 @@ function subscribeToJob(jobId: string) {
       (payload) => applyRow(payload.new as Record<string, any>),
     )
     .subscribe();
+
+  pollTimer = setInterval(async () => {
+    const { data: row, error } = await supabase
+      .from('geocoding_jobs')
+      .select('*')
+      .eq('id', jobId)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('[geocoding-job] poll sync failed:', error.message);
+      return;
+    }
+    if (row) applyRow(row);
+  }, 5000);
 }
 
 export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
