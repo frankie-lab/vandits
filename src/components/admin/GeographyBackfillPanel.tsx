@@ -34,7 +34,15 @@ import { AdminBrokenUsersList, type BrokenUser } from './AdminBrokenUsersList';
 import { cn } from '@/lib/utils';
 import type { GeoLocation } from '@/types/location';
 
-type Mode = 'fill' | 'reconcile' | 'overwrite' | 'repair';
+// UI-level mode. "review" colapsa los antiguos reconcile/overwrite; un toggle
+// secundario decide si se fuerza la reescritura.
+type Mode = 'repair' | 'fill' | 'review';
+type BackendMode = 'fill' | 'reconcile' | 'overwrite' | 'repair';
+
+function toBackendMode(mode: Mode, forceOverwrite: boolean): BackendMode {
+  if (mode === 'review') return forceOverwrite ? 'overwrite' : 'reconcile';
+  return mode;
+}
 
 interface HealthSummary {
   total: number;
