@@ -1,72 +1,64 @@
-
 ## Problema
 
-Hoy hay 4 modos de normalización en el panel:
+La columna 1 ("Usuarios con cadenas rotas") siempre muestra los mismos números para cada usuario, independientemente del modo elegido:
 
-- **Reparar** → solo puntos con cadena admin rota (`broken`).
-- **Rellenar** → solo puntos con FKs incompletos (`empty` + `partial`).
-- **Reconciliar** → recorre TODO el universo válido, pero solo escribe si Nominatim devuelve algo distinto.
-- **Reescribir todo** → recorre TODO el universo válido y escribe siempre, aunque ya coincida.
+- Frankie GMZ: **2427 / de 4747**
+- Sandbox Agent: **132 / de 327**
 
-Tienes razón: **Reconciliar y Reescribir procesan exactamente los mismos puntos** (mismo SELECT, mismo recorrido, mismo coste de Nominatim). La única diferencia está en el `UPDATE` final:
+Esos números vienen del RPC `admin_users_with_broken_geo_chain`, que devuelve un único `broken_count` (= todo lo no-`ok`) y `total_locations`. Por eso:
 
-- Reconciliar: salta el update si los 7 FKs ya coinciden.
-- Reescribir: hace el update siempre (refresca `raw_geocode`, `geo_resolved_at`, `geo_confidence`).
+1. En modo **Rellenar huecos** (universo = 10 puntos) la lista sigue diciendo "2427/4747" en Frankie, cuando solo 10 de esos puntos pertenecen al universo del modo.
+2. En modo **Revisar normalizados** (universo = 4747) Frankie debería poner "4747/4747", pero pone "2427/4747".
+3. No puedes saber qué usuario contribuye al universo del modo activo, ni decidir lanzar el job sobre el total de un usuario sin abrir su árbol.
+4. El título "Usuarios con cadenas rotas" miente cuando estás en Rellenar o Revisar.
 
-Para el usuario son indistinguibles en intención ("revisar todo lo ya normalizado"). Tener dos tarjetas separadas:
+## Solución
 
-- Confunde (¿cuál elijo?).
-- Duplica contadores idénticos.
-- El 99% de los casos se resuelve con Reconciliar; Reescribir solo aporta valor tras renombrar/fusionar `admin_areas`.
+Hacer que la columna 1 sea **mode-aware**: cuente puntos del universo del modo activo por usuario.
 
-## Propuesta
+### 1. Nuevo RPC `admin_users_geo_universe(_health_filter text[])`
 
-Reducir a **3 modos** + un **toggle secundario**:
+Devuelve, para cada usuario con ≥1 punto en `v_location_geo_health` cuyo `health` cae en `_health_filter`:
 
 ```text
-Paso 1 — Modo de normalización
-┌──────────────────┬──────────────────┬──────────────────┐
-│  Reparar         │  Rellenar        │  Revisar         │
-│  N puntos        │  N puntos        │  N puntos        │
-│  cadena rota     │  FKs incompletos │  todo el universo│
-└──────────────────┴──────────────────┴──────────────────┘
-
-Solo cuando "Revisar" está activo:
-  ☐ Forzar reescritura (refresca aunque ya coincida)
-     Útil tras renombrar o fusionar áreas administrativas.
+user_id | username | display_name | universe_count | total_locations
 ```
 
-### Mapeo interno
+`SECURITY DEFINER`, exige `_is_admin_or_master(auth.uid())`. Reutiliza el índice ya creado en `locations(owner_user_id, geo_health)`.
 
-| Modo UI | `mode` enviado al backend | `force` |
-|---|---|---|
-| Reparar | `repair` | — |
-| Rellenar | `fill` | — |
-| Revisar (toggle off) | `reconcile` | false |
-| Revisar (toggle on) | `overwrite` | true |
+El antiguo `admin_users_with_broken_geo_chain` se mantiene para no romper otros consumidores, pero el panel deja de usarlo.
 
-El backend sigue soportando los 4 valores; no hay migración de datos ni cambio de contrato. Solo cambia la UI y cómo el panel construye el payload.
+### 2. `AdminBrokenUsersList` → `AdminGeoUniverseUsersList`
 
-## Cambios
+- Acepta props `healthFilter: GeoHealth[]` y `modeTitle: string`.
+- Llama al nuevo RPC cada vez que cambia `healthFilter`.
+- Reemplaza el título por algo dinámico: "Usuarios · {modeTitle}".
+- Reordena descendente por `universe_count`.
+- Oculta usuarios con `universe_count === 0` (no aportan al modo activo).
+- El badge superior pasa a ser `universe_count` con el tono del modo (rojo Reparar / ámbar Rellenar / primario Revisar) en vez de siempre rojo.
+- El subtexto "de N" sigue mostrando `total_locations` para conservar contexto.
 
-### 1. `src/components/admin/GeographyBackfillPanel.tsx`
+### 3. Integración en `GeographyBackfillPanel`
 
-- Reducir `MODES` de 4 a 3: `repair`, `fill`, `review`.
-- `review` mapea a `reconcile` por defecto y a `overwrite` cuando el toggle "Forzar reescritura" está activo.
-- Añadir un `Switch` (shadcn) que solo aparece cuando `selectedMode === 'review'`, con label "Forzar reescritura" y subtítulo explicativo.
-- En `modeToHealthFilter`: `review` → mismo filtro que hoy tiene `reconcile`/`overwrite` (los 5 estados de salud).
-- Al lanzar el job: `mode: forceOverwrite ? 'overwrite' : 'reconcile'`.
+- Sustituye `<AdminBrokenUsersList>` por `<AdminGeoUniverseUsersList healthFilter={healthFilter} modeTitle={MODE_META[mode].title} />`.
+- Si el usuario auto-seleccionado (self) queda con `universe_count === 0` en el modo activo, se desmarca y se selecciona el primer usuario con puntos. Si la lista está vacía, columna 2 muestra "Sin puntos en este modo".
+- `selectedIds` se vacía cuando cambia el modo (ya lo hacía).
 
-### 2. Sin cambios en backend
+### 4. Resultado UX
 
-`backfill-admin-fks` y `geocoding-job-tick` ya aceptan los 4 valores. No tocamos edge functions ni migraciones.
+- Cambias a **Rellenar**: la lista filtra a los usuarios con `empty`+`partial`. Frankie aparece como `10/4747`, Sandbox desaparece si no aporta.
+- Cambias a **Revisar**: cada usuario muestra `total/total`.
+- Cambias a **Reparar**: `broken+stale_name / total`.
 
-### 3. Sin cambios en memoria/ADR
+Con eso ya puedes elegir un usuario, ver de un vistazo cuántos puntos aporta al modo, y lanzar sobre todo su universo o fraccionarlo en el árbol de la columna 2.
 
-La regla "lifecycle por canal" no se ve afectada.
+## Ficheros tocados
 
-## Resultado esperado
+- **Nuevo migration** `..._admin_users_geo_universe.sql` con el RPC.
+- `src/components/admin/AdminBrokenUsersList.tsx` — renombrado a `AdminGeoUniverseUsersList.tsx` con la nueva firma. Se conserva el export de `BrokenUser` como alias para no tocar imports externos.
+- `src/components/admin/GeographyBackfillPanel.tsx` — pasa `healthFilter` y `modeTitle`, ajusta el efecto de auto-selección para saltar a un usuario con puntos cuando el actual queda fuera del universo.
 
-- 3 tarjetas claras en lugar de 4, con contadores que ya no se duplican.
-- El caso raro (forzar refresco tras cambiar el catálogo de áreas) sigue accesible vía toggle, sin ocupar el espacio principal.
-- Cero riesgo: el backend no cambia.
+## Fuera de alcance
+
+- No se toca el RPC viejo `admin_users_with_broken_geo_chain` (puede usarse en otros sitios).
+- No se cambia el árbol (columna 2) ni el panel Lanzar (columna 3).
