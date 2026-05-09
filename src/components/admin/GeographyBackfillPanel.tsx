@@ -106,11 +106,12 @@ export function modeToHealthFilter(mode: Mode): GeoHealth[] {
       return ['broken', 'stale_name'];
     case 'fill':
       return ['empty', 'partial'];
-    case 'reconcile':
-      return ['ok', 'stale_name', 'partial', 'broken'];
-    case 'overwrite':
+    case 'review':
     default:
-      return [...ALL_HEALTH];
+      // Revisar = todo el universo no-vacío. Si se fuerza reescritura, también
+      // los 'empty' los recoge el modo 'fill'; aquí mantenemos la coherencia
+      // visual con lo que reconcile mostraba antes.
+      return ['ok', 'stale_name', 'partial', 'broken'];
   }
 }
 
