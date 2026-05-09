@@ -127,7 +127,29 @@ export function getHierarchyBreadcrumb(loc: GeoLocation, separator = ' / '): str
   return HIERARCHY_LEVELS.map((lv) => h[lv]).filter(Boolean).join(separator);
 }
 
-const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
+export const geoCollator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
+const collator = geoCollator;
+
+/**
+ * Comparador ÚNICO para nodos de árboles geográficos.
+ * Regla canónica:
+ *   - Placeholders `(sin continente)`, `(sin país)`, ... siempre AL FINAL.
+ *   - Resto en orden alfabético (collator es, sensitivity base, numeric).
+ *
+ * TODO árbol/lista que ordene por nombre geográfico DEBE delegar aquí.
+ * Acepta nodos con `.value` o `.name` (los dos formatos usados en la app).
+ */
+export function compareGeoTreeNodes<T extends { value?: string; name?: string }>(
+  a: T,
+  b: T,
+): number {
+  const av = (a.value ?? a.name ?? '') as string;
+  const bv = (b.value ?? b.name ?? '') as string;
+  const ap = isPlaceholderValue(av) || av === UNCLASSIFIED_VALUE;
+  const bp = isPlaceholderValue(bv) || bv === UNCLASSIFIED_VALUE;
+  if (ap !== bp) return ap ? 1 : -1;
+  return geoCollator.compare(av, bv);
+}
 
 /** Comparador estable por jerarquía geográfica completa, desempate por nombre. */
 export function compareLocationsHierarchical(a: GeoLocation, b: GeoLocation): number {
