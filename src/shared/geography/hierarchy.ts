@@ -227,11 +227,7 @@ function insertIntoTree(
 }
 
 function sortTree(node: HierarchyGroupNode) {
-  node.children.sort((a, b) => {
-    if (a.value === UNCLASSIFIED_VALUE) return 1;
-    if (b.value === UNCLASSIFIED_VALUE) return -1;
-    return collator.compare(a.value, b.value);
-  });
+  node.children.sort(compareGeoTreeNodes);
   node.locations.sort((a, b) => collator.compare(a.name || '', b.name || ''));
   node.children.forEach(sortTree);
 }
