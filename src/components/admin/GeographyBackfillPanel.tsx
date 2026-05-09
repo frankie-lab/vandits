@@ -173,10 +173,9 @@ export function GeographyBackfillPanel() {
             (user?.user_metadata?.display_name as string | undefined) ??
             (user?.user_metadata?.full_name as string | undefined) ??
             'Yo',
-          avatar_url: (user?.user_metadata?.avatar_url as string | undefined) ?? null,
           broken_count: 0,
-          total_count: 0,
-        } as BrokenUser);
+          total_locations: 0,
+        });
       }
     })();
     return () => {
