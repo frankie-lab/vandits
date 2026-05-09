@@ -1,75 +1,72 @@
-## Diagnóstico
 
-Tienes razón: hoy el panel está invertido.
+## Problema
 
-```
-[Usuarios] [Árbol/Salud]   [Modo de normalización + Lanzar]
-                            └── al final, como si fuera un detalle
-```
+Hoy hay 4 modos de normalización en el panel:
 
-El "Modo" (Reparar / Rellenar / Reconciliar / Reescribir) es **lo que define qué puntos tiene sentido mirar**:
+- **Reparar** → solo puntos con cadena admin rota (`broken`).
+- **Rellenar** → solo puntos con FKs incompletos (`empty` + `partial`).
+- **Reconciliar** → recorre TODO el universo válido, pero solo escribe si Nominatim devuelve algo distinto.
+- **Reescribir todo** → recorre TODO el universo válido y escribe siempre, aunque ya coincida.
 
-- **Reparar** → universo = `broken` + `stale_name`
-- **Rellenar huecos** → universo = `empty` + `partial`
-- **Reconciliar** → universo = todos (pero el foco real es `ok` + `stale_name`)
-- **Reescribir todo** → universo = todos
+Tienes razón: **Reconciliar y Reescribir procesan exactamente los mismos puntos** (mismo SELECT, mismo recorrido, mismo coste de Nominatim). La única diferencia está en el `UPDATE` final:
 
-Hoy el árbol y los contadores muestran siempre los 5 estados a la vez, y el modo solo se aplica al final al pulsar "Lanzar". Eso hace que el usuario vea cifras que no corresponden con lo que se va a procesar, y que las pestañas `Vacíos / Rotos / Parciales / Desactualizados / Correctos` compitan visualmente con el modo.
+- Reconciliar: salta el update si los 7 FKs ya coinciden.
+- Reescribir: hace el update siempre (refresca `raw_geocode`, `geo_resolved_at`, `geo_confidence`).
 
-## Propuesta: el modo es el paso 1, no el paso final
+Para el usuario son indistinguibles en intención ("revisar todo lo ya normalizado"). Tener dos tarjetas separadas:
 
-Reordenamos el panel como un flujo de 3 pasos en horizontal arriba, y debajo dos columnas (usuario + árbol filtrado):
+- Confunde (¿cuál elijo?).
+- Duplica contadores idénticos.
+- El 99% de los casos se resuelve con Reconciliar; Reescribir solo aporta valor tras renombrar/fusionar `admin_areas`.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ Paso 1 · Modo                                                   │
-│ [Reparar] [Rellenar huecos] [Reconciliar] [Reescribir]          │
-│   ↳ define qué estados de salud entran en el universo            │
-├─────────────────────────────────────────────────────────────────┤
-│ Paso 2 · Alcance                Paso 3 · Lanzar                 │
-│ ┌──────────┬──────────────────┐ ┌─────────────────────────────┐ │
-│ │ Usuarios │ Árbol del usuario│ │ Resumen del job:            │ │
-│ │ (admin)  │ ya filtrado por  │ │  · Modo: Reparar             │ │
-│ │          │ el modo          │ │  · Universo: 2 417 puntos    │ │
-│ │          │                  │ │  · Selección: 1 240          │ │
-│ │          │ Tabs solo con    │ │ [Lanzar]  [Detener]          │ │
-│ │          │ los estados      │ │                              │ │
-│ │          │ relevantes al    │ │ Progreso del job activo …    │ │
-│ │          │ modo             │ │                              │ │
-│ └──────────┴──────────────────┘ └─────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
+## Propuesta
+
+Reducir a **3 modos** + un **toggle secundario**:
+
+```text
+Paso 1 — Modo de normalización
+┌──────────────────┬──────────────────┬──────────────────┐
+│  Reparar         │  Rellenar        │  Revisar         │
+│  N puntos        │  N puntos        │  N puntos        │
+│  cadena rota     │  FKs incompletos │  todo el universo│
+└──────────────────┴──────────────────┴──────────────────┘
+
+Solo cuando "Revisar" está activo:
+  ☐ Forzar reescritura (refresca aunque ya coincida)
+     Útil tras renombrar o fusionar áreas administrativas.
 ```
 
-### Reglas
+### Mapeo interno
 
-1. **El modo filtra el universo.** Cambiar de modo recalcula contadores, pestañas visibles del árbol y selección. No se pueden seleccionar puntos fuera del universo del modo.
+| Modo UI | `mode` enviado al backend | `force` |
+|---|---|---|
+| Reparar | `repair` | — |
+| Rellenar | `fill` | — |
+| Revisar (toggle off) | `reconcile` | false |
+| Revisar (toggle on) | `overwrite` | true |
 
-2. **Mapa modo → health_filter por defecto** (single source of truth):
-   - `repair` → `['broken', 'stale_name']`
-   - `fill` → `['empty', 'partial']`
-   - `reconcile` → `['ok', 'stale_name', 'partial', 'broken']` (excluye `empty`)
-   - `overwrite` → `['empty', 'partial', 'broken', 'stale_name', 'ok']`
+El backend sigue soportando los 4 valores; no hay migración de datos ni cambio de contrato. Solo cambia la UI y cómo el panel construye el payload.
 
-3. **Pestañas dinámicas.** El árbol solo muestra las pestañas de estado que pertenecen al modo. En `repair` no aparecen `Vacíos / Correctos`. La pestaña activa por defecto es la primera del filtro.
+## Cambios
 
-4. **Contadores coherentes.** El número junto al nombre del usuario, los badges del árbol y "Universo del job" usan **el mismo `admin_user_geo_summary` filtrado por `health_filter` del modo**. Nunca verás "2 417 rotos" arriba y "1 000" en otro sitio: es el mismo cálculo.
+### 1. `src/components/admin/GeographyBackfillPanel.tsx`
 
-5. **Selección persistente al cambiar de modo.** Si el usuario tenía IDs marcados que ya no entran en el nuevo universo, se descartan con un aviso ("120 puntos quedaron fuera del modo Reparar"). No se pierde silenciosamente.
+- Reducir `MODES` de 4 a 3: `repair`, `fill`, `review`.
+- `review` mapea a `reconcile` por defecto y a `overwrite` cuando el toggle "Forzar reescritura" está activo.
+- Añadir un `Switch` (shadcn) que solo aparece cuando `selectedMode === 'review'`, con label "Forzar reescritura" y subtítulo explicativo.
+- En `modeToHealthFilter`: `review` → mismo filtro que hoy tiene `reconcile`/`overwrite` (los 5 estados de salud).
+- Al lanzar el job: `mode: forceOverwrite ? 'overwrite' : 'reconcile'`.
 
-6. **Lanzar** envía al job el `scope` con `mode`, `user_id`, `health_filter` (derivado del modo, ajustable solo si el usuario marca pestañas concretas) y `node_path` / `explicit_ids` si los hay. Sin materializar listas en cliente.
+### 2. Sin cambios en backend
 
-## Cambios concretos
+`backfill-admin-fks` y `geocoding-job-tick` ya aceptan los 4 valores. No tocamos edge functions ni migraciones.
 
-- `GeographyBackfillPanel.tsx`: pasar de 2-3 columnas a layout `Stepper arriba + 2 columnas debajo`. Mover el bloque "Modo de normalización" a la cabecera.
-- Nuevo helper `modeToHealthFilter(mode)` en el mismo archivo (o en `geocoding-job-store.ts`) como única fuente de verdad.
-- `summary` y `tree` se llaman pasándoles el `health_filter` derivado del modo (las RPCs ya lo aceptan).
-- `AdminBrokenUsersList`: pasa a llamarse de hecho "Usuarios" y la columna "rotos" muestra el contador del modo activo (no siempre `broken`). Renombrar `unhealthy_count` para que quede claro que depende del modo.
-- Resumen del job (columna derecha) siempre visible con: modo, universo, selección, ETA, botón Lanzar/Detener y progreso.
+### 3. Sin cambios en memoria/ADR
 
-## Lo que NO cambia
+La regla "lifecycle por canal" no se ve afectada.
 
-- Las RPCs (`admin_user_geo_summary`, `_tree`, `_locations`, `_scope_ids`) ya aceptan `health_filter`. No hay migración nueva.
-- El job (`geocoding_jobs`, `backfill-admin-fks`, `geocoding-job-tick`) ya recibe `scope.health_filter`. No cambia.
-- La lógica de salud (`v_location_geo_health`, 5 estados) se mantiene tal cual.
+## Resultado esperado
 
-Solo es un **reordenamiento de UI + un mapeo modo→filtro coherente**, que ya es el cuello de botella que mencionas.
+- 3 tarjetas claras en lugar de 4, con contadores que ya no se duplican.
+- El caso raro (forzar refresco tras cambiar el catálogo de áreas) sigue accesible vía toggle, sin ocupar el espacio principal.
+- Cero riesgo: el backend no cambia.

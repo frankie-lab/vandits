@@ -23,7 +23,7 @@
 // procesando con permisos de service role como hasta ahora.
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Loader2, Play, Square, Wrench, Sparkles, RotateCcw, Plus } from 'lucide-react';
+import { Loader2, Play, Square, Wrench, RotateCcw, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -34,7 +34,15 @@ import { AdminBrokenUsersList, type BrokenUser } from './AdminBrokenUsersList';
 import { cn } from '@/lib/utils';
 import type { GeoLocation } from '@/types/location';
 
-type Mode = 'fill' | 'reconcile' | 'overwrite' | 'repair';
+// UI-level mode. "review" colapsa los antiguos reconcile/overwrite; un toggle
+// secundario decide si se fuerza la reescritura.
+type Mode = 'repair' | 'fill' | 'review';
+type BackendMode = 'fill' | 'reconcile' | 'overwrite' | 'repair';
+
+function toBackendMode(mode: Mode, forceOverwrite: boolean): BackendMode {
+  if (mode === 'review') return forceOverwrite ? 'overwrite' : 'reconcile';
+  return mode;
+}
 
 interface HealthSummary {
   total: number;
@@ -81,21 +89,15 @@ const MODE_META: Record<Mode, ModeMeta> = {
     icon: Plus,
     iconClass: 'text-amber-600',
   },
-  reconcile: {
-    title: 'Reconciliar',
-    desc: 'Recorre todos los puntos no vacíos. Sobrescribe niveles que difieran de OSM.',
+  review: {
+    title: 'Revisar normalizados',
+    desc: 'Recorre todos los puntos no vacíos y sobrescribe niveles que difieran de OSM.',
     icon: RotateCcw,
     iconClass: 'text-primary',
   },
-  overwrite: {
-    title: 'Reescribir todo',
-    desc: 'Todos los puntos, sobrescribe siempre. Más coste; tras cambios de catálogo.',
-    icon: Sparkles,
-    iconClass: 'text-purple-500',
-  },
 };
 
-const ALL_HEALTH: GeoHealth[] = ['empty', 'broken', 'partial', 'stale_name', 'ok'];
+
 
 /** SOURCE OF TRUTH: cada modo define qué estados de salud entran en el universo. */
 export function modeToHealthFilter(mode: Mode): GeoHealth[] {
@@ -104,11 +106,12 @@ export function modeToHealthFilter(mode: Mode): GeoHealth[] {
       return ['broken', 'stale_name'];
     case 'fill':
       return ['empty', 'partial'];
-    case 'reconcile':
-      return ['ok', 'stale_name', 'partial', 'broken'];
-    case 'overwrite':
+    case 'review':
     default:
-      return [...ALL_HEALTH];
+      // Revisar = todo el universo no-vacío. Si se fuerza reescritura, también
+      // los 'empty' los recoge el modo 'fill'; aquí mantenemos la coherencia
+      // visual con lo que reconcile mostraba antes.
+      return ['ok', 'stale_name', 'partial', 'broken'];
   }
 }
 
@@ -127,6 +130,7 @@ export function GeographyBackfillPanel() {
   const [selfUserId, setSelfUserId] = useState<string | null>(null);
   const [targetUser, setTargetUser] = useState<BrokenUser | null>(null);
   const [refreshUsersKey, setRefreshUsersKey] = useState(0);
+  const [forceOverwrite, setForceOverwrite] = useState(false);
 
   // Universe (driven by mode) ----------------------------------------------
   const [summary, setSummary] = useState<HealthSummary | null>(null);
@@ -302,7 +306,7 @@ export function GeographyBackfillPanel() {
 
       await useGeocodingJobStore.getState().start(total, {
         label,
-        mode,
+        mode: toBackendMode(mode, forceOverwrite),
         locationIds: explicitIds,
         targetUserId: isCrossUser ? targetUser!.user_id : undefined,
         healthFilter,
@@ -412,6 +416,22 @@ export function GeographyBackfillPanel() {
             );
           })}
         </div>
+        {mode === 'review' && (
+          <div className="px-4 py-2.5 border-t bg-background/50 flex items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-border accent-primary"
+                checked={forceOverwrite}
+                onChange={(e) => setForceOverwrite(e.target.checked)}
+              />
+              <span className="text-xs font-medium">Forzar reescritura</span>
+            </label>
+            <span className="text-[11px] text-muted-foreground leading-snug">
+              Refresca todos los puntos aunque ya coincidan con OSM. Útil tras renombrar o fusionar áreas administrativas.
+            </span>
+          </div>
+        )}
       </section>
 
       {/* PASOS 2 + 3 */}
@@ -488,7 +508,14 @@ export function GeographyBackfillPanel() {
               <h3 className="text-sm font-semibold">Lanzar</h3>
             </div>
             <div className="text-xs space-y-1.5 rounded-md bg-muted/40 p-2.5">
-              <SummaryRow label="Modo" value={MODE_META[mode].title} />
+              <SummaryRow
+                label="Modo"
+                value={
+                  mode === 'review' && forceOverwrite
+                    ? `${MODE_META[mode].title} · forzar`
+                    : MODE_META[mode].title
+                }
+              />
               <SummaryRow
                 label="Usuario"
                 value={
