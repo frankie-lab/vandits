@@ -320,8 +320,6 @@ export function GeographyBackfillPanel() {
 
   const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
 
-  // Visible tabs for the tree ---------------------------------------------
-  const visibleHealthForMode = healthFilter;
 
   const gridCols = isAdmin
     ? 'lg:grid-cols-[220px_minmax(0,1fr)_320px]'
