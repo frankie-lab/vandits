@@ -508,7 +508,14 @@ export function GeographyBackfillPanel() {
               <h3 className="text-sm font-semibold">Lanzar</h3>
             </div>
             <div className="text-xs space-y-1.5 rounded-md bg-muted/40 p-2.5">
-              <SummaryRow label="Modo" value={MODE_META[mode].title} />
+              <SummaryRow
+                label="Modo"
+                value={
+                  mode === 'review' && forceOverwrite
+                    ? `${MODE_META[mode].title} · forzar`
+                    : MODE_META[mode].title
+                }
+              />
               <SummaryRow
                 label="Usuario"
                 value={
