@@ -1,150 +1,75 @@
-# Reproceso geográfico — rediseño de raíz
+## Diagnóstico
 
-## El problema, visto entero
-
-Hoy el panel "Geografía universal" mezcla tres cosas que no encajan:
-
-1. **Detección incompleta de qué reprocesar.**
-   `admin_users_with_broken_geo_chain` y `admin_broken_locations_for_user` solo detectan **4 reglas estructurales** (region.parent ≠ country, zone.parent ≠ region, country.parent ≠ continent, country_code ≠ iso). Un punto con `country='Italy'` rellenado a mano y FKs nulos, o con `country_id` apuntando al admin_area equivocado pero coherente con su region_id basura, **se da por OK aunque sea falso**.
-
-2. **El árbol del centro solo muestra "rotos".**
-   Si quiero reprocesar todos los puntos de Frankie (o un subconjunto sospechoso), no tengo cómo: el árbol está cableado a la lista de rotos. No hay forma de seleccionar "todo Italia", "todo lo sin FKs" ni "todo".
-
-3. **Contadores que no cuadran.**
-   - "2417 rotos" viene de un `COUNT(*)` server-side correcto.
-   - El árbol cuenta filas materializadas en cliente.
-   - El job cuenta `total_in_scope` con su propia query.
-   Tres fuentes distintas que pueden divergir cuando lanzas un explícito vs. un "todos". Con 4k puntos ya falla, con 50k es insostenible.
-
-Conclusión: lo que está mal no es el botón ni la paginación — es **el modelo de datos del panel**. No hay un *único* concepto de "estado de salud geo de un punto" del que cuelguen el árbol, los contadores y el job.
-
----
-
-## Propuesta — un solo modelo, tres consumidores
-
-### 1. Estado de salud geo (definido en SQL, una sola vez)
-
-Vista materializable `v_location_geo_health` (o función SQL inline) que, **para cada punto vivo de cada usuario**, devuelve un único `health` enum:
-
-| Estado | Definición (server-side, sin OSM) |
-|---|---|
-| `empty` | Sin lat/lng, o sin ningún FK administrativo (`country_id` y `region_id` y `continent_id` todos nulos). |
-| `partial` | Tiene strings (`country/region/zone`) pero **al menos un FK correspondiente está nulo** → hay nombre sin resolver al catálogo. *Antes pasaba por "OK" silenciosamente.* |
-| `broken` | Cualquiera de las 4 reglas estructurales actuales: parent mismatch o country_code ≠ iso. |
-| `stale_name` | El string `country/region/zone` **no coincide** con `admin_areas.name` del FK al que apunta (tras normalizar mayúsculas/aliases). Detecta los puntos rellenados a mano que ya no cuadran. |
-| `ok` | Pasa todas las anteriores. *No garantiza que sea correcto contra OSM, solo contra el catálogo canónico.* |
-
-`stale_name` y `partial` son **los estados que hoy no existían** y por eso "todo parecía OK aunque no lo fuera".
-
-### 2. Una sola RPC de resumen
+Tienes razón: hoy el panel está invertido.
 
 ```
-admin_user_geo_summary(_user_id)
-  → { total, empty, partial, broken, stale_name, ok }
+[Usuarios] [Árbol/Salud]   [Modo de normalización + Lanzar]
+                            └── al final, como si fuera un detalle
 ```
 
-Y una sola RPC de árbol agregado:
+El "Modo" (Reparar / Rellenar / Reconciliar / Reescribir) es **lo que define qué puntos tiene sentido mirar**:
+
+- **Reparar** → universo = `broken` + `stale_name`
+- **Rellenar huecos** → universo = `empty` + `partial`
+- **Reconciliar** → universo = todos (pero el foco real es `ok` + `stale_name`)
+- **Reescribir todo** → universo = todos
+
+Hoy el árbol y los contadores muestran siempre los 5 estados a la vez, y el modo solo se aplica al final al pulsar "Lanzar". Eso hace que el usuario vea cifras que no corresponden con lo que se va a procesar, y que las pestañas `Vacíos / Rotos / Parciales / Desactualizados / Correctos` compitan visualmente con el modo.
+
+## Propuesta: el modo es el paso 1, no el paso final
+
+Reordenamos el panel como un flujo de 3 pasos en horizontal arriba, y debajo dos columnas (usuario + árbol filtrado):
 
 ```
-admin_user_geo_tree(_user_id, _health_filter text[])
-  → filas (continent, country, region, zone,
-           total, empty, partial, broken, stale_name, ok)
+┌─────────────────────────────────────────────────────────────────┐
+│ Paso 1 · Modo                                                   │
+│ [Reparar] [Rellenar huecos] [Reconciliar] [Reescribir]          │
+│   ↳ define qué estados de salud entran en el universo            │
+├─────────────────────────────────────────────────────────────────┤
+│ Paso 2 · Alcance                Paso 3 · Lanzar                 │
+│ ┌──────────┬──────────────────┐ ┌─────────────────────────────┐ │
+│ │ Usuarios │ Árbol del usuario│ │ Resumen del job:            │ │
+│ │ (admin)  │ ya filtrado por  │ │  · Modo: Reparar             │ │
+│ │          │ el modo          │ │  · Universo: 2 417 puntos    │ │
+│ │          │                  │ │  · Selección: 1 240          │ │
+│ │          │ Tabs solo con    │ │ [Lanzar]  [Detener]          │ │
+│ │          │ los estados      │ │                              │ │
+│ │          │ relevantes al    │ │ Progreso del job activo …    │ │
+│ │          │ modo             │ │                              │ │
+│ └──────────┴──────────────────┘ └─────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-Devuelve **agregados por nodo geográfico**, no filas individuales. Con 50k puntos la respuesta sigue siendo de cientos de filas, no decenas de miles. El árbol pinta cada nodo con badges por estado.
+### Reglas
 
-Una tercera RPC paginada solo para cuando el usuario expande un nodo hoja:
+1. **El modo filtra el universo.** Cambiar de modo recalcula contadores, pestañas visibles del árbol y selección. No se pueden seleccionar puntos fuera del universo del modo.
 
-```
-admin_user_geo_locations(_user_id, _node_path uuid[], _health_filter text[],
-                         _limit, _offset)
-```
+2. **Mapa modo → health_filter por defecto** (single source of truth):
+   - `repair` → `['broken', 'stale_name']`
+   - `fill` → `['empty', 'partial']`
+   - `reconcile` → `['ok', 'stale_name', 'partial', 'broken']` (excluye `empty`)
+   - `overwrite` → `['empty', 'partial', 'broken', 'stale_name', 'ok']`
 
-### 3. UI del panel — tres columnas, una verdad
+3. **Pestañas dinámicas.** El árbol solo muestra las pestañas de estado que pertenecen al modo. En `repair` no aparecen `Vacíos / Correctos`. La pestaña activa por defecto es la primera del filtro.
 
-```text
-┌────────────┬─────────────────────────────┬──────────────┐
-│ Usuarios   │ Estado · Frankie GMZ        │ Acciones     │
-│ (lista)    │                             │              │
-│            │ [Tabs estado]               │ Cobertura    │
-│ Frankie    │ Todos 4747                  │              │
-│   2417 mal │ Vacíos 12                   │ Modo         │
-│            │ Parciales 1820              │              │
-│ Sandbox    │ Rotos 2417                  │ Lanzar sobre │
-│   131 mal  │ Stale 568                   │ selección    │
-│            │ OK 2327                     │  o sobre tab │
-│            │                             │  activa      │
-│            │ ─── árbol del tab ───       │              │
-│            │ Europa 2122 [parc·rot·st]   │              │
-│            │  Italia 516                 │              │
-│            │   Toscana 80                │              │
-│            └─────────────────────────────┘              │
-└────────────┴─────────────────────────────┴──────────────┘
-```
+4. **Contadores coherentes.** El número junto al nombre del usuario, los badges del árbol y "Universo del job" usan **el mismo `admin_user_geo_summary` filtrado por `health_filter` del modo**. Nunca verás "2 417 rotos" arriba y "1 000" en otro sitio: es el mismo cálculo.
 
-- **Tabs de estado** en cabecera del panel central: `Todos / Vacíos / Parciales / Rotos / Stale / OK`. Cada tab muestra su contador (todos vienen de la misma RPC summary, así que **nunca pueden discrepar**).
-- El **árbol cuelga del tab activo** y suma el filtro: Tab "Rotos" + nodo "Italia" = solo rotos en Italia.
-- **Selección**: las casillas del árbol seleccionan POIs. Hay un botón "Seleccionar todo lo del tab" que mete en la selección los IDs del filtro actual sin tener que materializarlos en cliente (el job recibe `{ user_id, health_filter: ['broken','stale_name'], node_path?: uuid[] }` y resuelve IDs server-side). **Nunca traemos 50k filas al navegador para contar.**
+5. **Selección persistente al cambiar de modo.** Si el usuario tenía IDs marcados que ya no entran en el nuevo universo, se descartan con un aviso ("120 puntos quedaron fuera del modo Reparar"). No se pierde silenciosamente.
 
-### 4. El job recibe un *scope*, no una lista
+6. **Lanzar** envía al job el `scope` con `mode`, `user_id`, `health_filter` (derivado del modo, ajustable solo si el usuario marca pestañas concretas) y `node_path` / `explicit_ids` si los hay. Sin materializar listas en cliente.
 
-`geocoding_jobs.scope` ya existe como `jsonb`. Pasamos a usarlo de verdad:
+## Cambios concretos
 
-```json
-{
-  "user_id": "…",
-  "health_filter": ["broken", "stale_name", "partial"],
-  "node_path": ["…uuid del país…"],
-  "explicit_ids": null
-}
-```
+- `GeographyBackfillPanel.tsx`: pasar de 2-3 columnas a layout `Stepper arriba + 2 columnas debajo`. Mover el bloque "Modo de normalización" a la cabecera.
+- Nuevo helper `modeToHealthFilter(mode)` en el mismo archivo (o en `geocoding-job-store.ts`) como única fuente de verdad.
+- `summary` y `tree` se llaman pasándoles el `health_filter` derivado del modo (las RPCs ya lo aceptan).
+- `AdminBrokenUsersList`: pasa a llamarse de hecho "Usuarios" y la columna "rotos" muestra el contador del modo activo (no siempre `broken`). Renombrar `unhealthy_count` para que quede claro que depende del modo.
+- Resumen del job (columna derecha) siempre visible con: modo, universo, selección, ETA, botón Lanzar/Detener y progreso.
 
-`backfill-admin-fks` lee el scope, calcula el `total_in_scope` con la **misma query** que la RPC summary y **el mismo definicion de salud**. Resultado: el contador del job, el contador del tab y el contador del árbol son siempre el mismo número.
+## Lo que NO cambia
 
-`explicit_ids` solo se usa cuando el usuario marca casillas individuales.
+- Las RPCs (`admin_user_geo_summary`, `_tree`, `_locations`, `_scope_ids`) ya aceptan `health_filter`. No hay migración nueva.
+- El job (`geocoding_jobs`, `backfill-admin-fks`, `geocoding-job-tick`) ya recibe `scope.health_filter`. No cambia.
+- La lógica de salud (`v_location_geo_health`, 5 estados) se mantiene tal cual.
 
-### 5. Mientras corre, el job actualiza el estado in-place
-
-Cada batch que `backfill-admin-fks` procesa recalcula el `health` del punto (porque ya escribió FKs nuevos). Realtime de `geocoding_jobs` ya está conectado; añadimos un evento `geo-health-changed` para que el panel **refresque solo los contadores** vía la RPC summary cada N segundos, sin recargar el árbol.
-
----
-
-## Qué se conserva sin tocar
-
-- `admin_users_with_broken_geo_chain` (la lista izquierda) — sigue siendo válida; solo cambiamos su definición de "broken_count" para incluir también `partial` y `stale_name` y la columna pasa a llamarse `unhealthy_count`.
-- `geocoding-job-tick` y `backfill-admin-fks` — el motor de procesado no cambia, solo cómo se calcula el universo.
-- `v_geo_coverage` — sigue alimentando la columna derecha de "Cobertura geográfica".
-- Modos `fill / reconcile / overwrite / repair` — siguen existiendo. `repair` pasa a operar sobre `health_filter ∋ {broken, partial, stale_name}` por defecto.
-
-## Detalles técnicos
-
-**Migración SQL**:
-- Nueva función `public.location_geo_health(loc public.locations, c admin_areas, r admin_areas, z admin_areas) returns text` que centraliza las 5 reglas y se reutiliza desde todas las RPCs.
-- Nuevas RPCs: `admin_user_geo_summary`, `admin_user_geo_tree`, `admin_user_geo_locations` (paginada).
-- Renombrar `broken_count → unhealthy_count` en `admin_users_with_broken_geo_chain` y ampliar su WHERE para usar `location_geo_health(...) <> 'ok'`.
-- Índices funcionales sobre `(owner_user_id, country_id, region_id)` ya cubren la mayoría; añadir uno parcial en puntos con FKs incompletos si EXPLAIN lo pide.
-
-**Cliente** (`GeographyBackfillPanel.tsx`):
-- Sustituir el estado `brokenLocations: GeoLocation[]` (que materializa filas) por `summary: { total, empty, partial, broken, stale_name, ok }` y `tree: AggregateNode[]`.
-- Añadir `activeHealthTab: 'all' | 'empty' | 'partial' | 'broken' | 'stale_name' | 'ok'`.
-- `handleStart` envía `scope: { user_id, health_filter, node_path, explicit_ids }` al store del job; **deja de calcular totales en cliente**.
-- `loadBroken` se borra. En su lugar: `loadSummary(userId)` y `loadTree(userId, healthFilter, expandedNodePath?)`.
-- El componente `GeographyScopeTree` pasa de pintar locations a pintar el árbol agregado; selección por nodo (no por id, salvo en hojas expandidas).
-
-**Contadores**:
-- La etiqueta "2417 rotos" desaparece. Pasa a ser "**Frankie GMZ — 2420 a revisar** (12 vacíos · 1820 parciales · 2417 rotos · 568 stale)" — todos del mismo objeto summary.
-- La columna izquierda muestra el mismo `unhealthy_count` que verás al entrar.
-- El job, al lanzarse, muestra `total_in_scope = scope_count(scope)` que llama al mismo helper SQL.
-
-## Migración suave
-
-1. Migración SQL con las funciones nuevas (no rompe nada existente).
-2. Refactor del panel a las RPC nuevas.
-3. Borrar `admin_broken_locations_for_user` (queda obsoleta) en una migración posterior.
-
-## Resultado
-
-- **Nunca más** un punto con campos rellenos pero contenido inconsistente pasa por OK.
-- **Una sola fuente** para todo contador del panel; con 50k+ puntos los números siguen cuadrando porque ningún componente materializa el universo.
-- **Selección flexible**: tab + nodo del árbol + casillas individuales, todo combinable.
-- **Lanzamiento "todo"**: marcar tab "Todos" y pulsar "Lanzar" reprocesa los 4747, sin tener que traerlos al navegador.
+Solo es un **reordenamiento de UI + un mapeo modo→filtro coherente**, que ya es el cuello de botella que mencionas.
