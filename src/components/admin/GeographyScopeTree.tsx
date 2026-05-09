@@ -299,7 +299,7 @@ function buildTree(locations: GeoLocation[], maxDepth: number): ScopeNode[] {
   return tops;
 }
 
-const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
+
 
 function filterTree(nodes: ScopeNode[], q: string): ScopeNode[] {
   const out: ScopeNode[] = [];
