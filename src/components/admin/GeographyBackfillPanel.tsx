@@ -436,6 +436,11 @@ export function GeographyBackfillPanel() {
             selectedUserId={targetUser?.user_id ?? null}
             onSelect={handleSelectUser}
             refreshKey={refreshUsersKey}
+            healthFilter={healthFilter}
+            modeTitle={MODE_META[mode].title}
+            badgeTone={
+              mode === 'repair' ? 'destructive' : mode === 'fill' ? 'amber' : 'primary'
+            }
           />
         )}
 
