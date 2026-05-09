@@ -346,30 +346,9 @@ export function GeographyBackfillPanel() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-4 p-4 overflow-hidden">
-      {/* PASO 1 — Modo de normalización (cabecera) */}
+      {/* PASO 1 — Modo de normalización (3 tarjetas a ancho completo) */}
       <section className="rounded-lg border bg-muted/10">
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-semibold shrink-0">
-              1
-            </span>
-            <div className="min-w-0">
-              <h3 className="text-sm font-semibold leading-tight">Modo de normalización</h3>
-              <p className="text-[11px] text-muted-foreground leading-tight">
-                Define qué puntos entran en el universo del paso siguiente.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2 shrink-0">
-            <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
-              Universo
-            </span>
-            <span className="text-2xl font-bold tabular-nums leading-none text-primary">
-              {loadingSummary ? '…' : universeTotal.toLocaleString()}
-            </span>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3">
           {(Object.keys(MODE_META) as Mode[]).map((m) => {
             const meta = MODE_META[m];
             const Icon = meta.icon;
