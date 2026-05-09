@@ -361,35 +361,62 @@ export function GeographyBackfillPanel() {
             </span>
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 p-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-3">
           {(Object.keys(MODE_META) as Mode[]).map((m) => {
             const meta = MODE_META[m];
             const Icon = meta.icon;
             const filter = modeToHealthFilter(m);
             const count = sumByHealth(summary, filter);
             const isActive = mode === m;
+            const isEmpty = !loadingSummary && count === 0;
             return (
               <button
                 key={m}
                 type="button"
                 onClick={() => setMode(m)}
+                disabled={isEmpty}
                 className={cn(
-                  'text-left rounded-md border p-3 transition-colors',
+                  'group relative text-left rounded-lg border p-4 transition-all',
                   isActive
-                    ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                    : 'border-border hover:bg-muted/30',
+                    ? 'border-primary bg-primary/5 ring-2 ring-primary/40 shadow-sm'
+                    : 'border-border hover:bg-muted/30 hover:border-muted-foreground/40',
+                  isEmpty && 'opacity-50 cursor-not-allowed hover:bg-transparent',
                 )}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-1.5 text-sm font-medium">
-                    <Icon className={cn('w-4 h-4', meta.iconClass)} />
-                    {meta.title}
-                  </div>
-                  <span className="text-[11px] font-semibold tabular-nums px-1.5 py-0.5 rounded bg-background border">
-                    {loadingSummary ? '…' : count}
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <Icon className={cn('w-4 h-4 shrink-0', meta.iconClass)} />
+                  <span className="truncate">{meta.title}</span>
+                </div>
+                <div className="mt-2 flex items-baseline gap-1.5">
+                  <span
+                    className={cn(
+                      'text-3xl font-bold tabular-nums leading-none tracking-tight',
+                      isActive ? 'text-primary' : 'text-foreground',
+                      isEmpty && 'text-muted-foreground',
+                    )}
+                  >
+                    {loadingSummary ? '…' : count.toLocaleString()}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground font-medium">
+                    {count === 1 ? 'punto' : 'puntos'}
                   </span>
                 </div>
-                <div className="text-[11px] text-muted-foreground mt-1 leading-snug">
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {filter.map((h) => (
+                    <span
+                      key={h}
+                      className={cn(
+                        'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium tabular-nums',
+                        HEALTH_TONE[h],
+                      )}
+                      title={HEALTH_LABELS[h]}
+                    >
+                      {HEALTH_LABELS[h]}
+                      <span className="opacity-80">{summary?.[h] ?? 0}</span>
+                    </span>
+                  ))}
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-2 leading-snug">
                   {meta.desc}
                 </div>
               </button>
