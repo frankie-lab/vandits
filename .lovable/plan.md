@@ -1,107 +1,119 @@
-## Diagnóstico
+# Árbol geográfico canónico — global, para todos los POIs
 
-El árbol está roto porque **el modelo no distingue provincia de comarca**. El resolver actual mete A Coruña, Pontevedra, Lugo, Ourense (provincias ISO 3166-2) en el mismo nivel `zone` que las 47 comarcas gallegas. Y como entra por **texto libre** (Nominatim devuelve `county` para unas cosas y `state_district` para otras), cada importación añade duplicados (`A Coruña` / `La Coruña` / `Coruña, A`).
+## Estado actual (medido en BD)
 
-Galicia tiene **4** provincias. Hoy hay **51 hijos `zone`**. Eso lo prueba.
+```
+admin_areas por tipo:
+  region          4.081   ← inflado: muchos son en realidad provincias
+  zone            1.443   ← mezcla provincias + comarcas
+  locality        6.203
+  admin_level_3   2.001
+  sublocality     2.001
+  country           272
+  continent           8
+  province            4   ← solo Galicia (parche previo)
+```
 
-Además el resolver es **textual**: si el nombre llega distinto del canónico, crea un nodo nuevo en vez de reusar. No hay verificación geométrica (point-in-polygon) contra un catálogo cerrado.
+Ejemplos del problema (debería haber 1 capa "región" + 1 capa "provincia", pero todo está aplastado en `region`):
+
+- Reino Unido: 238 "regiones" (debería ser 4 naciones + condados)
+- Francia: 146 "regiones" (debería ser 18 régions + 101 départements)
+- Italia: 128 "regiones" (debería ser 20 + 107 province)
+- España (antes del parche): 51 "zonas" en Galicia siendo 4 provincias reales
+
+Causa raíz: el resolver textual mete cualquier nivel administrativo que devuelva Nominatim en el slot que toque por orden de aparición, sin verificar la jerarquía ISO 3166-2.
 
 ## Objetivo
 
-Árbol canónico **fijo**, con un slot por nivel, sembrado desde estándares oficiales y resuelto por **coordenadas** (no por nombre).
+Una sola jerarquía canónica, **idéntica donde sea que se muestre** (mapa, filtros, admin, popup, sidebar):
 
 ```
-L0 Planeta
-L1 Continente            ← UN M.49 (7 + Antártida)
-L2 País                  ← ISO 3166-1 alpha-2
-L3 Región                ← ISO 3166-2 nivel 1 (Galicia, California, Île-de-France)
-L4 Provincia             ← ISO 3166-2 nivel 2 / NUTS-3 / GADM-2 (A Coruña, Pontevedra)
-L5 Comarca/Condado       ← GADM-3 / GeoNames admin3 (Barbanza, Bergantiños)
-L6 Municipio             ← GeoNames admin4 / GADM-4 (Santiago de Compostela)
-L7 Distrito/Parroquia    ← GeoNames admin5 / OSM admin_level=10
-L8 Calle/Zona            ← OSM highway / addr:street
-L9 Edificio/Vivienda     ← OSM building / addr:housenumber
+Planeta
+└── Continente            (continent_id)
+    └── País              (country_id,  ISO 3166-1 α2)
+        └── Región        (region_id,   ISO 3166-2 nivel 1 — state/CCAA/nation)
+            └── Provincia (zone_id,     ISO 3166-2 nivel 2 — province/county/department)
+                └── Comarca   (admin3_id)
+                    └── Municipio   (locality_id)
+                        └── Distrito (sublocality_id)
 ```
-
-## Cambios
-
-### 1. Catálogo cerrado (admin_areas) sembrado desde fuentes oficiales
-
-- **L1 Continentes**: 8 filas fijas con `m49_code` y aliases multiidioma. Ya existe.
-- **L2 Países**: ISO 3166-1 (alpha-2 + alpha-3 + M.49 + nombres oficiales en es/en/fr). Ya existe parcialmente; completar a 249.
-- **L3 Regiones**: ISO 3166-2 completo (~5 000 filas), con `iso_code` (`ES-GA`, `US-CA`), aliases y centroides.
-- **L4 Provincias**: ISO 3166-2 nivel 2 donde exista (España, Italia, Francia, Japón…) + GADM-2 como respaldo. Cada fila lleva `iso_code` (`ES-C`, `ES-PO`) y aliases (`A Coruña`, `La Coruña`, `Coruña`, `Corunha`).
-- **L5–L7**: GeoNames admin3/admin4/admin5 con `geonames_id` como clave única.
-- **L8–L9** se quedan en `locations` (no son admin_areas).
-
-Seed reproducible vía edge functions `seed-iso-geography` (ya existe; ampliar) + nueva `seed-gadm-geonames`.
-
-### 2. Resolución determinista por coordenadas (no por texto)
-
-Nueva edge function **`resolve-geography-by-coords`** que reemplaza el flujo Nominatim → resolve-admin-area:
-
-1. Llama a Nominatim/Photon SOLO para obtener candidatos textuales por nivel.
-2. Llama a **GeoNames findNearbyPlaceName + admin1/2/3** para obtener `geonames_id` por nivel (clave dura).
-3. Resuelve cada nivel contra `admin_areas` por **clave dura** en este orden:
-   - `geonames_id` → match exacto
-   - `iso_code` → match exacto (cuando aplique)
-   - `(parent_id, lower(name) ∈ aliases ∪ name)` → match
-   - **Si no hay match: NO se crea nada nuevo**. Se devuelve `null` y se registra en `location_geo_provenance` como `unresolved`. El catálogo es cerrado.
-4. Devuelve los 7 FKs garantizando coherencia padre-hijo (rechaza la cadena si rompe el árbol).
-
-El cliente ya no inserta admin_areas. La creación de nodos nuevos solo ocurre vía seed scripts auditados.
-
-### 3. Migración de saneo (one-shot)
-
-Edge function `canonicalize-admin-areas` reescrita:
-
-1. **Reclasifica L4**: para cada hijo de Galicia/Andalucía/etc., si su nombre coincide con un código ISO 3166-2 de provincia, mueve el `type_id` a `province` y conserva el id.
-2. **Fusiona duplicados**: A Coruña ← La Coruña ← Coruña, A. Usa `_merge_admin_area` ya existente.
-3. **Re-parenta comarcas**: para cada comarca hija de Galicia, calcula su provincia real por **point-in-polygon** sobre los centroides de sus localizaciones, y la cuelga de la provincia correcta.
-4. **Re-resuelve `locations`**: para cada punto con coordenadas, llama a `resolve-geography-by-coords` y reescribe los 7 FKs. Lo que no resuelva queda en `partial`/`broken` y aparece en el panel admin.
-5. Dedupe final con `_collapse_admin_duplicates` por nivel.
-
-### 4. Schema
-
-Añadir tipo `province` a `place_types` (entre `region` y `zone`). Renombrar `zone`→`comarca` semánticamente (mantener code para no romper FKs) y reusar la FK existente `zone_id` como **provincia**, y `admin3_id` como **comarca**. Es un mapping limpio sin migración de columnas:
-
-| Columna locations | Antes        | Después   |
-| ----------------- | ------------ | --------- |
-| continent_id      | continente   | continente |
-| country_id        | país         | país       |
-| region_id         | región       | región     |
-| **zone_id**       | zona/comarca | **provincia** |
-| **admin3_id**     | nivel 3      | **comarca**   |
-| locality_id       | localidad    | municipio  |
-| sublocality_id    | barrio       | distrito/parroquia |
-
-UI/labels y memoria geo se actualizan en consecuencia.
-
-### 5. Validación dura
-
-- Constraint funcional: `country_id.parent_id = continent_id`, `region_id.parent_id = country_id`, etc. Ya existe la vista `v_location_geo_health`; se amplía para reportar **slot mismatch** (un nodo `comarca` colgando como hijo directo de `region`).
-- Job nocturno `pg_cron` que ejecuta `_collapse_admin_duplicates` por cada parent_id y reporta delta.
-
-## Detalle técnico
-
-- Nuevas tablas no se necesitan; se reusa `admin_areas`.
-- `place_types`: insertar `province` con `sort_admin_level=4`, mover `zone` a `5`, `admin_level_3` a `6`.
-- `resolve-admin-area` queda **deprecada** (solo lectura de catálogo); todos los callers migran a `resolve-geography-by-coords`.
-- `enrich-location.ts`, `saveDocumentToDatabase`, `backfill-admin-fks`, `geocoding-job-tick`: pasan a usar el nuevo resolver.
-- Front-end: `GeographyTree`, `GeographyScopeTree`, filtros y panel admin ganan un nivel "Provincia" entre Región y Comarca.
 
 ## Plan de ejecución
 
-1. Migración schema + seed ISO 3166-2 completo.
-2. `resolve-geography-by-coords` + tests con coordenadas conocidas (Santiago, Vigo, Lugo capital, Pontevedra capital, una comarca).
-3. Reescribir `canonicalize-admin-areas` y correrlo en background.
-4. Migrar callers al nuevo resolver. Marcar `resolve-admin-area` como deprecated.
-5. Re-correr backfill sobre todas las `locations` del usuario.
-6. Verificar en UI que Galicia tiene exactamente 4 provincias y que sus comarcas cuelgan de la provincia correcta.
+### 1. Catálogo cerrado ISO 3166 (semilla global)
 
-## Aceptación
+Edge function nueva `seed-iso-3166` que carga desde un JSON empaquetado:
 
-- `SELECT count(*) FROM admin_areas WHERE parent_id = (SELECT id FROM admin_areas WHERE name='Galicia') AND type_id=(SELECT id FROM place_types WHERE code='province')` = **4**.
-- Cualquier punto en Santiago tiene cadena `Europa → España → Galicia → A Coruña → Santiago (comarca) → Santiago de Compostela`.
-- El árbol del filtro y el del admin son idénticos en orden y estructura.
-- Importar el mismo KML dos veces no crea ningún `admin_areas` nuevo.
+- ISO 3166-1: 249 países con `iso_code` (α2), continente padre, nombre EN/ES/local.
+- ISO 3166-2: ~5.000 subdivisiones con `iso_code` (`ES-GA`, `ES-C`, `FR-IDF`, `FR-75`...), `parent_country`, `level` (1=region, 2=province), nombre canónico + aliases.
+
+Inserta/actualiza en `admin_areas` haciendo **upsert por iso_code**. No borra nada todavía.
+
+### 2. Reclasificación masiva por ISO
+
+Migración `reclassify-admin-areas-by-iso`:
+
+```sql
+-- Nodos con iso_code de nivel 1 → region
+-- Nodos con iso_code de nivel 2 → province (slot zone_id)
+-- Nodos sin iso_code y type='region' bajo un país que ya tiene regiones ISO 
+--   → degradar a province o admin_level_3 según firma de raw_geocode
+```
+
+Usa `_reclassify_admin_area` y `_merge_admin_area` (ya existen) para fusionar twins.
+
+### 3. Re-slot de locations por proximidad jerárquica
+
+Para cada `location` con `raw_geocode`:
+
+```
+country_id   ← match por ISO α2 (raw_geocode.address.country_code)
+region_id    ← match por ISO 3166-2 si existe, si no por nombre+parent
+zone_id      ← match nivel 2 ISO o nombre Nominatim "county/state_district/province"
+admin3_id    ← Nominatim "municipality/admin_level_6" si distinto a county
+locality_id  ← city/town/village
+sublocality_id ← suburb/neighbourhood
+```
+
+Implementación: edge function `recanonicalize-locations` por lotes (1000 puntos), encolada vía `geocoding_jobs` para que corra server-side (ya tenemos pg_cron `geocoding-job-tick`).
+
+### 4. Resolver `resolve-admin-area` actualizado
+
+Ya migrado para `province`. Añadir:
+- Para cualquier país, primero busca por `iso_code`, después por `(parent_id, name)`.
+- Si Nominatim devuelve `admin_level=4` → slot region; `admin_level=6` → slot province; `admin_level=8` → admin3/locality según `place_type`.
+- Si no hay match en catálogo cerrado → devuelve `null` (no crea nodos huérfanos).
+
+### 5. UI — un solo árbol, en todas partes
+
+Helper único `getLocationHierarchy()` (ya existe) ya cubre los 8 niveles. Verificar consumidores:
+
+- `GeographyTree` (filtros)
+- `GeographyScopeTree` (admin)
+- `LocationCard` / popup
+- Sidebar de documento
+
+Ningún componente puede inventarse su propio orden ni saltarse niveles.
+
+### 6. Validación
+
+- Vista `v_geo_coverage` ampliada con `province_count` por país.
+- Test manual: Reino Unido → 4 regiones (England, Scotland, Wales, NI) + N condados como `province`. Francia → 18 régions + 101 départements. España → 17 CCAA + 50 provincias.
+- Volver a importar el mismo KML → cero nuevos `admin_areas`.
+
+## Archivos afectados
+
+- `supabase/functions/seed-iso-3166/index.ts` (nuevo)
+- `supabase/functions/recanonicalize-locations/index.ts` (nuevo)
+- `supabase/functions/resolve-admin-area/index.ts` (extender)
+- migración SQL (reclasificación masiva + vistas)
+- `src/shared/geography/hierarchy.ts` (verificar)
+- `mem://geography/canonical-tree-spec` (actualizar a global)
+
+## Notas
+
+- ISO 3166-2 cubre el 95% de países. Para el 5% restante (sin subdivisiones publicadas) caemos a GeoNames admin1/admin2 como fallback.
+- El proceso de re-slot es **idempotente**: se puede correr varias veces sin duplicar.
+- Mientras corre el job, los puntos siguen consultables. La UI muestra "normalizando" en el badge de cada documento.
+
+¿Procedo con la implementación en este orden, o prefieres que primero ejecute solo el paso 1+2 (catálogo + reclasificación) sin tocar locations todavía, para validar los conteos antes del re-slot masivo?
