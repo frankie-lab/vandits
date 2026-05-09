@@ -1,10 +1,19 @@
 // Domain: Geography — Admin panel block to launch the universal geography
 // backfill (fill / reconcile / overwrite / repair) and inspect coverage stats.
 //
-// Layout:
-//  - Para usuarios sin rol admin/master: 2 columnas (árbol propio + acciones).
-//  - Para admin/master: 3 columnas (usuarios con cadenas rotas + árbol del
-//    usuario seleccionado + acciones).
+// Flujo (post-refactor): el "Modo de normalización" es el PASO 1 y dicta el
+// universo de puntos (filtro de salud) que se ven en el árbol y en los
+// contadores. Cambiar de modo recalcula contadores y selección.
+//
+//   ┌─ Paso 1 · Modo (4 tarjetas horizontales) ─────────────┐
+//   ├─ Usuarios (admin) ┬─ Árbol filtrado ┬─ Lanzar / Job ──┤
+//   └─────────────────────────────────────────────────────────┘
+//
+// Mapa modo → health_filter (single source of truth):
+//   repair    → ['broken', 'stale_name']
+//   fill      → ['empty', 'partial']
+//   reconcile → ['ok', 'stale_name', 'partial', 'broken']  (excluye 'empty')
+//   overwrite → todos
 //
 // El árbol no toca filtros del mapa: solo recolecta IDs para el job.
 //
@@ -14,29 +23,18 @@
 // procesando con permisos de service role como hasta ahora.
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Compass, Loader2, Play, RefreshCw, Square, Wrench } from 'lucide-react';
+import { Loader2, Play, Square, Wrench, Sparkles, RotateCcw, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useGeocodingJobStore } from '@/stores/geocoding-job-store';
-import { useLocationsStore } from '@/domains/content';
+import { useGeocodingJobStore, type GeoHealth } from '@/stores/geocoding-job-store';
 import { computeEta, formatDuration, formatClock, formatRate } from '@/shared/geography/eta';
 import { GeographyScopeTree } from './GeographyScopeTree';
 import { AdminBrokenUsersList, type BrokenUser } from './AdminBrokenUsersList';
+import { cn } from '@/lib/utils';
 import type { GeoLocation } from '@/types/location';
 
 type Mode = 'fill' | 'reconcile' | 'overwrite' | 'repair';
-type Health = 'empty' | 'broken' | 'partial' | 'stale_name' | 'ok';
-
-interface Coverage {
-  total: number;
-  with_country: number;
-  with_admin1: number;
-  with_timezone: number;
-  with_postal: number;
-  resolved: number;
-  avg_confidence: number | null;
-}
 
 interface HealthSummary {
   total: number;
@@ -47,8 +45,7 @@ interface HealthSummary {
   ok: number;
 }
 
-const HEALTH_LABELS: Record<Health | 'all', string> = {
-  all: 'Todos',
+const HEALTH_LABELS: Record<GeoHealth, string> = {
   empty: 'Vacíos',
   broken: 'Rotos',
   partial: 'Parciales',
@@ -56,45 +53,96 @@ const HEALTH_LABELS: Record<Health | 'all', string> = {
   ok: 'Correctos',
 };
 
-const MODE_LABELS: Record<Mode, { title: string; desc: string }> = {
+const HEALTH_TONE: Record<GeoHealth, string> = {
+  empty: 'text-muted-foreground bg-muted/40',
+  broken: 'text-destructive bg-destructive/10',
+  partial: 'text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-500/15',
+  stale_name: 'text-orange-700 bg-orange-100 dark:text-orange-300 dark:bg-orange-500/15',
+  ok: 'text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-500/15',
+};
+
+interface ModeMeta {
+  title: string;
+  desc: string;
+  icon: React.ComponentType<{ className?: string }>;
+  iconClass: string;
+}
+
+const MODE_META: Record<Mode, ModeMeta> = {
   repair: {
     title: 'Reparar cadenas rotas',
-    desc: 'Reprocesa solo los puntos con jerarquía inconsistente (region.parent ≠ country, country_code mismatch, etc.).',
+    desc: 'Solo puntos con jerarquía inconsistente o cuyo nombre no coincide con el catálogo.',
+    icon: Wrench,
+    iconClass: 'text-destructive',
   },
   fill: {
     title: 'Rellenar huecos',
-    desc: 'Solo procesa puntos sin jerarquía completa. No toca nada existente.',
+    desc: 'Solo puntos sin jerarquía completa. No toca nada existente.',
+    icon: Plus,
+    iconClass: 'text-amber-600',
   },
   reconcile: {
     title: 'Reconciliar',
-    desc: 'Recorre TODOS los puntos. Sobrescribe niveles que difieran de OSM y guarda histórico en raw_geocode.previous.',
+    desc: 'Recorre todos los puntos no vacíos. Sobrescribe niveles que difieran de OSM.',
+    icon: RotateCcw,
+    iconClass: 'text-primary',
   },
   overwrite: {
     title: 'Reescribir todo',
-    desc: 'Recorre TODOS los puntos y sobrescribe siempre. Más coste; usar tras cambios de catálogo.',
+    desc: 'Todos los puntos, sobrescribe siempre. Más coste; tras cambios de catálogo.',
+    icon: Sparkles,
+    iconClass: 'text-purple-500',
   },
 };
 
+const ALL_HEALTH: GeoHealth[] = ['empty', 'broken', 'partial', 'stale_name', 'ok'];
+
+/** SOURCE OF TRUTH: cada modo define qué estados de salud entran en el universo. */
+export function modeToHealthFilter(mode: Mode): GeoHealth[] {
+  switch (mode) {
+    case 'repair':
+      return ['broken', 'stale_name'];
+    case 'fill':
+      return ['empty', 'partial'];
+    case 'reconcile':
+      return ['ok', 'stale_name', 'partial', 'broken'];
+    case 'overwrite':
+    default:
+      return [...ALL_HEALTH];
+  }
+}
+
+function sumByHealth(s: HealthSummary | null, filter: GeoHealth[]): number {
+  if (!s) return 0;
+  return filter.reduce((acc, h) => acc + (s[h] ?? 0), 0);
+}
+
 export function GeographyBackfillPanel() {
-  const [coverage, setCoverage] = useState<Coverage | null>(null);
-  const [loadingCov, setLoadingCov] = useState(true);
-  const [mode, setMode] = useState<Mode>('reconcile');
+  const [mode, setMode] = useState<Mode>('repair');
   const [, forceTick] = useState(0);
   const job = useGeocodingJobStore();
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Admin detection ---------------------------------------------------------
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [selfUserId, setSelfUserId] = useState<string | null>(null);
   const [targetUser, setTargetUser] = useState<BrokenUser | null>(null);
-  const [brokenLocations, setBrokenLocations] = useState<GeoLocation[]>([]);
-  const [loadingBroken, setLoadingBroken] = useState(false);
   const [refreshUsersKey, setRefreshUsersKey] = useState(0);
 
-  // Subscribe to documents (own data) — kept for the non-admin layout.
-  const documents = useLocationsStore((s) => s.documents);
-  const ownLocations = useMemo(() => documents.flatMap((d) => d.locations), [documents]);
+  // Universe (driven by mode) ----------------------------------------------
+  const [summary, setSummary] = useState<HealthSummary | null>(null);
+  const [loadingSummary, setLoadingSummary] = useState(false);
+  const [universeLocations, setUniverseLocations] = useState<GeoLocation[]>([]);
+  const [loadingUniverse, setLoadingUniverse] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  const healthFilter = useMemo(() => modeToHealthFilter(mode), [mode]);
+  const universeTotal = useMemo(() => sumByHealth(summary, healthFilter), [summary, healthFilter]);
+
+  // The user whose data drives the panel (self if no admin target).
+  const activeUserId = isAdmin && targetUser ? targetUser.user_id : selfUserId;
+  const isCrossUser = !!(isAdmin && targetUser && targetUser.user_id !== selfUserId);
+
+  // Auth / role ------------------------------------------------------------
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -116,195 +164,148 @@ export function GeographyBackfillPanel() {
     };
   }, []);
 
-  // Tick every second while job runs.
+  // Tick every second while job runs ---------------------------------------
   useEffect(() => {
     if (!job.running) return;
     const id = setInterval(() => forceTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, [job.running]);
 
-  // Coverage --------------------------------------------------------------
-  const refreshCoverage = useCallback(async () => {
-    setLoadingCov(true);
+  // Summary ----------------------------------------------------------------
+  const refreshSummary = useCallback(async (uid: string) => {
+    setLoadingSummary(true);
     try {
-      if (isAdmin && targetUser && targetUser.user_id !== selfUserId) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await (supabase as any).rpc('admin_geo_coverage', {
-          _user_id: targetUser.user_id,
-        });
-        if (error) throw error;
-        const row = Array.isArray(data) ? data[0] : data;
-        setCoverage((row as Coverage) ?? null);
-      } else {
-        if (!selfUserId) {
-          setCoverage(null);
-        } else {
-          const { data, error } = await supabase
-            .from('v_geo_coverage')
-            .select(
-              'total, with_country, with_admin1, with_timezone, with_postal, resolved, avg_confidence',
-            )
-            .eq('user_id', selfUserId)
-            .maybeSingle();
-          if (error) throw error;
-          setCoverage((data as Coverage) ?? null);
-        }
-      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any).rpc('admin_user_geo_summary', {
+        _user_id: uid,
+      });
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      setSummary((row as HealthSummary) ?? null);
     } catch (err) {
-      console.error('[geo-coverage]', err);
+      console.error('[geo-summary]', err);
+      setSummary(null);
     } finally {
-      setLoadingCov(false);
+      setLoadingSummary(false);
     }
-  }, [isAdmin, targetUser, selfUserId]);
+  }, []);
+
+  // Universe (paginated) ---------------------------------------------------
+  const refreshUniverse = useCallback(
+    async (uid: string, filter: GeoHealth[]) => {
+      setLoadingUniverse(true);
+      setUniverseLocations([]);
+      try {
+        const PAGE_SIZE = 1000;
+        const HARD_CAP = 5000; // tree no escala bien por encima
+        let offset = 0;
+        const accumulated: GeoLocation[] = [];
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data, error } = await (supabase as any).rpc('admin_user_geo_locations', {
+            _user_id: uid,
+            _health_filter: filter,
+            _limit: PAGE_SIZE,
+            _offset: offset,
+          });
+          if (error) throw error;
+          const rows = (data ?? []) as Array<Record<string, unknown>>;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const mapped: GeoLocation[] = rows.map((r: any) => ({
+            id: r.id,
+            name: r.name ?? 'Sin nombre',
+            latitude: r.latitude,
+            longitude: r.longitude,
+            continent: r.continent ?? undefined,
+            country: r.country ?? undefined,
+            region: r.region ?? undefined,
+            zone: r.zone ?? undefined,
+            place_type: r.place_type ?? undefined,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          })) as any;
+          accumulated.push(...mapped);
+          setUniverseLocations([...accumulated]);
+          if (rows.length < PAGE_SIZE) break;
+          offset += PAGE_SIZE;
+          if (offset >= HARD_CAP) break;
+        }
+      } catch (err) {
+        console.error('[admin-universe]', err);
+        toast.error('No se pudieron cargar los puntos del universo');
+        setUniverseLocations([]);
+      } finally {
+        setLoadingUniverse(false);
+      }
+    },
+    [],
+  );
+
+  // Reload summary + universe whenever active user or mode changes ---------
+  useEffect(() => {
+    if (!activeUserId) return;
+    void refreshSummary(activeUserId);
+  }, [activeUserId, refreshSummary]);
 
   useEffect(() => {
-    refreshCoverage();
-  }, [refreshCoverage]);
+    if (!activeUserId) {
+      setUniverseLocations([]);
+      return;
+    }
+    void refreshUniverse(activeUserId, healthFilter);
+    // Drop selection that won't fit the new universe
+    setSelectedIds(new Set());
+  }, [activeUserId, healthFilter, refreshUniverse]);
 
-  // Refresh coverage + broken list when job ends.
+  // Refresh after job ends -------------------------------------------------
   useEffect(() => {
-    if (!job.running) {
+    if (!job.running && activeUserId) {
       const t = setTimeout(() => {
-        refreshCoverage();
+        void refreshSummary(activeUserId);
+        void refreshUniverse(activeUserId, healthFilter);
         setRefreshUsersKey((k) => k + 1);
-        if (isAdmin && targetUser) {
-          void loadBroken(targetUser.user_id);
-        } else {
+        if (!isCrossUser) {
           window.dispatchEvent(new CustomEvent('reload-locations'));
         }
       }, 500);
       return () => clearTimeout(t);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [job.running, refreshCoverage, isAdmin, targetUser]);
+  }, [job.running, activeUserId, healthFilter, isCrossUser, refreshSummary, refreshUniverse]);
 
-  // Broken locations of the target user ----------------------------------
-  const loadBroken = useCallback(async (userId: string) => {
-    setLoadingBroken(true);
+  // Handlers ---------------------------------------------------------------
+  const handleSelectUser = useCallback((u: BrokenUser) => {
+    setTargetUser(u);
     setSelectedIds(new Set());
-    setBrokenLocations([]);
-    try {
-      const PAGE_SIZE = 1000;
-      let offset = 0;
-      const accumulated: GeoLocation[] = [];
-      // Page through the RPC until we drain all broken rows. PostgREST caps
-      // single RPC responses at 1000 rows, so we must paginate explicitly.
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await (supabase as any).rpc('admin_broken_locations_for_user', {
-          _user_id: userId,
-          _limit: PAGE_SIZE,
-          _offset: offset,
-        });
-        if (error) throw error;
-        const rows = (data ?? []) as Array<Record<string, unknown>>;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const mapped: GeoLocation[] = rows.map((r: any) => ({
-          id: r.id,
-          name: r.name ?? 'Sin nombre',
-          latitude: r.latitude,
-          longitude: r.longitude,
-          continent: r.continent ?? undefined,
-          country: r.country ?? undefined,
-          region: r.region ?? undefined,
-          zone: r.zone ?? undefined,
-          country_code: r.country_code ?? undefined,
-          place_type: r.place_type ?? undefined,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        })) as any;
-        accumulated.push(...mapped);
-        // Update progressively so the header counter advances live.
-        setBrokenLocations([...accumulated]);
-        if (rows.length < PAGE_SIZE) break;
-        offset += PAGE_SIZE;
-      }
-    } catch (err) {
-      console.error('[admin-broken-for-user]', err);
-      toast.error('No se pudieron cargar los puntos rotos');
-      setBrokenLocations([]);
-    } finally {
-      setLoadingBroken(false);
-    }
   }, []);
-
-  const handleSelectUser = useCallback(
-    (u: BrokenUser) => {
-      setTargetUser(u);
-      setMode('repair');
-      void loadBroken(u.user_id);
-    },
-    [loadBroken],
-  );
-
-  // Launch ----------------------------------------------------------------
-  const isCrossUser = isAdmin && targetUser && targetUser.user_id !== selfUserId;
-  const isAdminTargeted = isAdmin && !!targetUser;
-  const treeLocations = isAdminTargeted ? brokenLocations : ownLocations;
 
   const handleStart = async () => {
     if (job.running) return;
+    if (!activeUserId) {
+      toast.error('Sesión expirada');
+      return;
+    }
     try {
       const useExplicit = selectedIds.size > 0;
-      let total = 0;
-      let label = MODE_LABELS[mode].title;
-      const ownerId = isCrossUser ? targetUser!.user_id : selfUserId;
-      if (!ownerId) {
-        toast.error('Sesión expirada');
-        return;
-      }
-
-      if (useExplicit) {
-        total = selectedIds.size;
-        label = `${MODE_LABELS[mode].title} · ${total} POIs`;
-      } else if (isCrossUser && mode === 'repair') {
-        total = brokenLocations.length;
-        label = `Reparar @${targetUser!.username ?? targetUser!.user_id.slice(0, 8)} · ${total}`;
-      } else if (isCrossUser) {
-        // Count target user points
-        const { count } = await supabase
-          .from('locations')
-          .select('id', { count: 'exact', head: true })
-          .is('deleted_at', null)
-          .not('latitude', 'is', null)
-          .not('longitude', 'is', null)
-          .eq('owner_user_id', ownerId);
-        total = count ?? 0;
-      } else {
-        let q = supabase
-          .from('locations')
-          .select('id', { count: 'exact', head: true })
-          .is('deleted_at', null)
-          .not('latitude', 'is', null)
-          .not('longitude', 'is', null)
-          .eq('owner_user_id', ownerId);
-        if (mode === 'fill') {
-          q = q.or(
-            'continent_id.is.null,country_id.is.null,region_id.is.null,zone_id.is.null,locality_id.is.null',
-          );
-        }
-        const { count } = await q;
-        total = count ?? 0;
-      }
-
+      const total = useExplicit ? selectedIds.size : universeTotal;
       if (total === 0) {
-        toast.message('No hay puntos para procesar');
+        toast.message('No hay puntos en el universo del modo actual.');
         return;
       }
 
-      // For cross-user repair without explicit selection, pass the broken IDs
-      // explicitly so the worker iterates only those.
-      const explicitIds = useExplicit
-        ? Array.from(selectedIds)
-        : isCrossUser && mode === 'repair'
-          ? brokenLocations.map((l) => l.id)
-          : undefined;
+      const explicitIds = useExplicit ? Array.from(selectedIds) : undefined;
+      const userLabel = isCrossUser
+        ? `@${targetUser!.username ?? targetUser!.user_id.slice(0, 8)}`
+        : 'mis puntos';
+      const label = useExplicit
+        ? `${MODE_META[mode].title} · selección (${total})`
+        : `${MODE_META[mode].title} · ${userLabel} (${total})`;
 
       await useGeocodingJobStore.getState().start(total, {
         label,
         mode,
         locationIds: explicitIds,
         targetUserId: isCrossUser ? targetUser!.user_id : undefined,
+        healthFilter,
       });
     } catch (err) {
       console.error('[backfill-start]', err);
@@ -314,258 +315,275 @@ export function GeographyBackfillPanel() {
 
   const launchLabel = (() => {
     if (selectedIds.size > 0) return `Lanzar sobre selección (${selectedIds.size})`;
-    if (isCrossUser) {
-      return mode === 'repair'
-        ? `Reparar ${brokenLocations.length} puntos rotos`
-        : `Lanzar sobre @${targetUser!.username ?? 'usuario'} (todos)`;
-    }
-    return `Lanzar (todos mis puntos)`;
+    return `Lanzar sobre universo (${universeTotal})`;
   })();
 
   const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
 
+  // Visible tabs for the tree ---------------------------------------------
+  const visibleHealthForMode = healthFilter;
+
   const gridCols = isAdmin
-    ? 'lg:grid-cols-[220px_minmax(0,1fr)_300px]'
-    : 'lg:grid-cols-[minmax(0,1fr)_300px]';
+    ? 'lg:grid-cols-[220px_minmax(0,1fr)_320px]'
+    : 'lg:grid-cols-[minmax(0,1fr)_320px]';
 
   return (
-    <div className={`flex-1 min-h-0 grid grid-cols-1 ${gridCols} gap-4 p-4 overflow-hidden`}>
-      {/* COL 1 — Lista de usuarios (solo admin) */}
-      {isAdmin && (
-        <AdminBrokenUsersList
-          selectedUserId={targetUser?.user_id ?? null}
-          onSelect={handleSelectUser}
-          refreshKey={refreshUsersKey}
-        />
-      )}
-
-      {/* COL 2 — Árbol jerárquico */}
-      <section className="rounded-lg border flex flex-col min-h-0 overflow-hidden">
-        <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/20">
+    <div className="flex-1 min-h-0 flex flex-col gap-4 p-4 overflow-hidden">
+      {/* PASO 1 — Modo de normalización (cabecera) */}
+      <section className="rounded-lg border bg-muted/10">
+        <div className="flex items-center justify-between px-3 py-2 border-b">
           <div className="flex items-center gap-2">
-            {isAdminTargeted && <Wrench className="w-4 h-4 text-destructive" />}
-            <h3 className="text-sm font-semibold">
-              {isAdminTargeted
-                ? `Cadenas rotas · ${targetUser!.display_name || targetUser!.username || targetUser!.user_id.slice(0, 8)}`
-                : 'Selección de POIs'}
-            </h3>
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold">
+              1
+            </span>
+            <h3 className="text-sm font-semibold">Modo de normalización</h3>
+            <span className="text-[11px] text-muted-foreground">
+              Define qué puntos entran en el universo del paso siguiente.
+            </span>
           </div>
-          <span className="text-[11px] text-muted-foreground">
-            {isAdminTargeted
-              ? loadingBroken
-                ? 'Cargando…'
-                : `${brokenLocations.length} puntos rotos`
-              : `${ownLocations.length} puntos · jerarquía geográfica`}
-          </span>
+          <div className="flex items-center gap-1.5 text-[11px]">
+            {visibleHealthForMode.map((h) => (
+              <span
+                key={h}
+                className={cn(
+                  'inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-medium tabular-nums',
+                  HEALTH_TONE[h],
+                )}
+                title={HEALTH_LABELS[h]}
+              >
+                {HEALTH_LABELS[h]}
+                <span className="opacity-70">{summary?.[h] ?? 0}</span>
+              </span>
+            ))}
+            <span className="ml-1 text-muted-foreground">·</span>
+            <span className="font-semibold tabular-nums">
+              Universo: {loadingSummary ? '…' : universeTotal}
+            </span>
+          </div>
         </div>
-        <div className="flex-1 min-h-0">
-          {isAdmin && !targetUser ? (
-            <div className="h-full flex items-center justify-center text-xs text-muted-foreground p-6 text-center">
-              Selecciona un usuario en la lista de la izquierda para ver sus puntos
-              con cadenas geográficas rotas.
-            </div>
-          ) : isAdminTargeted && loadingBroken ? (
-            <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
-              <Loader2 className="w-4 h-4 animate-spin mr-2" /> Cargando puntos rotos…
-            </div>
-          ) : (
-            <GeographyScopeTree
-              locations={treeLocations}
-              selectedIds={selectedIds}
-              onChange={setSelectedIds}
-            />
-          )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 p-3">
+          {(Object.keys(MODE_META) as Mode[]).map((m) => {
+            const meta = MODE_META[m];
+            const Icon = meta.icon;
+            const filter = modeToHealthFilter(m);
+            const count = sumByHealth(summary, filter);
+            const isActive = mode === m;
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                className={cn(
+                  'text-left rounded-md border p-3 transition-colors',
+                  isActive
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                    : 'border-border hover:bg-muted/30',
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-sm font-medium">
+                    <Icon className={cn('w-4 h-4', meta.iconClass)} />
+                    {meta.title}
+                  </div>
+                  <span className="text-[11px] font-semibold tabular-nums px-1.5 py-0.5 rounded bg-background border">
+                    {loadingSummary ? '…' : count}
+                  </span>
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-1 leading-snug">
+                  {meta.desc}
+                </div>
+              </button>
+            );
+          })}
         </div>
       </section>
 
-      {/* COL 3 — Acciones */}
-      <aside className="flex flex-col min-h-0 overflow-y-auto space-y-4 pb-2">
-        {/* Cobertura */}
-        <section className="rounded-lg border p-4 space-y-3">
-          <div className="flex items-center justify-between">
+      {/* PASOS 2 + 3 */}
+      <div className={`flex-1 min-h-0 grid grid-cols-1 ${gridCols} gap-4 overflow-hidden`}>
+        {/* COL 1 — Lista de usuarios (solo admin) */}
+        {isAdmin && (
+          <AdminBrokenUsersList
+            selectedUserId={targetUser?.user_id ?? null}
+            onSelect={handleSelectUser}
+            refreshKey={refreshUsersKey}
+          />
+        )}
+
+        {/* COL 2 — Árbol filtrado por el modo */}
+        <section className="rounded-lg border flex flex-col min-h-0 overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/20">
             <div className="flex items-center gap-2">
-              <Compass className="w-4 h-4 text-amber-500" />
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold">
+                2
+              </span>
               <h3 className="text-sm font-semibold">
-                Cobertura{isCrossUser ? ' del usuario' : ' geográfica'}
+                Alcance ·{' '}
+                {isCrossUser
+                  ? targetUser!.display_name || targetUser!.username || 'usuario'
+                  : 'mis puntos'}
               </h3>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={refreshCoverage}
-              disabled={loadingCov}
-            >
-              {loadingCov ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <RefreshCw className="w-3.5 h-3.5" />
-              )}
-            </Button>
-          </div>
-          {loadingCov && !coverage ? (
-            <div className="text-sm text-muted-foreground">Cargando…</div>
-          ) : !coverage || coverage.total === 0 ? (
-            <div className="text-sm text-muted-foreground">
-              {isCrossUser ? 'El usuario no tiene puntos.' : 'No hay puntos en tu cuenta.'}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-1.5 text-sm">
-              <CovRow label="Total puntos" value={coverage.total} />
-              <CovRow
-                label="Resueltos"
-                value={`${coverage.resolved} (${pct(coverage.resolved, coverage.total)}%)`}
-              />
-              <CovRow
-                label="Con país"
-                value={`${coverage.with_country} (${pct(coverage.with_country, coverage.total)}%)`}
-              />
-              <CovRow
-                label="Con región (ISO)"
-                value={`${coverage.with_admin1} (${pct(coverage.with_admin1, coverage.total)}%)`}
-              />
-              <CovRow
-                label="Con timezone"
-                value={`${coverage.with_timezone} (${pct(coverage.with_timezone, coverage.total)}%)`}
-              />
-              <CovRow
-                label="Con código postal"
-                value={`${coverage.with_postal} (${pct(coverage.with_postal, coverage.total)}%)`}
-              />
-              <CovRow label="Confianza media" value={coverage.avg_confidence ?? '—'} />
-            </div>
-          )}
-        </section>
-
-        {/* Modo */}
-        <section className="rounded-lg border p-4 space-y-3">
-          <h3 className="text-sm font-semibold">Modo de normalización</h3>
-          <div className="space-y-2">
-            {(['repair', 'fill', 'reconcile', 'overwrite'] as Mode[]).map((m) => (
-              <label
-                key={m}
-                className={`flex items-start gap-3 p-2.5 rounded-md border cursor-pointer transition-colors ${
-                  mode === m ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/30'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="bf-mode"
-                  checked={mode === m}
-                  onChange={() => setMode(m)}
-                  className="mt-1"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium flex items-center gap-1.5">
-                    {m === 'repair' && <Wrench className="w-3.5 h-3.5 text-destructive" />}
-                    {MODE_LABELS[m].title}
-                  </div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">
-                    {MODE_LABELS[m].desc}
-                  </div>
-                </div>
-              </label>
-            ))}
-          </div>
-          <div className="text-[11px] text-muted-foreground pt-1">
-            Solo toca campos administrativos y FKs. No modifica nombre, descripción,
-            enriquecimiento, fotos, notas ni colecciones.
-          </div>
-        </section>
-
-        {/* Ejecución */}
-        <section className="rounded-lg border p-4 space-y-3">
-          <h3 className="text-sm font-semibold">Ejecución</h3>
-          {job.running ? (
-            <>
-              <div className="text-sm">
-                Procesados <strong>{job.totalProcessed}</strong> / {job.initialPending} · quedan{' '}
-                {job.remaining}
-                {job.totalUpdated !== job.totalProcessed && (
-                  <> · actualizados {job.totalUpdated}</>
+              <span
+                className={cn(
+                  'text-[10px] px-1.5 py-0.5 rounded font-medium uppercase tracking-wide',
+                  'bg-primary/10 text-primary',
                 )}
-                {job.failedThisBatch > 0 && <> · errores {job.failedThisBatch}</>}
-              </div>
-              <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary transition-all"
-                  style={{
-                    width: `${pct(job.totalProcessed, Math.max(1, job.initialPending))}%`,
-                  }}
-                />
-              </div>
-              {(() => {
-                const eta = computeEta({
-                  startedAt: job.startedAt,
-                  totalProcessed: job.totalProcessed,
-                  remaining: job.remaining,
-                });
-                return (
-                  <div className="text-xs text-muted-foreground tabular-nums">
-                    Transcurrido{' '}
-                    <strong className="text-foreground">{formatDuration(eta.elapsedMs)}</strong>
-                    {eta.ratePerMin > 0 && <> · {formatRate(eta.ratePerMin)}</>}
-                    {eta.etaMs !== null && eta.finishAt ? (
-                      <>
-                        {' '}
-                        · ETA ~
-                        <strong className="text-foreground">{formatDuration(eta.etaMs)}</strong>{' '}
-                        · termina ~{formatClock(eta.finishAt)}
-                      </>
-                    ) : (
-                      <> · Calculando ETA…</>
-                    )}
-                  </div>
-                );
-              })()}
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => useGeocodingJobStore.getState().stop()}
-                disabled={job.stopping}
               >
-                <Square className="w-3.5 h-3.5 mr-2" />
-                {job.stopping ? 'Deteniendo…' : 'Detener'}
-              </Button>
-            </>
-          ) : (
-            <Button
-              onClick={handleStart}
-              className="w-full"
-              disabled={isAdmin && !targetUser && false /* allow self when no target */}
-            >
-              <Play className="w-3.5 h-3.5 mr-2" />
-              {launchLabel}
-            </Button>
-          )}
-          <div className="text-[11px] text-muted-foreground space-y-1.5">
-            <p>
-              El proceso se ejecuta en el servidor: continúa aunque cierres el navegador. Solo se
-              detiene si pulsas "Detener".
-            </p>
-            {isCrossUser && (
-              <p>
-                Lanzando como administrador sobre <strong>@{targetUser!.username ?? targetUser!.user_id.slice(0, 8)}</strong>.
-                Quedará registrado en <code>created_by</code>.
-              </p>
+                {MODE_META[mode].title}
+              </span>
+            </div>
+            <span className="text-[11px] text-muted-foreground tabular-nums">
+              {loadingUniverse
+                ? 'Cargando…'
+                : `${universeLocations.length} punto${universeLocations.length === 1 ? '' : 's'} en el universo`}
+            </span>
+          </div>
+          <div className="flex-1 min-h-0">
+            {isAdmin && !targetUser ? (
+              <div className="h-full flex items-center justify-center text-xs text-muted-foreground p-6 text-center">
+                Selecciona un usuario en la lista de la izquierda.
+              </div>
+            ) : loadingUniverse ? (
+              <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin mr-2" /> Cargando universo…
+              </div>
+            ) : universeLocations.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-xs text-muted-foreground p-6 text-center">
+                Sin puntos en el universo del modo «{MODE_META[mode].title}».
+                <br />
+                Prueba otro modo.
+              </div>
+            ) : (
+              <GeographyScopeTree
+                locations={universeLocations}
+                selectedIds={selectedIds}
+                onChange={setSelectedIds}
+              />
             )}
-            <p>
-              Al terminar verás los cambios en: cobertura geográfica (arriba), árbol de selección y
-              árbol de "Buscar y Filtrar". Si un punto ya tenía la jerarquía correcta, no aparecerá
-              ningún cambio visible aunque se haya procesado.
-            </p>
           </div>
         </section>
-      </aside>
+
+        {/* COL 3 — Lanzar */}
+        <aside className="flex flex-col min-h-0 overflow-y-auto space-y-4 pb-2">
+          <section className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold">
+                3
+              </span>
+              <h3 className="text-sm font-semibold">Lanzar</h3>
+            </div>
+            <div className="text-xs space-y-1.5 rounded-md bg-muted/40 p-2.5">
+              <SummaryRow label="Modo" value={MODE_META[mode].title} />
+              <SummaryRow
+                label="Usuario"
+                value={
+                  isCrossUser
+                    ? `@${targetUser!.username ?? targetUser!.user_id.slice(0, 8)}`
+                    : 'self'
+                }
+              />
+              <SummaryRow label="Universo" value={loadingSummary ? '…' : universeTotal} />
+              <SummaryRow
+                label="Selección"
+                value={selectedIds.size > 0 ? selectedIds.size : '— (todo el universo)'}
+              />
+            </div>
+
+            {job.running ? (
+              <>
+                <div className="text-sm">
+                  Procesados <strong>{job.totalProcessed}</strong> / {job.initialPending} · quedan{' '}
+                  {job.remaining}
+                  {job.totalUpdated !== job.totalProcessed && (
+                    <> · actualizados {job.totalUpdated}</>
+                  )}
+                  {job.failedThisBatch > 0 && <> · errores {job.failedThisBatch}</>}
+                </div>
+                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all"
+                    style={{
+                      width: `${pct(job.totalProcessed, Math.max(1, job.initialPending))}%`,
+                    }}
+                  />
+                </div>
+                {(() => {
+                  const eta = computeEta({
+                    startedAt: job.startedAt,
+                    totalProcessed: job.totalProcessed,
+                    remaining: job.remaining,
+                  });
+                  return (
+                    <div className="text-xs text-muted-foreground tabular-nums">
+                      Transcurrido{' '}
+                      <strong className="text-foreground">{formatDuration(eta.elapsedMs)}</strong>
+                      {eta.ratePerMin > 0 && <> · {formatRate(eta.ratePerMin)}</>}
+                      {eta.etaMs !== null && eta.finishAt ? (
+                        <>
+                          {' '}
+                          · ETA ~
+                          <strong className="text-foreground">
+                            {formatDuration(eta.etaMs)}
+                          </strong>{' '}
+                          · termina ~{formatClock(eta.finishAt)}
+                        </>
+                      ) : (
+                        <> · Calculando ETA…</>
+                      )}
+                    </div>
+                  );
+                })()}
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => useGeocodingJobStore.getState().stop()}
+                  disabled={job.stopping}
+                  className="w-full"
+                >
+                  <Square className="w-3.5 h-3.5 mr-2" />
+                  {job.stopping ? 'Deteniendo…' : 'Detener'}
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={handleStart}
+                className="w-full"
+                disabled={!activeUserId || universeTotal === 0}
+              >
+                <Play className="w-3.5 h-3.5 mr-2" />
+                {launchLabel}
+              </Button>
+            )}
+            <div className="text-[11px] text-muted-foreground space-y-1.5">
+              <p>
+                Solo toca campos administrativos y FKs. No modifica nombre, descripción,
+                enriquecimiento, fotos, notas ni colecciones.
+              </p>
+              <p>
+                El proceso se ejecuta en el servidor: continúa aunque cierres el navegador.
+                Solo se detiene si pulsas «Detener».
+              </p>
+              {isCrossUser && (
+                <p>
+                  Lanzando como administrador sobre{' '}
+                  <strong>
+                    @{targetUser!.username ?? targetUser!.user_id.slice(0, 8)}
+                  </strong>
+                  . Quedará registrado en <code>created_by</code>.
+                </p>
+              )}
+            </div>
+          </section>
+        </aside>
+      </div>
     </div>
   );
 }
 
-function CovRow({ label, value }: { label: string; value: string | number }) {
+function SummaryRow({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="flex items-center justify-between rounded bg-muted/30 px-2 py-1.5">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-xs font-medium tabular-nums">{value}</span>
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium tabular-nums truncate">{value}</span>
     </div>
   );
 }
