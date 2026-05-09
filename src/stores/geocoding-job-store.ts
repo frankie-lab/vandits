@@ -47,6 +47,18 @@ export interface GeocodingScope {
 
 type JobStatus = 'running' | 'canceling' | 'canceled' | 'completed' | 'failed';
 
+export interface GeocodingJobLastResult {
+  finishedAt: number;
+  status: 'completed' | 'canceled' | 'failed';
+  mode: string;
+  label?: string;
+  totalProcessed: number;
+  totalUpdated: number;
+  failed: number;
+  durationMs: number;
+  initialPending: number;
+}
+
 interface GeocodingJobState {
   running: boolean;
   stopping: boolean;
@@ -59,8 +71,10 @@ interface GeocodingJobState {
   failedThisBatch: number;
   scope: GeocodingScope | null;
   startedAt: number | null;
+  lastResult: GeocodingJobLastResult | null;
   start: (initialPending: number, scope?: GeocodingScope) => Promise<void>;
   stop: () => Promise<void>;
+  clearLastResult: () => void;
 }
 
 let channel: RealtimeChannel | null = null;

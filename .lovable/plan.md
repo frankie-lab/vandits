@@ -1,45 +1,76 @@
-## Diagnóstico
 
-El job se lanzó correctamente con `location_ids = [70 ids]` y `total_in_scope = 70`, pero el primer tick lo sobrescribió a un universo mucho mayor. La causa está en `supabase/functions/backfill-admin-fks/index.ts`:
+## Objetivo
 
-Cuando el modo es **Revisar normalizados** (o cualquier modo con `health_filter`), la edge function:
+Cuando un proceso de geocodificación termina, hoy desaparece la tarjeta de progreso y el usuario no sabe qué pasó. Hay que:
 
-1. Pide al RPC `admin_user_geo_scope_ids` la página de IDs del **health_filter**, ignorando `location_ids` del cuerpo.
-2. Aplica al query tanto `.in('id', locationIds)` como `.in('id', healthScopeIds)` — en PostgREST el segundo `.in` sobre la misma columna **sobrescribe** al primero, así que la selección de 70 IDs desaparece.
-3. Recalcula `remaining` / `totalInScope` llamando otra vez al RPC con `_limit: 100000` y SIN filtrar por `location_ids`. Eso es lo que pisa `total_in_scope` al universo del health_filter (de ahí el "1000" / "1 / 1000" en pantalla; el RPC además parece tener un cap interno de 1000).
-
-Resultado visible: con 70 seleccionados, el job procesa el universo entero del modo (4747 en review) y la barra muestra "Procesados 8 / 1000 · quedan 1000".
+1. **Mostrar un resumen del último proceso** en la columna 3 ("Lanzar"), justo donde estaba la barra de progreso.
+2. **Refrescar la lista de puntos** (universo + contadores de cada modo) para que el árbol y los 3 KPIs superiores reflejen el nuevo estado tras el proceso.
 
 ## Cambios
 
-### 1. `supabase/functions/backfill-admin-fks/index.ts`
+### 1. `src/stores/geocoding-job-store.ts` — exponer snapshot del último job
 
-**Selección de filas (intersección):**
-- Cuando llegan `location_ids` Y `health_filter`, NO llamar al RPC `admin_user_geo_scope_ids` con la página completa. Tratar `location_ids` como la verdad: usar solo `q.in('id', locationIds)` y dejar que el filtrado por estado lo aplique el RPC sobre el subconjunto, o más simple: omitir el path de `healthScopeIds` cuando `location_ids` está presente y aplicar el `health_filter` filtrando los IDs vía RPC `admin_user_geo_scope_ids` con `_limit: location_ids.length` después de pasar la lista (requiere parámetro nuevo) — alternativa simple y suficiente: cuando ambos llegan, **prevalece `location_ids`**, se ignora `health_filter` para selección y para el recount. Los 70 IDs ya fueron filtrados por estado en el cliente al construir la selección, así que esto es seguro.
-- Añadir paginación local cuando `location_ids` está presente: `q.range(offset, offset + limit - 1)` para que cada tick procese su lote en lugar de intentar todo de golpe.
+- Añadir al estado:
+  ```
+  lastResult: {
+    finishedAt: number;
+    status: 'completed' | 'canceled' | 'failed';
+    mode: BackendMode;
+    label?: string;
+    totalProcessed: number;
+    totalUpdated: number;
+    failed: number;
+    durationMs: number;
+    initialPending: number;
+  } | null;
+  clearLastResult: () => void;
+  ```
+- Dentro de `applyRow`, cuando `status` deja de ser activo (`completed | canceled | failed`), poblar `lastResult` con los counters de la fila (calcular `durationMs` con `Date.now() - startedAt`).
+- `clearLastResult` setea `lastResult: null`.
 
-**Recount (`remaining` / `totalInScope`):**
-- En la rama `healthScopeIds`, si vino `location_ids`, devolver `totalInScope = location_ids.length` y `remaining = max(0, totalInScope - (offset + processed))`.
-- Mismo tratamiento en las ramas `fill` / `else` ya respetan `location_ids` en el `count('exact', head)`, pero hay que asegurarse de que el `total_in_scope` del **primer tick** no degrade lo que el cliente ya escribió. Para eso:
+### 2. `src/components/admin/GeographyBackfillPanel.tsx` — tarjeta resumen + refresco
 
-### 2. `supabase/functions/geocoding-job-tick/index.ts`
+#### 2a. Tarjeta "Resumen del último proceso"
 
-- Cuando `job.location_ids` tiene longitud `> 0`, **fijar `totalInScope = job.location_ids.length`** al inicio del tick y **no sobrescribirlo** con el `d.totalInScope` que devuelva backfill. Solo actualizar `remaining` (clamp a `[0, totalInScope]`).
-- Activar `useOffset = true` cuando hay `location_ids` (aunque exista `health_filter`), para que la paginación avance y el job termine de forma natural en `offset >= totalInScope`.
+En la columna 3, cuando `!job.running && job.lastResult`, renderizar una tarjeta nueva (encima del botón "Lanzar") con:
 
-### 3. (Opcional, defensivo) `src/components/admin/GeographyBackfillPanel.tsx`
+- Título: "Resumen del último proceso" + chip de estado:
+  - `completed` → verde "Completado"
+  - `canceled` → naranja "Detenido"
+  - `failed` → rojo "Fallido"
+- Línea con `lastResult.label` y modo.
+- Grid 2 columnas reutilizando el componente `StatCell` ya existente:
+  - Revisados (`totalProcessed / initialPending`)
+  - Actualizados (verde)
+  - Sin cambios (`processed - updated - failed`)
+  - Errores (rojo si > 0)
+  - Duración (`formatDuration(durationMs)`)
+  - Tasa (puntos/min)
+- Pie: "Hace Xm" (relativo a `finishedAt`) y botón texto "Cerrar resumen" → `clearLastResult()`.
 
-- Cuando hay selección explícita, no enviar `healthFilter` en el `scope` (el cliente ya filtró por estado al construir la selección). Esto elimina la ambigüedad por completo desde el origen y vuelve la fix anterior redundante pero segura.
+El resumen persiste hasta que el usuario lo cierre o lance un nuevo job (al lanzar también se limpia para evitar mezclar pasados).
 
-## Resultado
+#### 2b. Refresco de lista tras finalizar
 
-Con 70 seleccionados en "Revisar normalizados":
-- `total_in_scope = 70` durante todo el job.
-- Cada tick procesa hasta `page_size` IDs de los 70 hasta agotarlos.
-- La tarjeta Lanzar muestra "Procesados N / 70 · quedan 70-N".
-- El job completa al cubrir los 70.
+El `useEffect` de las líneas 280-292 ya recarga `summary` y `universe` 500ms después de que `job.running` pasa a false. Reforzar:
+- Aumentar el delay a 1500ms (los UPDATE realtime/RPC pueden ir un pelo desfasados respecto al COMMIT final del tick).
+- Tras el refresco, si `selectedIds` contiene IDs que ya no están en el nuevo `universeLocations`, podarlos (ya queda implícito si el usuario tenía selección — el universo cambia y los IDs ya procesados desaparecen del modo "fill"/"repair", así que limpiamos selección si todos sus IDs salieron del universo).
 
-## Fuera de alcance
+#### 2c. Limpiar resumen al lanzar
 
-- No se toca el RPC `admin_user_geo_scope_ids` ni el cap interno de 1000 (irrelevante una vez que `location_ids` manda).
-- No se cambia el comportamiento sin selección (universo completo sigue funcionando como hoy).
+En `handleStart`, antes de invocar `start(...)`, llamar `useGeocodingJobStore.getState().clearLastResult()`.
+
+## Notas técnicas
+
+- No tocamos backend (`geocoding-job-tick`, `backfill-admin-fks`): los counters ya están en la fila `geocoding_jobs`.
+- `initialPending` viene de `total_in_scope` (ya pinned) — el resumen mostrará el universo declarado al lanzar, no el recortado.
+- `STAT_TONE` y `StatCell` ya existen, se reutilizan.
+- No hay cambios de schema/migrations.
+
+## Resultado esperado
+
+Tras "Lanzar sobre selección (2)" → procesar 2 puntos → al terminar:
+- La tarjeta de progreso desaparece.
+- Aparece "Resumen del último proceso · Completado": Revisados 2/2, Actualizados N, Errores 0, Duración 8s, ~15 ptos/min.
+- El árbol del universo se refresca: si el modo era "Rellenar huecos" y ambos puntos pasaron a OK, el contador del modo baja a 0.
+- El KPI superior "Rellenar huecos" baja en consonancia.
