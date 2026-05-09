@@ -151,7 +151,8 @@ export function GeographyBackfillPanel() {
     let cancelled = false;
     (async () => {
       const { data: userData } = await supabase.auth.getUser();
-      const uid = userData?.user?.id ?? null;
+      const user = userData?.user;
+      const uid = user?.id ?? null;
       if (cancelled) return;
       setSelfUserId(uid);
       if (!uid) return;
@@ -162,6 +163,21 @@ export function GeographyBackfillPanel() {
       if (cancelled) return;
       const has = (roles ?? []).some((r) => r.role === 'admin' || r.role === 'master');
       setIsAdmin(has);
+      // Auto-seleccionar self como target inicial para que la columna 2
+      // nazca poblada en lugar de mostrar el placeholder vacío.
+      if (has) {
+        setTargetUser({
+          user_id: uid,
+          username: (user?.user_metadata?.username as string | undefined) ?? null,
+          display_name:
+            (user?.user_metadata?.display_name as string | undefined) ??
+            (user?.user_metadata?.full_name as string | undefined) ??
+            'Yo',
+          avatar_url: (user?.user_metadata?.avatar_url as string | undefined) ?? null,
+          broken_count: 0,
+          total_count: 0,
+        } as BrokenUser);
+      }
     })();
     return () => {
       cancelled = true;
