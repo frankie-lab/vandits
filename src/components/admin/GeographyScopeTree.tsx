@@ -291,18 +291,15 @@ function buildTree(locations: GeoLocation[], maxDepth: number): ScopeNode[] {
   const finalize = (node: ScopeNode): void => {
     const map = childMaps.get(node);
     node.children = map ? Array.from(map.values()) : [];
-    node.children.sort(byValue);
+    node.children.sort(compareGeoTreeNodes);
     node.children.forEach(finalize);
   };
-  const tops = Array.from(root.values()).sort(byValue);
+  const tops = Array.from(root.values()).sort(compareGeoTreeNodes);
   tops.forEach(finalize);
   return tops;
 }
 
 const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
-function byValue(a: ScopeNode, b: ScopeNode): number {
-  return collator.compare(a.value, b.value);
-}
 
 function filterTree(nodes: ScopeNode[], q: string): ScopeNode[] {
   const out: ScopeNode[] = [];
