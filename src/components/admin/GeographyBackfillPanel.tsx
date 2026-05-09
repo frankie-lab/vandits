@@ -286,7 +286,7 @@ export function GeographyBackfillPanel() {
         if (!isCrossUser) {
           window.dispatchEvent(new CustomEvent('reload-locations'));
         }
-      }, 500);
+      }, 1500);
       return () => clearTimeout(t);
     }
   }, [job.running, activeUserId, healthFilter, isCrossUser, refreshSummary, refreshUniverse]);
