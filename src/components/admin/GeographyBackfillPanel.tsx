@@ -320,8 +320,6 @@ export function GeographyBackfillPanel() {
 
   const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
 
-  // Visible tabs for the tree ---------------------------------------------
-  const visibleHealthForMode = healthFilter;
 
   const gridCols = isAdmin
     ? 'lg:grid-cols-[220px_minmax(0,1fr)_320px]'
@@ -331,65 +329,83 @@ export function GeographyBackfillPanel() {
     <div className="flex-1 min-h-0 flex flex-col gap-4 p-4 overflow-hidden">
       {/* PASO 1 — Modo de normalización (cabecera) */}
       <section className="rounded-lg border bg-muted/10">
-        <div className="flex items-center justify-between px-3 py-2 border-b">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-semibold shrink-0">
               1
             </span>
-            <h3 className="text-sm font-semibold">Modo de normalización</h3>
-            <span className="text-[11px] text-muted-foreground">
-              Define qué puntos entran en el universo del paso siguiente.
-            </span>
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold leading-tight">Modo de normalización</h3>
+              <p className="text-[11px] text-muted-foreground leading-tight">
+                Define qué puntos entran en el universo del paso siguiente.
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 text-[11px]">
-            {visibleHealthForMode.map((h) => (
-              <span
-                key={h}
-                className={cn(
-                  'inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-medium tabular-nums',
-                  HEALTH_TONE[h],
-                )}
-                title={HEALTH_LABELS[h]}
-              >
-                {HEALTH_LABELS[h]}
-                <span className="opacity-70">{summary?.[h] ?? 0}</span>
-              </span>
-            ))}
-            <span className="ml-1 text-muted-foreground">·</span>
-            <span className="font-semibold tabular-nums">
-              Universo: {loadingSummary ? '…' : universeTotal}
+          <div className="flex items-baseline gap-2 shrink-0">
+            <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
+              Universo
+            </span>
+            <span className="text-2xl font-bold tabular-nums leading-none text-primary">
+              {loadingSummary ? '…' : universeTotal.toLocaleString()}
             </span>
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 p-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-3">
           {(Object.keys(MODE_META) as Mode[]).map((m) => {
             const meta = MODE_META[m];
             const Icon = meta.icon;
             const filter = modeToHealthFilter(m);
             const count = sumByHealth(summary, filter);
             const isActive = mode === m;
+            const isEmpty = !loadingSummary && count === 0;
             return (
               <button
                 key={m}
                 type="button"
                 onClick={() => setMode(m)}
+                disabled={isEmpty}
                 className={cn(
-                  'text-left rounded-md border p-3 transition-colors',
+                  'group relative text-left rounded-lg border p-4 transition-all',
                   isActive
-                    ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                    : 'border-border hover:bg-muted/30',
+                    ? 'border-primary bg-primary/5 ring-2 ring-primary/40 shadow-sm'
+                    : 'border-border hover:bg-muted/30 hover:border-muted-foreground/40',
+                  isEmpty && 'opacity-50 cursor-not-allowed hover:bg-transparent',
                 )}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-1.5 text-sm font-medium">
-                    <Icon className={cn('w-4 h-4', meta.iconClass)} />
-                    {meta.title}
-                  </div>
-                  <span className="text-[11px] font-semibold tabular-nums px-1.5 py-0.5 rounded bg-background border">
-                    {loadingSummary ? '…' : count}
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <Icon className={cn('w-4 h-4 shrink-0', meta.iconClass)} />
+                  <span className="truncate">{meta.title}</span>
+                </div>
+                <div className="mt-2 flex items-baseline gap-1.5">
+                  <span
+                    className={cn(
+                      'text-3xl font-bold tabular-nums leading-none tracking-tight',
+                      isActive ? 'text-primary' : 'text-foreground',
+                      isEmpty && 'text-muted-foreground',
+                    )}
+                  >
+                    {loadingSummary ? '…' : count.toLocaleString()}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground font-medium">
+                    {count === 1 ? 'punto' : 'puntos'}
                   </span>
                 </div>
-                <div className="text-[11px] text-muted-foreground mt-1 leading-snug">
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {filter.map((h) => (
+                    <span
+                      key={h}
+                      className={cn(
+                        'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium tabular-nums',
+                        HEALTH_TONE[h],
+                      )}
+                      title={HEALTH_LABELS[h]}
+                    >
+                      {HEALTH_LABELS[h]}
+                      <span className="opacity-80">{summary?.[h] ?? 0}</span>
+                    </span>
+                  ))}
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-2 leading-snug">
                   {meta.desc}
                 </div>
               </button>
