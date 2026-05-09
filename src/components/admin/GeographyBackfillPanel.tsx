@@ -165,9 +165,9 @@ export function GeographyBackfillPanel() {
     setSelectedIds(new Set());
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any).rpc('admin_broken_locations_for_user', {
-        _user_id: userId,
-      });
+      const { data, error } = await (supabase as any)
+        .rpc('admin_broken_locations_for_user', { _user_id: userId })
+        .range(0, 99999);
       if (error) throw error;
       // Map to a minimal GeoLocation-compatible shape (the tree only reads
       // continent/country/region/zone/name/id).
