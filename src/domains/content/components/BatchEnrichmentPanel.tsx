@@ -597,3 +597,255 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
  </Sheet>
  );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Errors resolution list — manual recovery for failed points.
+// Reuses the existing "open-nearby-context" event flow (mem://logic/enrichment/
+// name-coordinate-coherence) and the unified `triggerEnrichLocation` helper.
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ErrorsResolutionListProps {
+  errorIds: string[];
+  errorMessages: Record<string, unknown>;
+  jobId: string;
+  onResolved: () => void;
+}
+
+function ErrorsResolutionList({ errorIds, errorMessages, jobId, onResolved }: ErrorsResolutionListProps) {
+  const { documents } = useLocationsStore();
+  const [filter, setFilter] = useState<'all' | 'hard' | 'soft'>('all');
+  const [busy, setBusy] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  const locationById = React.useMemo(() => {
+    const map = new Map<string, { id: string; name: string; documentId: string | null }>();
+    for (const doc of documents) {
+      for (const l of doc.locations) {
+        if (errorIds.includes(l.id)) map.set(l.id, { id: l.id, name: l.name, documentId: doc.id });
+      }
+    }
+    return map;
+  }, [documents, errorIds]);
+
+  const buckets = countErrorBuckets(errorMessages);
+
+  const filtered = errorIds.filter((id) => {
+    const parsed = parseEnrichmentError(errorMessages[id]);
+    if (filter === 'all') return true;
+    if (filter === 'soft') return isCoherenceKind(parsed.kind);
+    return !isCoherenceKind(parsed.kind);
+  });
+
+  const removeFromJobErrorIds = async (locationId: string) => {
+    const newErrorIds = errorIds.filter((id) => id !== locationId);
+    const newMessages: Record<string, unknown> = { ...errorMessages };
+    delete newMessages[locationId];
+    await supabase
+      .from('enrichment_jobs')
+      .update({ error_ids: newErrorIds, error_count: newErrorIds.length, error_messages: newMessages })
+      .eq('id', jobId);
+  };
+
+  const handleRetry = async (locationId: string) => {
+    setBusy(locationId);
+    try {
+      const result = await triggerEnrichLocation(locationId, { focusAfter: false });
+      if (result.success) {
+        await removeFromJobErrorIds(locationId);
+        onResolved();
+      }
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleOpenContext = (locationId: string, parsed: ReturnType<typeof parseEnrichmentError>) => {
+    const loc = documents.flatMap((d) => d.locations).find((l) => l.id === locationId);
+    if (!loc) return;
+    window.dispatchEvent(new CustomEvent('open-nearby-context', {
+      detail: {
+        locationId,
+        location: loc,
+        reason: 'name-coordinate-mismatch',
+        providedName: parsed.providedName ?? loc.name,
+        nameLocation: parsed.nameLocation,
+        nearbyCandidates: parsed.candidates ?? [],
+      },
+    }));
+  };
+
+  const handleRename = async (locationId: string) => {
+    const next = renameValue.trim();
+    if (!next) return;
+    setBusy(locationId);
+    try {
+      const { error } = await supabase
+        .from('locations')
+        .update({ name: next, updated_at: new Date().toISOString() })
+        .eq('id', locationId);
+      if (error) throw error;
+      setRenaming(null);
+      setRenameValue('');
+      // Retry enrichment with the new name
+      const result = await triggerEnrichLocation(locationId, { focusAfter: false });
+      if (result.success) {
+        await removeFromJobErrorIds(locationId);
+      }
+      onResolved();
+    } catch (e) {
+      toast.error('No se pudo renombrar');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (errorIds.length === 0) return null;
+
+  return (
+    <ScrollArea className="flex-1 -mx-6 px-6">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Resolución</span>
+        <div className="ml-auto flex gap-1">
+          <button
+            onClick={() => setFilter('all')}
+            className={`text-[10px] px-2 py-0.5 rounded-full border ${filter === 'all' ? 'bg-foreground text-background border-foreground' : 'border-border text-muted-foreground'}`}
+          >
+            Todos {errorIds.length}
+          </button>
+          <button
+            onClick={() => setFilter('hard')}
+            className={`text-[10px] px-2 py-0.5 rounded-full border ${filter === 'hard' ? 'bg-red-600 text-white border-red-600' : 'border-red-300 text-red-600'}`}
+          >
+            Errores {buckets.hard}
+          </button>
+          <button
+            onClick={() => setFilter('soft')}
+            className={`text-[10px] px-2 py-0.5 rounded-full border ${filter === 'soft' ? 'bg-amber-500 text-white border-amber-500' : 'border-amber-300 text-amber-600'}`}
+          >
+            Sin coinc. {buckets.soft}
+          </button>
+        </div>
+      </div>
+
+      <AnimatePresence mode="popLayout">
+        {filtered.map((locId, index) => {
+          const parsed = parseEnrichmentError(errorMessages[locId]);
+          const loc = locationById.get(locId);
+          const soft = isCoherenceKind(parsed.kind);
+          const tone = soft
+            ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200/50'
+            : 'bg-red-50 dark:bg-red-900/20 border-red-200/50';
+          const isRenaming = renaming === locId;
+          const candidates = parsed.candidates ?? [];
+
+          return (
+            <motion.div
+              key={locId}
+              layout
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ delay: index * 0.02 }}
+              className={`flex flex-col gap-2 p-2 rounded-lg mb-1 border ${tone}`}
+            >
+              <div className="flex items-start gap-2">
+                <AlertCircle className={`w-4 h-4 flex-shrink-0 mt-0.5 ${soft ? 'text-amber-600' : 'text-red-600'}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-medium truncate">{loc?.name ?? '(eliminado)'}</span>
+                    <Badge variant="outline" className={`text-[9px] px-1.5 py-0 h-4 ${soft ? 'border-amber-400 text-amber-700' : 'border-red-400 text-red-700'}`}>
+                      {labelForKind(parsed.kind)}
+                    </Badge>
+                    {parsed.nameLocation?.distanceKm != null && (
+                      <span className="text-[10px] text-muted-foreground">
+                        {parsed.nameLocation.distanceKm} km
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground truncate mt-0.5">{parsed.message}</p>
+                </div>
+              </div>
+
+              {isRenaming ? (
+                <div className="flex items-center gap-1">
+                  <input
+                    autoFocus
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleRename(locId);
+                      if (e.key === 'Escape') { setRenaming(null); setRenameValue(''); }
+                    }}
+                    className="flex-1 text-xs px-2 py-1 rounded border border-border bg-background"
+                    placeholder="Nuevo nombre"
+                  />
+                  <Button size="sm" variant="default" className="h-7 px-2" onClick={() => handleRename(locId)} disabled={busy === locId}>
+                    OK
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { setRenaming(null); setRenameValue(''); }}>
+                    Cancelar
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-[11px] gap-1"
+                    onClick={() => handleRetry(locId)}
+                    disabled={busy === locId || !loc}
+                  >
+                    {busy === locId ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                    Reintentar
+                  </Button>
+                  {soft && loc && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-[11px] gap-1 text-amber-700"
+                      onClick={() => handleOpenContext(locId, parsed)}
+                    >
+                      <Compass className="w-3 h-3" />
+                      Contexto cercano
+                    </Button>
+                  )}
+                  {parsed.kind === 'coherence' && candidates.length > 0 && loc && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-[11px] gap-1"
+                      onClick={() => {
+                        setRenaming(locId);
+                        setRenameValue(candidates[0]?.name ?? loc.name);
+                      }}
+                    >
+                      <Pencil className="w-3 h-3" />
+                      Renombrar
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {parsed.kind === 'coherence' && candidates.length > 0 && !isRenaming && (
+                <div className="flex flex-wrap gap-1 pl-6">
+                  {candidates.slice(0, 4).map((c, i) => (
+                    <button
+                      key={i}
+                      onClick={() => { setRenaming(locId); setRenameValue(c.name ?? ''); }}
+                      className="text-[10px] px-1.5 py-0.5 rounded-full bg-background/60 border border-border hover:bg-background"
+                      title={c.distanceKm != null ? `${c.distanceKm.toFixed(1)} km` : ''}
+                    >
+                      {c.name ?? '?'}
+                      {c.distanceKm != null && <span className="ml-1 text-muted-foreground">{c.distanceKm.toFixed(1)}km</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
+    </ScrollArea>
+  );
+}
