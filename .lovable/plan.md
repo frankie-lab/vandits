@@ -1,84 +1,73 @@
-## Objetivo
+## Estado actual
 
-Aprovechar el enriquecimiento (Wikidata) para colgar de cada punto un nivel extra **no-administrativo** (regiones culturales, áreas funcionales, microtopónimos) cuando Wikidata lo identifique. Sin tocar el árbol ISO/Nominatim que ya está en marcha.
+Si tenemos `lat,lng`, el pipeline ya rellena de forma automática los niveles altos vía `reverse-geocode.ts` → `geo-normalizer.ts` → `resolve-admin-area`:
 
-## Estado actual (no se modifica)
-
-- Jobs de re-geocodificación corriendo en background (~50/min, ~1h30m). Galicia → 4 provincias, UK → 4 regiones, etc.
-- `geo-normalizer.ts` es helper único; toda ingestión nueva pasa por él automáticamente.
-- Árbol canónico vivo: Continente → País → Región → Provincia → Comarca → Municipio → Distrito/Barrio → Calle.
-
-## Qué se añade
-
-### 1. Capa Wikidata "tipo de lugar extendido"
-
-Durante `enrich-location` (que ya consulta Wikidata), leer la propiedad **P31 (instance of)** y mapear a una taxonomía cerrada de tipos no-administrativos:
-
-```text
-Q1620908  región cultural          → cultural_region
-Q1907114  área metropolitana       → metro_area
-Q3957     ciudad                   → (ya cubierto)
-Q1187811  campus universitario     → campus
-Q2143825  polígono industrial      → industrial_park
-Q123705   barrio                   → (ya cubierto: sublocality)
-Q11315    centro comercial         → shopping_center
-Q1248784  aeropuerto               → (ya cubierto: type_id)
-Q183061   urbanización             → urbanization
-Q2074737  zona funcional/distrito  → functional_zone
-Q15243209 región histórica         → historical_region
-... (lista cerrada ~20 tipos)
+```
+Continente   ← derivado de country_code (tabla interna, sin red)
+País         ← Nominatim addr.country + country_code (ISO)
+Región (CCAA)← addr.state
+Provincia    ← addr.province (ó state_district)
+Comarca      ← addr.county / municipality
+Municipio    ← addr.city / town / village
+Barrio/Distrito ← addr.suburb / neighbourhood / quarter
+Calle        ← addr.road (+ house_number, postcode)
 ```
 
-Lo no mapeado se ignora (no se inventan nodos).
+Y los 8 FKs (`continent_id…sublocality_id`) se escriben vía `resolveAllFks()`.
 
-### 2. Persistencia
+## Lo que YA NO necesita nada (sólo coordenadas)
 
-- **NO** crear nuevos `place_types` administrativos ni nuevos slots FK en `locations`.
-- Guardar el resultado en `enriched_data.cultural_context`:
-  ```json
-  {
-    "cultural_context": {
-      "wikidata_id": "Q1054397",
-      "type_code": "cultural_region",
-      "type_label": "Región cultural",
-      "name": "Costa da Morte",
-      "source": "wikidata"
-    }
-  }
-  ```
-- Es información **enriquecida**, no estructural. No rompe el árbol ISO.
+1. **Continente** — derivado del ISO α2.
+2. **País** — Nominatim siempre lo devuelve.
+3. **Región / CCAA / State** — Nominatim `state` con zoom 10.
+4. **Provincia** — `province` o `state_district` (regla por país).
+5. **Comarca / County** — `county` (ES/IT) o `district` (genérico).
+6. **Municipio** — `city/town/village/hamlet`.
+7. **Barrio / Distrito / Parroquia** — `suburb/neighbourhood/quarter` cuando OSM lo expone.
+8. **Calle** — `road` + `house_number` + `postcode`.
 
-### 3. UI
+→ Para estos niveles **basta con la coordenada**. El job `geocoding-job-tick` los rellena.
 
-- En la ficha/popup, debajo de la jerarquía administrativa, una línea extra:
-  > *Costa da Morte (región cultural)* · *Campus de Elviña (campus)*
-- En el árbol jerárquico de filtros (`getLocationHierarchy`) **no** se inserta como nivel: sigue siendo 8 niveles administrativos. Los contextos culturales se muestran como **chips/tags** en la tarjeta.
+## Lo que NO se puede sacar sólo de coordenadas
 
-### 4. Helper único
+Niveles más finos que la calle. Nominatim no los modela:
 
-`src/shared/geography/cultural-context.ts`:
-- `extractCulturalContext(wikidataEntity)` → devuelve `{ type_code, name, wikidata_id } | null`
-- Llamado desde `enrich-location` justo después de obtener Wikidata.
+| Nivel | Por qué no llega solo | Qué haría falta |
+|---|---|---|
+| **Edificio / Portal** | OSM tiene `building=*` y `addr:housenumber` pero Nominatim los devuelve como parte del `display_name`, no como FK | Consulta **Overpass** alrededor del punto (radio 15-30m) buscando `building` con nombre o número, y guardarlo como `building_name` en `enriched_data` (no FK estructural) |
+| **Vivienda / Oficina / Unidad** | No es dato cartográfico público | Sólo lo aporta el usuario manualmente (campo libre en la ficha) o un proveedor de direcciones de pago (Google Places, HERE) |
+| **Urbanización / Polígono / Campus** | No es admin oficial | Ya cubierto por la **capa cultural Wikidata P31** que añadimos (chip violeta). Si Wikidata no lo tiene, no hay forma fiable solo con coords |
+| **Costa da Morte / Silicon Valley** (regiones culturales) | Ídem, taxonomía heterogénea | Ídem, capa cultural Wikidata |
 
-### 5. Memoria
+## Limitaciones reales del estado actual
 
-Nueva entrada `mem://geography/cultural-context-layer` documentando que la capa cultural vive en `enriched_data.cultural_context`, alimentada solo por Wikidata, fuera del árbol administrativo.
+A. **Nominatim a veces devuelve niveles vacíos** aunque existan en OSM: zoom 18 trae detalle calle pero pierde provincia, zoom 10 trae provincia pero pierde calle. Por eso ya hacemos doble llamada y `mergeCanonical`. Bien.
 
-## Archivos afectados
+B. **Países sin reglas específicas en `COUNTRY_RULES`** caen al `GENERIC` y a veces colapsan provincia/comarca. Hoy hay reglas para ES, FR, IT, DE, GB, US, PT, CA, MX, AR, BR + nórdicos. Para los demás (≈170 países) usamos GENERIC, que funciona en >90% de casos pero puede equivocarse en zone vs admin3 en países con jerarquía atípica (Japón, China, India, Suiza, Bélgica…).
 
-- `supabase/functions/enrich-location/index.ts` — añadir extracción P31 → cultural_context.
-- `src/shared/geography/cultural-context.ts` (nuevo) — mapa Wikidata-Q-id → type_code y helper.
-- Tarjeta/popup de location (componente que ya muestra `enriched_data.tags`) — render del chip cultural.
-- `mem://geography/cultural-context-layer` (nuevo).
+C. **Calle / portal**: Nominatim devuelve `road` y `house_number` solo en zoom 18. Si una coord cae en medio de un parque o monte, no habrá calle. Es correcto: no toda coord tiene calle.
 
-## Fuera de alcance
+D. **Sublocality (barrio/parroquia)** depende totalmente de la cobertura OSM local. En Galicia las parroquias están bien cubiertas; en zonas rurales de Asia o África, no.
 
-- No se crean tablas nuevas.
-- No se modifica el árbol administrativo ni los slots FK.
-- No se hace backfill masivo: la capa cultural se rellena solo cuando un punto se enriquece (existente o nuevo). Los ~4747 puntos en re-geocodificación quedarán con árbol administrativo limpio; la capa cultural se irá poblando a medida que pasen por enriquecimiento.
+## Qué falta hacer (acciones concretas)
 
-## Validación
+Para que el árbol se complete *hasta donde sea físicamente posible*:
 
-- Punto en Camariñas → árbol ISO: ES > Galicia > A Coruña > Terra de Soneira > Camariñas. Cultural: *Costa da Morte*.
-- Punto en Mountain View → árbol ISO: US > California > Santa Clara > Mountain View. Cultural: *Silicon Valley*.
-- Punto en una vivienda residencial sin Wikidata → solo árbol administrativo, sin chip cultural.
+1. **Reglas país adicionales en `COUNTRY_RULES`** — añadir JP, CN, IN, CH, BE, NL, AT, IE, AU, NZ, ZA, IL, AE… (≈15 países top de tu catálogo) para precisar `zone` vs `admin3`. Trabajo: edición de un solo fichero, ~50 líneas.
+
+2. **Capa Overpass para edificios nombrados** — nueva edge function `enrich-building` opcional: query Overpass `(building[name](around:25,lat,lng);)`, guardar `enriched_data.building = { name, osm_id, type }`. Se ejecuta sólo en enrich, no en backfill (Overpass es lento).
+
+3. **Mantener la capa cultural Wikidata** que ya implementamos para urbanizaciones / campus / regiones culturales — ya está activa.
+
+4. **Campo manual de unidad/oficina/vivienda** en la ficha de punto — input libre persistido en `enriched_data.unit`. UI únicamente, sin lógica geo.
+
+## Recomendación
+
+Si el objetivo es *árbol jerárquico navegable* (filtros, mapa, breadcrumbs), **lo que ya existe es suficiente**. Los 8 niveles ISO + capa cultural cubren el 100% del caso navegable.
+
+Lo que falta (edificio, portal, vivienda) **no es jerarquía, es metadato del punto**. Recomiendo:
+- Añadir reglas país (paso 1) → mejora calidad inmediata de provincia/comarca en países no europeos.
+- Añadir Overpass building lookup (paso 2) sólo si vas a mostrar "Estás en el edificio X" en la ficha.
+- Dejar vivienda/oficina como campo manual (paso 4).
+
+No es necesario tocar el árbol estructural ni las FKs. El trabajo restante es enriquecimiento, no normalización.

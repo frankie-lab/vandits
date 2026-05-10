@@ -103,6 +103,32 @@ const COUNTRY_RULES: Record<string, CountryRule> = {
   mx: { region: ['state'], zone: ['county', 'municipality'], admin3: ['city_district', 'borough'], locality: ['city', 'town', 'village'], sublocality: ['neighbourhood', 'suburb', 'quarter'] },
   ar: { region: ['state'], zone: ['county', 'state_district'], admin3: ['municipality'], locality: ['city', 'town', 'village'], sublocality: ['neighbourhood', 'suburb', 'quarter'] },
   br: { region: ['state'], zone: ['state_district', 'region'], admin3: ['municipality'], locality: ['city', 'town', 'village'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
+  // Japón: state=都道府県 (prefectura), county=郡, city/special ward
+  jp: { region: ['state'], zone: ['county', 'state_district'], admin3: ['city_district', 'municipality'], locality: ['city', 'town', 'village'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
+  // China: state=provincia, prefectura/condado
+  cn: { region: ['state'], zone: ['state_district', 'province'], admin3: ['county', 'city_district', 'municipality'], locality: ['city', 'town', 'village'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
+  // India: state=estado, district=distrito, taluk/tehsil
+  in: { region: ['state'], zone: ['state_district', 'county'], admin3: ['district', 'municipality'], locality: ['city', 'town', 'village'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
+  // Suiza: state=cantón, district=distrito, municipality=Gemeinde
+  ch: { region: ['state'], zone: ['county', 'state_district', 'province'], admin3: ['district', 'municipality'], locality: ['city', 'town', 'village'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
+  // Bélgica: state=región, province=provincia, arrondissement
+  be: { region: ['state'], zone: ['province', 'state_district'], admin3: ['county', 'municipality'], locality: ['city', 'town', 'village'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
+  // Países Bajos: state=provincia, gemeente
+  nl: { region: ['state'], zone: ['province', 'state_district'], admin3: ['municipality', 'city_district'], locality: ['city', 'town', 'village'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
+  // Austria: state=Bundesland, Bezirk
+  at: { region: ['state'], zone: ['county', 'state_district'], admin3: ['municipality', 'city_district'], locality: ['city', 'town', 'village'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
+  // Irlanda: state/region, county
+  ie: { region: ['state', 'region'], zone: ['county', 'state_district'], admin3: ['municipality', 'city_district'], locality: ['city', 'town', 'village'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
+  // Australia: state=estado/territorio, LGA
+  au: { region: ['state'], zone: ['county', 'state_district'], admin3: ['municipality', 'city_district'], locality: ['city', 'town', 'village', 'suburb'], sublocality: ['neighbourhood', 'quarter'] },
+  // Nueva Zelanda: state=región, district
+  nz: { region: ['state', 'region'], zone: ['district', 'county'], admin3: ['city_district', 'municipality'], locality: ['city', 'town', 'village', 'suburb'], sublocality: ['neighbourhood', 'quarter'] },
+  // Sudáfrica: state=provincia, district municipality
+  za: { region: ['state'], zone: ['state_district', 'county'], admin3: ['municipality', 'city_district'], locality: ['city', 'town', 'village'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
+  // Israel: state=distrito, subdistrito
+  il: { region: ['state'], zone: ['state_district', 'county'], admin3: ['city_district', 'municipality'], locality: ['city', 'town', 'village'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
+  // EAU: state=emirato, región
+  ae: { region: ['state'], zone: ['region', 'state_district'], admin3: ['municipality', 'city_district'], locality: ['city', 'town', 'village'], sublocality: ['suburb', 'neighbourhood', 'quarter'] },
 };
 
 // Continente derivado de country_code ISO-3166 alpha-2 (datos estables, sin red).
