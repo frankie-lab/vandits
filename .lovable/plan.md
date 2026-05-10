@@ -1,34 +1,77 @@
-# Objetivo
-Hacer que los hashtags de colección aparezcan siempre en los popups, también en puntos nuevos/enriquecidos, sin depender de un montaje React frágil dentro de Leaflet.
+## Diagnóstico
 
-# Plan
-1. **Crear una fuente transversal síncrona para chips de colección**
-   - Añadir un store/helper centralizado para resolver `locationId -> collections[]`.
-   - Exponer lectura síncrona, precarga, invalidación por punto y suscripción a cambios.
-   - Reutilizar el helper de color ya creado para garantizar contraste.
+El toast "Error al cargar datos guardados" lo dispara `useDatabaseSync` cuando `fetchAllLocationsPaginated()` falla. Los logs lo confirman:
 
-2. **Sustituir el placeholder React del popup por HTML final estable**
-   - Reemplazar `buildCollectionChipsPlaceholder(...)` por un bloque HTML que pinte directamente los hashtags de colección.
-   - Mantener la misma semántica visual y posición en ambas ramas del popup (enriquecido y no enriquecido).
-   - Evitar que el popup dependa de `MutationObserver`, `createRoot` y remontajes tras `setPopupContent`.
+```
+code: "57014"
+message: "canceling statement due to statement timeout"
+```
 
-3. **Refrescar popups abiertos cuando cambian colecciones o contenido del punto**
-   - Conectar el nuevo store a los eventos transversales existentes (`collections-updated`, `collection-items-changed`).
-   - Cuando cambie un punto visible, regenerar su `popupContent` usando `createPopupContent(...)` y `marker.setPopupContent(...)`.
-   - Mantener el mismo comportamiento para puntos nuevos, importados y recién enriquecidos.
+El query es:
 
-4. **Retirar la capa frágil actual**
-   - Eliminar `popup-collections-mount.ts` y su uso en `LocationMap.tsx`.
-   - Dejar `LocationCollectionChips` y `useLocationCollections` para vistas React como `GalleryView`, pero hacer que compartan la misma lógica central si procede.
+```ts
+supabase.from('v_locations_resolved')
+  .select('*')
+  .is('deleted_at', null)
+  .range(from, to)
+  .order('created_at', { ascending: true });
+```
 
-5. **Validación específica del bug**
-   - Verificar: popup enriquecido, popup no enriquecido, punto recién creado, punto recién enriquecido, una colección, varias colecciones, color blanco y colores claros.
-   - Confirmar que el hashtag no parpadea ni desaparece al reabrir o actualizar el popup.
+`v_locations_resolved` resuelve la geografía con **7 LEFT JOIN a `admin_areas`**. Sobre 5.073 locations + RLS por fila + `ORDER BY created_at` (sin índice en esa columna ni en `(deleted_at, created_at)`) el planner termina haciendo un sort completo tras RLS y joins. Resultado: supera el `statement_timeout` del rol `authenticated` (8 s por defecto) y aborta.
 
-# Detalles técnicos
-- **Causa detectada**: la red devuelve correctamente `collection_items` y en la sesión se ve que el chip llega a montarse en DOM, pero el popup lo pierde al regenerarse con `setPopupContent(...)` y al depender de `MutationObserver` + `createRoot`.
-- **No parece ser un problema de datos ni de RLS**: la consulta responde `200` con la colección asociada.
-- **El ajuste de color ya ayuda al contraste**, pero no resuelve esta desaparición total.
+Detalles adicionales:
+- Índice `idx_locations_deleted_at` es **parcial** `WHERE deleted_at IS NOT NULL`, así que NO ayuda al filtro `deleted_at IS NULL` que usamos en la app.
+- No hay índice sobre `created_at` ni compuesto sobre `(deleted_at, created_at)`.
+- El `ORDER BY` no se usa en la UI: en el cliente ya se reordena por jerarquía geográfica (`getLocationHierarchy / getFilteredLocations`) y por documento.
 
-# Resultado esperado
-Los hashtags de colección quedarán renderizados de forma estable y transversal en todos los popups, incluidos los puntos nuevos y los recién enriquecidos.
+Mismo patrón se repite en `db-operations.ts` (segunda llamada a `fetchAllLocationsPaginated`).
+
+## Cambios
+
+### 1. Quitar el `ORDER BY` innecesario del fetch paginado
+
+`src/domains/content/lib/db-transformers.ts` → `fetchAllLocationsPaginated`:
+
+- Eliminar `.order('created_at', { ascending: true })`. La paginación con `range()` sin orden explícito devuelve un orden estable suficiente para nuestro uso (no exponemos ese orden al usuario; lo reordenamos client-side por jerarquía geográfica).
+- Mantener `.is('deleted_at', null)` y `.range(from, to)`.
+
+Esto elimina el sort sobre la vista y la consulta pasa a ser un scan secuencial con joins por hash/loop, mucho más rápido (<1 s para 5k filas).
+
+### 2. Backoff + reintento ante 57014
+
+En la misma función, envolver el `await supabase.from(...)` con un pequeño reintento (máx 2 intentos, espera 500 ms) solo cuando `error.code === '57014'`. Si tras los reintentos sigue fallando, se propaga el error (comportamiento actual).
+
+Justificación: incluso con el query optimizado, una primera ejecución "fría" en Cloud puede tocar timeout puntual; el reintento evita que el usuario vea el toast por un único hipo.
+
+### 3. Índice compuesto en la base de datos
+
+Migración SQL:
+
+```sql
+CREATE INDEX IF NOT EXISTS idx_locations_alive_created
+  ON public.locations (created_at)
+  WHERE deleted_at IS NULL;
+```
+
+Cubre el filtro real (`deleted_at IS NULL`) y deja `created_at` ordenado por si en el futuro alguna otra ruta sí necesita orden temporal. No interfiere con `idx_locations_deleted_at` (que es para el caso opuesto, IS NOT NULL).
+
+### 4. Aviso al usuario más claro al fallar
+
+`use-database-sync.ts`: si tras el reintento la carga sigue fallando con `57014`, mostrar un toast accionable:
+
+> "La carga del catálogo está tardando demasiado. Vuelve a intentarlo en unos segundos."
+
+Con un botón "Reintentar" que dispare `window.dispatchEvent(new Event('reload-locations'))`. Para otros errores, mantener el mensaje genérico.
+
+## Qué NO se toca
+
+- No se cambia la vista `v_locations_resolved` (la single-source-of-truth de geografía resuelta sigue intacta — regla de memoria respetada).
+- No se reduce `select('*')` aún. Si tras los cambios anteriores sigue habiendo timeouts, se evaluará en un segundo paso recortar columnas pesadas (`raw_geocode`, `enriched_data`) y cargarlas lazy.
+- No se introduce progreso simulado en el overlay; el contador sigue siendo real (current/total).
+
+## Validación
+
+1. Recargar la home: la carga del catálogo completa en <2 s, sin toast de error, marcadores aparecen.
+2. Forzar timeout artificial (ej. `setStatementTimeout` en una sesión psql aparte) y confirmar reintento + toast accionable.
+3. Verificar plan del query con `EXPLAIN ANALYZE` antes/después del índice para confirmar que se usa `idx_locations_alive_created` o, al menos, que desaparece el sort sobre 5k+ filas.
+4. Re-ejecutar `fetchAllLocationsPaginated` desde `db-operations.ts` (otra ruta) y confirmar mismo comportamiento.
