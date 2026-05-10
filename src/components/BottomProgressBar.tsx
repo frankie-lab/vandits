@@ -319,7 +319,7 @@ export function BottomProgressBar() {
         {isPaused ? 'Enriquecimiento pausado' : 'Enriqueciendo ubicaciones...'}
       </span>
       <span className="text-xs text-muted-foreground tabular-nums">
-        {activeJob!.processed_count} de {activeJob!.total_count}
+        {completed} de {activeJob!.total_count}
       </span>
       {(() => {
         const buckets = countErrorBuckets(activeJob!.error_messages ?? {});
