@@ -470,8 +470,8 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         })
         .eq('id', jobId);
       
-      // Small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Small delay to avoid rate limiting (kept short so pause/cancel respond fast)
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
     
     // Mark job as completed
