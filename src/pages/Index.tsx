@@ -97,6 +97,7 @@ const Index = () => {
       return;
     }
     void initSessionCollectionVisibility(user.id);
+    registerVisibilityDebug();
   }, [user?.id]);
 
   // ─── Discovery controls ref ──────────────────────────────────────────────
