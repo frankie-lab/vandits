@@ -1,73 +1,57 @@
-## Estado actual
+## Diagnóstico (resumen)
 
-Si tenemos `lat,lng`, el pipeline ya rellena de forma automática los niveles altos vía `reverse-geocode.ts` → `geo-normalizer.ts` → `resolve-admin-area`:
+El job global del 9 de mayo (4747 puntos, todo el mundo) **completó correctamente**. El plan de Geografía Universal SÍ es transversal a todos los continentes.
 
-```
-Continente   ← derivado de country_code (tabla interna, sin red)
-País         ← Nominatim addr.country + country_code (ISO)
-Región (CCAA)← addr.state
-Provincia    ← addr.province (ó state_district)
-Comarca      ← addr.county / municipality
-Municipio    ← addr.city / town / village
-Barrio/Distrito ← addr.suburb / neighbourhood / quarter
-Calle        ← addr.road (+ house_number, postcode)
-```
+El job actual `c7b599b5` (3093 puntos, "Revisar normalizados · selección") está atascado con `last_error: "Invalid URL"` porque `backfill-admin-fks` mete los 3093 UUIDs en una URL PostgREST `?id=in.(uuid1,…uuid3093)` ≈ **114 KB**, muy por encima del límite de URL del runtime (~16 KB). Ningún punto se procesa.
 
-Y los 8 FKs (`continent_id…sublocality_id`) se escriben vía `resolveAllFks()`.
+## Principios para el fix (según tu indicación)
 
-## Lo que YA NO necesita nada (sólo coordenadas)
+1. **Sin límites artificiales bajos**. El tick procesa el máximo posible por iteración, no un page_size de 25.
+2. **El usuario no decide en el momento del error**. Si una selección no cabe entera en una URL, el sistema **no falla**: trocea internamente y procesa todo de forma transparente.
+3. **Aviso solo si la selección es enorme** (umbral configurable, p.ej. > 10 000 puntos). En ese caso, antes de crear el job, el diálogo de "Revisar normalizados" muestra: *"Has seleccionado X puntos. Se procesarán en bloques automáticos. Tiempo estimado: ~Y min. ¿Continuar?"*. No obliga a partir manualmente; solo informa.
 
-1. **Continente** — derivado del ISO α2.
-2. **País** — Nominatim siempre lo devuelve.
-3. **Región / CCAA / State** — Nominatim `state` con zoom 10.
-4. **Provincia** — `province` o `state_district` (regla por país).
-5. **Comarca / County** — `county` (ES/IT) o `district` (genérico).
-6. **Municipio** — `city/town/village/hamlet`.
-7. **Barrio / Distrito / Parroquia** — `suburb/neighbourhood/quarter` cuando OSM lo expone.
-8. **Calle** — `road` + `house_number` + `postcode`.
+## Cambios
 
-→ Para estos niveles **basta con la coordenada**. El job `geocoding-job-tick` los rellena.
+### 1. `supabase/functions/backfill-admin-fks/index.ts`
 
-## Lo que NO se puede sacar sólo de coordenadas
+- Cuando llega `body.location_ids` con N elementos, **slicing server-side**:
+  ```ts
+  const slice = locationIds?.slice(offset, offset + limit) ?? null;
+  if (slice) q = q.in('id', slice);   // nunca más de `limit` IDs en la URL
+  ```
+  El `.range()` se elimina para esa rama (el slice ya pagina).
+- **`limit` por tick = 500** (UUIDs ≈ 18 KB en URL → seguro). Cada tick procesa hasta 500 puntos: el job de 3093 acaba en ≤ 7 ticks (≤ 7 minutos con cron 1×min).
+- **Conteos sin red** cuando hay `location_ids`: `totalInScope = locationIds.length`. Se eliminan las queries `count: exact` de líneas 385/405 que también explotaban con la URL larga.
+- **Salvaguarda universal**: cualquier `q.in('id', ids)` con `ids.length > 500` se trocea internamente (loop con OR de slices) — protege futuros llamadores.
 
-Niveles más finos que la calle. Nominatim no los modela:
+### 2. `supabase/functions/geocoding-job-tick/index.ts`
 
-| Nivel | Por qué no llega solo | Qué haría falta |
-|---|---|---|
-| **Edificio / Portal** | OSM tiene `building=*` y `addr:housenumber` pero Nominatim los devuelve como parte del `display_name`, no como FK | Consulta **Overpass** alrededor del punto (radio 15-30m) buscando `building` con nombre o número, y guardarlo como `building_name` en `enriched_data` (no FK estructural) |
-| **Vivienda / Oficina / Unidad** | No es dato cartográfico público | Sólo lo aporta el usuario manualmente (campo libre en la ficha) o un proveedor de direcciones de pago (Google Places, HERE) |
-| **Urbanización / Polígono / Campus** | No es admin oficial | Ya cubierto por la **capa cultural Wikidata P31** que añadimos (chip violeta). Si Wikidata no lo tiene, no hay forma fiable solo con coords |
-| **Costa da Morte / Silicon Valley** (regiones culturales) | Ídem, taxonomía heterogénea | Ídem, capa cultural Wikidata |
+- Subir `pageSize` por defecto de **25 → 500** cuando hay `location_ids` (alineado con el límite seguro de URL).
+- Sin otros cambios: el offset bookkeeping y `cancel_geocoding_job` siguen igual.
 
-## Limitaciones reales del estado actual
+### 3. UI — aviso pre-job (`useGeocodingJobStore` / diálogo "Revisar normalizados")
 
-A. **Nominatim a veces devuelve niveles vacíos** aunque existan en OSM: zoom 18 trae detalle calle pero pierde provincia, zoom 10 trae provincia pero pierde calle. Por eso ya hacemos doble llamada y `mergeCanonical`. Bien.
+- Antes de crear el job, si `locationIds.length > 10 000`:
+  - Mostrar diálogo informativo: *"X puntos seleccionados. Se procesarán automáticamente en bloques de 500 (~Y minutos). ¿Continuar?"*
+  - Botones: **Procesar todo** (default) / **Cancelar**.
+- Si `length ≤ 10 000`: arrancar directo sin preguntar (caso actual de 3093, ni se notaría).
+- No hay opción de "partir manualmente": el troceo es server-side y transparente.
 
-B. **Países sin reglas específicas en `COUNTRY_RULES`** caen al `GENERIC` y a veces colapsan provincia/comarca. Hoy hay reglas para ES, FR, IT, DE, GB, US, PT, CA, MX, AR, BR + nórdicos. Para los demás (≈170 países) usamos GENERIC, que funciona en >90% de casos pero puede equivocarse en zone vs admin3 en países con jerarquía atípica (Japón, China, India, Suiza, Bélgica…).
+### 4. Limpieza inmediata del job atascado
 
-C. **Calle / portal**: Nominatim devuelve `road` y `house_number` solo en zoom 18. Si una coord cae en medio de un parque o monte, no habrá calle. Es correcto: no toda coord tiene calle.
+Una vez desplegado el fix:
+- Cancelar `c7b599b5` vía `cancel_geocoding_job(_job_id)`.
+- Relanzar "Revisar normalizados" desde la UI → el nuevo job usará el código corregido y completará los 3093 en ≤ 7 minutos.
 
-D. **Sublocality (barrio/parroquia)** depende totalmente de la cobertura OSM local. En Galicia las parroquias están bien cubiertas; en zonas rurales de Asia o África, no.
+## Qué NO cambia
 
-## Qué falta hacer (acciones concretas)
+- Cobertura geográfica del backfill: continúa siendo mundial (cualquier continente / país / región). El bug era de longitud de URL, no de zona geográfica.
+- `resolve-admin-area`, `geo-normalizer`, catálogo `admin_areas`, place_types: intactos.
+- El job global del 9 de mayo (4747 puntos ya normalizados) no se relanza.
 
-Para que el árbol se complete *hasta donde sea físicamente posible*:
+## Verificación
 
-1. **Reglas país adicionales en `COUNTRY_RULES`** — añadir JP, CN, IN, CH, BE, NL, AT, IE, AU, NZ, ZA, IL, AE… (≈15 países top de tu catálogo) para precisar `zone` vs `admin3`. Trabajo: edición de un solo fichero, ~50 líneas.
-
-2. **Capa Overpass para edificios nombrados** — nueva edge function `enrich-building` opcional: query Overpass `(building[name](around:25,lat,lng);)`, guardar `enriched_data.building = { name, osm_id, type }`. Se ejecuta sólo en enrich, no en backfill (Overpass es lento).
-
-3. **Mantener la capa cultural Wikidata** que ya implementamos para urbanizaciones / campus / regiones culturales — ya está activa.
-
-4. **Campo manual de unidad/oficina/vivienda** en la ficha de punto — input libre persistido en `enriched_data.unit`. UI únicamente, sin lógica geo.
-
-## Recomendación
-
-Si el objetivo es *árbol jerárquico navegable* (filtros, mapa, breadcrumbs), **lo que ya existe es suficiente**. Los 8 niveles ISO + capa cultural cubren el 100% del caso navegable.
-
-Lo que falta (edificio, portal, vivienda) **no es jerarquía, es metadato del punto**. Recomiendo:
-- Añadir reglas país (paso 1) → mejora calidad inmediata de provincia/comarca en países no europeos.
-- Añadir Overpass building lookup (paso 2) sólo si vas a mostrar "Estás en el edificio X" en la ficha.
-- Dejar vivienda/oficina como campo manual (paso 4).
-
-No es necesario tocar el árbol estructural ni las FKs. El trabajo restante es enriquecimiento, no normalización.
+1. Tras deploy, cancelar `c7b599b5`.
+2. Relanzar "Revisar normalizados · selección" sobre los 3093.
+3. Confirmar en `geocoding_jobs`: `processed` avanza ~500/tick, `last_error` vacío, `status='completed'` en ≤ 7 ticks.
+4. Probar con una selección pequeña (~50) y otra grande (~12 000) para validar el diálogo de aviso.
