@@ -1,5 +1,6 @@
 // FloatingToolbar — unified duplicates counter
 import React, { useState, useEffect, useCallback } from 'react';
+import { useCoalescedRealtimeTick } from '@/components/map/use-coalesced-realtime-tick';
 import { motion } from 'framer-motion';
 import { 
  Filter, 
