@@ -212,6 +212,13 @@ export function useRealtimeLocations() {
     const newRecord = payload.new;
     if (!newRecord || newRecord.deleted_at) return;
     const docId: string | undefined = newRecord.document_id || undefined;
+    // Red de seguridad: edge functions (scraper, OneDrive) suelen insertar
+    // collection_items casi a la vez que la location. Forzamos un rebuild
+    // debounced del índice de membership catálogo aunque ya tengamos canal
+    // dedicado en collection-visibility — robustece contra carreras / RLS.
+    if (newRecord.is_approved === true) {
+      requestCatalogMembershipRebuild();
+    }
     if (!docId) return;
 
     try {
