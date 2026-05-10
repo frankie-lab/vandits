@@ -87,9 +87,9 @@ export function getLocationHierarchy(
     country: canonicalCountry(norm(loc.country ?? gd?.pais)),
     region: norm(loc.region ?? gd?.admin_nivel_1),
     zone: norm(loc.zone ?? gd?.admin_nivel_2),
-    admin_level_3: norm(gd?.admin_nivel_3),
-    locality: norm(gd?.localidad),
-    sublocality: norm(gd?.sublocalidad),
+    admin_level_3: norm((loc as any).comarca ?? gd?.admin_nivel_3),
+    locality: norm((loc as any).localidad ?? gd?.localidad),
+    sublocality: norm((loc as any).sublocalidad ?? gd?.sublocalidad),
     street: norm(gd?.calle),
   } as Record<HierarchyLevel, string | undefined>;
   // Placeholders escritos en BD (`(sin provincia)`) se tratan como ausentes
