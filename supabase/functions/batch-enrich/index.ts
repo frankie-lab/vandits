@@ -434,10 +434,10 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         const structured = (enrichError as { __structured?: Record<string, unknown> })?.__structured;
         const message = enrichError instanceof Error ? enrichError.message : 'Error desconocido';
         if (structured) {
-          errorMessages[locationId] = { ...structured, message } as unknown as string;
+          errorMessages[locationId] = { ...structured, message };
         } else {
           // No structured info → likely network/JSON exception.
-          errorMessages[locationId] = { kind: 'network', message } as unknown as string;
+          errorMessages[locationId] = { kind: 'network', message };
         }
       }
       
