@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Play, Pause, X, CheckCircle2, AlertCircle, Loader2, RefreshCw, Settings2 } from 'lucide-react';
+import { Sparkles, Play, Pause, X, CheckCircle2, AlertCircle, Loader2, RefreshCw, Settings2, Compass, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -17,6 +17,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { loadLocationsFromDatabase } from '@/domains/content';
 import { toast } from 'sonner';
 import { EnrichmentCriteriaEditor } from './EnrichmentCriteriaEditor';
+import {
+  parseEnrichmentError,
+  countErrorBuckets,
+  isCoherenceKind,
+  labelForKind,
+  type EnrichmentErrorKind,
+} from '@/domains/content/lib/enrichment-error-kind';
+import { triggerEnrichLocation } from '@/domains/content/lib/enrich-location';
 
 interface BatchEnrichmentPanelProps {
  open: boolean;
