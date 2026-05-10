@@ -199,7 +199,7 @@ export function LocationMap() {
 
  useEffect(() => {
  const handleCriteriaChanged = () => setCriteriaVersion((v) => v + 1);
- const handleRealtimeUpdate = () => setForceUpdateCount((v) => v + 1);
+ // realtime/store updates are handled by `useCoalescedRealtimeTick` above
  
  
  const handleGoHome = () => {
