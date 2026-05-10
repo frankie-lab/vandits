@@ -148,8 +148,13 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
     // ============================================================
     const CONCURRENCY = 8;
 
+    // Sentinel returned by a worker when the AI Gateway is out of credits (402).
+    // The wave loop uses it to pause the whole job instead of marking the POI as error.
+    const NO_CREDITS = 'no_credits' as const;
+    type WorkerResult = void | typeof NO_CREDITS;
+
     // --- per-POI worker (all original logic, untouched semantics) ---
-    const processSingleLocation = async (locationId: string): Promise<void> => {
+    const processSingleLocation = async (locationId: string): Promise<WorkerResult> => {
       // Get location details
       const { data: location, error: locError } = await supabase
         .from('locations')
