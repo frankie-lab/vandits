@@ -182,9 +182,9 @@ export function invalidateCollectionChipsCache(_locationId?: string) { /* noop *
 // Visible SIEMPRE (enriquecido o no), no configurable desde el editor de fichas.
 export function buildPersonalTagsBlock(location: GeoLocation): string {
   const enriched: any = location.enrichedData;
-  const personales: string[] = Array.isArray(enriched?.etiquetas_personales)
-    ? enriched.etiquetas_personales
-    : [];
+  // Filtrado transversal: nunca pintar etiquetas que dupliquen el nombre de
+  // una colección a la que el punto pertenece (ver personal-tags-filter.ts).
+  const personales = filterPersonalTags(location.id, enriched?.etiquetas_personales);
   if (personales.length === 0) return '';
   const tagsHtml = personales
     .map((tag: string) =>
