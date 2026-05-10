@@ -167,6 +167,23 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         continue;
       }
 
+      // ===== SKIP ALREADY-ENRICHED (transversal rule: los verdes no se reenriquecen) =====
+      // Single source of truth: hasRealEnrichment ≡ enriched_data.descripcion no vacío.
+      const existingDesc = (location.enriched_data as { descripcion?: string } | null)?.descripcion;
+      if (typeof existingDesc === 'string' && existingDesc.trim().length > 0) {
+        processedIds.push(locationId);
+        console.log('Skip already-enriched:', location.name);
+        await supabase
+          .from('enrichment_jobs')
+          .update({
+            processed_count: processedIds.length,
+            processed_ids: processedIds,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', jobId);
+        continue;
+      }
+
       // ===== TRUNK LOOKUP (places_trunk) =====
       // Reusar enriquecimiento global si existe match fresco <250m
       try {
