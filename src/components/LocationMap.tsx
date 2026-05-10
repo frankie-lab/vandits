@@ -40,6 +40,10 @@ import {
 } from './map/map-utils';
 import { createCustomIcon } from './map/map-icons';
 import { onMarkerSizeConfigChange, getMarkerSizeConfig } from './map/useMarkerSizeConfig';
+import {
+  prewarmEnrichmentFailures,
+  subscribeFailureChange,
+} from '@/domains/content/lib/enrichment-failure-state';
 
 import { buildImageSection, createPopupContent, loadCardConfig } from './map/map-popups';
 import {
@@ -1463,6 +1467,27 @@ export function LocationMap() {
         const isEnriched = !!location?.enrichedData;
         const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
         marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, getTintForLocation(locationId)));
+      });
+    });
+    return unsub;
+  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds]);
+
+  // Anillo rojo de error: pre-warm de fallos al montar el mapa y re-render
+  // de iconos cuando el store de fallos invalida (realtime / location:enriched).
+  // Ver mem://style/map/error-outline-rule.
+  useEffect(() => {
+    void prewarmEnrichmentFailures();
+    const unsub = subscribeFailureChange(() => {
+      markersRef.current.forEach((marker, locationId) => {
+        const location = locationsRef.current.get(locationId);
+        const isSelected = selectedLocations.has(locationId);
+        const isFocused = focusedLocationId === locationId;
+        const isEnriched = !!location?.enrichedData;
+        const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
+        marker.setIcon(createCustomIcon(
+          isSelected, isFocused, isEnriched, location, criteriaTimestamp,
+          isRecentlyEnriched, getTintForLocation(locationId),
+        ));
       });
     });
     return unsub;

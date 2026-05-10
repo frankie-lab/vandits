@@ -1,123 +1,68 @@
-## Objetivo
+Tienes razón — quedó pendiente. Hoy los puntos con error de enriquecimiento solo se muestran como ámbar/rojo dentro del bloque de recovery (panel y ficha), pero el marcador en el mapa sigue pintándose con su paleta base (verde / gris / naranja) sin ninguna señal visual que diga "este falló". El plan añade ese contorno rojo de 5px de forma transversal.
 
-Que cualquier POI sin `enriched_data.descripcion` muestre **dentro de su propia ficha** (popup del mapa, vista de detalle, fila de la lista del documento) las mismas opciones de recuperación que viven hoy en el `BatchEnrichmentPanel`: badge del motivo, mensaje, distancia, candidatos, **Reintentar / Contexto cercano / Renombrar**.
+## Estado actual
 
-Los puntos enriquecidos no muestran nada. Reutilizamos los helpers ya creados — sin nuevos campos en `locations`.
+- `getPointVisualState(loc)` decide la paleta sólo entre los 3 estados canónicos (enriched / imported / empty). No sabe nada de errores.
+- `useEnrichmentFailure(locationId)` + `enrichmentFailureStore` ya tienen el motivo del fallo (lookup al job más reciente), pero hoy sólo lo consume `UnenrichedRecoveryBlock` (ficha y fila de doc).
+- `map-icons.ts::createCustomIcon` pinta círculo o pin con borde blanco. No hay un anillo extra de error.
 
----
+## Cambios propuestos
 
-## Arquitectura
+### 1. Nuevo helper único `hasEnrichmentFailure(locationId)`
+Archivo: `src/domains/content/lib/enrichment-failure-state.ts`
 
-### 1. Hook único `useEnrichmentFailure(locationId)`
+- Lee del singleton `enrichmentFailureStore` (ya existe). Devuelve `boolean` síncrono.
+- Sólo cuenta como "con error" si:
+  - El punto **no** está enriquecido (regla "los verdes no marcan error" — si después se enriqueció, el fallo se considera resuelto).
+  - Tiene una entrada en el store con `kind` ≠ `null`.
+- Expone también `subscribeFailureChange(cb)` (delgado wrapper sobre el evento existente) para forzar re-render de marcadores.
 
-`src/domains/content/hooks/use-enrichment-failure.ts`
+### 2. Pre-warm de fallos al cargar el mapa
+Archivo: `src/components/LocationMap.tsx` (o el hook que carga ubicaciones)
 
-- Único punto de lectura del motivo del último fallo de IA para un POI dado.
-- Consulta:
+- Una sola query a `enrichment_jobs` (último N=20 jobs del usuario) extrayendo `error_messages` y `error_ids`, y poblando el store de un golpe.
+- Con esto, `hasEnrichmentFailure(id)` es síncrono y consistente para los 4.000+ marcadores sin N consultas.
+- También se invalida ante el evento existente `location:enriched` (se quita el rojo cuando se reenriquece con éxito).
 
-```sql
-SELECT error_messages, error_ids, updated_at
-FROM enrichment_jobs
-WHERE error_ids @> ARRAY[locationId]::uuid[]
-ORDER BY updated_at DESC
-LIMIT 1
+### 3. Render del anillo rojo en `map-icons.ts`
+Archivo: `src/components/map/map-icons.ts`
+
+- Añadir parámetro nuevo `hasFailure: boolean` a `createCustomIcon`.
+- Si `hasFailure`:
+  - **Círculo (los 3 estados canónicos):** añadir un segundo `<circle>` exterior con `fill="none"`, `stroke="hsl(var(--destructive))"`, `stroke-width="5"`, `r` ligeramente mayor que el original. El icono SVG se amplía (size + 10) y `iconAnchor` se ajusta para mantenerlo centrado.
+  - **Pin (teardrop):** duplicar el path con `fill="none"`, mismo trazo rojo de 5px envolviendo la silueta.
+- Mantiene la paleta base (verde/gris/naranja) — el rojo es un **modificador** encima, no sustituye al estado.
+- Compatible con `collectionTint` (el tint queda dentro, el ring rojo fuera).
+
+### 4. Llamada desde `LocationMap` al crear cada marcador
+Pasar `hasEnrichmentFailure(loc.id)` a `createCustomIcon(...)`. El re-render por cambio de fallo se engancha al mismo flujo que ya usamos para `location:enriched` (evita full reloads).
+
+### 5. Memoria / regla transversal
+Añadir `mem://style/map/error-outline-rule.md`:
+
+> Los puntos con error de enriquecimiento (registrado en el store de fallos, sin enriched_data.descripcion) reciben un contorno rojo de 5px **encima** de su paleta canónica (verde/gris/naranja). El rojo desaparece automáticamente al enriquecer con éxito (regla "verde nunca marca error"). Helper único: `hasEnrichmentFailure(id)`. Render único: `createCustomIcon` en `map-icons.ts`.
+
+Y actualizar el Core de `mem://index.md` para mencionarlo junto a la regla de paleta.
+
+## Detalles técnicos
+
+```text
+Marcador círculo con error:
+
+   ┌───── stroke rojo 5px ─────┐
+   │                            │
+   │   ●  paleta canónica       │  ← verde / gris / naranja sin cambios
+   │      (12px por defecto)    │
+   │                            │
+   └────────────────────────────┘
+   tamaño total = base + 10px
 ```
 
-- Devuelve:
+- El "tamaño" en `marker_size_config` no se altera. El anillo rojo es un overlay SVG.
+- El re-cluster se respeta: como el SVG sigue dentro del mismo `divIcon`, `markercluster` agrupa igual.
 
-```ts
-{ parsed: ParsedEnrichmentError | null, loading: boolean }
-```
+## Fuera de alcance
 
-donde `parsed` se obtiene con el `parseEnrichmentError(...)` ya existente sobre `error_messages[locationId]`.
-
-- **Cache** en `Map<locationId, ParsedEnrichmentError|null>` a nivel de módulo + invalidación por:
-  - evento `location:enriched` (ya emitido por `triggerEnrichLocation`) → borra entrada.
-  - postgres realtime UPDATE en `enrichment_jobs` (un canal global, no uno por POI).
-- TTL en memoria: 60 s para evitar re-consultas en re-render.
-
-Impacto DB: a futuro conviene añadir índice GIN sobre `enrichment_jobs.error_ids`. **Migración mínima incluida**:
-
-```sql
-CREATE INDEX IF NOT EXISTS idx_enrichment_jobs_error_ids
-  ON public.enrichment_jobs USING GIN (error_ids);
-```
-
-### 2. Componente compartido `UnenrichedRecoveryBlock`
-
-`src/domains/content/components/UnenrichedRecoveryBlock.tsx`
-
-Props:
-
-```ts
-{ location: GeoLocation, variant: 'card' | 'row' }
-```
-
-(El popup no es React, ver §4.)
-
-- Si `location.enrichmentStatus === 'enriched'` o tiene `enriched_data.descripcion` → no renderiza nada.
-- Llama `useEnrichmentFailure(location.id)` para tono y datos extra.
-- Render:
-  - **Header**: `<AlertCircle/>` + badge con `labelForKind(parsed?.kind ?? 'unknown')` o "Sin enriquecer" si no hay registro.
-  - **Mensaje**: `parsed.message` si existe; si no, copy genérico "Este punto aún no se ha enriquecido".
-  - **Distancia**: `parsed.nameLocation.distanceKm` cuando aplica.
-  - **Acciones** (siempre en este orden):
-    1. **Reintentar** → `triggerEnrichLocation(location.id, { focusAfter: false })`.
-    2. **Contexto cercano** → dispatch `open-nearby-context` con `providedName / nameLocation / nearbyCandidates` parseados (o vacíos si no hay job).
-    3. **Renombrar** → input inline pre-rellenado con `parsed.candidates[0]?.name`. Solo aparece si `parsed.kind === 'coherence'` con `candidates.length>0`.
-  - **Chips de candidatos** (≤ 4): pre-rellenan el input al pulsarse.
-- Tono: ámbar para soft (`coherence | no_match`), rojo para errores duros, gris neutro cuando no hay registro de fallo.
-
-`variant` solo cambia padding / tamaño tipográfico (`row` más compacto). Cero diferencias de lógica.
-
-### 3. Wiring en ficha completa y lista de doc
-
-- **`GalleryView`** (`src/components/GalleryView.tsx`): insertar `<UnenrichedRecoveryBlock variant="card" location={loc}/>` justo encima del bloque de descripción cuando el punto no está enriquecido.
-- **`DocumentWaypointsTabs`** (la lista de waypoints del doc): añadir `<UnenrichedRecoveryBlock variant="row" location={loc}/>` en cada fila no-enriquecida, debajo del nombre. Compacto: solo header + 1 línea con los 3 botones; los chips de candidatos se muestran solo si los hay.
-
-### 4. Wiring en el popup del mapa (HTML)
-
-`src/components/map/map-popups.ts` y `src/components/map/map-popup-handlers.ts`.
-
-El popup es **HTML string** + delegación con `data-action`. Mantenemos ese patrón — no introducimos React mount.
-
-- Helper único nuevo `buildRecoveryBlockHtml(loc, parsed, themeTokens)` en `src/components/map/popup-recovery.ts`. Devuelve un `<div data-recovery-root data-location-id="...">…</div>` con la misma estructura visual que el componente React.
-- Insertar el bloque en la cabecera del popup cuando `!loc.enrichedData?.descripcion`.
-- Como el popup se construye sincrónicamente y el lookup del job es async, el bloque se inyecta primero "skeleton" (con badge "Sin enriquecer", solo Reintentar + Contexto cercano), y un `requestAnimationFrame` después se rehidrata con el motivo + candidatos llamando al mismo cache singleton del hook (refactorizado a una clase `enrichmentFailureStore` exportable).
-- Nuevos `data-action` delegados en `map-popup-handlers.ts`:
-  - `enrich-retry` → `triggerEnrichLocation(locationId, { focusAfter: false })`.
-  - `enrich-context` → emite `open-nearby-context` con el payload cacheado.
-  - `enrich-rename` → muestra/oculta input inline (toggle DOM en sitio); `enrich-rename-confirm` ejecuta `update locations set name` + reintenta.
-  - `enrich-pick-candidate` → rellena el input.
-- Si el popup se cierra antes de que el lookup complete, simplemente no se rehidrata (idempotente).
-
-### 5. Persistencia & estado
-
-- **No** se añade columna nueva a `locations`. La fuente del motivo es `enrichment_jobs` (decisión del usuario). Cuando un job se purga, los puntos sin éxito muestran solo Reintentar + Contexto cercano (estado "Sin enriquecer" sin badge específico) — comportamiento aceptable.
-- El cache realtime se invalida cuando llega un UPDATE de `enrichment_jobs` que afecta al `locationId` en su `processed_ids` o `error_ids`.
-
-### 6. Memoria
-
-Nueva memoria `mem://logic/enrichment/per-poi-recovery-block` con:
-
-- Helper único `useEnrichmentFailure(locationId)` + cache `enrichmentFailureStore`.
-- Componente único `UnenrichedRecoveryBlock` (variants `card | row`) + helper HTML `buildRecoveryBlockHtml` para popup.
-- Se monta SIEMPRE en todo POI no-enriquecido (popup, ficha, fila de doc).
-- Acciones reutilizan `triggerEnrichLocation` y el evento `open-nearby-context`.
-- No hay schema change en `locations`; el motivo se obtiene por lookup al job más reciente.
-
----
-
-## Archivos tocados
-
-- `supabase/migrations/<ts>_idx_enrichment_jobs_error_ids.sql` — **nuevo** (índice GIN).
-- `src/domains/content/hooks/use-enrichment-failure.ts` — **nuevo** (hook + store singleton).
-- `src/domains/content/components/UnenrichedRecoveryBlock.tsx` — **nuevo** (variant `card | row`).
-- `src/components/map/popup-recovery.ts` — **nuevo** (HTML builder).
-- `src/components/map/map-popups.ts` — insertar bloque skeleton cuando POI no enriquecido.
-- `src/components/map/map-popup-handlers.ts` — nuevos `data-action` enrich-retry / context / rename / pick-candidate.
-- `src/components/GalleryView.tsx` — montar `UnenrichedRecoveryBlock variant="card"`.
-- `src/domains/content/components/DocumentWaypointsTabs.tsx` — montar `UnenrichedRecoveryBlock variant="row"` en filas no-enriquecidas.
-- `mem://logic/enrichment/per-poi-recovery-block.md` + entry en `mem://index.md`.
-
-Sin cambios en `BatchEnrichmentPanel` (sigue mostrando la lista global; ahora el usuario tiene paridad punto-a-punto).
+- **No** se reintroduce el azul cielo ni se añaden nuevos estados a `marker_size_config`. El rojo es un **flag binario** sobre los 3 estados existentes.
+- **No** se cambia `getPointVisualState` (sigue siendo la única fuente de paleta).
+- **No** se toca el popup ni la ficha (eso ya lo cubre `UnenrichedRecoveryBlock`).
