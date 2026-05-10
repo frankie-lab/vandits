@@ -121,7 +121,6 @@ export function BottomProgressBar() {
 
  if (activeJobs && activeJobs.length > 0) {
  const session = aggregateJobs(activeJobs as EnrichmentJob[])!;
- const prevStatus = activeJob?.status;
  const prevCount = lastProcessedCountRef.current;
 
  setActiveJob(session);
@@ -131,7 +130,6 @@ export function BottomProgressBar() {
  lastProcessedCountRef.current = session.processed_count;
  await refreshLocations();
  }
- _ = prevStatus;
  } else {
         // No hay activos: comprueba si una sesión recién terminada (último job
         // del usuario en estos documentos) merece el flash de "completado".
