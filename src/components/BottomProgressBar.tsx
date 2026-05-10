@@ -20,9 +20,71 @@ interface EnrichmentJob {
  error_messages?: Record<string, unknown> | null;
 }
 
+/**
+ * Una "sesión" agrega TODOS los jobs de enriquecimiento activos del usuario
+ * (un mismo handleEnrich crea 1 job por documentId, así que 18 puntos
+ * repartidos entre 3 docs = 3 jobs). El usuario espera ver "X de 18", no
+ * "X de N" del job que esté corriendo en ese instante. Aquí los unificamos.
+ */
+interface EnrichmentSession {
+  jobIds: string[];
+  status: 'pending' | 'running' | 'paused' | 'completed' | 'error';
+  total_count: number;
+  processed_count: number;
+  error_count: number;
+  current_location_name: string | null;
+  error_messages: Record<string, unknown>;
+}
+
+function aggregateJobs(jobs: EnrichmentJob[]): EnrichmentSession | null {
+  if (jobs.length === 0) return null;
+  const merged: Record<string, unknown> = {};
+  let total = 0;
+  let processed = 0;
+  let errors = 0;
+  let runningJob: EnrichmentJob | null = null;
+  let anyRunning = false;
+  let anyPending = false;
+  let allPaused = true;
+  for (const j of jobs) {
+    total += j.total_count || 0;
+    processed += j.processed_count || 0;
+    errors += j.error_count || 0;
+    if (j.error_messages && typeof j.error_messages === 'object') {
+      Object.assign(merged, j.error_messages);
+    }
+    if (j.status === 'running') {
+      anyRunning = true;
+      allPaused = false;
+      if (!runningJob) runningJob = j;
+    } else if (j.status === 'pending') {
+      anyPending = true;
+      allPaused = false;
+    } else if (j.status !== 'paused') {
+      allPaused = false;
+    }
+  }
+  const status: EnrichmentSession['status'] = anyRunning
+    ? 'running'
+    : allPaused
+      ? 'paused'
+      : anyPending
+        ? 'pending'
+        : 'running';
+  return {
+    jobIds: jobs.map((j) => j.id),
+    status,
+    total_count: total,
+    processed_count: processed,
+    error_count: errors,
+    current_location_name: runningJob?.current_location_name ?? null,
+    error_messages: merged,
+  };
+}
+
 export function BottomProgressBar() {
  const { selectedDocument, updateDocumentLocations, documents, filters } = useLocationsStore();
- const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
+ const [activeJob, setActiveJob] = useState<EnrichmentSession | null>(null);
  const [showCompleted, setShowCompleted] = useState(false);
  const [actionLoading, setActionLoading] = useState<string | null>(null);
  const lastProcessedCountRef = useRef(0);
@@ -43,43 +105,55 @@ export function BottomProgressBar() {
  }
 
   try {
-      // Build query to find active jobs for loaded documents
-  let query = supabase
+      // Trae TODOS los jobs activos en los documentos cargados (un handleEnrich
+      // multi-doc crea 1 job por documento — los unificamos en una sola
+      // sesión para que el contador refleje "X de TOTAL" correctamente).
+  let activeQuery = supabase
   .from('enrichment_jobs')
   .select('*')
   .in('status', ['pending', 'running', 'paused'])
-  .order('updated_at', { ascending: false })
-  .limit(1);
+  .in('document_id', documentIds)
+  .order('updated_at', { ascending: false });
 
-  if (documentIds.length > 0) {
-  query = query.in('document_id', documentIds);
-  }
-
-  const { data: activeJobs, error } = await query;
+  const { data: activeJobs, error } = await activeQuery;
 
  if (error) throw error;
 
  if (activeJobs && activeJobs.length > 0) {
- const job = activeJobs[0] as EnrichmentJob;
+ const session = aggregateJobs(activeJobs as EnrichmentJob[])!;
  const prevStatus = activeJob?.status;
  const prevCount = lastProcessedCountRef.current;
 
- setActiveJob(job);
+ setActiveJob(session);
 
-        // If new locations were processed, refresh the map
- if (job.status === 'running' && job.processed_count > prevCount) {
- lastProcessedCountRef.current = job.processed_count;
+        // Refresca el mapa cuando avanza el procesado total.
+ if (session.status === 'running' && session.processed_count > prevCount) {
+ lastProcessedCountRef.current = session.processed_count;
  await refreshLocations();
  }
-
-        // If just completed, refresh locations and show completion briefly
- if (job.status === 'completed' && prevStatus === 'running') {
- setShowCompleted(true);
- await refreshLocations();
- lastProcessedCountRef.current = 0;
- setTimeout(() => setShowCompleted(false), 5000);
- }
+ _ = prevStatus;
  } else {
+        // No hay activos: comprueba si una sesión recién terminada (último job
+        // del usuario en estos documentos) merece el flash de "completado".
+ if (activeJob && activeJob.status !== 'completed') {
+   const { data: recentDone } = await supabase
+     .from('enrichment_jobs')
+     .select('*')
+     .eq('status', 'completed')
+     .in('document_id', documentIds)
+     .order('updated_at', { ascending: false })
+     .limit(activeJob.jobIds.length);
+   if (recentDone && recentDone.length > 0) {
+     const finished = aggregateJobs(recentDone as EnrichmentJob[])!;
+     finished.status = 'completed';
+     setActiveJob(finished);
+     setShowCompleted(true);
+     await refreshLocations();
+     setTimeout(() => setShowCompleted(false), 5000);
+     lastProcessedCountRef.current = 0;
+     return;
+   }
+ }
  setActiveJob(null);
  lastProcessedCountRef.current = 0;
  }
@@ -102,13 +176,23 @@ export function BottomProgressBar() {
  return () => clearInterval(interval);
  }, [documents.length, fetchJobStatus]);
 
+ // Aplica una acción (pause/resume/cancel) a TODOS los jobs de la sesión en
+ // paralelo. Sin esto, pulsar Pausar/Detener sólo afectaría al primer job y
+ // los demás seguirían corriendo silenciosamente.
+ const broadcastAction = async (action: 'pause' | 'resume' | 'cancel') => {
+   if (!activeJob) return;
+   await Promise.all(
+     activeJob.jobIds.map((jobId) =>
+       supabase.functions.invoke('batch-enrich', { body: { action, jobId } }),
+     ),
+   );
+ };
+
  const handlePause = async () => {
  if (!activeJob) return;
  setActionLoading('pause');
  try {
- await supabase.functions.invoke('batch-enrich', {
- body: { action: 'pause', jobId: activeJob.id },
- });
+ await broadcastAction('pause');
  toast.success('Proceso pausado');
  await fetchJobStatus();
  } catch (error) {
@@ -123,9 +207,7 @@ export function BottomProgressBar() {
  if (!activeJob) return;
  setActionLoading('resume');
  try {
- await supabase.functions.invoke('batch-enrich', {
- body: { action: 'resume', jobId: activeJob.id },
- });
+ await broadcastAction('resume');
  toast.success('Proceso reanudado');
  await fetchJobStatus();
  } catch (error) {
@@ -140,9 +222,7 @@ export function BottomProgressBar() {
  if (!activeJob) return;
  setActionLoading('stop');
  try {
- await supabase.functions.invoke('batch-enrich', {
- body: { action: 'cancel', jobId: activeJob.id },
- });
+ await broadcastAction('cancel');
  setActiveJob(null);
  toast.success('Proceso detenido');
  } catch (error) {
@@ -156,9 +236,7 @@ export function BottomProgressBar() {
  const handleDismiss = async () => {
  if (!activeJob) return;
  try {
- await supabase.functions.invoke('batch-enrich', {
- body: { action: 'cancel', jobId: activeJob.id },
- });
+ await broadcastAction('cancel');
  setActiveJob(null);
  setShowCompleted(false);
  } catch (error) {
