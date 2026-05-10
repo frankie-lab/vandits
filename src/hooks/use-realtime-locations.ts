@@ -4,6 +4,7 @@ import { useLocationsStore } from '@/domains/content/store/locations-store';
 import { GeoLocation, EnrichedLocationData } from '@/types/location';
 import { dbLocationToGeoLocation } from '@/domains/content/lib/db-transformers';
 import { playActionSound } from '@/lib/sounds';
+import { requestCatalogMembershipRebuild } from '@/domains/content/lib/collection-visibility';
 
 /**
  * Hook that listens to realtime changes in the locations table
