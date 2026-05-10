@@ -285,7 +285,14 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         
         if (!enrichResponse.ok) {
           const errorText = await enrichResponse.text();
-          throw new Error(`Enrich failed: ${enrichResponse.status} - ${errorText}`);
+          const status = enrichResponse.status;
+          const kind = status === 429 ? 'rate_limit'
+            : status === 402 ? 'no_credits'
+            : status >= 500 ? 'timeout'
+            : 'unknown';
+          throw Object.assign(new Error(`Enrich failed: ${status} - ${errorText.slice(0, 200)}`), {
+            __structured: { kind, httpStatus: status },
+          });
         }
         
         const enrichData = await enrichResponse.json();
