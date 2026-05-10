@@ -89,6 +89,7 @@ export function isCoherenceKind(kind: EnrichmentErrorKind): boolean {
 export function labelForKind(kind: EnrichmentErrorKind): string {
   switch (kind) {
     case 'coherence': return 'Nombre ↔ coords';
+    case 'llm_unverifiable': return 'No verificable';
     case 'no_match': return 'Sin coincidencia';
     case 'rate_limit': return 'Rate limit';
     case 'no_credits': return 'Sin créditos';
