@@ -570,32 +570,15 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
  )}
  </div>
 
- {/* Errors list if any */}
- {activeJob && activeJob.error_count > 0 && Object.keys(activeJob.error_messages).length > 0 && (
- <ScrollArea className="flex-1 -mx-6 px-6">
- <div className="text-xs text-muted-foreground uppercase tracking-wide font-medium mb-2">
- Errores ({activeJob.error_count})
- </div>
- <AnimatePresence mode="popLayout">
- {Object.entries(activeJob.error_messages)
- .filter(([key]) => key !== '_job_error')
- .map(([locId, error], index) => (
- <motion.div
- key={locId}
- initial={{ opacity: 0, y: 10 }}
- animate={{ opacity: 1, y: 0 }}
- transition={{ delay: index * 0.02 }}
- className="flex items-center gap-3 p-2 rounded-lg mb-1 bg-red-50 dark:bg-red-900/20"
- >
- <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
- <div className="flex-1 min-w-0">
- <p className="text-xs text-red-600 truncate">{error}</p>
- </div>
- </motion.div>
- ))}
- </AnimatePresence>
- </ScrollArea>
- )}
+  {/* Errors list with manual resolution actions */}
+  {activeJob && activeJob.error_ids.length > 0 && (
+    <ErrorsResolutionList
+      errorIds={activeJob.error_ids}
+      errorMessages={activeJob.error_messages}
+      jobId={activeJob.id}
+      onResolved={() => { fetchJobStatus(); refreshLocations(); }}
+    />
+  )}
 
  {/* Background processing note */}
  {isProcessActive && (
