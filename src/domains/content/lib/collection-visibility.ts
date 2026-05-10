@@ -236,6 +236,84 @@ export async function initSessionCollectionVisibility(userId: string): Promise<v
     window.removeEventListener('collections-updated', metaHandler as EventListener);
     window.addEventListener('collections-updated', metaHandler as EventListener);
   }
+
+  // Realtime: rebuild catalogMembership cuando edge functions
+  // (scraper, OneDrive, batch-enrich) insertan/borran collection_items
+  // directamente sin pasar por el evento DOM 'collection-items-changed'.
+  // Sin esto, los puntos quedan invisibles porque el snapshot in-memory
+  // se queda rancio.
+  await setupCollectionItemsRealtime(userId);
+}
+
+// ─── Realtime: collection_items ─────────────────────────────────────────────
+let collectionItemsChannel: ReturnType<typeof supabase.channel> | null = null;
+let collectionItemsUserId: string | null = null;
+let rebuildDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleMembershipRebuild(userId: string) {
+  if (rebuildDebounceTimer) clearTimeout(rebuildDebounceTimer);
+  rebuildDebounceTimer = setTimeout(async () => {
+    if (currentUserId !== userId) return;
+    await rebuildCatalogMembership(userId);
+    broadcast();
+  }, 250);
+}
+
+async function setupCollectionItemsRealtime(userId: string) {
+  if (collectionItemsChannel && collectionItemsUserId === userId) return;
+  if (collectionItemsChannel) {
+    try { await supabase.removeChannel(collectionItemsChannel); } catch { /* ignore */ }
+    collectionItemsChannel = null;
+  }
+  collectionItemsUserId = userId;
+
+  // Cargamos ids de colecciones del usuario para filtrar el canal.
+  let collectionIds: string[] = [];
+  try {
+    const { data } = await supabase
+      .from('collections')
+      .select('id')
+      .eq('owner_user_id', userId);
+    collectionIds = (data ?? []).map((r: any) => r.id);
+  } catch (e) {
+    console.warn('[collection-visibility] could not preload collection ids', e);
+  }
+
+  // Si no hay colecciones todavía, igual nos suscribimos sin filter de ids
+  // (la API filtra por server-side; sin filter recibimos todos los items y
+  //  rebuildCatalogMembership descarta los que no son del usuario).
+  collectionItemsChannel = supabase
+    .channel(`collection-items-${userId}`)
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'collection_items',
+    }, (payload: any) => {
+      const cid = payload?.new?.collection_id;
+      if (!cid) return;
+      if (collectionIds.length > 0 && !collectionIds.includes(cid)) return;
+      scheduleMembershipRebuild(userId);
+    })
+    .on('postgres_changes', {
+      event: 'DELETE',
+      schema: 'public',
+      table: 'collection_items',
+    }, (payload: any) => {
+      const cid = payload?.old?.collection_id;
+      if (collectionIds.length > 0 && cid && !collectionIds.includes(cid)) return;
+      scheduleMembershipRebuild(userId);
+    })
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'collections',
+      filter: `owner_user_id=eq.${userId}`,
+    }, (payload: any) => {
+      const cid = payload?.new?.id;
+      if (cid && !collectionIds.includes(cid)) collectionIds.push(cid);
+      scheduleMembershipRebuild(userId);
+    })
+    .subscribe();
 }
 
 /** Solicita al mapa hacer fit a los puntos de una colección.
