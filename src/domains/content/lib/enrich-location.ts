@@ -15,6 +15,8 @@ import { useLocationsStore } from '@/domains/content';
 import { GeoLocation } from '@/types/location';
 import { toast } from 'sonner';
 import { resolveAllFks } from '@/shared/geography/resolve-admin-fks';
+import { enrichmentFailureStore } from '@/domains/content/hooks/use-enrichment-failure';
+import { parseEnrichmentError } from '@/domains/content/lib/enrichment-error-kind';
 
 export interface TriggerEnrichOptions {
   /** When true, force re-generation (semantically the popup's `regenerate`). */
