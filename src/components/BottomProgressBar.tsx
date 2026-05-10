@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content';
 import { loadLocationsFromDatabase } from '@/domains/content';
 import { toast } from 'sonner';
+import { countErrorBuckets } from '@/domains/content/lib/enrichment-error-kind';
 
 interface EnrichmentJob {
  id: string;
