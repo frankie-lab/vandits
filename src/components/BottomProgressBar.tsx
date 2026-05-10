@@ -261,6 +261,7 @@ export function BottomProgressBar() {
  const isActive = activeJob && ['pending', 'running', 'paused'].includes(activeJob.status);
  const isCompleted = activeJob?.status === 'completed' && showCompleted;
  const isPaused = activeJob?.status === 'paused';
+ const isPausedNoCredits = isPaused && (activeJob?.error_messages as Record<string, unknown> | undefined)?.__pause_reason === 'no_credits';
 
  const total = activeJob?.total_count ?? 0;
  const enriched = activeJob ? Math.max(0, activeJob.processed_count) : 0;
@@ -342,14 +343,21 @@ export function BottomProgressBar() {
                  {isActive && (
                    <>
                      <span className="font-medium text-sm truncate">
-                       {isPaused ? 'Enriquecimiento pausado' : 'Enriqueciendo ubicaciones'}
+                       {isPausedNoCredits
+                         ? 'Pausado: AI balance agotado'
+                         : isPaused ? 'Enriquecimiento pausado' : 'Enriqueciendo ubicaciones'}
                      </span>
                      {activeJob?.current_location_name && activeJob.status === 'running' && (
                        <span className="text-[11px] text-muted-foreground truncate">
                          {activeJob.current_location_name}
                        </span>
                      )}
-                     {isPaused && (
+                     {isPausedNoCredits && (
+                       <span className="text-[11px] text-amber-600 dark:text-amber-400 truncate">
+                         Recarga en Settings → Cloud & AI balance y pulsa Reanudar
+                       </span>
+                     )}
+                     {isPaused && !isPausedNoCredits && (
                        <span className="text-[11px] text-amber-600 dark:text-amber-400">
                          {queue} pendientes
                        </span>

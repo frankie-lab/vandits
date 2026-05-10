@@ -148,8 +148,13 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
     // ============================================================
     const CONCURRENCY = 8;
 
+    // Sentinel returned by a worker when the AI Gateway is out of credits (402).
+    // The wave loop uses it to pause the whole job instead of marking the POI as error.
+    const NO_CREDITS = 'no_credits' as const;
+    type WorkerResult = void | typeof NO_CREDITS;
+
     // --- per-POI worker (all original logic, untouched semantics) ---
-    const processSingleLocation = async (locationId: string): Promise<void> => {
+    const processSingleLocation = async (locationId: string): Promise<WorkerResult> => {
       // Get location details
       const { data: location, error: locError } = await supabase
         .from('locations')
@@ -348,8 +353,13 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         }
       } catch (enrichError) {
         console.error('Error enriching location:', location.name, enrichError);
-        errorIds.push(locationId);
         const structured = (enrichError as { __structured?: Record<string, unknown> })?.__structured;
+        // 402 / no credits → DO NOT mark as error. Signal pause to the wave loop
+        // so the POI stays pending and can be retried after user tops up.
+        if (structured && structured.kind === 'no_credits') {
+          return NO_CREDITS;
+        }
+        errorIds.push(locationId);
         const message = enrichError instanceof Error ? enrichError.message : 'Error desconocido';
         if (structured) {
           errorMessages[locationId] = { ...structured, message };
@@ -389,7 +399,10 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         })
         .eq('id', jobId);
 
-      await Promise.allSettled(wave.map(processSingleLocation));
+      const waveResults = await Promise.allSettled(wave.map(processSingleLocation));
+      const hitNoCredits = waveResults.some(
+        (r) => r.status === 'fulfilled' && r.value === NO_CREDITS,
+      );
 
       // Single coalesced progress write per wave
       await supabase
@@ -403,6 +416,21 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
           updated_at: new Date().toISOString(),
         })
         .eq('id', jobId);
+
+      if (hitNoCredits) {
+        console.warn('AI Gateway out of credits (402) — pausing job', jobId);
+        await supabase
+          .from('enrichment_jobs')
+          .update({
+            status: 'paused',
+            current_location_id: null,
+            current_location_name: null,
+            error_messages: { ...errorMessages, __pause_reason: 'no_credits' },
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', jobId);
+        return;
+      }
     }
     
     // Mark job as completed
