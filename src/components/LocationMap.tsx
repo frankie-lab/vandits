@@ -47,6 +47,7 @@ import {
 
 import { buildImageSection, createPopupContent, loadCardConfig } from './map/map-popups';
 import { bindRecoveryMount } from './map/popup-recovery-mount';
+import { bindCollectionsMount } from './map/popup-collections-mount';
 import {
   showRoute, clearRoute, showAdvisorPreview, clearAdvisorPreview,
   showJourneyPreview, clearJourneyPreview,
@@ -1375,9 +1376,14 @@ export function LocationMap() {
   });
 
   // Hidrata <UnenrichedRecoveryBlock> dentro del popup cuando se abre.
-  // Helper único. Solo se monta si el POI no está enriquecido (decidido por
-  // el propio componente con getPointVisualState).
-  bindRecoveryMount(marker, () => locationsRef.current.get(location.id));
+   // Helper único. Solo se monta si el POI no está enriquecido (decidido por
+   // el propio componente con getPointVisualState).
+   bindRecoveryMount(marker, () => locationsRef.current.get(location.id));
+
+   // Hidrata <LocationCollectionChips> dentro del popup: mismo componente
+   // transversal que la ficha lateral, con re-mount automático tras
+   // setPopupContent (enrichment, notas, fotos).
+   bindCollectionsMount(marker, () => locationsRef.current.get(location.id)?.id);
 
  markersRef.current.set(location.id, marker);
  locationsRef.current.set(location.id, location);

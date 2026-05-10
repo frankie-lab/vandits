@@ -152,68 +152,19 @@ function wrapCollapsibleSection(
 }
 
 // ─── Personal Tags (always visible, transversal) ────────────────────────────
-// Helper único: placeholder para los hashtags de las colecciones a las que
-// pertenece el punto. El render real se hace de forma asíncrona vía
-// `loadCollectionChipsForPopup` cuando Leaflet inserta el popup en el DOM.
+// Helper único: emite un nodo host estable `[data-collections-root]` dentro
+// del popup. La hidratación real se hace mediante el componente React único
+// `LocationCollectionChips`, montado por `bindCollectionsMount` cuando
+// Leaflet abre el popup. Misma fuente de datos transversal que la ficha
+// lateral (useLocationCollections) — sin caché manual ni reintentos.
 export function buildCollectionChipsPlaceholder(location: GeoLocation): string {
-  return `<div id="popup-collections-${location.id}" data-collections-for="${location.id}" style="clear: both; display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; margin: 0 0 ${CARD.sectionGap}px 0;"></div>`;
+  return `<div data-collections-root="${location.id}" style="clear: both; display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; margin: 0 0 ${CARD.sectionGap}px 0; min-height: 18px;"></div>`;
 }
 
-// Cache simple por sesión para no bombardear la DB en cada apertura de popup.
-const _collectionChipsCache = new Map<string, string>();
-
-export async function loadCollectionChipsForPopup(locationId: string): Promise<void> {
-  const render = (html: string) => {
-    // Reintenta unos ms por si Leaflet aún no insertó el popup.
-    let tries = 0;
-    const tick = () => {
-      const el = document.getElementById(`popup-collections-${locationId}`);
-      if (el) { el.innerHTML = html; return; }
-      if (tries++ < 10) setTimeout(tick, 40);
-    };
-    tick();
-  };
-
-  if (_collectionChipsCache.has(locationId)) {
-    render(_collectionChipsCache.get(locationId)!);
-    return;
-  }
-
-  try {
-    const { data, error } = await supabase
-      .from('collection_items')
-      .select('collections!inner(id, name, color)')
-      .eq('item_type', 'place')
-      .eq('item_id', locationId);
-    if (error) throw error;
-    const rows: Array<{ id: string; name: string; color: string | null }> =
-      (data ?? []).map((r: any) => r.collections);
-    if (!rows.length) {
-      _collectionChipsCache.set(locationId, '');
-      render('');
-      return;
-    }
-    const html = rows.map((c) => {
-      const color = c.color || '#6b7280';
-      const slug = c.name.replace(/\s+/g, '');
-      return `<span title="${c.name}" data-collection-id="${c.id}" style="display: inline-flex; align-items: center; gap: 2px; padding: 1px 8px; border-radius: 9999px; font-size: ${FONT.badge}px; font-weight: 500; color: ${color}; border: 1px solid ${color}55; background: ${color}14;"><span style="color: ${color};">#</span>${slug}</span>`;
-    }).join('');
-    _collectionChipsCache.set(locationId, html);
-    render(html);
-  } catch {
-    render('');
-  }
-}
-
-export function invalidateCollectionChipsCache(locationId?: string) {
-  if (locationId) _collectionChipsCache.delete(locationId);
-  else _collectionChipsCache.clear();
-}
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('collection-items-changed', () => _collectionChipsCache.clear());
-  window.addEventListener('collections-updated', () => _collectionChipsCache.clear());
-}
+// API legacy mantenida como no-op para no romper imports antiguos: el render
+// ahora es un componente React montado por `bindCollectionsMount`.
+export async function loadCollectionChipsForPopup(_locationId: string): Promise<void> { /* noop */ }
+export function invalidateCollectionChipsCache(_locationId?: string) { /* noop */ }
 
 // Helper único: pinta el bloque ámbar de tags personales.
 // Visible SIEMPRE (enriquecido o no), no configurable desde el editor de fichas.
@@ -421,9 +372,9 @@ export function createPopupContent(
   canEnrich: boolean = false,
 ): string {
   const locationUpdatedAt = location.updatedAt ? new Date(location.updatedAt).getTime() : 0;
-  // Carga asíncrona de los chips de colecciones — el placeholder ya está en
-  // el HTML; este side-effect rellena el div cuando Leaflet inserte el popup.
-  loadCollectionChipsForPopup(location.id);
+  // Los hashtags de colecciones se hidratan vía `bindCollectionsMount`
+  // (componente React único `LocationCollectionChips`) en `popupopen`.
+  // El HTML solo emite un host estable `[data-collections-root]`.
   // Helper único `isPointEnriched` — NO usar `location.enrichedData` truthy
   // como proxy de "enriquecido" (puede contener stubs sin `descripcion`).
   const isEnriched = isPointEnriched(location);
