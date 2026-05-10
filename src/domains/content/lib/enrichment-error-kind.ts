@@ -41,7 +41,7 @@ export interface ParsedEnrichmentError {
 }
 
 /** Conjuntos para clasificar en UI. */
-export const COHERENCE_KINDS: ReadonlyArray<EnrichmentErrorKind> = ['coherence', 'no_match'];
+export const COHERENCE_KINDS: ReadonlyArray<EnrichmentErrorKind> = ['coherence', 'llm_unverifiable', 'no_match'];
 export const HARD_ERROR_KINDS: ReadonlyArray<EnrichmentErrorKind> = [
   'rate_limit',
   'no_credits',
