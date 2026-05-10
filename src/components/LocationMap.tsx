@@ -68,6 +68,7 @@ import {
   setupNotesUpdatedHandler, setupPhotoUpdatedHandler,
 } from './map/map-popup-handlers';
 import { useEnrichmentTracker } from './map/useEnrichmentTracker';
+import { useCoalescedRealtimeTick } from './map/use-coalesced-realtime-tick';
 import { initPhotoLayer } from './map/map-photo-layer';
 import { initLayerGroups, destroyLayerGroups, getOrCreateGroup, clearAllGroups, applyLayerVisibility } from './map/map-layer-groups';
 import { useV2MapBridge } from '@/hooks/use-v2-map-bridge';
