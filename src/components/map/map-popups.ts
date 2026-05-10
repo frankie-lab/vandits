@@ -29,6 +29,7 @@ import {
   type EnrichmentCardConfigV2,
 } from '@/shared/enrichment/card-schema';
 import { descriptionToHtmlParagraphs } from '@/shared/enrichment/format-description';
+import { isPointEnriched } from '@/domains/content/lib/point-visual-state';
 
 // ─── Card Config Cache ──────────────────────────────────────────────────────
 // Source of truth: `app_settings.enrichment_card_config` always normalized
