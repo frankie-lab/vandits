@@ -13,6 +13,13 @@ import { adjustHslLightness } from './map-utils';
 import { getMarkerSizeConfig, getBaseSize, getHoverSize } from './useMarkerSizeConfig';
 import { getMarkerStateRules, getStateColor, getStateShadow, getStateBorderWidth } from './useMarkerStateRules';
 import { getPointConfigKey } from '@/domains/content/lib/point-visual-state';
+import { hasEnrichmentFailure } from '@/domains/content/lib/enrichment-failure-state';
+
+// Anillo rojo de 5px sobre los marcadores con fallo de enriquecimiento.
+// Es un overlay encima de la paleta canónica (verde/gris/naranja). No
+// sustituye al estado, sólo lo flaggea. Ver mem://style/map/error-outline-rule.
+const ERROR_RING_WIDTH = 5;
+const ERROR_RING_COLOR = '#dc2626';
 
 export const createCustomIcon = (
   isSelected: boolean,
