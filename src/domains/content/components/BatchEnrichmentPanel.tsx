@@ -20,6 +20,7 @@ import { EnrichmentCriteriaEditor } from './EnrichmentCriteriaEditor';
 import {
   parseEnrichmentError,
   countErrorBuckets,
+  countErrorKinds,
   isCoherenceKind,
   labelForKind,
   type EnrichmentErrorKind,
