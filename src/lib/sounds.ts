@@ -135,8 +135,13 @@ export function playSuccessChime() {
  }
 }
 
+let __lastEnrichmentSoundAt = 0;
 export function playEnrichmentComplete() {
  if (!isSoundActionEnabled('enrichment_complete')) return;
+ // Throttle: durante batch-enrich pueden llegar 10+ POIs/seg; un solo trino cada 400ms.
+ const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+ if (now - __lastEnrichmentSoundAt < 400) return;
+ __lastEnrichmentSoundAt = now;
  
  try {
  const ctx = getAudioContext();
