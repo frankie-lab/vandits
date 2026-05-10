@@ -17,9 +17,20 @@
  *  - mem://style/map/marker-classification-v3 (norma transversal)
  *  - mem://logic/map/catalog-workspace-layers (visibilidad por status)
  */
-import { getEnrichmentBucket, type EnrichableLocation } from './enrichment-state';
+import { getEnrichmentBucket, hasRealEnrichment, type EnrichableLocation } from './enrichment-state';
 
 export type PointVisualState = 'enriched' | 'imported' | 'empty';
+
+/**
+ * Helper único: ¿está este punto enriquecido por IA?
+ *
+ * NORMA TRANSVERSAL: cualquier check de "enriquecido vs no enriquecido" en la
+ * app DEBE pasar por aquí. Nunca usar `loc.enrichedData` truthy como proxy
+ * (puede contener stubs como `etiquetas_personales` sin `descripcion`).
+ */
+export function isPointEnriched(loc: EnrichableLocation | null | undefined): boolean {
+  return hasRealEnrichment(loc);
+}
 
 /**
  * Resolve the visual state of a point. Delegates to the single source of
