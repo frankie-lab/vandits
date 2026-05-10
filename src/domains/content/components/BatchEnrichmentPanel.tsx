@@ -482,9 +482,16 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
  <AlertCircle className="w-5 h-5" />
  <span className="font-medium">Error en el proceso</span>
  </div>
- <div className="text-sm text-red-600 dark:text-red-500 mt-1">
- {activeJob.error_messages?._job_error || 'Error desconocido'}
- </div>
+  <div className="text-sm text-red-600 dark:text-red-500 mt-1">
+   {(() => {
+     const j = activeJob.error_messages?._job_error;
+     if (typeof j === 'string') return j;
+     if (j && typeof j === 'object' && 'message' in (j as Record<string, unknown>)) {
+       return String((j as Record<string, unknown>).message ?? 'Error desconocido');
+     }
+     return 'Error desconocido';
+   })()}
+  </div>
  </div>
  )}
 
