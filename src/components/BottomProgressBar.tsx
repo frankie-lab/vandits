@@ -16,6 +16,7 @@ interface EnrichmentJob {
  processed_count: number;
  error_count: number;
  current_location_name: string | null;
+ error_messages?: Record<string, unknown> | null;
 }
 
 export function BottomProgressBar() {
