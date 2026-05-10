@@ -210,6 +210,11 @@ export function invalidateCollectionChipsCache(locationId?: string) {
   else _collectionChipsCache.clear();
 }
 
+if (typeof window !== 'undefined') {
+  window.addEventListener('collection-items-changed', () => _collectionChipsCache.clear());
+  window.addEventListener('collections-updated', () => _collectionChipsCache.clear());
+}
+
 // Helper único: pinta el bloque ámbar de tags personales.
 // Visible SIEMPRE (enriquecido o no), no configurable desde el editor de fichas.
 export function buildPersonalTagsBlock(location: GeoLocation): string {
