@@ -82,12 +82,24 @@ function aggregateJobs(jobs: EnrichmentJob[]): EnrichmentSession | null {
   };
 }
 
+function formatEta(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return '—';
+  const totalSec = Math.round(ms / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  if (m < 60) return `${m}m ${s.toString().padStart(2, '0')}s`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${(m % 60).toString().padStart(2, '0')}m`;
+}
+
 export function BottomProgressBar() {
  const { selectedDocument, updateDocumentLocations, documents, filters } = useLocationsStore();
  const [activeJob, setActiveJob] = useState<EnrichmentSession | null>(null);
  const [showCompleted, setShowCompleted] = useState(false);
  const [actionLoading, setActionLoading] = useState<string | null>(null);
  const lastProcessedCountRef = useRef(0);
+ const etaAnchorRef = useRef<{ startedAt: number; startedCompleted: number } | null>(null);
 
  const refreshLocations = useCallback(async () => {
  if (!selectedDocument) return;

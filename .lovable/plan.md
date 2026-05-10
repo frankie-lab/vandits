@@ -1,77 +1,70 @@
-## Diagnóstico
+# Rediseño de la barra de progreso de enriquecimiento
 
-El toast "Error al cargar datos guardados" lo dispara `useDatabaseSync` cuando `fetchAllLocationsPaginated()` falla. Los logs lo confirman:
+Objetivo: dar protagonismo a la barra (más ancho, un único riel segmentado con los 4 estados) sin aumentar la altura del contenedor ni perder los controles Pausar / Reanudar / Detener.
 
-```
-code: "57014"
-message: "canceling statement due to statement timeout"
-```
+## Cambios (un único archivo)
 
-El query es:
+`src/components/BottomProgressBar.tsx`
 
-```ts
-supabase.from('v_locations_resolved')
-  .select('*')
-  .is('deleted_at', null)
-  .range(from, to)
-  .order('created_at', { ascending: true });
-```
+### 1. Barra segmentada única (centro, ancha)
 
-`v_locations_resolved` resuelve la geografía con **7 LEFT JOIN a `admin_areas`**. Sobre 5.073 locations + RLS por fila + `ORDER BY created_at` (sin índice en esa columna ni en `(deleted_at, created_at)`) el planner termina haciendo un sort completo tras RLS y joins. Resultado: supera el `statement_timeout` del rol `authenticated` (8 s por defecto) y aborta.
+Sustituir:
+- el riel fino superior (`h-1 bg-muted/50`)
+- el mini `Progress` central de 192px (`w-48`)
 
-Detalles adicionales:
-- Índice `idx_locations_deleted_at` es **parcial** `WHERE deleted_at IS NOT NULL`, así que NO ayuda al filtro `deleted_at IS NULL` que usamos en la app.
-- No hay índice sobre `created_at` ni compuesto sobre `(deleted_at, created_at)`.
-- El `ORDER BY` no se usa en la UI: en el cliente ya se reordena por jerarquía geográfica (`getLocationHierarchy / getFilteredLocations`) y por documento.
+por **una sola barra horizontal de `h-3 rounded-full`** que ocupa todo el ancho disponible entre el bloque de título (izquierda) y los botones (derecha). Usa `flex-1 min-w-0` para crecer.
 
-Mismo patrón se repite en `db-operations.ts` (segunda llamada a `fetchAllLocationsPaginated`).
-
-## Cambios
-
-### 1. Quitar el `ORDER BY` innecesario del fetch paginado
-
-`src/domains/content/lib/db-transformers.ts` → `fetchAllLocationsPaginated`:
-
-- Eliminar `.order('created_at', { ascending: true })`. La paginación con `range()` sin orden explícito devuelve un orden estable suficiente para nuestro uso (no exponemos ese orden al usuario; lo reordenamos client-side por jerarquía geográfica).
-- Mantener `.is('deleted_at', null)` y `.range(from, to)`.
-
-Esto elimina el sort sobre la vista y la consulta pasa a ser un scan secuencial con joins por hash/loop, mucho más rápido (<1 s para 5k filas).
-
-### 2. Backoff + reintento ante 57014
-
-En la misma función, envolver el `await supabase.from(...)` con un pequeño reintento (máx 2 intentos, espera 500 ms) solo cuando `error.code === '57014'`. Si tras los reintentos sigue fallando, se propaga el error (comportamiento actual).
-
-Justificación: incluso con el query optimizado, una primera ejecución "fría" en Cloud puede tocar timeout puntual; el reintento evita que el usuario vea el toast por un único hipo.
-
-### 3. Índice compuesto en la base de datos
-
-Migración SQL:
-
-```sql
-CREATE INDEX IF NOT EXISTS idx_locations_alive_created
-  ON public.locations (created_at)
-  WHERE deleted_at IS NULL;
+Segmentos apilados en porcentajes (de izquierda a derecha):
+```text
+[####### verde enriquecidos ####### | rojo errores duros | ámbar errores blandos | gris en cola ]
 ```
 
-Cubre el filtro real (`deleted_at IS NULL`) y deja `created_at` ordenado por si en el futuro alguna otra ruta sí necesita orden temporal. No interfiere con `idx_locations_deleted_at` (que es para el caso opuesto, IS NOT NULL).
+Implementación: contenedor `bg-muted/40` y 3 divs `absolute` con `left`/`width` calculados:
+- `enrichedPct = enriched / total * 100`
+- `hardPct = buckets.hard / total * 100`
+- `softPct = buckets.soft / total * 100`
+- el hueco restante queda como "en cola" (gris translúcido del fondo).
 
-### 4. Aviso al usuario más claro al fallar
+En estado `paused` el segmento verde pasa a ámbar para mantener el código visual actual.
 
-`use-database-sync.ts`: si tras el reintento la carga sigue fallando con `57014`, mostrar un toast accionable:
+### 2. Etiquetas compactas debajo del riel
 
-> "La carga del catálogo está tardando demasiado. Vuelve a intentarlo en unos segundos."
+Justo bajo la barra (misma fila visual, sin añadir altura porque sustituimos las dos líneas de texto actuales):
+```text
+Enriqueciendo ubicaciones · 432/583 (74%) · ETA 3 min 12 s
+● 427 enriquecidos   ● 1 error   ● 4 sin match   ● 151 en cola
+```
 
-Con un botón "Reintentar" que dispare `window.dispatchEvent(new Event('reload-locations'))`. Para otros errores, mantener el mensaje genérico.
+- Título a la izquierda con icono Sparkles animado.
+- Métricas en una sola línea con `tabular-nums`, separadores `·`.
+- Subtítulo "Procesando: {nombre}" se desplaza a la derecha del título en línea, truncado, sólo si hay sitio (`hidden lg:inline`).
 
-## Qué NO se toca
+### 3. Cálculo de ETA
 
-- No se cambia la vista `v_locations_resolved` (la single-source-of-truth de geografía resuelta sigue intacta — regla de memoria respetada).
-- No se reduce `select('*')` aún. Si tras los cambios anteriores sigue habiendo timeouts, se evaluará en un segundo paso recortar columnas pesadas (`raw_geocode`, `enriched_data`) y cargarlas lazy.
-- No se introduce progreso simulado en el overlay; el contador sigue siendo real (current/total).
+Nuevo `useRef<{ startedAt: number; startedCompleted: number }>` que se inicializa cuando aparece la primera sesión activa y se resetea al completarse. Tasa = `(completedNow - startedCompleted) / (now - startedAt)`. ETA = `remaining / tasa`. Formato vía helper local `formatEta(ms)` → "1 min 04 s" / "12 s" / "—" si tasa = 0.
 
-## Validación
+Reutilizable con el mismo patrón que `CatalogLoadingCard` (no hace falta extraer).
 
-1. Recargar la home: la carga del catálogo completa en <2 s, sin toast de error, marcadores aparecen.
-2. Forzar timeout artificial (ej. `setStatementTimeout` en una sesión psql aparte) y confirmar reintento + toast accionable.
-3. Verificar plan del query con `EXPLAIN ANALYZE` antes/después del índice para confirmar que se usa `idx_locations_alive_created` o, al menos, que desaparece el sort sobre 5k+ filas.
-4. Re-ejecutar `fetchAllLocationsPaginated` desde `db-operations.ts` (otra ruta) y confirmar mismo comportamiento.
+### 4. Layout final dentro del mismo contenedor
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ✦ Enriqueciendo... 432/583 · ETA 3:12     [████████░░░░]  74%   ⏸ Pausar  □ │
+│   ● 427  ● 1  ● 4  ● 151                                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+- Padding vertical actual `py-3` se conserva.
+- Se elimina el `h-1` superior (su función la asume el riel central).
+- Altura total ≈ idéntica a la actual (icono + dos líneas de texto ya ocupaban el mismo alto que riel `h-3` + línea de leyenda).
+
+### 5. Conservado intacto
+
+- `aggregateJobs`, polling, `broadcastAction`, handlers de pause/resume/stop/dismiss.
+- Botones Pausar / Reanudar / Detener / Cerrar con sus estados de loading.
+- Modos `paused` (fondo ámbar) y `completed` (fondo verde + "¡N ubicaciones enriquecidas!").
+- Responsive: en `sm` se ocultan los textos de los botones (icon-only), las métricas de leyenda colapsan a sólo los puntos con cantidades.
+
+### Validación
+
+Inspección visual a 1507px (viewport actual) y a `sm` (375px) para confirmar que la barra crece, los botones siguen alcanzables y la altura no aumenta.
