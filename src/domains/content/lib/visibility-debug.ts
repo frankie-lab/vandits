@@ -120,7 +120,7 @@ async function whyHidden(locationId: string): Promise<void> {
   } else {
     const passes = matchesLocationFilters(loc, filters, {
       currentUserId,
-      hiddenFollowedUserIds: state.hiddenFollowedUserIds ?? [],
+      hiddenFollowedUserIds: filters.hiddenFollowedUserIds ?? [],
     } as any);
     log('7. matchesLocationFilters', passes,
       `${passes ? 'pasa' : 'BLOQUEADO por'} filtros: ${activeFilters.map(([k]) => k).join(', ')}`);
