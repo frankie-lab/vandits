@@ -197,8 +197,8 @@ export function useRealtimeLocations() {
  console.warn('Realtime change classification failed, falling back to full refresh', e);
  }
 
-      // Emit event to trigger stats refresh in toolbar and map re-render
- window.dispatchEvent(new CustomEvent('location-realtime-update'));
+      // Emit event to trigger stats refresh in toolbar and targeted map re-render
+ window.dispatchEvent(new CustomEvent('location-realtime-update', { detail: { locationId: updatedRecord.id, kind: 'update' } }));
  },
  [updateLocation]
  );
