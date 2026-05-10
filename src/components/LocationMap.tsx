@@ -40,6 +40,10 @@ import {
 } from './map/map-utils';
 import { createCustomIcon } from './map/map-icons';
 import { onMarkerSizeConfigChange, getMarkerSizeConfig } from './map/useMarkerSizeConfig';
+import {
+  prewarmEnrichmentFailures,
+  subscribeFailureChange,
+} from '@/domains/content/lib/enrichment-failure-state';
 
 import { buildImageSection, createPopupContent, loadCardConfig } from './map/map-popups';
 import {
