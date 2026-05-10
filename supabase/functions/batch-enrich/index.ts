@@ -353,8 +353,13 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         }
       } catch (enrichError) {
         console.error('Error enriching location:', location.name, enrichError);
-        errorIds.push(locationId);
         const structured = (enrichError as { __structured?: Record<string, unknown> })?.__structured;
+        // 402 / no credits → DO NOT mark as error. Signal pause to the wave loop
+        // so the POI stays pending and can be retried after user tops up.
+        if (structured && structured.kind === 'no_credits') {
+          return NO_CREDITS;
+        }
+        errorIds.push(locationId);
         const message = enrichError instanceof Error ? enrichError.message : 'Error desconocido';
         if (structured) {
           errorMessages[locationId] = { ...structured, message };
