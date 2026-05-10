@@ -343,61 +343,129 @@ export function BottomProgressBar() {
                </div>
              </div>
 
-             {/* Center: Wide segmented progress bar with legend */}
-             {isActive && (
-               <div className="flex-1 min-w-0 flex flex-col gap-1">
-                 <div className="relative h-3 rounded-full bg-muted/50 overflow-hidden">
-                   {/* Enriched segment (green, or amber when paused) */}
-                   <motion.div
-                     className={`absolute inset-y-0 left-0 ${isPaused ? 'bg-amber-500' : 'bg-green-500'}`}
-                     initial={{ width: 0 }}
-                     animate={{ width: `${enrichedPct}%` }}
-                     transition={{ duration: 0.3 }}
-                   />
-                   {/* Hard errors (red) */}
-                   <motion.div
-                     className="absolute inset-y-0 bg-red-500"
-                     initial={{ width: 0 }}
-                     animate={{ left: `${enrichedPct}%`, width: `${hardPct}%` }}
-                     transition={{ duration: 0.3 }}
-                   />
-                   {/* Soft errors (amber) */}
-                   <motion.div
-                     className="absolute inset-y-0 bg-amber-500"
-                     initial={{ width: 0 }}
-                     animate={{ left: `${enrichedPct + hardPct}%`, width: `${softPct}%` }}
-                     transition={{ duration: 0.3 }}
-                   />
-                 </div>
-                 <div className="flex items-center gap-x-3 gap-y-0.5 text-[11px] tabular-nums flex-wrap">
-                   <span className="font-medium text-foreground">
-                     {completed}/{total}
-                   </span>
-                   <span className="text-muted-foreground">{Math.round(progress)}%</span>
-                   {activeJob?.status === 'running' && (
-                     <span className="text-muted-foreground hidden sm:inline">
-                       ETA {formatEta(etaMs)}
-                     </span>
-                   )}
-                   <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400" title="Enriquecidos">
-                     <span className="w-1.5 h-1.5 rounded-full bg-green-500" />{enriched}
-                   </span>
-                   {hardErr > 0 && (
-                     <span className="inline-flex items-center gap-1 text-red-500" title="Errores duros">
-                       <span className="w-1.5 h-1.5 rounded-full bg-red-500" />{hardErr}
-                     </span>
-                   )}
-                   {softErr > 0 && (
-                     <span className="inline-flex items-center gap-1 text-amber-500" title="Sin coincidencia">
-                       <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />{softErr}
-                     </span>
-                   )}
-                   <span className="inline-flex items-center gap-1 text-muted-foreground" title="En cola">
-                     <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60" />{queue}
-                   </span>
-                 </div>
-               </div>
-             )}
+              {/* Center: One bold bar that carries the data with it */}
+              {isActive && (
+                <div className="flex-1 min-w-0">
+                  <div
+                    className="relative h-8 rounded-md overflow-hidden ring-1 ring-border/60 bg-muted/60 dark:bg-muted/30 shadow-inner"
+                    role="progressbar"
+                    aria-valuenow={Math.round(progress)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label="Progreso de enriquecimiento"
+                  >
+                    {/* Segments: enriched + hard + soft, side by side */}
+                    <motion.div
+                      className={`absolute inset-y-0 left-0 ${
+                        isPaused
+                          ? 'bg-gradient-to-r from-amber-400 to-amber-500'
+                          : 'bg-gradient-to-r from-emerald-500 to-green-500'
+                      }`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${enrichedPct}%` }}
+                      transition={{ duration: 0.4, ease: 'easeOut' }}
+                    />
+                    <motion.div
+                      className="absolute inset-y-0 bg-gradient-to-r from-red-500 to-rose-600"
+                      initial={{ width: 0 }}
+                      animate={{ left: `${enrichedPct}%`, width: `${hardPct}%` }}
+                      transition={{ duration: 0.4, ease: 'easeOut' }}
+                    />
+                    <motion.div
+                      className="absolute inset-y-0 bg-gradient-to-r from-amber-400 to-amber-500"
+                      initial={{ width: 0 }}
+                      animate={{ left: `${enrichedPct + hardPct}%`, width: `${softPct}%` }}
+                      transition={{ duration: 0.4, ease: 'easeOut' }}
+                    />
+                    {/* Animated stripes while running for "alive" feel */}
+                    {activeJob?.status === 'running' && progress < 100 && (
+                      <motion.div
+                        className="absolute inset-y-0 left-0 pointer-events-none opacity-20 mix-blend-overlay"
+                        style={{
+                          width: `${progress}%`,
+                          backgroundImage:
+                            'repeating-linear-gradient(135deg, rgba(255,255,255,0.6) 0 8px, transparent 8px 16px)',
+                          backgroundSize: '22px 22px',
+                        }}
+                        animate={{ backgroundPositionX: ['0px', '44px'] }}
+                        transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
+                      />
+                    )}
+                    {/* Subtle leading edge highlight */}
+                    {progress > 0 && progress < 100 && (
+                      <div
+                        className="absolute top-0 bottom-0 w-px bg-white/70 dark:bg-white/40 shadow-[0_0_8px_rgba(255,255,255,0.7)]"
+                        style={{ left: `calc(${progress}% - 0.5px)` }}
+                      />
+                    )}
+
+                    {/* Overlay: text rides ON the bar */}
+                    <div className="absolute inset-0 flex items-center justify-between px-3 text-[12px] font-medium tabular-nums pointer-events-none">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`font-semibold ${
+                            progress > 55 ? 'text-white drop-shadow-sm' : 'text-foreground'
+                          }`}
+                        >
+                          {completed}
+                          <span className="opacity-70">/{total}</span>
+                        </span>
+                        <span
+                          className={`text-[11px] ${
+                            progress > 55 ? 'text-white/85' : 'text-muted-foreground'
+                          }`}
+                        >
+                          {Math.round(progress)}%
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2.5 text-[11px]">
+                        {hardErr > 0 && (
+                          <span
+                            className={`inline-flex items-center gap-1 ${
+                              progress > 70 ? 'text-white' : 'text-red-600 dark:text-red-400'
+                            }`}
+                            title="Errores duros"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 ring-1 ring-white/60" />
+                            {hardErr}
+                          </span>
+                        )}
+                        {softErr > 0 && (
+                          <span
+                            className={`inline-flex items-center gap-1 ${
+                              progress > 80 ? 'text-white' : 'text-amber-600 dark:text-amber-400'
+                            }`}
+                            title="Sin coincidencia"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 ring-1 ring-white/60" />
+                            {softErr}
+                          </span>
+                        )}
+                        <span
+                          className={`inline-flex items-center gap-1 ${
+                            progress > 90 ? 'text-white/90' : 'text-muted-foreground'
+                          }`}
+                          title="En cola"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-foreground/40 ring-1 ring-white/60" />
+                          {queue}
+                        </span>
+                        {activeJob?.status === 'running' && etaMs > 0 && (
+                          <span
+                            className={`hidden sm:inline border-l pl-2.5 ${
+                              progress > 90
+                                ? 'text-white border-white/30'
+                                : 'text-muted-foreground border-border'
+                            }`}
+                          >
+                            ETA {formatEta(etaMs)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
              {/* Right: Action buttons */}
              <div className="flex items-center gap-2 flex-shrink-0">
