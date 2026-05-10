@@ -247,13 +247,17 @@ export function GalleryView({ onClose, onLocationClick }: GalleryViewProps) {
  </div>
  )}
 
- {selectedLocation.enrichedData?.descripcion && (
- <div className="mb-4 space-y-2">
- {splitDescriptionParagraphs(selectedLocation.enrichedData.descripcion).map((p, i) => (
- <p key={i} className="text-sm text-muted-foreground leading-relaxed">{p}</p>
- ))}
- </div>
- )}
+                {selectedLocation.enrichedData?.descripcion ? (
+                  <div className="mb-4 space-y-2">
+                    {splitDescriptionParagraphs(selectedLocation.enrichedData.descripcion).map((p, i) => (
+                      <p key={i} className="text-sm text-muted-foreground leading-relaxed">{p}</p>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mb-4">
+                    <UnenrichedRecoveryBlock location={selectedLocation} variant="card" />
+                  </div>
+                )}
 
  {/* Tags */}
  {selectedLocation.enrichedData?.etiquetas && selectedLocation.enrichedData.etiquetas.length > 0 && (
