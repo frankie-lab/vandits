@@ -505,9 +505,50 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
    })()}
   </div>
  </div>
- )}
+  )}
 
- {/* Controls */}
+  {/* Desglose de motivos de error/rechazo */}
+  {activeJob && activeJob.error_count > 0 && (() => {
+    const { byKind, total } = countErrorKinds(activeJob.error_messages);
+    if (total === 0) return null;
+    const rows: Array<{ kind: EnrichmentErrorKind; tone: 'soft' | 'hard' }> = [
+      { kind: 'coherence', tone: 'soft' },
+      { kind: 'llm_unverifiable', tone: 'soft' },
+      { kind: 'no_match', tone: 'soft' },
+      { kind: 'rate_limit', tone: 'hard' },
+      { kind: 'no_credits', tone: 'hard' },
+      { kind: 'timeout', tone: 'hard' },
+      { kind: 'network', tone: 'hard' },
+      { kind: 'unknown', tone: 'hard' },
+    ];
+    return (
+      <div className="space-y-2 p-3 rounded-lg border border-border bg-muted/30">
+        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Motivos de fallo ({total})
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {rows.map(({ kind, tone }) => {
+            const n = byKind[kind] ?? 0;
+            if (n === 0) return null;
+            const cls = tone === 'soft'
+              ? 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800'
+              : 'bg-red-50 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800';
+            return (
+              <Badge key={kind} variant="outline" className={`gap-1 ${cls}`}>
+                <span className="font-mono tabular-nums">{n}</span>
+                <span>{labelForKind(kind)}</span>
+              </Badge>
+            );
+          })}
+        </div>
+        <div className="text-[11px] text-muted-foreground">
+          Los puntos afectados muestran un anillo rojo en el mapa. Abre la ficha del punto para ver candidatos cercanos y renombrar o mover.
+        </div>
+      </div>
+    );
+  })()}
+
+  {/* Controls */}
  <div className="flex gap-2">
  {!isProcessActive && (
  <Button 
