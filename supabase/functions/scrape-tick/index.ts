@@ -270,7 +270,7 @@ async function persistPlace(job: any, documentId: string, place: ScrapedPlace): 
   const { data, error } = await supabase.from('locations').insert({
     document_id: documentId,
     owner_user_id: job.user_id,
-    name: place.name,
+    name: (place.name ?? '').trim() || 'Unnamed',
     description: place.description ?? null,
     latitude: place.latitude,
     longitude: place.longitude,
