@@ -261,6 +261,7 @@ export function BottomProgressBar() {
  const isActive = activeJob && ['pending', 'running', 'paused'].includes(activeJob.status);
  const isCompleted = activeJob?.status === 'completed' && showCompleted;
  const isPaused = activeJob?.status === 'paused';
+ const isPausedNoCredits = isPaused && (activeJob?.error_messages as Record<string, unknown> | undefined)?.__pause_reason === 'no_credits';
 
  const total = activeJob?.total_count ?? 0;
  const enriched = activeJob ? Math.max(0, activeJob.processed_count) : 0;
