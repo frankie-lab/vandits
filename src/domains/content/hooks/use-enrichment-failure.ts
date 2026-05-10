@@ -111,8 +111,9 @@ class EnrichmentFailureStore {
 
     // Invalidate when an enrichment trigger reports success in this tab.
     window.addEventListener('location:enriched', (e: Event) => {
-      const detail = (e as CustomEvent).detail as { locationId?: string } | undefined;
-      if (detail?.locationId) this.invalidate(detail.locationId);
+      const detail = (e as CustomEvent).detail as { id?: string; locationId?: string } | undefined;
+      const id = detail?.id ?? detail?.locationId;
+      if (id) this.invalidate(id);
     });
 
     // Realtime: any UPDATE on enrichment_jobs may add/remove ids from error_ids.
