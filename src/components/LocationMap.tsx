@@ -422,8 +422,6 @@ export function LocationMap() {
 
    return () => {
      window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
-     window.removeEventListener('location-realtime-update', handleRealtimeUpdate);
-     window.removeEventListener('store-updated', handleRealtimeUpdate);
      
      window.removeEventListener('map-go-home', handleGoHome);
      window.removeEventListener('map-set-theme', handleSetTheme);
