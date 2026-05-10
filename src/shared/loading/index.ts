@@ -7,3 +7,4 @@ export {
   type LoadingTask,
 } from './loading-bus';
 export { GlobalLoadingBar } from './GlobalLoadingBar';
+export { CatalogLoadingCard } from './CatalogLoadingCard';

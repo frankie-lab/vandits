@@ -24,6 +24,7 @@ import { playEnrichmentComplete } from '@/lib/sounds';
 import { usePermissions } from '@/domains/identity';
 import { useSocialStats } from '@/domains/social';
 import { useMapTheme } from '@/hooks/use-map-theme';
+import { CatalogLoadingCard } from '@/shared/loading';
 import { supabase } from '@/integrations/supabase/client';
 import { getLucideSvgString, getMapMarkerHtml, getStopTypeIconKey } from '@/lib/icon-utils';
 import { fetchIpGeolocation } from '@/lib/ip-geolocation';
@@ -1894,6 +1895,9 @@ export function LocationMap() {
  </div>
  </div>
  </div>
+
+      {/* Catalog loading card — replaces welcome popup while initial sync is in flight */}
+      <CatalogLoadingCard />
 
       {/* Welcome card — onboarding o summary según estado del catálogo */}
       {showEmptyState && (

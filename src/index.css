@@ -328,3 +328,8 @@ body.is-blocking-load,
 body.is-blocking-load * {
   cursor: progress !important;
 }
+/* Block map interactions (pan/zoom/click) while the catalog is loading
+   so the user does not act on an empty map. UI overlays remain clickable. */
+body.is-blocking-load .leaflet-container {
+  pointer-events: none !important;
+}
