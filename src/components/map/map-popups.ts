@@ -30,6 +30,8 @@ import {
 } from '@/shared/enrichment/card-schema';
 import { descriptionToHtmlParagraphs } from '@/shared/enrichment/format-description';
 import { isPointEnriched } from '@/domains/content/lib/point-visual-state';
+import { getCollectionsForLocation } from '@/domains/content/store/location-collections-store';
+import { getCollectionChipColors } from '@/shared/lib/collection-chip-color';
 
 // ─── Card Config Cache ──────────────────────────────────────────────────────
 // Source of truth: `app_settings.enrichment_card_config` always normalized
