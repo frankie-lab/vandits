@@ -134,7 +134,7 @@ export function useDatabaseSync(userId?: string | null) {
       }
       setSyncPhase('done');
     } finally {
-      endLoading('db-sync');
+      if (!silent) endLoading('db-sync');
     }
   }, [addDocument, _resetStoreState]);
 
