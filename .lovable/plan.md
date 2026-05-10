@@ -1,55 +1,66 @@
-## Objetivo
-Conseguir que el hashtag de colección sea un elemento constante del popup del mapa: si un punto pertenece a una o varias colecciones visibles por RLS, siempre deben mostrarse todas, también en puntos nuevos que acaban de importarse o enriquecerse.
-
 ## Diagnóstico
-El problema no está en la relación de datos básica sino en el mecanismo del popup:
 
-- La ficha lateral ya usa una solución transversal estable: `LocationCollectionChips` + `useLocationCollections`.
-- El popup del mapa usa otro camino distinto: placeholder HTML + carga asíncrona con `innerHTML` + caché manual por `locationId`.
-- Ese camino imperativo puede cachear vacío cuando el popup se abre antes de que exista o sea visible la fila de `collection_items`, y luego no siempre se invalida en los flujos automáticos de puntos nuevos.
-- Además, el popup no reutiliza el mismo ciclo de vida que la ficha lateral, por eso el comportamiento no es constante ni transversal.
+Sí, es exactamente eso. Lo he confirmado en la base de datos: una de las colecciones a las que pertenece "Medinaceli" es **`FullTrips`** con `color = #ffffff` (blanco puro).
 
-## Plan
-### 1. Unificar la fuente transversal de render
-Reemplazar en el popup la inyección HTML manual por el componente reutilizable `LocationCollectionChips`, montado dentro del popup igual que ya se hidrata `UnenrichedRecoveryBlock`.
+`LocationCollectionChips` aplica el color elegido por el usuario tal cual a tres cosas:
+- texto del chip (`color: color`)
+- borde (`borderColor: color + '55'`)
+- fondo (`backgroundColor: color + '14'`, 8% de opacidad)
 
-Resultado esperado:
-- mismo origen de datos en popup y ficha
-- mismo comportamiento para puntos antiguos y nuevos
-- sin HTML manual ni reintentos por timeout
+Sobre un popup blanco, un chip blanco con borde blanco al 33% y fondo blanco al 8% es literalmente invisible. Lo mismo pasa con cualquier color muy claro (amarillos pálidos, beige, gris muy claro). El mismo problema afecta a popup, ficha lateral y cualquier sitio que renderice este componente — es transversal.
 
-### 2. Eliminar la causa del parpadeo/desaparición
-Retirar la caché manual de chips del popup y su lógica de “resultado vacío”.
+## Solución (transversal)
 
-Resultado esperado:
-- no se guarda un estado vacío transitorio
-- abrir un popup nuevo no bloquea la aparición posterior de sus colecciones
-- desaparece la inconsistencia de “a veces sale, a veces no”
+Cambiar el helper único que decide los colores de un chip de colección para que **garantice contraste mínimo legible** sobre fondo claro, sin perder la identidad cromática elegida por el usuario.
 
-### 3. Reenganchar el ciclo de vida del popup
-Asegurar que cuando Leaflet hace `bindPopup`, `setPopupContent` o reabre un popup ya abierto, el mount de colecciones se vuelve a hidratar correctamente con el `locationId` actual.
+### 1. Helper único de chip de colección
 
-Resultado esperado:
-- el bloque de hashtags existe siempre como contenedor estable del popup
-- los popups regenerados tras enrichment, notas o fotos vuelven a montar las colecciones correctamente
+Crear `src/shared/lib/collection-chip-color.ts` con una función única:
 
-### 4. Verificar el refresco transversal tras cambios de colección
-Alinear los eventos del flujo automático de aprobación/materialización de colección con la misma ruta que ya escucha `useLocationCollections`.
+```
+getCollectionChipColors(rawColor: string | null): {
+  text: string;     // color del "#" y del nombre, con contraste garantizado
+  border: string;   // borde, con opacidad
+  background: string; // fondo, con opacidad
+  hashtag: string;  // color del símbolo #
+}
+```
 
-Resultado esperado:
-- cuando un punto nuevo entra en `collection_items`, el popup reacciona igual que la ficha lateral
-- no dependemos de eventos paralelos que hoy no invalidan el popup
+Reglas:
+- Si `rawColor` es nulo o no parseable → usar un gris neutro del sistema de diseño.
+- Convertir a HSL. Si la **luminosidad** supera un umbral (p. ej. `L > 70%`), oscurecer hasta caer dentro del rango legible sobre fondo claro (p. ej. `L = 35–45%`), preservando matiz y saturación. Caso extremo: blanco/negro → mapear a gris neutro del diseño.
+- Si la saturación es ~0 (grises), forzar el gris del sistema.
+- Calcular `border` y `background` a partir del color ya oscurecido (mismas opacidades actuales).
+- Devolver siempre valores HSL/HEX listos para usar.
 
-### 5. Validación funcional
-Comprobar estos casos:
-- punto antiguo con una colección
-- punto con varias colecciones
-- punto nuevo creado/importado y luego aprobado/materializado
-- popup abierto antes y después de la materialización
-- popup regenerado por actualización del marker
+Esto se hace una sola vez y se reutiliza en TODOS los renders de chips.
+
+### 2. Aplicar el helper en el render único
+
+En `LocationCollectionChips.tsx` reemplazar el cálculo inline por una sola llamada a `getCollectionChipColors(c.color)` y aplicar los cuatro valores. Cero lógica de color inline.
+
+Como el popup ya monta este mismo componente via `bindCollectionsMount`, el arreglo es automáticamente transversal: popup del mapa, `GalleryView`, listas, admin, etc.
+
+### 3. Coherencia con el editor de apariencia de colección
+
+En `CollectionAppearanceDialog` (donde el usuario elige el color):
+- Mostrar la previsualización del chip usando el mismo helper, para que el usuario vea exactamente cómo se renderizará.
+- Opcional: avisar con un texto pequeño si el color elegido se va a oscurecer automáticamente por contraste. No bloquear la elección — sólo informar.
+
+### 4. Tests
+
+Añadir `src/test/collection-chip-color.test.ts`:
+- `#ffffff` → texto oscurecido, claramente legible (L ≤ 50%).
+- `#000000` → gris neutro.
+- color medio (p. ej. `#06b6d4` cian de "Los Pueblos Más Bonitos") → se mantiene casi igual.
+- `null` / inválido → gris neutro.
+- borde/fondo se derivan del color final, no del original.
 
 ## Alcance
-Solo voy a atacar la transversalidad del render y refresco de hashtags de colección en popups. No tocaré reglas de negocio de visibilidad más allá de asegurar que el popup consuma correctamente lo que ya permite RLS.
 
-## Resultado final esperado
-Todos los popups mostrarán de forma consistente el bloque de hashtags de colección, con todas las colecciones visibles del punto, sin parpadeos ni desapariciones, y también en los puntos nuevos.
+- Sólo cambia cómo se traduce el color guardado del usuario a los tres tokens visuales del chip.
+- No cambia el color guardado en `collections.color`, ni el render del marcador, ni RLS, ni el flujo de carga.
+
+## Resultado esperado
+
+Los hashtags de colección son **siempre visibles** en el popup y en cualquier vista, independientemente de si el usuario eligió blanco, beige, amarillo pálido, gris claro o cualquier otro color con baja luminosidad de contraste sobre fondo claro, manteniendo la identidad cromática elegida cuando es legible.
