@@ -240,6 +240,21 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
   start: async (initialPending: number, scope?: GeocodingScope) => {
     if (get().running) return;
 
+    // Aviso transparente para selecciones grandes: el troceo es server-side
+    // (lotes de 500 / tick), pero si el usuario seleccionó muchos puntos le
+    // damos una estimación de tiempo y opción a cancelar antes de crear el job.
+    const idsLen = scope?.locationIds?.length ?? 0;
+    if (idsLen > 10_000) {
+      const minutes = Math.ceil(idsLen / 500); // ~1 tick/min, 500 ids/tick
+      const ok = window.confirm(
+        `Has seleccionado ${idsLen.toLocaleString('es-ES')} puntos.\n` +
+        `Se procesarán automáticamente en bloques de 500 ` +
+        `(~${minutes} min en segundo plano, aunque cierres el navegador).\n\n` +
+        `¿Continuar?`,
+      );
+      if (!ok) return;
+    }
+
     const { data: userData } = await supabase.auth.getUser();
     const uid = userData?.user?.id;
     if (!uid) {
