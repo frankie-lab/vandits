@@ -444,20 +444,31 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
 
  <Progress value={progress} className="h-2" />
 
- <div className="grid grid-cols-3 gap-2 text-xs">
- <div className="text-center">
- <div className="font-bold text-primary">{activeJob.total_count - activeJob.processed_count - activeJob.error_count}</div>
- <div className="text-muted-foreground">En cola</div>
- </div>
- <div className="text-center">
- <div className="font-bold text-green-600">{activeJob.processed_count}</div>
- <div className="text-muted-foreground">Completadas</div>
- </div>
- <div className="text-center">
- <div className="font-bold text-red-600">{activeJob.error_count}</div>
- <div className="text-muted-foreground">Errores</div>
- </div>
- </div>
+  <div className="grid grid-cols-4 gap-2 text-xs">
+   <div className="text-center">
+    <div className="font-bold text-primary">{activeJob.total_count - activeJob.processed_count - activeJob.error_count}</div>
+    <div className="text-muted-foreground">En cola</div>
+   </div>
+   <div className="text-center">
+    <div className="font-bold text-green-600">{activeJob.processed_count}</div>
+    <div className="text-muted-foreground">Completadas</div>
+   </div>
+   {(() => {
+     const buckets = countErrorBuckets(activeJob.error_messages);
+     return (
+       <>
+         <div className="text-center">
+           <div className="font-bold text-red-600">{buckets.hard}</div>
+           <div className="text-muted-foreground">Errores</div>
+         </div>
+         <div className="text-center">
+           <div className="font-bold text-amber-600">{buckets.soft}</div>
+           <div className="text-muted-foreground">Sin coinc.</div>
+         </div>
+       </>
+     );
+   })()}
+  </div>
  </div>
  )}
 
