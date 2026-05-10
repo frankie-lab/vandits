@@ -46,6 +46,7 @@ import {
 } from '@/domains/content/lib/enrichment-failure-state';
 
 import { buildImageSection, createPopupContent, loadCardConfig } from './map/map-popups';
+import { bindRecoveryMount } from './map/popup-recovery-mount';
 import {
   showRoute, clearRoute, showAdvisorPreview, clearAdvisorPreview,
   showJourneyPreview, clearJourneyPreview,
