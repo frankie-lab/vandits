@@ -118,7 +118,11 @@ Deno.serve(async (req) => {
   // offset (backfill aplica .range()) para no procesar lotes solapados.
   const useOffset = hasExplicitIds
     || (mode !== 'fill' && mode !== 'repair' && !(healthFilter && healthFilter.length > 0));
-  const pageSize: number = job.page_size ?? 25;
+  // 500 = límite seguro de URL para PostgREST `?id=in.(...)` (UUIDs ≈18 KB).
+  // Cuando el job no fija page_size, usamos ese tope para que el tick procese
+  // el máximo posible sin romper la URL ni saturar Nominatim por encima de su
+  // rate limit (~1 req/s; el tick tiene ~110 s de presupuesto).
+  const pageSize: number = job.page_size ?? 500;
   // FIJAMOS total_in_scope al valor inicial del job (lo que el usuario vio
   // al lanzar) para TODOS los modos. Si hay IDs explícitos, usamos su
   // longitud; si no, respetamos el `total_in_scope` con el que se creó el
