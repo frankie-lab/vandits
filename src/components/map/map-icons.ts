@@ -88,10 +88,18 @@ export const createCustomIcon = (
     const pinWidth = pinHeight * 0.7;
     const dotSize = pinHeight * 0.25;
 
+    // Para pin, el anillo rojo se simula con un drop-shadow plano que respeta
+    // la silueta de la lágrima. En la práctica, los pines suelen ser puntos
+    // enriquecidos (verdes) y por la regla "verde nunca marca error" nunca
+    // verán el anillo, pero lo soportamos por completitud.
+    const errorShadow = showErrorRing
+      ? ` drop-shadow(0 0 0 ${ERROR_RING_WIDTH}px ${ERROR_RING_COLOR})`
+      : '';
+
     return L.divIcon({
-      className: `custom-marker${isRecentlyEnriched ? ' recently-enriched' : ''}`,
+      className: `custom-marker${isRecentlyEnriched ? ' recently-enriched' : ''}${showErrorRing ? ' has-enrichment-error' : ''}`,
       html: `
-      <div style="width: ${pinWidth}px; height: ${pinHeight}px; position: relative; filter: ${shadow}; ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center bottom;" ${hoverAttr.replace("'1'", "'1'")}>
+      <div style="width: ${pinWidth}px; height: ${pinHeight}px; position: relative; filter: ${shadow}${errorShadow}; ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center bottom;" ${hoverAttr.replace("'1'", "'1'")}>
         ${collectionTint ? `<div class="collection-tint-ring" style="--collection-tint:${collectionTint}"></div>` : ''}
         <svg width="${pinWidth}" height="${pinHeight}" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
