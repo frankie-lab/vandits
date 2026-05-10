@@ -257,212 +257,228 @@ export function BottomProgressBar() {
  const isActive = activeJob && ['pending', 'running', 'paused'].includes(activeJob.status);
  const isCompleted = activeJob?.status === 'completed' && showCompleted;
  const isPaused = activeJob?.status === 'paused';
- // El progreso visual incluye los errores como "ya tratados" — si no, la
- // barra se quedaría a media bandera con puntos rojos en cola.
- const completed = activeJob ? activeJob.processed_count + activeJob.error_count : 0;
- const progress = activeJob && activeJob.total_count > 0 ? (completed / activeJob.total_count) * 100 : 0;
- const remaining = activeJob ? Math.max(0, activeJob.total_count - completed) : 0;
+
+ const total = activeJob?.total_count ?? 0;
+ const enriched = activeJob ? Math.max(0, activeJob.processed_count) : 0;
+ const buckets = countErrorBuckets(activeJob?.error_messages ?? {});
+ const hardErr = buckets.hard;
+ const softErr = buckets.soft;
+ const errorTotal = activeJob ? activeJob.error_count : 0;
+ const completed = enriched + errorTotal;
+ const queue = Math.max(0, total - completed);
+ const progress = total > 0 ? (completed / total) * 100 : 0;
+ const enrichedPct = total > 0 ? (enriched / total) * 100 : 0;
+ const hardPct = total > 0 ? (hardErr / total) * 100 : 0;
+ const softPct = total > 0 ? (softErr / total) * 100 : 0;
+
+ // ETA: anchor on first running observation; recompute from rolling rate.
+ useEffect(() => {
+   if (!isActive || activeJob?.status !== 'running') {
+     if (!isActive) etaAnchorRef.current = null;
+     return;
+   }
+   if (!etaAnchorRef.current) {
+     etaAnchorRef.current = { startedAt: Date.now(), startedCompleted: completed };
+   }
+ }, [isActive, activeJob?.status, completed]);
+
+ let etaMs = 0;
+ if (isActive && activeJob?.status === 'running' && etaAnchorRef.current && queue > 0) {
+   const elapsed = Date.now() - etaAnchorRef.current.startedAt;
+   const delta = completed - etaAnchorRef.current.startedCompleted;
+   if (delta > 0 && elapsed > 1500) {
+     const rate = delta / elapsed; // items per ms
+     etaMs = queue / rate;
+   }
+ }
 
  if (!isActive && !isCompleted) return null;
 
  return (
- <AnimatePresence>
- <motion.div
- initial={{ y: 100, opacity: 0 }}
- animate={{ y: 0, opacity: 1 }}
- exit={{ y: 100, opacity: 0 }}
- transition={{ type: 'spring', damping: 25, stiffness: 300 }}
- className="fixed bottom-0 left-0 right-0 z-[1000]"
- >
- <div className={`
- border-t shadow-lg backdrop-blur-md
- ${isCompleted 
- ? 'bg-green-50/95 dark:bg-green-950/95 border-green-200 dark:border-green-800' 
- : isPaused
- ? 'bg-amber-50/95 dark:bg-amber-950/95 border-amber-200 dark:border-amber-800'
- : 'bg-background/95 border-border'
- }
- `}>
- {/* Progress bar at the very top of the bar */}
- {isActive && (
- <div className="h-1 bg-muted/50 overflow-hidden">
- <motion.div
- className={`h-full ${isPaused ? 'bg-amber-500' : 'bg-primary'}`}
- initial={{ width: 0 }}
- animate={{ width: `${progress}%` }}
- transition={{ duration: 0.3 }}
- />
- </div>
- )}
+   <AnimatePresence>
+     <motion.div
+       initial={{ y: 100, opacity: 0 }}
+       animate={{ y: 0, opacity: 1 }}
+       exit={{ y: 100, opacity: 0 }}
+       transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+       className="fixed bottom-0 left-0 right-0 z-[1000]"
+     >
+       <div className={`
+         border-t shadow-lg backdrop-blur-md
+         ${isCompleted
+           ? 'bg-green-50/95 dark:bg-green-950/95 border-green-200 dark:border-green-800'
+           : isPaused
+             ? 'bg-amber-50/95 dark:bg-amber-950/95 border-amber-200 dark:border-amber-800'
+             : 'bg-background/95 border-border'
+         }
+       `}>
+         <div className="px-4 py-2.5">
+           <div className="max-w-screen-2xl mx-auto flex items-center gap-4">
+             {/* Left: Icon + title block (compact) */}
+             <div className="flex items-center gap-2.5 flex-shrink-0 min-w-0 max-w-[28%]">
+               {isActive && activeJob?.status === 'running' && (
+                 <div className="relative flex-shrink-0">
+                   <Sparkles className="w-5 h-5 text-primary" />
+                   <motion.div
+                     className="absolute inset-0"
+                     animate={{ rotate: 360 }}
+                     transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                   >
+                     <Loader2 className="w-5 h-5 text-primary opacity-40" />
+                   </motion.div>
+                 </div>
+               )}
+               {isPaused && <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />}
+               {activeJob?.status === 'pending' && (
+                 <Loader2 className="w-5 h-5 text-muted-foreground animate-spin flex-shrink-0" />
+               )}
+               {isCompleted && <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />}
 
- <div className="px-4 py-3">
- <div className="max-w-screen-xl mx-auto flex items-center justify-between gap-4">
- {/* Left: Status and info */}
- <div className="flex items-center gap-3 flex-1 min-w-0">
- {/* Icon */}
- {isActive && activeJob?.status === 'running' && (
- <div className="relative flex-shrink-0">
- <Sparkles className="w-5 h-5 text-primary" />
- <motion.div
- className="absolute inset-0"
- animate={{ rotate: 360 }}
- transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
- >
- <Loader2 className="w-5 h-5 text-primary opacity-40" />
- </motion.div>
- </div>
- )}
- {isPaused && (
- <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
- )}
- {activeJob?.status === 'pending' && (
- <Loader2 className="w-5 h-5 text-muted-foreground animate-spin flex-shrink-0" />
- )}
- {isCompleted && (
- <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
- )}
+               <div className="flex flex-col min-w-0 leading-tight">
+                 {isActive && (
+                   <>
+                     <span className="font-medium text-sm truncate">
+                       {isPaused ? 'Enriquecimiento pausado' : 'Enriqueciendo ubicaciones'}
+                     </span>
+                     {activeJob?.current_location_name && activeJob.status === 'running' && (
+                       <span className="text-[11px] text-muted-foreground truncate">
+                         {activeJob.current_location_name}
+                       </span>
+                     )}
+                     {isPaused && (
+                       <span className="text-[11px] text-amber-600 dark:text-amber-400">
+                         {queue} pendientes
+                       </span>
+                     )}
+                   </>
+                 )}
+                 {isCompleted && (
+                   <span className="font-medium text-sm text-green-700 dark:text-green-400 truncate">
+                     ¡{activeJob!.processed_count} ubicaciones enriquecidas!
+                   </span>
+                 )}
+               </div>
+             </div>
 
- {/* Text content */}
- <div className="flex flex-col min-w-0">
-  {isActive && (
-  <>
-    <div className="flex items-center gap-2 flex-wrap">
-      <span className="font-medium text-sm">
-        {isPaused ? 'Enriquecimiento pausado' : 'Enriqueciendo ubicaciones...'}
-      </span>
-      <span className="text-xs text-muted-foreground tabular-nums">
-        {completed} de {activeJob!.total_count}
-      </span>
-      {(() => {
-        const buckets = countErrorBuckets(activeJob!.error_messages ?? {});
-        const queue = Math.max(0, activeJob!.total_count - activeJob!.processed_count - activeJob!.error_count);
-        const enriched = Math.max(0, activeJob!.processed_count);
-        return (
-          <span className="flex items-center gap-2 text-[11px] tabular-nums">
-            <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400" title="Enriquecidos">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />{enriched}
-            </span>
-            {buckets.hard > 0 && (
-              <span className="inline-flex items-center gap-1 text-red-500" title="Errores duros (timeout, red, sin créditos)">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-500" />{buckets.hard}
-              </span>
-            )}
-            {buckets.soft > 0 && (
-              <span className="inline-flex items-center gap-1 text-amber-500" title="Sin coincidencia / nombre vs coordenadas">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />{buckets.soft}
-              </span>
-            )}
-            <span className="inline-flex items-center gap-1 text-muted-foreground" title="En cola">
-              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60" />{queue}
-            </span>
-          </span>
-        );
-      })()}
-    </div>
-    {activeJob?.current_location_name && activeJob.status === 'running' && (
-      <span className="text-xs text-muted-foreground truncate">
-        Procesando: {activeJob.current_location_name}
-      </span>
-    )}
-    {isPaused && (
-      <span className="text-xs text-amber-600 dark:text-amber-400">
-        {remaining} ubicaciones pendientes
-      </span>
-    )}
-  </>
- )}
+             {/* Center: Wide segmented progress bar with legend */}
+             {isActive && (
+               <div className="flex-1 min-w-0 flex flex-col gap-1">
+                 <div className="relative h-3 rounded-full bg-muted/50 overflow-hidden">
+                   {/* Enriched segment (green, or amber when paused) */}
+                   <motion.div
+                     className={`absolute inset-y-0 left-0 ${isPaused ? 'bg-amber-500' : 'bg-green-500'}`}
+                     initial={{ width: 0 }}
+                     animate={{ width: `${enrichedPct}%` }}
+                     transition={{ duration: 0.3 }}
+                   />
+                   {/* Hard errors (red) */}
+                   <motion.div
+                     className="absolute inset-y-0 bg-red-500"
+                     initial={{ width: 0 }}
+                     animate={{ left: `${enrichedPct}%`, width: `${hardPct}%` }}
+                     transition={{ duration: 0.3 }}
+                   />
+                   {/* Soft errors (amber) */}
+                   <motion.div
+                     className="absolute inset-y-0 bg-amber-500"
+                     initial={{ width: 0 }}
+                     animate={{ left: `${enrichedPct + hardPct}%`, width: `${softPct}%` }}
+                     transition={{ duration: 0.3 }}
+                   />
+                 </div>
+                 <div className="flex items-center gap-x-3 gap-y-0.5 text-[11px] tabular-nums flex-wrap">
+                   <span className="font-medium text-foreground">
+                     {completed}/{total}
+                   </span>
+                   <span className="text-muted-foreground">{Math.round(progress)}%</span>
+                   {activeJob?.status === 'running' && (
+                     <span className="text-muted-foreground hidden sm:inline">
+                       ETA {formatEta(etaMs)}
+                     </span>
+                   )}
+                   <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400" title="Enriquecidos">
+                     <span className="w-1.5 h-1.5 rounded-full bg-green-500" />{enriched}
+                   </span>
+                   {hardErr > 0 && (
+                     <span className="inline-flex items-center gap-1 text-red-500" title="Errores duros">
+                       <span className="w-1.5 h-1.5 rounded-full bg-red-500" />{hardErr}
+                     </span>
+                   )}
+                   {softErr > 0 && (
+                     <span className="inline-flex items-center gap-1 text-amber-500" title="Sin coincidencia">
+                       <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />{softErr}
+                     </span>
+                   )}
+                   <span className="inline-flex items-center gap-1 text-muted-foreground" title="En cola">
+                     <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60" />{queue}
+                   </span>
+                 </div>
+               </div>
+             )}
 
- {isCompleted && (
- <span className="font-medium text-sm text-green-700 dark:text-green-400">
- ¡{activeJob!.processed_count} ubicaciones enriquecidas con éxito!
- </span>
- )}
- </div>
- </div>
+             {/* Right: Action buttons */}
+             <div className="flex items-center gap-2 flex-shrink-0">
+               {isActive && (
+                 <>
+                   {isPaused ? (
+                     <Button
+                       size="sm"
+                       variant="default"
+                       onClick={handleResume}
+                       disabled={actionLoading === 'resume'}
+                       className="gap-1.5"
+                     >
+                       {actionLoading === 'resume' ? (
+                         <Loader2 className="w-4 h-4 animate-spin" />
+                       ) : (
+                         <Play className="w-4 h-4" />
+                       )}
+                       <span className="hidden sm:inline">Reanudar</span>
+                     </Button>
+                   ) : (
+                     <Button
+                       size="sm"
+                       variant="secondary"
+                       onClick={handlePause}
+                       disabled={actionLoading === 'pause' || activeJob?.status === 'pending'}
+                       className="gap-1.5"
+                     >
+                       {actionLoading === 'pause' ? (
+                         <Loader2 className="w-4 h-4 animate-spin" />
+                       ) : (
+                         <Pause className="w-4 h-4" />
+                       )}
+                       <span className="hidden sm:inline">Pausar</span>
+                     </Button>
+                   )}
+                   <Button
+                     size="sm"
+                     variant="ghost"
+                     onClick={handleStop}
+                     disabled={!!actionLoading}
+                     className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
+                   >
+                     {actionLoading === 'stop' ? (
+                       <Loader2 className="w-4 h-4 animate-spin" />
+                     ) : (
+                       <Square className="w-4 h-4" />
+                     )}
+                     <span className="hidden sm:inline">Detener</span>
+                   </Button>
+                 </>
+               )}
 
- {/* Center: Progress indicator for larger screens */}
- {isActive && (
- <div className="hidden md:flex items-center gap-2 flex-shrink-0">
- <div className="w-48">
- <Progress 
- value={progress} 
- className={`h-2 ${isPaused ? '[&>div]:bg-amber-500' : ''}`}
- />
- </div>
- <span className="text-xs font-medium tabular-nums w-12 text-right">
- {Math.round(progress)}%
- </span>
- </div>
- )}
-
- {/* Right: Action buttons */}
- <div className="flex items-center gap-2 flex-shrink-0">
- {isActive && (
- <>
- {isPaused ? (
- <Button
- size="sm"
- variant="default"
- onClick={handleResume}
- disabled={actionLoading === 'resume'}
- className="gap-1.5"
- >
- {actionLoading === 'resume' ? (
- <Loader2 className="w-4 h-4 animate-spin" />
- ) : (
- <Play className="w-4 h-4" />
- )}
- <span className="hidden sm:inline">Reanudar</span>
- </Button>
- ) : (
- <Button
- size="sm"
- variant="secondary"
- onClick={handlePause}
- disabled={actionLoading === 'pause' || activeJob?.status === 'pending'}
- className="gap-1.5"
- >
- {actionLoading === 'pause' ? (
- <Loader2 className="w-4 h-4 animate-spin" />
- ) : (
- <Pause className="w-4 h-4" />
- )}
- <span className="hidden sm:inline">Pausar</span>
- </Button>
- )}
- <Button
- size="sm"
- variant="ghost"
- onClick={handleStop}
- disabled={!!actionLoading}
- className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
- >
- {actionLoading === 'stop' ? (
- <Loader2 className="w-4 h-4 animate-spin" />
- ) : (
- <Square className="w-4 h-4" />
- )}
- <span className="hidden sm:inline">Detener</span>
- </Button>
- </>
- )}
-
- {isCompleted && (
- <Button
- size="sm"
- variant="ghost"
- onClick={handleDismiss}
- className="gap-1.5"
- >
- <X className="w-4 h-4" />
- <span className="hidden sm:inline">Cerrar</span>
- </Button>
- )}
- </div>
- </div>
- </div>
- </div>
- </motion.div>
- </AnimatePresence>
+               {isCompleted && (
+                 <Button size="sm" variant="ghost" onClick={handleDismiss} className="gap-1.5">
+                   <X className="w-4 h-4" />
+                   <span className="hidden sm:inline">Cerrar</span>
+                 </Button>
+               )}
+             </div>
+           </div>
+         </div>
+       </div>
+     </motion.div>
+   </AnimatePresence>
  );
 }
