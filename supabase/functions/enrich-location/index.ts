@@ -8,6 +8,7 @@ import {
 import { buildEnrichmentSchema } from "../_shared/build-enrichment-schema.ts";
 import { extractCulturalContext } from "../_shared/cultural-context.ts";
 import { isUnverifiableLLMOutput } from "../_shared/llm-unverifiable.ts";
+import { compareCountries } from "../_shared/country-iso.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -351,6 +352,7 @@ function getContinentForCountry(country: string | undefined, lat: number, lng: n
 // Reverse geocode using Nominatim to get country/region/zone
 async function reverseGeocodeLocation(lat: number, lng: number): Promise<{
   country?: string;
+  countryCode?: string;
   region?: string;
   zone?: string;
   continent?: string;
@@ -370,7 +372,6 @@ async function reverseGeocodeLocation(lat: number, lng: number): Promise<{
 
     if (!response.ok) {
       console.error('Nominatim error:', response.status);
-      // Aun sin respuesta de Nominatim, inferir continente por coordenadas
       return { continent: inferContinentFromCoordinates(lat, lng) };
     }
 
@@ -378,19 +379,18 @@ async function reverseGeocodeLocation(lat: number, lng: number): Promise<{
     const address = data.address || {};
 
     const country = address.country || undefined;
+    const countryCode = typeof address.country_code === 'string'
+      ? address.country_code.toUpperCase()
+      : undefined;
     const region = address.state || address.region || address.province || undefined;
     const zone = address.county || address.city || address.town || address.municipality || undefined;
-    // Calle/vía: sólo si Nominatim la devuelve. Nunca inventada.
     const street = address.road || address.pedestrian || address.footway || address.path || address.cycleway || undefined;
-
-    // Usar getContinentForCountry para obtener continente con fallback a coordenadas
     const continent = getContinentForCountry(country, lat, lng);
 
-    console.log('Geocoding result:', { country, region, zone, street, continent });
-    return { country, region, zone, continent, street };
+    console.log('Geocoding result:', { country, countryCode, region, zone, street, continent });
+    return { country, countryCode, region, zone, continent, street };
   } catch (error) {
     console.error('Geocoding error:', error);
-    // Fallback: al menos inferir continente
     return { continent: inferContinentFromCoordinates(lat, lng) };
   }
 }
@@ -2229,15 +2229,15 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
         }
 
         // Coords⇄país: si la IA inventó un país distinto al que Nominatim
-        // resolvió desde las coords, abortamos. El bloque de recuperación
-        // del cliente ofrecerá renombrar/mover el punto.
-        if (
-          !skipValidation &&
-          geoData.country && aiGeoData.pais &&
-          geoData.country.trim().toLowerCase() !== aiGeoData.pais.trim().toLowerCase()
-        ) {
+        // resolvió desde las coords, abortamos. Normalizamos via ISO α2 para
+        // evitar falsos positivos por idioma (Spain vs España, etc.).
+        const nominatimCountry = (geoData as { countryCode?: string }).countryCode || geoData.country;
+        const coherence = !skipValidation
+          ? compareCountries(nominatimCountry, aiGeoData.pais)
+          : 'unknown';
+        if (coherence === 'differ') {
           console.log(
-            `[enrich] ABORT name↔coords mismatch: nominatim="${geoData.country}" vs LLM="${aiGeoData.pais}"`,
+            `[enrich] ABORT name↔coords mismatch: nominatim="${geoData.country}" (${(geoData as { countryCode?: string }).countryCode ?? '?'}) vs LLM="${aiGeoData.pais}"`,
           );
           const nearbyPages = await fetchNearbyWikipediaPages(location.coordinates, COHERENCE_NEARBY_RADIUS_M, 5);
           const nearbyExtracts = await fetchPageExtracts(nearbyPages.map((p) => p.pageid));
