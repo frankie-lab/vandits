@@ -1367,11 +1367,16 @@ export function LocationMap() {
  toggleLocationSelection(location.id);
  });
 
- marker.on('popupclose', () => {
- if (focusedLocationId === location.id) {
- setFocusedLocation(null);
- }
- });
+  marker.on('popupclose', () => {
+  if (focusedLocationId === location.id) {
+  setFocusedLocation(null);
+  }
+  });
+
+  // Hidrata <UnenrichedRecoveryBlock> dentro del popup cuando se abre.
+  // Helper único. Solo se monta si el POI no está enriquecido (decidido por
+  // el propio componente con getPointVisualState).
+  bindRecoveryMount(marker, () => locationsRef.current.get(location.id));
 
  markersRef.current.set(location.id, marker);
  locationsRef.current.set(location.id, location);
