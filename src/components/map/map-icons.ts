@@ -45,6 +45,12 @@ export const createCustomIcon = (
   const size = getBaseSize(entry, isRecentlyEnriched, isFocused, isSelected);
   const hoverSize = getHoverSize(entry);
 
+  // Anillo rojo de error: helper único + regla "verde nunca marca error".
+  // Es un overlay que rodea al icono base; no muta la paleta de estado.
+  const showErrorRing = hasEnrichmentFailure(location);
+  const errorPad = showErrorRing ? ERROR_RING_WIDTH + 2 : 0;
+  const containerSize = size + errorPad * 2;
+
   const animationStyle = isRecentlyEnriched
     ? 'animation: enriched-celebrate 3.5s ease-out;'
     : isFocused
