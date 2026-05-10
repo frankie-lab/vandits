@@ -115,7 +115,7 @@ export function useDatabaseSync(userId?: string | null) {
         otherLocCount += kmlDoc.locations.length;
         addDocument(kmlDoc);
       });
-      updateLoading('db-sync', ownLocCount + otherLocCount);
+      if (!silent) updateLoading('db-sync', ownLocCount + otherLocCount);
 
       setSyncPhase('done');
       // Load summary is shown in the welcome card on the map (no toast to avoid duplication)
