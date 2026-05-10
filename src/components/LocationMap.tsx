@@ -253,9 +253,7 @@ export function LocationMap() {
  };
   
   
- window.addEventListener('enrichment-criteria-changed', handleCriteriaChanged);
- window.addEventListener('location-realtime-update', handleRealtimeUpdate);
- window.addEventListener('store-updated', handleRealtimeUpdate);
+  window.addEventListener('enrichment-criteria-changed', handleCriteriaChanged);
  window.addEventListener('map-go-home', handleGoHome);
  window.addEventListener('map-set-theme', handleSetTheme);
  window.addEventListener('map-fit-bounds', handleFitBounds);
