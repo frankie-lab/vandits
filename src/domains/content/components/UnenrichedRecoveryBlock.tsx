@@ -74,8 +74,8 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
       const result = await triggerEnrichLocation(location.id, { focusAfter: false });
       if (result.success) {
         enrichmentFailureStore.invalidate(location.id);
-      } else if (!result.openedNearbyContext) {
-        toast.error('No se pudo enriquecer');
+      } else if (result.error) {
+        toast.error(result.error);
       }
     } finally {
       setBusy(false);
