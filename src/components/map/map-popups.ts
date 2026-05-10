@@ -416,6 +416,9 @@ export function createPopupContent(
   canEnrich: boolean = false,
 ): string {
   const locationUpdatedAt = location.updatedAt ? new Date(location.updatedAt).getTime() : 0;
+  // Carga asíncrona de los chips de colecciones — el placeholder ya está en
+  // el HTML; este side-effect rellena el div cuando Leaflet inserte el popup.
+  loadCollectionChipsForPopup(location.id);
   // Helper único `isPointEnriched` — NO usar `location.enrichedData` truthy
   // como proxy de "enriquecido" (puede contener stubs sin `descripcion`).
   const isEnriched = isPointEnriched(location);
