@@ -15,7 +15,7 @@ export function dbLocationToGeoLocation(loc: any): GeoLocation {
 
   return {
     id: loc.id,
-    name: loc.name,
+    name: (loc.name ?? '').trim(),
     description: loc.description || undefined,
     coordinates: {
       lat: loc.latitude,
