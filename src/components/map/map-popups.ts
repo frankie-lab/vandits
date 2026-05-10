@@ -29,6 +29,7 @@ import {
   type EnrichmentCardConfigV2,
 } from '@/shared/enrichment/card-schema';
 import { descriptionToHtmlParagraphs } from '@/shared/enrichment/format-description';
+import { isPointEnriched } from '@/domains/content/lib/point-visual-state';
 
 // ─── Card Config Cache ──────────────────────────────────────────────────────
 // Source of truth: `app_settings.enrichment_card_config` always normalized
@@ -357,7 +358,10 @@ export function createPopupContent(
   canEnrich: boolean = false,
 ): string {
   const locationUpdatedAt = location.updatedAt ? new Date(location.updatedAt).getTime() : 0;
-  const canRegenerate = canEnrich && (!location.enrichedData || locationUpdatedAt < criteriaTimestamp);
+  // Helper único `isPointEnriched` — NO usar `location.enrichedData` truthy
+  // como proxy de "enriquecido" (puede contener stubs sin `descripcion`).
+  const isEnriched = isPointEnriched(location);
+  const canRegenerate = canEnrich && (!isEnriched || locationUpdatedAt < criteriaTimestamp);
   const enriched = location.enrichedData;
   const locationName = (enriched?.nombre_lugar && enriched.nombre_lugar !== 'null') ? enriched.nombre_lugar : location.name;
   const hasClassification = !!enriched?.clasificacion?.codigo;
@@ -474,7 +478,7 @@ Enriquecido ${location.updatedAt ? formatRegistrationDate(location.updatedAt) : 
 </div>
 ` : `
 ${canEditLocation ? `
-${enriched ? `
+${isEnriched ? `
 <!-- Enriched: date label + re-enrich button -->
 <div style="flex: 2; display: flex; align-items: center; gap: 4px;">
 <div style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 8px; background: #f0fdf4; color: #166534; border-radius: 4px; font-size: 10px; font-weight: 500;">
@@ -572,8 +576,8 @@ Añadir a mi colección
 </button>
 ` : '';
 
-  // Si tiene ficha enriquecida, mostrarla
-  if (enriched) {
+  // Si tiene ficha enriquecida (descripcion IA real), mostrarla.
+  if (isEnriched && enriched) {
     const localizacionLinks = parseLocalizacionToLinks(enriched.localizacion, location);
     const popupId = `popup-${location.id.slice(0, 8)}`;
     const cardCfg = getCardConfig();
