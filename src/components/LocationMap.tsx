@@ -1763,8 +1763,10 @@ export function LocationMap() {
     return () => window.removeEventListener('vandits:show-welcome', handler);
   }, []);
 
-  const showOnboardingCard = dataReady && welcomeMode === 'onboarding' && !welcomeDismissed;
-  const showSummaryCard = dataReady && welcomeMode === 'summary' && !welcomeDismissed && !summaryShown;
+  const loadingTasks = useActiveLoadings();
+  const isCatalogLoading = loadingTasks.some((t) => t.id === 'db-sync');
+  const showOnboardingCard = dataReady && !isCatalogLoading && welcomeMode === 'onboarding' && !welcomeDismissed;
+  const showSummaryCard = dataReady && !isCatalogLoading && welcomeMode === 'summary' && !welcomeDismissed && !summaryShown;
   const showEmptyState = showOnboardingCard || showSummaryCard;
 
   // Cierre al click fuera de la card (solo cuando la summary está visible).
