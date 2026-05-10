@@ -47,7 +47,10 @@ import {
 
 import { buildImageSection, createPopupContent, loadCardConfig } from './map/map-popups';
 import { bindRecoveryMount } from './map/popup-recovery-mount';
-import { bindCollectionsMount } from './map/popup-collections-mount';
+import {
+  primeCollectionsForLocations,
+  subscribeLocationCollections,
+} from '@/domains/content/store/location-collections-store';
 import {
   showRoute, clearRoute, showAdvisorPreview, clearAdvisorPreview,
   showJourneyPreview, clearJourneyPreview,
@@ -1380,10 +1383,13 @@ export function LocationMap() {
    // el propio componente con getPointVisualState).
    bindRecoveryMount(marker, () => locationsRef.current.get(location.id));
 
-   // Hidrata <LocationCollectionChips> dentro del popup: mismo componente
-   // transversal que la ficha lateral, con re-mount automático tras
-   // setPopupContent (enrichment, notas, fotos).
-   bindCollectionsMount(marker, () => locationsRef.current.get(location.id)?.id);
+   // Los hashtags de colección se pintan directamente en el HTML del popup
+   // desde `location-collections-store` (fuente única, lectura síncrona).
+   // Al abrir el popup, aseguramos que el store esté hidratado para este
+   // punto; si llega después, el listener global regenera el HTML.
+   marker.on('popupopen', () => {
+     primeCollectionsForLocations([location.id]);
+   });
 
  markersRef.current.set(location.id, marker);
  locationsRef.current.set(location.id, location);
