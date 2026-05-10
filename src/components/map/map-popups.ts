@@ -478,7 +478,7 @@ Enriquecido ${location.updatedAt ? formatRegistrationDate(location.updatedAt) : 
 </div>
 ` : `
 ${canEditLocation ? `
-${enriched ? `
+${isEnriched ? `
 <!-- Enriched: date label + re-enrich button -->
 <div style="flex: 2; display: flex; align-items: center; gap: 4px;">
 <div style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 8px; background: #f0fdf4; color: #166534; border-radius: 4px; font-size: 10px; font-weight: 500;">
