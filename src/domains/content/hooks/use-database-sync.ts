@@ -118,9 +118,19 @@ export function useDatabaseSync(userId?: string | null) {
 
       setSyncPhase('done');
       // Load summary is shown in the welcome card on the map (no toast to avoid duplication)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading from database:', error);
-      toast.error('Error al cargar datos guardados');
+      if (error?.code === '57014') {
+        toast.error('La carga del catálogo está tardando demasiado', {
+          description: 'Vuelve a intentarlo en unos segundos.',
+          action: {
+            label: 'Reintentar',
+            onClick: () => window.dispatchEvent(new Event('reload-locations')),
+          },
+        });
+      } else {
+        toast.error('Error al cargar datos guardados');
+      }
       setSyncPhase('done');
     } finally {
       endLoading('db-sync');

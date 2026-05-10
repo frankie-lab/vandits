@@ -41,6 +41,31 @@ export function dbLocationToGeoLocation(loc: any): GeoLocation {
   };
 }
 
+async function fetchPageWithRetry(from: number, to: number): Promise<any[] | null> {
+  const MAX_ATTEMPTS = 3;
+  let lastError: any = null;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const { data, error } = await supabase
+      .from('v_locations_resolved' as any)
+      .select('*')
+      .is('deleted_at', null)
+      .range(from, to);
+
+    if (!error) return (data as any[]) ?? [];
+
+    lastError = error;
+    // Retry only on statement_timeout (57014). Other errors fail fast.
+    if ((error as any).code !== '57014') throw error;
+
+    if (attempt < MAX_ATTEMPTS) {
+      await new Promise((r) => setTimeout(r, 500 * attempt));
+    }
+  }
+
+  throw lastError;
+}
+
 export async function fetchAllLocationsPaginated(): Promise<any[]> {
   const allLocations: any[] = [];
   let page = 0;
@@ -50,14 +75,7 @@ export async function fetchAllLocationsPaginated(): Promise<any[]> {
     const from = page * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
-    const { data, error } = await supabase
-      .from('v_locations_resolved' as any)
-      .select('*')
-      .is('deleted_at', null)
-      .range(from, to)
-      .order('created_at', { ascending: true });
-
-    if (error) throw error;
+    const data = await fetchPageWithRetry(from, to);
 
     if (data && data.length > 0) {
       allLocations.push(...data);
