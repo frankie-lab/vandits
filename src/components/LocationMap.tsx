@@ -670,42 +670,15 @@ export function LocationMap() {
  selection: selectionSignature,
  });
 
-  // Generate a key that changes when enrichment data OR criteria change
-  // Use selectedDocument.locations to ensure we detect changes from the store
-  // Also include forceUpdateCount to trigger updates from realtime/store events
+  // Lightweight key that only changes on structural shifts (criteria / source
+  // length / focused document). Per-POI enrichment refreshes are handled by the
+  // targeted `realtimeTick` effect below, so this no longer needs to iterate
+  // thousands of locations on every realtime UPDATE (which was saturating the
+  // main thread and preventing Leaflet from loading tiles during batch enrich).
   const enrichmentKey = React.useMemo(() => {
-    // Source set: prefer the focused document when one is selected, otherwise
-    // sign across ALL loaded locations so changes in `enrichedData` for any
-    // POI in the global map also recompose its icon + popup.
     const source = selectedDocument ? selectedDocument.locations : allLocations;
-    if (!source || source.length === 0) return `${criteriaKey}-${forceUpdateCount}`;
-
-    return source.reduce((acc, loc) => {
-      const ed = loc.enrichedData;
-      const cd = loc.customData;
-      // Note: user_rating, user_image_url, and enriched imagen are excluded from this key
-      // because these updates are handled in-place by their respective event handlers
-      // (rating-updated, photo-updated). Including them here would cause full popup
-      // regeneration which loses scroll position and causes visual glitches.
-      const signature = ed
-        ? [
-            ed.descripcion?.length || 0,
-            ed.datos_clave?.web_referencia ? 1 : 0,
-            ed.etiquetas?.length || 0,
-            ed.datos_clave?.tipo ? 1 : 0,
-            ed.datos_clave?.acceso ? 1 : 0,
-            ed.datos_clave?.estado_proteccion ? 1 : 0,
-            ed.clasificacion?.codigo || 'nc',
-            loc.continent ? 1 : 0,
-            loc.country ? 1 : 0,
-            loc.region ? 1 : 0,
-            cd?.visited || '0',
-          ].join(':')
-        : `orig:${loc.description?.length || 0}:${cd?.visited || '0'}`;
-
-      return acc + loc.id.slice(0, 4) + signature;
-    }, `${criteriaKey}-${source.length}-${forceUpdateCount}-`);
-  }, [selectedDocument?.locations, allLocations, criteriaKey, selectedDocument, forceUpdateCount]);
+    return `${criteriaKey}-${selectedDocument?.id ?? 'global'}-${source?.length ?? 0}`;
+  }, [selectedDocument, allLocations, criteriaKey]);
 
   // Enrichment tracker hook (animations, sounds, toasts)
   const { recentlyEnrichedIds } = useEnrichmentTracker({ allLocations, enrichmentKey, mapRef, markersRef });
