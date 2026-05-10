@@ -181,7 +181,7 @@ export function BottomProgressBar() {
  } catch (error) {
  console.error('Error fetching job status:', error);
  }
- }, [activeJob?.status, refreshLocations]);
+ }, [activeJob?.status, refreshLocations, scheduleRefreshLocations]);
 
   // Poll for job status (RLS filtra por usuario, no dependemos de documents)
  useEffect(() => {
