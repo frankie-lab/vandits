@@ -17,6 +17,7 @@ import {
   initSessionCollectionVisibility,
   resetSessionCollectionVisibility,
 } from '@/domains/content/lib/collection-visibility';
+import { registerVisibilityDebug } from '@/domains/content/lib/visibility-debug';
 import { PersonalCategoriesPanel } from '@/components/PersonalCategoriesPanel';
 import { ImportedContentPanel, type ImportedContentTab } from '@/components/ImportedContentPanel';
 import { PanelTabs } from '@/shared/components/ui/panel';
