@@ -899,6 +899,13 @@ export type Database = {
             referencedRelation: "v_location_geo_health"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "location_geo_provenance_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "v_locations_resolved"
+            referencedColumns: ["id"]
+          },
         ]
       }
       location_notes: {
@@ -942,6 +949,13 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "v_location_geo_health"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_notes_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "v_locations_resolved"
             referencedColumns: ["id"]
           },
         ]
@@ -993,6 +1007,13 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "v_location_geo_health"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_photos_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "v_locations_resolved"
             referencedColumns: ["id"]
           },
         ]
@@ -1969,6 +1990,13 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "v_location_geo_health"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_waypoints_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "v_locations_resolved"
             referencedColumns: ["id"]
           },
           {
@@ -2956,6 +2984,132 @@ export type Database = {
             columns: ["sublocality_id"]
             isOneToOne: false
             referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_locations_resolved: {
+        Row: {
+          admin_level_3: string | null
+          admin1_iso: string | null
+          admin3_id: string | null
+          altitude: number | null
+          continent: string | null
+          continent_id: string | null
+          continent_resolved: string | null
+          country: string | null
+          country_code: string | null
+          country_id: string | null
+          country_resolved: string | null
+          created_at: string | null
+          custom_data: Json | null
+          deleted_at: string | null
+          description: string | null
+          document_id: string | null
+          enriched_data: Json | null
+          enrichment_status: string | null
+          geo_confidence: number | null
+          geo_health: string | null
+          geo_resolved_at: string | null
+          geo_source: string | null
+          id: string | null
+          is_approved: boolean | null
+          latitude: number | null
+          locality: string | null
+          locality_id: string | null
+          longitude: number | null
+          name: string | null
+          owner_user_id: string | null
+          personal_category_id: string | null
+          pioneer_user_id: string | null
+          place_type: string | null
+          postal_code: string | null
+          raw_geocode: Json | null
+          region: string | null
+          region_id: string | null
+          region_resolved: string | null
+          street_name: string | null
+          sublocality: string | null
+          sublocality_id: string | null
+          timezone: string | null
+          type_id: string | null
+          updated_at: string | null
+          user_image_url: string | null
+          user_image_visibility: string | null
+          visibility: string | null
+          zone: string | null
+          zone_id: string | null
+          zone_resolved: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locations_admin3_id_fkey"
+            columns: ["admin3_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_continent_id_fkey"
+            columns: ["continent_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_locality_id_fkey"
+            columns: ["locality_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_personal_category_id_fkey"
+            columns: ["personal_category_id"]
+            isOneToOne: false
+            referencedRelation: "personal_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_sublocality_id_fkey"
+            columns: ["sublocality_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_type_id_fkey"
+            columns: ["type_id"]
+            isOneToOne: false
+            referencedRelation: "place_types"
             referencedColumns: ["id"]
           },
           {

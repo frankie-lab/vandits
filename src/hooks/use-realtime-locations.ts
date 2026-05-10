@@ -226,9 +226,21 @@ export function useRealtimeLocations() {
       // Idempotent: skip if we already have this id
       if (doc.locations.some((l) => l.id === newRecord.id)) return;
 
-      const geoLoc = dbLocationToGeoLocation(newRecord);
-      updateDocumentLocations(docId, [...doc.locations, geoLoc]);
-      window.dispatchEvent(new CustomEvent('location-realtime-update'));
+      // Fetch resolved row from view to get admin_level_3 / locality / sublocality strings
+      // (postgres_changes payload only carries FK UUIDs).
+      supabase
+        .from('v_locations_resolved' as any)
+        .select('*')
+        .eq('id', newRecord.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          const geoLoc = dbLocationToGeoLocation(data ?? newRecord);
+          const { documents: docs2, updateDocumentLocations: upd2 } = useLocationsStore.getState();
+          const doc2 = docs2.find((d) => d.id === docId);
+          if (!doc2 || doc2.locations.some((l) => l.id === newRecord.id)) return;
+          upd2(docId, [...doc2.locations, geoLoc]);
+          window.dispatchEvent(new CustomEvent('location-realtime-update'));
+        });
 
       // Play feedback sound (throttled to 1 every 150ms to avoid spam in bursts).
       // Single source of truth for "punto importado" feedback across all sources
