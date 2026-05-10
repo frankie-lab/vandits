@@ -16,6 +16,7 @@ import {
   Map, Route, Tag, Bookmark, Sparkles,
 } from 'lucide-react';
 import type { Collection } from '@/domains/v2';
+import { getCollectionChipColors } from '@/shared/lib/collection-chip-color';
 
 // Sentinel para "sin color" (apariencia por defecto: anillo blanco/invisible).
 const NO_COLOR = '#ffffff';
