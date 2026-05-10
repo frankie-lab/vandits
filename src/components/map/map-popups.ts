@@ -768,6 +768,7 @@ title="Quitar valoración"
 </div>
 </div>
 
+${buildCollectionChipsPlaceholder(location)}
 ${buildPersonalTagsBlock(location)}
 
 ${(() => {
