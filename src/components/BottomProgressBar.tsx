@@ -245,8 +245,11 @@ export function BottomProgressBar() {
  const isActive = activeJob && ['pending', 'running', 'paused'].includes(activeJob.status);
  const isCompleted = activeJob?.status === 'completed' && showCompleted;
  const isPaused = activeJob?.status === 'paused';
- const progress = activeJob ? (activeJob.processed_count / activeJob.total_count) * 100 : 0;
- const remaining = activeJob ? activeJob.total_count - activeJob.processed_count : 0;
+ // El progreso visual incluye los errores como "ya tratados" — si no, la
+ // barra se quedaría a media bandera con puntos rojos en cola.
+ const completed = activeJob ? activeJob.processed_count + activeJob.error_count : 0;
+ const progress = activeJob && activeJob.total_count > 0 ? (completed / activeJob.total_count) * 100 : 0;
+ const remaining = activeJob ? Math.max(0, activeJob.total_count - completed) : 0;
 
  if (!isActive && !isCompleted) return null;
 
