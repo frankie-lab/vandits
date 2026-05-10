@@ -144,6 +144,27 @@ export function CollectionAppearanceDialog({ open, collection, onClose, onSave }
             </div>
           </div>
 
+          {/* Chip preview — usa el mismo helper transversal que el render real. */}
+          {(() => {
+            const tokens = getCollectionChipColors(color);
+            const slug = (name || 'Coleccion').replace(/\s+/g, '');
+            return (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Hashtag:</span>
+                <span
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border"
+                  style={{
+                    color: tokens.text,
+                    borderColor: tokens.border,
+                    backgroundColor: tokens.background,
+                  }}
+                >
+                  <span style={{ color: tokens.hashtag }}>#</span>
+                  {slug}
+                </span>
+              </div>
+            );
+          })()}
           <div className="space-y-2">
             <Label className="text-xs">Color</Label>
             <div className="grid grid-cols-8 gap-2">
