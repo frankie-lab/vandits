@@ -45,7 +45,7 @@ interface EnrichmentJob {
  location_ids: string[];
  processed_ids: string[];
  error_ids: string[];
- error_messages: Record<string, string>;
+ error_messages: Record<string, unknown>;
  created_at: string;
  updated_at: string;
 }
