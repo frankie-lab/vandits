@@ -73,7 +73,10 @@ Deno.serve(async (req) => {
   if (isServiceRole && typeof body.user_id === 'string') {
     callerUserId = body.user_id;
   }
-  const limit = Math.min(Math.max(Number(body.limit ?? 25), 1), 200);
+  // Hard cap = 500: a PostgREST `?id=in.(...)` URL with 500 UUIDs (~18 KB)
+  // stays well under the runtime URL limit (~16 KB margin). Above that we
+  // would explode the request URL (the bug that froze prior selection jobs).
+  const limit = Math.min(Math.max(Number(body.limit ?? 500), 1), 500);
   const dryRun = !!body.dryRun;
   const documentId = typeof body.document_id === 'string' ? body.document_id : null;
   const catalogOnly = body.catalog_only === true;
@@ -218,7 +221,15 @@ Deno.serve(async (req) => {
   if (catalogOnly) q = q.eq('is_approved', true);
   if (callerUserId) q = q.eq('owner_user_id', callerUserId);
   if (documentId) q = q.eq('document_id', documentId);
-  if (locationIds && locationIds.length > 0) q = q.in('id', locationIds);
+  // Slice explicit `location_ids` server-side BEFORE the PostgREST request
+  // so the URL never carries more than `limit` UUIDs. Without this, a 3000-
+  // point selection serializes ~114 KB into the URL and the runtime answers
+  // "Invalid URL" → the job never advances. The slice also paginates: each
+  // tick consumes the next `limit` IDs via `offset`.
+  const idsSlice = (locationIds && locationIds.length > 0)
+    ? locationIds.slice(offset, offset + limit)
+    : null;
+  if (idsSlice) q = q.in('id', idsSlice);
   if (healthScopeIds) q = q.in('id', healthScopeIds);
   if (repairIds) {
     if (repairIds.length === 0) {
@@ -231,11 +242,10 @@ Deno.serve(async (req) => {
     q = q.in('id', repairIds);
   }
   q = applyAdminScope(q);
-  // 'repair' and health-scope already paginated via RPC; do not re-apply range.
-  // Cuando viene una selección explícita por `location_ids`, paginamos
-  // localmente con `range(offset, offset+limit-1)` para que cada tick procese
-  // su lote y el job termine en `offset >= totalInScope`.
-  if (mode !== 'repair' && !healthScopeIds) {
+  // 'repair' / health-scope / explicit-IDs already paginate by themselves
+  // (RPC page, unhealthy view, or server-side slice). Only the dynamic
+  // `fill` / `reconcile` / `overwrite` selection needs `.range()`.
+  if (mode !== 'repair' && !healthScopeIds && !idsSlice) {
     q = q.order('created_at', { ascending: true }).range(offset, offset + limit - 1);
   } else {
     q = q.order('created_at', { ascending: true });
