@@ -1421,8 +1421,37 @@ export function LocationMap() {
  padding: [50, 50], 
  maxZoom: 12 
  });
- }
- }, [locationIds, toggleLocationSelection, setFocusedLocation]);
+  }
+
+    // Prime collection chips store con todos los puntos visibles.
+    primeCollectionsForLocations(locations.map((l) => l.id));
+  }, [locationIds, toggleLocationSelection, setFocusedLocation]);
+
+  // Regenera el HTML del popup cuando cambian las colecciones de un punto
+  // (suscripción única al store transversal). Cubre puntos nuevos, recién
+  // enriquecidos, y cambios de membership desde cualquier vista.
+  useEffect(() => {
+    const unsubscribe = subscribeLocationCollections((changed) => {
+      const ids = changed ? Array.from(changed) : Array.from(markersRef.current.keys());
+      ids.forEach((id) => {
+        const marker = markersRef.current.get(id);
+        const location = locationsRef.current.get(id);
+        if (!marker || !location) return;
+        try {
+          const ownership = getLocationOwnership(location.id, currentUserId);
+          marker.setPopupContent(
+            createPopupContent(location, criteriaTimestamp, ownership, canEnrichLocations),
+          );
+        } catch { /* noop */ }
+      });
+      // Si fue un refresh completo (invalidateAll), volvemos a primear los
+      // puntos visibles para que vuelvan a poblarse desde la BD.
+      if (!changed) {
+        primeCollectionsForLocations(Array.from(markersRef.current.keys()));
+      }
+    });
+    return () => { unsubscribe(); };
+  }, [getLocationOwnership, currentUserId, criteriaTimestamp, canEnrichLocations]);
 
   // Update popup content and icons when enrichment data changes (without recreating markers)
  useEffect(() => {
