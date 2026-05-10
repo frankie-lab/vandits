@@ -1,59 +1,62 @@
-# Mantener mapa + barra inferior visibles durante enriquecimiento
+## Objetivo
 
-## Diagnóstico
+Encontrar qué puerta del pipeline está ocultando "Monte de San Pedro" (y los 580 puntos restantes de la colección `Atlas Obscura_España`) aunque la colección tenga el ojo encendido, y arreglar la causa real **transversalmente**, sin hardcodear ningún punto ni id concreto.
 
-Durante un batch de enriquecimiento se dispara realtime sobre `locations` → cada UPDATE emite `locations-updated` → `requestGlobalReload()` → `loadFromDatabase()` con `blocking: true`. Eso provoca, cientos de veces seguidas:
+## Hallazgos de la exploración
 
-1. `body.is-blocking-load` se enciende → `pointer-events: none` sobre `.leaflet-container` (mapa "congelado", parece gris porque no responde a interacciones y el cluster/markers se redibujan en cada ciclo).
-2. `_resetStoreState()` vacía `documents` momentáneamente → `BottomProgressBar` (que filtra jobs por `documents.map(d => d.id)`) ve la lista vacía y desaparece.
+1. `catalogMembership` (Map in-memory) se construye **una sola vez** durante `initSessionCollectionVisibility` a partir de `collectionService.findByUser`. Si una edge function (scraper/OneDrive/import) inserta `collection_items` después de ese init y NO emite `collection-items-changed`, el índice queda obsoleto y `isPointInAnyVisibleCatalogCollection` devuelve `false` aunque la colección esté visible → el punto se oculta.
+2. La INSERT realtime de `locations` ya está escuchada (`useRealtimeLocations`), pero no hay nada equivalente para INSERTs en `collection_items` desde edge functions → confirma la sospecha del índice rancio.
+3. `place_type = "2.3.4"` y `is_orphan = true` los confirmamos en DB, pero no son la causa de la invisibilidad (no hay filtros activos por defecto sobre esos campos).
+4. En `src/lib/parsers/shared.ts:227` se escribe `name: p.name` sin `.trim()`. En `supabase/functions/scrape-tick/index.ts:99 y :273` también (`ld.name` y `place.name`). Esto explica los 9 nombres con espacio inicial — defecto general, no específico de un punto.
 
-Resultado: cada vez que un POI se enriquece, el mapa se pone gris y la barra inferior parpadea fuera. La barra superior central que rediseñamos no llega a pintarse.
+## Plan (transversal, sin hardcodeos)
 
-## Cambios
+### 1. Helper de diagnóstico genérico
 
-### 1. `src/domains/content/hooks/use-database-sync.ts` — recargas en silencio
+Nuevo `src/domains/content/lib/visibility-debug.ts` que expone `window.__whyHidden(locationId: string)` y recorre, **por id genérico**, exactamente las mismas puertas del pipeline real:
 
-Aceptar opciones en `loadFromDatabase`:
-
-```ts
-const loadFromDatabase = useCallback(async (opts?: { silent?: boolean }) => {
-  const silent = opts?.silent === true;
-  if (!silent) startLoading('db-sync', 'Cargando catálogo', { blocking: true });
-  try {
-    ...
-    if (!silent) updateLoading('db-sync', dbLocations.length, dbLocations.length);
-  } finally {
-    if (!silent) endLoading('db-sync');
-  }
-}, ...);
+```
+text
+1. ¿Está en state.locations?            → si no → "no en store (RLS/paginación)"
+2. is_approved=true?                     → si no → "pending approval"
+3. _docUserId === currentUserId?         → si no → "ownership/follower"
+4. isPointInAnyCatalogCollection(id)?    → membership snapshot
+5. isPointInAnyVisibleCatalogCollection? → si false → "colección catálogo apagada O índice rancio"
+6. isLocationVisibleInGlobalMap(loc)?    → resultado canónico
+7. matchesLocationFilters(loc, filters)? → muestra qué filtro lo descarta
 ```
 
-`requestGlobalReload` y los listeners de `reload-locations` / `locations-updated` pasan `{ silent: true }`. Solo la carga inicial (al montar / SIGNED_IN) sigue siendo visible y bloqueante.
+Output: `console.table` con cada puerta y el motivo del primer `false`. No toca producción, solo lee. Sirve para CUALQUIER punto, no para uno concreto.
 
-Esto elimina:
-- El bloqueo del mapa durante el batch (sin `is-blocking-load` recurrente).
-- El parpadeo de la tarjeta "Cargando catálogo" cada vez que entra un UPDATE.
+### 2. Fix transversal: rebuild de `catalogMembership` ante INSERTs externos
 
-### 2. `src/components/BottomProgressBar.tsx` — independiente de `documents`
+En `src/domains/content/lib/collection-visibility.ts`:
 
-Hoy filtra jobs por `documents.map(d => d.id)`. Durante la recarga `documents` se vacía y la barra desaparece. La RLS de `enrichment_jobs` ya limita a los jobs cuyos `document_id` son del usuario, así que el filtro cliente es redundante.
+- Suscribir un canal realtime postgres_changes sobre `collection_items` filtrado por el `userId` actual (vía join lógico con `collections.owner_user_id` o lista de IDs ya conocidos). Al recibir INSERT/DELETE → `await rebuildCatalogMembership(currentUserId); broadcast();`. Esto cierra el agujero para scraper, OneDrive, y cualquier futura edge function que escriba directamente.
+- Como red de seguridad adicional, en `useRealtimeLocations` cuando llega un INSERT de `locations` con `is_approved=true`, disparar un debounced `rebuildCatalogMembership(currentUserId)` (300ms) porque suele acompañar a inserts en `collection_items`.
 
-- Eliminar el corto-circuito `if (documentIds.length === 0) setActiveJob(null)`.
-- Cambiar la query a:
-  ```ts
-  supabase.from('enrichment_jobs')
-    .select('*')
-    .in('status', ['pending', 'running', 'paused'])
-    .order('updated_at', { ascending: false });
-  ```
-- Quitar la dependencia `documents` del `useCallback` y del `useEffect`. Mantener `useEffect` arrancando con `userId` o simplemente al montar (poll incondicional cada 2s; RLS filtra por usuario).
+### 3. Fix transversal del espacio inicial en `name`
 
-Mismo cambio para la rama de "recently completed".
+- `src/lib/parsers/shared.ts:227` → `name: (p.name ?? '').trim()`.
+- `supabase/functions/scrape-tick/index.ts:99` → `ld.name.trim()`, y `:273` → `place.name.trim()`.
+- Defensa cliente: en `dbLocationToGeoLocation` aplicar `name: (row.name ?? '').trim()` como red final.
+- Backfill puntual (vía herramienta de datos): `UPDATE locations SET name = btrim(name), updated_at = now() WHERE name <> btrim(name) AND deleted_at IS NULL;` — afecta a 9 filas reales, no es hardcodeo: es limpieza de datos sucios pre-fix.
 
-`refreshLocations` sigue dependiendo de `selectedDocument`; lo mantenemos tal cual.
+### 4. Validación
 
-## Validación
+Tras desplegar:
+1. Ejecutar `window.__whyHidden('b9389d79-...')` y cualquier otro id → confirma qué puerta era la culpable.
+2. `SELECT count(*) FROM locations WHERE name <> btrim(name)` debe devolver 0.
+3. Reimportar un lote pequeño de Atlas Obscura → los puntos deben aparecer en el mapa sin recargar y sin tocar el ojo de la colección.
 
-- Lanzar batch-enrich: la barra inferior con la nueva UI (verde/rojo/ámbar/gris + ETA) permanece visible mientras se procesan los POIs.
-- El mapa sigue interactivo (pan/zoom funcionan) durante el enriquecimiento; los tiles permanecen pintados.
-- La tarjeta "Cargando catálogo" sólo aparece en la carga inicial, no parpadea durante el batch.
+## Archivos tocados
+
+- **Nuevo**: `src/domains/content/lib/visibility-debug.ts` (helper genérico).
+- **Modificados**: `src/domains/content/lib/collection-visibility.ts` (canal realtime `collection_items` + rebuild), `src/domains/content/hooks/use-realtime-locations.ts` (rebuild debounced en INSERT aprobado), `src/lib/parsers/shared.ts` (`.trim()`), `src/domains/content/lib/db-mappers.ts` (`.trim()` defensivo en mapper), `supabase/functions/scrape-tick/index.ts` (dos `.trim()`).
+- **Datos**: backfill `btrim` (9 filas).
+
+## Garantías
+
+- Cero ramas `if (id === '...')`, cero menciones a "Monte de San Pedro", cero menciones a "Atlas Obscura" en código.
+- El helper de debug es solo lectura y vive en su propio fichero; se puede borrar sin afectar nada.
+- El rebuild realtime es la misma función ya usada por `collection-items-changed`, solo añadimos un trigger más.

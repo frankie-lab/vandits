@@ -224,7 +224,7 @@ export function toKMLDocument(parsed: ParsedGeoContent): KMLDocument {
     }
     return {
       id: p.id,
-      name: p.name,
+      name: (p.name ?? '').trim(),
       description: p.description,
       coordinates: p.coordinates,
       continent: p.continent ?? getContinent(p.coordinates.lat, p.coordinates.lng),

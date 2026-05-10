@@ -96,7 +96,7 @@ function parsePlaceJsonLd(html: string, url: string): ScrapedPlace | null {
   const addr = ld.address as Record<string, any> | undefined;
   return {
     url,
-    name: typeof ld.name === 'string' ? ld.name : 'Unnamed',
+    name: (typeof ld.name === 'string' ? ld.name : 'Unnamed').trim() || 'Unnamed',
     description: typeof ld.description === 'string' ? ld.description : undefined,
     latitude: lat,
     longitude: lng,
@@ -270,7 +270,7 @@ async function persistPlace(job: any, documentId: string, place: ScrapedPlace): 
   const { data, error } = await supabase.from('locations').insert({
     document_id: documentId,
     owner_user_id: job.user_id,
-    name: place.name,
+    name: (place.name ?? '').trim() || 'Unnamed',
     description: place.description ?? null,
     latitude: place.latitude,
     longitude: place.longitude,
