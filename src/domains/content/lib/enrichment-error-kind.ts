@@ -115,3 +115,42 @@ export function countErrorBuckets(
   }
   return { hard, soft, total: hard + soft };
 }
+
+/**
+ * Desglose por motivo concreto. Devuelve un mapa kind → count y la lista de
+ * ids agrupados (útil para "ver los X puntos con coherence" en la UI).
+ */
+export function countErrorKinds(
+  errorMessages: Record<string, unknown> | null | undefined,
+): { byKind: Record<EnrichmentErrorKind, number>; idsByKind: Record<EnrichmentErrorKind, string[]>; total: number } {
+  const byKind = {
+    coherence: 0,
+    llm_unverifiable: 0,
+    no_match: 0,
+    rate_limit: 0,
+    no_credits: 0,
+    timeout: 0,
+    network: 0,
+    unknown: 0,
+  } as Record<EnrichmentErrorKind, number>;
+  const idsByKind = {
+    coherence: [],
+    llm_unverifiable: [],
+    no_match: [],
+    rate_limit: [],
+    no_credits: [],
+    timeout: [],
+    network: [],
+    unknown: [],
+  } as Record<EnrichmentErrorKind, string[]>;
+  let total = 0;
+  if (!errorMessages) return { byKind, idsByKind, total };
+  for (const [key, value] of Object.entries(errorMessages)) {
+    if (key === '_job_error') continue;
+    const parsed = parseEnrichmentError(value);
+    byKind[parsed.kind] = (byKind[parsed.kind] ?? 0) + 1;
+    idsByKind[parsed.kind] = [...(idsByKind[parsed.kind] ?? []), key];
+    total++;
+  }
+  return { byKind, idsByKind, total };
+}
