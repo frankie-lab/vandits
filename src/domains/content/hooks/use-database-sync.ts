@@ -104,7 +104,7 @@ export function useDatabaseSync(userId?: string | null) {
       if (ownDocs.length > 0) {
         console.log(`[useDatabaseSync] Own data loaded: ${ownDocs.length} docs, ${ownLocCount} locations`);
       }
-      updateLoading('db-sync', ownLocCount);
+      if (!silent) updateLoading('db-sync', ownLocCount);
 
       setSyncPhase('social');
       await new Promise(resolve => setTimeout(resolve, 0));
