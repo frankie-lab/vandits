@@ -287,14 +287,11 @@ export function FloatingToolbar({
  setCurrentUserId(user?.id || null);
  }, [user?.id, setCurrentUserId]);
 
-  // Listen for realtime updates to force stats refresh
- useEffect(() => {
- const handleRealtimeUpdate = () => {
- forceUpdate(v => v + 1);
- };
- window.addEventListener('location-realtime-update', handleRealtimeUpdate);
- return () => window.removeEventListener('location-realtime-update', handleRealtimeUpdate);
- }, []);
+  // Realtime updates: coalesce bursts so the toolbar counters don't re-render
+  // dozens of times per second during batch enrichment.
+  useCoalescedRealtimeTick(() => {
+    forceUpdate((v) => v + 1);
+  }, { delayMs: 500 });
 
   // Fetch active job status (search across all imported documents)
  const fetchJobStatus = useCallback(async () => {
