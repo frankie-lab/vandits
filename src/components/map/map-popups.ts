@@ -576,8 +576,8 @@ Añadir a mi colección
 </button>
 ` : '';
 
-  // Si tiene ficha enriquecida, mostrarla
-  if (enriched) {
+  // Si tiene ficha enriquecida (descripcion IA real), mostrarla.
+  if (isEnriched && enriched) {
     const localizacionLinks = parseLocalizacionToLinks(enriched.localizacion, location);
     const popupId = `popup-${location.id.slice(0, 8)}`;
     const cardCfg = getCardConfig();
