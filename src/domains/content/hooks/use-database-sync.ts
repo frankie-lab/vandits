@@ -148,7 +148,7 @@ export function useDatabaseSync(userId?: string | null) {
       do {
         reloadQueuedRef.current = false;
         hasLoadedRef.current = false;
-        await loadFromDatabase();
+        await loadFromDatabase({ silent: true });
         hasLoadedRef.current = true;
       } while (reloadQueuedRef.current);
     };
