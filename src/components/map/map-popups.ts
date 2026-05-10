@@ -720,14 +720,21 @@ ${(() => {
         // Already rendered above
         return '';
       
-      case 'clasificacion':
-        if (!enriched.clasificacion?.codigo) return '';
+      case 'clasificacion': {
+        const cc = enriched?.cultural_context;
+        const culturalChip = cc?.type_label
+          ? `<span title="${cc.type_label} (Wikidata)" style="display: inline-flex; align-items: center; gap: 4px; background: #ede9fe; color: #5b21b6; padding: ${CARD.tagPadding}; border-radius: ${CARD.tagRadius}; font-size: ${FONT.badge}px; font-weight: 500;">${cc.type_label}</span>`
+          : '';
+        if (!enriched.clasificacion?.codigo && !culturalChip) return '';
         return `
 <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: ${CARD.sectionGap}px;">
-  <span style="background: ${COLOR.secondary}; color: ${COLOR.secondaryFg}; padding: ${CARD.tagPadding}; border-radius: ${CARD.tagRadius}; font-size: ${FONT.badge}px; font-weight: 500;">${enriched.clasificacion.codigo}</span>
-  <span style="font-size: ${FONT.label}px; color: ${COLOR.muted};">${enriched.clasificacion.categoria_principal || ''}</span>
-  ${enriched.clasificacion.subcategoria ? `<span style="font-size: ${FONT.label}px; color: ${COLOR.muted};">›</span><span style="font-size: ${FONT.label}px; color: ${COLOR.muted};">${enriched.clasificacion.subcategoria}</span>` : ''}
+  ${enriched.clasificacion?.codigo ? `<span style="background: ${COLOR.secondary}; color: ${COLOR.secondaryFg}; padding: ${CARD.tagPadding}; border-radius: ${CARD.tagRadius}; font-size: ${FONT.badge}px; font-weight: 500;">${enriched.clasificacion.codigo}</span>` : ''}
+  ${enriched.clasificacion?.categoria_principal ? `<span style="font-size: ${FONT.label}px; color: ${COLOR.muted};">${enriched.clasificacion.categoria_principal}</span>` : ''}
+  ${enriched.clasificacion?.subcategoria ? `<span style="font-size: ${FONT.label}px; color: ${COLOR.muted};">›</span><span style="font-size: ${FONT.label}px; color: ${COLOR.muted};">${enriched.clasificacion.subcategoria}</span>` : ''}
+  ${culturalChip}
 </div>`;
+      }
+
       
       case 'punto_destacado':
         if (!enriched.punto_destacado) return '';
