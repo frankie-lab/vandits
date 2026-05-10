@@ -15,6 +15,8 @@ import { useLocationsStore } from '@/domains/content';
 import { GeoLocation } from '@/types/location';
 import { toast } from 'sonner';
 import { resolveAllFks } from '@/shared/geography/resolve-admin-fks';
+import { enrichmentFailureStore } from '@/domains/content/hooks/use-enrichment-failure';
+import { parseEnrichmentError } from '@/domains/content/lib/enrichment-error-kind';
 
 export interface TriggerEnrichOptions {
   /** When true, force re-generation (semantically the popup's `regenerate`). */
@@ -81,15 +83,69 @@ export async function triggerEnrichLocation(
     }
 
     // ─── 2) Si no hubo hit (o es regenerate), llamar IA
+    //
+    // IMPORTANTE: NO enviamos `skipValidation: true` por defecto. El gate
+    // bidireccional nombre⇄coordenadas y el detector de placeholders evasivos
+    // del LLM deben correr SIEMPRE. Sólo se salta cuando ya hay un candidato
+    // confirmado (Wikipedia/OSM) elegido por el usuario desde el bloque de
+    // recuperación o el panel de Contexto cercano.
     if (!enrichedData) {
       const { data, error } = await supabase.functions.invoke('enrich-location', {
-        body: { location, skipValidation: true },
+        body: { location },
       });
 
       if (error) throw error;
 
+      // Helper local: persistir el fallo para que el anillo rojo se encienda
+      // en el mapa y la ficha muestre el bloque de recuperación.
+      const persistFailure = async (
+        kind: 'coherence' | 'llm_unverifiable' | 'no_match',
+        message: string,
+        extras: Record<string, unknown> = {},
+      ) => {
+        const payload = { kind, message, ...extras };
+        // 1) Marca local inmediata (anillo rojo sin esperar al servidor).
+        try {
+          enrichmentFailureStore.recordFailure(locationId, parseEnrichmentError(payload));
+        } catch (e) {
+          console.warn('[triggerEnrichLocation] failureStore.recordFailure failed', e);
+        }
+        // 2) Marca DB (enrichment_status='unresolved') para reflejar el estado.
+        try {
+          await supabase
+            .from('locations')
+            .update({ enrichment_status: 'unresolved', updated_at: new Date().toISOString() })
+            .eq('id', locationId);
+        } catch (e) {
+          console.warn('[triggerEnrichLocation] mark unresolved failed', e);
+        }
+        // 3) Job sintético "manual single-click" para que prewarm/realtime lo
+        //    reconcilien y otros tabs vean el anillo rojo.
+        if (location?.documentId) {
+          try {
+            await supabase.from('enrichment_jobs').insert({
+              document_id: location.documentId,
+              status: 'completed',
+              total_count: 1,
+              processed_count: 0,
+              error_count: 1,
+              location_ids: [locationId],
+              error_ids: [locationId],
+              error_messages: { [locationId]: payload },
+            });
+          } catch (e) {
+            console.warn('[triggerEnrichLocation] failure job insert failed', e);
+          }
+        }
+      };
+
       if (data && data.success === false && data.reason === 'name_coordinate_mismatch') {
         toast.dismiss(toastId);
+        await persistFailure('coherence', data.message ?? 'Nombre y coordenadas no coinciden', {
+          candidates: data.nearbyCandidates ?? [],
+          nameLocation: data.nameLocation ?? null,
+          providedName: data.providedName ?? location.name,
+        });
         window.dispatchEvent(new CustomEvent('open-nearby-context', {
           detail: {
             locationId,
@@ -101,14 +157,29 @@ export async function triggerEnrichLocation(
           },
         }));
         toast.info(
-          `"${data.providedName}" está a ${data.nameLocation?.distanceKm} km de estas coordenadas. Selecciona la identidad correcta.`,
+          `"${data.providedName}" está a ${data.nameLocation?.distanceKm ?? '?'} km de estas coordenadas. Selecciona la identidad correcta.`,
           { duration: 6000 },
         );
         return { success: false, error: 'name_coordinate_mismatch' };
       }
 
+      if (data && data.success === false && data.reason === 'llm_unverifiable') {
+        toast.dismiss(toastId);
+        await persistFailure('llm_unverifiable', data.message ?? 'No verificable', {
+          candidates: data.nearbyCandidates ?? [],
+          providedName: data.providedName ?? location.name,
+        });
+        toast.warning(
+          `No se pudo verificar la identidad de "${location.name}". Revísalo desde el bloque de recuperación.`,
+          { duration: 6000 },
+        );
+        return { success: false, error: 'llm_unverifiable' };
+      }
+
       if (!data?.success || !data?.data) {
-        throw new Error(data?.error || data?.message || 'Sin datos de enriquecimiento');
+        const message = data?.error || data?.message || 'Sin datos de enriquecimiento';
+        await persistFailure('no_match', message);
+        throw new Error(message);
       }
 
       enrichedData = data.data;

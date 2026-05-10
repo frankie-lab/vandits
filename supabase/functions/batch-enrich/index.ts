@@ -369,67 +369,17 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
           processedIds.push(locationId);
           console.log('Enriched location:', location.name, geocodedData ? '(with geocoding)' : '', derivedPlaceType ? `[${derivedPlaceType}]` : '');
         } else if (enrichData.validation_required) {
-          // Legacy fallback: if enrich-location still returns validation_required,
-          // retry with skipValidation=true to force enrichment
-          console.log('Retrying with skipValidation for:', location.name);
-          const retryResponse = await fetch(enrichUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...authHeaders },
-            body: JSON.stringify({
-              location: {
-                name: location.name,
-                coordinates: { lat: location.latitude, lng: location.longitude },
-                country: location.country,
-                region: location.region,
-                zone: location.zone,
-                continent: location.continent,
-              },
-              generateImage: true,
-              curatorId: jobCuratorId,
-              skipValidation: true,
-            }),
+          // Validation required and we no longer auto-retry with skipValidation:
+          // forzar enriquecimiento "a ciegas" blanqueaba puntos en verde con
+          // datos incoherentes (caso "Cave of the Moon" / "Glorieta de la
+          // Antártida"). Tratar como rechazo blando con candidatos cercanos.
+          throw Object.assign(new Error('Validación requerida (nombre/coordenadas)'), {
+            __structured: {
+              kind: 'no_match',
+              candidates: Array.isArray(enrichData.nearbyCandidates) ? enrichData.nearbyCandidates : [],
+              providedName: location.name,
+            },
           });
-          if (retryResponse.ok) {
-            const retryData = await retryResponse.json();
-            if (retryData.success && retryData.data) {
-              const geocodedData = retryData.data._geocoded;
-              delete retryData.data._geocoded;
-              const derivedPlaceType2 = retryData.data.datos_clave?.tipo ? getPlaceTypeFromTipo(retryData.data.datos_clave.tipo) : null;
-              const updateData2: Record<string, unknown> = {
-                enriched_data: retryData.data,
-                enrichment_status: 'enriched',
-                updated_at: new Date().toISOString(),
-              };
-              if (derivedPlaceType2 && derivedPlaceType2 !== 'other') updateData2.place_type = derivedPlaceType2;
-              if (geocodedData) {
-                if (geocodedData.country) updateData2.country = geocodedData.country;
-                if (geocodedData.region) updateData2.region = geocodedData.region;
-                if (geocodedData.zone) updateData2.zone = geocodedData.zone;
-                if (geocodedData.continent) updateData2.continent = geocodedData.continent;
-              }
-              await supabase.from('locations').update(updateData2).eq('id', locationId);
-              try {
-                await supabase.rpc('upsert_trunk_place', {
-                  _name: location.name,
-                  _latitude: location.latitude,
-                  _longitude: location.longitude,
-                  _place_type: (updateData2.place_type as string) ?? location.place_type ?? null,
-                  _enriched_data: retryData.data,
-                  _enriched_by: location.owner_user_id ?? null,
-                });
-              } catch (e) {
-                console.warn('Trunk upsert failed (retry, non-fatal):', e);
-              }
-              processedIds.push(locationId);
-              console.log('Enriched location (retry):', location.name);
-            } else {
-              await supabase.from('locations').update({ enrichment_status: 'unresolved', updated_at: new Date().toISOString() }).eq('id', locationId);
-              processedIds.push(locationId);
-              console.log('Location marked as unresolved after retry:', location.name);
-            }
-          } else {
-            throw new Error('Retry enrichment failed: ' + retryResponse.status);
-          }
         } else if (enrichData.success === false && enrichData.reason === 'name_coordinate_mismatch') {
           // Name ↔ coordinate coherence abort: keep candidates so the user can resolve manually.
           throw Object.assign(new Error(enrichData.message || 'Nombre y coordenadas no coinciden'), {

@@ -2263,10 +2263,12 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
           );
         }
 
-        // Guard adicional: el LLM se rindió en `descripcion`. No persistimos
-        // placeholders evasivos. El bloque de recuperación del cliente
-        // ofrecerá renombrar/contexto cercano.
-        if (!skipValidation && isUnverifiableLLMOutput({ descripcion: enrichedData?.descripcion })) {
+        // Guard adicional: el LLM se rindió en `descripcion`. Nunca persistimos
+        // placeholders evasivos, ni siquiera bajo `skipValidation` (un flujo
+        // forzado puede saltarse la coherencia, pero no debe blanquear un
+        // texto vacío como enriquecimiento real). El bloque de recuperación
+        // del cliente ofrecerá renombrar / contexto cercano.
+        if (isUnverifiableLLMOutput({ descripcion: enrichedData?.descripcion })) {
           console.log(`[enrich] ABORT llm_unverifiable for "${location.name}"`);
           const nearbyPages = await fetchNearbyWikipediaPages(location.coordinates, COHERENCE_NEARBY_RADIUS_M, 5);
           const nearbyExtracts = await fetchPageExtracts(nearbyPages.map((p) => p.pageid));

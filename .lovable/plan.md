@@ -1,102 +1,105 @@
-## Diagnóstico
+## Diagnóstico — qué falla hoy
 
-Existen **dos modos de fallo inversos** que hoy terminan igual: un punto pintado **verde** (enriquecido) con datos inconsistentes y sin pedir nada al usuario.
+Tras revisar el código actual hay **tres fugas** que dejan pasar puntos a "verde" cuando nombre y coordenadas no coinciden:
 
-### Caso A — Nombre incoherente con las coordenadas ("Cave of the Moon")
-1. El POI llega con un nombre que **Wikipedia no encuentra cerca** de las coords.
-2. El gate `validateNameCoordinateCoherence` (en `supabase/functions/enrich-location/index.ts:633`) **solo aborta** si encuentra un candidato textual con coordenadas a >50 km. Si Wikipedia no devuelve coords para el candidato (ej. álbum musical), devuelve `ok: true` → sigue.
-3. El LLM, al no encontrar nada verificable, genera un texto evasivo ("No se puede generar una descripción verificable…") y lo escribe en `enriched_data.descripcion`.
-4. `isPointEnriched` solo comprueba que `descripcion` no esté vacía → el punto pasa a verde sin pedir nada.
+### Fuga 1 — `skipValidation: true` por defecto en enriquecimiento manual
+En `src/domains/content/lib/enrich-location.ts` línea ~73:
+```ts
+supabase.functions.invoke('enrich-location', { body: { location, skipValidation: true } })
+```
+Cualquier clic en "Enriquecer" desde popup, lista de doc o lista general bypassa **todos** los gates del servidor. Por eso "Cave of the Moon" y "Glorieta de la Antártida" entraron verdes: el LLM nunca pasó por la puerta.
 
-**Conteo actual:** **16 puntos** con texto-confesión en `descripcion`/`observacion` ("no se puede generar", "información no disponible", "sin datos verificables", "se recomienda verificar la exactitud/ubicación/coordenadas", "no corresponde a ningún/a", "no figura en"…).
+### Fuga 2 — el gate `llm_unverifiable` también vive bajo `skipValidation`
+En `enrich-location/index.ts` línea ~2269:
+```ts
+if (!skipValidation && isUnverifiableLLMOutput({ descripcion: enrichedData?.descripcion })) { ... }
+```
+Cuando el LLM se rinde ("Información no disponible…", "No se puede generar…"), el placeholder se persiste como `descripcion`. El helper `hasRealEnrichment` filtra algunos por regex, pero textos como **"Información no disponible"** NO están en `UNVERIFIABLE_DESC_REGEX`, así que pasan como enriquecimiento real → verde.
 
-### Caso B — Coordenadas incoherentes con el nombre ("Glorieta de la Antártida")
-1. El POI tiene nombre correcto (rotonda real en Guadalajara) pero coordenadas en otro sitio (mar/África).
-2. El gate de coherencia **considera coords como verdad**, busca el artículo Wikipedia ("Glorieta de la Antártida" no tiene página → no falla → `ok: true`).
-3. El reverse-geocode (Nominatim) sobre las coords reales falla o devuelve algo neutro. **No hay segundo gate que verifique que las coords caen dentro del país/región esperado**.
-4. En el merge `mergedGeoData` (línea 2230): `admin_nivel_1: aiGeoData.admin_nivel_1 || geoData.region`. **La IA inventa "Castilla-La Mancha / Guadalajara" a partir del nombre** y se persiste tal cual, aunque las coords caigan en el Atlántico. La IA es la "fuente_refinamiento".
+### Fuga 3 — el gate inverso (coords → país) sólo es post-LLM y solo país
+La verificación `compareCountries(nominatim, aiGeoData.pais)` en línea ~2235:
+- Se salta con `skipValidation`.
+- Sólo compara **país**, no región/zona.
+- Corre **después** de gastar tokens del LLM.
 
-### Raíz común
-- El gate `validateNameCoordinateCoherence` es **unidireccional** (nombre→coords) y se rinde en cuanto le falta una pieza.
-- No hay **verificación inversa** coords→país/región (Nominatim/Wikidata) que invalide la geografía inventada por la IA.
-- El pipeline **persiste el JSON del LLM sin validar coherencia interna** (datos_geograficos vs coords, descripcion vs "no verificable").
-- `isPointEnriched` solo mira `descripcion no vacío`, así que un placeholder de auto-confesión vale como "enriquecido".
+No hay un gate **pre-LLM** que diga: "el reverseGeocode de las coords dice Marruecos y el artículo Wikipedia del nombre dice España → aborta antes de pedir nada al LLM".
 
-Ambos casos comparten el resultado: punto verde con un error silencioso, sin oportunidad para el usuario de corregir.
+### Fuga 4 — manual single-click no deja rastro de error
+Cuando un abort sí ocurre (en batch), `enrichment_jobs.error_messages` enciende el anillo rojo. Pero los abort del flujo manual `triggerEnrichLocation` **no escriben en ningún sitio**, así que el punto se queda gris/naranja "limpio", sin anillo rojo. El usuario no ve que algo falló.
 
 ---
 
-## Plan (transversal, sin hardcodeos)
+## Plan — un único gate bidireccional, sin opt-out silencioso
 
-### 1. Detector único de "respuesta no verificable" del LLM
-Nuevo helper en `supabase/functions/enrich-location/index.ts` y reusado por `batch-enrich`:
+### 1. Eliminar `skipValidation: true` como default del trigger manual
+`src/domains/content/lib/enrich-location.ts`: invocar `enrich-location` SIN `skipValidation`. Sólo se envía `skipValidation: true` cuando hay `confirmedCandidate` (el usuario ya escogió identidad desde el bloque de recuperación / Contexto cercano). Ese ya es el único bypass legítimo.
+
+### 2. Gate bidireccional pre-LLM (nuevo) en `enrich-location/index.ts`
+Antes de llamar al LLM, ejecutar **siempre** (independiente de `skipValidation`, salvo `confirmedCandidate`):
 
 ```text
-isUnverifiableLLMOutput(enrichedData) → boolean
+A. reverseGeocode(coords) → ISO α2 + región
+B. resolveNameLocation(name) → busca artículo Wikipedia/Wikidata con coords
+C. Si B tiene coords:
+     - distancia(B, coords) > 50 km  → ABORT coherence
+     - país(B) ≠ país(A) vía ISO     → ABORT coherence
+D. Si A tiene país y el LLM tras correr devuelve país ≠ A → ABORT (ya existe, ampliarlo a región)
 ```
 
-Detecta patrones canónicos en `descripcion` u `observacion`:
-- "no (se|es) (puede|posible) (generar|crear|verificar)"
-- "no es verificable" · "no hay información" · "información no disponible"
-- "sin datos verificables" · "no corresponde a ningún/a" · "no figura en"
-- "se recomienda verificar (la exactitud|las coordenadas|la ubicación)"
-- "no existe (un|una|ningún|ninguna) (estructura|lugar|punto|accidente)"
+`confirmedCandidate` sigue siendo el único bypass (el usuario ya eligió identidad).
 
-Si `isUnverifiableLLMOutput=true` ⇒ **NO se persiste**. Se devuelve la misma respuesta estructurada que el aborto de coherencia (`reason: 'llm_unverifiable'`, con `nearbyCandidates` ya calculados) para que la UI muestre el bloque ámbar de resolución.
+### 3. Endurecer el detector de placeholders evasivos
+Ampliar `UNVERIFIABLE_DESC_REGEX` en `supabase/functions/_shared/llm-unverifiable.ts` y `src/domains/content/lib/llm-unverifiable.ts` (mirror) para cubrir:
+- "Información no disponible"
+- "No hay información (disponible|verificable)"
+- "No se dispone de (información|datos)"
+- "Sin información (suficiente|verificable)"
+- Descripciones < 40 caracteres tras strip de markdown (heurística de seguridad).
 
-### 2. Gate inverso coords⇄país (Capa D del coherence check)
-Ampliar `validateNameCoordinateCoherence` con un paso final independiente:
+Y mover el chequeo fuera de la condición `!skipValidation`: el placeholder evasivo nunca debe persistirse, ni siquiera en flujos forzados. Si llega un placeholder, abort y guardar el motivo.
 
-- Reverse-geocode las coords (Nominatim → country + region) — ya se hace para `geoData`.
-- Forward-geocode el nombre (Nominatim search) y/o consultar Wikidata por el `lugar_interes` esperado en `geoContext`.
-- Si país/región **inferido por nombre** ≠ país/región **observado por coords** y la distancia supera un umbral (reutilizar `COHERENCE_HARD_REJECT_KM` = 50 km) ⇒ abortar con `reason: 'name_coordinate_mismatch'` y devolver `nearbyCandidates` (puntos Wikipedia cercanos a las coords reales) + `nameLocation` (mejor coincidencia textual del nombre).
+### 4. Persistir el fallo del flujo manual (anillo rojo coherente)
+En `triggerEnrichLocation`, cuando el servidor responda `success: false` con `reason ∈ { name_coordinate_mismatch, llm_unverifiable, coords_country_mismatch }`:
+- `UPDATE locations SET enrichment_status = 'unresolved', updated_at = now() WHERE id = …`
+- Insertar/actualizar una fila en `enrichment_jobs` "single-click" (o tabla equivalente que ya consume `enrichmentFailureStore`) con `error_messages[id] = { kind, message, candidates, nameLocation }` para que `hasEnrichmentFailure` encienda el anillo rojo de 5px también en manual.
 
-Esto cubre el caso "Glorieta de la Antártida" porque las coords reales no caen en España y el nombre sí refiere a una rotonda en Guadalajara → mismatch.
+Así Caso 1 y Caso 2, tras el clic, quedan con:
+- Marker base gris/naranja (no verde, porque no hay `descripcion` real).
+- Anillo rojo 5px (señal visual del fallo).
+- Bloque de recuperación `<UnenrichedRecoveryBlock>` ya muestra el motivo + "Renombrar" / "Mover punto" / "Elegir desde Contexto cercano".
 
-### 3. Antiveneno en el merge de `datos_geograficos`
-En `enrich-location/index.ts` ~línea 2225 (`mergedGeoData`):
+### 5. Acciones disponibles en el bloque de recuperación
+Asegurar las tres ramas para que el usuario pueda resolver:
+- **Renombrar el punto** (caso 2: coords son canon → corrige el nombre).
+- **Mover coordenadas al artículo Wikipedia** (caso opuesto: nombre es canon).
+- **Elegir candidato cercano** (lo que ya hace Contexto cercano).
+- **Marcar como manual/sin Wikipedia** (último recurso, no enriquece pero quita el anillo rojo y deja `description` libre).
 
-- **Prioridad invertida**: `geoData.region/zone/country` (Nominatim, derivado de coords) **manda** sobre `aiGeoData.*`.
-- La IA solo puede *complementar* (sublocalidad, lugar_interes, dirección_postal) si Nominatim no rellenó esos campos.
-- Si Nominatim no devolvió país (coords en el mar/desierto), `pais` queda **vacío** en vez de aceptar lo que la IA invente. Eso fuerza la rama de "no verificable" del paso 1.
-
-### 4. Endurecer `isPointEnriched`
-Helper único `src/domains/content/lib/point-visual-state.ts`:
-
-- Mantener "descripcion no vacía" como base.
-- **Añadir**: si `isUnverifiableLLMOutput` aplica al `enriched_data` ⇒ devolver `false` (el punto no se considera enriquecido y vuelve a la paleta naranja/gris).
-- Mismo helper que el del paso 1, exportado a cliente vía `src/domains/content/lib/llm-unverifiable.ts`.
-
-Beneficios: si por alguna razón un texto evasivo escapa al gate del backend, el cliente lo vuelve a clasificar como vacío y aparece en la cola de errores.
-
-### 5. Backfill de los 16 puntos ya afectados
-Migración:
-
-- Detectar registros donde `isUnverifiableLLMOutput(enriched_data)` aplique (mediante la misma regex en SQL).
-- Vaciar `enriched_data.descripcion` y mover el placeholder a `enrichment_failure_log` con `kind: 'llm_unverifiable'` para que `hasEnrichmentFailure(loc)` les pinte el anillo rojo y entren al flujo de recuperación existente (`UnenrichedRecoveryBlock` ya reutilizable).
-- Esto los devuelve a gris/naranja con CTA "Renombrar / mover punto / contexto cercano". Ningún borrado.
-
-### 6. UX: tratar `llm_unverifiable` y `name_coordinate_mismatch` con el mismo bloque
-Ya tenemos `UnenrichedRecoveryBlock` + `parseEnrichmentError` (ver `mem://logic/enrichment/per-poi-recovery-block` y `batch-error-resolution`). Sólo añadir el kind `llm_unverifiable` al mapeo (icono ámbar, texto "El nombre no resuelve a nada verificable en estas coordenadas", acciones: **Renombrar** / **Mover punto** / **Buscar contexto cercano**).
-
-### Archivos afectados
-- `supabase/functions/enrich-location/index.ts` (gate Capa D, helper `isUnverifiableLLMOutput`, merge invertido, guard pre-persist).
-- `supabase/functions/batch-enrich/index.ts` (consumir el nuevo `reason: 'llm_unverifiable'`).
-- `src/domains/content/lib/llm-unverifiable.ts` (nuevo, helper cliente — mismo regex).
-- `src/domains/content/lib/point-visual-state.ts` (`isPointEnriched` consulta el helper).
-- `src/domains/content/lib/enrichment-error-kind.ts` (añadir `llm_unverifiable` al union + label).
-- `src/domains/content/components/UnenrichedRecoveryBlock.tsx` (rama del nuevo kind).
-- Migración: backfill de los 16 registros + insert en `enrichment_failure_log`.
-
-### No se introduce
-- Cero hardcodeos por id ni por colección.
-- Cero cambios al sistema de visibilidad / colecciones / RLS.
-- Cero cambios al árbol de clasificación ni al esquema de fichas.
+### 6. Reintento batch: nunca con `skipValidation`
+En `batch-enrich/index.ts` el "legacy fallback" de la línea ~373 hace un retry con `skipValidation: true`. Eliminar ese retry. Si el primer intento aborta por coherencia/unverifiable, el punto va a `errorMessages` con su `kind` correspondiente y queda esperando intervención del usuario. Nada de "forzar a verde".
 
 ---
 
-## Garantías
-- El usuario **siempre** verá un punto que el sistema no puede verificar como anillo rojo + bloque de resolución; nunca como verde con texto evasivo.
-- El nombre **nunca** podrá sobreescribir país/región derivados de las coords.
-- Las coords incoherentes con el país que la IA infiere del nombre activan el mismo flujo de "elige identidad correcta" que ya existe para Caso A.
-- Los 16 puntos actuales quedan correctamente clasificados sin perder datos (placeholder se mueve a log, no se borra).
+## Sección técnica
+
+**Archivos a tocar (sólo lógica, sin tocar UI más allá del bloque de recuperación ya existente):**
+- `src/domains/content/lib/enrich-location.ts` — quitar `skipValidation`, persistir failure local en abort.
+- `supabase/functions/enrich-location/index.ts` — gate bidireccional pre-LLM; quitar `!skipValidation` del check de placeholder; añadir gate región además de país en post-LLM.
+- `supabase/functions/_shared/llm-unverifiable.ts` + mirror cliente — ampliar regex y añadir heurística de longitud mínima.
+- `supabase/functions/batch-enrich/index.ts` — eliminar retry con `skipValidation: true`; mantener el path de `error_messages` con `kind: coherence | llm_unverifiable`.
+- `src/domains/content/components/UnenrichedRecoveryBlock.tsx` — confirmar que ya tiene "Renombrar" y "Mover coords"; añadir lo que falte.
+- (opcional, depende de existencia) `enrichment_failures` o estructura equivalente para persistir fallos del manual single-click — si no existe, usar la misma tabla `enrichment_jobs` con un job sintético "manual" por usuario.
+
+**Norma transversal (memoria):** actualizar `mem://logic/enrichment/name-coordinate-coherence` para reflejar:
+- Gate **bidireccional** obligatorio.
+- `skipValidation` sólo permitido cuando hay `confirmedCandidate`.
+- Placeholder evasivo nunca se persiste.
+- Todo abort manual escribe failure → anillo rojo.
+
+---
+
+## Resultado esperado
+
+- "Cave of the Moon" → abort `llm_unverifiable` o `coherence`, gris con anillo rojo, bloque de recuperación con candidatos cercanos.
+- "Glorieta de la Antártida" en mar → abort `coherence` pre-LLM (Wikipedia dice Guadalajara, coords dicen océano), gris con anillo rojo, opción "mover coords al artículo" / "renombrar".
+- Cero verdes silenciosos cuando nombre y coordenadas no concuerdan.
