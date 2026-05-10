@@ -271,7 +271,7 @@ async function setupCollectionItemsRealtime(userId: string) {
   // Cargamos ids de colecciones del usuario para filtrar el canal.
   let collectionIds: string[] = [];
   try {
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from('collections')
       .select('id')
       .eq('owner_user_id', userId);
