@@ -172,21 +172,32 @@ class EnrichmentFailureStore {
     });
 
     // Realtime: any UPDATE on enrichment_jobs may add/remove ids from error_ids.
-    // We can't filter by element membership server-side, so we just clear the
-    // whole cache — this is cheap because entries are small and re-fetched on
-    // demand. Frequency is low (job ticks).
+    // We don't blow away the whole cache (that would make unrelated POIs lose
+    // their red ring between job ticks). Instead, we debounced-resync from the
+    // most recent jobs so ids no longer in error_ids become `null` (no error)
+    // and currently-failed ids keep their parsed error. This keeps the store
+    // coherent with reality without flickering.
     try {
       supabase
         .channel('enrichment-failure-store')
         .on(
           'postgres_changes',
           { event: 'UPDATE', schema: 'public', table: 'enrichment_jobs' },
-          () => this.invalidate(),
+          () => this.scheduleResync(),
         )
         .subscribe();
     } catch (e) {
       console.warn('[useEnrichmentFailure] realtime bind failed', e);
     }
+  }
+
+  private resyncTimer: ReturnType<typeof setTimeout> | null = null;
+  private scheduleResync(delayMs = 400): void {
+    if (this.resyncTimer) clearTimeout(this.resyncTimer);
+    this.resyncTimer = setTimeout(() => {
+      this.resyncTimer = null;
+      this.prewarmFromRecentJobs().catch(() => {});
+    }, delayMs);
   }
 }
 

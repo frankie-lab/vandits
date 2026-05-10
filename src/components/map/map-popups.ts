@@ -1121,6 +1121,10 @@ Reclasificar
 </div>
 ` : ''}
 
+<!-- Mount point for UnenrichedRecoveryBlock (hydrated by LocationMap on popupopen).
+     Helper único: per-POI recovery block. Solo se monta si el POI no está enriquecido. -->
+<div data-recovery-root="${location.id}" style="margin: 0 16px 8px 16px;"></div>
+
 ${actionButtonsHtml}
 </div>
 </div>
