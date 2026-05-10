@@ -131,7 +131,7 @@ async function whyHidden(locationId: string): Promise<void> {
     activeFilters.length === 0 ||
     matchesLocationFilters(loc, filters, {
       currentUserId,
-      hiddenFollowedUserIds: state.hiddenFollowedUserIds ?? [],
+      hiddenFollowedUserIds: filters.hiddenFollowedUserIds ?? [],
     } as any)
   );
   log('FINAL', finalVisible, finalVisible ? 'DEBERÍA VERSE' : 'OCULTO');
