@@ -19,6 +19,7 @@ import { GeoLocation } from '@/types/location';
 import { cn } from '@/lib/utils';
 import { splitDescriptionParagraphs } from '@/shared/enrichment/format-description';
 import { UnenrichedRecoveryBlock } from '@/domains/content/components/UnenrichedRecoveryBlock';
+import { LocationCollectionChips } from '@/domains/content/components/LocationCollectionChips';
 
 interface GalleryViewProps {
   onClose: () => void;
