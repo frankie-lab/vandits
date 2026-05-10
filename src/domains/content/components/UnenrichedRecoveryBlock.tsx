@@ -66,7 +66,9 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
 
   const message = parsed?.message ?? 'Este punto aún no se ha enriquecido.';
   const distanceKm = parsed?.nameLocation?.distanceKm;
-  const showRenameButton = parsed?.kind === 'coherence' && candidates.length > 0;
+  const showRenameButton =
+    (parsed?.kind === 'coherence' || parsed?.kind === 'llm_unverifiable') &&
+    candidates.length > 0;
 
   const handleRetry = async () => {
     setBusy(true);
