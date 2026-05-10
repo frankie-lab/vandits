@@ -30,7 +30,7 @@ export function useLocationCollections(locationId: string | null | undefined) {
         const { data, error } = await supabase
           .from('collection_items')
           .select('collection_id, collections!inner(id, name, color, icon)')
-          .eq('item_type', 'location')
+          .eq('item_type', 'place')
           .eq('item_id', locationId);
         if (error) throw error;
         if (cancelled) return;
