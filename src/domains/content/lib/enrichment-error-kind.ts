@@ -13,12 +13,13 @@
  */
 
 export type EnrichmentErrorKind =
-  | 'coherence'    // nombre↔coordenadas no cuadran (ABORT controlado, hay candidatos)
-  | 'no_match'     // IA no encontró ficha (sin candidatos)
-  | 'rate_limit'   // 429
-  | 'no_credits'   // 402
-  | 'timeout'      // 5xx / fetch lento
-  | 'network'      // fetch lanzó (DNS, abort, parse)
+  | 'coherence'         // nombre↔coordenadas no cuadran (ABORT controlado, hay candidatos)
+  | 'llm_unverifiable'  // el LLM se rindió (placeholder evasivo en descripcion) — ABORT controlado
+  | 'no_match'          // IA no encontró ficha (sin candidatos)
+  | 'rate_limit'        // 429
+  | 'no_credits'        // 402
+  | 'timeout'           // 5xx / fetch lento
+  | 'network'           // fetch lanzó (DNS, abort, parse)
   | 'unknown';
 
 export interface CoherenceCandidate {
