@@ -163,7 +163,7 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
       if (locError || !location) {
         console.error('Location not found:', locationId);
         errorIds.push(locationId);
-        errorMessages[locationId] = 'Ubicación no encontrada';
+        errorMessages[locationId] = { kind: 'unknown', message: 'Ubicación no encontrada' };
         continue;
       }
 
