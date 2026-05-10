@@ -141,9 +141,22 @@ export function LocationMap() {
   // Force marker refresh when the "Criterios de Actualización" change
  const [criteriaVersion, setCriteriaVersion] = useState(0);
  
-  // Force update counter for realtime and store updates
- const [forceUpdateCount, setForceUpdateCount] = useState(0);
- 
+  // Targeted realtime updates: collect the IDs touched since last flush and
+  // bump `realtimeTick` once per coalescing window so only the affected markers
+  // are refreshed (popup HTML + icon), not the whole 5k-marker set.
+  // `pendingRealtimeIdsRef.current === null` means "invalidate all" (full sweep).
+  const pendingRealtimeIdsRef = useRef<Set<string> | null>(new Set());
+  const [realtimeTick, setRealtimeTick] = useState(0);
+
+  useCoalescedRealtimeTick(({ ids }) => {
+    if (ids === null) {
+      pendingRealtimeIdsRef.current = null;
+    } else if (pendingRealtimeIdsRef.current !== null) {
+      ids.forEach((id) => pendingRealtimeIdsRef.current!.add(id));
+    }
+    setRealtimeTick((v) => v + 1);
+  }, { delayMs: 350 });
+
  // Map center config version to trigger re-centering
  const [centerConfigVersion, setCenterConfigVersion] = useState(0);
 
