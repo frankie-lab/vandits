@@ -643,7 +643,7 @@ function ErrorsResolutionList({ errorIds, errorMessages, jobId, onResolved }: Er
     delete newMessages[locationId];
     await supabase
       .from('enrichment_jobs')
-      .update({ error_ids: newErrorIds, error_count: newErrorIds.length, error_messages: newMessages })
+      .update({ error_ids: newErrorIds, error_count: newErrorIds.length, error_messages: newMessages as never })
       .eq('id', jobId);
   };
 
