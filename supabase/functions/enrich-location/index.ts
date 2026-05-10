@@ -352,6 +352,7 @@ function getContinentForCountry(country: string | undefined, lat: number, lng: n
 // Reverse geocode using Nominatim to get country/region/zone
 async function reverseGeocodeLocation(lat: number, lng: number): Promise<{
   country?: string;
+  countryCode?: string;
   region?: string;
   zone?: string;
   continent?: string;
@@ -371,7 +372,6 @@ async function reverseGeocodeLocation(lat: number, lng: number): Promise<{
 
     if (!response.ok) {
       console.error('Nominatim error:', response.status);
-      // Aun sin respuesta de Nominatim, inferir continente por coordenadas
       return { continent: inferContinentFromCoordinates(lat, lng) };
     }
 
@@ -379,19 +379,18 @@ async function reverseGeocodeLocation(lat: number, lng: number): Promise<{
     const address = data.address || {};
 
     const country = address.country || undefined;
+    const countryCode = typeof address.country_code === 'string'
+      ? address.country_code.toUpperCase()
+      : undefined;
     const region = address.state || address.region || address.province || undefined;
     const zone = address.county || address.city || address.town || address.municipality || undefined;
-    // Calle/vía: sólo si Nominatim la devuelve. Nunca inventada.
     const street = address.road || address.pedestrian || address.footway || address.path || address.cycleway || undefined;
-
-    // Usar getContinentForCountry para obtener continente con fallback a coordenadas
     const continent = getContinentForCountry(country, lat, lng);
 
-    console.log('Geocoding result:', { country, region, zone, street, continent });
-    return { country, region, zone, continent, street };
+    console.log('Geocoding result:', { country, countryCode, region, zone, street, continent });
+    return { country, countryCode, region, zone, continent, street };
   } catch (error) {
     console.error('Geocoding error:', error);
-    // Fallback: al menos inferir continente
     return { continent: inferContinentFromCoordinates(lat, lng) };
   }
 }
