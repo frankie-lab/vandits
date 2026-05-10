@@ -5,6 +5,7 @@
  */
 import React from 'react';
 import { useLocationCollections } from '@/domains/content/hooks/use-location-collections';
+import { getCollectionChipColors } from '@/shared/lib/collection-chip-color';
 
 interface Props {
   locationId: string | null | undefined;
