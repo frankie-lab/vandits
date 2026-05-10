@@ -2229,15 +2229,15 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
         }
 
         // Coords⇄país: si la IA inventó un país distinto al que Nominatim
-        // resolvió desde las coords, abortamos. El bloque de recuperación
-        // del cliente ofrecerá renombrar/mover el punto.
-        if (
-          !skipValidation &&
-          geoData.country && aiGeoData.pais &&
-          geoData.country.trim().toLowerCase() !== aiGeoData.pais.trim().toLowerCase()
-        ) {
+        // resolvió desde las coords, abortamos. Normalizamos via ISO α2 para
+        // evitar falsos positivos por idioma (Spain vs España, etc.).
+        const nominatimCountry = (geoData as { countryCode?: string }).countryCode || geoData.country;
+        const coherence = !skipValidation
+          ? compareCountries(nominatimCountry, aiGeoData.pais)
+          : 'unknown';
+        if (coherence === 'differ') {
           console.log(
-            `[enrich] ABORT name↔coords mismatch: nominatim="${geoData.country}" vs LLM="${aiGeoData.pais}"`,
+            `[enrich] ABORT name↔coords mismatch: nominatim="${geoData.country}" (${(geoData as { countryCode?: string }).countryCode ?? '?'}) vs LLM="${aiGeoData.pais}"`,
           );
           const nearbyPages = await fetchNearbyWikipediaPages(location.coordinates, COHERENCE_NEARBY_RADIUS_M, 5);
           const nearbyExtracts = await fetchPageExtracts(nearbyPages.map((p) => p.pageid));
