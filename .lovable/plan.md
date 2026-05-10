@@ -1,55 +1,100 @@
-## Diagnóstico confirmado
+## Objetivo
+Corregir la lógica de enriquecimiento para que, cuando un POI ya trae geografía fiable (`country`, `region`, `zone`, y en muchos casos `localidad`) y coordenadas correctas, esa geografía pese más que una coincidencia textual ambigua en Wikipedia. El cambio debe ser transversal, persistente y sin parches por caso.
 
-He inspeccionado este POI (`Río Tinto` / `Parque Nacional de Doñana`) en BD:
+## Qué está fallando hoy
+La edge function `enrich-location` tiene dos comportamientos distintos:
 
-- `enriched_data` existe pero **solo contiene `etiquetas_personales`** (el tag `#fulltrips`). NO tiene `descripcion`, ni `imagenes`, ni `clasificacion`. Es decir, el POI **no está enriquecido** por la regla canónica.
-- En `enrichment_jobs` el último job lo deja en `error_ids` con error de coherencia ("El nombre corresponde a un lugar a 2.6 km de las coordenadas").
+1. **`searchWikipedia(...)` sí usa geografía/coordenadas**
+   - Primero intenta `geosearch` alrededor de las coordenadas.
+   - Solo luego hace búsqueda textual, y además rechaza artículos a >50 km.
 
-Pese a ello la UI lo trata como enriquecido (badge verde "Enriquecido 09/05/2026", botón "Re-enriquecer", sin anillo rojo, sin bloque de recuperación). Causa raíz transversal: **dos sitios siguen usando `loc.enrichedData` truthy como sinónimo de "enriquecido"**, en vez del criterio único `enriched_data.descripcion` que ya está cristalizado en `getPointVisualState`:
+2. **`validateNameCoordinateCoherence(...)` NO usa la geografía del punto**
+   - Busca por texto en Wikipedia (`srsearch`).
+   - Escoge el “mejor match” por similitud de título.
+   - Si ese artículo está a >2 km, aborta.
+   - No tiene en cuenta `country`, `region`, `zone`, `localidad`, ni el contexto geográfico ya correcto del POI.
 
-1. `src/components/map/map-popups.ts:157` y `:361` — `const enriched = location.enrichedData;` ⇒ entra por la rama enriched y nunca monta el bloque de recuperación ni borra el badge.
-2. `src/domains/content/lib/enrichment-failure-state.ts:26` — `if (location.enrichedData) return false;` ⇒ corta el anillo rojo aunque el POI no esté realmente enriquecido y figure en `error_ids`.
+Resultado: si existe un artículo homónimo en otra región/país, la función aborta antes de construir el contexto enriquecido, aunque el punto esté bien ubicado y ya venga con metadatos geográficos correctos.
 
-Y por la misma razón, "una vez enriquecido de verdad" estos POIs ya volverían al contorno por defecto / colección, porque `hasEnrichmentFailure` se basa en el mismo helper.
+## Cambio propuesto
 
-## Plan (transversal — helper único)
+### 1) Rehacer la coherencia para que sea geo-aware
+Actualizar `validateNameCoordinateCoherence(...)` para aceptar contexto geográfico del POI y aplicar una estrategia por capas:
 
-1. **Crear helper único `isPointEnriched(loc)`** en `src/domains/content/lib/point-visual-state.ts`:
-   ```ts
-   export function isPointEnriched(loc): boolean {
-     return getPointVisualState(loc) === 'enriched';
-   }
-   ```
-   Una sola fuente de verdad para "¿está enriquecido?". Apoyada en `getEnrichmentBucket` (que ya exige `enriched_data.descripcion`).
+- **Capa A — Prioridad absoluta a las coordenadas**
+  - Buscar artículos cercanos por `geosearch` alrededor del punto.
+  - Si entre los cercanos hay uno que encaja razonablemente con el nombre, se considera coherente y no se aborta.
 
-2. **`enrichment-failure-state.ts`** — sustituir `if (location.enrichedData) return false` por `if (isPointEnriched(location)) return false`. Mantiene la regla "verde nunca marca error" pero usando el criterio canónico. El POI de la captura pasará a mostrar anillo rojo 5px (no está enriquecido + está en `error_ids` del job reciente).
+- **Capa B — Desambiguación por geografía administrativa**
+  - Al evaluar candidatos textuales, sumar score si el título/extract menciona `country`, `region`, `zone`, `localidad` del POI.
+  - Penalizar o descartar candidatos que contradigan la geografía conocida.
 
-3. **`map-popups.ts`** (líneas 157 y 361) — sustituir `const enriched = location.enrichedData;` por `const enriched = isPointEnriched(location);`. Efectos automáticos:
-   - El POI de la captura deja de pintar el badge verde "Enriquecido" y el botón "Re-enriquecer"; aparece el botón "Enriquecer".
-   - El template no-enriched ya inyecta el placeholder `data-recovery-root="${location.id}"`, así que `bindRecoveryMount` montará `<UnenrichedRecoveryBlock>` con el mensaje de coherencia y CTAs (Reintentar / Contexto cercano / Renombrar).
+- **Capa C — Solo abortar si la evidencia geográfica es fuerte**
+  - No abortar solo porque exista un homónimo lejano.
+  - Abortar únicamente si:
+    - no existe candidato cercano razonable, y
+    - el mejor candidato textual lejano es claramente superior, y
+    - además no hay soporte geográfico local consistente.
 
-4. **Auditoría transversal** del resto de archivos que usan `enrichedData` truthy como proxy de "enriquecido" (badges, contadores, ramas UI, gating de acciones). Solo se migran los usos que **deciden estado/clasificación**, no los que leen subcampos (`enrichedData.descripcion`, `.imagenes`, etc.). Archivos candidatos a revisar y, si aplica, sustituir por `isPointEnriched`:
-   - `src/components/map/useEnrichmentTracker.ts`, `map-utils.ts`, `map-popup-handlers.ts`
-   - `src/components/LocationMap.tsx` (firmas / branches "enriched")
-   - `src/components/GalleryView.tsx`, `LocationList.tsx`, `CollectionFocusView.tsx`, `OrphanFocusView.tsx`, `DuplicatesList.tsx`, `DocumentWaypointsTabs.tsx`, `SelectionActions.tsx`
-   - Hooks/domain: `use-popup-actions.ts`, `enrich-location.ts` (solo si decide "skip ya enriquecido" — alinear con la regla `descripcion`)
+Esto convierte la coherencia en una comprobación robusta de identidad, no en una simple colisión de títulos de Wikipedia.
 
-5. **Memoria**:
-   - Actualizar `mem://style/map/error-outline-rule` para citar el helper único.
-   - Añadir bullet en Core del index: *"Helper único `isPointEnriched(loc)` para cualquier check de enriquecido. Nunca usar `loc.enrichedData` truthy."*
+### 2) Pasar la geografía real del POI a la validación
+Cambiar la llamada desde `enrich-location/index.ts` para que `validateNameCoordinateCoherence(...)` reciba un objeto de contexto con:
+- `country`
+- `region`
+- `zone`
+- `localidad` / `sublocalidad` si están disponibles
+- coordenadas
+
+La validación debe trabajar con esa información como fuente de verdad contextual.
+
+### 3) Mantener el flujo de recuperación, pero con menos falsos positivos
+El bloque ámbar de recuperación debe seguir existiendo para errores reales, pero con la nueva lógica solo aparecerá cuando realmente haya un conflicto de identidad, no cuando la geografía del propio POI ya resuelve la ambigüedad.
+
+### 4) Mantener el bypass manual explícito
+Se mantiene la semántica del flujo manual con `skipValidation: true` para que el usuario pueda forzar un enriquecimiento si lo desea. Pero el objetivo es que en muchos casos ya no haga falta, porque la validación dejará de abortar incorrectamente.
+
+## Impacto esperado
+- Menos falsos rechazos en puntos con nombres ambiguos o repetidos.
+- Mejor uso de las etiquetas geográficas ya resueltas del propio POI.
+- El enriquecimiento seguirá siendo seguro, pero más inteligente y menos frágil.
+- El popup solo mostrará recuperación cuando realmente haya una duda de identidad.
+
+## Archivos a tocar
+- `supabase/functions/enrich-location/index.ts`
+- Posiblemente memoria de reglas:
+  - `mem://logic/enrichment/name-coordinate-coherence`
+  - `mem://logic/enrichment/force-generation-skip-validation` si hace falta aclarar la nueva semántica
+
+## Detalle técnico
+Propuesta de refactor:
+
+```text
+validateNameCoordinateCoherence(name, coordinates, geoContext)
+  1. geosearch cerca del punto
+  2. rank de candidatos cercanos por:
+     - similitud de nombre
+     - distancia
+     - coincidencia con country/region/zone/localidad
+  3. si hay candidato local suficientemente bueno => ok
+  4. si no, búsqueda textual global
+  5. rank de candidatos globales con mismo score geo-aware
+  6. abortar solo si candidato lejano gana claramente y no hay soporte local
+```
+
+También conviene extraer un helper central de scoring para no duplicar heurísticas entre:
+- `validateNameCoordinateCoherence(...)`
+- `searchNearbyCandidates(...)`
+- `searchWikipedia(...)` si procede
+
+Así el criterio de “match razonable” queda unificado transversalmente.
 
 ## Validación
+Probar con casos como:
+- puntos con nombre ambiguo pero geografía correcta ya resuelta
+- puntos con homónimos en otras provincias/países
+- puntos realmente mal nombrados, que deben seguir mostrando recuperación
 
-**POI de la captura (Río Tinto / Doñana)** tras los cambios:
-- Marcador: paleta canónica (gris/naranja) + anillo rojo 5px (job lo dejó en error_ids).
-- Popup: sin badge "Enriquecido", botón "Enriquecer", bloque de recuperación visible con el mensaje de coherencia y los 3 CTAs.
-
-**Tras enriquecimiento real exitoso** (se guarda `descripcion`):
-- `isPointEnriched` → true ⇒ `hasEnrichmentFailure` devuelve false ⇒ el anillo rojo desaparece y se restaura el contorno por defecto o el de la colección (vía `getTintForLocation`).
-- Popup pasa a la rama enriched: badge "Enriquecido <fecha>" + "Re-enriquecer".
-- Persistente: no hay parches puntuales, todo deriva del estado real de `enriched_data.descripcion`.
-
-## Riesgos
-
-- POIs antiguos con `enriched_data` parcial (solo tags o solo imagen sin descripción) dejarán de mostrarse como enriquecidos. Es el comportamiento correcto por norma canónica, pero puede sorprender en datos viejos. Aceptamos.
-- Cambio puramente de presentación/derivación; no toca pipelines de IA, BD ni datos.
+El resultado correcto será:
+- si la geografía del POI y las coordenadas sostienen la identidad, el enriquecimiento continúa;
+- si no, aparece el bloque de recuperación con candidatos cercanos.

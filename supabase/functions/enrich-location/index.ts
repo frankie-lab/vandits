@@ -534,11 +534,25 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// ====== Name ↔ Coordinate coherence check ======
-// Verifica que el nombre proporcionado se corresponda con el lugar real en
-// esas coordenadas. Si Wikipedia tiene un artículo con el nombre y sus
-// coordenadas oficiales están a >COHERENCE_THRESHOLD_KM, devuelve mismatch.
+// ====== Name ↔ Coordinate coherence check (geo-aware) ======
+// Verifica que el nombre + coordenadas representen una identidad coherente,
+// usando la geografía ya resuelta del POI (country/region/zone/localidad)
+// como evidencia de primera clase. NUNCA abortar por una colisión textual
+// con un homónimo lejano si:
+//   a) hay un artículo de Wikipedia cerca de las coords con nombre similar, o
+//   b) el candidato textual lejano no contradice la geografía del POI.
 const COHERENCE_THRESHOLD_KM = 2;
+const COHERENCE_HARD_REJECT_KM = 50;
+const COHERENCE_NEARBY_RADIUS_M = 5000;
+
+export interface CoherenceGeoContext {
+  country?: string;
+  region?: string;
+  zone?: string;
+  locality?: string;
+  sublocality?: string;
+  comarca?: string;
+}
 
 interface CoherenceResult {
   ok: boolean;
@@ -549,19 +563,117 @@ interface CoherenceResult {
   nearbyCandidates?: Array<{ name: string; distanceM: number; url: string; extract?: string }>;
 }
 
+// Devuelve un score 0..100 de solapamiento textual entre un nombre POI y un
+// título de Wikipedia. Helper único — usado por la coherencia y el ranking
+// de candidatos cercanos.
+function nameOverlapScore(poiName: string, title: string): number {
+  const a = (poiName || '').toLowerCase().trim();
+  const b = (title || '').toLowerCase().trim();
+  if (!a || !b) return 0;
+  let score = 0;
+  if (b.includes(a) || a.includes(b)) score += 50;
+  const words = a.split(/\s+/).filter((w) => w.length > 2);
+  if (words.length > 0) {
+    const matched = words.filter((w) => b.includes(w)).length;
+    score += (matched / words.length) * 50;
+  }
+  return score;
+}
+
+// ¿El extract/título del candidato menciona alguna pieza de la geografía
+// administrativa que ya tenemos resuelta para el POI? Si sí, el candidato
+// "lejano" probablemente apunta a un homónimo en NUESTRA área (sin coords en
+// Wikipedia) y no debe abortar el enriquecimiento.
+function candidateMatchesGeoContext(
+  candidateTitle: string,
+  candidateExtract: string,
+  ctx?: CoherenceGeoContext,
+): boolean {
+  if (!ctx) return false;
+  const haystack = `${candidateTitle || ''}\n${candidateExtract || ''}`.toLowerCase();
+  const tokens = [ctx.country, ctx.region, ctx.zone, ctx.comarca, ctx.locality, ctx.sublocality]
+    .filter((v): v is string => typeof v === 'string' && v.trim().length > 2)
+    .map((v) => v.toLowerCase());
+  return tokens.some((t) => haystack.includes(t));
+}
+
+async function fetchNearbyWikipediaPages(
+  coordinates: { lat: number; lng: number },
+  radiusMeters: number,
+  limit: number,
+): Promise<Array<{ pageid: number; title: string; dist: number }>> {
+  try {
+    const geoUrl = `https://es.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${coordinates.lat}|${coordinates.lng}&gsradius=${radiusMeters}&gslimit=${limit}&format=json&origin=*`;
+    const r = await fetch(geoUrl);
+    if (!r.ok) return [];
+    const j = await r.json();
+    return j.query?.geosearch || [];
+  } catch (e) {
+    console.error('[coherence] geosearch failed', e);
+    return [];
+  }
+}
+
+async function fetchPageExtracts(
+  pageIds: number[],
+): Promise<Record<string, { extract?: string; fullurl?: string; title?: string }>> {
+  if (pageIds.length === 0) return {};
+  try {
+    const exUrl = `https://es.wikipedia.org/w/api.php?action=query&pageids=${pageIds.join('|')}&prop=extracts|info&exintro=true&explaintext=true&exchars=300&inprop=url&format=json&origin=*`;
+    const r = await fetch(exUrl);
+    if (!r.ok) return {};
+    const j = await r.json();
+    return j.query?.pages || {};
+  } catch (e) {
+    console.error('[coherence] extracts failed', e);
+    return {};
+  }
+}
+
 async function validateNameCoordinateCoherence(
   name: string,
   coordinates: { lat: number; lng: number },
+  geoContext?: CoherenceGeoContext,
 ): Promise<CoherenceResult> {
   const result: CoherenceResult = { ok: true, providedName: name, providedCoords: coordinates };
   const cleanName = (name || '').trim();
-  // Skip generic / empty names — handled by the client-side identity guard.
   if (!cleanName || /^(unnamed|sin nombre|punto|waypoint|placemark|point\s*\d*)$/i.test(cleanName)) {
     return result;
   }
 
   try {
-    // 1. Search Wikipedia by name to find an article whose title matches.
+    // ── Capa A · Prioridad absoluta a las coordenadas ──────────────────
+    // Si Wikipedia tiene un artículo cerca del punto cuyo título encaja
+    // razonablemente con el nombre del POI, la identidad queda confirmada
+    // y NO se aborta, aunque exista un homónimo lejano.
+    const nearbyPages = await fetchNearbyWikipediaPages(coordinates, COHERENCE_NEARBY_RADIUS_M, 10);
+    const nearbyExtracts = await fetchPageExtracts(nearbyPages.map((p) => p.pageid));
+    const nearbyCandidates: NonNullable<CoherenceResult['nearbyCandidates']> = nearbyPages.map((p) => {
+      const info = nearbyExtracts[String(p.pageid)] || {};
+      return {
+        name: p.title,
+        distanceM: Math.round(p.dist),
+        url: info.fullurl || `https://es.wikipedia.org/wiki/${encodeURIComponent(p.title)}`,
+        extract: info.extract?.substring(0, 240),
+      };
+    });
+
+    const localBest = nearbyCandidates.reduce<{ score: number; cand?: typeof nearbyCandidates[number] }>(
+      (acc, c) => {
+        const s = nameOverlapScore(cleanName, c.name);
+        return s > acc.score ? { score: s, cand: c } : acc;
+      },
+      { score: 0 },
+    );
+
+    if (localBest.cand && localBest.score >= 35) {
+      console.log(
+        `[coherence] OK via nearby match: "${localBest.cand.name}" (${localBest.cand.distanceM}m, score=${localBest.score.toFixed(0)})`,
+      );
+      return result;
+    }
+
+    // ── Capa B · Búsqueda textual y comparación con coords ────────────
     const searchUrl = `https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(cleanName)}&srlimit=3&format=json&origin=*`;
     const searchResp = await fetch(searchUrl);
     if (!searchResp.ok) return result;
@@ -569,17 +681,10 @@ async function validateNameCoordinateCoherence(
     const hits = searchJson.query?.search || [];
     if (hits.length === 0) return result;
 
-    // Score: title overlap with provided name
-    const lowerName = cleanName.toLowerCase();
-    const nameWords = lowerName.split(/\s+/).filter((w) => w.length > 2);
     let bestPageId: number | null = null;
     let bestScore = 0;
     for (const h of hits.slice(0, 3)) {
-      const t = (h.title || '').toLowerCase();
-      let score = 0;
-      if (t.includes(lowerName) || lowerName.includes(t)) score += 50;
-      const matched = nameWords.filter((w) => t.includes(w)).length;
-      if (nameWords.length > 0) score += (matched / nameWords.length) * 50;
+      const score = nameOverlapScore(cleanName, h.title || '');
       if (score > bestScore) {
         bestScore = score;
         bestPageId = h.pageid;
@@ -587,54 +692,51 @@ async function validateNameCoordinateCoherence(
     }
     if (bestPageId == null || bestScore < 35) return result;
 
-    // 2. Get coordinates for that page
-    const coordUrl = `https://es.wikipedia.org/w/api.php?action=query&pageids=${bestPageId}&prop=coordinates|info&inprop=url&format=json&origin=*`;
+    const coordUrl = `https://es.wikipedia.org/w/api.php?action=query&pageids=${bestPageId}&prop=coordinates|info|extracts&exintro=true&explaintext=true&exchars=400&inprop=url&format=json&origin=*`;
     const coordResp = await fetch(coordUrl);
     if (!coordResp.ok) return result;
     const coordJson = await coordResp.json();
     const page = coordJson.query?.pages?.[bestPageId];
     const wikiCoords = page?.coordinates?.[0];
-    if (!wikiCoords?.lat || !wikiCoords?.lon) return result;
+
+    // Sin coordenadas en el artículo → no hay evidencia geográfica para
+    // refutar la identidad. Se permite enriquecer.
+    if (!wikiCoords?.lat || !wikiCoords?.lon) {
+      console.log(`[coherence] OK: textual candidate "${page?.title}" has no coords`);
+      return result;
+    }
 
     const distanceKm = haversineDistance(
       coordinates.lat, coordinates.lng, wikiCoords.lat, wikiCoords.lon,
     );
 
-    console.log(`[enrich] coherence check: name="${cleanName}" provided=(${coordinates.lat},${coordinates.lng}) wikiAt=(${wikiCoords.lat},${wikiCoords.lon}) distance=${distanceKm.toFixed(1)}km`);
+    console.log(
+      `[coherence] textual=${page.title} provided=(${coordinates.lat},${coordinates.lng}) wikiAt=(${wikiCoords.lat},${wikiCoords.lon}) distance=${distanceKm.toFixed(1)}km`,
+    );
 
     if (distanceKm <= COHERENCE_THRESHOLD_KM) {
-      return result; // coherent
+      return result;
     }
 
-    // 3. Mismatch: gather nearby candidates around the *provided* coords so the
-    // user can pick the real identity.
-    let nearbyCandidates: CoherenceResult['nearbyCandidates'] = [];
-    try {
-      const geoUrl = `https://es.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${coordinates.lat}|${coordinates.lng}&gsradius=2000&gslimit=5&format=json&origin=*`;
-      const geoResp = await fetch(geoUrl);
-      if (geoResp.ok) {
-        const geoJson = await geoResp.json();
-        const pages = geoJson.query?.geosearch || [];
-        if (pages.length > 0) {
-          const ids = pages.map((p: any) => p.pageid).join('|');
-          const exUrl = `https://es.wikipedia.org/w/api.php?action=query&pageids=${ids}&prop=extracts|info&exintro=true&explaintext=true&exchars=240&inprop=url&format=json&origin=*`;
-          const exResp = await fetch(exUrl);
-          if (exResp.ok) {
-            const exJson = await exResp.json();
-            nearbyCandidates = pages.map((p: any) => {
-              const info = exJson.query?.pages?.[p.pageid];
-              return {
-                name: p.title,
-                distanceM: Math.round(p.dist),
-                url: info?.fullurl || `https://es.wikipedia.org/wiki/${encodeURIComponent(p.title)}`,
-                extract: info?.extract?.substring(0, 240),
-              };
-            });
-          }
-        }
-      }
-    } catch (e) {
-      console.error('[enrich] coherence: error fetching candidates', e);
+    // ── Capa C · Desambiguación por geografía administrativa ──────────
+    // El candidato textual está LEJOS. Solo se aborta si además:
+    //  - no comparte ninguna pieza geográfica conocida del POI, y
+    //  - la distancia es realmente significativa (> COHERENCE_HARD_REJECT_KM).
+    // En cualquier otro caso permitimos enriquecer (la coherencia local
+    // y la geografía resuelta del POI sostienen la identidad).
+    const candidateExtract = page?.extract || '';
+    const geoSupports = candidateMatchesGeoContext(page?.title || '', candidateExtract, geoContext);
+    if (geoSupports) {
+      console.log(
+        `[coherence] OK: textual candidate matches POI geoContext (${JSON.stringify(geoContext)})`,
+      );
+      return result;
+    }
+    if (distanceKm < COHERENCE_HARD_REJECT_KM) {
+      console.log(
+        `[coherence] OK: textual candidate ${distanceKm.toFixed(1)}km away but under hard-reject threshold (${COHERENCE_HARD_REJECT_KM}km)`,
+      );
+      return result;
     }
 
     return {
@@ -649,10 +751,10 @@ async function validateNameCoordinateCoherence(
         url: page.fullurl || `https://es.wikipedia.org/wiki/${encodeURIComponent(page.title)}`,
         distanceKm: Math.round(distanceKm * 10) / 10,
       },
-      nearbyCandidates,
+      nearbyCandidates: nearbyCandidates.slice(0, 5),
     };
   } catch (e) {
-    console.error('[enrich] coherence: unexpected error', e);
+    console.error('[coherence] unexpected error', e);
     return result;
   }
 }
@@ -1685,12 +1787,21 @@ serve(async (req) => {
     // Check if we need to validate the location before enrichment
     // This is a key quality control step for curator enrichment
     
-    // ========== NAME ↔ COORDINATE COHERENCE CHECK ==========
-    // Runs BEFORE prompt construction. If the provided name corresponds to a
-    // Wikipedia article whose own coordinates are >2 km from the provided
-    // coords, abort and return candidates for the user to resolve.
-    if (!confirmedCandidate) {
-      const coherence = await validateNameCoordinateCoherence(location.name, location.coordinates);
+    // ========== NAME ↔ COORDINATE COHERENCE CHECK (geo-aware) ==========
+    // Usa la geografía resuelta del POI (country/region/zone/locality) como
+    // evidencia primaria. Honra `skipValidation` para flujos manuales.
+    if (!confirmedCandidate && !skipValidation) {
+      const coherence = await validateNameCoordinateCoherence(
+        location.name,
+        location.coordinates,
+        {
+          country: geoData.country,
+          region: geoData.region,
+          zone: geoData.zone,
+          locality: (geocodeResult as any)?.locality,
+          sublocality: (geocodeResult as any)?.sublocality,
+        },
+      );
       if (!coherence.ok && coherence.reason === 'name_coordinate_mismatch') {
         console.log(`[enrich] ABORT: name "${coherence.providedName}" is at ${coherence.nameLocation?.distanceKm}km from provided coords. Returning candidates.`);
         return new Response(
