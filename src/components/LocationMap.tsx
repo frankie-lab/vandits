@@ -24,6 +24,7 @@ import { playEnrichmentComplete } from '@/lib/sounds';
 import { usePermissions } from '@/domains/identity';
 import { useSocialStats } from '@/domains/social';
 import { useMapTheme } from '@/hooks/use-map-theme';
+import { CatalogLoadingCard } from '@/shared/loading';
 import { supabase } from '@/integrations/supabase/client';
 import { getLucideSvgString, getMapMarkerHtml, getStopTypeIconKey } from '@/lib/icon-utils';
 import { fetchIpGeolocation } from '@/lib/ip-geolocation';
