@@ -384,9 +384,9 @@ export function createPopupContent(
   canEnrich: boolean = false,
 ): string {
   const locationUpdatedAt = location.updatedAt ? new Date(location.updatedAt).getTime() : 0;
-  // Los hashtags de colecciones se hidratan vía `bindCollectionsMount`
-  // (componente React único `LocationCollectionChips`) en `popupopen`.
-  // El HTML solo emite un host estable `[data-collections-root]`.
+  // Los hashtags de colecciones se pintan inline desde
+  // `location-collections-store` (lectura síncrona). Cuando el store cambia,
+  // `LocationMap` regenera el popup con `setPopupContent(...)`.
   // Helper único `isPointEnriched` — NO usar `location.enrichedData` truthy
   // como proxy de "enriquecido" (puede contener stubs sin `descripcion`).
   const isEnriched = isPointEnriched(location);
