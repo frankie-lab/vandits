@@ -357,7 +357,10 @@ export function createPopupContent(
   canEnrich: boolean = false,
 ): string {
   const locationUpdatedAt = location.updatedAt ? new Date(location.updatedAt).getTime() : 0;
-  const canRegenerate = canEnrich && (!location.enrichedData || locationUpdatedAt < criteriaTimestamp);
+  // Helper único `isPointEnriched` — NO usar `location.enrichedData` truthy
+  // como proxy de "enriquecido" (puede contener stubs sin `descripcion`).
+  const isEnriched = isPointEnriched(location);
+  const canRegenerate = canEnrich && (!isEnriched || locationUpdatedAt < criteriaTimestamp);
   const enriched = location.enrichedData;
   const locationName = (enriched?.nombre_lugar && enriched.nombre_lugar !== 'null') ? enriched.nombre_lugar : location.name;
   const hasClassification = !!enriched?.clasificacion?.codigo;
