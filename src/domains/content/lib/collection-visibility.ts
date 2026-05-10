@@ -260,6 +260,15 @@ function scheduleMembershipRebuild(userId: string) {
   }, 250);
 }
 
+/** Red de seguridad: re-construir el índice de membership catálogo.
+ *  Llamado por consumidores externos (p. ej. useRealtimeLocations al recibir
+ *  INSERTs de locations aprobadas) cuando sospechan que el snapshot puede
+ *  estar rancio por escrituras de edge functions. */
+export function requestCatalogMembershipRebuild(): void {
+  if (!currentUserId) return;
+  scheduleMembershipRebuild(currentUserId);
+}
+
 async function setupCollectionItemsRealtime(userId: string) {
   if (collectionItemsChannel && collectionItemsUserId === userId) return;
   if (collectionItemsChannel) {
