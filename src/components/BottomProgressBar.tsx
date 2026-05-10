@@ -343,14 +343,21 @@ export function BottomProgressBar() {
                  {isActive && (
                    <>
                      <span className="font-medium text-sm truncate">
-                       {isPaused ? 'Enriquecimiento pausado' : 'Enriqueciendo ubicaciones'}
+                       {isPausedNoCredits
+                         ? 'Pausado: AI balance agotado'
+                         : isPaused ? 'Enriquecimiento pausado' : 'Enriqueciendo ubicaciones'}
                      </span>
                      {activeJob?.current_location_name && activeJob.status === 'running' && (
                        <span className="text-[11px] text-muted-foreground truncate">
                          {activeJob.current_location_name}
                        </span>
                      )}
-                     {isPaused && (
+                     {isPausedNoCredits && (
+                       <span className="text-[11px] text-amber-600 dark:text-amber-400 truncate">
+                         Recarga en Settings → Cloud & AI balance y pulsa Reanudar
+                       </span>
+                     )}
+                     {isPaused && !isPausedNoCredits && (
                        <span className="text-[11px] text-amber-600 dark:text-amber-400">
                          {queue} pendientes
                        </span>
