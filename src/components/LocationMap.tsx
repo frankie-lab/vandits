@@ -1478,6 +1478,58 @@ export function LocationMap() {
  }
  }, [enrichmentKey, selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId, canEnrichLocations]);
 
+  // Targeted realtime refresh: update ONLY the markers that actually changed
+  // during the last coalescing window. Avoids the previous full-sweep loop over
+  // all 5k locations on every enrichment, which was saturating the main thread
+  // and starving Leaflet's tile fetcher (the map went gray during batch enrich).
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (realtimeTick === 0) return; // initial mount has nothing to refresh
+
+    const pending = pendingRealtimeIdsRef.current;
+    pendingRealtimeIdsRef.current = new Set();
+
+    // pending === null  → invalidate all (rare: store-updated / delete)
+    // pending.size > 0  → targeted refresh
+    const targetIds: string[] | null = pending === null
+      ? null
+      : Array.from(pending);
+    if (targetIds && targetIds.length === 0) return;
+
+    const iter = targetIds ?? Array.from(markersRef.current.keys());
+    iter.forEach((id) => {
+      const marker = markersRef.current.get(id);
+      if (!marker) return;
+      // Find the up-to-date location from the rendered `locations` list so we
+      // pick up store mutations (enriched_data, customData, etc.).
+      const location = locations.find((l) => l.id === id) ?? locationsRef.current.get(id);
+      if (!location) return;
+      locationsRef.current.set(id, location);
+      try {
+        const ownership = getLocationOwnership(id, currentUserId);
+        marker.setPopupContent(
+          createPopupContent(location, criteriaTimestamp, ownership, canEnrichLocations),
+        );
+      } catch (e) {
+        console.warn('Error updating popup content for location:', id, e);
+      }
+      const isSelected = selectedLocations.has(id);
+      const isFocused = focusedLocationId === id;
+      const isEnriched = !!location.enrichedData;
+      const isRecentlyEnriched = recentlyEnrichedIds.has(id);
+      marker.setIcon(
+        createCustomIcon(
+          isSelected,
+          isFocused,
+          isEnriched,
+          location,
+          criteriaTimestamp,
+          isRecentlyEnriched,
+          getTintForLocation(id),
+        ),
+      );
+    });
+  }, [realtimeTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update marker icons when selection or focus changes
  useEffect(() => {
