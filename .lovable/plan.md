@@ -1,105 +1,60 @@
-## Diagnóstico — qué falla hoy
+## Diagnóstico
 
-Tras revisar el código actual hay **tres fugas** que dejan pasar puntos a "verde" cuando nombre y coordenadas no coinciden:
+Durante el batch-enrich, cada POI procesado (~cada 500 ms) emite un `postgres_changes UPDATE` sobre `locations`. El hook `useRealtimeLocations` lo recoge y dispara `window.dispatchEvent('location-realtime-update')`. Hoy en `LocationMap.tsx` ese evento ejecuta:
 
-### Fuga 1 — `skipValidation: true` por defecto en enriquecimiento manual
-En `src/domains/content/lib/enrich-location.ts` línea ~73:
 ```ts
-supabase.functions.invoke('enrich-location', { body: { location, skipValidation: true } })
+const handleRealtimeUpdate = () => setForceUpdateCount(v => v + 1);
 ```
-Cualquier clic en "Enriquecer" desde popup, lista de doc o lista general bypassa **todos** los gates del servidor. Por eso "Cave of the Moon" y "Glorieta de la Antártida" entraron verdes: el LLM nunca pasó por la puerta.
 
-### Fuga 2 — el gate `llm_unverifiable` también vive bajo `skipValidation`
-En `enrich-location/index.ts` línea ~2269:
+Eso provoca un re-render completo de `LocationMap` (un componente de 2 252 líneas) por cada POI enriquecido. Dentro del render se recalcula:
+
 ```ts
-if (!skipValidation && isUnverifiableLLMOutput({ descripcion: enrichedData?.descripcion })) { ... }
-```
-Cuando el LLM se rinde ("Información no disponible…", "No se puede generar…"), el placeholder se persiste como `descripcion`. El helper `hasRealEnrichment` filtra algunos por regex, pero textos como **"Información no disponible"** NO están en `UNVERIFIABLE_DESC_REGEX`, así que pasan como enriquecimiento real → verde.
-
-### Fuga 3 — el gate inverso (coords → país) sólo es post-LLM y solo país
-La verificación `compareCountries(nominatim, aiGeoData.pais)` en línea ~2235:
-- Se salta con `skipValidation`.
-- Sólo compara **país**, no región/zona.
-- Corre **después** de gastar tokens del LLM.
-
-No hay un gate **pre-LLM** que diga: "el reverseGeocode de las coords dice Marruecos y el artículo Wikipedia del nombre dice España → aborta antes de pedir nada al LLM".
-
-### Fuga 4 — manual single-click no deja rastro de error
-Cuando un abort sí ocurre (en batch), `enrichment_jobs.error_messages` enciende el anillo rojo. Pero los abort del flujo manual `triggerEnrichLocation` **no escriben en ningún sitio**, así que el punto se queda gris/naranja "limpio", sin anillo rojo. El usuario no ve que algo falló.
-
----
-
-## Plan — un único gate bidireccional, sin opt-out silencioso
-
-### 1. Eliminar `skipValidation: true` como default del trigger manual
-`src/domains/content/lib/enrich-location.ts`: invocar `enrich-location` SIN `skipValidation`. Sólo se envía `skipValidation: true` cuando hay `confirmedCandidate` (el usuario ya escogió identidad desde el bloque de recuperación / Contexto cercano). Ese ya es el único bypass legítimo.
-
-### 2. Gate bidireccional pre-LLM (nuevo) en `enrich-location/index.ts`
-Antes de llamar al LLM, ejecutar **siempre** (independiente de `skipValidation`, salvo `confirmedCandidate`):
-
-```text
-A. reverseGeocode(coords) → ISO α2 + región
-B. resolveNameLocation(name) → busca artículo Wikipedia/Wikidata con coords
-C. Si B tiene coords:
-     - distancia(B, coords) > 50 km  → ABORT coherence
-     - país(B) ≠ país(A) vía ISO     → ABORT coherence
-D. Si A tiene país y el LLM tras correr devuelve país ≠ A → ABORT (ya existe, ampliarlo a región)
+const locationIds = useMemo(
+  () => locations.map(l => l.id).sort().join(','),
+  [locations],
+);
 ```
 
-`confirmedCandidate` sigue siendo el único bypass (el usuario ya eligió identidad).
+Con ~5 073 ubicaciones eso es un `sort + join` de 5 073 strings dos veces por segundo, más toda la reconciliación de marcadores y efectos derivados. El hilo principal se satura, Leaflet no llega a hidratar los tiles a tiempo y el contenedor queda en gris (el color base del `.leaflet-container`). Por eso ves un único marcador del POI actual y nada más: el mapa está vivo, simplemente no le da tiempo a pintar tiles.
 
-### 3. Endurecer el detector de placeholders evasivos
-Ampliar `UNVERIFIABLE_DESC_REGEX` en `supabase/functions/_shared/llm-unverifiable.ts` y `src/domains/content/lib/llm-unverifiable.ts` (mirror) para cubrir:
-- "Información no disponible"
-- "No hay información (disponible|verificable)"
-- "No se dispone de (información|datos)"
-- "Sin información (suficiente|verificable)"
-- Descripciones < 40 caracteres tras strip de markdown (heurística de seguridad).
+Adicionalmente, `BottomProgressBar.refreshLocations` también dispara una recarga total del documento seleccionado cada vez que avanza el contador, agravando el problema cuando hay vista de documento activa.
 
-Y mover el chequeo fuera de la condición `!skipValidation`: el placeholder evasivo nunca debe persistirse, ni siquiera en flujos forzados. Si llega un placeholder, abort y guardar el motivo.
+## Objetivo
 
-### 4. Persistir el fallo del flujo manual (anillo rojo coherente)
-En `triggerEnrichLocation`, cuando el servidor responda `success: false` con `reason ∈ { name_coordinate_mismatch, llm_unverifiable, coords_country_mismatch }`:
-- `UPDATE locations SET enrichment_status = 'unresolved', updated_at = now() WHERE id = …`
-- Insertar/actualizar una fila en `enrichment_jobs` "single-click" (o tabla equivalente que ya consume `enrichmentFailureStore`) con `error_messages[id] = { kind, message, candidates, nameLocation }` para que `hasEnrichmentFailure` encienda el anillo rojo de 5px también en manual.
+Que durante el batch enrichment el mapa siga pintándose con normalidad (tiles + marcadores) y se actualicen los puntos enriquecidos sin tirones.
 
-Así Caso 1 y Caso 2, tras el clic, quedan con:
-- Marker base gris/naranja (no verde, porque no hay `descripcion` real).
-- Anillo rojo 5px (señal visual del fallo).
-- Bloque de recuperación `<UnenrichedRecoveryBlock>` ya muestra el motivo + "Renombrar" / "Mover punto" / "Elegir desde Contexto cercano".
+## Plan
 
-### 5. Acciones disponibles en el bloque de recuperación
-Asegurar las tres ramas para que el usuario pueda resolver:
-- **Renombrar el punto** (caso 2: coords son canon → corrige el nombre).
-- **Mover coordenadas al artículo Wikipedia** (caso opuesto: nombre es canon).
-- **Elegir candidato cercano** (lo que ya hace Contexto cercano).
-- **Marcar como manual/sin Wikipedia** (último recurso, no enriquece pero quita el anillo rojo y deja `description` libre).
+1. **Debounce/coalescer del evento `location-realtime-update` en `LocationMap`**
+   - Helper único `useCoalescedRealtimeTick(delayMs = 350)` en `src/components/map/use-coalesced-realtime-tick.ts`.
+   - Sustituye el `setForceUpdateCount(v => v + 1)` actual: agrupa todos los eventos llegados en una ventana de ~350 ms en un único re-render con `requestIdleCallback` cuando esté disponible.
+   - Aplicado también en `FloatingToolbar.tsx` (mismo patrón, mismo helper) para que los contadores tampoco redibujen 2× por segundo.
 
-### 6. Reintento batch: nunca con `skipValidation`
-En `batch-enrich/index.ts` el "legacy fallback" de la línea ~373 hace un retry con `skipValidation: true`. Eliminar ese retry. Si el primer intento aborta por coherencia/unverifiable, el punto va a `errorMessages` con su `kind` correspondiente y queda esperando intervención del usuario. Nada de "forzar a verde".
+2. **Eliminar el `locationIds = sort().join(',')` masivo**
+   - Sustituirlo por `locations.length` + un contador incremental que ya emiten los eventos `store-updated`. La reconciliación de marcadores ya detecta altas/bajas por id internamente; el join de 5 k strings es una huella inútil.
 
----
+3. **Refresco de mapa en `BottomProgressBar` solo cuando hay vista de documento**
+   - Ya está condicionado a `selectedDocument`, pero además: limitar `refreshLocations` a un trailing-debounce de 1 s. Mientras el batch corre se acumula y se ejecuta una sola vez por segundo, no por cada POI.
 
-## Sección técnica
+4. **Salvaguarda visual mínima**
+   - Asegurar en `index.css` que `.leaflet-container { background: hsl(var(--muted)); }` no se pisa por ninguna regla. (Actualmente está bien, lo verificamos para descartar regresión.)
 
-**Archivos a tocar (sólo lógica, sin tocar UI más allá del bloque de recuperación ya existente):**
-- `src/domains/content/lib/enrich-location.ts` — quitar `skipValidation`, persistir failure local en abort.
-- `supabase/functions/enrich-location/index.ts` — gate bidireccional pre-LLM; quitar `!skipValidation` del check de placeholder; añadir gate región además de país en post-LLM.
-- `supabase/functions/_shared/llm-unverifiable.ts` + mirror cliente — ampliar regex y añadir heurística de longitud mínima.
-- `supabase/functions/batch-enrich/index.ts` — eliminar retry con `skipValidation: true`; mantener el path de `error_messages` con `kind: coherence | llm_unverifiable`.
-- `src/domains/content/components/UnenrichedRecoveryBlock.tsx` — confirmar que ya tiene "Renombrar" y "Mover coords"; añadir lo que falte.
-- (opcional, depende de existencia) `enrichment_failures` o estructura equivalente para persistir fallos del manual single-click — si no existe, usar la misma tabla `enrichment_jobs` con un job sintético "manual" por usuario.
+5. **Verificación**
+   - Arrancar batch sobre el mismo documento "Tavares".
+   - Comprobar: (a) tiles se ven desde el primer segundo; (b) el contador y el marcador "current" se mueven; (c) los puntos enriquecidos cambian a verde sin parpadeo; (d) `Performance` muestra long tasks < 100 ms en lugar de los actuales > 500 ms.
 
-**Norma transversal (memoria):** actualizar `mem://logic/enrichment/name-coordinate-coherence` para reflejar:
-- Gate **bidireccional** obligatorio.
-- `skipValidation` sólo permitido cuando hay `confirmedCandidate`.
-- Placeholder evasivo nunca se persiste.
-- Todo abort manual escribe failure → anillo rojo.
+## Detalles técnicos
 
----
+- Archivos a tocar:
+  - `src/components/map/use-coalesced-realtime-tick.ts` (nuevo helper, transversal).
+  - `src/components/LocationMap.tsx` (usar helper, quitar `locationIds` sort+join).
+  - `src/components/FloatingToolbar.tsx` (usar helper).
+  - `src/components/BottomProgressBar.tsx` (debounce de `refreshLocations`).
+- Sin cambios de schema, sin tocar edge functions, sin tocar la barra de progreso visual (que ya quedó bien).
+- Cumple la norma transversal: el helper de coalescing es el único punto donde se decide la cadencia de re-render por eventos realtime, reutilizable por cualquier vista futura.
 
-## Resultado esperado
+## Lo que NO se toca
 
-- "Cave of the Moon" → abort `llm_unverifiable` o `coherence`, gris con anillo rojo, bloque de recuperación con candidatos cercanos.
-- "Glorieta de la Antártida" en mar → abort `coherence` pre-LLM (Wikipedia dice Guadalajara, coords dicen océano), gris con anillo rojo, opción "mover coords al artículo" / "renombrar".
-- Cero verdes silenciosos cuando nombre y coordenadas no concuerdan.
+- Diseño actual de la barra de progreso (te gustó como está).
+- Lógica de coherencia nombre⇄coordenadas ni el bloque de recuperación por POI.
+- Reglas de visibilidad ni paleta de marcadores.
