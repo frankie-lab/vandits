@@ -19,6 +19,7 @@
 import { collectionService } from '@/services/collection.service';
 import type { Collection } from '@/domains/v2';
 import { startLoading, endLoading } from '@/shared/loading';
+import { supabase } from '@/integrations/supabase/client';
 
 export const COLLECTION_VISIBILITY_EVENT = 'collection-visibility-changed';
 export const COLLECTION_FIT_BOUNDS_EVENT = 'collection-fit-bounds-request';
