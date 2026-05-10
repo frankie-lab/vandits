@@ -21,19 +21,19 @@ export function LocationCollectionChips({ locationId, className, emptyFallback =
     <div className={`flex flex-wrap gap-1 ${className ?? ''}`}>
       {collections.map((c) => {
         const slug = c.name.replace(/\s+/g, '');
-        const color = c.color || '#6b7280';
+        const tokens = getCollectionChipColors(c.color);
         return (
           <span
             key={c.id}
             title={c.name}
             className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border"
             style={{
-              color,
-              borderColor: `${color}55`,
-              backgroundColor: `${color}14`,
+              color: tokens.text,
+              borderColor: tokens.border,
+              backgroundColor: tokens.background,
             }}
           >
-            <span style={{ color }}>#</span>
+            <span style={{ color: tokens.hashtag }}>#</span>
             {slug}
           </span>
         );
