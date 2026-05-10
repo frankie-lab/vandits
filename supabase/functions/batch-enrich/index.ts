@@ -139,53 +139,40 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
     
     // Get locations to process (exclude already processed)
     const remainingIds = locationIds.filter(id => !processedIds.includes(id));
-    
-    for (const locationId of remainingIds) {
-      // Check if job was paused/cancelled
-      const { data: currentJob } = await supabase
-        .from('enrichment_jobs')
-        .select('status')
-        .eq('id', jobId)
-        .single();
-      
-      if (!currentJob || currentJob.status === 'paused' || currentJob.status === 'error') {
-        console.log('Job paused, cancelled or deleted, stopping processing');
-        return;
-      }
-      
+
+    // ============================================================
+    // Concurrency-aware processing (waves of CONCURRENCY workers).
+    // Each POI still writes its own UPDATE → realtime repaints
+    // marker-by-marker as workers finish. Job-progress writes are
+    // coalesced once per wave to avoid hammering enrichment_jobs.
+    // ============================================================
+    const CONCURRENCY = 8;
+
+    // --- per-POI worker (all original logic, untouched semantics) ---
+    const processSingleLocation = async (locationId: string): Promise<void> => {
       // Get location details
       const { data: location, error: locError } = await supabase
         .from('locations')
         .select('*')
         .eq('id', locationId)
         .single();
-      
+
       if (locError || !location) {
         console.error('Location not found:', locationId);
         errorIds.push(locationId);
         errorMessages[locationId] = { kind: 'unknown', message: 'Ubicación no encontrada' };
-        continue;
+        return;
       }
 
       // ===== SKIP ALREADY-ENRICHED (transversal rule: los verdes no se reenriquecen) =====
-      // Single source of truth: hasRealEnrichment ≡ enriched_data.descripcion no vacío.
       const existingDesc = (location.enriched_data as { descripcion?: string } | null)?.descripcion;
       if (typeof existingDesc === 'string' && existingDesc.trim().length > 0) {
         processedIds.push(locationId);
         console.log('Skip already-enriched:', location.name);
-        await supabase
-          .from('enrichment_jobs')
-          .update({
-            processed_count: processedIds.length,
-            processed_ids: processedIds,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', jobId);
-        continue;
+        return;
       }
 
       // ===== TRUNK LOOKUP (places_trunk) =====
-      // Reusar enriquecimiento global si existe match fresco <250m
       try {
         const { data: trunkRows, error: trunkErr } = await supabase.rpc('lookup_trunk_place', {
           _latitude: location.latitude,
@@ -208,16 +195,7 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
             await supabase.from('locations').update(updateData).eq('id', locationId);
             processedIds.push(locationId);
             console.log('Inherited from trunk:', location.name, `(${Math.round(trunk.distance_meters)}m)`);
-            await supabase
-              .from('enrichment_jobs')
-              .update({
-                processed_count: processedIds.length,
-                processed_ids: processedIds,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', jobId);
-            await new Promise(resolve => setTimeout(resolve, 50));
-            continue;
+            return;
           }
         }
       } catch (e) {
@@ -225,7 +203,6 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
       }
 
       // Check if this location has a catalog twin that's already enriched
-      // (workspace copies should inherit from catalog, not enrich independently)
       if (!location.is_approved && location.document_id) {
         const { data: catalogTwin } = await supabase
           .from('locations')
@@ -236,9 +213,8 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
           .neq('id', locationId)
           .limit(1)
           .maybeSingle();
-        
+
         if (catalogTwin?.enriched_data && catalogTwin.enrichment_status === 'enriched') {
-          // Inherit enrichment from catalog point
           await supabase
             .from('locations')
             .update({
@@ -247,62 +223,46 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
               updated_at: new Date().toISOString(),
             })
             .eq('id', locationId);
-          
           processedIds.push(locationId);
           console.log('Inherited enrichment from catalog twin:', location.name, '→', catalogTwin.id);
-          
-          // Update job progress
-          await supabase
-            .from('enrichment_jobs')
-            .update({
-              processed_count: processedIds.length,
-              processed_ids: processedIds,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', jobId);
-          continue;
+          return;
         }
       }
 
-      // Update current location
-      await supabase
-        .from('enrichment_jobs')
-        .update({
-          current_location_id: locationId,
-          current_location_name: location.name,
-        })
-        .eq('id', jobId);
-      
       try {
-        // Call the enrich-location function
-        const enrichResponse = await fetch(`${supabaseUrl}/functions/v1/enrich-location`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseKey}`,
-          },
-          body: JSON.stringify({
-            location: {
-              name: location.name,
-              description: location.description,
-              coordinates: {
-                lat: location.latitude,
-                lng: location.longitude,
-              },
-              continent: location.continent,
-              country: location.country,
-              region: location.region,
-              zone: location.zone,
-              placeType: location.place_type,
+        // Call enrich-location with 429 back-off (up to 2 retries).
+        let enrichResponse: Response | null = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          enrichResponse = await fetch(`${supabaseUrl}/functions/v1/enrich-location`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseKey}`,
             },
-            generateImage: true,
-            curatorId: jobCuratorId, // Pass curator ID for curator-specific enrichment preferences
-          }),
-        });
-        
-        if (!enrichResponse.ok) {
-          const errorText = await enrichResponse.text();
-          const status = enrichResponse.status;
+            body: JSON.stringify({
+              location: {
+                name: location.name,
+                description: location.description,
+                coordinates: { lat: location.latitude, lng: location.longitude },
+                continent: location.continent,
+                country: location.country,
+                region: location.region,
+                zone: location.zone,
+                placeType: location.place_type,
+              },
+              generateImage: true,
+              curatorId: jobCuratorId,
+            }),
+          });
+          if (enrichResponse.status !== 429 || attempt === 2) break;
+          const backoff = Math.min(1000 * Math.pow(2, attempt), 8000);
+          console.warn(`429 from enrich-location for ${location.name}, backing off ${backoff}ms`);
+          await new Promise(r => setTimeout(r, backoff));
+        }
+
+        if (!enrichResponse || !enrichResponse.ok) {
+          const errorText = enrichResponse ? await enrichResponse.text() : 'no response';
+          const status = enrichResponse?.status ?? 0;
           const kind = status === 429 ? 'rate_limit'
             : status === 402 ? 'no_credits'
             : status >= 500 ? 'timeout'
@@ -311,48 +271,36 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
             __structured: { kind, httpStatus: status },
           });
         }
-        
+
         const enrichData = await enrichResponse.json();
-        
+
         if (enrichData.success && enrichData.data) {
-          // Extract geocoded data if present
           const geocodedData = enrichData.data._geocoded;
-          delete enrichData.data._geocoded; // Remove from enriched_data
-          
-          // Derive place_type from datos_clave.tipo (más preciso)
-          const derivedPlaceType = enrichData.data.datos_clave?.tipo 
+          delete enrichData.data._geocoded;
+
+          const derivedPlaceType = enrichData.data.datos_clave?.tipo
             ? getPlaceTypeFromTipo(enrichData.data.datos_clave.tipo)
             : null;
-          
-          // Prepare update object with enriched data
+
           const updateData: Record<string, unknown> = {
             enriched_data: enrichData.data,
             enrichment_status: 'enriched',
             updated_at: new Date().toISOString(),
           };
-          
-          // Add derived place_type if valid
+
           if (derivedPlaceType && derivedPlaceType !== 'other') {
             updateData.place_type = derivedPlaceType;
-            console.log('Derived place_type:', derivedPlaceType, 'from tipo:', enrichData.data.datos_clave?.tipo);
           }
-          
-          // Add geocoded geographic data if it was resolved
+
           if (geocodedData) {
             if (geocodedData.country) updateData.country = geocodedData.country;
             if (geocodedData.region) updateData.region = geocodedData.region;
             if (geocodedData.zone) updateData.zone = geocodedData.zone;
             if (geocodedData.continent) updateData.continent = geocodedData.continent;
-            console.log('Saving geocoded data:', geocodedData);
           }
-          
-          // Update location with enriched data and geocoding
-          await supabase
-            .from('locations')
-            .update(updateData)
-            .eq('id', locationId);
-          
-          // Upsert al tronco (no bloquea si falla)
+
+          await supabase.from('locations').update(updateData).eq('id', locationId);
+
           try {
             await supabase.rpc('upsert_trunk_place', {
               _name: location.name,
@@ -365,14 +313,10 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
           } catch (e) {
             console.warn('Trunk upsert failed (non-fatal):', e);
           }
-          
+
           processedIds.push(locationId);
           console.log('Enriched location:', location.name, geocodedData ? '(with geocoding)' : '', derivedPlaceType ? `[${derivedPlaceType}]` : '');
         } else if (enrichData.validation_required) {
-          // Validation required and we no longer auto-retry with skipValidation:
-          // forzar enriquecimiento "a ciegas" blanqueaba puntos en verde con
-          // datos incoherentes (caso "Cave of the Moon" / "Glorieta de la
-          // Antártida"). Tratar como rechazo blando con candidatos cercanos.
           throw Object.assign(new Error('Validación requerida (nombre/coordenadas)'), {
             __structured: {
               kind: 'no_match',
@@ -381,7 +325,6 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
             },
           });
         } else if (enrichData.success === false && enrichData.reason === 'name_coordinate_mismatch') {
-          // Name ↔ coordinate coherence abort: keep candidates so the user can resolve manually.
           throw Object.assign(new Error(enrichData.message || 'Nombre y coordenadas no coinciden'), {
             __structured: {
               kind: 'coherence',
@@ -391,7 +334,6 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
             },
           });
         } else if (enrichData.success === false && enrichData.reason === 'llm_unverifiable') {
-          // LLM se rindió: trátalo como rechazo blando con candidatos cercanos.
           throw Object.assign(new Error(enrichData.message || 'No verificable'), {
             __structured: {
               kind: 'llm_unverifiable',
@@ -412,12 +354,44 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         if (structured) {
           errorMessages[locationId] = { ...structured, message };
         } else {
-          // No structured info → likely network/JSON exception.
           errorMessages[locationId] = { kind: 'network', message };
         }
       }
-      
-      // Update job progress
+    };
+
+    // --- wave loop ---
+    for (let i = 0; i < remainingIds.length; i += CONCURRENCY) {
+      // Check pause/cancel before launching the next wave
+      const { data: currentJob } = await supabase
+        .from('enrichment_jobs')
+        .select('status')
+        .eq('id', jobId)
+        .single();
+
+      if (!currentJob || currentJob.status === 'paused' || currentJob.status === 'error') {
+        console.log('Job paused, cancelled or deleted, stopping processing');
+        return;
+      }
+
+      const wave = remainingIds.slice(i, i + CONCURRENCY);
+
+      // Surface a representative current location (first of the wave)
+      const { data: firstLoc } = await supabase
+        .from('locations')
+        .select('name')
+        .eq('id', wave[0])
+        .maybeSingle();
+      await supabase
+        .from('enrichment_jobs')
+        .update({
+          current_location_id: wave[0],
+          current_location_name: firstLoc?.name ?? null,
+        })
+        .eq('id', jobId);
+
+      await Promise.allSettled(wave.map(processSingleLocation));
+
+      // Single coalesced progress write per wave
       await supabase
         .from('enrichment_jobs')
         .update({
@@ -426,11 +400,9 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
           processed_ids: processedIds,
           error_ids: errorIds,
           error_messages: errorMessages,
+          updated_at: new Date().toISOString(),
         })
         .eq('id', jobId);
-      
-      // Small delay to avoid rate limiting (kept short so pause/cancel respond fast)
-      await new Promise(resolve => setTimeout(resolve, 500));
     }
     
     // Mark job as completed
