@@ -6,6 +6,7 @@ import {
   getActiveFields,
 } from "../_shared/card-schema.ts";
 import { buildEnrichmentSchema } from "../_shared/build-enrichment-schema.ts";
+import { extractCulturalContext } from "../_shared/cultural-context.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
