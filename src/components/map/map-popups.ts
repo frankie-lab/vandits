@@ -30,6 +30,8 @@ import {
 } from '@/shared/enrichment/card-schema';
 import { descriptionToHtmlParagraphs } from '@/shared/enrichment/format-description';
 import { isPointEnriched } from '@/domains/content/lib/point-visual-state';
+import { getCollectionsForLocation } from '@/domains/content/store/location-collections-store';
+import { getCollectionChipColors } from '@/shared/lib/collection-chip-color';
 
 // ─── Card Config Cache ──────────────────────────────────────────────────────
 // Source of truth: `app_settings.enrichment_card_config` always normalized
@@ -151,18 +153,28 @@ function wrapCollapsibleSection(
   '</details>';
 }
 
-// ─── Personal Tags (always visible, transversal) ────────────────────────────
-// Helper único: emite un nodo host estable `[data-collections-root]` dentro
-// del popup. La hidratación real se hace mediante el componente React único
-// `LocationCollectionChips`, montado por `bindCollectionsMount` cuando
-// Leaflet abre el popup. Misma fuente de datos transversal que la ficha
-// lateral (useLocationCollections) — sin caché manual ni reintentos.
+// ─── Collection Chips (always visible, transversal) ────────────────────────
+// Helper único: emite HTML final con los hashtags de colección, leyendo
+// SÍNCRONAMENTE del store transversal `location-collections-store`. No usa
+// React mount dentro de Leaflet — cuando cambian las colecciones, el mapa
+// regenera el popup con `marker.setPopupContent(createPopupContent(...))`.
+// Misma fuente de datos que el resto de la app (GalleryView, admin…).
 export function buildCollectionChipsPlaceholder(location: GeoLocation): string {
-  return `<div data-collections-root="${location.id}" style="clear: both; display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; margin: 0 0 ${CARD.sectionGap}px 0; min-height: 18px;"></div>`;
+  const chips = getCollectionsForLocation(location.id);
+  if (chips.length === 0) {
+    // Host estable para que el bloque tenga la misma altura aunque aún no se
+    // haya hidratado; al refrescar el popup tras el prime se rellena.
+    return `<div data-collections-root="${location.id}" style="clear: both; min-height: 0; margin: 0 0 ${CARD.sectionGap}px 0;"></div>`;
+  }
+  const chipsHtml = chips.map((c) => {
+    const slug = (c.name ?? '').replace(/\s+/g, '');
+    const tokens = getCollectionChipColors(c.color);
+    return `<span title="${(c.name ?? '').replace(/"/g, '&quot;')}" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 500; border: 1px solid; color: ${tokens.text}; border-color: ${tokens.border}; background-color: ${tokens.background};"><span style="color: ${tokens.hashtag};">#</span>${slug}</span>`;
+  }).join('');
+  return `<div data-collections-root="${location.id}" style="clear: both; display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; margin: 0 0 ${CARD.sectionGap}px 0;">${chipsHtml}</div>`;
 }
 
-// API legacy mantenida como no-op para no romper imports antiguos: el render
-// ahora es un componente React montado por `bindCollectionsMount`.
+// APIs legacy mantenidas como no-op para no romper imports antiguos.
 export async function loadCollectionChipsForPopup(_locationId: string): Promise<void> { /* noop */ }
 export function invalidateCollectionChipsCache(_locationId?: string) { /* noop */ }
 
@@ -372,9 +384,9 @@ export function createPopupContent(
   canEnrich: boolean = false,
 ): string {
   const locationUpdatedAt = location.updatedAt ? new Date(location.updatedAt).getTime() : 0;
-  // Los hashtags de colecciones se hidratan vía `bindCollectionsMount`
-  // (componente React único `LocationCollectionChips`) en `popupopen`.
-  // El HTML solo emite un host estable `[data-collections-root]`.
+  // Los hashtags de colecciones se pintan inline desde
+  // `location-collections-store` (lectura síncrona). Cuando el store cambia,
+  // `LocationMap` regenera el popup con `setPopupContent(...)`.
   // Helper único `isPointEnriched` — NO usar `location.enrichedData` truthy
   // como proxy de "enriquecido" (puede contener stubs sin `descripcion`).
   const isEnriched = isPointEnriched(location);
