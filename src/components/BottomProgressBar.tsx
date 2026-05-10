@@ -150,9 +150,9 @@ export function BottomProgressBar() {
  setActiveJob(session);
 
         // Refresca el mapa cuando avanza el procesado total.
- if (session.status === 'running' && session.processed_count > prevCount) {
+         if (session.status === 'running' && session.processed_count > prevCount) {
  lastProcessedCountRef.current = session.processed_count;
- await refreshLocations();
+ scheduleRefreshLocations();
  }
  } else {
         // No hay activos: comprueba si una sesión recién terminada (último job
