@@ -216,7 +216,19 @@ const COUNTRY_LEVEL_LABELS: Record<string, { region?: string; zone?: string; adm
   mx: { region: 'Estado', zone: 'Municipio' },
   ar: { region: 'Provincia', zone: 'Departamento' },
   br: { region: 'Estado', zone: 'Mesorregião', admin3: 'Município' },
-  jp: { region: '都道府県', zone: '郡' },
+  jp: { region: '都道府県', zone: '郡', admin3: '市区町村' },
+  cn: { region: '省', zone: '地级市', admin3: '县/区' },
+  in: { region: 'State', zone: 'District', admin3: 'Sub-district' },
+  ch: { region: 'Kanton', zone: 'Bezirk', admin3: 'Gemeinde' },
+  be: { region: 'Région', zone: 'Province', admin3: 'Arrondissement' },
+  nl: { region: 'Provincie', zone: 'Gemeente' },
+  at: { region: 'Bundesland', zone: 'Bezirk', admin3: 'Gemeinde' },
+  ie: { region: 'Province/Region', zone: 'County' },
+  au: { region: 'State/Territory', zone: 'LGA' },
+  nz: { region: 'Region', zone: 'District' },
+  za: { region: 'Province', zone: 'District Municipality', admin3: 'Local Municipality' },
+  il: { region: 'מחוז', zone: 'נפה' },
+  ae: { region: 'Emirate' },
 };
 
 function labelFor(cc: string, level: 'region' | 'zone' | 'admin3', sourceKey?: FieldKey): string | undefined {
