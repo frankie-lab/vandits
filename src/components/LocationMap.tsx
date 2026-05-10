@@ -68,6 +68,7 @@ import {
   setupNotesUpdatedHandler, setupPhotoUpdatedHandler,
 } from './map/map-popup-handlers';
 import { useEnrichmentTracker } from './map/useEnrichmentTracker';
+import { useCoalescedRealtimeTick } from './map/use-coalesced-realtime-tick';
 import { initPhotoLayer } from './map/map-photo-layer';
 import { initLayerGroups, destroyLayerGroups, getOrCreateGroup, clearAllGroups, applyLayerVisibility } from './map/map-layer-groups';
 import { useV2MapBridge } from '@/hooks/use-v2-map-bridge';
@@ -140,9 +141,22 @@ export function LocationMap() {
   // Force marker refresh when the "Criterios de Actualización" change
  const [criteriaVersion, setCriteriaVersion] = useState(0);
  
-  // Force update counter for realtime and store updates
- const [forceUpdateCount, setForceUpdateCount] = useState(0);
- 
+  // Targeted realtime updates: collect the IDs touched since last flush and
+  // bump `realtimeTick` once per coalescing window so only the affected markers
+  // are refreshed (popup HTML + icon), not the whole 5k-marker set.
+  // `pendingRealtimeIdsRef.current === null` means "invalidate all" (full sweep).
+  const pendingRealtimeIdsRef = useRef<Set<string> | null>(new Set());
+  const [realtimeTick, setRealtimeTick] = useState(0);
+
+  useCoalescedRealtimeTick(({ ids }) => {
+    if (ids === null) {
+      pendingRealtimeIdsRef.current = null;
+    } else if (pendingRealtimeIdsRef.current !== null) {
+      ids.forEach((id) => pendingRealtimeIdsRef.current!.add(id));
+    }
+    setRealtimeTick((v) => v + 1);
+  }, { delayMs: 350 });
+
  // Map center config version to trigger re-centering
  const [centerConfigVersion, setCenterConfigVersion] = useState(0);
 
@@ -185,7 +199,7 @@ export function LocationMap() {
 
  useEffect(() => {
  const handleCriteriaChanged = () => setCriteriaVersion((v) => v + 1);
- const handleRealtimeUpdate = () => setForceUpdateCount((v) => v + 1);
+ // realtime/store updates are handled by `useCoalescedRealtimeTick` above
  
  
  const handleGoHome = () => {
@@ -239,9 +253,7 @@ export function LocationMap() {
  };
   
   
- window.addEventListener('enrichment-criteria-changed', handleCriteriaChanged);
- window.addEventListener('location-realtime-update', handleRealtimeUpdate);
- window.addEventListener('store-updated', handleRealtimeUpdate);
+  window.addEventListener('enrichment-criteria-changed', handleCriteriaChanged);
  window.addEventListener('map-go-home', handleGoHome);
  window.addEventListener('map-set-theme', handleSetTheme);
  window.addEventListener('map-fit-bounds', handleFitBounds);
@@ -410,8 +422,6 @@ export function LocationMap() {
 
    return () => {
      window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
-     window.removeEventListener('location-realtime-update', handleRealtimeUpdate);
-     window.removeEventListener('store-updated', handleRealtimeUpdate);
      
      window.removeEventListener('map-go-home', handleGoHome);
      window.removeEventListener('map-set-theme', handleSetTheme);
@@ -660,42 +670,15 @@ export function LocationMap() {
  selection: selectionSignature,
  });
 
-  // Generate a key that changes when enrichment data OR criteria change
-  // Use selectedDocument.locations to ensure we detect changes from the store
-  // Also include forceUpdateCount to trigger updates from realtime/store events
+  // Lightweight key that only changes on structural shifts (criteria / source
+  // length / focused document). Per-POI enrichment refreshes are handled by the
+  // targeted `realtimeTick` effect below, so this no longer needs to iterate
+  // thousands of locations on every realtime UPDATE (which was saturating the
+  // main thread and preventing Leaflet from loading tiles during batch enrich).
   const enrichmentKey = React.useMemo(() => {
-    // Source set: prefer the focused document when one is selected, otherwise
-    // sign across ALL loaded locations so changes in `enrichedData` for any
-    // POI in the global map also recompose its icon + popup.
     const source = selectedDocument ? selectedDocument.locations : allLocations;
-    if (!source || source.length === 0) return `${criteriaKey}-${forceUpdateCount}`;
-
-    return source.reduce((acc, loc) => {
-      const ed = loc.enrichedData;
-      const cd = loc.customData;
-      // Note: user_rating, user_image_url, and enriched imagen are excluded from this key
-      // because these updates are handled in-place by their respective event handlers
-      // (rating-updated, photo-updated). Including them here would cause full popup
-      // regeneration which loses scroll position and causes visual glitches.
-      const signature = ed
-        ? [
-            ed.descripcion?.length || 0,
-            ed.datos_clave?.web_referencia ? 1 : 0,
-            ed.etiquetas?.length || 0,
-            ed.datos_clave?.tipo ? 1 : 0,
-            ed.datos_clave?.acceso ? 1 : 0,
-            ed.datos_clave?.estado_proteccion ? 1 : 0,
-            ed.clasificacion?.codigo || 'nc',
-            loc.continent ? 1 : 0,
-            loc.country ? 1 : 0,
-            loc.region ? 1 : 0,
-            cd?.visited || '0',
-          ].join(':')
-        : `orig:${loc.description?.length || 0}:${cd?.visited || '0'}`;
-
-      return acc + loc.id.slice(0, 4) + signature;
-    }, `${criteriaKey}-${source.length}-${forceUpdateCount}-`);
-  }, [selectedDocument?.locations, allLocations, criteriaKey, selectedDocument, forceUpdateCount]);
+    return `${criteriaKey}-${selectedDocument?.id ?? 'global'}-${source?.length ?? 0}`;
+  }, [selectedDocument, allLocations, criteriaKey]);
 
   // Enrichment tracker hook (animations, sounds, toasts)
   const { recentlyEnrichedIds } = useEnrichmentTracker({ allLocations, enrichmentKey, mapRef, markersRef });
@@ -1495,6 +1478,58 @@ export function LocationMap() {
  }
  }, [enrichmentKey, selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId, canEnrichLocations]);
 
+  // Targeted realtime refresh: update ONLY the markers that actually changed
+  // during the last coalescing window. Avoids the previous full-sweep loop over
+  // all 5k locations on every enrichment, which was saturating the main thread
+  // and starving Leaflet's tile fetcher (the map went gray during batch enrich).
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (realtimeTick === 0) return; // initial mount has nothing to refresh
+
+    const pending = pendingRealtimeIdsRef.current;
+    pendingRealtimeIdsRef.current = new Set();
+
+    // pending === null  → invalidate all (rare: store-updated / delete)
+    // pending.size > 0  → targeted refresh
+    const targetIds: string[] | null = pending === null
+      ? null
+      : Array.from(pending);
+    if (targetIds && targetIds.length === 0) return;
+
+    const iter = targetIds ?? Array.from(markersRef.current.keys());
+    iter.forEach((id) => {
+      const marker = markersRef.current.get(id);
+      if (!marker) return;
+      // Find the up-to-date location from the rendered `locations` list so we
+      // pick up store mutations (enriched_data, customData, etc.).
+      const location = locations.find((l) => l.id === id) ?? locationsRef.current.get(id);
+      if (!location) return;
+      locationsRef.current.set(id, location);
+      try {
+        const ownership = getLocationOwnership(id, currentUserId);
+        marker.setPopupContent(
+          createPopupContent(location, criteriaTimestamp, ownership, canEnrichLocations),
+        );
+      } catch (e) {
+        console.warn('Error updating popup content for location:', id, e);
+      }
+      const isSelected = selectedLocations.has(id);
+      const isFocused = focusedLocationId === id;
+      const isEnriched = !!location.enrichedData;
+      const isRecentlyEnriched = recentlyEnrichedIds.has(id);
+      marker.setIcon(
+        createCustomIcon(
+          isSelected,
+          isFocused,
+          isEnriched,
+          location,
+          criteriaTimestamp,
+          isRecentlyEnriched,
+          getTintForLocation(id),
+        ),
+      );
+    });
+  }, [realtimeTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update marker icons when selection or focus changes
  useEffect(() => {

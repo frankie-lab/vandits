@@ -61,8 +61,8 @@ export function useRealtimeLocations() {
  });
  }
 
- window.dispatchEvent(new CustomEvent('trash-updated'));
- window.dispatchEvent(new CustomEvent('location-realtime-update'));
+  window.dispatchEvent(new CustomEvent('trash-updated'));
+ window.dispatchEvent(new CustomEvent('location-realtime-update', { detail: { locationId: updatedRecord.id, kind: 'delete' } }));
  } catch (e) {
  console.warn('Failed to apply realtime delete locally', e);
  }
@@ -197,8 +197,8 @@ export function useRealtimeLocations() {
  console.warn('Realtime change classification failed, falling back to full refresh', e);
  }
 
-      // Emit event to trigger stats refresh in toolbar and map re-render
- window.dispatchEvent(new CustomEvent('location-realtime-update'));
+      // Emit event to trigger stats refresh in toolbar and targeted map re-render
+ window.dispatchEvent(new CustomEvent('location-realtime-update', { detail: { locationId: updatedRecord.id, kind: 'update' } }));
  },
  [updateLocation]
  );
@@ -247,7 +247,7 @@ export function useRealtimeLocations() {
           const doc2 = docs2.find((d) => d.id === docId);
           if (!doc2 || doc2.locations.some((l) => l.id === newRecord.id)) return;
           upd2(docId, [...doc2.locations, geoLoc]);
-          window.dispatchEvent(new CustomEvent('location-realtime-update'));
+          window.dispatchEvent(new CustomEvent('location-realtime-update', { detail: { locationId: newRecord.id, kind: 'insert' } }));
         });
 
       // Play feedback sound (throttled to 1 every 150ms to avoid spam in bursts).

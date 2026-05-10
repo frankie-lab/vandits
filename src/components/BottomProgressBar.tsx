@@ -100,6 +100,7 @@ export function BottomProgressBar() {
  const [actionLoading, setActionLoading] = useState<string | null>(null);
  const lastProcessedCountRef = useRef(0);
  const etaAnchorRef = useRef<{ startedAt: number; startedCompleted: number } | null>(null);
+ const refreshTimerRef = useRef<number | null>(null);
 
  const refreshLocations = useCallback(async () => {
  if (!selectedDocument) return;
@@ -108,6 +109,26 @@ export function BottomProgressBar() {
  updateDocumentLocations(selectedDocument.id, locations);
  }
  }, [selectedDocument, updateDocumentLocations]);
+
+ // Trailing-debounce: durante batch-enrich el job avanza ~cada 500ms. Sin esto
+ // estaríamos refetcheando TODAS las locations del documento dos veces por
+ // segundo, lo que satura el hilo principal y deja el mapa en gris. Realtime
+ // ya actualiza los marcadores in-place; este refresh es solo red de
+ // seguridad, así que basta con ejecutarlo una vez por segundo y medio.
+ const scheduleRefreshLocations = useCallback(() => {
+ if (refreshTimerRef.current != null) return;
+ refreshTimerRef.current = window.setTimeout(() => {
+ refreshTimerRef.current = null;
+ void refreshLocations();
+ }, 1500);
+ }, [refreshLocations]);
+
+ useEffect(() => () => {
+ if (refreshTimerRef.current != null) {
+ window.clearTimeout(refreshTimerRef.current);
+ refreshTimerRef.current = null;
+ }
+ }, []);
 
  const fetchJobStatus = useCallback(async () => {
    try {
@@ -129,9 +150,9 @@ export function BottomProgressBar() {
  setActiveJob(session);
 
         // Refresca el mapa cuando avanza el procesado total.
- if (session.status === 'running' && session.processed_count > prevCount) {
+         if (session.status === 'running' && session.processed_count > prevCount) {
  lastProcessedCountRef.current = session.processed_count;
- await refreshLocations();
+ scheduleRefreshLocations();
  }
  } else {
         // No hay activos: comprueba si una sesión recién terminada (último job
@@ -160,7 +181,7 @@ export function BottomProgressBar() {
  } catch (error) {
  console.error('Error fetching job status:', error);
  }
- }, [activeJob?.status, refreshLocations]);
+ }, [activeJob?.status, refreshLocations, scheduleRefreshLocations]);
 
   // Poll for job status (RLS filtra por usuario, no dependemos de documents)
  useEffect(() => {
