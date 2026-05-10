@@ -16,8 +16,9 @@ export function useDatabaseSync(userId?: string | null) {
   const reloadQueuedRef = useRef(false);
   const [syncPhase, setSyncPhase] = useState<SyncPhase>('idle');
 
-  const loadFromDatabase = useCallback(async () => {
-    startLoading('db-sync', 'Cargando catálogo', { blocking: true });
+  const loadFromDatabase = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) startLoading('db-sync', 'Cargando catálogo', { blocking: true });
     try {
       console.log('[useDatabaseSync] Starting parallel load...');
       setSyncPhase('own');
