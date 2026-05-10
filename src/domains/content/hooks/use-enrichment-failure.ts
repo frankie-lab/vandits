@@ -63,6 +63,17 @@ class EnrichmentFailureStore {
   }
 
   /**
+   * Record a failure locally (in-memory) so the red ring lights up
+   * immediately after a manual single-click enrich abort. The next prewarm
+   * cycle will reconcile against the DB; until then, this entry is the
+   * source of truth for the marker outline.
+   */
+  recordFailure(locationId: string, parsed: ParsedEnrichmentError): void {
+    this.cache.set(locationId, { parsed, fetchedAt: Date.now() });
+    this.notify();
+  }
+
+  /**
    * Sync accessor used by the map renderer (createCustomIcon) — returns true
    * if the cache currently records a failure for this id. Never triggers a
    * fetch (the prewarm pass below is responsible for populating the cache).
