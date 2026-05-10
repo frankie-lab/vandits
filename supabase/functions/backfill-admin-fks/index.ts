@@ -384,18 +384,24 @@ Deno.serve(async (req) => {
     }
     totalInScope = remaining;
   } else if (mode === 'fill') {
-    let remainingQ = admin
-      .from('locations')
-      .select('id', { count: 'exact', head: true })
-      .is('deleted_at', null)
-      .or(PENDING_OR);
-    if (catalogOnly) remainingQ = remainingQ.eq('is_approved', true);
-    if (callerUserId) remainingQ = remainingQ.eq('owner_user_id', callerUserId);
-    if (documentId) remainingQ = remainingQ.eq('document_id', documentId);
-    if (locationIds && locationIds.length > 0) remainingQ = remainingQ.in('id', locationIds);
-    remainingQ = applyAdminScope(remainingQ);
-    const { count } = await remainingQ;
-    remaining = count ?? null;
+    // Si vienen IDs explícitos, NO consultamos por URL (explotaría con N grande):
+    // el universo es la longitud de la lista y restamos lo procesado.
+    if (locationIds && locationIds.length > 0) {
+      totalInScope = locationIds.length;
+      remaining = Math.max(0, totalInScope - (offset + processed));
+    } else {
+      let remainingQ = admin
+        .from('locations')
+        .select('id', { count: 'exact', head: true })
+        .is('deleted_at', null)
+        .or(PENDING_OR);
+      if (catalogOnly) remainingQ = remainingQ.eq('is_approved', true);
+      if (callerUserId) remainingQ = remainingQ.eq('owner_user_id', callerUserId);
+      if (documentId) remainingQ = remainingQ.eq('document_id', documentId);
+      remainingQ = applyAdminScope(remainingQ);
+      const { count } = await remainingQ;
+      remaining = count ?? null;
+    }
   } else if (mode === 'repair') {
     const { data: cnt } = await admin.rpc('count_locations_with_broken_geo_chain', {
       _user_id: callerUserId,
@@ -403,20 +409,25 @@ Deno.serve(async (req) => {
     remaining = typeof cnt === 'number' ? cnt : Number(cnt ?? 0);
     totalInScope = remaining;
   } else {
-    let scopeQ = admin
-      .from('locations')
-      .select('id', { count: 'exact', head: true })
-      .is('deleted_at', null)
-      .not('latitude', 'is', null)
-      .not('longitude', 'is', null);
-    if (catalogOnly) scopeQ = scopeQ.eq('is_approved', true);
-    if (callerUserId) scopeQ = scopeQ.eq('owner_user_id', callerUserId);
-    if (documentId) scopeQ = scopeQ.eq('document_id', documentId);
-    if (locationIds && locationIds.length > 0) scopeQ = scopeQ.in('id', locationIds);
-    scopeQ = applyAdminScope(scopeQ);
-    const { count } = await scopeQ;
-    totalInScope = count ?? 0;
-    remaining = Math.max(0, totalInScope - (offset + processed));
+    // Reconcile/overwrite con IDs explícitos: misma lógica, sin red.
+    if (locationIds && locationIds.length > 0) {
+      totalInScope = locationIds.length;
+      remaining = Math.max(0, totalInScope - (offset + processed));
+    } else {
+      let scopeQ = admin
+        .from('locations')
+        .select('id', { count: 'exact', head: true })
+        .is('deleted_at', null)
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null);
+      if (catalogOnly) scopeQ = scopeQ.eq('is_approved', true);
+      if (callerUserId) scopeQ = scopeQ.eq('owner_user_id', callerUserId);
+      if (documentId) scopeQ = scopeQ.eq('document_id', documentId);
+      scopeQ = applyAdminScope(scopeQ);
+      const { count } = await scopeQ;
+      totalInScope = count ?? 0;
+      remaining = Math.max(0, totalInScope - (offset + processed));
+    }
   }
   const nextOffset = offset + processed;
 
