@@ -8,6 +8,7 @@ import {
 import { buildEnrichmentSchema } from "../_shared/build-enrichment-schema.ts";
 import { extractCulturalContext } from "../_shared/cultural-context.ts";
 import { isUnverifiableLLMOutput } from "../_shared/llm-unverifiable.ts";
+import { compareCountries } from "../_shared/country-iso.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
