@@ -51,7 +51,7 @@ export async function fetchAllLocationsPaginated(): Promise<any[]> {
     const to = from + PAGE_SIZE - 1;
 
     const { data, error } = await supabase
-      .from('locations')
+      .from('v_locations_resolved' as any)
       .select('*')
       .is('deleted_at', null)
       .range(from, to)
