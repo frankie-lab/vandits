@@ -399,7 +399,10 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         })
         .eq('id', jobId);
 
-      await Promise.allSettled(wave.map(processSingleLocation));
+      const waveResults = await Promise.allSettled(wave.map(processSingleLocation));
+      const hitNoCredits = waveResults.some(
+        (r) => r.status === 'fulfilled' && r.value === NO_CREDITS,
+      );
 
       // Single coalesced progress write per wave
       await supabase
@@ -413,6 +416,21 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
           updated_at: new Date().toISOString(),
         })
         .eq('id', jobId);
+
+      if (hitNoCredits) {
+        console.warn('AI Gateway out of credits (402) — pausing job', jobId);
+        await supabase
+          .from('enrichment_jobs')
+          .update({
+            status: 'paused',
+            current_location_id: null,
+            current_location_name: null,
+            error_messages: { ...errorMessages, __pause_reason: 'no_credits' },
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', jobId);
+        return;
+      }
     }
     
     // Mark job as completed
