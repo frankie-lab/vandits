@@ -283,38 +283,38 @@ async function setupCollectionItemsRealtime(userId: string) {
   // Si no hay colecciones todavía, igual nos suscribimos sin filter de ids
   // (la API filtra por server-side; sin filter recibimos todos los items y
   //  rebuildCatalogMembership descarta los que no son del usuario).
-  collectionItemsChannel = supabase
-    .channel(`collection-items-${userId}`)
-    .on('postgres_changes', {
-      event: 'INSERT',
-      schema: 'public',
-      table: 'collection_items',
-    }, (payload: any) => {
-      const cid = payload?.new?.collection_id;
-      if (!cid) return;
-      if (collectionIds.length > 0 && !collectionIds.includes(cid)) return;
-      scheduleMembershipRebuild(userId);
-    })
-    .on('postgres_changes', {
-      event: 'DELETE',
-      schema: 'public',
-      table: 'collection_items',
-    }, (payload: any) => {
-      const cid = payload?.old?.collection_id;
-      if (collectionIds.length > 0 && cid && !collectionIds.includes(cid)) return;
-      scheduleMembershipRebuild(userId);
-    })
-    .on('postgres_changes', {
-      event: 'INSERT',
-      schema: 'public',
-      table: 'collections',
-      filter: `owner_user_id=eq.${userId}`,
-    }, (payload: any) => {
-      const cid = payload?.new?.id;
-      if (cid && !collectionIds.includes(cid)) collectionIds.push(cid);
-      scheduleMembershipRebuild(userId);
-    })
-    .subscribe();
+  const ch: any = supabase.channel(`collection-items-${userId}`);
+  ch.on('postgres_changes', {
+    event: 'INSERT',
+    schema: 'public',
+    table: 'collection_items',
+  }, (payload: any) => {
+    const cid = payload?.new?.collection_id;
+    if (!cid) return;
+    if (collectionIds.length > 0 && !collectionIds.includes(cid)) return;
+    scheduleMembershipRebuild(userId);
+  });
+  ch.on('postgres_changes', {
+    event: 'DELETE',
+    schema: 'public',
+    table: 'collection_items',
+  }, (payload: any) => {
+    const cid = payload?.old?.collection_id;
+    if (collectionIds.length > 0 && cid && !collectionIds.includes(cid)) return;
+    scheduleMembershipRebuild(userId);
+  });
+  ch.on('postgres_changes', {
+    event: 'INSERT',
+    schema: 'public',
+    table: 'collections',
+    filter: `owner_user_id=eq.${userId}`,
+  }, (payload: any) => {
+    const cid = payload?.new?.id;
+    if (cid && !collectionIds.includes(cid)) collectionIds.push(cid);
+    scheduleMembershipRebuild(userId);
+  });
+  ch.subscribe();
+  collectionItemsChannel = ch;
 }
 
 /** Solicita al mapa hacer fit a los puntos de una colección.
