@@ -19,6 +19,7 @@ import { GeoLocation } from '@/types/location';
 import { cn } from '@/lib/utils';
 import { splitDescriptionParagraphs } from '@/shared/enrichment/format-description';
 import { UnenrichedRecoveryBlock } from '@/domains/content/components/UnenrichedRecoveryBlock';
+import { LocationCollectionChips } from '@/domains/content/components/LocationCollectionChips';
 
 interface GalleryViewProps {
   onClose: () => void;
@@ -260,9 +261,9 @@ export function GalleryView({ onClose, onLocationClick }: GalleryViewProps) {
                   </div>
                 )}
 
- {/* Tags */}
+  {/* Tags */}
  {selectedLocation.enrichedData?.etiquetas && selectedLocation.enrichedData.etiquetas.length > 0 && (
- <div className="flex flex-wrap gap-1 mb-4">
+ <div className="flex flex-wrap gap-1 mb-2">
  {selectedLocation.enrichedData.etiquetas.slice(0, 6).map((tag, i) => (
  <Badge key={i} variant="secondary" className="text-xs">
  {tag}
@@ -275,6 +276,9 @@ export function GalleryView({ onClose, onLocationClick }: GalleryViewProps) {
  )}
  </div>
  )}
+
+ {/* Colecciones a las que pertenece (hashtags coloreados) */}
+ <LocationCollectionChips locationId={selectedLocation.id} className="mb-4" />
 
  {/* Actions */}
  <div className="flex gap-2 mt-auto pt-4 border-t">
