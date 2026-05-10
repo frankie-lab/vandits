@@ -21,10 +21,12 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Sparkles, Pencil, Compass } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Sparkles, Pencil, Compass, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MiniMarker } from './MiniMarker';
 import { triggerEnrichLocation } from '@/domains/content/lib/enrich-location';
+import { UnenrichedRecoveryBlock } from './UnenrichedRecoveryBlock';
 import { ListGroupingSelect } from '@/shared/components/ListGroupingSelect';
 import { useListGrouping } from '@/shared/preferences/use-list-grouping';
 import { groupLocationsBy } from '@/shared/geography/hierarchy';
@@ -367,6 +369,32 @@ function VirtualWaypointList({
                   </div>
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {!isEnriched && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={(e) => e.stopPropagation()}
+                          title="Opciones de recuperación"
+                        >
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        side="left"
+                        align="start"
+                        className="w-80 p-0 border-0 bg-transparent shadow-xl"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <UnenrichedRecoveryBlock
+                          location={rowToGeoLike(loc)}
+                          variant="card"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  )}
                   {isWaypoint && (
                     <Tooltip>
                       <TooltipTrigger asChild>

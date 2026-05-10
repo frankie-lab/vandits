@@ -1,97 +1,123 @@
 ## Objetivo
 
-Que el contador "(N errores)" del `BatchEnrichmentPanel` deje de ser opaco:
-1. **A)** Separar visualmente *errores reales* (red, 5xx, timeout, créditos) de *rechazos por coherencia* (nombre↔coordenadas, sin candidato Wikipedia, ABORT controlado).
-2. **B)** Hacer clic en el contador abre una **bandeja de resolución** con cada punto fallido, su motivo, y CTA para resolverlo manualmente reutilizando la pauta ya existente de **puntos cercanos / coherencia nombre-coordenadas** (`mem://logic/enrichment/name-coordinate-coherence`).
+Que cualquier POI sin `enriched_data.descripcion` muestre **dentro de su propia ficha** (popup del mapa, vista de detalle, fila de la lista del documento) las mismas opciones de recuperación que viven hoy en el `BatchEnrichmentPanel`: badge del motivo, mensaje, distancia, candidatos, **Reintentar / Contexto cercano / Renombrar**.
 
-No tocamos la lógica de procesamiento del job ni el `enrich-location`. Solo clasificación de errores + UI de resolución.
+Los puntos enriquecidos no muestran nada. Reutilizamos los helpers ya creados — sin nuevos campos en `locations`.
 
 ---
 
-## Cambios
+## Arquitectura
 
-### 1. Clasificación de motivos en `batch-enrich`
+### 1. Hook único `useEnrichmentFailure(locationId)`
 
-En `supabase/functions/batch-enrich/index.ts`, cuando un punto cae al `catch (enrichError)` (línea ~412), además de `errorIds.push(locationId)` y `errorMessages[locationId] = msg`, persistir un **kind** estructurado en `error_messages[locationId]`:
+`src/domains/content/hooks/use-enrichment-failure.ts`
 
-```ts
-errorMessages[locationId] = {
-  kind: 'coherence' | 'no_match' | 'rate_limit' | 'no_credits' | 'timeout' | 'network' | 'unknown',
-  message: string,
-  candidates?: Array<{ name, lat, lng, distanceKm, wikiUrl }>,  // si vienen del enrich
-  nameLocation?: { lat, lng, distanceKm },                       // del check de coherencia
-  httpStatus?: number,
-}
+- Único punto de lectura del motivo del último fallo de IA para un POI dado.
+- Consulta:
+
+```sql
+SELECT error_messages, error_ids, updated_at
+FROM enrichment_jobs
+WHERE error_ids @> ARRAY[locationId]::uuid[]
+ORDER BY updated_at DESC
+LIMIT 1
 ```
 
-Reglas de derivación (server-side, en el catch):
-- `enrichData.error === 'name_coordinate_mismatch'` o presencia de `candidates`/`nameLocation` → `kind: 'coherence'`.
-- `enrichData.success === false && !candidates` → `kind: 'no_match'`.
-- `Enrich failed: 429` → `rate_limit`. `402` → `no_credits`. `5xx` → `timeout`. `fetch` lanza → `network`.
-- Resto → `unknown`.
+- Devuelve:
 
-`enrichment_jobs.error_messages` ya es `jsonb`; cambiar el shape de string→objeto es retro-compatible si el cliente lo lee tolerante.
-
-**Migración**: ninguna. La columna ya existe.
-
-### 2. Tres contadores en el header del job (A)
-
-`src/domains/content/components/BatchEnrichmentPanel.tsx` (header):
-- En vez de `(4 errores)`, derivar del `error_messages`:
-  - **Errores** (rojo): `kind ∈ {rate_limit, no_credits, timeout, network, unknown}`.
-  - **Sin coincidencia** (ámbar): `kind ∈ {coherence, no_match}`.
-- Render: `23 de 71 · 2 errores · 2 sin coincidencia` con los dos chips clicables (cada uno abre la bandeja filtrada).
-- Si `error_messages` es legacy (string), todos cuentan como "errores".
-
-### 3. Bandeja de resolución (B)
-
-Componente nuevo `BatchEnrichmentErrorsSheet.tsx` (variante `workflow` del Panel System, ADR 003):
-- Se abre desde el chip de errores del header del `BatchEnrichmentPanel`.
-- Lista una fila por `locationId` ∈ `error_ids` del job activo, ordenada por jerarquía geográfica (`getLocationHierarchy`).
-- Cada fila muestra: nombre, badge de motivo (color según kind), distancia (si coherencia), 3 acciones:
-
-| Acción | Disponible cuando | Comportamiento |
-|---|---|---|
-| **Reintentar** | siempre | Llama `triggerEnrichLocation(loc, { skipValidation: true })` (helper único, ya existe); en éxito → marca verde, lo saca de `error_ids`. |
-| **Abrir contexto cercano** | `kind ∈ {coherence, no_match}` | Cierra la bandeja, abre el `ProximityContext` del punto (mismo flujo que el clic en waypoint vacío, `mem://ui/map/unenriched-waypoint-click-behavior`). El usuario puede mover el punto a un candidato cercano o renombrar; al guardar, el bus de eventos relanza el reintento. |
-| **Renombrar** | `kind === 'coherence'` con candidates | Abre input inline con sugerencias de `error_messages.candidates[].name`; al confirmar, hace `update locations set name = …` y reintenta. |
-
-La bandeja se actualiza en realtime suscribiéndose al `enrichment_jobs` del job activo (ya hay canal en `BatchEnrichmentPanel`); cuando `processed_count` aumenta, se quita la fila correspondiente.
-
-### 4. Centralizar la lectura de motivos
-
-Helper único nuevo `src/domains/content/lib/enrichment-error-kind.ts`:
 ```ts
-export type EnrichmentErrorKind = 'coherence' | 'no_match' | 'rate_limit' | 'no_credits' | 'timeout' | 'network' | 'unknown';
-export function parseEnrichmentError(raw: unknown): { kind: EnrichmentErrorKind; message: string; candidates?: …; nameLocation?: … }
+{ parsed: ParsedEnrichmentError | null, loading: boolean }
 ```
-Usado por header (chips) y por la bandeja. Tolera el shape legacy (string).
 
-### 5. Memoria
+donde `parsed` se obtiene con el `parseEnrichmentError(...)` ya existente sobre `error_messages[locationId]`.
 
-Nueva memoria `mem://logic/enrichment/batch-error-resolution`:
-- 3 contadores en header (procesado / errores reales / sin coincidencia).
-- Helper único `parseEnrichmentError`.
-- Bandeja reutiliza `ProximityContext` y `triggerEnrichLocation({ skipValidation: true })`.
+- **Cache** en `Map<locationId, ParsedEnrichmentError|null>` a nivel de módulo + invalidación por:
+  - evento `location:enriched` (ya emitido por `triggerEnrichLocation`) → borra entrada.
+  - postgres realtime UPDATE en `enrichment_jobs` (un canal global, no uno por POI).
+- TTL en memoria: 60 s para evitar re-consultas en re-render.
 
-Añadir Core en index si lo merece o referenciar desde `mem://logic/enrichment/name-coordinate-coherence`.
+Impacto DB: a futuro conviene añadir índice GIN sobre `enrichment_jobs.error_ids`. **Migración mínima incluida**:
 
----
+```sql
+CREATE INDEX IF NOT EXISTS idx_enrichment_jobs_error_ids
+  ON public.enrichment_jobs USING GIN (error_ids);
+```
 
-## Detalles técnicos
+### 2. Componente compartido `UnenrichedRecoveryBlock`
 
-- `enrich-location` ya devuelve `candidates`/`nameLocation` en el body cuando aborta por coherencia; basta con propagarlos al `error_messages` desde `batch-enrich` (no requiere cambios en `enrich-location`).
-- Realtime: `BatchEnrichmentPanel` ya tiene la suscripción al job; la bandeja consume el mismo `useState` derivado, no abre canal nuevo.
-- Los reintentos individuales NO crean nuevo job: actualizan directamente `locations` (vía `enrich-location` con `skipValidation:true`) y, en éxito, mutan el array `error_ids` del job para que el contador baje. UPDATE permitido por RLS al dueño del documento.
-- Ningún cambio de schema, ninguna migración SQL.
+`src/domains/content/components/UnenrichedRecoveryBlock.tsx`
+
+Props:
+
+```ts
+{ location: GeoLocation, variant: 'card' | 'row' }
+```
+
+(El popup no es React, ver §4.)
+
+- Si `location.enrichmentStatus === 'enriched'` o tiene `enriched_data.descripcion` → no renderiza nada.
+- Llama `useEnrichmentFailure(location.id)` para tono y datos extra.
+- Render:
+  - **Header**: `<AlertCircle/>` + badge con `labelForKind(parsed?.kind ?? 'unknown')` o "Sin enriquecer" si no hay registro.
+  - **Mensaje**: `parsed.message` si existe; si no, copy genérico "Este punto aún no se ha enriquecido".
+  - **Distancia**: `parsed.nameLocation.distanceKm` cuando aplica.
+  - **Acciones** (siempre en este orden):
+    1. **Reintentar** → `triggerEnrichLocation(location.id, { focusAfter: false })`.
+    2. **Contexto cercano** → dispatch `open-nearby-context` con `providedName / nameLocation / nearbyCandidates` parseados (o vacíos si no hay job).
+    3. **Renombrar** → input inline pre-rellenado con `parsed.candidates[0]?.name`. Solo aparece si `parsed.kind === 'coherence'` con `candidates.length>0`.
+  - **Chips de candidatos** (≤ 4): pre-rellenan el input al pulsarse.
+- Tono: ámbar para soft (`coherence | no_match`), rojo para errores duros, gris neutro cuando no hay registro de fallo.
+
+`variant` solo cambia padding / tamaño tipográfico (`row` más compacto). Cero diferencias de lógica.
+
+### 3. Wiring en ficha completa y lista de doc
+
+- **`GalleryView`** (`src/components/GalleryView.tsx`): insertar `<UnenrichedRecoveryBlock variant="card" location={loc}/>` justo encima del bloque de descripción cuando el punto no está enriquecido.
+- **`DocumentWaypointsTabs`** (la lista de waypoints del doc): añadir `<UnenrichedRecoveryBlock variant="row" location={loc}/>` en cada fila no-enriquecida, debajo del nombre. Compacto: solo header + 1 línea con los 3 botones; los chips de candidatos se muestran solo si los hay.
+
+### 4. Wiring en el popup del mapa (HTML)
+
+`src/components/map/map-popups.ts` y `src/components/map/map-popup-handlers.ts`.
+
+El popup es **HTML string** + delegación con `data-action`. Mantenemos ese patrón — no introducimos React mount.
+
+- Helper único nuevo `buildRecoveryBlockHtml(loc, parsed, themeTokens)` en `src/components/map/popup-recovery.ts`. Devuelve un `<div data-recovery-root data-location-id="...">…</div>` con la misma estructura visual que el componente React.
+- Insertar el bloque en la cabecera del popup cuando `!loc.enrichedData?.descripcion`.
+- Como el popup se construye sincrónicamente y el lookup del job es async, el bloque se inyecta primero "skeleton" (con badge "Sin enriquecer", solo Reintentar + Contexto cercano), y un `requestAnimationFrame` después se rehidrata con el motivo + candidatos llamando al mismo cache singleton del hook (refactorizado a una clase `enrichmentFailureStore` exportable).
+- Nuevos `data-action` delegados en `map-popup-handlers.ts`:
+  - `enrich-retry` → `triggerEnrichLocation(locationId, { focusAfter: false })`.
+  - `enrich-context` → emite `open-nearby-context` con el payload cacheado.
+  - `enrich-rename` → muestra/oculta input inline (toggle DOM en sitio); `enrich-rename-confirm` ejecuta `update locations set name` + reintenta.
+  - `enrich-pick-candidate` → rellena el input.
+- Si el popup se cierra antes de que el lookup complete, simplemente no se rehidrata (idempotente).
+
+### 5. Persistencia & estado
+
+- **No** se añade columna nueva a `locations`. La fuente del motivo es `enrichment_jobs` (decisión del usuario). Cuando un job se purga, los puntos sin éxito muestran solo Reintentar + Contexto cercano (estado "Sin enriquecer" sin badge específico) — comportamiento aceptable.
+- El cache realtime se invalida cuando llega un UPDATE de `enrichment_jobs` que afecta al `locationId` en su `processed_ids` o `error_ids`.
+
+### 6. Memoria
+
+Nueva memoria `mem://logic/enrichment/per-poi-recovery-block` con:
+
+- Helper único `useEnrichmentFailure(locationId)` + cache `enrichmentFailureStore`.
+- Componente único `UnenrichedRecoveryBlock` (variants `card | row`) + helper HTML `buildRecoveryBlockHtml` para popup.
+- Se monta SIEMPRE en todo POI no-enriquecido (popup, ficha, fila de doc).
+- Acciones reutilizan `triggerEnrichLocation` y el evento `open-nearby-context`.
+- No hay schema change en `locations`; el motivo se obtiene por lookup al job más reciente.
 
 ---
 
 ## Archivos tocados
 
-- `supabase/functions/batch-enrich/index.ts` — clasificar `kind` en el catch.
-- `src/domains/content/lib/enrichment-error-kind.ts` — **nuevo** helper.
-- `src/domains/content/components/BatchEnrichmentPanel.tsx` — chips clicables.
-- `src/domains/content/components/BatchEnrichmentErrorsSheet.tsx` — **nuevo** componente bandeja.
-- `mem://logic/enrichment/batch-error-resolution.md` — **nuevo**.
-- `mem://index.md` — referencia.
+- `supabase/migrations/<ts>_idx_enrichment_jobs_error_ids.sql` — **nuevo** (índice GIN).
+- `src/domains/content/hooks/use-enrichment-failure.ts` — **nuevo** (hook + store singleton).
+- `src/domains/content/components/UnenrichedRecoveryBlock.tsx` — **nuevo** (variant `card | row`).
+- `src/components/map/popup-recovery.ts` — **nuevo** (HTML builder).
+- `src/components/map/map-popups.ts` — insertar bloque skeleton cuando POI no enriquecido.
+- `src/components/map/map-popup-handlers.ts` — nuevos `data-action` enrich-retry / context / rename / pick-candidate.
+- `src/components/GalleryView.tsx` — montar `UnenrichedRecoveryBlock variant="card"`.
+- `src/domains/content/components/DocumentWaypointsTabs.tsx` — montar `UnenrichedRecoveryBlock variant="row"` en filas no-enriquecidas.
+- `mem://logic/enrichment/per-poi-recovery-block.md` + entry en `mem://index.md`.
+
+Sin cambios en `BatchEnrichmentPanel` (sigue mostrando la lista global; ahora el usuario tiene paridad punto-a-punto).
