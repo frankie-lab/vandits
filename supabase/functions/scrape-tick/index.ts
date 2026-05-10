@@ -96,7 +96,7 @@ function parsePlaceJsonLd(html: string, url: string): ScrapedPlace | null {
   const addr = ld.address as Record<string, any> | undefined;
   return {
     url,
-    name: typeof ld.name === 'string' ? ld.name : 'Unnamed',
+    name: (typeof ld.name === 'string' ? ld.name : 'Unnamed').trim() || 'Unnamed',
     description: typeof ld.description === 'string' ? ld.description : undefined,
     latitude: lat,
     longitude: lng,
