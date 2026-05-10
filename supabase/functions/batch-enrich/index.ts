@@ -134,7 +134,7 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
     const locationIds = job.location_ids as string[];
     const processedIds = job.processed_ids as string[] || [];
     const errorIds = job.error_ids as string[] || [];
-    const errorMessages = job.error_messages as Record<string, string> || {};
+    const errorMessages = (job.error_messages as Record<string, unknown>) || {};
     const jobCuratorId: string | null = null;
     
     // Get locations to process (exclude already processed)
@@ -163,7 +163,7 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
       if (locError || !location) {
         console.error('Location not found:', locationId);
         errorIds.push(locationId);
-        errorMessages[locationId] = 'Ubicación no encontrada';
+        errorMessages[locationId] = { kind: 'unknown', message: 'Ubicación no encontrada' };
         continue;
       }
 
@@ -285,7 +285,14 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         
         if (!enrichResponse.ok) {
           const errorText = await enrichResponse.text();
-          throw new Error(`Enrich failed: ${enrichResponse.status} - ${errorText}`);
+          const status = enrichResponse.status;
+          const kind = status === 429 ? 'rate_limit'
+            : status === 402 ? 'no_credits'
+            : status >= 500 ? 'timeout'
+            : 'unknown';
+          throw Object.assign(new Error(`Enrich failed: ${status} - ${errorText.slice(0, 200)}`), {
+            __structured: { kind, httpStatus: status },
+          });
         }
         
         const enrichData = await enrichResponse.json();
@@ -406,13 +413,32 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
           } else {
             throw new Error('Retry enrichment failed: ' + retryResponse.status);
           }
+        } else if (enrichData.success === false && enrichData.reason === 'name_coordinate_mismatch') {
+          // Name ↔ coordinate coherence abort: keep candidates so the user can resolve manually.
+          throw Object.assign(new Error(enrichData.message || 'Nombre y coordenadas no coinciden'), {
+            __structured: {
+              kind: 'coherence',
+              candidates: Array.isArray(enrichData.nearbyCandidates) ? enrichData.nearbyCandidates : [],
+              nameLocation: enrichData.nameLocation ?? null,
+              providedName: enrichData.providedName ?? location.name,
+            },
+          });
         } else {
-          throw new Error(enrichData.error || 'Unknown enrichment error');
+          throw Object.assign(new Error(enrichData.error || enrichData.message || 'Sin coincidencia'), {
+            __structured: { kind: 'no_match' },
+          });
         }
       } catch (enrichError) {
         console.error('Error enriching location:', location.name, enrichError);
         errorIds.push(locationId);
-        errorMessages[locationId] = enrichError instanceof Error ? enrichError.message : 'Error desconocido';
+        const structured = (enrichError as { __structured?: Record<string, unknown> })?.__structured;
+        const message = enrichError instanceof Error ? enrichError.message : 'Error desconocido';
+        if (structured) {
+          errorMessages[locationId] = { ...structured, message };
+        } else {
+          // No structured info → likely network/JSON exception.
+          errorMessages[locationId] = { kind: 'network', message };
+        }
       }
       
       // Update job progress
