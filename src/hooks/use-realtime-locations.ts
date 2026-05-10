@@ -197,8 +197,18 @@ export function useRealtimeLocations() {
  console.warn('Realtime change classification failed, falling back to full refresh', e);
  }
 
+      // Detect enrichment transition (descripcion empty -> non-empty, or significant growth)
+      let kind: 'enrich' | 'update' = 'update';
+      try {
+        const oldDesc = String(((oldRecord?.enriched_data as any)?.descripcion ?? '')).trim();
+        const newDesc = String(((updatedRecord?.enriched_data as any)?.descripcion ?? '')).trim();
+        if (newDesc.length > 0 && (oldDesc.length === 0 || newDesc.length > oldDesc.length + 50)) {
+          kind = 'enrich';
+        }
+      } catch {}
+
       // Emit event to trigger stats refresh in toolbar and targeted map re-render
- window.dispatchEvent(new CustomEvent('location-realtime-update', { detail: { locationId: updatedRecord.id, kind: 'update' } }));
+      window.dispatchEvent(new CustomEvent('location-realtime-update', { detail: { locationId: updatedRecord.id, kind } }));
  },
  [updateLocation]
  );
