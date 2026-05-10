@@ -19,11 +19,13 @@
 
 import { GeoLocation } from '@/types/location';
 import { enrichmentFailureStore } from '@/domains/content/hooks/use-enrichment-failure';
+import { isPointEnriched } from './point-visual-state';
 
 export function hasEnrichmentFailure(location: GeoLocation | null | undefined): boolean {
   if (!location?.id) return false;
-  // Verde nunca marca error.
-  if (location.enrichedData) return false;
+  // Verde nunca marca error. Helper único `isPointEnriched` — NO usar
+  // `location.enrichedData` truthy: hay stubs sin `descripcion`.
+  if (isPointEnriched(location)) return false;
   return enrichmentFailureStore.hasFailureSync(location.id);
 }
 
