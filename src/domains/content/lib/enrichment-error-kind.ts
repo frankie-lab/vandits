@@ -75,11 +75,14 @@ function inferLegacyKind(message: string): EnrichmentErrorKind {
     return 'timeout';
   }
   if (m.includes('name_coordinate') || m.includes('coherence')) return 'coherence';
+  if (m.includes('llm_unverifiable') || m.includes('no verificable') || m.includes('no se puede generar')) {
+    return 'llm_unverifiable';
+  }
   return 'unknown';
 }
 
 export function isCoherenceKind(kind: EnrichmentErrorKind): boolean {
-  return kind === 'coherence' || kind === 'no_match';
+  return kind === 'coherence' || kind === 'llm_unverifiable' || kind === 'no_match';
 }
 
 /** Etiqueta i18n-ready (de momento ES) para el badge del motivo. */
