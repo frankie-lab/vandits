@@ -110,24 +110,15 @@ export function BottomProgressBar() {
  }, [selectedDocument, updateDocumentLocations]);
 
  const fetchJobStatus = useCallback(async () => {
- const documentIds = documents.map(d => d.id);
- if (documentIds.length === 0) {
- setActiveJob(null);
- return;
- }
-
-  try {
-      // Trae TODOS los jobs activos en los documentos cargados (un handleEnrich
-      // multi-doc crea 1 job por documento — los unificamos en una sola
-      // sesión para que el contador refleje "X de TOTAL" correctamente).
-  let activeQuery = supabase
-  .from('enrichment_jobs')
-  .select('*')
-  .in('status', ['pending', 'running', 'paused'])
-  .in('document_id', documentIds)
-  .order('updated_at', { ascending: false });
-
-  const { data: activeJobs, error } = await activeQuery;
+   try {
+     // Trae TODOS los jobs activos del usuario (RLS filtra por document.user_id).
+     // No filtramos por documents.map(d => d.id) porque durante recargas reactivas
+     // documents puede vaciarse momentáneamente y la barra parpadearía fuera.
+     const { data: activeJobs, error } = await supabase
+       .from('enrichment_jobs')
+       .select('*')
+       .in('status', ['pending', 'running', 'paused'])
+       .order('updated_at', { ascending: false });
 
  if (error) throw error;
 
@@ -145,12 +136,11 @@ export function BottomProgressBar() {
  } else {
         // No hay activos: comprueba si una sesión recién terminada (último job
         // del usuario en estos documentos) merece el flash de "completado".
- if (activeJob && activeJob.status !== 'completed') {
+  if (activeJob && activeJob.status !== 'completed') {
    const { data: recentDone } = await supabase
      .from('enrichment_jobs')
      .select('*')
      .eq('status', 'completed')
-     .in('document_id', documentIds)
      .order('updated_at', { ascending: false })
      .limit(activeJob.jobIds.length);
    if (recentDone && recentDone.length > 0) {
@@ -170,21 +160,14 @@ export function BottomProgressBar() {
  } catch (error) {
  console.error('Error fetching job status:', error);
  }
- }, [documents, activeJob?.status, refreshLocations]);
+ }, [activeJob?.status, refreshLocations]);
 
-  // Poll for job status
+  // Poll for job status (RLS filtra por usuario, no dependemos de documents)
  useEffect(() => {
- const hasDocuments = documents.length > 0;
- if (!hasDocuments) return;
-
-    // Initial fetch
- fetchJobStatus();
-
-    // Poll every 2 seconds
- const interval = setInterval(fetchJobStatus, 2000);
-
- return () => clearInterval(interval);
- }, [documents.length, fetchJobStatus]);
+   fetchJobStatus();
+   const interval = setInterval(fetchJobStatus, 2000);
+   return () => clearInterval(interval);
+ }, [fetchJobStatus]);
 
  // Aplica una acción (pause/resume/cancel) a TODOS los jobs de la sesión en
  // paralelo. Sin esto, pulsar Pausar/Detener sólo afectaría al primer job y

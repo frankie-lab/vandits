@@ -16,8 +16,9 @@ export function useDatabaseSync(userId?: string | null) {
   const reloadQueuedRef = useRef(false);
   const [syncPhase, setSyncPhase] = useState<SyncPhase>('idle');
 
-  const loadFromDatabase = useCallback(async () => {
-    startLoading('db-sync', 'Cargando catálogo', { blocking: true });
+  const loadFromDatabase = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) startLoading('db-sync', 'Cargando catálogo', { blocking: true });
     try {
       console.log('[useDatabaseSync] Starting parallel load...');
       setSyncPhase('own');
@@ -51,7 +52,7 @@ export function useDatabaseSync(userId?: string | null) {
       console.log('[useDatabaseSync] Fetching locations...');
       const dbLocations = await fetchAllLocationsPaginated();
       console.log('[useDatabaseSync] Locations fetched:', dbLocations.length);
-      updateLoading('db-sync', 0, dbLocations.length);
+      if (!silent) updateLoading('db-sync', 0, dbLocations.length);
 
       const adoptedFromIds = new Set<string>();
       const userDocIds = new Set(ownDocs.map(d => d.id));
@@ -103,7 +104,7 @@ export function useDatabaseSync(userId?: string | null) {
       if (ownDocs.length > 0) {
         console.log(`[useDatabaseSync] Own data loaded: ${ownDocs.length} docs, ${ownLocCount} locations`);
       }
-      updateLoading('db-sync', ownLocCount);
+      if (!silent) updateLoading('db-sync', ownLocCount);
 
       setSyncPhase('social');
       await new Promise(resolve => setTimeout(resolve, 0));
@@ -114,7 +115,7 @@ export function useDatabaseSync(userId?: string | null) {
         otherLocCount += kmlDoc.locations.length;
         addDocument(kmlDoc);
       });
-      updateLoading('db-sync', ownLocCount + otherLocCount);
+      if (!silent) updateLoading('db-sync', ownLocCount + otherLocCount);
 
       setSyncPhase('done');
       // Load summary is shown in the welcome card on the map (no toast to avoid duplication)
@@ -133,7 +134,7 @@ export function useDatabaseSync(userId?: string | null) {
       }
       setSyncPhase('done');
     } finally {
-      endLoading('db-sync');
+      if (!silent) endLoading('db-sync');
     }
   }, [addDocument, _resetStoreState]);
 
@@ -147,7 +148,7 @@ export function useDatabaseSync(userId?: string | null) {
       do {
         reloadQueuedRef.current = false;
         hasLoadedRef.current = false;
-        await loadFromDatabase();
+        await loadFromDatabase({ silent: true });
         hasLoadedRef.current = true;
       } while (reloadQueuedRef.current);
     };

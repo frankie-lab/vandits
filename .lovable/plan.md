@@ -1,51 +1,59 @@
-# Unificar la experiencia de carga inicial
+# Mantener mapa + barra inferior visibles durante enriquecimiento
 
-Hoy, al abrir la app, conviven cuatro indicadores simultáneos:
+## Diagnóstico
 
-1. Tarjeta de bienvenida ("Hola, Frankie ... Ir a mi catálogo") aparece en cuanto llega la primera página de datos, **antes** de terminar el catálogo.
-2. `CatalogLoadingCard` (tarjeta centrada "Cargando catálogo").
-3. `GlobalLoadingBar` (línea fina arriba + chip "Cargando catálogo" arriba a la derecha).
-4. Cursor `progress` global (bola girando) por `body.is-blocking-load`.
+Durante un batch de enriquecimiento se dispara realtime sobre `locations` → cada UPDATE emite `locations-updated` → `requestGlobalReload()` → `loadFromDatabase()` con `blocking: true`. Eso provoca, cientos de veces seguidas:
 
-Resultado: ruido visual, mensajes duplicados y la bienvenida invita a actuar sobre un mapa todavía vacío. Plan: **un único loader durante la carga inicial** y la bienvenida sólo cuando todo está listo.
+1. `body.is-blocking-load` se enciende → `pointer-events: none` sobre `.leaflet-container` (mapa "congelado", parece gris porque no responde a interacciones y el cluster/markers se redibujan en cada ciclo).
+2. `_resetStoreState()` vacía `documents` momentáneamente → `BottomProgressBar` (que filtra jobs por `documents.map(d => d.id)`) ve la lista vacía y desaparece.
+
+Resultado: cada vez que un POI se enriquece, el mapa se pone gris y la barra inferior parpadea fuera. La barra superior central que rediseñamos no llega a pintarse.
 
 ## Cambios
 
-### 1. `src/components/LocationMap.tsx` — bloquear bienvenida durante `db-sync`
+### 1. `src/domains/content/hooks/use-database-sync.ts` — recargas en silencio
 
-Importar `useActiveLoadings` y derivar `isCatalogLoading = tasks.some(t => t.id === 'db-sync')`. Sumarlo a la condición:
-
-```ts
-const showOnboardingCard = dataReady && !isCatalogLoading && welcomeMode === 'onboarding' && !welcomeDismissed;
-const showSummaryCard    = dataReady && !isCatalogLoading && welcomeMode === 'summary'   && !welcomeDismissed && !summaryShown;
-```
-
-Así la tarjeta de bienvenida sólo aparece cuando el catálogo terminó de cargarse.
-
-### 2. `src/shared/loading/GlobalLoadingBar.tsx` — no duplicar `db-sync`
-
-Filtrar fuera la tarea `db-sync` (ya se representa con la tarjeta central):
+Aceptar opciones en `loadFromDatabase`:
 
 ```ts
-const tasks = useActiveLoadings().filter(t => t.id !== 'db-sync');
-if (tasks.length === 0) return null;
+const loadFromDatabase = useCallback(async (opts?: { silent?: boolean }) => {
+  const silent = opts?.silent === true;
+  if (!silent) startLoading('db-sync', 'Cargando catálogo', { blocking: true });
+  try {
+    ...
+    if (!silent) updateLoading('db-sync', dbLocations.length, dbLocations.length);
+  } finally {
+    if (!silent) endLoading('db-sync');
+  }
+}, ...);
 ```
 
-Para otras cargas (toggles de colección, etc.) la barra superior y el chip siguen funcionando como hoy.
+`requestGlobalReload` y los listeners de `reload-locations` / `locations-updated` pasan `{ silent: true }`. Solo la carga inicial (al montar / SIGNED_IN) sigue siendo visible y bloqueante.
 
-### 3. `src/index.css` — quitar el cursor "bola girando" global
+Esto elimina:
+- El bloqueo del mapa durante el batch (sin `is-blocking-load` recurrente).
+- El parpadeo de la tarjeta "Cargando catálogo" cada vez que entra un UPDATE.
 
-Eliminar la regla `body.is-blocking-load, body.is-blocking-load * { cursor: progress !important; }`. Mantener únicamente el bloqueo de interacciones sobre `.leaflet-container` (que sigue impidiendo pan/zoom/click sobre el mapa vacío). El cursor en el resto de la UI vuelve al normal, y los botones del propio loader / header siguen siendo clicables como ya hacen.
+### 2. `src/components/BottomProgressBar.tsx` — independiente de `documents`
 
-### 4. Reposicionar `CatalogLoadingCard` (opcional, mismo archivo)
+Hoy filtra jobs por `documents.map(d => d.id)`. Durante la recarga `documents` se vacía y la barra desaparece. La RLS de `enrichment_jobs` ya limita a los jobs cuyos `document_id` son del usuario, así que el filtro cliente es redundante.
 
-Hoy está en `bottom-24` (estaba pensado para coincidir con el slot de la welcome card). Moverlo a centrado vertical real (`top-1/2 -translate-y-1/2`) para que sea el único protagonista durante la carga y se distinga claramente de cualquier otro overlay.
+- Eliminar el corto-circuito `if (documentIds.length === 0) setActiveJob(null)`.
+- Cambiar la query a:
+  ```ts
+  supabase.from('enrichment_jobs')
+    .select('*')
+    .in('status', ['pending', 'running', 'paused'])
+    .order('updated_at', { ascending: false });
+  ```
+- Quitar la dependencia `documents` del `useCallback` y del `useEffect`. Mantener `useEffect` arrancando con `userId` o simplemente al montar (poll incondicional cada 2s; RLS filtra por usuario).
 
-## Resultado esperado
+Mismo cambio para la rama de "recently completed".
 
-Durante la carga inicial: sólo la tarjeta central "Cargando catálogo · 432 / 5 073 · ≈ 12 s", mapa no interactivo, cursor normal, sin chip arriba a la derecha, sin bienvenida.
-Al terminar: tarjeta desaparece y aparece la bienvenida con los contadores ya completos.
+`refreshLocations` sigue dependiendo de `selectedDocument`; lo mantenemos tal cual.
 
 ## Validación
 
-Recargar `/` con sesión activa: verificar que sólo se ve la tarjeta central durante la sincronización, que el chip superior derecho no aparece, que el cursor es normal y que la bienvenida emerge sólo cuando termina.
+- Lanzar batch-enrich: la barra inferior con la nueva UI (verde/rojo/ámbar/gris + ETA) permanece visible mientras se procesan los POIs.
+- El mapa sigue interactivo (pan/zoom funcionan) durante el enriquecimiento; los tiles permanecen pintados.
+- La tarjeta "Cargando catálogo" sólo aparece en la carga inicial, no parpadea durante el batch.
