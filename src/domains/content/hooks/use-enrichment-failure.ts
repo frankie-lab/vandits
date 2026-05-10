@@ -62,6 +62,61 @@ class EnrichmentFailureStore {
     this.notify();
   }
 
+  /**
+   * Sync accessor used by the map renderer (createCustomIcon) — returns true
+   * if the cache currently records a failure for this id. Never triggers a
+   * fetch (the prewarm pass below is responsible for populating the cache).
+   */
+  hasFailureSync(locationId: string): boolean {
+    const e = this.cache.get(locationId);
+    if (!e) return false;
+    if (Date.now() - e.fetchedAt > TTL_MS) return false;
+    return e.parsed != null;
+  }
+
+  /**
+   * Bulk pre-warm: pull the most recent N enrichment_jobs for the current
+   * user and seed the cache from their `error_messages` maps. After this
+   * call, `hasFailureSync(id)` is reliable for every id that appears in any
+   * recent job. Ids that don't appear get a `null` entry (= "no failure").
+   */
+  async prewarmFromRecentJobs(jobLimit = 20): Promise<void> {
+    try {
+      const { data, error } = await supabase
+        .from('enrichment_jobs')
+        .select('error_messages, error_ids, location_ids')
+        .order('updated_at', { ascending: false })
+        .limit(jobLimit);
+      if (error || !data) return;
+      const now = Date.now();
+      const seen = new Set<string>();
+      for (const job of data) {
+        const messages = (job.error_messages ?? null) as Record<string, unknown> | null;
+        const errorIds = (job.error_ids ?? []) as string[];
+        const locationIds = (job.location_ids ?? []) as string[];
+        // Mark every errored id as failed (most recent wins because we iterate
+        // in DESC order and skip ids we've already seen).
+        for (const id of errorIds) {
+          if (seen.has(id)) continue;
+          seen.add(id);
+          const raw = messages?.[id];
+          const parsed = raw != null ? parseEnrichmentError(raw) : null;
+          this.cache.set(id, { parsed, fetchedAt: now });
+        }
+        // For ids that participated but are NOT in error_ids, record "no
+        // failure" so the sync accessor returns false without a network hit.
+        for (const id of locationIds) {
+          if (seen.has(id)) continue;
+          seen.add(id);
+          this.cache.set(id, { parsed: null, fetchedAt: now });
+        }
+      }
+      this.notify();
+    } catch (e) {
+      console.warn('[enrichmentFailureStore] prewarm failed', e);
+    }
+  }
+
   async fetch(locationId: string, force = false): Promise<ParsedEnrichmentError | null> {
     if (!force) {
       const cached = this.getCached(locationId);
