@@ -1896,6 +1896,9 @@ export function LocationMap() {
  </div>
  </div>
 
+      {/* Catalog loading card — replaces welcome popup while initial sync is in flight */}
+      <CatalogLoadingCard />
+
       {/* Welcome card — onboarding o summary según estado del catálogo */}
       {showEmptyState && (
         <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[500] px-4 pointer-events-none w-full max-w-md">
