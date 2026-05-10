@@ -233,32 +233,52 @@ export function BottomProgressBar() {
 
  {/* Text content */}
  <div className="flex flex-col min-w-0">
- {isActive && (
- <>
- <div className="flex items-center gap-2">
- <span className="font-medium text-sm">
- {isPaused ? 'Enriquecimiento pausado' : 'Enriqueciendo ubicaciones...'}
- </span>
- <span className="text-xs text-muted-foreground">
- {activeJob!.processed_count} de {activeJob!.total_count}
- </span>
- {activeJob!.error_count > 0 && (
- <span className="text-xs text-red-500">
- ({activeJob!.error_count} errores)
- </span>
- )}
- </div>
- {activeJob?.current_location_name && activeJob.status === 'running' && (
- <span className="text-xs text-muted-foreground truncate">
- Procesando: {activeJob.current_location_name}
- </span>
- )}
- {isPaused && (
- <span className="text-xs text-amber-600 dark:text-amber-400">
- {remaining} ubicaciones pendientes
- </span>
- )}
- </>
+  {isActive && (
+  <>
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="font-medium text-sm">
+        {isPaused ? 'Enriquecimiento pausado' : 'Enriqueciendo ubicaciones...'}
+      </span>
+      <span className="text-xs text-muted-foreground tabular-nums">
+        {activeJob!.processed_count} de {activeJob!.total_count}
+      </span>
+      {(() => {
+        const buckets = countErrorBuckets(activeJob!.error_messages ?? {});
+        const queue = Math.max(0, activeJob!.total_count - activeJob!.processed_count - activeJob!.error_count);
+        const enriched = Math.max(0, activeJob!.processed_count);
+        return (
+          <span className="flex items-center gap-2 text-[11px] tabular-nums">
+            <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400" title="Enriquecidos">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />{enriched}
+            </span>
+            {buckets.hard > 0 && (
+              <span className="inline-flex items-center gap-1 text-red-500" title="Errores duros (timeout, red, sin créditos)">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500" />{buckets.hard}
+              </span>
+            )}
+            {buckets.soft > 0 && (
+              <span className="inline-flex items-center gap-1 text-amber-500" title="Sin coincidencia / nombre vs coordenadas">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />{buckets.soft}
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1 text-muted-foreground" title="En cola">
+              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60" />{queue}
+            </span>
+          </span>
+        );
+      })()}
+    </div>
+    {activeJob?.current_location_name && activeJob.status === 'running' && (
+      <span className="text-xs text-muted-foreground truncate">
+        Procesando: {activeJob.current_location_name}
+      </span>
+    )}
+    {isPaused && (
+      <span className="text-xs text-amber-600 dark:text-amber-400">
+        {remaining} ubicaciones pendientes
+      </span>
+    )}
+  </>
  )}
 
  {isCompleted && (
