@@ -61,8 +61,8 @@ export function useRealtimeLocations() {
  });
  }
 
- window.dispatchEvent(new CustomEvent('trash-updated'));
- window.dispatchEvent(new CustomEvent('location-realtime-update'));
+  window.dispatchEvent(new CustomEvent('trash-updated'));
+ window.dispatchEvent(new CustomEvent('location-realtime-update', { detail: { locationId: updatedRecord.id, kind: 'delete' } }));
  } catch (e) {
  console.warn('Failed to apply realtime delete locally', e);
  }
