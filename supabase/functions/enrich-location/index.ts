@@ -1787,12 +1787,21 @@ serve(async (req) => {
     // Check if we need to validate the location before enrichment
     // This is a key quality control step for curator enrichment
     
-    // ========== NAME ↔ COORDINATE COHERENCE CHECK ==========
-    // Runs BEFORE prompt construction. If the provided name corresponds to a
-    // Wikipedia article whose own coordinates are >2 km from the provided
-    // coords, abort and return candidates for the user to resolve.
-    if (!confirmedCandidate) {
-      const coherence = await validateNameCoordinateCoherence(location.name, location.coordinates);
+    // ========== NAME ↔ COORDINATE COHERENCE CHECK (geo-aware) ==========
+    // Usa la geografía resuelta del POI (country/region/zone/locality) como
+    // evidencia primaria. Honra `skipValidation` para flujos manuales.
+    if (!confirmedCandidate && !skipValidation) {
+      const coherence = await validateNameCoordinateCoherence(
+        location.name,
+        location.coordinates,
+        {
+          country: geoData.country,
+          region: geoData.region,
+          zone: geoData.zone,
+          locality: (geocodeResult as any)?.locality,
+          sublocality: (geocodeResult as any)?.sublocality,
+        },
+      );
       if (!coherence.ok && coherence.reason === 'name_coordinate_mismatch') {
         console.log(`[enrich] ABORT: name "${coherence.providedName}" is at ${coherence.nameLocation?.distanceKm}km from provided coords. Returning candidates.`);
         return new Response(
