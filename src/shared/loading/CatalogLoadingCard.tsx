@@ -37,7 +37,7 @@ export function CatalogLoadingCard() {
 
   return (
     <div
-      className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[500] px-4 pointer-events-none w-full max-w-md"
+      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[500] px-4 pointer-events-none w-full max-w-md"
       role="status"
       aria-live="polite"
       aria-label="Cargando catálogo"

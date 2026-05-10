@@ -1,70 +1,51 @@
-# Rediseño de la barra de progreso de enriquecimiento
+# Unificar la experiencia de carga inicial
 
-Objetivo: dar protagonismo a la barra (más ancho, un único riel segmentado con los 4 estados) sin aumentar la altura del contenedor ni perder los controles Pausar / Reanudar / Detener.
+Hoy, al abrir la app, conviven cuatro indicadores simultáneos:
 
-## Cambios (un único archivo)
+1. Tarjeta de bienvenida ("Hola, Frankie ... Ir a mi catálogo") aparece en cuanto llega la primera página de datos, **antes** de terminar el catálogo.
+2. `CatalogLoadingCard` (tarjeta centrada "Cargando catálogo").
+3. `GlobalLoadingBar` (línea fina arriba + chip "Cargando catálogo" arriba a la derecha).
+4. Cursor `progress` global (bola girando) por `body.is-blocking-load`.
 
-`src/components/BottomProgressBar.tsx`
+Resultado: ruido visual, mensajes duplicados y la bienvenida invita a actuar sobre un mapa todavía vacío. Plan: **un único loader durante la carga inicial** y la bienvenida sólo cuando todo está listo.
 
-### 1. Barra segmentada única (centro, ancha)
+## Cambios
 
-Sustituir:
-- el riel fino superior (`h-1 bg-muted/50`)
-- el mini `Progress` central de 192px (`w-48`)
+### 1. `src/components/LocationMap.tsx` — bloquear bienvenida durante `db-sync`
 
-por **una sola barra horizontal de `h-3 rounded-full`** que ocupa todo el ancho disponible entre el bloque de título (izquierda) y los botones (derecha). Usa `flex-1 min-w-0` para crecer.
+Importar `useActiveLoadings` y derivar `isCatalogLoading = tasks.some(t => t.id === 'db-sync')`. Sumarlo a la condición:
 
-Segmentos apilados en porcentajes (de izquierda a derecha):
-```text
-[####### verde enriquecidos ####### | rojo errores duros | ámbar errores blandos | gris en cola ]
+```ts
+const showOnboardingCard = dataReady && !isCatalogLoading && welcomeMode === 'onboarding' && !welcomeDismissed;
+const showSummaryCard    = dataReady && !isCatalogLoading && welcomeMode === 'summary'   && !welcomeDismissed && !summaryShown;
 ```
 
-Implementación: contenedor `bg-muted/40` y 3 divs `absolute` con `left`/`width` calculados:
-- `enrichedPct = enriched / total * 100`
-- `hardPct = buckets.hard / total * 100`
-- `softPct = buckets.soft / total * 100`
-- el hueco restante queda como "en cola" (gris translúcido del fondo).
+Así la tarjeta de bienvenida sólo aparece cuando el catálogo terminó de cargarse.
 
-En estado `paused` el segmento verde pasa a ámbar para mantener el código visual actual.
+### 2. `src/shared/loading/GlobalLoadingBar.tsx` — no duplicar `db-sync`
 
-### 2. Etiquetas compactas debajo del riel
+Filtrar fuera la tarea `db-sync` (ya se representa con la tarjeta central):
 
-Justo bajo la barra (misma fila visual, sin añadir altura porque sustituimos las dos líneas de texto actuales):
-```text
-Enriqueciendo ubicaciones · 432/583 (74%) · ETA 3 min 12 s
-● 427 enriquecidos   ● 1 error   ● 4 sin match   ● 151 en cola
+```ts
+const tasks = useActiveLoadings().filter(t => t.id !== 'db-sync');
+if (tasks.length === 0) return null;
 ```
 
-- Título a la izquierda con icono Sparkles animado.
-- Métricas en una sola línea con `tabular-nums`, separadores `·`.
-- Subtítulo "Procesando: {nombre}" se desplaza a la derecha del título en línea, truncado, sólo si hay sitio (`hidden lg:inline`).
+Para otras cargas (toggles de colección, etc.) la barra superior y el chip siguen funcionando como hoy.
 
-### 3. Cálculo de ETA
+### 3. `src/index.css` — quitar el cursor "bola girando" global
 
-Nuevo `useRef<{ startedAt: number; startedCompleted: number }>` que se inicializa cuando aparece la primera sesión activa y se resetea al completarse. Tasa = `(completedNow - startedCompleted) / (now - startedAt)`. ETA = `remaining / tasa`. Formato vía helper local `formatEta(ms)` → "1 min 04 s" / "12 s" / "—" si tasa = 0.
+Eliminar la regla `body.is-blocking-load, body.is-blocking-load * { cursor: progress !important; }`. Mantener únicamente el bloqueo de interacciones sobre `.leaflet-container` (que sigue impidiendo pan/zoom/click sobre el mapa vacío). El cursor en el resto de la UI vuelve al normal, y los botones del propio loader / header siguen siendo clicables como ya hacen.
 
-Reutilizable con el mismo patrón que `CatalogLoadingCard` (no hace falta extraer).
+### 4. Reposicionar `CatalogLoadingCard` (opcional, mismo archivo)
 
-### 4. Layout final dentro del mismo contenedor
+Hoy está en `bottom-24` (estaba pensado para coincidir con el slot de la welcome card). Moverlo a centrado vertical real (`top-1/2 -translate-y-1/2`) para que sea el único protagonista durante la carga y se distinga claramente de cualquier otro overlay.
 
-```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ ✦ Enriqueciendo... 432/583 · ETA 3:12     [████████░░░░]  74%   ⏸ Pausar  □ │
-│   ● 427  ● 1  ● 4  ● 151                                                    │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+## Resultado esperado
 
-- Padding vertical actual `py-3` se conserva.
-- Se elimina el `h-1` superior (su función la asume el riel central).
-- Altura total ≈ idéntica a la actual (icono + dos líneas de texto ya ocupaban el mismo alto que riel `h-3` + línea de leyenda).
+Durante la carga inicial: sólo la tarjeta central "Cargando catálogo · 432 / 5 073 · ≈ 12 s", mapa no interactivo, cursor normal, sin chip arriba a la derecha, sin bienvenida.
+Al terminar: tarjeta desaparece y aparece la bienvenida con los contadores ya completos.
 
-### 5. Conservado intacto
+## Validación
 
-- `aggregateJobs`, polling, `broadcastAction`, handlers de pause/resume/stop/dismiss.
-- Botones Pausar / Reanudar / Detener / Cerrar con sus estados de loading.
-- Modos `paused` (fondo ámbar) y `completed` (fondo verde + "¡N ubicaciones enriquecidas!").
-- Responsive: en `sm` se ocultan los textos de los botones (icon-only), las métricas de leyenda colapsan a sólo los puntos con cantidades.
-
-### Validación
-
-Inspección visual a 1507px (viewport actual) y a `sm` (375px) para confirmar que la barra crece, los botones siguen alcanzables y la altura no aumenta.
+Recargar `/` con sesión activa: verificar que sólo se ve la tarjeta central durante la sincronización, que el chip superior derecho no aparece, que el cursor es normal y que la bienvenida emerge sólo cuando termina.

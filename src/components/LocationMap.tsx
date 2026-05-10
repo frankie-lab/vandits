@@ -24,7 +24,7 @@ import { playEnrichmentComplete } from '@/lib/sounds';
 import { usePermissions } from '@/domains/identity';
 import { useSocialStats } from '@/domains/social';
 import { useMapTheme } from '@/hooks/use-map-theme';
-import { CatalogLoadingCard } from '@/shared/loading';
+import { CatalogLoadingCard, useActiveLoadings } from '@/shared/loading';
 import { supabase } from '@/integrations/supabase/client';
 import { getLucideSvgString, getMapMarkerHtml, getStopTypeIconKey } from '@/lib/icon-utils';
 import { fetchIpGeolocation } from '@/lib/ip-geolocation';
@@ -1763,8 +1763,10 @@ export function LocationMap() {
     return () => window.removeEventListener('vandits:show-welcome', handler);
   }, []);
 
-  const showOnboardingCard = dataReady && welcomeMode === 'onboarding' && !welcomeDismissed;
-  const showSummaryCard = dataReady && welcomeMode === 'summary' && !welcomeDismissed && !summaryShown;
+  const loadingTasks = useActiveLoadings();
+  const isCatalogLoading = loadingTasks.some((t) => t.id === 'db-sync');
+  const showOnboardingCard = dataReady && !isCatalogLoading && welcomeMode === 'onboarding' && !welcomeDismissed;
+  const showSummaryCard = dataReady && !isCatalogLoading && welcomeMode === 'summary' && !welcomeDismissed && !summaryShown;
   const showEmptyState = showOnboardingCard || showSummaryCard;
 
   // Cierre al click fuera de la card (solo cuando la summary está visible).

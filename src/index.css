@@ -324,12 +324,9 @@
   border-radius: 9999px;
   opacity: 0.85;
 }
-body.is-blocking-load,
-body.is-blocking-load * {
-  cursor: progress !important;
-}
 /* Block map interactions (pan/zoom/click) while the catalog is loading
-   so the user does not act on an empty map. UI overlays remain clickable. */
+   so the user does not act on an empty map. UI overlays remain clickable.
+   El cursor sigue normal: el indicador visual es la tarjeta central. */
 body.is-blocking-load .leaflet-container {
   pointer-events: none !important;
 }

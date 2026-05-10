@@ -2,7 +2,9 @@ import React from 'react';
 import { useActiveLoadings } from './loading-bus';
 
 export function GlobalLoadingBar() {
-  const tasks = useActiveLoadings();
+  // db-sync ya se representa con CatalogLoadingCard (centrada). Evitamos
+  // duplicar el indicador con el chip superior derecho.
+  const tasks = useActiveLoadings().filter((t) => t.id !== 'db-sync');
   if (tasks.length === 0) return null;
 
   const top = tasks[0];
