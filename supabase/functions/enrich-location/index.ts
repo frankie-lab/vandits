@@ -2224,8 +2224,14 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
           gemini: true, // Siempre usamos Gemini para la generación
           wikimedia_commons: false, // Se actualiza después si se encuentra imagen
         };
-        
-        // Usar web oficial de Wikidata si no hay otra
+
+        // Cultural / functional context layer (Wikidata P31 → closed taxonomy).
+        // Lives outside the administrative tree; rendered as a chip in the UI.
+        const culturalContext = extractCulturalContext(wikidataResult?.instanceOf);
+        if (culturalContext) {
+          enrichedData.cultural_context = culturalContext;
+        }
+
         if (wikidataResult?.officialWebsite && !enrichedData.datos_clave?.web_referencia) {
           if (!enrichedData.datos_clave) enrichedData.datos_clave = {};
           enrichedData.datos_clave.web_referencia = wikidataResult.officialWebsite;
