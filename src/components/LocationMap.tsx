@@ -1899,7 +1899,7 @@ export function LocationMap() {
  </div>
 
       {/* Catalog loading card — replaces welcome popup while initial sync is in flight */}
-      <CatalogLoadingCard />
+      <CatalogLoadingCard userDisplayName={userDisplayName} lastSeenAt={lastSeenAt} />
 
       {/* Welcome card — onboarding o summary según estado del catálogo */}
       {showEmptyState && (

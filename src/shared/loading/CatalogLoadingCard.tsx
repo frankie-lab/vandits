@@ -1,12 +1,13 @@
 // Catalog loading card — shown in the same slot as the welcome card while
-// the initial catalog sync is in flight. Mirrors the welcome card visuals
-// (gradient halo, brand mark, centered text) so the user sees a coherent
-// "popup" instead of a cold spinner. Real progress only — no simulation.
+// the initial catalog sync is in flight. Mirrors the welcome summary card
+// (greeting + last login + counts) and adds a live progress bar with ETA.
+// Real progress only — no simulation.
 import React from 'react';
 import { Compass, Loader2 } from 'lucide-react';
 import { useActiveLoadings } from './loading-bus';
 
 function formatEta(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return '—';
   if (ms < 1000) return 'menos de 1 s';
   const totalSec = Math.ceil(ms / 1000);
   if (totalSec < 60) return `≈ ${totalSec} s`;
@@ -15,7 +16,26 @@ function formatEta(ms: number): string {
   return s === 0 ? `≈ ${m} min` : `≈ ${m} min ${s} s`;
 }
 
-export function CatalogLoadingCard() {
+function formatRelative(date: Date): string {
+  const diffMs = Date.now() - date.getTime();
+  const min = Math.floor(diffMs / 60_000);
+  if (min < 1) return 'hace un momento';
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `hace ${d} d`;
+  const months = Math.floor(d / 30);
+  if (months < 12) return `hace ${months} mes${months === 1 ? '' : 'es'}`;
+  return `hace ${Math.floor(months / 12)} año${Math.floor(months / 12) === 1 ? '' : 's'}`;
+}
+
+interface CatalogLoadingCardProps {
+  userDisplayName?: string | null;
+  lastSeenAt?: Date | null;
+}
+
+export function CatalogLoadingCard({ userDisplayName, lastSeenAt }: CatalogLoadingCardProps = {}) {
   const tasks = useActiveLoadings(0);
   const task = tasks.find((t) => t.id === 'db-sync');
   if (!task) return null;
@@ -35,6 +55,12 @@ export function CatalogLoadingCard() {
     etaLabel = 'Calculando…';
   }
 
+  const showLastSeen =
+    !!userDisplayName && !!lastSeenAt && Date.now() - lastSeenAt.getTime() >= 60_000;
+  const lastLoginText = lastSeenAt
+    ? `Último acceso: ${lastSeenAt.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })} ${lastSeenAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+    : null;
+
   return (
     <div
       className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[500] px-4 pointer-events-none w-full max-w-md"
@@ -47,36 +73,57 @@ export function CatalogLoadingCard() {
         <div className="pointer-events-none absolute -right-10 -bottom-10 h-32 w-32 rounded-full bg-primary/10 blur-3xl" />
 
         <div className="relative p-5">
+          {/* Brand mark — same as welcome card */}
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl brand-gradient shadow-lg shadow-primary/30 ring-1 ring-primary/20">
             <Compass className="h-6 w-6 text-primary-foreground" />
           </div>
 
+          {/* Greeting block — same structure as summary welcome card */}
           <div className="text-center mb-4">
-            <h3 className="text-base font-semibold tracking-tight text-foreground flex items-center justify-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              Cargando catálogo
+            <h3 className="text-base font-semibold tracking-tight text-foreground">
+              {userDisplayName ? `Hola, ${userDisplayName}` : 'Bienvenido a Vandits'}
             </h3>
             <p className="text-xs text-muted-foreground mt-1">
-              {determinate ? (
-                <>
-                  {current.toLocaleString('es-ES')} / {total.toLocaleString('es-ES')} puntos
-                  {etaLabel ? ` · ${etaLabel}` : ''}
-                </>
-              ) : (
-                'Preparando datos…'
-              )}
+              {showLastSeen
+                ? `No te vemos desde ${formatRelative(lastSeenAt!)}`
+                : 'Preparando tu catálogo'}
             </p>
+            {lastLoginText && (
+              <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+                {lastLoginText}
+              </p>
+            )}
           </div>
 
-          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-            {determinate ? (
-              <div
-                className="h-full bg-primary transition-[width] duration-200 ease-out"
-                style={{ width: `${pct}%` }}
-              />
-            ) : (
-              <div className="h-full w-1/3 bg-primary global-loading-indeterminate" />
-            )}
+          {/* Progress section */}
+          <div className="rounded-xl border border-border/40 bg-background/40 p-3">
+            <div className="flex items-center justify-between text-xs mb-2">
+              <span className="flex items-center gap-1.5 font-medium text-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                Cargando catálogo
+              </span>
+              <span className="tabular-nums text-muted-foreground">
+                {determinate
+                  ? `${current.toLocaleString('es-ES')} / ${total.toLocaleString('es-ES')}`
+                  : '…'}
+              </span>
+            </div>
+
+            <div className="h-2 rounded-full bg-muted overflow-hidden">
+              {determinate ? (
+                <div
+                  className="h-full bg-primary transition-[width] duration-200 ease-out"
+                  style={{ width: `${pct}%` }}
+                />
+              ) : (
+                <div className="h-full w-1/3 bg-primary global-loading-indeterminate" />
+              )}
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground/90 mt-2 tabular-nums">
+              <span>{determinate ? `${pct}%` : 'Preparando datos…'}</span>
+              {etaLabel && <span>Tiempo restante {etaLabel}</span>}
+            </div>
           </div>
 
           <p className="text-[11px] text-muted-foreground/80 text-center mt-3">
