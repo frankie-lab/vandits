@@ -1,85 +1,55 @@
-## Objetivo
-Hacer que el comportamiento sea transversal y persistente en todo el mapa:
-- Los POIs con error de enriquecimiento muestran en el popup las opciones de recuperación.
-- Los POIs con error muestran el contorno rojo de 5px.
-- Cuando un POI se enriquece con éxito, desaparece el rojo y recupera su contorno normal o el de su colección visible.
-- Sin hardcodes por caso concreto: todo pasa por helpers centrales.
+## Diagnóstico confirmado
 
-## Qué voy a cambiar
+He inspeccionado este POI (`Río Tinto` / `Parque Nacional de Doñana`) en BD:
 
-### 1) Montar el bloque de recuperación dentro del popup del mapa
-**Archivos:** `src/components/map/map-popups.ts`, `src/components/LocationMap.tsx`
+- `enriched_data` existe pero **solo contiene `etiquetas_personales`** (el tag `#fulltrips`). NO tiene `descripcion`, ni `imagenes`, ni `clasificacion`. Es decir, el POI **no está enriquecido** por la regla canónica.
+- En `enrichment_jobs` el último job lo deja en `error_ids` con error de coherencia ("El nombre corresponde a un lugar a 2.6 km de las coordenadas").
 
-- Añadir un mount point estable dentro de `createPopupContent()` para POIs no enriquecidos.
-- Al abrir/actualizar el popup, hidratar ahí el componente único `UnenrichedRecoveryBlock`.
-- Reutilizar el mismo flujo ya usado en ficha completa/listas: `useEnrichmentFailure`, `triggerEnrichLocation`, `open-nearby-context`, renombrado.
-- Mantener la regla central: si el punto ya está enriquecido, el bloque no aparece.
+Pese a ello la UI lo trata como enriquecido (badge verde "Enriquecido 09/05/2026", botón "Re-enriquecer", sin anillo rojo, sin bloque de recuperación). Causa raíz transversal: **dos sitios siguen usando `loc.enrichedData` truthy como sinónimo de "enriquecido"**, en vez del criterio único `enriched_data.descripcion` que ya está cristalizado en `getPointVisualState`:
 
-**Resultado:** el popup del mapa mostrará exactamente las mismas opciones de recuperación que el resto de superficies, sin duplicar lógica.
+1. `src/components/map/map-popups.ts:157` y `:361` — `const enriched = location.enrichedData;` ⇒ entra por la rama enriched y nunca monta el bloque de recuperación ni borra el badge.
+2. `src/domains/content/lib/enrichment-failure-state.ts:26` — `if (location.enrichedData) return false;` ⇒ corta el anillo rojo aunque el POI no esté realmente enriquecido y figure en `error_ids`.
 
-### 2) Corregir la fuente de verdad del error reciente para que sea estable y persistente
-**Archivo:** `src/domains/content/hooks/use-enrichment-failure.ts`
+Y por la misma razón, "una vez enriquecido de verdad" estos POIs ya volverían al contorno por defecto / colección, porque `hasEnrichmentFailure` se basa en el mismo helper.
 
-- Sustituir la invalidación global del cache en cada `UPDATE` realtime de `enrichment_jobs` por una resincronización central desde jobs recientes.
-- Mantener invalidación puntual por `location:enriched` para el id concreto.
-- Exponer una API explícita de revalidación del store para que el mapa siempre pinte el estado actual real, no estados fantasma o perdidos.
+## Plan (transversal — helper único)
 
-**Problema que resuelve:** ahora mismo los ticks del job pueden vaciar o descoordinar el cache y eso hace que el contorno rojo aparezca/desaparezca mal según el orden de eventos.
+1. **Crear helper único `isPointEnriched(loc)`** en `src/domains/content/lib/point-visual-state.ts`:
+   ```ts
+   export function isPointEnriched(loc): boolean {
+     return getPointVisualState(loc) === 'enriched';
+   }
+   ```
+   Una sola fuente de verdad para "¿está enriquecido?". Apoyada en `getEnrichmentBucket` (que ya exige `enriched_data.descripcion`).
 
-### 3) Hacer que el mapa refresque iconos también en vista global
-**Archivo:** `src/components/LocationMap.tsx`
+2. **`enrichment-failure-state.ts`** — sustituir `if (location.enrichedData) return false` por `if (isPointEnriched(location)) return false`. Mantiene la regla "verde nunca marca error" pero usando el criterio canónico. El POI de la captura pasará a mostrar anillo rojo 5px (no está enriquecido + está en `error_ids` del job reciente).
 
-- Corregir `enrichmentKey` para que, cuando no hay documento seleccionado, también firme los `allLocations` y no solo `forceUpdateCount`.
-- Así cualquier cambio real en `enrichedData` obliga a recomponer popup + icono del POI afectado.
+3. **`map-popups.ts`** (líneas 157 y 361) — sustituir `const enriched = location.enrichedData;` por `const enriched = isPointEnriched(location);`. Efectos automáticos:
+   - El POI de la captura deja de pintar el badge verde "Enriquecido" y el botón "Re-enriquecer"; aparece el botón "Enriquecer".
+   - El template no-enriched ya inyecta el placeholder `data-recovery-root="${location.id}"`, así que `bindRecoveryMount` montará `<UnenrichedRecoveryBlock>` con el mensaje de coherencia y CTAs (Reintentar / Contexto cercano / Renombrar).
 
-**Problema que resuelve:** en vista global, un punto puede quedarse visualmente con el icono anterior aunque ya se haya enriquecido bien.
+4. **Auditoría transversal** del resto de archivos que usan `enrichedData` truthy como proxy de "enriquecido" (badges, contadores, ramas UI, gating de acciones). Solo se migran los usos que **deciden estado/clasificación**, no los que leen subcampos (`enrichedData.descripcion`, `.imagenes`, etc.). Archivos candidatos a revisar y, si aplica, sustituir por `isPointEnriched`:
+   - `src/components/map/useEnrichmentTracker.ts`, `map-utils.ts`, `map-popup-handlers.ts`
+   - `src/components/LocationMap.tsx` (firmas / branches "enriched")
+   - `src/components/GalleryView.tsx`, `LocationList.tsx`, `CollectionFocusView.tsx`, `OrphanFocusView.tsx`, `DuplicatesList.tsx`, `DocumentWaypointsTabs.tsx`, `SelectionActions.tsx`
+   - Hooks/domain: `use-popup-actions.ts`, `enrich-location.ts` (solo si decide "skip ya enriquecido" — alinear con la regla `descripcion`)
 
-### 4) Restaurar el contorno correcto mediante helpers ya existentes
-**Archivos:** `src/components/map/map-icons.ts`, `src/components/LocationMap.tsx`
-
-- Mantener `createCustomIcon()` como render único del marcador.
-- Seguir usando:
-  - `hasEnrichmentFailure(location)` para decidir el anillo rojo.
-  - `getTintForLocation(locationId)` para el contorno de colección.
-- Asegurar que, tras éxito de enriquecimiento:
-  - `hasEnrichmentFailure()` pasa a `false`.
-  - el icono se recompone y se vuelve a pintar solo con la paleta canónica + el tint de colección si aplica.
-
-**Importante:** no voy a meter colores inline por caso. La restauración sale del flujo central de iconos y de la visibilidad de colecciones ya persistida.
-
-## Persistencia
-- El estado de error seguirá viniendo de backend (`enrichment_jobs.error_ids/error_messages`), no de flags efímeros del cliente.
-- El contorno de colección seguirá viniendo del helper central `getTintForLocation`, basado en la visibilidad persistida en sesión.
-- No se añade estado duplicado ni listas hardcodeadas en el mapa.
+5. **Memoria**:
+   - Actualizar `mem://style/map/error-outline-rule` para citar el helper único.
+   - Añadir bullet en Core del index: *"Helper único `isPointEnriched(loc)` para cualquier check de enriquecido. Nunca usar `loc.enrichedData` truthy."*
 
 ## Validación
-Voy a dejar validado este comportamiento:
-- POI con error no enriquecido: popup con bloque de recuperación + contorno rojo 5px.
-- Reintento fallido: se mantiene popup de recuperación + rojo.
-- Reintento exitoso: desaparece rojo y reaparece el contorno normal o el de la colección visible.
-- POIs ya enriquecidos nunca muestran rojo.
-- El comportamiento se mantiene al refrescar/volver a abrir el mapa porque se reconstruye desde estado persistente real.
 
-## Detalles técnicos
-```text
-createPopupContent()
-  -> render HTML base
-  -> placeholder recovery-root si no está enriquecido
-LocationMap popup open/update
-  -> monta UnenrichedRecoveryBlock en recovery-root
+**POI de la captura (Río Tinto / Doñana)** tras los cambios:
+- Marcador: paleta canónica (gris/naranja) + anillo rojo 5px (job lo dejó en error_ids).
+- Popup: sin badge "Enriquecido", botón "Enriquecer", bloque de recuperación visible con el mensaje de coherencia y los 3 CTAs.
 
-Realtime enrichment_jobs UPDATE
-  -> store revalida jobs recientes
-  -> subscribeFailureChange()
-  -> marker.setIcon(createCustomIcon(... getTintForLocation ...))
+**Tras enriquecimiento real exitoso** (se guarda `descripcion`):
+- `isPointEnriched` → true ⇒ `hasEnrichmentFailure` devuelve false ⇒ el anillo rojo desaparece y se restaura el contorno por defecto o el de la colección (vía `getTintForLocation`).
+- Popup pasa a la rama enriched: badge "Enriquecido <fecha>" + "Re-enriquecer".
+- Persistente: no hay parches puntuales, todo deriva del estado real de `enriched_data.descripcion`.
 
-location:enriched
-  -> limpia fallo del id
-  -> enrichmentKey cambia también en vista global
-  -> popup + icono se recomponen
-```
+## Riesgos
 
-## Fuera de alcance
-- Cambios del contador de progreso.
-- Cambios de estilo fuera del bloque de recuperación y del anillo de error.
-- Nuevos estados visuales de marcador distintos de la gramática ya definida.
+- POIs antiguos con `enriched_data` parcial (solo tags o solo imagen sin descripción) dejarán de mostrarse como enriquecidos. Es el comportamiento correcto por norma canónica, pero puede sorprender en datos viejos. Aceptamos.
+- Cambio puramente de presentación/derivación; no toca pipelines de IA, BD ni datos.
