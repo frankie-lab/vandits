@@ -47,6 +47,7 @@ import {
 
 import { buildImageSection, createPopupContent, loadCardConfig } from './map/map-popups';
 import { bindRecoveryMount } from './map/popup-recovery-mount';
+import { bindCollectionsMount } from './map/popup-collections-mount';
 import {
   showRoute, clearRoute, showAdvisorPreview, clearAdvisorPreview,
   showJourneyPreview, clearJourneyPreview,
