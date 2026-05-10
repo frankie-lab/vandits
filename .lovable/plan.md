@@ -1,68 +1,85 @@
-Tienes razón — quedó pendiente. Hoy los puntos con error de enriquecimiento solo se muestran como ámbar/rojo dentro del bloque de recovery (panel y ficha), pero el marcador en el mapa sigue pintándose con su paleta base (verde / gris / naranja) sin ninguna señal visual que diga "este falló". El plan añade ese contorno rojo de 5px de forma transversal.
+## Objetivo
+Hacer que el comportamiento sea transversal y persistente en todo el mapa:
+- Los POIs con error de enriquecimiento muestran en el popup las opciones de recuperación.
+- Los POIs con error muestran el contorno rojo de 5px.
+- Cuando un POI se enriquece con éxito, desaparece el rojo y recupera su contorno normal o el de su colección visible.
+- Sin hardcodes por caso concreto: todo pasa por helpers centrales.
 
-## Estado actual
+## Qué voy a cambiar
 
-- `getPointVisualState(loc)` decide la paleta sólo entre los 3 estados canónicos (enriched / imported / empty). No sabe nada de errores.
-- `useEnrichmentFailure(locationId)` + `enrichmentFailureStore` ya tienen el motivo del fallo (lookup al job más reciente), pero hoy sólo lo consume `UnenrichedRecoveryBlock` (ficha y fila de doc).
-- `map-icons.ts::createCustomIcon` pinta círculo o pin con borde blanco. No hay un anillo extra de error.
+### 1) Montar el bloque de recuperación dentro del popup del mapa
+**Archivos:** `src/components/map/map-popups.ts`, `src/components/LocationMap.tsx`
 
-## Cambios propuestos
+- Añadir un mount point estable dentro de `createPopupContent()` para POIs no enriquecidos.
+- Al abrir/actualizar el popup, hidratar ahí el componente único `UnenrichedRecoveryBlock`.
+- Reutilizar el mismo flujo ya usado en ficha completa/listas: `useEnrichmentFailure`, `triggerEnrichLocation`, `open-nearby-context`, renombrado.
+- Mantener la regla central: si el punto ya está enriquecido, el bloque no aparece.
 
-### 1. Nuevo helper único `hasEnrichmentFailure(locationId)`
-Archivo: `src/domains/content/lib/enrichment-failure-state.ts`
+**Resultado:** el popup del mapa mostrará exactamente las mismas opciones de recuperación que el resto de superficies, sin duplicar lógica.
 
-- Lee del singleton `enrichmentFailureStore` (ya existe). Devuelve `boolean` síncrono.
-- Sólo cuenta como "con error" si:
-  - El punto **no** está enriquecido (regla "los verdes no marcan error" — si después se enriqueció, el fallo se considera resuelto).
-  - Tiene una entrada en el store con `kind` ≠ `null`.
-- Expone también `subscribeFailureChange(cb)` (delgado wrapper sobre el evento existente) para forzar re-render de marcadores.
+### 2) Corregir la fuente de verdad del error reciente para que sea estable y persistente
+**Archivo:** `src/domains/content/hooks/use-enrichment-failure.ts`
 
-### 2. Pre-warm de fallos al cargar el mapa
-Archivo: `src/components/LocationMap.tsx` (o el hook que carga ubicaciones)
+- Sustituir la invalidación global del cache en cada `UPDATE` realtime de `enrichment_jobs` por una resincronización central desde jobs recientes.
+- Mantener invalidación puntual por `location:enriched` para el id concreto.
+- Exponer una API explícita de revalidación del store para que el mapa siempre pinte el estado actual real, no estados fantasma o perdidos.
 
-- Una sola query a `enrichment_jobs` (último N=20 jobs del usuario) extrayendo `error_messages` y `error_ids`, y poblando el store de un golpe.
-- Con esto, `hasEnrichmentFailure(id)` es síncrono y consistente para los 4.000+ marcadores sin N consultas.
-- También se invalida ante el evento existente `location:enriched` (se quita el rojo cuando se reenriquece con éxito).
+**Problema que resuelve:** ahora mismo los ticks del job pueden vaciar o descoordinar el cache y eso hace que el contorno rojo aparezca/desaparezca mal según el orden de eventos.
 
-### 3. Render del anillo rojo en `map-icons.ts`
-Archivo: `src/components/map/map-icons.ts`
+### 3) Hacer que el mapa refresque iconos también en vista global
+**Archivo:** `src/components/LocationMap.tsx`
 
-- Añadir parámetro nuevo `hasFailure: boolean` a `createCustomIcon`.
-- Si `hasFailure`:
-  - **Círculo (los 3 estados canónicos):** añadir un segundo `<circle>` exterior con `fill="none"`, `stroke="hsl(var(--destructive))"`, `stroke-width="5"`, `r` ligeramente mayor que el original. El icono SVG se amplía (size + 10) y `iconAnchor` se ajusta para mantenerlo centrado.
-  - **Pin (teardrop):** duplicar el path con `fill="none"`, mismo trazo rojo de 5px envolviendo la silueta.
-- Mantiene la paleta base (verde/gris/naranja) — el rojo es un **modificador** encima, no sustituye al estado.
-- Compatible con `collectionTint` (el tint queda dentro, el ring rojo fuera).
+- Corregir `enrichmentKey` para que, cuando no hay documento seleccionado, también firme los `allLocations` y no solo `forceUpdateCount`.
+- Así cualquier cambio real en `enrichedData` obliga a recomponer popup + icono del POI afectado.
 
-### 4. Llamada desde `LocationMap` al crear cada marcador
-Pasar `hasEnrichmentFailure(loc.id)` a `createCustomIcon(...)`. El re-render por cambio de fallo se engancha al mismo flujo que ya usamos para `location:enriched` (evita full reloads).
+**Problema que resuelve:** en vista global, un punto puede quedarse visualmente con el icono anterior aunque ya se haya enriquecido bien.
 
-### 5. Memoria / regla transversal
-Añadir `mem://style/map/error-outline-rule.md`:
+### 4) Restaurar el contorno correcto mediante helpers ya existentes
+**Archivos:** `src/components/map/map-icons.ts`, `src/components/LocationMap.tsx`
 
-> Los puntos con error de enriquecimiento (registrado en el store de fallos, sin enriched_data.descripcion) reciben un contorno rojo de 5px **encima** de su paleta canónica (verde/gris/naranja). El rojo desaparece automáticamente al enriquecer con éxito (regla "verde nunca marca error"). Helper único: `hasEnrichmentFailure(id)`. Render único: `createCustomIcon` en `map-icons.ts`.
+- Mantener `createCustomIcon()` como render único del marcador.
+- Seguir usando:
+  - `hasEnrichmentFailure(location)` para decidir el anillo rojo.
+  - `getTintForLocation(locationId)` para el contorno de colección.
+- Asegurar que, tras éxito de enriquecimiento:
+  - `hasEnrichmentFailure()` pasa a `false`.
+  - el icono se recompone y se vuelve a pintar solo con la paleta canónica + el tint de colección si aplica.
 
-Y actualizar el Core de `mem://index.md` para mencionarlo junto a la regla de paleta.
+**Importante:** no voy a meter colores inline por caso. La restauración sale del flujo central de iconos y de la visibilidad de colecciones ya persistida.
+
+## Persistencia
+- El estado de error seguirá viniendo de backend (`enrichment_jobs.error_ids/error_messages`), no de flags efímeros del cliente.
+- El contorno de colección seguirá viniendo del helper central `getTintForLocation`, basado en la visibilidad persistida en sesión.
+- No se añade estado duplicado ni listas hardcodeadas en el mapa.
+
+## Validación
+Voy a dejar validado este comportamiento:
+- POI con error no enriquecido: popup con bloque de recuperación + contorno rojo 5px.
+- Reintento fallido: se mantiene popup de recuperación + rojo.
+- Reintento exitoso: desaparece rojo y reaparece el contorno normal o el de la colección visible.
+- POIs ya enriquecidos nunca muestran rojo.
+- El comportamiento se mantiene al refrescar/volver a abrir el mapa porque se reconstruye desde estado persistente real.
 
 ## Detalles técnicos
-
 ```text
-Marcador círculo con error:
+createPopupContent()
+  -> render HTML base
+  -> placeholder recovery-root si no está enriquecido
+LocationMap popup open/update
+  -> monta UnenrichedRecoveryBlock en recovery-root
 
-   ┌───── stroke rojo 5px ─────┐
-   │                            │
-   │   ●  paleta canónica       │  ← verde / gris / naranja sin cambios
-   │      (12px por defecto)    │
-   │                            │
-   └────────────────────────────┘
-   tamaño total = base + 10px
+Realtime enrichment_jobs UPDATE
+  -> store revalida jobs recientes
+  -> subscribeFailureChange()
+  -> marker.setIcon(createCustomIcon(... getTintForLocation ...))
+
+location:enriched
+  -> limpia fallo del id
+  -> enrichmentKey cambia también en vista global
+  -> popup + icono se recomponen
 ```
 
-- El "tamaño" en `marker_size_config` no se altera. El anillo rojo es un overlay SVG.
-- El re-cluster se respeta: como el SVG sigue dentro del mismo `divIcon`, `markercluster` agrupa igual.
-
 ## Fuera de alcance
-
-- **No** se reintroduce el azul cielo ni se añaden nuevos estados a `marker_size_config`. El rojo es un **flag binario** sobre los 3 estados existentes.
-- **No** se cambia `getPointVisualState` (sigue siendo la única fuente de paleta).
-- **No** se toca el popup ni la ficha (eso ya lo cubre `UnenrichedRecoveryBlock`).
+- Cambios del contador de progreso.
+- Cambios de estilo fuera del bloque de recuperación y del anillo de error.
+- Nuevos estados visuales de marcador distintos de la gramática ya definida.
