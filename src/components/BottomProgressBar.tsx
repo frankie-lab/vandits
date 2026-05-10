@@ -110,24 +110,15 @@ export function BottomProgressBar() {
  }, [selectedDocument, updateDocumentLocations]);
 
  const fetchJobStatus = useCallback(async () => {
- const documentIds = documents.map(d => d.id);
- if (documentIds.length === 0) {
- setActiveJob(null);
- return;
- }
-
-  try {
-      // Trae TODOS los jobs activos en los documentos cargados (un handleEnrich
-      // multi-doc crea 1 job por documento — los unificamos en una sola
-      // sesión para que el contador refleje "X de TOTAL" correctamente).
-  let activeQuery = supabase
-  .from('enrichment_jobs')
-  .select('*')
-  .in('status', ['pending', 'running', 'paused'])
-  .in('document_id', documentIds)
-  .order('updated_at', { ascending: false });
-
-  const { data: activeJobs, error } = await activeQuery;
+   try {
+     // Trae TODOS los jobs activos del usuario (RLS filtra por document.user_id).
+     // No filtramos por documents.map(d => d.id) porque durante recargas reactivas
+     // documents puede vaciarse momentáneamente y la barra parpadearía fuera.
+     const { data: activeJobs, error } = await supabase
+       .from('enrichment_jobs')
+       .select('*')
+       .in('status', ['pending', 'running', 'paused'])
+       .order('updated_at', { ascending: false });
 
  if (error) throw error;
 
