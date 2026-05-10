@@ -135,13 +135,31 @@ export function SelectionActions() {
 
   // ---- 1. Enriquecer con IA ----
   const handleEnrich = async () => {
+    // Filtrar ya-enriquecidos (regla transversal: los verdes no se reenriquecen).
+    const eligible = resolvedLocations.filter((loc) => {
+      const desc = loc.enrichedData?.descripcion;
+      return !(typeof desc === 'string' && desc.trim().length > 0);
+    });
+    const skipped = resolvedLocations.length - eligible.length;
+    if (eligible.length === 0) {
+      toast.info(
+        skipped > 0
+          ? `Los ${skipped} puntos seleccionados ya están enriquecidos`
+          : 'No hay puntos para enriquecer',
+      );
+      return;
+    }
     setIsWorking(true);
-    const toastId = toast.loading(`Enriqueciendo ${count} ubicaciones con IA...`);
+    const toastId = toast.loading(
+      skipped > 0
+        ? `Enriqueciendo ${eligible.length} ubicaciones (${skipped} ya enriquecidas omitidas)...`
+        : `Enriqueciendo ${eligible.length} ubicaciones con IA...`,
+    );
     try {
       // Agrupar por documentId (la selección puede abarcar varios documentos).
       // El backend exige un documentId UUID válido por job.
       const byDoc = new Map<string, string[]>();
-      for (const loc of resolvedLocations) {
+      for (const loc of eligible) {
         const docId = loc.documentId;
         if (!docId) continue;
         if (!byDoc.has(docId)) byDoc.set(docId, []);
