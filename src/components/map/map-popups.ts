@@ -1095,6 +1095,7 @@ ${location.description}
 </div>
 ` : ''}
 
+${buildCollectionChipsPlaceholder(location)}
 ${buildPersonalTagsBlock(location)}
 
 <div style="padding: 12px 16px;">
