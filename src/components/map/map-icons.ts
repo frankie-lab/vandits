@@ -120,24 +120,30 @@ export const createCustomIcon = (
   }
 
   // Default: small circle (the norm for all three states)
+  // El anillo rojo de error se renderiza como un div absoluto alrededor del
+  // SVG base, ampliando iconSize por `errorPad` en cada lado para que el
+  // marcador siga centrado y el anchor del popup sea correcto.
   return L.divIcon({
-    className: `custom-marker-dot${isRecentlyEnriched ? ' recently-enriched' : ''}`,
+    className: `custom-marker-dot${isRecentlyEnriched ? ' recently-enriched' : ''}${showErrorRing ? ' has-enrichment-error' : ''}`,
     html: `
-    <div style="width: ${size}px; height: ${size}px; position: relative; filter: ${shadow}; ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center center;" ${hoverAttr}>
-      ${collectionTint ? `<div class="collection-tint-ring" style="--collection-tint:${collectionTint}"></div>` : ''}
-      <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="dotGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:${applyStateColor(baseColorLight)}" />
-            <stop offset="100%" style="stop-color:${applyStateColor(baseColor)}" />
-          </linearGradient>
-        </defs>
-        <circle cx="12" cy="12" r="11" fill="url(#dotGrad-${location?.id || 'default'})" stroke="white" stroke-width="${borderWidth}"/>
-      </svg>
+    <div style="width: ${containerSize}px; height: ${containerSize}px; position: relative; filter: ${shadow}; ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center center;" ${hoverAttr}>
+      ${showErrorRing ? `<div style="position:absolute; inset:0; border-radius:50%; border:${ERROR_RING_WIDTH}px solid ${ERROR_RING_COLOR}; box-sizing:border-box; pointer-events:none;"></div>` : ''}
+      <div style="position:absolute; left:${errorPad}px; top:${errorPad}px; width:${size}px; height:${size}px;">
+        ${collectionTint ? `<div class="collection-tint-ring" style="--collection-tint:${collectionTint}"></div>` : ''}
+        <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="dotGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:${applyStateColor(baseColorLight)}" />
+              <stop offset="100%" style="stop-color:${applyStateColor(baseColor)}" />
+            </linearGradient>
+          </defs>
+          <circle cx="12" cy="12" r="11" fill="url(#dotGrad-${location?.id || 'default'})" stroke="white" stroke-width="${borderWidth}"/>
+        </svg>
+      </div>
     </div>
     `,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -size / 2],
+    iconSize: [containerSize, containerSize],
+    iconAnchor: [containerSize / 2, containerSize / 2],
+    popupAnchor: [0, -containerSize / 2],
   });
 };
