@@ -721,7 +721,7 @@ ${(() => {
         return '';
       
       case 'clasificacion': {
-        const cc = enriched?.cultural_context;
+        const cc = (enriched as any)?.cultural_context;
         const culturalChip = cc?.type_label
           ? `<span title="${cc.type_label} (Wikidata)" style="display: inline-flex; align-items: center; gap: 4px; background: #ede9fe; color: #5b21b6; padding: ${CARD.tagPadding}; border-radius: ${CARD.tagRadius}; font-size: ${FONT.badge}px; font-weight: 500;">${cc.type_label}</span>`
           : '';
