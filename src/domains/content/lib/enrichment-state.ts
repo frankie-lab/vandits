@@ -16,17 +16,28 @@
  * consumidores no necesiten transformar antes.
  */
 
+import { isUnverifiableDescription } from './llm-unverifiable';
+
 export interface EnrichableLocation {
   enrichedData?: { descripcion?: string | null } | null;
   enriched_data?: { descripcion?: string | null } | null;
   description?: string | null;
 }
 
-/** True ⇔ el punto tiene descripción IA real (no stub, no tags sueltas). */
+/**
+ * True ⇔ el punto tiene descripción IA real (no stub, no tags sueltas) Y
+ * NO es un placeholder evasivo del LLM ("no se puede generar una
+ * descripción verificable…"). Ese texto se considera "no enriquecido" y
+ * devuelve la paleta a gris/naranja con el bloque de recuperación.
+ */
 export function hasRealEnrichment(loc: EnrichableLocation | null | undefined): boolean {
   if (!loc) return false;
   const desc = loc.enrichedData?.descripcion ?? loc.enriched_data?.descripcion;
-  return typeof desc === 'string' && desc.trim().length > 0;
+  if (typeof desc !== 'string') return false;
+  const trimmed = desc.trim();
+  if (trimmed.length === 0) return false;
+  if (isUnverifiableDescription(trimmed)) return false;
+  return true;
 }
 
 /** True ⇔ el punto tiene `description` importada (texto plano, sin IA). */

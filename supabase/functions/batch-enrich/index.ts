@@ -440,6 +440,15 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
               providedName: enrichData.providedName ?? location.name,
             },
           });
+        } else if (enrichData.success === false && enrichData.reason === 'llm_unverifiable') {
+          // LLM se rindió: trátalo como rechazo blando con candidatos cercanos.
+          throw Object.assign(new Error(enrichData.message || 'No verificable'), {
+            __structured: {
+              kind: 'llm_unverifiable',
+              candidates: Array.isArray(enrichData.nearbyCandidates) ? enrichData.nearbyCandidates : [],
+              providedName: enrichData.providedName ?? location.name,
+            },
+          });
         } else {
           throw Object.assign(new Error(enrichData.error || enrichData.message || 'Sin coincidencia'), {
             __structured: { kind: 'no_match' },

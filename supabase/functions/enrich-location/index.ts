@@ -7,6 +7,7 @@ import {
 } from "../_shared/card-schema.ts";
 import { buildEnrichmentSchema } from "../_shared/build-enrichment-schema.ts";
 import { extractCulturalContext } from "../_shared/cultural-context.ts";
+import { isUnverifiableLLMOutput } from "../_shared/llm-unverifiable.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -2192,9 +2193,12 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
         // Nominatim provides base geographic hierarchy
         const aiGeoData = enrichedData.datos_geograficos || {};
         
-        // Determinar país y continente con prioridad: AI -> Nominatim -> inferencia
-        let finalPais = aiGeoData.pais || geoData.country;
-        let finalContinente = aiGeoData.continente || geoData.continent;
+        // Prioridad INVERTIDA: Nominatim (derivado de coords) manda; la IA
+        // solo entra si Nominatim no resolvió nada. Esto evita que el LLM
+        // "invente" un país/región a partir del nombre cuando las coords
+        // caen en mar/desierto/otro país.
+        let finalPais = geoData.country || aiGeoData.pais;
+        let finalContinente = geoData.continent || aiGeoData.continente;
         
         // Si tenemos país pero no continente válido, inferir del mapa
         if (finalPais && (!finalContinente || finalContinente === 'Desconocido')) {
@@ -2223,12 +2227,76 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
             }
           }
         }
-        
+
+        // Coords⇄país: si la IA inventó un país distinto al que Nominatim
+        // resolvió desde las coords, abortamos. El bloque de recuperación
+        // del cliente ofrecerá renombrar/mover el punto.
+        if (
+          !skipValidation &&
+          geoData.country && aiGeoData.pais &&
+          geoData.country.trim().toLowerCase() !== aiGeoData.pais.trim().toLowerCase()
+        ) {
+          console.log(
+            `[enrich] ABORT name↔coords mismatch: nominatim="${geoData.country}" vs LLM="${aiGeoData.pais}"`,
+          );
+          const nearbyPages = await fetchNearbyWikipediaPages(location.coordinates, COHERENCE_NEARBY_RADIUS_M, 5);
+          const nearbyExtracts = await fetchPageExtracts(nearbyPages.map((p) => p.pageid));
+          const nearbyCandidates = nearbyPages.map((p) => {
+            const info = nearbyExtracts[String(p.pageid)] || {};
+            return {
+              name: p.title,
+              distanceM: Math.round(p.dist),
+              url: info.fullurl || `https://es.wikipedia.org/wiki/${encodeURIComponent(p.title)}`,
+              extract: info.extract?.substring(0, 240),
+            };
+          });
+          return new Response(
+            JSON.stringify({
+              success: false,
+              reason: 'name_coordinate_mismatch',
+              providedName: location.name,
+              providedCoords: location.coordinates,
+              nearbyCandidates,
+              message: `El nombre "${location.name}" sugiere "${aiGeoData.pais}", pero las coordenadas caen en "${geoData.country}".`,
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          );
+        }
+
+        // Guard adicional: el LLM se rindió en `descripcion`. No persistimos
+        // placeholders evasivos. El bloque de recuperación del cliente
+        // ofrecerá renombrar/contexto cercano.
+        if (!skipValidation && isUnverifiableLLMOutput({ descripcion: enrichedData?.descripcion })) {
+          console.log(`[enrich] ABORT llm_unverifiable for "${location.name}"`);
+          const nearbyPages = await fetchNearbyWikipediaPages(location.coordinates, COHERENCE_NEARBY_RADIUS_M, 5);
+          const nearbyExtracts = await fetchPageExtracts(nearbyPages.map((p) => p.pageid));
+          const nearbyCandidates = nearbyPages.map((p) => {
+            const info = nearbyExtracts[String(p.pageid)] || {};
+            return {
+              name: p.title,
+              distanceM: Math.round(p.dist),
+              url: info.fullurl || `https://es.wikipedia.org/wiki/${encodeURIComponent(p.title)}`,
+              extract: info.extract?.substring(0, 240),
+            };
+          });
+          return new Response(
+            JSON.stringify({
+              success: false,
+              reason: 'llm_unverifiable',
+              providedName: location.name,
+              providedCoords: location.coordinates,
+              nearbyCandidates,
+              message: `El sistema no pudo verificar la identidad de "${location.name}" en estas coordenadas.`,
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          );
+        }
+
         const mergedGeoData: any = {
           continente: finalContinente,
           pais: finalPais,
-          admin_nivel_1: aiGeoData.admin_nivel_1 || geoData.region,
-          admin_nivel_2: aiGeoData.admin_nivel_2 || geoData.zone,
+          admin_nivel_1: geoData.region || aiGeoData.admin_nivel_1,
+          admin_nivel_2: geoData.zone || aiGeoData.admin_nivel_2,
           admin_nivel_3: aiGeoData.admin_nivel_3,
           localidad: aiGeoData.localidad,
           sublocalidad: aiGeoData.sublocalidad,

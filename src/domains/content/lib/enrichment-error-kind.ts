@@ -13,12 +13,13 @@
  */
 
 export type EnrichmentErrorKind =
-  | 'coherence'    // nombre↔coordenadas no cuadran (ABORT controlado, hay candidatos)
-  | 'no_match'     // IA no encontró ficha (sin candidatos)
-  | 'rate_limit'   // 429
-  | 'no_credits'   // 402
-  | 'timeout'      // 5xx / fetch lento
-  | 'network'      // fetch lanzó (DNS, abort, parse)
+  | 'coherence'         // nombre↔coordenadas no cuadran (ABORT controlado, hay candidatos)
+  | 'llm_unverifiable'  // el LLM se rindió (placeholder evasivo en descripcion) — ABORT controlado
+  | 'no_match'          // IA no encontró ficha (sin candidatos)
+  | 'rate_limit'        // 429
+  | 'no_credits'        // 402
+  | 'timeout'           // 5xx / fetch lento
+  | 'network'           // fetch lanzó (DNS, abort, parse)
   | 'unknown';
 
 export interface CoherenceCandidate {
@@ -40,7 +41,7 @@ export interface ParsedEnrichmentError {
 }
 
 /** Conjuntos para clasificar en UI. */
-export const COHERENCE_KINDS: ReadonlyArray<EnrichmentErrorKind> = ['coherence', 'no_match'];
+export const COHERENCE_KINDS: ReadonlyArray<EnrichmentErrorKind> = ['coherence', 'llm_unverifiable', 'no_match'];
 export const HARD_ERROR_KINDS: ReadonlyArray<EnrichmentErrorKind> = [
   'rate_limit',
   'no_credits',
@@ -74,17 +75,21 @@ function inferLegacyKind(message: string): EnrichmentErrorKind {
     return 'timeout';
   }
   if (m.includes('name_coordinate') || m.includes('coherence')) return 'coherence';
+  if (m.includes('llm_unverifiable') || m.includes('no verificable') || m.includes('no se puede generar')) {
+    return 'llm_unverifiable';
+  }
   return 'unknown';
 }
 
 export function isCoherenceKind(kind: EnrichmentErrorKind): boolean {
-  return kind === 'coherence' || kind === 'no_match';
+  return kind === 'coherence' || kind === 'llm_unverifiable' || kind === 'no_match';
 }
 
 /** Etiqueta i18n-ready (de momento ES) para el badge del motivo. */
 export function labelForKind(kind: EnrichmentErrorKind): string {
   switch (kind) {
     case 'coherence': return 'Nombre ↔ coords';
+    case 'llm_unverifiable': return 'No verificable';
     case 'no_match': return 'Sin coincidencia';
     case 'rate_limit': return 'Rate limit';
     case 'no_credits': return 'Sin créditos';
