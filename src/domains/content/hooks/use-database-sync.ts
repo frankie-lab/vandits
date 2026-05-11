@@ -10,7 +10,7 @@ import { startLoading, updateLoading, endLoading } from '@/shared/loading';
 export type SyncPhase = 'idle' | 'own' | 'social' | 'done';
 
 export function useDatabaseSync(userId?: string | null) {
-  const { addDocument, _resetStoreState } = useLocationsStore();
+  const { addDocument, applyCatalogSnapshot, _resetStoreState } = useLocationsStore();
   const hasLoadedRef = useRef(false);
   const reloadInFlightRef = useRef<Promise<void> | null>(null);
   const reloadQueuedRef = useRef(false);
@@ -18,6 +18,11 @@ export function useDatabaseSync(userId?: string | null) {
 
   const loadFromDatabase = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true;
+    // Card bloqueante SOLO en cold start real (store vacío). Si ya hay docs en
+    // memoria, mostramos progreso superior pero el mapa permanece interactivo.
+    // Ver mem://ui/loading-feedback-system y plan delta-merge.
+    const storeHadDocs = useLocationsStore.getState().documents.length > 0;
+    const blocking = !silent && !storeHadDocs;
     let loadingActive = false;
     const ensureEndLoading = () => {
       if (loadingActive) {
@@ -26,7 +31,11 @@ export function useDatabaseSync(userId?: string | null) {
       }
     };
     if (!silent) {
-      startLoading('db-sync', 'Cargando catálogo', { blocking: true });
+      startLoading(
+        'db-sync',
+        blocking ? 'Cargando catálogo' : 'Sincronizando catálogo',
+        { blocking },
+      );
       loadingActive = true;
     }
     try {
