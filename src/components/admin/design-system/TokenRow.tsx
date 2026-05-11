@@ -273,11 +273,9 @@ function NonColorValue({ row }: { row: PairedRow }) {
 // ─── Edit popover (no-color fallback) ─────────────────────────────
 
 function EditButton({ tokens, row }: { tokens: LeafToken[]; row: PairedRow }) {
-  const editMode = useDesignSystemEdit((s) => s.editMode);
   const setDraft = useDesignSystemEdit((s) => s.setDraft);
   const draft = useDesignSystemEdit((s) => s.draft);
   const published = useDesignSystemEdit((s) => s.published);
-  if (!editMode) return null;
 
   return (
     <Popover>

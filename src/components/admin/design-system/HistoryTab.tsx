@@ -20,7 +20,6 @@ interface Row {
 export function HistoryTab() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
-  const setEditMode = useDesignSystemEdit((s) => s.setEditMode);
   const hydrate = useDesignSystemEdit((s) => s.hydrate);
   const publish = useDesignSystemEdit((s) => s.publish);
   const resetAll = useDesignSystemEdit((s) => s.resetAll);
@@ -110,11 +109,6 @@ export function HistoryTab() {
         );
       })}
 
-      <div className="pt-2">
-        <Button size="sm" variant="ghost" onClick={() => setEditMode(true)}>
-          Activar modo edición
-        </Button>
-      </div>
     </div>
   );
 }

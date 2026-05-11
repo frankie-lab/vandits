@@ -42,14 +42,13 @@ export function EditableTokenSurface({
   className,
   disabled,
 }: Props) {
-  const editMode = useDesignSystemEdit((s) => s.editMode);
   const setDraft = useDesignSystemEdit((s) => s.setDraft);
   const value = useResolvedTokenValue(path);
   const [open, setOpen] = useState(false);
 
   const leaf = path ? getLeaf(path) : undefined;
 
-  if (!editMode || !leaf || disabled) {
+  if (!leaf || disabled) {
     return <>{children}</>;
   }
 
