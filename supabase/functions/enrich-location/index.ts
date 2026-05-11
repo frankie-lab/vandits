@@ -1866,22 +1866,37 @@ serve(async (req) => {
     }
 
     // Step 0: Consultar todas las fuentes de datos en paralelo
+    // Respeta los toggles de `data_sources` (kind='enrichment') del panel admin.
+    const enrichmentSources = await getEnabledSourceCodes('enrichment');
+    const useWikipedia = isSourceEnabled(enrichmentSources, 'enrich.wikipedia');
+    const useWikidata = isSourceEnabled(enrichmentSources, 'enrich.wikidata');
+    const useNominatim = isSourceEnabled(enrichmentSources, 'enrich.nominatim');
+    const useGeoNames = isSourceEnabled(enrichmentSources, 'enrich.geonames');
+    const useOverpass = isSourceEnabled(enrichmentSources, 'enrich.overpass');
+    const useCommons = isSourceEnabled(enrichmentSources, 'enrich.commons');
+    const useWikidataSparql = isSourceEnabled(enrichmentSources, 'enrich.wikidata_sparql');
+    const useOpenverse = isSourceEnabled(enrichmentSources, 'enrich.openverse');
+    console.log(
+      `[data_sources] enrichment toggles → wikipedia=${useWikipedia} wikidata=${useWikidata} ` +
+      `nominatim=${useNominatim} geonames=${useGeoNames} overpass=${useOverpass} ` +
+      `commons=${useCommons} sparql=${useWikidataSparql} openverse=${useOpenverse}`
+    );
     console.log('Fetching data from multiple sources in parallel...');
-    
+
     const [geocodeResult, wikipediaResult, wikidataResult, geonamesResult] = await Promise.all([
-      // Nominatim/OSM para geocoding
-      (!location.country || !location.region) 
+      // Nominatim/OSM para reverse geocoding (solo si falta país/región)
+      (useNominatim && (!location.country || !location.region))
         ? reverseGeocodeLocation(location.coordinates.lat, location.coordinates.lng)
         : Promise.resolve({ country: location.country, region: location.region, zone: location.zone, continent: location.continent }),
-      
+
       // Wikipedia para extractos y artículos
-      searchWikipedia(location.name, location.coordinates),
-      
+      useWikipedia ? searchWikipedia(location.name, location.coordinates) : Promise.resolve(null),
+
       // Wikidata para datos estructurados
-      searchWikidata(location.name, location.coordinates),
-      
+      useWikidata ? searchWikidata(location.name, location.coordinates) : Promise.resolve(null),
+
       // GeoNames para topónimos (opcional, requiere username)
-      searchGeoNames(location.name, location.coordinates),
+      useGeoNames ? searchGeoNames(location.name, location.coordinates) : Promise.resolve(null),
     ]);
     
     // Consolidar datos geográficos
