@@ -27,6 +27,14 @@
         },
         "danger": {
           "500": { "value": "0 72% 55%" }
+        },
+        "poi": {
+          "mine":     { "value": "0 0% 100%"    },
+          "followed": { "value": "45 93% 81%"   },
+          "service":  { "value": "199 95% 86%"  },
+          "enriched": { "value": "142 71% 45%"  },
+          "empty":    { "value": "24 95% 53%"   },
+          "error":    { "value": "0 72% 51%"    }
         }
       },
       "dark": {
@@ -55,6 +63,14 @@
         },
         "danger": {
           "500": { "value": "0 65% 48%" }
+        },
+        "poi": {
+          "mine":     { "value": "0 0% 92%"    },
+          "followed": { "value": "45 70% 65%"  },
+          "service":  { "value": "199 70% 65%" },
+          "enriched": { "value": "142 60% 55%" },
+          "empty":    { "value": "24 80% 60%"  },
+          "error":    { "value": "0 65% 58%"   }
         }
       }
     },
@@ -90,12 +106,17 @@
         "selected":   { "$ref": "color.primitives.light.brand.500", "_css": ["--color-map-selected"] }
       },
       "poi": {
-        "mine":     { "$ref": "poi.originBorder.my",       "_css": ["--color-poi-mine"] },
-        "followed": { "$ref": "poi.originBorder.followed", "_css": ["--color-poi-followed"] },
-        "service":  { "$ref": "poi.originBorder.service",  "_css": ["--color-poi-service"] },
-        "enriched": { "$ref": "poi.state.enriched",        "_css": ["--color-poi-enriched"] },
-        "empty":    { "$ref": "poi.state.empty",           "_css": ["--color-poi-empty"] },
-        "error":    { "$ref": "poi.ring.error",            "_css": ["--color-poi-error"] }
+        "mine":     { "$ref": "color.primitives.light.poi.mine",     "_css": ["--color-poi-mine"] },
+        "followed": { "$ref": "color.primitives.light.poi.followed", "_css": ["--color-poi-followed"] },
+        "service":  { "$ref": "color.primitives.light.poi.service",  "_css": ["--color-poi-service"] },
+        "enriched": { "$ref": "color.primitives.light.poi.enriched", "_css": ["--color-poi-enriched"] },
+        "empty":    { "$ref": "color.primitives.light.poi.empty",    "_css": ["--color-poi-empty"] },
+        "error":    { "$ref": "color.primitives.light.poi.error",    "_css": ["--color-poi-error"] }
+      },
+      "shadow": {
+        "sm": { "value": "0 1px 2px 0 hsl(0 0% 0% / 0.08)",    "_css": ["--shadow-sm"] },
+        "md": { "value": "0 4px 12px -2px hsl(0 0% 0% / 0.12)", "_css": ["--shadow-md"] },
+        "lg": { "value": "0 16px 32px -8px hsl(0 0% 0% / 0.18)", "_css": ["--shadow-lg"] }
       }
     },
 
@@ -130,12 +151,12 @@
         "selected":   { "$ref": "color.primitives.dark.brand.500", "_css": ["--color-map-selected"] }
       },
       "poi": {
-        "mine":     { "$ref": "poi.originBorder.my",       "_css": ["--color-poi-mine"] },
-        "followed": { "$ref": "poi.originBorder.followed", "_css": ["--color-poi-followed"] },
-        "service":  { "$ref": "poi.originBorder.service",  "_css": ["--color-poi-service"] },
-        "enriched": { "$ref": "poi.state.enriched",        "_css": ["--color-poi-enriched"] },
-        "empty":    { "$ref": "poi.state.empty",           "_css": ["--color-poi-empty"] },
-        "error":    { "$ref": "poi.ring.error",            "_css": ["--color-poi-error"] }
+        "mine":     { "$ref": "color.primitives.dark.poi.mine",     "_css": ["--color-poi-mine"] },
+        "followed": { "$ref": "color.primitives.dark.poi.followed", "_css": ["--color-poi-followed"] },
+        "service":  { "$ref": "color.primitives.dark.poi.service",  "_css": ["--color-poi-service"] },
+        "enriched": { "$ref": "color.primitives.dark.poi.enriched", "_css": ["--color-poi-enriched"] },
+        "empty":    { "$ref": "color.primitives.dark.poi.empty",    "_css": ["--color-poi-empty"] },
+        "error":    { "$ref": "color.primitives.dark.poi.error",    "_css": ["--color-poi-error"] }
       },
       "shadow": {
         "sm": { "value": "0 1px 2px 0 hsl(0 0% 0% / 0.4)",    "_css": ["--shadow-sm"] },

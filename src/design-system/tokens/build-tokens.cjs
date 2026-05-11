@@ -189,7 +189,31 @@ module.exports = ${JSON.stringify(grouped, null, 2)};
 `;
 }
 
-// ─── 6. Run ────────────────────────────────────────────────────────────────
+// ─── 6. Audit: warn if light/dark pairs resolve to the same value ──────────
+function auditPairs(tokens) {
+  const byRole = new Map();
+  for (const t of tokens) {
+    if (t.path[0] !== 'color') continue;
+    const mode = t.path[1];
+    if (mode !== 'light' && mode !== 'dark') continue;
+    const role = t.path.slice(2).join('.');
+    const entry = byRole.get(role) || {};
+    entry[mode] = t.value;
+    byRole.set(role, entry);
+  }
+  const offenders = [];
+  for (const [role, { light, dark }] of byRole) {
+    if (light !== undefined && dark !== undefined && String(light) === String(dark)) {
+      offenders.push(`color.${role}  (= ${light})`);
+    }
+  }
+  if (offenders.length > 0) {
+    console.warn(`[design-system] WARN: ${offenders.length} color tokens resolve to the same value in light & dark:`);
+    for (const o of offenders) console.warn(`  · ${o}`);
+  }
+}
+
+// ─── 7. Run ────────────────────────────────────────────────────────────────
 function run() {
   if (!fs.existsSync(BUILD_DIR)) fs.mkdirSync(BUILD_DIR, { recursive: true });
 
@@ -200,6 +224,7 @@ function run() {
   fs.writeFileSync(path.join(BUILD_DIR, 'tokens.ts'), emitTs(tokens));
   fs.writeFileSync(path.join(BUILD_DIR, 'tailwind.tokens.cjs'), emitTailwind(tokens));
 
+  auditPairs(tokens);
   console.log(`[design-system] Built ${tokens.length} tokens → ${path.relative(process.cwd(), BUILD_DIR)}`);
 }
 

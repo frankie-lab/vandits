@@ -17,10 +17,18 @@
  * cambios live (draft) se reflejen al instante.
  */
 import { useState } from 'react';
-import { ChevronDown, Pencil } from 'lucide-react';
+import { ChevronDown, Pencil, Wand2 } from 'lucide-react';
 import type { PairedRow, LeafToken } from './token-grouping';
 import { isColorValue, toCssColor } from './token-grouping';
 import { hslTripletToHex, parseHslTriplet } from './color-conversions';
+import {
+  contrastRatio,
+  wcagLevel,
+  tripletToRgb,
+  deriveOppositeTriplet,
+  resolveTargetBackgroundPath,
+  resolveOppositeModePath,
+} from './color-adaptive';
 import { lookupGlossary } from './token-glossary';
 import { TokenPreview } from './TokenPreviews';
 import { Badge } from '@/design-system/primitives/badge';
@@ -142,6 +150,28 @@ function ColorColumn({
   const css = toCssColor(live);
   const hex = parseHslTriplet(live) ? hslTripletToHex(live) : null;
 
+  // Fondo destino (mismo modo) según ROLE_SURFACE_MAP.
+  const targetBgPath = resolveTargetBackgroundPath(path);
+  const targetBg = useResolvedTokenValue(targetBgPath);
+  const wcag = computeWcag(live, typeof targetBg === 'string' ? targetBg : undefined);
+
+  // Path del gemelo (otro modo) para la sugerencia.
+  const oppositePath = resolveOppositeModePath(path);
+  const oppositeBg = useResolvedTokenValue(
+    oppositePath ? resolveTargetBackgroundPath(oppositePath) : undefined,
+  );
+  const setDraft = useDesignSystemEdit((s) => s.setDraft);
+
+  const applyOppositeSuggestion = () => {
+    if (!oppositePath) return;
+    const suggested = deriveOppositeTriplet(live, {
+      from: mode,
+      targetBgTriplet: typeof oppositeBg === 'string' ? oppositeBg : undefined,
+      minContrast: 3,
+    });
+    if (suggested) setDraft(oppositePath, suggested);
+  };
+
   // Fondo contextual: el swatch claro se ve sobre superficie clara,
   // el oscuro sobre superficie oscura, para reflejar el contexto real.
   const wrapBg = mode === 'dark' ? 'bg-foreground/90' : 'bg-background';
@@ -151,7 +181,7 @@ function ColorColumn({
 
   return (
     <div className={`p-3 ${wrapBg} ${dividerClass}`}>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-2 gap-2">
         <span className={`text-[10px] uppercase tracking-wide ${labelColor}`}>
           {mode === 'dark' ? 'Oscuro' : 'Claro'}
         </span>
@@ -168,7 +198,59 @@ function ColorColumn({
           style={{ background: css }}
         />
       </EditableTokenSurface>
+      <div className="flex items-center justify-between gap-2 mt-2 min-h-[1.25rem]">
+        {wcag ? (
+          <WcagBadge {...wcag} mode={mode} />
+        ) : (
+          <span />
+        )}
+        {oppositePath && (
+          <button
+            type="button"
+            onClick={applyOppositeSuggestion}
+            title={`Generar ${mode === 'dark' ? 'modo claro' : 'modo oscuro'} equivalente`}
+            className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-token-sm hover:bg-muted/60 transition-colors ${labelColor}`}
+          >
+            <Wand2 className="w-3 h-3" />
+            <span>Generar opuesto</span>
+          </button>
+        )}
+      </div>
     </div>
+  );
+}
+
+interface WcagInfo {
+  ratio: number;
+  level: ReturnType<typeof wcagLevel>;
+}
+
+function computeWcag(triplet: string, bgTriplet?: string): WcagInfo | null {
+  if (!bgTriplet) return null;
+  const fg = tripletToRgb(triplet);
+  const bg = tripletToRgb(bgTriplet);
+  if (!fg || !bg) return null;
+  const ratio = contrastRatio(fg, bg);
+  return { ratio, level: wcagLevel(ratio, { uiComponent: true }) };
+}
+
+function WcagBadge({ ratio, level, mode }: WcagInfo & { mode: 'light' | 'dark' }) {
+  const dim = mode === 'dark' ? 'text-background/80' : 'text-muted-foreground';
+  const tone =
+    level === 'fail'
+      ? 'bg-destructive/15 text-destructive'
+      : level === 'AAA'
+        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+        : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400';
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded-token-sm ${tone}`}
+      title={`Contraste vs surface destino · ${ratio.toFixed(2)}:1`}
+    >
+      <span className={dim}>·</span>
+      <span>{ratio.toFixed(2)}:1</span>
+      <span className="font-semibold">{level === 'fail' ? 'fail' : level}</span>
+    </span>
   );
 }
 
