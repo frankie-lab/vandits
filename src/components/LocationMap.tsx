@@ -1503,7 +1503,7 @@ export function LocationMap() {
  const isFocused = focusedLocationId === location.id;
  const isEnriched = !!location.enrichedData;
  const isRecentlyEnriched = recentlyEnrichedIds.has(location.id);
- marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, getTintForLocation(location.id)));
+ marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, getTintForLocation(location.id), getLocationOwnership(location.id, currentUserId).isOwn));
  });
  
    // Open pending popup if any
