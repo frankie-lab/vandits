@@ -204,13 +204,13 @@ export const createCustomIcon = (
       <div style="position:absolute; left:${ringPad}px; top:${ringPad}px; width:${size}px; height:${size}px;">
         ${collectionTint ? `<div class="collection-tint-ring" style="--collection-tint:${collectionTint}"></div>` : ''}
         <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
+          ${skipGradient ? '' : `<defs>
             <linearGradient id="dotGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" style="stop-color:${applyStateColor(baseColorLight)}" />
               <stop offset="100%" style="stop-color:${applyStateColor(baseColor)}" />
             </linearGradient>
-          </defs>
-          <circle cx="12" cy="12" r="11" fill="url(#dotGrad-${location?.id || 'default'})" stroke="white" stroke-width="${borderWidth}"/>
+          </defs>`}
+          <circle cx="12" cy="12" r="11" fill="${skipGradient ? applyStateColor(baseColor) : `url(#dotGrad-${location?.id || 'default'})`}" stroke="white" stroke-width="${borderWidth}"/>
         </svg>
       </div>
     </div>
