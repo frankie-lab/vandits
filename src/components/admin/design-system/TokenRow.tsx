@@ -259,12 +259,6 @@ function SwatchInner({ value }: { value: string }) {
   );
 }
 
-/** Lee valor "live" como string (con fallback). */
-function useLiveString(path: string | undefined, fallback: string): string {
-  const v = useResolvedTokenValue(path);
-  return v === undefined ? fallback : String(v);
-}
-
 // ─── Alias chips ───────────────────────────────────────────────────
 
 function AliasChips({ row }: { row: PairedRow }) {
