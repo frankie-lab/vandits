@@ -2,9 +2,14 @@
  * UnenrichedRecoveryBlock — bloque único de resolución para POIs sin enriquecer.
  *
  * Diseño (variant='card') con conflicto (parsed != null):
- *  - Cabecera: título del caso + frase corta.
- *  - 2 pestañas full-width: "Lugares cercanos" / "Renombrar".
- *  - Footer CTA full-width: "Editar campos y reenriquecer" (despliega form name/lat/lng).
+ *  - Cabecera: título genérico + frase corta.
+ *  - Lista única de "opciones posibles": cada candidato es nombre+coords+jerarquía.
+ *    Al pulsar una fila se adopta la identidad completa (nombre + lat/lng) y se
+ *    enriquece automáticamente.
+ *  - Buscador al pie: el usuario puede teclear otro nombre y la lista se sustituye
+ *    por los resultados de Wikipedia (con coordenadas). Si no hay resultados,
+ *    aparece "Usar este nombre tal cual" como salida.
+ *  - Footer CTA "Editar" para abrir form name/lat/lng/notas.
  *
  * Sin conflicto (parsed == null): CTA simple Enriquecer + Contexto cercano.
  * variant='row': versión compacta para listas.
@@ -17,10 +22,9 @@ import {
   AlertCircle,
   Compass,
   Loader2,
-  MapPin,
   RefreshCw,
+  Search,
   Sparkles,
-  Type as TypeIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -38,23 +42,18 @@ import {
 } from '@/domains/content/hooks/use-enrichment-failure';
 import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
 import { useLocationsStore } from '@/domains/content';
+import { searchWikiCandidates } from '@/domains/content/lib/wiki-name-search';
 
 interface Props {
   location: GeoLocation;
   variant?: 'card' | 'row';
 }
 
-type Mode = 'move' | 'rename';
-
 function geoLine(c: Pick<CoherenceCandidate, 'locality' | 'region' | 'country'>): string {
   return [c.locality, c.region, c.country].filter(Boolean).join(' · ');
 }
 
-function resolveMode(parsed: ParsedEnrichmentError): Mode {
-  return parsed.mismatchKind === 'coordinate' ? 'move' : 'rename';
-}
-
-function getCandidates(parsed: ParsedEnrichmentError): CoherenceCandidate[] {
+function getInitialCandidates(parsed: ParsedEnrichmentError): CoherenceCandidate[] {
   const list: CoherenceCandidate[] = [];
   if (parsed.nameLocation?.title) {
     list.push({
@@ -87,7 +86,12 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
     description: location.description ?? '',
   });
 
-  // Reset al cambiar de location
+  // Búsqueda manual: cuando el usuario teclea un nombre, los resultados sustituyen
+  // la lista de candidatos del coherence check.
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const [searching, setSearching] = React.useState(false);
+  const [searchResults, setSearchResults] = React.useState<CoherenceCandidate[] | null>(null);
+
   React.useEffect(() => {
     setForm({
       name: location.name ?? '',
@@ -96,6 +100,8 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
       description: location.description ?? '',
     });
     setEditingAll(false);
+    setSearchTerm('');
+    setSearchResults(null);
   }, [location.id, location.name, location.coordinates.lat, location.coordinates.lng, location.description]);
 
   if (isEnriched) return null;
@@ -127,44 +133,31 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
     );
   };
 
-  const handleUseName = async (candidateName?: string) => {
-    if (!candidateName || candidateName === location.name) return;
-    setBusy(true);
-    try {
-      const { error } = await supabase
-        .from('locations')
-        .update({ name: candidateName, updated_at: new Date().toISOString() })
-        .eq('id', location.id);
-      if (error) throw error;
-      // Sync local store so triggerEnrichLocation reads the new name.
-      useLocationsStore.getState().updateLocation(location.id, {
-        name: candidateName,
-        updatedAt: new Date(),
-      });
-      const result = await triggerEnrichLocation(location.id, {
-        focusAfter: false,
-        skipValidation: true,
-      });
-      if (result.success) enrichmentFailureStore.invalidate(location.id);
-      else if (result.error) toast.error(result.error);
-    } catch {
-      toast.error('No se pudo renombrar');
-    } finally {
-      setBusy(false);
+  /**
+   * Acción unificada: el usuario elige un candidato como "este es el lugar correcto".
+   * Adopta nombre + coordenadas atómicamente y relanza el enriquecimiento.
+   */
+  const handleAdoptCandidate = async (c: CoherenceCandidate) => {
+    const name = (c.name ?? '').trim();
+    if (!name || typeof c.lat !== 'number' || typeof c.lng !== 'number') {
+      toast.error('Candidato sin datos suficientes');
+      return;
     }
-  };
-
-  const handleMovePoint = async (lat?: number, lng?: number) => {
-    if (typeof lat !== 'number' || typeof lng !== 'number') return;
     setBusy(true);
     try {
       const { error } = await supabase
         .from('locations')
-        .update({ latitude: lat, longitude: lng, updated_at: new Date().toISOString() })
+        .update({
+          name,
+          latitude: c.lat,
+          longitude: c.lng,
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', location.id);
       if (error) throw error;
       useLocationsStore.getState().updateLocation(location.id, {
-        coordinates: { ...location.coordinates, lat, lng },
+        name,
+        coordinates: { ...location.coordinates, lat: c.lat, lng: c.lng },
         updatedAt: new Date(),
       });
       const result = await triggerEnrichLocation(location.id, {
@@ -174,7 +167,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
       if (result.success) enrichmentFailureStore.invalidate(location.id);
       else if (result.error) toast.error(result.error);
     } catch {
-      toast.error('No se pudieron actualizar las coordenadas');
+      toast.error('No se pudo aplicar la opción');
     } finally {
       setBusy(false);
     }
@@ -191,6 +184,50 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
       else if (result.error) toast.error(result.error);
     } finally {
       setBusy(false);
+    }
+  };
+
+  /** Renombra al texto literal escrito (sin mover coords) + enriquece. */
+  const handleUseLiteralName = async () => {
+    const name = searchTerm.trim();
+    if (!name) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase
+        .from('locations')
+        .update({ name, updated_at: new Date().toISOString() })
+        .eq('id', location.id);
+      if (error) throw error;
+      useLocationsStore.getState().updateLocation(location.id, {
+        name,
+        updatedAt: new Date(),
+      });
+      const result = await triggerEnrichLocation(location.id, {
+        focusAfter: false,
+        skipValidation: true,
+      });
+      if (result.success) enrichmentFailureStore.invalidate(location.id);
+      else if (result.error) toast.error(result.error);
+    } catch {
+      toast.error('No se pudo renombrar');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSearch = async () => {
+    const term = searchTerm.trim();
+    if (!term) return;
+    setSearching(true);
+    try {
+      const results = await searchWikiCandidates(
+        term,
+        { lat: location.coordinates.lat, lng: location.coordinates.lng },
+        8,
+      );
+      setSearchResults(results);
+    } finally {
+      setSearching(false);
     }
   };
 
@@ -238,7 +275,6 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
 
   // ── render: variante row (compacta) ───────────────────────────────────────
   if (variant === 'row') {
-    const mode: Mode = parsed ? resolveMode(parsed) : 'rename';
     const tone = parsed
       ? isCoherenceKind(parsed.kind)
         ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200/60'
@@ -249,32 +285,20 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
         ? 'text-amber-600'
         : 'text-red-600'
       : 'text-muted-foreground';
-    const cands = parsed ? getCandidates(parsed) : [];
+    const cands = parsed ? getInitialCandidates(parsed) : [];
     const first = cands[0];
-    const primaryLabel = !parsed
-      ? 'Enriquecer'
-      : mode === 'move' && first
-        ? 'Mover aquí'
-        : first
-          ? `Usar "${first.name}"`
-          : 'Renombrar…';
+    const primaryLabel = !parsed ? 'Enriquecer' : first ? 'Enriquecer aquí' : 'Resolver…';
     const primary = !parsed
       ? handleRetry
-      : mode === 'move'
-        ? () => handleMovePoint(first?.lat, first?.lng)
-        : first
-          ? () => handleUseName(first.name)
-          : handleOpenContext;
+      : first
+        ? () => handleAdoptCandidate(first)
+        : handleOpenContext;
     return (
       <div className={`rounded-lg border ${tone} px-2 py-1.5 flex items-center gap-2`}>
         <AlertCircle className={`w-3.5 h-3.5 flex-shrink-0 ${iconClass}`} />
         <div className="flex-1 min-w-0">
           <div className="text-[11px] font-medium truncate">
-            {!parsed
-              ? 'Aún sin enriquecer'
-              : mode === 'move'
-                ? 'Mismo nombre, coords distintas'
-                : 'El nombre no encaja con la zona'}
+            {!parsed ? 'Aún sin enriquecer' : 'No encaja con la zona'}
           </div>
           {first && (
             <div className="text-[10px] text-muted-foreground truncate">
@@ -338,20 +362,16 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
     );
   }
 
-  // Con conflicto: tabs + footer.
-  const mode = resolveMode(parsed);
+  // Con conflicto: lista unificada + buscador.
   const soft = isCoherenceKind(parsed.kind);
-  
   const iconClass = soft ? 'text-amber-600' : 'text-red-600';
-  const title =
-    mode === 'move' ? 'Mismo nombre, coordenadas distintas' : 'El nombre no encaja con la zona';
-  const hint =
-    mode === 'move'
-      ? 'El nombre coincide con un lugar lejano. Mueve el punto si es el mismo lugar.'
-      : 'Estos lugares están cerca de tus coordenadas. Renombra al correcto.';
-  const candidates = getCandidates(parsed);
-
   const accent = soft ? 'border-amber-400/60' : 'border-red-400/60';
+
+  const initialCandidates = getInitialCandidates(parsed);
+  const candidates: CoherenceCandidate[] =
+    searchResults !== null ? searchResults : initialCandidates;
+  const showingSearch = searchResults !== null;
+  const emptySearch = showingSearch && candidates.length === 0;
 
   return (
     <div className={`flex flex-col border-t-2 ${accent}`}>
@@ -359,70 +379,129 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
       <div className="flex items-start gap-2 pt-2 pb-1.5">
         <AlertCircle className={`w-4 h-4 flex-shrink-0 mt-0.5 ${iconClass}`} />
         <div className="flex-1 min-w-0">
-          <div className="text-[12px] font-semibold leading-tight">{title}</div>
-          <div className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{hint}</div>
+          <div className="text-[12px] font-semibold leading-tight">No encaja con la zona</div>
+          <div className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+            Elige el lugar correcto o busca otro.
+          </div>
         </div>
         {loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground mt-1" />}
       </div>
 
       {!editingAll && (
         <div className="border-t border-border/40 pt-1.5">
-          <div className="px-1 pb-1 text-[11px] font-medium text-muted-foreground">
-            Lugares cercanos {candidates.length > 0 && `(${candidates.length})`}
+          <div className="px-1 pb-1 flex items-center justify-between">
+            <div className="text-[11px] font-medium text-muted-foreground">
+              {showingSearch ? 'Resultados' : 'Opciones posibles'}
+              {candidates.length > 0 && ` (${candidates.length})`}
+            </div>
+            {showingSearch && (
+              <button
+                type="button"
+                className="text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+                onClick={() => {
+                  setSearchResults(null);
+                  setSearchTerm('');
+                }}
+                disabled={busy || searching}
+              >
+                Volver a sugerencias
+              </button>
+            )}
           </div>
+
           {candidates.length === 0 ? (
             <div className="text-[11px] text-muted-foreground text-center py-3">
-              Sin coincidencias cercanas.
+              {emptySearch
+                ? `Sin resultados para "${searchTerm.trim()}".`
+                : 'Sin coincidencias cercanas.'}
             </div>
           ) : (
             <div className="flex flex-col divide-y divide-border/50">
-              {candidates.map((c, idx) => {
-                const apply = () =>
-                  mode === 'move'
-                    ? handleMovePoint(c.lat, c.lng)
-                    : handleUseName(c.name);
-                return (
-                  <button
-                    key={`${c.name ?? 'cand'}-${idx}`}
-                    type="button"
-                    onClick={apply}
-                    disabled={busy}
-                    className="group w-full text-left flex items-start gap-2 py-1.5 hover:bg-muted/40 transition-colors disabled:opacity-50"
-                    title={mode === 'move' ? 'Mover el punto aquí' : 'Usar este nombre'}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[12px] font-medium leading-snug break-words">
-                        {c.name}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-snug break-words">
-                        {c.distanceKm != null && <span>a {c.distanceKm} km</span>}
-                        {geoLine(c) && (
-                          <span>
-                            {c.distanceKm != null ? ' · ' : ''}
-                            {geoLine(c)}
-                          </span>
-                        )}
-                      </div>
+              {candidates.map((c, idx) => (
+                <button
+                  key={`${c.name ?? 'cand'}-${idx}`}
+                  type="button"
+                  onClick={() => handleAdoptCandidate(c)}
+                  disabled={busy || searching}
+                  className="group w-full text-left flex items-start gap-2 py-1.5 px-1 hover:bg-muted/40 transition-colors disabled:opacity-50 rounded"
+                  title="Usar este lugar y enriquecer"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12px] font-medium leading-snug break-words">
+                      {c.name}
                     </div>
-                    <span className="flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors mt-0.5">
-                      {busy ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : mode === 'move' ? (
-                        <MapPin className="w-3.5 h-3.5" />
-                      ) : (
-                        <TypeIcon className="w-3.5 h-3.5" />
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-snug break-words">
+                      {c.distanceKm != null && <span>a {c.distanceKm} km</span>}
+                      {geoLine(c) && (
+                        <span>
+                          {c.distanceKm != null ? ' · ' : ''}
+                          {geoLine(c)}
+                        </span>
                       )}
-                    </span>
-                  </button>
-                );
-              })}
+                    </div>
+                  </div>
+                  {busy && (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground flex-shrink-0 mt-1" />
+                  )}
+                </button>
+              ))}
             </div>
           )}
+
+          {/* Buscador inferior */}
+          <div className="mt-2 pt-2 border-t border-border/40">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSearch();
+              }}
+              className="flex items-center gap-1.5"
+            >
+              <div className="relative flex-1">
+                <Search className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar otro nombre…"
+                  disabled={busy || searching}
+                  className="w-full text-[11px] pl-6 pr-2 py-1.5 rounded border border-border bg-background"
+                />
+              </div>
+              <Button
+                type="submit"
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px] px-2"
+                disabled={busy || searching || !searchTerm.trim()}
+              >
+                {searching ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Buscar'}
+              </Button>
+            </form>
+
+            {emptySearch && (
+              <Button
+                size="sm"
+                variant="default"
+                className="w-full h-7 text-[11px] mt-2 gap-1"
+                onClick={handleUseLiteralName}
+                disabled={busy}
+              >
+                {busy ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3 h-3" />
+                )}
+                Usar "{searchTerm.trim()}" tal cual
+              </Button>
+            )}
+          </div>
+
           <button
             type="button"
-            className="mt-1.5 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 disabled:opacity-50"
+            className="mt-2 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 disabled:opacity-50"
             onClick={handleIgnoreConflict}
-            disabled={busy}
+            disabled={busy || searching}
           >
             <RefreshCw className="w-3 h-3" />
             Ignorar conflicto y enriquecer igual
@@ -507,7 +586,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
             variant="outline"
             className="w-full h-7 text-[11px] gap-1"
             onClick={() => setEditingAll(true)}
-            disabled={busy}
+            disabled={busy || searching}
           >
             <RefreshCw className="w-3 h-3" />
             Editar
