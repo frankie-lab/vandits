@@ -61,15 +61,20 @@ function collectTokens(tree, breadcrumbs = [], root = tree) {
     if (!node || typeof node !== 'object') continue;
     if (key.startsWith('$')) continue;
     if ('value' in node || '$ref' in node) {
-      // `_css` is optional: tokens without it are emitted in TS only
-      // (e.g. zoom thresholds, numeric scales, pane z-indices consumed
-      // exclusively from TypeScript rules/adapters).
+      // `_css` is optional and may be a string or an array (a single
+      // semantic token can drive multiple CSS vars, e.g. `surface.card`
+      // emits `--surface-card` AND legacy `--card`/`--muted`).
+      const cssNames = Array.isArray(node._css)
+        ? node._css
+        : node._css
+          ? [node._css]
+          : [];
       tokens.push({
         path: [...breadcrumbs, key],
-        cssName: node._css || null,
+        cssNames,
         value: resolveValue(node, root),
         reducedMotion: node._reducedMotion,
-        isPrimitive: !node._css && !node.$ref,
+        isPrimitive: cssNames.length === 0 && !node.$ref,
       });
     } else {
       tokens.push(...collectTokens(node, [...breadcrumbs, key], root));
