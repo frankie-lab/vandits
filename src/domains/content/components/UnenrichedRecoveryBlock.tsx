@@ -395,7 +395,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
           </div>
 
           {/* Contenido tab */}
-          <div className="px-3 py-2 bg-background/40">
+          <div className="py-1">
             {tab === 'nearby' && (
               <>
                 {candidates.length === 0 ? (
@@ -403,7 +403,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
                     Sin coincidencias cercanas.
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col divide-y divide-border/50">
                     {candidates.map((c, idx) => {
                       const apply = () =>
                         mode === 'move'
@@ -415,7 +415,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
                           type="button"
                           onClick={apply}
                           disabled={busy}
-                          className="group w-full text-left flex items-start gap-2 rounded border border-border/50 bg-background/80 hover:bg-background hover:border-primary/40 px-2.5 py-2 transition-colors disabled:opacity-50"
+                          className="group w-full text-left flex items-start gap-2 py-1.5 hover:bg-muted/40 transition-colors disabled:opacity-50"
                           title={mode === 'move' ? 'Mover el punto aquí' : 'Usar este nombre'}
                         >
                           <div className="flex-1 min-w-0">
