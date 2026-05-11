@@ -113,16 +113,18 @@ function walk(group: string, data: unknown, path: string[], out: TokenLeaf[], ro
       const mode: 'light' | 'dark' | null =
         next.includes('light') ? 'light' : next.includes('dark') ? 'dark' : null;
       const value = resolveValue(v, root) ?? '';
+      const cssVars = Array.isArray(v._css) ? v._css : v._css ? [v._css] : [];
       out.push({
         path: next.join('.'),
         groupId: group,
-        cssVar: v._css,
+        cssVar: cssVars[0],
+        cssVars,
         mode: group === 'color' ? mode : null,
         baseValue: value,
         type: inferType(next, value),
         refPath: v.$ref,
         rawRef: v.$ref,
-        isPrimitive: !v._css && !v.$ref,
+        isPrimitive: cssVars.length === 0 && !v.$ref,
       });
     } else if (v && typeof v === 'object') {
       walk(group, v, next, out, root);
