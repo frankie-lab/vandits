@@ -66,10 +66,36 @@ async function fetchPageWithRetry(from: number, to: number): Promise<any[] | nul
   throw lastError;
 }
 
-export async function fetchAllLocationsPaginated(): Promise<any[]> {
+export interface FetchAllLocationsOpts {
+  /** Called after each page fetch with the cumulative count and known total (if any). */
+  onPage?: (loadedSoFar: number, total: number | null) => void;
+  /** When true, performs a HEAD count query up-front so progress is determinate. */
+  withCount?: boolean;
+}
+
+async function fetchExactCount(): Promise<number | null> {
+  try {
+    const { count, error } = await supabase
+      .from('v_locations_resolved' as any)
+      .select('id', { count: 'exact', head: true })
+      .is('deleted_at', null);
+    if (error) return null;
+    return typeof count === 'number' ? count : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchAllLocationsPaginated(
+  opts: FetchAllLocationsOpts = {},
+): Promise<any[]> {
+  const { onPage, withCount } = opts;
   const allLocations: any[] = [];
   let page = 0;
   let hasMore = true;
+
+  const total = withCount ? await fetchExactCount() : null;
+  if (onPage) onPage(0, total);
 
   while (hasMore && allLocations.length < MAX_LOCATIONS) {
     const from = page * PAGE_SIZE;
@@ -81,6 +107,7 @@ export async function fetchAllLocationsPaginated(): Promise<any[]> {
       allLocations.push(...data);
       hasMore = data.length === PAGE_SIZE;
       page++;
+      if (onPage) onPage(allLocations.length, total);
     } else {
       hasMore = false;
     }
