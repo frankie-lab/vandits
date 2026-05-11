@@ -48,17 +48,13 @@ export function BottomProgressBar() {
       root.style.setProperty('--bottom-progress-h', '0px');
     };
   }, [anyActive]);
-  const [enrichmentActive, setEnrichmentActive] = useState(false);
-  const [geocodingActive, setGeocodingActive] = useState(false);
-
-  const anyActive = enrichmentActive || geocodingActive;
-
   return (
     <motion.div
+      ref={barRef}
       initial={false}
       animate={{ y: anyActive ? 0 : 120, opacity: anyActive ? 1 : 0 }}
       transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-      className="fixed bottom-0 left-0 right-0 z-[1000] pointer-events-none"
+      className="fixed bottom-0 left-0 right-0 z-[2100] pointer-events-none"
       aria-hidden={!anyActive}
     >
       <div
