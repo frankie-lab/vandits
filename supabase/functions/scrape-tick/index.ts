@@ -4,6 +4,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { finalizeImportedDocument } from '../_shared/finalize-import.ts';
+import { getEnabledSourceCodes, isSourceEnabled } from '../_shared/data-sources.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -314,6 +315,19 @@ async function processJob(job: any, deadline: number): Promise<void> {
     return;
   }
   const { adapter, url } = picked;
+
+  // Gating por data_sources (kind='scraper'): atlas_obscura → scraper.atlas_obscura,
+  // generic_jsonld → scraper.web_import. Si está deshabilitado, pausa el job.
+  const scraperSources = await getEnabledSourceCodes('scraper');
+  const sourceCode = adapter.source === 'atlas_obscura' ? 'scraper.atlas_obscura' : 'scraper.web_import';
+  if (!isSourceEnabled(scraperSources, sourceCode)) {
+    console.log(`[data_sources] scraper "${sourceCode}" disabled — pausing job ${job.id}`);
+    await supabase
+      .from('scrape_jobs')
+      .update({ status: 'paused', error_message: `source disabled in data_sources: ${sourceCode}` })
+      .eq('id', job.id);
+    return;
+  }
 
   // Seed first page if no pages and no items yet
   const { count: pagesCount } = await supabase.from('scrape_job_pages').select('id', { count: 'exact', head: true }).eq('job_id', job.id);

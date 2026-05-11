@@ -1,89 +1,68 @@
-## Lista unificada de opciones + buscador manual
+## Objetivo
 
-Sustituye los dos modos actuales (`move` / `rename`) por una **única lista de "opciones posibles"** en el bloque de recuperación del popup y en la ficha. Al hacer click en una fila el punto se resuelve y se enriquece automáticamente. Al pie, un buscador permite escribir un nombre cuando ninguna opción encaja.
+Cablear los toggles del panel "Fuentes de datos" para que apagar una fuente de **enriquecimiento** o un **scraper** tenga efecto real. Hoy solo los 7 toggles de Búsqueda funcionan; los 8 de Enriquecimiento y los 2 de Scrapers son cosméticos.
 
-### Comportamiento unificado al pulsar una fila
+## Cambios
 
-Cada candidato representa una identidad geográfica (nombre + coordenadas + jerarquía). Al pulsarlo:
+### 1. Helper único compartido
 
-1. `UPDATE locations` con **nombre y coordenadas** del candidato (un único update atómico).
-2. Sync inmediato en `useLocationsStore` (`name` + `coordinates`) para que el siguiente paso lea valores frescos.
-3. `triggerEnrichLocation(id, { focusAfter: false, skipValidation: true })`.
-4. Al terminar: `enrichmentFailureStore.invalidate(id)` y el popup se regenera con la ficha verde.
+Crear `supabase/functions/_shared/data-sources.ts`:
 
-Durante la operación: spinner en la fila, resto deshabilitado. Si falla: toast y se mantiene el bloque ámbar.
+- `getEnabledSourceCodes(supabase, kind)` → `Promise<Set<string> | null>`
+- Devuelve los `code` con `enabled=true` para `kind` (`'search' | 'enrichment' | 'scraper'`)
+- Cache en memoria del worker, TTL 60s (los toggles de admin se propagan en ≤1 min)
+- Failsafe: si la query falla, devuelve `null` = "no filtrar" (no rompe enriquecimiento por fallo de DB)
+- Helper `isSourceEnabled(set, code)` que trata `null` como permitido
 
-Esto elimina la ambigüedad actual (mover vs renombrar). El usuario solo decide "este es el lugar correcto" — el sistema aplica nombre y coordenadas a la vez.
+Refactor: `search-candidates/index.ts` pasa a usar este helper en lugar de su query inline.
 
-### Layout de la lista
+### 2. `enrich-location/index.ts` — gating de las 8 fuentes
 
-```text
-┌──────────────────────────────────────────────┐
-│ [!] No encaja con la zona                    │
-│     Elige el lugar correcto o busca otro.    │
-├──────────────────────────────────────────────┤
-│ Plaza de España (Madrid)                     │
-│ a 97.2 km · Madrid, Comunidad de Madrid      │
-├──────────────────────────────────────────────┤
-│ Sepúlveda                                    │
-│ a 0.1 km · Segovia, Castilla y León          │
-├──────────────────────────────────────────────┤
-│ ...                                          │
-├──────────────────────────────────────────────┤
-│ [icon] [ Buscar otro nombre…       ] [→]     │  ← buscador
-├──────────────────────────────────────────────┤
-│  ⟳ Ignorar conflicto y enriquecer igual      │
-└──────────────────────────────────────────────┘
+Al inicio del handler, una sola llamada:
+```ts
+const enriched = await getEnabledSourceCodes(supabase, 'enrichment');
 ```
 
-- Filas idénticas (sin icono distinto por modo). Sin etiquetas "Mover" / "Usar nombre".
-- Hover/click resaltan toda la fila.
-- Distancia y jerarquía geo siguen visibles como texto secundario.
+Envolver cada llamada existente con `isSourceEnabled(enriched, '<code>')`:
 
-### Buscador inferior
+| Code | Funciones afectadas |
+|------|---------------------|
+| `enrich.wikipedia` | `searchWikipedia`, `fetchNearbyWikipediaPages`, geosearch de coherencia |
+| `enrich.wikidata` | `searchWikidata` |
+| `enrich.wikidata_sparql` | `getWikidataSparqlNearbyImage` |
+| `enrich.commons` | `searchWikimediaImage` + fallback Commons cercano |
+| `enrich.nominatim` | reverse geocode + `getNominatimNearbyImage` |
+| `enrich.overpass` | query Overpass de tags/imágenes |
+| `enrich.geonames` | `searchGeoNames` |
+| `enrich.openverse` | `searchOpenverseImage` |
 
-- Input de texto (placeholder "Buscar otro nombre…") + botón submit (icono Search).
-- Al enviar (Enter o click):
-  1. Llama al mismo backend que ya alimenta los candidatos del coherence check para buscar artículos por nombre cerca de las coordenadas actuales del punto.
-  2. Si hay resultados: se añaden/reemplazan en la lista superior (mismas filas, mismo comportamiento al pulsar).
-  3. Si no hay resultados: muestra inline "Sin resultados para «…»", el usuario puede:
-     - Probar otro término, o
-     - Pulsar "Usar este nombre tal cual" → renombra el punto al texto literal escrito (sin mover coordenadas) + enriquece con `skipValidation: true`.
+Comportamiento por defecto (todo activado, estado actual de la DB): idéntico al de hoy. Sin cambios funcionales en happy path.
 
-### Estados especiales
+### 3. `scrape-tick/index.ts` — gating de scrapers
 
-- **Sin candidatos iniciales**: la lista muestra mensaje "Sin coincidencias cercanas" + buscador habilitado.
-- **Punto ya enriquecido**: bloque no se renderiza (igual que ahora).
-- **Punto sin error** (`parsed == null`): mantiene el CTA simple actual (Enriquecer / Contexto cercano), sin lista ni buscador.
+Al elegir adapter (`atlas_obscura` / `web_import`), comprobar `scraper.<source>` en `data_sources`. Si está deshabilitado: marcar el job como `paused` con `last_error = 'source disabled in data_sources'` y no consumir páginas. Se reanuda solo al reactivar el toggle.
 
-### Fuera de alcance
+### 4. `DataSourcesPanel.tsx` — badge "wired"
 
-- Variante `row` (compacta para listas): solo se simplifica el label del CTA primario a "Enriquecer aquí" (sin distinguir mover/renombrar). Sin buscador.
-- Marcadores, anillo rojo, batch-enrich server, edge function `enrich-location`: sin cambios. `skipValidation: true` ya garantiza que el segundo intento no se vuelva a rechazar por coherencia.
-- Botón pie "Editar" (formulario manual con notas/coords): se mantiene tal cual, separado del buscador.
+Pequeña constante local con los `code` que están realmente cableados en edge functions. Al lado del toggle, badge gris "no-op" si una fuente del panel todavía no está cableada (red de seguridad para evitar que futuras fuentes añadidas al panel pasen desapercibidas).
 
-### Cambios técnicos
+Tras los cambios 1-3, las 17 fuentes quedan "wired" y el badge no aparece.
 
-Archivo único: `src/domains/content/components/UnenrichedRecoveryBlock.tsx`.
+### 5. Verificación
 
-1. Eliminar `resolveMode` y la variable `mode`. La lista deja de bifurcar por `coordinate` vs `name`.
-2. Nuevo handler unificado `handleAdoptCandidate(c)`:
-   - `UPDATE locations SET name = c.name, latitude = c.lat, longitude = c.lng, updated_at = now()`.
-   - `useLocationsStore.getState().updateLocation(id, { name, coordinates: { lat, lng }, updatedAt })`.
-   - `triggerEnrichLocation(id, { focusAfter: false, skipValidation: true })`.
-3. Render de fila: un único botón full-width sin icono modal; mantiene `Loader2` mientras está activo.
-4. Buscador:
-   - Estado local `searchTerm: string`, `searching: boolean`, `searchResults: CoherenceCandidate[] | null`.
-   - Función `runSearch(term)`: reutiliza el lookup Wikipedia por nombre que ya existe en `name-coordinate-coherence` (exponer helper si hace falta) acotado por las coordenadas del punto.
-   - Si `searchResults` existe, sustituye la lista de candidatos visibles.
-   - Botón "Usar este nombre tal cual" cuando `searchResults?.length === 0`: hace solo `UPDATE name` + enrich con `skipValidation`.
-5. `variant="row"`: simplificar `primaryLabel` a "Enriquecer aquí" y `primary = () => handleAdoptCandidate(first)` si hay candidato, si no `handleOpenContext`.
-6. Memoria: actualizar `mem://logic/enrichment/per-poi-recovery-block` con el nuevo comportamiento (lista unificada + buscador, adopción atómica nombre+coords).
+- `curl_edge_functions` sobre `enrich-location` con un POI conocido y `enrich.openverse` deshabilitado → comprobar en `edge_function_logs` que NO se llama a `api.openverse.engineering`.
+- Reactivar y repetir.
+- Repetir el ciclo con `scrape-tick` + `scraper.atlas_obscura`.
 
-### Verificación
+### 6. Memoria
 
-- Caso "Plaza d España" (rename actual): pulsar "Sepúlveda" → el punto pasa a llamarse "Sepúlveda" y se mueve a las coords de Sepúlveda; queda verde con ficha de Sepúlveda.
-- Caso coordinate_mismatch: pulsar el candidato lejano → nombre y coords se actualizan al candidato; queda verde.
-- Buscador con resultados: escribir "Catedral de Segovia" → lista se sustituye por candidatos de esa búsqueda; pulsar uno enriquece.
-- Buscador sin resultados: aparece "Sin resultados" + botón para forzar renombrado literal + enrich.
-- Sin candidatos: lista vacía con buscador activo desde el inicio.
+Actualizar `mem://admin/data-sources-panel` y el índice:
+> "Edge functions leen `enabled` antes de consultar. Cableado vía helper único `_shared/data-sources.ts` en search-candidates, enrich-location y scrape-tick."
+
+## Detalles técnicos
+
+- Sin migración SQL: la tabla `data_sources` ya está bien definida.
+- Sin cambios en el cliente más allá del badge opcional del panel admin.
+- El helper se importa desde edge functions (Deno) con ruta relativa: `../_shared/data-sources.ts`.
+- Cache TTL 60s es suficiente para una config de admin; no introduce inconsistencia perceptible para el usuario.
+- No se toca `batch-enrich`: invoca `enrich-location` internamente, así que hereda el gating automáticamente.

@@ -9,6 +9,7 @@ import { buildEnrichmentSchema } from "../_shared/build-enrichment-schema.ts";
 import { extractCulturalContext } from "../_shared/cultural-context.ts";
 import { isUnverifiableLLMOutput } from "../_shared/llm-unverifiable.ts";
 import { compareCountries } from "../_shared/country-iso.ts";
+import { getEnabledSourceCodes, isSourceEnabled } from "../_shared/data-sources.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1836,9 +1837,40 @@ serve(async (req) => {
     
     // 3. Merge: profile overrides > global config (v2 card schema)
     const activeFieldKeys = new Set(getActiveFields(globalConfig).map((f) => f.key));
-    const configuredImageSources = Array.isArray(imageSources) && imageSources.length > 0
+
+    // Toggles del panel admin "Fuentes de datos" (kind='enrichment').
+    // Se cargan una sola vez por request y se cachean 60s en el worker.
+    const enrichmentSources = await getEnabledSourceCodes('enrichment');
+    const useWikipedia = isSourceEnabled(enrichmentSources, 'enrich.wikipedia');
+    const useWikidata = isSourceEnabled(enrichmentSources, 'enrich.wikidata');
+    const useNominatim = isSourceEnabled(enrichmentSources, 'enrich.nominatim');
+    const useGeoNames = isSourceEnabled(enrichmentSources, 'enrich.geonames');
+    const useOverpass = isSourceEnabled(enrichmentSources, 'enrich.overpass');
+    const useCommons = isSourceEnabled(enrichmentSources, 'enrich.commons');
+    const useWikidataSparql = isSourceEnabled(enrichmentSources, 'enrich.wikidata_sparql');
+    const useOpenverse = isSourceEnabled(enrichmentSources, 'enrich.openverse');
+    console.log(
+      `[data_sources] enrichment → wp=${useWikipedia} wd=${useWikidata} ` +
+      `nom=${useNominatim} gn=${useGeoNames} ovp=${useOverpass} ` +
+      `cmm=${useCommons} sparql=${useWikidataSparql} ovrs=${useOpenverse}`
+    );
+
+    // Mapeo source-string-UI → toggle de data_sources
+    const isImageSourceAllowed = (s: string): boolean => {
+      if (s === 'user_uploaded') return true; // fuente interna, no externa
+      if (s === 'wikipedia') return useWikipedia;
+      if (s === 'wikimedia_commons') return useCommons;
+      if (s === 'wikimedia_geosearch') return useCommons;
+      if (s === 'wikidata') return useWikidataSparql; // imagen via SPARQL nearby
+      if (s === 'openverse') return useOpenverse;
+      if (s === 'osm') return useOverpass;
+      return true;
+    };
+
+    const configuredImageSources = (Array.isArray(imageSources) && imageSources.length > 0
       ? imageSources
-      : (globalConfig.image_sources ?? DEFAULT_CARD_CONFIG_V2.image_sources);
+      : (globalConfig.image_sources ?? DEFAULT_CARD_CONFIG_V2.image_sources)
+    ).filter((s: any) => typeof s === 'string' && isImageSourceAllowed(s));
     const activeExternalImageSources = configuredImageSources.filter((source): source is string => typeof source === 'string' && source !== 'user_uploaded');
     const shouldGenerateImage = generateImage && (profilePrefs?.enrichment_include_image ?? globalConfig.include_image) && activeExternalImageSources.length > 0;
     const minLength = profilePrefs?.enrichment_min_length ?? globalConfig.min_length;
@@ -1864,23 +1896,24 @@ serve(async (req) => {
       console.log(`Using ${profileType} overrides - expectedNature: ${expectedNature}, searchRadius: ${searchRadiusMeters}`);
     }
 
-    // Step 0: Consultar todas las fuentes de datos en paralelo
+    // Step 0: Consultar todas las fuentes de datos en paralelo.
+    // Respeta toggles de `data_sources` (cargados arriba en useWikipedia/useWikidata/...).
     console.log('Fetching data from multiple sources in parallel...');
-    
+
     const [geocodeResult, wikipediaResult, wikidataResult, geonamesResult] = await Promise.all([
-      // Nominatim/OSM para geocoding
-      (!location.country || !location.region) 
+      // Nominatim/OSM para reverse geocoding (solo si falta país/región)
+      (useNominatim && (!location.country || !location.region))
         ? reverseGeocodeLocation(location.coordinates.lat, location.coordinates.lng)
         : Promise.resolve({ country: location.country, region: location.region, zone: location.zone, continent: location.continent }),
-      
+
       // Wikipedia para extractos y artículos
-      searchWikipedia(location.name, location.coordinates),
-      
+      useWikipedia ? searchWikipedia(location.name, location.coordinates) : Promise.resolve(null),
+
       // Wikidata para datos estructurados
-      searchWikidata(location.name, location.coordinates),
-      
+      useWikidata ? searchWikidata(location.name, location.coordinates) : Promise.resolve(null),
+
       // GeoNames para topónimos (opcional, requiere username)
-      searchGeoNames(location.name, location.coordinates),
+      useGeoNames ? searchGeoNames(location.name, location.coordinates) : Promise.resolve(null),
     ]);
     
     // Consolidar datos geográficos
@@ -2371,8 +2404,8 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
           console.log(
             `[enrich] ABORT name↔coords mismatch: nominatim="${geoData.country}" (${(geoData as { countryCode?: string }).countryCode ?? '?'}) vs LLM="${aiGeoData.pais}"`,
           );
-          const nearbyPages = await fetchNearbyWikipediaPages(location.coordinates, COHERENCE_NEARBY_RADIUS_M, 5);
-          const nearbyExtracts = await fetchPageExtracts(nearbyPages.map((p) => p.pageid));
+          const nearbyPages = useWikipedia ? await fetchNearbyWikipediaPages(location.coordinates, COHERENCE_NEARBY_RADIUS_M, 5) : [];
+          const nearbyExtracts = useWikipedia ? await fetchPageExtracts(nearbyPages.map((p) => p.pageid)) : {};
           const nearbyCandidates = nearbyPages.map((p) => {
             const info = nearbyExtracts[String(p.pageid)] || {};
             const distM = Math.round(p.dist);
@@ -2407,8 +2440,8 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
         // del cliente ofrecerá renombrar / contexto cercano.
         if (isUnverifiableLLMOutput({ descripcion: enrichedData?.descripcion })) {
           console.log(`[enrich] ABORT llm_unverifiable for "${location.name}"`);
-          const nearbyPages = await fetchNearbyWikipediaPages(location.coordinates, COHERENCE_NEARBY_RADIUS_M, 5);
-          const nearbyExtracts = await fetchPageExtracts(nearbyPages.map((p) => p.pageid));
+          const nearbyPages = useWikipedia ? await fetchNearbyWikipediaPages(location.coordinates, COHERENCE_NEARBY_RADIUS_M, 5) : [];
+          const nearbyExtracts = useWikipedia ? await fetchPageExtracts(nearbyPages.map((p) => p.pageid)) : {};
           const nearbyCandidates = nearbyPages.map((p) => {
             const info = nearbyExtracts[String(p.pageid)] || {};
             return {
