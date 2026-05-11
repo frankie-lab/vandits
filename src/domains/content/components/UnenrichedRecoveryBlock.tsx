@@ -144,8 +144,17 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
         .update({ name: candidateName, updated_at: new Date().toISOString() })
         .eq('id', location.id);
       if (error) throw error;
-      const result = await triggerEnrichLocation(location.id, { focusAfter: false });
+      // Sync local store so triggerEnrichLocation reads the new name.
+      useLocationsStore.getState().updateLocation(location.id, {
+        name: candidateName,
+        updatedAt: new Date(),
+      });
+      const result = await triggerEnrichLocation(location.id, {
+        focusAfter: false,
+        skipValidation: true,
+      });
       if (result.success) enrichmentFailureStore.invalidate(location.id);
+      else if (result.error) toast.error(result.error);
     } catch {
       toast.error('No se pudo renombrar');
     } finally {
@@ -162,8 +171,16 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
         .update({ latitude: lat, longitude: lng, updated_at: new Date().toISOString() })
         .eq('id', location.id);
       if (error) throw error;
-      const result = await triggerEnrichLocation(location.id, { focusAfter: false });
+      useLocationsStore.getState().updateLocation(location.id, {
+        coordinates: { ...location.coordinates, lat, lng },
+        updatedAt: new Date(),
+      });
+      const result = await triggerEnrichLocation(location.id, {
+        focusAfter: false,
+        skipValidation: true,
+      });
       if (result.success) enrichmentFailureStore.invalidate(location.id);
+      else if (result.error) toast.error(result.error);
     } catch {
       toast.error('No se pudieron actualizar las coordenadas');
     } finally {
@@ -195,8 +212,16 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
         .update({ name: next, updated_at: new Date().toISOString() })
         .eq('id', location.id);
       if (error) throw error;
-      const result = await triggerEnrichLocation(location.id, { focusAfter: false });
+      useLocationsStore.getState().updateLocation(location.id, {
+        name: next,
+        updatedAt: new Date(),
+      });
+      const result = await triggerEnrichLocation(location.id, {
+        focusAfter: false,
+        skipValidation: true,
+      });
       if (result.success) enrichmentFailureStore.invalidate(location.id);
+      else if (result.error) toast.error(result.error);
     } catch {
       toast.error('No se pudo renombrar');
     } finally {
@@ -224,8 +249,16 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
         })
         .eq('id', location.id);
       if (error) throw error;
+      useLocationsStore.getState().updateLocation(location.id, {
+        name,
+        coordinates: { ...location.coordinates, lat, lng },
+        updatedAt: new Date(),
+      });
       setEditingAll(false);
-      const result = await triggerEnrichLocation(location.id, { focusAfter: false });
+      const result = await triggerEnrichLocation(location.id, {
+        focusAfter: false,
+        skipValidation: true,
+      });
       if (result.success) enrichmentFailureStore.invalidate(location.id);
       else if (result.error) toast.error(result.error);
     } catch {
