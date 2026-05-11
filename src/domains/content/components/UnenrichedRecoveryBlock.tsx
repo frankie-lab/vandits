@@ -49,6 +49,26 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
 
   const soft = parsed ? isCoherenceKind(parsed.kind) : false;
   const candidates = parsed?.candidates ?? [];
+  const mismatchKind = parsed?.mismatchKind;
+  const isCoordinateMismatch = parsed?.kind === 'coherence' && mismatchKind === 'coordinate';
+  // Recommended row = textual candidate from nameLocation when present; else first nearby.
+  const recommendedFromName = parsed?.nameLocation && parsed.nameLocation.title
+    ? {
+        name: parsed.nameLocation.title,
+        lat: parsed.nameLocation.lat,
+        lng: parsed.nameLocation.lng,
+        distanceKm: parsed.nameLocation.distanceKm,
+        url: parsed.nameLocation.url,
+        country: parsed.nameLocation.country,
+        region: parsed.nameLocation.region,
+        locality: parsed.nameLocation.locality,
+      }
+    : null;
+  const allCandidates = [
+    ...(recommendedFromName ? [recommendedFromName] : []),
+    ...candidates.filter((c) => !recommendedFromName || c.name !== recommendedFromName.name),
+  ].slice(0, 5);
+
   const tone =
     parsed == null
       ? 'bg-muted/40 border-border/60'
