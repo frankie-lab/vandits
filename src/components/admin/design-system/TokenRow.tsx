@@ -201,9 +201,11 @@ function ColorSwatchColumn({
   const css = toCssColor(live);
   const hex = parseHslTriplet(live) ? hslTripletToHex(live) : null;
 
+  const isPrimitive = path.startsWith('color.primitives.');
   const role = extractRole(path) ?? '';
-  const foreground = isForegroundRole(role);
-  const surfaceItself = isSurfaceRole(role);
+  const foreground = !isPrimitive && isForegroundRole(role);
+  // Primitivos = pintura cruda: la columna entera se pinta con su color (como un surface).
+  const surfaceItself = isPrimitive || isSurfaceRole(role);
 
   // WCAG: se sigue calculando contra el surface destino real (donde el color
   // se aplica de verdad). Esto NO cambia el lienzo de la columna.
