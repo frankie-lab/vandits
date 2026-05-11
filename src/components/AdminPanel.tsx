@@ -493,6 +493,10 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
     {isMaster() && defaultTab === 'geography' && (
     <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><GeographyBackfillPanel /></div>
     )}
+
+    {isMaster() && defaultTab === 'sources' && (
+    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><DataSourcesPanel /></div>
+    )}
    </div>
  </motion.div>
 
