@@ -2,9 +2,10 @@
 // the initial catalog sync is in flight. Mirrors the welcome summary card
 // (greeting + last login + counts) and adds a live progress bar with ETA.
 // Real progress only — no simulation.
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Compass, Loader2 } from 'lucide-react';
 import { useActiveLoadings } from './loading-bus';
+
 
 function formatEta(ms: number): string {
   if (!Number.isFinite(ms) || ms <= 0) return '—';
