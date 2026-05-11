@@ -244,6 +244,24 @@ export function PopupPreview({
   );
 }
 
+function HeroSkeletonInline() {
+  // Temporary inline skeleton; replaced by HeroImageSkeleton from
+  // @/design-system/patterns/Skeletons once PR-2 lands.
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        background: `hsl(${tokens.color.light.muted})`,
+        backgroundImage: `linear-gradient(90deg, transparent 0%, hsl(${tokens.color.light.background} / 0.4) 50%, transparent 100%)`,
+        backgroundSize: '200% 100%',
+        animation: 'shimmer 1.4s linear infinite',
+      }}
+      aria-hidden
+    />
+  );
+}
+
 function PlaceholderSvg({ tint }: { tint: string }) {
   return (
     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" aria-hidden>
