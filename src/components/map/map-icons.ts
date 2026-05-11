@@ -200,6 +200,49 @@ export const createCustomIcon = (
     ? `onmouseenter="this.style.transform='scale(${scaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'"`
     : '';
 
+  // ── Rich (z≥17) — marker = imagen Hero ─────────────────────────────────
+  // En modo rich, si el POI tiene imagen Hero (enrichedData.imagen o
+  // user_image_url), el marker ES la foto: cuadrado redondeado 40px con
+  // borde 2px en el color del estado. Se conservan health rings, collection
+  // tint y ownership como capas alrededor. focused/selected añaden un halo
+  // blanco — no sustituyen la foto. Sin imagen → cae al render estándar
+  // (SVG dot/pin de abajo). Si `onerror` dispara, marcamos el id en
+  // `heroFailedIds` y el próximo repaint usará el SVG.
+  const heroId = location?.id;
+  const heroUrl = renderMode === 'rich' && heroId && !heroFailedIds.has(heroId)
+    ? getPointHeroImage(location)
+    : null;
+  if (heroUrl) {
+    const heroSize = 40;
+    let heroCumulative = 0;
+    const heroRingShadow = healthRings
+      .map((ring) => {
+        heroCumulative += RING_WIDTH;
+        return ` drop-shadow(0 0 0 ${heroCumulative}px ${RING_COLORS[ring]})`;
+      })
+      .join('');
+    const hasErrorRing = healthRings.includes('error');
+    const haloHtml = (isFocused || isSelected)
+      ? '<div class="poi-hero-marker__halo"></div>'
+      : '';
+    const ownClass = isOwn ? ' is-own' : '';
+    const safeUrl = heroUrl.replace(/"/g, '&quot;');
+    const safeId = String(heroId).replace(/"/g, '&quot;');
+    return L.divIcon({
+      className: `poi-hero-marker${isRecentlyEnriched ? ' recently-enriched' : ''}${hasErrorRing ? ' has-enrichment-error' : ''}${ownClass}`,
+      html: `
+      <div class="poi-hero-marker__wrap" style="--marker-state-color:${entry.fill_color}; width:${heroSize}px; height:${heroSize}px; position:relative; filter:${shadow}${heroRingShadow}; ${animationStyle}">
+        ${collectionTint ? `<div class="collection-tint-ring" style="--collection-tint:${collectionTint}"></div>` : ''}
+        <img class="poi-hero-marker__img" src="${safeUrl}" alt="" referrerpolicy="no-referrer" onerror="window.__markHeroFailed && window.__markHeroFailed('${safeId}'); this.style.display='none';" />
+        ${haloHtml}
+      </div>
+      `,
+      iconSize: [heroSize, heroSize],
+      iconAnchor: [heroSize / 2, heroSize / 2],
+      popupAnchor: [0, -heroSize / 2],
+    });
+  }
+
   // Pin (teardrop) shape — only when explicitly configured for this state
   if (entry.marker_shape === 'pin') {
     const pinHeight = size;
