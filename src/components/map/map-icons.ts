@@ -18,6 +18,20 @@ import {
   RING_COLORS,
   RING_WIDTH,
 } from '@/domains/content/lib/point-health-rings';
+import { getPointHeroImage } from '@/domains/content/lib/point-hero-image';
+
+/**
+ * IDs cuya hero image ha fallado en runtime. Como un divIcon no puede
+ * re-pintarse a sí mismo desde `onerror`, marcamos el ID aquí; la siguiente
+ * llamada a `createCustomIcon` salta la rama hero y devuelve el SVG estándar.
+ * El refresh natural por `zoomend` / `map-render-mode-changed` los repinta.
+ */
+const heroFailedIds = new Set<string>();
+if (typeof window !== 'undefined') {
+  (window as any).__markHeroFailed = (id: string) => {
+    if (id) heroFailedIds.add(id);
+  };
+}
 
 // Anillos de salud (5px) apilados POR FUERA del marker y del collection-tint.
 // Helper único: `getPointHealthRings`. No sustituyen al stroke blanco ni al
