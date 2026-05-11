@@ -498,6 +498,10 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
     {isMaster() && defaultTab === 'sources' && (
     <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><DataSourcesPanel /></div>
     )}
+
+    {isMaster() && defaultTab === 'design-system' && (
+    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><DesignSystemPanel /></div>
+    )}
    </div>
  </motion.div>
 
