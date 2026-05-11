@@ -29,8 +29,9 @@ import {
 
 import { AuditPanel } from './AuditPanel';
 import { GeographyBackfillPanel } from './admin/GeographyBackfillPanel';
+import { DataSourcesPanel } from './admin/DataSourcesPanel';
 
-type AdminTab = 'users' | 'permissions' | 'markers' | 'routes' | 'icons' | 'enrichment' | 'audit' | 'geography';
+type AdminTab = 'users' | 'permissions' | 'markers' | 'routes' | 'icons' | 'enrichment' | 'audit' | 'geography' | 'sources';
 
 interface AdminPanelProps {
  onClose: () => void;
@@ -367,7 +368,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   <div className="p-2 bg-primary/10 rounded-lg"><Shield className="w-5 h-5 text-primary" /></div>
   <div>
   <h2 className="text-lg font-bold">
-  {{ users: 'Gestión de usuarios', permissions: 'Permisos por rol', markers: 'Tamaños de marcadores', routes: 'Motor de rutas', icons: 'Galería de iconos', enrichment: 'Configuración de fichas', audit: 'Auditoría de preferencias', geography: 'Geografía universal' }[defaultTab || 'users'] || 'Panel de Administración'}
+  {{ users: 'Gestión de usuarios', permissions: 'Permisos por rol', markers: 'Tamaños de marcadores', routes: 'Motor de rutas', icons: 'Galería de iconos', enrichment: 'Configuración de fichas', audit: 'Auditoría de preferencias', geography: 'Geografía universal', sources: 'Fuentes de datos' }[defaultTab || 'users'] || 'Panel de Administración'}
   </h2>
   <p className="text-sm text-muted-foreground">Back Office</p>
   </div>
@@ -491,6 +492,10 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
 
     {isMaster() && defaultTab === 'geography' && (
     <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><GeographyBackfillPanel /></div>
+    )}
+
+    {isMaster() && defaultTab === 'sources' && (
+    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><DataSourcesPanel /></div>
     )}
    </div>
  </motion.div>
