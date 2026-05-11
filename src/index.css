@@ -130,6 +130,23 @@
     font-family: 'DM Sans', system-ui, sans-serif;
   }
 
+  /* Bottom progress bar height — published by <BottomProgressBar/> shell.
+     Full-viewport overlays (Radix dialogs/sheets, AdminPanel modal, etc.)
+     consume it as `padding-bottom` so they never sit under the active bar.
+     Helper único transversal; cualquier overlay nuevo lo respeta automáticamente
+     si usa la clase `.overlay-respect-progress` o si es un Radix overlay. */
+  :root {
+    --bottom-progress-h: 0px;
+  }
+
+  /* Radix Dialog/Sheet overlays (z-[2000] in this project) shrink to leave
+     room for the bar. We target the centered content via flex padding. */
+  [data-radix-dialog-overlay],
+  [data-radix-alert-dialog-overlay],
+  .overlay-respect-progress {
+    padding-bottom: var(--bottom-progress-h, 0px);
+  }
+
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Space Grotesk', system-ui, sans-serif;
   }
