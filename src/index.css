@@ -462,6 +462,7 @@
    centrada que apunta a la coordenada. Borde fino del color de estado.
    Ver `mem://style/map/zoom-driven-hero`. */
 .poi-hero-marker { background: transparent; }
+.poi-hero-marker--addon { pointer-events: none; }
 .poi-hero-marker__wrap {
   display: block;
   box-sizing: border-box;
