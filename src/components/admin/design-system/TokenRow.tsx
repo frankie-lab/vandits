@@ -182,7 +182,11 @@ function isForegroundRole(role: string): boolean {
 }
 
 function isSurfaceRole(role: string): boolean {
-  return role.startsWith('surface.') || role.startsWith('map.') && role === 'map.background';
+  // Roles que SON el lienzo de la app y por tanto pintan toda la columna.
+  // En este DS no hay `surface.*`; los fondos viven en `n.*` (neutral) + `map.background`.
+  if (role === 'map.background') return true;
+  if (role === 'n.background' || role === 'n.card' || role === 'n.popup' || role === 'n.muted' || role === 'n.overlay') return true;
+  return false;
 }
 
 function ColorSwatchColumn({
@@ -211,14 +215,15 @@ function ColorSwatchColumn({
 
   // WCAG: se sigue calculando contra el surface destino real (donde el color
   // se aplica de verdad). Esto NO cambia el lienzo de la columna.
-  const wcagTargetPath = resolveTargetBackgroundPath(path) ?? `color.${mode}.surface.background`;
+  const wcagTargetPath = resolveTargetBackgroundPath(path) ?? `color.${mode}.n.background`;
   const wcagSurfaceTriplet = String(useResolvedTokenValue(wcagTargetPath) ?? '');
   const wcag = computeWcag(live, wcagSurfaceTriplet || undefined);
 
   // Lienzo de la columna: SIEMPRE el fondo de página del modo (claro/oscuro).
+  // En este DS el fondo de página es `color.{mode}.n.background`.
   // Excepción única: si el token ES el propio fondo de página semántico.
   const pageBgTriplet = String(
-    useResolvedTokenValue(`color.${mode}.surface.background`) ?? ''
+    useResolvedTokenValue(`color.${mode}.n.background`) ?? ''
   );
   const pageBgCss = pageBgTriplet ? toCssColor(pageBgTriplet) : undefined;
   const canvasBg = surfaceItself ? css : (pageBgCss ?? css);
