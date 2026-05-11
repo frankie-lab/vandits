@@ -1,0 +1,32 @@
+{
+  "$schema": "POI tokens — marker visual states, health rings, collection rings, render-mode scales. Single source for src/design-system/map/rules/poi-visual-rules.ts and Storybook stories. Hex literals here ONLY; never duplicated inline in rules/icons/adapters.",
+  "poi": {
+    "state": {
+      "enriched": { "value": "#22c55e", "_css": "--poi-state-enriched" },
+      "imported": { "value": "#9ca3af", "_css": "--poi-state-imported" },
+      "empty":    { "value": "#f97316", "_css": "--poi-state-empty" }
+    },
+    "ring": {
+      "width":          { "value": "5px",       "_css": "--poi-ring-width" },
+      "empty":          { "value": "#f97316",   "_css": "--poi-ring-empty" },
+      "chain":          { "value": "#eab308",   "_css": "--poi-ring-chain" },
+      "error":          { "value": "#dc2626",   "_css": "--poi-ring-error" },
+      "collectionGap":  { "value": "2px",       "_css": "--poi-ring-collection-gap" }
+    },
+    "renderScale": {
+      "micro":    { "value": 0.45, "_css": "--poi-scale-micro" },
+      "compact":  { "value": 0.7,  "_css": "--poi-scale-compact" },
+      "standard": { "value": 1,    "_css": "--poi-scale-standard" },
+      "rich":     { "value": 1.15, "_css": "--poi-scale-rich" }
+    },
+    "hero": {
+      "size":         { "value": "40px",    "_css": "--poi-hero-size" },
+      "thumbSize":    { "value": "24px",    "_css": "--poi-thumb-size" },
+      "radius":       { "value": "8px",     "_css": "--poi-hero-radius" },
+      "borderWidth":  { "value": "2px",     "_css": "--poi-hero-border-width" }
+    },
+    "microDot": {
+      "size":  { "value": "6px", "_css": "--poi-micro-dot-size" }
+    }
+  }
+}
