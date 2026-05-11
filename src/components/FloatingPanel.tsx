@@ -23,6 +23,11 @@ interface FloatingPanelProps {
  position?: 'left' | 'right';
  className?: string;
  topOffset?: string;
+ /**
+  * Slot opcional renderizado entre el título y el botón de cerrar.
+  * Usado por PanelShell para mostrar `AppSpinner` cuando `loading=true`.
+  */
+ headerAccessory?: React.ReactNode;
 }
 
 export function FloatingPanel({
@@ -34,6 +39,7 @@ export function FloatingPanel({
  position = 'left',
  className,
  topOffset,
+ headerAccessory,
 }: FloatingPanelProps) {
  const isMobile = useIsMobile();
 
@@ -42,19 +48,22 @@ export function FloatingPanel({
  return (
  <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
   <DrawerContent className="max-h-[85vh] z-[2001] overflow-hidden rounded-t-[var(--panel-radius)]">
- <DrawerHeader className="flex items-center justify-between gap-2 border-b h-[var(--panel-header-h)] px-[var(--panel-padding-x)] py-0">
- <div className="flex items-center gap-2">
+  <DrawerHeader className="flex items-center justify-between gap-2 border-b h-[var(--panel-header-h)] px-[var(--panel-padding-x)] py-0">
+ <div className="flex items-center gap-2 min-w-0">
  {icon}
- <DrawerTitle className="text-sm font-medium">{title}</DrawerTitle>
+ <DrawerTitle className="text-sm font-medium truncate">{title}</DrawerTitle>
  </div>
+ <div className="flex items-center gap-1 shrink-0">
+ {headerAccessory}
  <Button
  variant="ghost"
  size="icon"
- className="h-7 w-7"
+  className="h-7 w-7"
  onClick={onClose}
  >
  <X className="w-4 h-4" />
  </Button>
+ </div>
  </DrawerHeader>
  <div className="flex-1 min-h-0 overflow-hidden max-h-[calc(85vh-var(--panel-header-h))]">
  {children}
@@ -84,12 +93,14 @@ export function FloatingPanel({
  className
  )}
  >
- {/* Header — canonical Panel System tokens (VANDITS UX v1) */}
+  {/* Header — canonical Panel System tokens (VANDITS UX v1) */}
  <div className="flex items-center justify-between gap-2 border-b bg-muted/30 shrink-0 h-[var(--panel-header-h)] px-[var(--panel-padding-x)]">
- <div className="flex items-center gap-2">
+ <div className="flex items-center gap-2 min-w-0">
  {icon}
- <span className="font-medium text-sm">{title}</span>
+ <span className="font-medium text-sm truncate">{title}</span>
  </div>
+ <div className="flex items-center gap-1 shrink-0">
+ {headerAccessory}
  <Button
  variant="ghost"
  size="icon"
@@ -98,6 +109,7 @@ export function FloatingPanel({
  >
  <X className="w-3.5 h-3.5" />
  </Button>
+ </div>
  </div>
 
  {/* Content */}
