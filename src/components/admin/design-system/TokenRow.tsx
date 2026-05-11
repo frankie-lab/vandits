@@ -293,19 +293,39 @@ function ColorSwatchColumn({
               </code>
             </div>
           ) : (
-            // Chip relleno con el color, sobre el surface.
+            // Chip relleno con el color, sobre el surface del modo.
+            // En primitivos: chip más grande y centrado, con ajedrezado de
+            // respaldo si el color es casi igual al lienzo.
             <div
-              className="rounded-token-sm border border-border/30 px-2.5 py-2 flex items-center justify-between gap-2 shadow-token-sm"
-              style={{ background: css }}
+              className={
+                'rounded-token-sm border border-border/40 shadow-token-sm relative overflow-hidden ' +
+                (isPrimitive
+                  ? 'flex-1 min-h-[64px] flex items-end justify-center p-2'
+                  : 'px-2.5 py-2 flex items-center justify-between gap-2')
+              }
+              style={
+                needsCheckerboard
+                  ? {
+                      backgroundColor: css,
+                      backgroundImage:
+                        'linear-gradient(45deg, hsl(0 0% 50% / 0.18) 25%, transparent 25%), linear-gradient(-45deg, hsl(0 0% 50% / 0.18) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(0 0% 50% / 0.18) 75%), linear-gradient(-45deg, transparent 75%, hsl(0 0% 50% / 0.18) 75%)',
+                      backgroundSize: '8px 8px',
+                      backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0',
+                    }
+                  : { background: css }
+              }
             >
-              <span className={`text-[10px] uppercase tracking-wide font-semibold ${onChipText}`}>
-                Muestra
-              </span>
+              {!isPrimitive && (
+                <span className={`text-[10px] uppercase tracking-wide font-semibold ${onChipText}`}>
+                  Muestra
+                </span>
+              )}
               <code className={`text-xs font-mono font-semibold ${onChipText}`}>
                 {hex ?? live}
               </code>
             </div>
           )}
+
         </div>
       </EditableTokenSurface>
     </div>
