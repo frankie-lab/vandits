@@ -37,6 +37,7 @@ import {
   enrichmentFailureStore,
 } from '@/domains/content/hooks/use-enrichment-failure';
 import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
+import { useLocationsStore } from '@/domains/content';
 
 interface Props {
   location: GeoLocation;
