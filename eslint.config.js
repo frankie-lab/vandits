@@ -69,4 +69,36 @@ export default tseslint.config(
       "no-restricted-imports": "off",
     },
   },
+
+  // ── Design-system guard rails (warn-only) ──────────────────────────────
+  // Nudge the codebase toward semantic tokens defined in
+  // src/shared/styles/tokens/*.css. Warnings (not errors) so they catch
+  // regressions without blocking CI while migration is in flight.
+  // Excludes: shadcn primitives (src/components/ui), tests.
+  {
+    files: ["src/components/**/*.{ts,tsx}", "src/pages/**/*.{ts,tsx}"],
+    ignores: ["src/components/ui/**", "src/**/*.test.{ts,tsx}"],
+    rules: {
+      "no-restricted-syntax": [
+        "warn",
+        {
+          selector:
+            "Literal[value=/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]",
+          message:
+            "Avoid hardcoded hex colors. Use semantic HSL tokens (bg-primary, text-foreground, hsl(var(--*))). See src/shared/styles/tokens/.",
+        },
+        {
+          selector: "Literal[value=/^z-\\[\\d+\\]$/]",
+          message:
+            "Avoid arbitrary z-index values. Use the named scale: z-modal, z-popover, z-toast. See src/shared/styles/tokens/z-index.css.",
+        },
+        {
+          selector:
+            "Literal[value=/(?:^|\\s)(?:bg|text|border)-(?:white|black|gray-\\d+|slate-\\d+|zinc-\\d+|neutral-\\d+|stone-\\d+)(?:\\s|$)/]",
+          message:
+            "Use semantic tokens (bg-card / bg-background / text-foreground / text-muted-foreground) instead of bg-white/bg-gray-*/text-black.",
+        },
+      ],
+    },
+  },
 );
