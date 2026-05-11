@@ -1,45 +1,60 @@
-## Por qué se veía al revés
+## Decisiones (basadas en tu medición)
 
-Tu captura es correcta. La causa la introduje yo al añadir el "boost de propietario" en `micro`:
+Con cluster activo + 5.073 puntos → 319 nodos DOM. El cluster ya resuelve el problema que canvas intentaba solucionar. Las 3 capas se reordenan así:
 
-- En `micro` (z≤9, vista global), los puntos propios se fuerzan a **9 px** (`isOwn` → 9, ajenos → 5).
-- En `compact` (z10–13), el tamaño es `base_normal × 0.7` ≈ `12 × 0.7 = 8 px`.
-- Resultado: tus puntos en global (9 px) salen **más grandes** que al acercar a zoom medio (8 px).
+---
 
-Eso explica exactamente la sensación "grande lejos, pequeño cerca". El plan original decía "global 5 px, compact 8 px, standard 12 px, rich 14 px" — monotónico. Lo rompió la excepción `isOwn=9` en `micro`.
+### 4) Canvas para z0–z9 — **DESCARTADO ahora**
 
-Has elegido **Sin boost en global**: en vista global todos los puntos son micro pequeño; la pertenencia se distingue solo por halo/capa, no por tamaño.
+No se implementa. Motivo: premature optimization. El umbral real para que canvas compense es "decenas de miles de puntos visibles **simultáneamente en pantalla**", no en total. Con `maxClusterRadius: 50` eso ocurre muy tarde.
 
-## Cambios
+Qué sí hacemos:
+- **Documentar el disparador** en `LocationMap.tsx` (comentario + constante `CANVAS_BACKEND_TRIGGER` no usada todavía) con la condición "visibles tras clustering > 5.000 en viewport". Cero código activo.
+- Dejar el plan archivado en `mem://architecture/canvas-backend-deferred` para retomarlo si en el futuro un usuario power tiene >50k puntos y nota lag.
 
-Archivo único: `src/components/map/map-icons.ts`.
+Sin cambios de runtime.
 
-1. **Quitar el boost de tamaño en `micro`**
-   - `microSize` pasa a ser fijo `5 px` para todos (propios y ajenos).
-   - Se mantiene la diferenciación visual de `isOwn` mediante el halo blanco más visible (`box-shadow 0 0 0 1.5px rgba(255,255,255,1)` + sombra externa), pero **sin cambiar el diámetro**.
-   - Los puntos propios siguen yendo al pane `mine-pane` (ya está hecho en `LocationMap`), así que se dibujan encima de los ajenos.
+---
 
-2. **Asegurar progresión monotónica**
-   ```text
-   micro    z≤9    → 5 px (plano, sin SVG)
-   compact  z10–13 → base × 0.7  (~8 px con base 12)
-   standard z14–16 → base × 1.0  (~12 px)
-   rich     z17+   → base × 1.15 (~14 px)
-   ```
-   Como `micro` < `compact` < `standard` < `rich` se respeta sin excepciones.
+### 5) Thumbnail en marker — **solo en POI focused/selected, no por zoom**
 
-3. **No tocar nada más**
-   - `LocationMap.tsx`, `useMarkerSizeConfig`, BD (`marker_size_config`): sin cambios.
-   - Health rings, collection tint, paleta 3 estados, panes mine/others: intactos.
+Regla nueva, transversal (helper único):
+- Solo el marker actualmente en estado `focused` o `selected` muestra thumbnail circular (24×24) superpuesto al icono base.
+- Independiente del zoom: si está focused a z10, también lo muestra (más útil para encontrarlo de un vistazo).
+- Resto de markers: nunca thumbnail en el mapa. La imagen sigue viviendo en popup/galería como hoy.
+- Fuente: `loc.user_image_url || enriched_data.imagenes[0]`. Si no hay imagen, no se renderiza nada extra (el marker queda como está).
+
+Implementación:
+- Extender `createCustomIcon(loc, { focused, selected })` en `map-icons.ts` para inyectar un `<img>` circular en la esquina superior derecha del divIcon cuando `focused || selected` **y** hay imagen.
+- `LocationMap` ya llama a `createCustomIcon` al pasar de un marker a focused/selected (focus-pane lifecycle). Pasar el flag basta — no se necesita refresh global.
+- CSS: clase `.poi-thumb { width:24px; height:24px; border-radius:50%; border:2px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,0.4); object-fit:cover; position:absolute; top:-8px; right:-8px }`.
+
+Riesgo: imágenes externas con `crossOrigin` ya están saneadas (memoria `mem://technical/enrichment/image-retrieval-logic`). Si falla la carga, `onerror` esconde el `<img>`.
+
+---
+
+### 6) `disableClusteringAtZoom` — **se mantiene en 16**
+
+No tocar. Quitar cluster en zoom medio sin canvas detrás degradaría zonas densas (Italia, costa francesa). El cluster sigue siendo la representación principal en z<16 y se expande al click — eso ya cumple la regla "ver puntos siempre".
+
+Sin cambios.
+
+---
+
+## Resumen de archivos a tocar
+
+- `src/components/map/map-icons.ts` — añadir thumbnail condicional (focused/selected + imagen).
+- `src/index.css` (o el CSS del mapa) — clase `.poi-thumb`.
+- `src/components/LocationMap.tsx` — pasar `focused`/`selected` a `createCustomIcon` en los refresh de focus-pane (ya pasa el state hoy, solo verificar la propagación). Añadir comentario `CANVAS_BACKEND_TRIGGER` para el futuro.
 
 ## Verificación
 
-- z3 (global): todos los puntos a 5 px planos; los propios destacan por halo blanco más marcado y por estar en `mine-pane` encima.
-- z10: salto perceptible a ~8 px con SVG sin gradiente.
-- z14: ~12 px (canon BD).
-- z18: ~14 px, con health rings y gradiente.
-- Comprobar en la misma vista de tu captura (Luarca/global) que el punto pasa de "gordo lejano" a "fino lejano + crece al acercar".
+1. z10 con un POI con imagen → click → thumbnail aparece arriba-derecha del marker. Sin click, ningún thumbnail.
+2. Cambiar focus a otro POI → el thumbnail anterior desaparece, el nuevo aparece.
+3. POI sin imagen → click → marker base, sin thumbnail extra, sin huecos.
+4. z3 vista global con cluster → ningún thumbnail (cluster oculta markers individuales). Sin regresión de rendimiento.
+5. `disableClusteringAtZoom` sigue en 16; verificar que a z16 los markers se separan como hoy.
 
-## Riesgos
+## Memoria a guardar tras implementación
 
-- Pérdida de "size cue" para identificar puntos propios en vista global. Se compensa con el halo y el pane superior. Si más adelante quieres recuperar tamaño extra para `isOwn`, lo haremos con un modificador que escale **todos** los modos a la vez, no solo `micro`, para no romper la monotonía.
+`mem://style/map/focused-thumbnail-rule` — Thumbnail circular 24×24 SOLO en marker focused/selected, nunca por zoom, helper único `createCustomIcon` con flags. Resto de markers limpios.
