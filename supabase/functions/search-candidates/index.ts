@@ -1,20 +1,29 @@
 /**
  * search-candidates — búsqueda multi-fuente de candidatos POI por nombre.
  *
- * Fuentes consultadas en paralelo:
- *   1. Wikipedia ES        (es.wikipedia.org)
- *   2. Wikipedia EN        (en.wikipedia.org)
- *   3. Wikidata            (wbsearchentities + claim P625)
- *   4. Nominatim / OSM     (nominatim.openstreetmap.org)
- *   5. GeoNames            (api.geonames.org, requiere GEONAMES_USERNAME)
+ * Fuentes consultadas en paralelo (toggles vía tabla `data_sources`):
+ *   - search.wikipedia_es
+ *   - search.wikipedia_en
+ *   - search.wikidata
+ *   - search.nominatim
+ *   - search.geonames        (requiere GEONAMES_USERNAME)
+ *   - search.photon          (sin key, gratis)
+ *   - search.google_places   (requiere GOOGLE_PLACES_API_KEY)
  *
- * Devuelve lista unificada de candidatos con name/lat/lng/distance/source/url.
- * Deduplica por proximidad (<150m) y, si se pasa `near`, ordena por distancia.
- *
- * Ver mem://logic/enrichment/per-poi-recovery-block
+ * Ver mem://logic/enrichment/recovery-search-multisource
  */
 
 import { corsHeaders } from '@supabase/supabase-js/cors';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+
+type SourceCode =
+  | 'wikipedia-es'
+  | 'wikipedia-en'
+  | 'wikidata'
+  | 'nominatim'
+  | 'geonames'
+  | 'photon'
+  | 'google-places';
 
 interface Candidate {
   name: string;
@@ -22,7 +31,7 @@ interface Candidate {
   lng: number;
   distanceKm?: number;
   url?: string;
-  source: 'wikipedia-es' | 'wikipedia-en' | 'wikidata' | 'nominatim' | 'geonames';
+  source: SourceCode;
   locality?: string;
   region?: string;
   country?: string;
@@ -58,12 +67,8 @@ async function fetchJson(url: string, init?: RequestInit, timeoutMs = 8000): Pro
   }
 }
 
-// ---------- Wikipedia (es/en) ----------
-async function searchWikipedia(
-  lang: 'es' | 'en',
-  term: string,
-  limit: number,
-): Promise<Candidate[]> {
+// ---------- Wikipedia ----------
+async function searchWikipedia(lang: 'es' | 'en', term: string, limit: number): Promise<Candidate[]> {
   const api = `https://${lang}.wikipedia.org/w/api.php`;
   const searchUrl =
     `${api}?action=query&list=search&srsearch=${encodeURIComponent(term)}` +
@@ -102,8 +107,7 @@ async function searchWikidata(term: string, limit: number): Promise<Candidate[]>
     `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(term)}` +
     `&language=es&limit=${limit}&format=json&origin=*`;
   const sdata = await fetchJson(searchUrl);
-  const entities: Array<{ id: string; label?: string; description?: string }> =
-    sdata?.search ?? [];
+  const entities: Array<{ id: string; label?: string }> = sdata?.search ?? [];
   if (entities.length === 0) return [];
   const ids = entities.map((e) => e.id);
   const entityUrl =
@@ -140,9 +144,7 @@ async function searchNominatim(term: string, limit: number): Promise<Candidate[]
   const url =
     `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(term)}` +
     `&limit=${limit}&addressdetails=1&accept-language=es`;
-  const data = await fetchJson(url, {
-    headers: { 'User-Agent': 'vandits-search-candidates/1.0' },
-  });
+  const data = await fetchJson(url, { headers: { 'User-Agent': 'vandits-search-candidates/1.0' } });
   if (!Array.isArray(data)) return [];
   return data
     .filter((d: any) => d.lat && d.lon)
@@ -181,15 +183,91 @@ async function searchGeoNames(term: string, limit: number): Promise<Candidate[]>
     }));
 }
 
+// ---------- Photon (Komoot / OSM-based, gratis) ----------
+async function searchPhoton(
+  term: string,
+  limit: number,
+  near?: { lat: number; lng: number },
+): Promise<Candidate[]> {
+  const base = `https://photon.komoot.io/api/?q=${encodeURIComponent(term)}&limit=${limit}&lang=es`;
+  const url = near ? `${base}&lat=${near.lat}&lon=${near.lng}` : base;
+  const data = await fetchJson(url);
+  const features: any[] = data?.features ?? [];
+  return features
+    .filter((f) => Array.isArray(f?.geometry?.coordinates))
+    .map((f) => {
+      const [lng, lat] = f.geometry.coordinates as [number, number];
+      const p = f.properties ?? {};
+      return {
+        name: p.name || p.street || term,
+        lat,
+        lng,
+        locality: p.city || p.town || p.village,
+        region: p.state,
+        country: p.country,
+        url:
+          p.osm_type && p.osm_id
+            ? `https://www.openstreetmap.org/${String(p.osm_type).toLowerCase()}/${p.osm_id}`
+            : undefined,
+        source: 'photon' as const,
+      };
+    });
+}
+
+// ---------- Google Places (Text Search v1) ----------
+async function searchGooglePlaces(
+  term: string,
+  limit: number,
+  near?: { lat: number; lng: number },
+): Promise<Candidate[]> {
+  const key = Deno.env.get('GOOGLE_PLACES_API_KEY');
+  if (!key) return [];
+  try {
+    const body: any = { textQuery: term, pageSize: Math.min(limit, 20), languageCode: 'es' };
+    if (near) {
+      body.locationBias = {
+        circle: { center: { latitude: near.lat, longitude: near.lng }, radius: 50000 },
+      };
+    }
+    const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': key,
+        'X-Goog-FieldMask':
+          'places.displayName,places.location,places.formattedAddress,places.id,places.websiteUri',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const places: any[] = data?.places ?? [];
+    return places
+      .filter((p) => p?.location?.latitude && p?.location?.longitude)
+      .map((p) => ({
+        name: p.displayName?.text || term,
+        lat: p.location.latitude,
+        lng: p.location.longitude,
+        country: p.formattedAddress,
+        url: p.websiteUri || `https://www.google.com/maps/place/?q=place_id:${p.id}`,
+        source: 'google-places' as const,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 // ---------- Dedup ----------
 function dedup(candidates: Candidate[]): Candidate[] {
   const out: Candidate[] = [];
-  const sourceRank: Record<Candidate['source'], number> = {
+  const sourceRank: Record<SourceCode, number> = {
+    'google-places': 0,
     'wikipedia-es': 1,
     wikidata: 2,
     'wikipedia-en': 3,
-    nominatim: 4,
-    geonames: 5,
+    photon: 4,
+    nominatim: 5,
+    geonames: 6,
   };
   for (const c of candidates) {
     const dupIdx = out.findIndex(
@@ -202,6 +280,43 @@ function dedup(candidates: Candidate[]): Candidate[] {
     }
   }
   return out;
+}
+
+// ---------- Enabled sources ----------
+const CODE_MAP: Record<string, SourceCode> = {
+  'search.wikipedia_es': 'wikipedia-es',
+  'search.wikipedia_en': 'wikipedia-en',
+  'search.wikidata': 'wikidata',
+  'search.nominatim': 'nominatim',
+  'search.geonames': 'geonames',
+  'search.photon': 'photon',
+  'search.google_places': 'google-places',
+};
+
+async function getEnabledSearchSources(): Promise<Set<SourceCode>> {
+  // Default: todas ON salvo google_places (gated by key)
+  const fallback = new Set<SourceCode>([
+    'wikipedia-es', 'wikipedia-en', 'wikidata', 'nominatim', 'geonames', 'photon', 'google-places',
+  ]);
+  try {
+    const supaUrl = Deno.env.get('SUPABASE_URL') ?? Deno.env.get('VITE_SUPABASE_URL');
+    const supaKey =
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SECRET_KEYS');
+    if (!supaUrl || !supaKey) return fallback;
+    const supa = createClient(supaUrl, supaKey);
+    const { data } = await supa
+      .from('data_sources')
+      .select('code, enabled')
+      .eq('kind', 'search');
+    if (!Array.isArray(data) || data.length === 0) return fallback;
+    const enabled = new Set<SourceCode>();
+    for (const row of data) {
+      if (row.enabled && CODE_MAP[row.code]) enabled.add(CODE_MAP[row.code]);
+    }
+    return enabled;
+  } catch {
+    return fallback;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -217,15 +332,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    const [wpEs, wpEn, wd, nm, gn] = await Promise.all([
-      searchWikipedia('es', term, limit),
-      searchWikipedia('en', term, limit),
-      searchWikidata(term, limit),
-      searchNominatim(term, limit),
-      searchGeoNames(term, limit),
-    ]);
+    const enabled = await getEnabledSearchSources();
+    const tasks: Array<Promise<Candidate[]>> = [];
+    if (enabled.has('wikipedia-es')) tasks.push(searchWikipedia('es', term, limit));
+    if (enabled.has('wikipedia-en')) tasks.push(searchWikipedia('en', term, limit));
+    if (enabled.has('wikidata')) tasks.push(searchWikidata(term, limit));
+    if (enabled.has('nominatim')) tasks.push(searchNominatim(term, limit));
+    if (enabled.has('geonames')) tasks.push(searchGeoNames(term, limit));
+    if (enabled.has('photon')) tasks.push(searchPhoton(term, limit, body.near));
+    if (enabled.has('google-places')) tasks.push(searchGooglePlaces(term, limit, body.near));
 
-    let candidates = dedup([...wpEs, ...wd, ...wpEn, ...nm, ...gn]);
+    const results = await Promise.all(tasks);
+    let candidates = dedup(results.flat());
 
     if (body.near) {
       for (const c of candidates) {
@@ -236,12 +354,12 @@ Deno.serve(async (req) => {
 
     candidates = candidates.slice(0, Math.min(limit * 2, 12));
 
-    return new Response(JSON.stringify({ candidates }), {
+    return new Response(JSON.stringify({ candidates, enabledSources: Array.from(enabled) }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
     return new Response(JSON.stringify({ candidates: [], error: String(err) }), {
-      status: 200, // soft-fail: UI just shows empty
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
