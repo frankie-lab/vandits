@@ -17,10 +17,18 @@
  * cambios live (draft) se reflejen al instante.
  */
 import { useState } from 'react';
-import { ChevronDown, Pencil } from 'lucide-react';
+import { ChevronDown, Pencil, Wand2 } from 'lucide-react';
 import type { PairedRow, LeafToken } from './token-grouping';
 import { isColorValue, toCssColor } from './token-grouping';
 import { hslTripletToHex, parseHslTriplet } from './color-conversions';
+import {
+  contrastRatio,
+  wcagLevel,
+  tripletToRgb,
+  deriveOppositeTriplet,
+  resolveTargetBackgroundPath,
+  resolveOppositeModePath,
+} from './color-adaptive';
 import { lookupGlossary } from './token-glossary';
 import { TokenPreview } from './TokenPreviews';
 import { Badge } from '@/design-system/primitives/badge';
