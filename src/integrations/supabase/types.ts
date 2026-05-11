@@ -465,6 +465,30 @@ export type Database = {
         }
         Relationships: []
       }
+      design_system_history: {
+        Row: {
+          id: string
+          note: string | null
+          published_at: string
+          published_by: string | null
+          value: Json
+        }
+        Insert: {
+          id?: string
+          note?: string | null
+          published_at?: string
+          published_by?: string | null
+          value: Json
+        }
+        Update: {
+          id?: string
+          note?: string | null
+          published_at?: string
+          published_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       document_tracks: {
         Row: {
           color: string | null

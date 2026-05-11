@@ -1,14 +1,9 @@
 /**
- * TokenRow — fila expandible con identidad humana + uso + preview.
- *
- *  - Swatch (color) o icono según tipo.
- *  - Identidad: label humano (es) + nombre técnico + alias en chips si hay dedupe.
- *  - "Dónde se usa": frase curada del glosario.
- *  - Click → expande con TokenPreview en vivo.
+ * TokenRow — fila expandible. En modo edición muestra botón "Editar" con popover.
  */
 import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
-import type { PairedRow } from './token-grouping';
+import { ChevronDown, Pencil } from 'lucide-react';
+import type { PairedRow, LeafToken } from './token-grouping';
 import {
   isColorValue,
   toCssColor,
@@ -17,6 +12,12 @@ import {
 } from './token-grouping';
 import { lookupGlossary } from './token-glossary';
 import { TokenPreview } from './TokenPreviews';
+import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover';
+import { Badge } from '@/design-system/primitives/badge';
+import { Button } from '@/design-system/primitives/button';
+import { TokenValueEditor } from './TokenEditors';
+import { useDesignSystemEdit } from '@/design-system/runtime/edit-mode-store';
+import { getLeaf } from '@/design-system/runtime/token-registry';
 
 interface Props {
   row: PairedRow;
@@ -26,29 +27,47 @@ interface Props {
 export function TokenRow({ row, groupId }: Props) {
   const [open, setOpen] = useState(false);
   const entry = lookupGlossary(row.glossaryKey);
+  const editMode = useDesignSystemEdit((s) => s.editMode);
+  const draft = useDesignSystemEdit((s) => s.draft);
+  const published = useDesignSystemEdit((s) => s.published);
+
+  const editableTokens = collectEditableTokens(row);
+  const hasOverride = editableTokens.some(
+    (t) => t.path.join(".") in draft || t.path.join(".") in published,
+  );
 
   return (
     <div className="border border-border rounded-token-md bg-card">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-start gap-3 p-3 text-left hover:bg-muted/40 transition-colors rounded-token-md"
-      >
-        <Swatch row={row} groupId={groupId} />
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium truncate">{entry.label}</div>
-          <div className="text-xs text-muted-foreground mt-0.5 truncate">
-            {entry.usage}
+      <div className="flex items-start gap-2 p-3">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex-1 flex items-start gap-3 text-left hover:bg-muted/40 transition-colors rounded-token-md -m-1 p-1"
+        >
+          <Swatch row={row} groupId={groupId} />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="text-sm font-medium truncate">{entry.label}</div>
+              {hasOverride && (
+                <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                  Modificado
+                </Badge>
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5 truncate">{entry.usage}</div>
+            <AliasChips row={row} />
           </div>
-          <AliasChips row={row} />
-        </div>
-        <ValueColumn row={row} />
-        <ChevronDown
-          className={`w-4 h-4 text-muted-foreground shrink-0 mt-1 transition-transform ${
-            open ? 'rotate-180' : ''
-          }`}
-        />
-      </button>
+          <ValueColumn row={row} />
+          <ChevronDown
+            className={`w-4 h-4 text-muted-foreground shrink-0 mt-1 transition-transform ${
+              open ? 'rotate-180' : ''
+            }`}
+          />
+        </button>
+        {editMode && editableTokens.length > 0 && (
+          <EditButton tokens={editableTokens} row={row} />
+        )}
+      </div>
       {open && (
         <div className="px-3 pb-3 pt-1 border-t border-border">
           <div className="text-xs text-muted-foreground mb-2">Vista previa</div>
@@ -58,6 +77,57 @@ export function TokenRow({ row, groupId }: Props) {
     </div>
   );
 }
+
+function collectEditableTokens(row: PairedRow): LeafToken[] {
+  if (row.kind === 'lightDark') {
+    return row.dark ? [row.light, row.dark] : [row.light];
+  }
+  return row.tokens.filter((t) => !!t.cssVar);
+}
+
+function EditButton({ tokens, row }: { tokens: LeafToken[]; row: PairedRow }) {
+  const setDraft = useDesignSystemEdit((s) => s.setDraft);
+  const draft = useDesignSystemEdit((s) => s.draft);
+  const published = useDesignSystemEdit((s) => s.published);
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button size="icon-sm" variant="ghost" title="Editar token">
+          <Pencil className="w-3.5 h-3.5" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80" align="end">
+        <div className="space-y-4">
+          {tokens.map((t) => {
+            const dotted = t.path.join('.');
+            const leaf = getLeaf(dotted);
+            if (!leaf) return null;
+            const current = draft[dotted] ?? published[dotted] ?? leaf.baseValue;
+            const modeLabel =
+              row.kind === 'lightDark'
+                ? dotted.includes('.dark.')
+                  ? 'Modo oscuro'
+                  : 'Modo claro'
+                : dotted;
+            return (
+              <div key={dotted} className="space-y-2">
+                <div className="text-xs font-medium">{modeLabel}</div>
+                <TokenValueEditor
+                  type={leaf.type}
+                  value={current}
+                  baseValue={leaf.baseValue}
+                  onChange={(next) => setDraft(dotted, next)}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 
 // ─── Swatch ────────────────────────────────────────────────────────
 

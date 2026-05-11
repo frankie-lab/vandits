@@ -12,6 +12,8 @@ import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
 import DuplicatePolicy from "./pages/DuplicatePolicy";
 import { GlobalLoadingBar } from "@/shared/loading";
+import { DesignSystemThemeProvider } from "@/design-system/runtime/theme-provider";
+import { EditModeBar } from "@/components/admin/design-system/EditModeBar";
 
 
 const queryClient = new QueryClient();
@@ -43,9 +45,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 const App = () => (
  <QueryClientProvider client={queryClient}>
  <IconLibraryProvider>
+ <DesignSystemThemeProvider>
  <TooltipProvider>
     <Toaster />
      <GlobalLoadingBar />
+     <EditModeBar />
  <BrowserRouter>
  <Routes>
  <Route path="/auth" element={<Auth />} />
