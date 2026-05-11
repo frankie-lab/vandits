@@ -161,7 +161,7 @@ export function PopupPreview({
         }}
       >
         {isLoading ? (
-          <HeroImageSkeleton ratio="16/9" />
+          <HeroSkeletonInline />
         ) : isEnriched && heroSrc ? (
           <img
             src={heroSrc}
