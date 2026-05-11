@@ -194,33 +194,6 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
     }
   };
 
-  const handleRename = async () => {
-    const next = renameValue.trim();
-    if (!next || next === location.name) return;
-    setBusy(true);
-    try {
-      const { error } = await supabase
-        .from('locations')
-        .update({ name: next, updated_at: new Date().toISOString() })
-        .eq('id', location.id);
-      if (error) throw error;
-      useLocationsStore.getState().updateLocation(location.id, {
-        name: next,
-        updatedAt: new Date(),
-      });
-      const result = await triggerEnrichLocation(location.id, {
-        focusAfter: false,
-        skipValidation: true,
-      });
-      if (result.success) enrichmentFailureStore.invalidate(location.id);
-      else if (result.error) toast.error(result.error);
-    } catch {
-      toast.error('No se pudo renombrar');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const handleSaveAll = async () => {
     const name = form.name.trim();
     const lat = parseFloat(form.lat);
