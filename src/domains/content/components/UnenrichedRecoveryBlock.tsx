@@ -379,15 +379,15 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
 
   return (
     <div className={`flex flex-col border-t-2 ${accent}`}>
-      {/* Badge de estado */}
-      <div className="flex items-center gap-2 pt-2 pb-1.5">
-        <span
-          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-medium leading-none ${badgeBg}`}
+      {/* Badge de estado a ancho completo */}
+      <div className="pt-2 pb-1.5">
+        <div
+          className={`w-full flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] font-medium ${badgeBg}`}
         >
-          <AlertCircle className="w-3 h-3" />
-          No encaja con la zona
-        </span>
-        {loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+          <span className="flex-1 leading-tight">No encaja con la zona</span>
+          {loading && <Loader2 className="w-3 h-3 animate-spin flex-shrink-0" />}
+        </div>
       </div>
 
       {!editingAll && (
