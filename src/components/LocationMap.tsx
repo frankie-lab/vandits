@@ -1399,7 +1399,7 @@ export function LocationMap() {
   // gated by CSS classes on the map container (`map-zoom-standard`,
   // `map-zoom-rich`) set in the zoomend listener. The same tooltip works at
   // every zoom; CSS hides/shows the <img>.
-  marker.bindTooltip(buildHoverTooltipHtml(location), {
+  marker.bindTooltip(buildHoverTooltipHtml(location, ownership), {
     direction: 'top',
     offset: [0, -12],
     className: 'poi-hover-tooltip-wrap',
