@@ -34,8 +34,10 @@ export interface TokenLeaf {
   path: string;
   /** Logical group id (matches sidebar). */
   groupId: string;
-  /** CSS variable name (without `--`). undefined → not directly editable as a var. */
+  /** Primary CSS variable (first entry of `_css`). undefined → not directly editable as a var. */
   cssVar?: string;
+  /** Full list of CSS variables this token drives (a single semantic token can power multiple legacy vars). */
+  cssVars: string[];
   /** light/dark selector for color tokens. null for everything else. */
   mode: 'light' | 'dark' | null;
   /** Factory value (immutable, fully resolved through $ref chain). */
