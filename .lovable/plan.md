@@ -1,62 +1,45 @@
-# Plan: render del color en su contexto (claro/oscuro)
+## Qué arreglo
 
-Cambio acotado a `ColorSwatchColumn` en `src/components/admin/design-system/TokenRow.tsx`. Ni store ni tokens cambian.
+1. **Cuadros de color que salen vacíos** en algunas filas (acento de marca, texto sobre acento, etc.).
+2. **El modal del Back Office se mete debajo de la barra inferior** de progreso (la del enriquecimiento por lotes).
 
-## Problema
+## Cómo lo arreglo
 
-Hoy cada columna se pinta entera con el color del token. Resultado: dos rectángulos de color y ningún contexto. No se aprecia cómo se lee el color sobre fondo claro vs fondo oscuro, que es justamente la razón de tener par light/dark.
+### 1. Cuadros de color vacíos
 
-## Resultado visual nuevo
+Ahora mismo, en cada fila, el fondo de la columna Claro/Oscuro intenta ser "el sitio donde ese color se usa de verdad" — y en muchos casos ese sitio **es el propio color**, así que la muestra desaparece (color encima de color = no ves nada).
 
-Cada columna pasa a ser un **lienzo de surface** (su `surface.background` del modo) con la muestra del color **dentro**, como aparecería en la app real.
+Cambio:
+- **Fondo de la columna = siempre el fondo de la app** (blanco hueso en Claro, casi negro en Oscuro). Sin excepciones, salvo que el token sea literalmente "fondo de página".
+- **La muestra del color va dentro**, como cuadrado relleno o como texto (si es un token de tipografía).
+- **El badge de contraste (WCAG)** sigue calculándose contra el sitio real donde se usa el color — el badge no miente, sólo cambia dónde dibujamos la muestra.
 
-```text
-┌───── CLARO ─────────────┐  ┌───── OSCURO ────────────┐
-│ surface light (#FBFAF9) │  │ surface dark (#101318)  │
-│                         │  │                         │
-│   ┌──────────────────┐  │  │   ┌──────────────────┐  │
-│   │   color sample   │  │  │   │   color sample   │  │
-│   │   "Texto sobre"  │  │  │   │   "Texto sobre"  │  │
-│   │   #DF6C20  4.5:1 │  │  │   │   #E87A30  6.2:1 │  │
-│   └──────────────────┘  │  │   └──────────────────┘  │
-│ CLARO                   │  │ OSCURO                  │
-└─────────────────────────┘  └─────────────────────────┘
-```
+Resultado: en TODAS las filas verás el cuadrado del color claramente, sobre fondo claro u oscuro.
 
-- **Fondo de la columna** = `surface.background` del modo (o el surface mapeado por `ROLE_SURFACE_MAP` para roles especiales: `poi.* → map.background`, `state.* → surface.card`, etc.). Click en la columna NO edita el surface, sigue editando el token.
-- **Muestra central** (chip) = el color del token. Forma según rol:
-  - Texto (`text.*`, `*.foreground`): una palabra/frase pintada en el color del token sobre el surface. Sin chip de fondo. Esto demuestra legibilidad real.
-  - Resto (brand, surface, state.bg, poi, map): un chip rectangular ~70% × 60% relleno del color, con HEX y badge WCAG superpuestos.
-- **Label del modo** ("Claro" / "Oscuro") en una esquina, con color contrastado contra el surface (no contra el color del token).
-- **WCAG badge** se mantiene, calculado contra el surface destino (igual que ahora).
-- **Click en cualquier punto de la columna** abre el editor del color (mantiene `EditableTokenSurface`).
+### 2. Modal pisando la barra inferior
 
-## Detección rol-tipo (texto vs fondo)
+El sistema ya tiene una regla global que dice "todos los modales se encogen cuando aparece la barra inferior". Pero este modal tiene una altura fija a pelo (`h-[92vh]`) que se salta esa regla.
 
-Helper local muy simple basado en el path:
+Cambio:
+- Quito la altura fija. El modal pasa a obedecer la regla global.
+- Cuando enciendes un batch de enriquecimiento → la barra aparece, el modal se encoge solo y queda un poco de aire entre los dos.
+- Cuando termina → la barra desaparece, el modal se expande otra vez.
 
-```ts
-function isForegroundRole(role: string): boolean {
-  if (role.startsWith('text.')) return true;
-  if (role.endsWith('Foreground') || role.endsWith('-foreground')) return true;
-  if (role === 'brand.accentForeground') return true;
-  return false;
-}
-```
+## Archivos que toco (3, mínimos)
 
-Si es foreground → render como texto sobre surface. Si no → chip relleno.
+- `src/components/admin/design-system/TokenRow.tsx` — el fondo de las columnas.
+- `src/components/AdminPanel.tsx` — quitar `h-[92vh]` y `h-[90vh]`.
+- `src/components/BottomProgressBar.tsx` — publicar un margen un poco mayor cuando la barra está activa.
 
-## Casos especiales
+## Lo que NO toco
 
-- **Token surface (p. ej. `surface.background`, `surface.card`)**: el "fondo" y el "color del token" coinciden. En ese caso la columna se pinta entera con el propio color (como ahora) y la muestra se omite — no hay contexto que enseñar.
-- **Sin `surface` mapeado**: fallback a `surface.background` del modo.
+- La lógica de vincular Claro↔Oscuro (sigue igual).
+- El editor de color (sigue igual).
+- Cómo se calculan los contrastes (sigue igual).
+- Los demás modales (heredan la regla automáticamente).
 
-## Archivos a tocar
+## Comprobación final
 
-Solo `src/components/admin/design-system/TokenRow.tsx` (función `ColorSwatchColumn` + helper `isForegroundRole`). El resto (info column, auto-link, store) queda intacto.
-
-## Fuera de alcance
-
-- Reglas de mapeo (`ROLE_SURFACE_MAP`) — no se tocan.
-- Editor de color (popover) — no cambia.
-- Otros tipos de token — no cambian.
+- Abrir Design System → todas las filas muestran los cuadros de color visibles en Claro y Oscuro.
+- Lanzar un batch → la barra inferior aparece, el modal se ajusta solo.
+- Cerrar el batch → el modal vuelve a su tamaño.
