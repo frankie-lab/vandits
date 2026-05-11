@@ -23,13 +23,15 @@ export interface TriggerEnrichOptions {
   regenerate?: boolean;
   /** When true, focus the location after enrichment succeeds. Default true. */
   focusAfter?: boolean;
+  /** When true, bypass server-side name↔coordinate coherence validation. */
+  skipValidation?: boolean;
 }
 
 export async function triggerEnrichLocation(
   locationId: string,
   opts: TriggerEnrichOptions = {},
 ): Promise<{ success: boolean; error?: string }> {
-  const { focusAfter = true, regenerate = false } = opts;
+  const { focusAfter = true, regenerate = false, skipValidation = false } = opts;
 
   // 1. Resolve the location from the store.
   const documents = useLocationsStore.getState().documents;
