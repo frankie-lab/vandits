@@ -159,6 +159,22 @@ export const createCustomIcon = (
     return getStateColor(hex, currentState, stateRules);
   };
 
+  // Thumbnail circular SOLO en marker focused/selected (no por zoom). Helper
+  // único: este bloque. Fuente de imagen: enriched (público) primero, luego
+  // user_image_url (la visibilidad de almacenamiento ya está gobernada por
+  // RLS — si el URL llega al cliente es porque puede verla). Si la imagen
+  // falla, `onerror` la oculta y el marker queda como antes.
+  // Ver `.lovable/plan.md` y `mem://style/map/focused-thumbnail-rule`.
+  const showThumb = (isFocused || isSelected);
+  const thumbUrl = showThumb
+    ? ((location?.enrichedData?.imagen as string | undefined)
+        || (location?.customData?.user_image_url as string | undefined)
+        || '')
+    : '';
+  const thumbHtml = thumbUrl
+    ? `<img class="poi-thumb" src="${thumbUrl}" alt="" crossorigin="anonymous" onerror="this.style.display='none'" />`
+    : '';
+
   const baseColor = entry.fill_color;
   const baseColorLight = entry.fill_color_light || adjustHslLightness(baseColor, 15);
   const scaleRatio = hoverSize ? hoverSize / size : 1;
