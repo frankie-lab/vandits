@@ -93,17 +93,10 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
       name: location.name ?? '',
       lat: String(location.coordinates.lat ?? ''),
       lng: String(location.coordinates.lng ?? ''),
+      description: location.description ?? '',
     });
-    setRenameValue(location.name ?? '');
     setEditingAll(false);
-  }, [location.id, location.name, location.coordinates.lat, location.coordinates.lng]);
-
-  // Tab por defecto según candidatos
-  React.useEffect(() => {
-    if (!parsed) return;
-    const cands = getCandidates(parsed);
-    setTab(cands.length === 0 ? 'rename' : 'nearby');
-  }, [parsed?.kind, parsed?.candidates?.length, parsed?.nameLocation?.title]);
+  }, [location.id, location.name, location.coordinates.lat, location.coordinates.lng, location.description]);
 
   if (isEnriched) return null;
 
