@@ -1245,6 +1245,28 @@ export function LocationMap() {
     // Initialize layer groups system
     initLayerGroups(mapRef.current);
 
+    // Panes de prioridad visual (Ola 2 — arquitectura visual por zoom).
+    // `mine-pane` se dibuja SIEMPRE encima de `others-pane`; `selection-pane`
+    // por encima de ambos. Asignamos `pane` por marker según ownership.
+    // Z-index base de markerPane = 600 (Leaflet default). Mantenemos un
+    // delta pequeño para no romper popups (z700) ni tooltips (z650).
+    const _map = mapRef.current;
+    if (!_map.getPane('others-pane')) {
+      _map.createPane('others-pane');
+      const p = _map.getPane('others-pane')!;
+      p.style.zIndex = '590';
+    }
+    if (!_map.getPane('mine-pane')) {
+      _map.createPane('mine-pane');
+      const p = _map.getPane('mine-pane')!;
+      p.style.zIndex = '610';
+    }
+    if (!_map.getPane('selection-pane')) {
+      _map.createPane('selection-pane');
+      const p = _map.getPane('selection-pane')!;
+      p.style.zIndex = '630';
+    }
+
     // Initialize photo layer
     const cleanupPhotoLayer = initPhotoLayer(mapRef.current);
 
