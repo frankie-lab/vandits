@@ -373,18 +373,21 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
   const showingSearch = searchResults !== null;
   const emptySearch = showingSearch && candidates.length === 0;
 
+  const badgeBg = soft
+    ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+    : 'bg-red-100 text-red-800 border-red-300 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800';
+
   return (
     <div className={`flex flex-col border-t-2 ${accent}`}>
-      {/* Cabecera */}
-      <div className="flex items-start gap-2 pt-2 pb-1.5">
-        <AlertCircle className={`w-4 h-4 flex-shrink-0 mt-0.5 ${iconClass}`} />
-        <div className="flex-1 min-w-0">
-          <div className="text-[12px] font-semibold leading-tight">No encaja con la zona</div>
-          <div className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-            Elige el lugar correcto o busca otro.
-          </div>
-        </div>
-        {loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground mt-1" />}
+      {/* Badge de estado */}
+      <div className="flex items-center gap-2 pt-2 pb-1.5">
+        <span
+          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-medium leading-none ${badgeBg}`}
+        >
+          <AlertCircle className="w-3 h-3" />
+          No encaja con la zona
+        </span>
+        {loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
       </div>
 
       {!editingAll && (
