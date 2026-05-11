@@ -134,7 +134,8 @@ export const createCustomIcon = (
   // perceptible al usuario entre zoom medio (compact) y cercano (rich).
   // `micro` no llega aquí (vuelve antes con divIcon plano).
   // Progresión perceptible entre bands. Ver `mem://style/map/zoom-driven-hero`.
-  const modeScale = renderMode === 'compact' ? 0.55 : renderMode === 'rich' ? 1.35 : 1;
+  // compact ≈ tamaño base (claramente visible en vista regional), rich +35%.
+  const modeScale = renderMode === 'compact' ? 0.9 : renderMode === 'rich' ? 1.35 : 1;
   const baseSize = getBaseSize(entry, isRecentlyEnriched, isFocused, isSelected);
   const baseHover = getHoverSize(entry);
   const size = Math.max(6, Math.round(baseSize * modeScale));
