@@ -138,24 +138,29 @@
   :root {
     --bottom-progress-h: 0px;
     --overlay-progress-gap: 12px;
+    /* Top floating header (FloatingToolbar logo + counters + search + actions).
+       Toolbar sits at top-4 with h-10 → 16+40 = 56px; reserve a bit extra so
+       overlays never crash into it. Adjust here if header chrome grows. */
+    --top-header-h: 72px;
   }
 
   /* Radix Dialog/Sheet overlays (z-[2000] in this project) shrink to leave
-     room for the bar. We target the centered content via flex padding, and
-     additionally cap the inner content max-height so fixed `h-[XXvh]` values
-     never push into the bar.
+     room for the bottom progress bar AND the top floating header. We target
+     the centered content via flex padding, and additionally cap the inner
+     content max-height so fixed `h-[XXvh]` values never push into either bar.
      Uses !important because overlays frequently apply Tailwind padding
      utilities (p-4, p-6) that would otherwise win the cascade. */
   [data-radix-dialog-overlay],
   [data-radix-alert-dialog-overlay],
   .overlay-respect-progress {
+    padding-top: calc(var(--top-header-h, 0px) + var(--overlay-progress-gap, 12px)) !important;
     padding-bottom: calc(var(--bottom-progress-h, 0px) + var(--overlay-progress-gap, 12px)) !important;
   }
 
   [data-radix-dialog-overlay] > *,
   [data-radix-alert-dialog-overlay] > *,
   .overlay-respect-progress > * {
-    max-height: calc(100vh - var(--bottom-progress-h, 0px) - 2rem - var(--overlay-progress-gap, 12px)) !important;
+    max-height: calc(100vh - var(--top-header-h, 0px) - var(--bottom-progress-h, 0px) - 2 * var(--overlay-progress-gap, 12px)) !important;
   }
 
   /* Bottom-anchored sheets/drawers (Radix Sheet side="bottom", custom drawers
@@ -163,6 +168,12 @@
   [data-radix-dialog-content][data-side="bottom"],
   .sheet-respect-progress {
     bottom: calc(var(--bottom-progress-h, 0px) + var(--overlay-progress-gap, 12px)) !important;
+  }
+
+  /* Top-anchored sheets/drawers must clear the floating header. */
+  [data-radix-dialog-content][data-side="top"],
+  .sheet-respect-header {
+    top: calc(var(--top-header-h, 0px) + var(--overlay-progress-gap, 12px)) !important;
   }
 
   h1, h2, h3, h4, h5, h6 {
