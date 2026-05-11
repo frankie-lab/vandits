@@ -1,101 +1,80 @@
-## Diagnóstico
+## Lo que el usuario está viendo y por qué tiene razón
 
-Tienes razón: en `color.json` hay valores literales repetidos en tokens semánticamente equivalentes. Ejemplos en la captura:
+Dos problemas reales en el panel de Diseño:
 
-- `#FFFFFF` aparece en `card`, `popover`, `primaryForeground`, `secondaryForeground`, `destructiveForeground`
-- `#1D212B` aparece en `foreground`, `cardForeground`, `popoverForeground`
-- `#FBFAF9` aparece solo en `background` pero conceptualmente es "neutral más claro del tema"
-- Igual en oscuro: `#161A22` está en `card` y `popover`; `#F2F0ED` en los tres "foreground"
+### Problema 1 — UX: el color no es clicable
 
-Hoy son strings literales sueltos. Editar "color de marca" no cascadea, y editar "fondo de tarjeta" no toca "fondo de popover" aunque casi siempre deban ir juntos. Por eso el inspector enseña filas duplicadas.
+Para editar un color hay que apuntar al lápiz pequeño de la derecha. El swatch del row, los hex `#DF6C20 / #E87A30`, los chips `→ brand.500` y los previews "Guardar" en claro/oscuro **muestran color pero no responden al click**. Es contraintuitivo y desperdicia mucho espacio horizontal.
 
-La solución correcta no es ocultarlas en UI: es introducir **dos niveles de tokens** (primitivos → semánticos) con referencias, y que el editor entienda esa cadena.
+### Problema 2 — Bug: lo que se muestra no es lo que está aplicado
 
-## Plan: Tokens primitivos + alias semánticos
+`TokenRow.tsx` y `TokenPreviews.tsx` leen `row.light.value` y `row.value` resueltos por `token-grouping.ts`, que es un snapshot **estático del JSON**. No mira `draft` ni `published` del store. Resultado: si editas un primitivo (`brand.500`) o un alias (`color.light.primary`), el row del alias y su preview "Guardar" siguen pintando el color baseline mientras el resto de la app ya muestra el nuevo. De ahí el "no son los que aparecen".
 
-### 1. Refactor `color.json` en dos capas
+El editor sí funciona (`getLeaf` + draft/published en `EditButton`), pero la presentación del row no.
 
-```text
-primitives:
-  neutral.0 / 50 / 100 / 200 / 500 / 800 / 900 / 950
-  brand.500 / brand.600
-  info.500
-  danger.500 / danger.600
-  (sin _css — son solo "paleta cruda")
+## Plan
 
-color.light / color.dark:
-  background:            { $ref: "primitives.neutral.50", _css: "--background" }
-  card:                  { $ref: "primitives.neutral.0",  _css: "--card" }
-  popover:               { $ref: "primitives.neutral.0",  _css: "--popover" }
-  primary:               { $ref: "primitives.brand.500",  _css: "--primary" }
-  primaryForeground:     { $ref: "primitives.neutral.0",  _css: "--primary-foreground" }
-  …
-```
+### A. Bug: una sola fuente de verdad para el color mostrado
 
-El resolver de tokens (en `token-registry.ts` y en `apply-overrides.ts`) sigue el `$ref` hasta una hoja con `value`. Las CSS vars se escriben exactamente igual que ahora — cero cambios visuales.
+1. Sustituir todas las lecturas estáticas `row.value` / `row.light.value` / `row.dark.value` por un helper único `useResolvedTokenValue(path: string)` que devuelve `draft[path] ?? published[path] ?? leaf.baseValue`.
+2. Aplicarlo en:
+   - `TokenRow.tsx` › `Swatch` (header), `ValueColumn` (columna hex), `RefChip`.
+   - `TokenPreviews.tsx` › `ColorPreview`, `ColorExample` y el resto de previews que pintan color (`Poi`, `Popup`, `Map`).
+3. El helper se suscribe al store (`useDesignSystemEdit`), así cualquier cambio en el draft re-renderiza row + preview en vivo. Cero más snapshots desactualizados.
 
-### 2. Inspector con dos pestañas dentro de "Color"
+### B. UX: clicar el color = editar el color
 
-```text
-Color
- ├─ Paleta primitiva   ← 10–12 swatches base, fuente única de verdad
- └─ Tokens semánticos  ← cada uno muestra "→ primitives.neutral.0" y los alias que comparten esa referencia
-```
+1. **Nuevo wrapper `<EditableTokenSurface token>`** (un solo helper) que en `editMode=ON` envuelve a `children` en un `Popover` con el editor del token; en `editMode=OFF` lo deja decorativo. Reutiliza el `Popover + TokenValueEditor` existente.
+2. Lo aplicamos a:
+   - **Swatch del header** del row (claro/oscuro: cada mitad abre su editor).
+   - **ValueColumn** (línea claro / línea oscuro, cada hex es clicable).
+   - **Previews** del bloque expandido (`Guardar`, `Acción`, tarjeta, borde, ring, texto…): el propio botón/elemento es el trigger.
+3. El **botón lápiz desaparece** salvo en rows que no tengan superficie clicable (caso raro). Se recupera espacio horizontal.
 
-Ejemplo de fila semántica colapsada:
+### C. Color editor: paleta, HEX/RGB y picker estándar
+
+Rediseñar `ColorEditor` con un layout tipo Figma/Tailwind. Mismo `value` (`H S% L%`) por dentro, mejor UI por fuera:
 
 ```text
-Fondo claro de superficie                       CLARO  → neutral.0
-"card, popover, primaryForeground"              OSCURO → neutral.900
-└─ 3 alias agrupados · click para expandir
+┌────────────────────────────────────────────┐
+│  ┌────────┐   HEX  [ #DF6C20         ]    │
+│  │ swatch │   RGB  [ 223 ] [108] [ 32 ]   │
+│  │ 64×64  │   HSL  [ 22 ] [73%] [50%]    │
+│  └────────┘                                │
+│  Paleta primitiva (presets clicables)      │
+│  ▢ ▢ ▢ ▢ ▢ ▢ ▢ ▢ ▢ ▢   (10–12 swatches)   │
+│  Picker nativo  [ <input type="color"> ]   │
+│  Sliders  H ━●━ S ━●━ L ━●━                │
+│  Base: 22 73% 50%      [Restablecer]       │
+└────────────────────────────────────────────┘
 ```
 
-### 3. Edición en cascada
+- **Input HEX**: pegar `#DF6C20` o `DF6C20` actualiza HSL automáticamente.
+- **Inputs RGB** (3 campos numéricos 0–255): edita por canales.
+- **Inputs HSL** (3 numéricos): edita por canales con la misma semántica que el `value` interno.
+- **Paleta primitiva**: en aliases, muestra los 12 primitivos del modo actual (`neutral.0..950 + brand + info + danger`) como swatches clicables → asigna el valor del primitivo (no relink, asigna valor directo; el "Desvincular/relink" sigue donde está).
+- **Picker nativo**: `<input type="color">` para los que prefieren el selector del SO.
+- **Sliders H/S/L** se conservan como ajuste fino.
+- Conversiones HEX↔RGB↔HSL en un único `src/components/admin/design-system/color-conversions.ts` (sin dependencias).
 
-- **Editar un primitivo** (`neutral.0`) → todos los semánticos que lo referencian cambian a la vez. Un solo color picker afecta a `card`, `popover`, `primaryForeground` simultáneamente. Esto es lo que pediste: dejar de tocar 3 sitios para el mismo color.
-- **Editar un semántico** → opción "Desvincular del primitivo" antes de cambiar el valor (si no, sigue heredando). Útil para excepciones puntuales.
-- **Volver al primitivo** → botón "Re-vincular" restaura el `$ref`.
+### D. Tocar solo presentación
 
-### 4. Persistencia en `app_settings`
+No se modifica: persistencia (`app_settings.design_system_overrides`), historial, `build-tokens.cjs`, JSON de tokens, modelo primitives/alias, ni la lógica de `setDraft`/`relink`.
 
-El override map ya guarda por path. Añadimos dos formas de override:
+## Archivos
 
-```json
-{
-  "primitives.neutral.0": "0 0% 100%",      // cascada
-  "color.light.card": { "$ref": "primitives.neutral.0" },  // alias
-  "color.light.border": "40 15% 85%"        // override directo (desvinculado)
-}
-```
+**Modificar**
+- `src/components/admin/design-system/TokenRow.tsx` — usar helper resuelto + envolver swatch y ValueColumn en `EditableTokenSurface`; degradar lápiz a fallback.
+- `src/components/admin/design-system/TokenPreviews.tsx` — leer valor resuelto y envolver previews clicables.
+- `src/components/admin/design-system/TokenEditors.tsx` — rediseñar `ColorEditor` (HEX/RGB/HSL + paleta + picker nativo + sliders).
 
-`apply-overrides.ts` resuelve refs antes de escribir las CSS vars.
+**Crear**
+- `src/components/admin/design-system/EditableTokenSurface.tsx` — wrapper único.
+- `src/components/admin/design-system/useResolvedTokenValue.ts` — hook único de lectura.
+- `src/components/admin/design-system/color-conversions.ts` — HEX/RGB/HSL helpers.
 
-### 5. Mismo patrón aplicable después a:
+## Fuera de alcance
 
-- `typography` — `fontFamily.heading` → `fontFamily.sans`, varias escalas comparten weight
-- `radius` — `rounded-token-sm/md/lg` muchas veces colapsan a 2 valores reales
-- `motion` — durations base reutilizadas en varios tokens
-
-Pero **esta primera entrega solo toca `color.json`** para validar el patrón.
-
-## Detalles técnicos
-
-**Archivos a tocar**:
-- `src/design-system/tokens/source/color.json` — reescritura completa con `primitives` + `$ref`
-- `src/design-system/runtime/token-registry.ts` — nuevo `resolveRef(node)` recursivo; `TokenLeaf` gana campos `refPath?`, `isPrimitive?`
-- `src/design-system/runtime/apply-overrides.ts` — resolver refs antes de escribir CSS
-- `src/design-system/runtime/edit-mode-store.ts` — `setDraft` acepta `{ $ref }` o valor crudo; nuevo `unlink(path)` y `relink(path, ref)`
-- `src/components/admin/design-system/token-grouping.ts` — agrupa por `refPath` en lugar de por valor literal
-- `src/components/admin/design-system/TokenRow.tsx` — chip "→ neutral.0" + acción "Desvincular"
-- `src/components/admin/design-system/TokenEditors.tsx` — `ColorEditor` con toggle "Editar el primitivo vinculado" vs "Sobrescribir solo este alias"
-- `src/components/admin/DesignSystemPanel.tsx` — sub-pestañas "Primitiva" / "Semánticos" dentro de Color
-
-**Sin cambios**:
-- CSS vars consumidas por componentes (`--background`, `--primary`, etc.) — los nombres no cambian
-- `index.css` / Tailwind config — siguen leyendo las mismas variables
-- Build pipeline `build-tokens.cjs` — solo necesita resolver refs antes de emitir
-- Otros JSON de tokens (typography, density…) — fase siguiente, fuera de scope ahora
-
-**Riesgo principal**: el build de tokens (`build-tokens.cjs`) hoy probablemente espera `value` directo. Si el script no resuelve `$ref`, los archivos generados (`tokens.css`/`.ts`) saldrían vacíos para los alias. Hay que añadir el resolver también ahí.
-
-**Sin cambios visuales** al terminar: la app se sigue viendo idéntica hasta que un admin edite. Solo cambia la estructura interna y la UI del inspector.
+- No se cambia ningún color del propio panel admin.
+- No se altera la estructura de primitives/alias ni el comportamiento de "Desvincular/relink".
+- No se introduce librería externa de color picker; todo nativo (`<input type="color">` + inputs numéricos).
