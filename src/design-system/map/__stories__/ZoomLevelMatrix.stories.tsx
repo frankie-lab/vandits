@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { PoiPreview, MapCanvas } from './PoiPreview';
-import { tokens } from '@/design-system/tokens/build/tokens';
+import { tokens } from '@/design-system/tokens';
 import {
   getMapZoomBand,
 } from '@/design-system/map/rules/zoom-thresholds';

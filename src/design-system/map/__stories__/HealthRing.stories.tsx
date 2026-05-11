@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { PoiPreview, MapCanvas } from './PoiPreview';
+import { PoiPreview, MapCanvas, COLLECTION_TINT_SAMPLE } from './PoiPreview';
 
 const meta = {
   title: 'Map Lab/Rings/HealthRing',
@@ -43,7 +43,7 @@ export const WithCollectionTint: Story = {
       <PoiPreview
         state="imported"
         health={['error', 'chain']}
-        collectionTint="#8b5cf6"
+        collectionTint={COLLECTION_TINT_SAMPLE.violet}
         label="health + tint"
       />
     </MapCanvas>
