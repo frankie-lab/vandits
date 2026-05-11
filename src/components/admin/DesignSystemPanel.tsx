@@ -7,8 +7,10 @@
  */
 import { useMemo, useState } from 'react';
 import {
-  Palette, Type, Layers, Box, Sparkles, BookOpen, ChevronDown,
+  Palette, Type, Layers, Box, Sparkles, BookOpen, ChevronDown, History, Pencil,
 } from 'lucide-react';
+import { HistoryTab } from './design-system/HistoryTab';
+import { useDesignSystemEdit } from '@/design-system/runtime/edit-mode-store';
 import { Button } from '@/design-system/primitives/button';
 import { Badge } from '@/design-system/primitives/badge';
 import { Input } from '@/design-system/primitives/input';
