@@ -355,13 +355,13 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 p-4 overlay-respect-progress"
   onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
   >
-  <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
-   className={`bg-card rounded-xl shadow-2xl w-full overflow-hidden flex flex-col ${
-    (defaultTab || 'users') === 'geography'
-      ? 'max-w-6xl h-[92vh] max-h-[92vh]'
-      : 'max-w-4xl max-h-[90vh]'
-   }`}
-  >
+   <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
+    className={`bg-card rounded-xl shadow-2xl w-full overflow-hidden flex flex-col max-h-full ${
+     (defaultTab || 'users') === 'geography'
+       ? 'max-w-6xl h-[92vh]'
+       : 'max-w-4xl h-[90vh]'
+    }`}
+   >
   <div className="flex items-center justify-between p-4 border-b">
   <div className="flex items-center gap-3">
   <div className="p-2 bg-primary/10 rounded-lg"><Shield className="w-5 h-5 text-primary" /></div>
