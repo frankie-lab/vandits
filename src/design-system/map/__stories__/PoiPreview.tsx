@@ -2,13 +2,14 @@
  * @vandits/design-system/map/__stories__/PoiPreview
  *
  * Storybook-only renderer that mirrors what `createCustomIcon` produces, but
- * as a pure SVG/HTML component. Reads exclusively from design tokens so any
- * drift in tokens is visible in the Map Lab without booting Leaflet.
+ * as a pure SVG/HTML component. Reads exclusively from design tokens (HSL
+ * triplets wrapped via `hsl(...)`) so any drift in tokens is visible in the
+ * Map Lab without booting Leaflet.
  *
  * Used by every Map Lab story. Do not import from product code.
  */
 import * as React from 'react';
-import { tokens } from '@/design-system/tokens/build/tokens';
+import { tokens } from '@/design-system/tokens';
 import type {
   PoiOrigin,
   PoiRenderMode,
@@ -16,16 +17,19 @@ import type {
   PoiHealthState,
 } from '@/design-system/map/types';
 
+// All color tokens are HSL triplets ("H S% L%"). Wrap once here.
+const hsl = (triplet: string) => `hsl(${triplet})`;
+
 const STATE_COLOR: Record<PoiVisualState, string> = {
-  enriched: tokens.poi.state.enriched,
-  imported: tokens.poi.state.imported,
-  empty: tokens.poi.state.empty,
+  enriched: hsl(tokens.poi.state.enriched),
+  imported: hsl(tokens.poi.state.imported),
+  empty: hsl(tokens.poi.state.empty),
 };
 
 const HEALTH_COLOR: Record<PoiHealthState, string> = {
-  error: tokens.poi.ring.error,
-  chain: tokens.poi.ring.chain,
-  empty: tokens.poi.ring.empty,
+  error: hsl(tokens.poi.ring.error),
+  chain: hsl(tokens.poi.ring.chain),
+  empty: hsl(tokens.poi.ring.empty),
 };
 
 const RENDER_SCALE: Record<PoiRenderMode, number> = {
@@ -35,15 +39,23 @@ const RENDER_SCALE: Record<PoiRenderMode, number> = {
   rich: tokens.poi.renderScale.rich,
 };
 
-// Visual differentiator for origin (matches product semantics, no inline literals beyond these).
 const ORIGIN_BORDER: Record<PoiOrigin, string> = {
-  my: '#ffffff',
-  followed: '#fde68a', // amber tint border = followed user
-  service: '#bae6fd', // sky tint border = service POI (gas, parking, etc.)
-  catalog: '#ddd6fe', // violet tint border = inherited catalog
+  my: hsl(tokens.poi.originBorder.my),
+  followed: hsl(tokens.poi.originBorder.followed),
+  service: hsl(tokens.poi.originBorder.service),
+  catalog: hsl(tokens.poi.originBorder.catalog),
 };
 
-const RING_W = parseInt(tokens.poi.ring.width, 10); // px
+/** Re-exported for stories that paint sample collection tints. */
+export const COLLECTION_TINT_SAMPLE = {
+  violet: hsl(tokens.poi.collectionTintSample.violet),
+  sky: hsl(tokens.poi.collectionTintSample.sky),
+  pink: hsl(tokens.poi.collectionTintSample.pink),
+  emerald: hsl(tokens.poi.collectionTintSample.emerald),
+  amber: hsl(tokens.poi.collectionTintSample.amber),
+} as const;
+
+const RING_W = parseInt(tokens.poi.ring.width, 10);
 const HERO_PX = parseInt(tokens.poi.hero.size, 10);
 const THUMB_PX = parseInt(tokens.poi.hero.thumbSize, 10);
 const DOT_PX = parseInt(tokens.poi.microDot.size, 10);
@@ -56,7 +68,7 @@ export interface PoiPreviewProps {
   focused?: boolean;
   /** Optional hero image (rich mode only). */
   heroSrc?: string;
-  /** Optional collection tint (inner ring, 2px gap to marker). */
+  /** Optional collection tint (inner ring, 2px gap to marker). HSL string or `hsl(...)` */
   collectionTint?: string | null;
   /** Label shown under the marker (for stories only). */
   label?: string;
@@ -84,11 +96,9 @@ export function PoiPreview({
   const isMicro = renderMode === 'micro';
   const isRich = renderMode === 'rich';
 
-  // Base marker diameter in standard mode
   const baseDiameter = isMicro ? DOT_PX : isRich ? HERO_PX : 28;
   const diameter = isMicro ? DOT_PX : Math.round(baseDiameter * scale);
 
-  // Ordered: error → chain → empty (outermost first)
   const orderedHealth: PoiHealthState[] = (['error', 'chain', 'empty'] as const).filter(
     (h) => health.includes(h),
   );
@@ -112,7 +122,6 @@ export function PoiPreview({
         }}
         data-testid={`poi-${origin}-${state}-${renderMode}`}
       >
-        {/* Health rings (outermost) */}
         {orderedHealth.map((h, i) => {
           const ringDiameter = totalDiameter - i * RING_W * 2;
           return (
@@ -130,7 +139,6 @@ export function PoiPreview({
           );
         })}
 
-        {/* Collection tint ring */}
         {collectionTint && (
           <span
             style={{
@@ -144,7 +152,6 @@ export function PoiPreview({
           />
         )}
 
-        {/* The marker itself */}
         {isRich && heroSrc ? (
           <img
             src={heroSrc}
@@ -186,7 +193,7 @@ export function PoiPreview({
         <span
           style={{
             font: `${tokens.typography.weight.medium} ${tokens.typography.size.caption}/${tokens.typography.lineHeight.caption} ${tokens.typography.fontFamily.body}`,
-            color: 'hsl(220 20% 14%)',
+            color: `hsl(${tokens.color.light.foreground})`,
           }}
         >
           {label}
@@ -208,14 +215,16 @@ export function MapCanvas({
   height?: number;
   zoomBadge?: string;
 }) {
+  const tileA = hsl(tokens.map.canvas.tileA);
+  const tileB = hsl(tokens.map.canvas.tileB);
+  const tileSize = parseInt(tokens.map.canvas.tileSize, 10);
   return (
     <div
       style={{
         position: 'relative',
         width,
         height,
-        background:
-          'repeating-linear-gradient(45deg, #e7e3da 0 24px, #ddd9d0 24px 48px)',
+        background: `repeating-linear-gradient(45deg, ${tileA} 0 ${tileSize}px, ${tileB} ${tileSize}px ${tileSize * 2}px)`,
         borderRadius: tokens.radius.lg,
         boxShadow: tokens.elevation.shadow.md,
         overflow: 'hidden',
@@ -234,8 +243,8 @@ export function MapCanvas({
             position: 'absolute',
             top: 8,
             left: 8,
-            background: 'hsl(220 20% 14% / 0.78)',
-            color: '#fff',
+            background: `hsl(${tokens.color.light.foreground} / 0.78)`,
+            color: `hsl(${tokens.color.light.background})`,
             font: `${tokens.typography.weight.semibold} ${tokens.typography.size.caption}/1 ${tokens.typography.fontFamily.mono}`,
             padding: '4px 8px',
             borderRadius: tokens.radius.sm,
