@@ -177,6 +177,11 @@ function EditButton({ tokens, row }: { tokens: LeafToken[]; row: PairedRow }) {
 // ─── Swatch ────────────────────────────────────────────────────────
 
 function Swatch({ row, groupId }: { row: PairedRow; groupId: string }) {
+  // Hooks must be called unconditionally.
+  const singlePath =
+    row.kind === 'single' ? row.tokens[0]?.path.join('.') : undefined;
+  const singleLive = useResolvedTokenValue(singlePath);
+
   if (row.kind === 'lightDark') {
     return (
       <div className="flex shrink-0 rounded-token-sm overflow-hidden border border-border">
@@ -187,35 +192,37 @@ function Swatch({ row, groupId }: { row: PairedRow; groupId: string }) {
       </div>
     );
   }
+
   const single = row.tokens[0];
-  const value = String(row.value);
-  if (isColorValue(value)) {
+  const live = String(singleLive ?? row.value);
+
+  if (isColorValue(live)) {
     return (
       <EditableTokenSurface
-        path={single?.path.join('.')}
+        path={singlePath}
         label="Color"
         title="Editar color"
         className="block"
       >
-        <SwatchInner value={useLiveString(single?.path.join('.'), value)} />
+        <SwatchInner value={live} />
       </EditableTokenSurface>
     );
   }
   if (groupId === 'radius') {
     return (
-      <EditableTokenSurface path={single?.path.join('.')} label="Radius" className="block">
+      <EditableTokenSurface path={singlePath} label="Radius" className="block">
         <div
           className="h-10 w-12 shrink-0 bg-primary/70 border border-border"
-          style={{ borderRadius: useLiveString(single?.path.join('.'), value) }}
+          style={{ borderRadius: live }}
         />
       </EditableTokenSurface>
     );
   }
   return (
-    <EditableTokenSurface path={single?.path.join('.')} className="block">
+    <EditableTokenSurface path={singlePath} className="block">
       <div className="h-10 w-12 shrink-0 rounded-token-sm bg-muted flex items-center justify-center">
         <span className="text-[10px] font-mono text-muted-foreground truncate px-1">
-          {useLiveString(single?.path.join('.'), value)}
+          {live}
         </span>
       </div>
     </EditableTokenSurface>
