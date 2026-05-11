@@ -96,11 +96,6 @@
         "enriched": { "$ref": "poi.state.enriched",        "_css": ["--color-poi-enriched"] },
         "empty":    { "$ref": "poi.state.empty",           "_css": ["--color-poi-empty"] },
         "error":    { "$ref": "poi.ring.error",            "_css": ["--color-poi-error"] }
-      },
-      "shadow": {
-        "sm": { "value": "0 1px 2px 0 hsl(220 14% 10% / 0.06)",   "_css": ["--shadow-sm"] },
-        "md": { "value": "0 4px 12px -2px hsl(220 14% 10% / 0.10)", "_css": ["--shadow-md"] },
-        "lg": { "value": "0 16px 32px -8px hsl(220 14% 10% / 0.18)", "_css": ["--shadow-lg"] }
       }
     },
 
