@@ -39,7 +39,8 @@ import {
   calculateVisitRelevance, formatTimeAgo, createFilterLink, parseLocalizacionToLinks,
   type VisitRelevanceInfo,
 } from './map/map-utils';
-import { createCustomIcon, getRenderModeForZoom, setCurrentRenderMode } from './map/map-icons';
+import { createCustomIcon, getRenderModeForZoom, setCurrentRenderMode, type MarkerRenderMode } from './map/map-icons';
+import { buildHoverTooltipHtml } from './map/map-tooltip';
 import { onMarkerSizeConfigChange, getMarkerSizeConfig } from './map/useMarkerSizeConfig';
 import {
   prewarmEnrichmentFailures,
