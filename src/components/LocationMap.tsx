@@ -1365,7 +1365,8 @@ export function LocationMap() {
   const markerLng = offset ? offset.lng : location.coordinates.lng;
 
   const marker = L.marker([markerLat, markerLng], {
-  icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, getTintForLocation(location.id)),
+  icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, getTintForLocation(location.id), ownership.isOwn),
+  pane: ownership.isOwn ? 'mine-pane' : 'others-pane',
   });
 
        // Create popup with content including ownership info
