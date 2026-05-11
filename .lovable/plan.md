@@ -1,158 +1,170 @@
-## Objetivo
 
-Convertir el DS Inspector actual (técnico, lleno de tripletes HSL y nombres como `color · light · popoverForeground`) en un panel comprensible para alguien no técnico, sin perder la información para quien sí lo es.
+# Nivel 2 — Editor de tokens del Design System
 
-Tres problemas a resolver:
-1. **Incomprensible**: nombres crudos, valores HSL sin contexto, sin descripción.
-2. **Colores repetidos**: muchos blancos/casi-blancos visualmente idénticos (background, card, popover, primaryForeground…) que parecen errores.
-3. **Sin contexto de uso**: el gestor no sabe *dónde* impacta cada token ni *qué pasa* si cambia.
+Convertir el DS Inspector en un **editor global** del tema. Master/Admin pueden editar cualquier token (color, tipografía, densidad, radius, motion, popup, poi), ver el resultado en vivo en toda la app, y al guardar el cambio se aplica para todos los usuarios.
 
----
+## Decisiones cerradas
 
-## Cambios por sección
+- **Alcance**: todos los tokens del DS (los 8 JSON de `src/design-system/tokens/source/`).
+- **Persistencia**: global en BD (`app_settings.key = 'design_system_overrides'`). Afecta a todos los usuarios al recargar y en vivo vía realtime.
+- **UX**: inline en cada fila + toggle global "Editar tema" con preview live de toda la app.
+- **Permisos**: solo `master` / `admin` (mismo gating que ya tiene el panel).
 
-### A. Vista de Tokens — nuevo layout
-
-Reemplazar la lista actual de filas planas por una tabla de tres columnas:
+## Arquitectura
 
 ```text
-┌─ Swatch ─┬─ Identidad ──────────────────┬─ Dónde se usa ──────────────┐
-│ █ █      │ Color de marca               │ Botones principales,        │
-│ light    │ primary                       │ anillo de foco, enlaces     │
-│ dark     │ Naranja cálido (24·75·50)    │ activos.                    │
-└──────────┴──────────────────────────────┴─────────────────────────────┘
+src/design-system/tokens/source/*.json   (base, NUNCA se modifica desde UI)
+            │
+            ▼
+   buildEffectiveTokens(base, overrides)  ←─ overrides desde BD
+            │
+            ▼
+   inyecta CSS vars en :root + .dark      ←─ <DesignSystemThemeProvider>
+            │
+            ▼
+   toda la app usa las vars normalmente
 ```
 
-- **Swatch doble**: para tokens de color que existen en light y dark, mostrar las dos muestras juntas (mini etiqueta "L" / "D"). Para los demás, una sola muestra.
-- **Identidad**: línea 1 = nombre humano en español; línea 2 = nombre técnico (`primary`, `--popover-foreground`) en monospace pequeño; línea 3 = descripción breve del valor (formato + tono dominante).
-- **Dónde se usa**: 1–2 frases curadas por token. Para los principales (primary, secondary, accent, destructive, muted, foreground, background, card, popover, border, ring, sidebar-*) escribiremos a mano la descripción. Para el resto, fallback genérico.
+- **Base inmutable**: los JSON del repo siguen siendo la "verdad de fábrica".
+- **Overrides en BD**: solo se guardan los tokens que difieren de la base (diff mínimo).
+- **Aplicación**: un `<DesignSystemThemeProvider>` montado en `App.tsx` lee overrides + escucha realtime y reescribe las CSS vars en `:root` y `.dark` en caliente.
+- **Modo edición**: cambios en memoria (no se guardan hasta pulsar "Publicar"). El toggle global activa el "modo edición" en cualquier punto de la app y muestra una barra flotante con `Descartar` / `Publicar`.
 
-### B. Diccionario de etiquetas + usos
+## Modelo de datos
 
-Crear `src/components/admin/design-system/token-glossary.ts`:
+Una sola fila en `app_settings`:
 
-```ts
-// Estructura:
-{
-  "color.primary":            { label: "Color de marca",          usage: "Botones primarios, anillo de foco, enlaces activos" },
-  "color.primaryForeground":  { label: "Texto sobre marca",       usage: "Color del texto dentro de botones primarios" },
-  "color.muted":              { label: "Fondo sutil",             usage: "Filas alternas, separadores suaves, chips inactivos" },
-  "color.border":             { label: "Borde estándar",          usage: "Tarjetas, inputs, separadores de paneles" },
-  // … cubrir los ~25 tokens semánticos principales
-  "poi.state.enriched":       { label: "Punto enriquecido",       usage: "Marcador verde del POI con descripción IA" },
-  "poi.ring.error":           { label: "Anillo de error",         usage: "Halo rojo alrededor de POIs fallidos" },
-  "popup.maxWidth":           { label: "Ancho máximo del popup",  usage: "Limita el ancho de la ficha que abre el mapa" },
-  // …
+```text
+key   = 'design_system_overrides'
+value = {
+  "color.primary.light": "210 80% 55%",
+  "typography.fontFamily.body": "Inter, sans-serif",
+  "density.control.lg": "44px",
+  ...
 }
 ```
 
-Si una clave no está en el diccionario, mostrar "—" en lugar del nombre técnico desnudo.
+Solo guardamos los tokens cambiados respecto a base. Borrar una clave = volver a la base.
 
-### C. Dedupe de valores idénticos
+RLS: lectura pública, escritura solo `master`/`admin` (ya cubierto por `app_settings`).
 
-Antes de renderizar, agrupar tokens de color con **el mismo HSL** en una sola fila "alias":
+## UI del editor
 
-```text
-█ #FFFFFF — Blanco puro
-   Usado como: card · popover · primaryForeground · secondaryForeground
-```
+### 1. Toggle global "Editar tema"
+- Botón en la cabecera del DS Inspector + atajo en `UserMenu` (solo admin/master).
+- Al activarlo:
+  - Aparece **barra flotante inferior** persistente en TODA la app con: estado ("3 cambios sin publicar"), botones `Descartar` y `Publicar`.
+  - Los cambios se aplican en vivo a las CSS vars pero NO se guardan en BD.
+  - Se puede navegar por la app entera viendo el efecto real.
 
-Esto elimina el ruido visual de 5 swatches blancos seguidos. La fila desplegable permite ver cada alias y su CSS var.
+### 2. Edición inline en cada fila del Inspector
+Cada `TokenRow` añade un icono `Pencil` a la derecha. Al pulsarlo abre un popover con el editor adecuado al **tipo de token**:
 
-### D. Light vs Dark emparejado
+| Tipo de token | Editor |
+|---|---|
+| color | `react-colorful` HslColorPicker + input HSL "H S% L%" + swatch live + botón "Resetear" |
+| fontFamily | Select con fuentes seguras + custom string |
+| fontSize / fontWeight / lineHeight | Number input + slider + unidad (px/rem) |
+| density (h, padding, gap) | Number input en px |
+| radius | Number input en px |
+| motion duration | Number input en ms |
+| motion easing | Select de presets + custom cubic-bezier() |
+| z-index | Number input |
+| shadow | Textarea con preview live |
+| popup.* / poi.* (numéricos) | Number input con unidad |
 
-Hoy el panel lista `color · light · *` y luego `color · dark · *` como si fueran tokens distintos. Cambio: una fila por nombre semántico (`primary`, `background`, …) con **dos muestras** dentro (L y D). Eso refleja la realidad — son el mismo token con dos valores según tema — y reduce la lista a la mitad.
+Cada editor:
+- Muestra **valor base** y **valor override** lado a lado.
+- Botón "Volver a la base" elimina el override de esa key.
+- Aplica el cambio a CSS vars al instante.
 
-### E. Previsualización en vivo (expandible)
+### 3. Detección automática de tipo
+Helper `inferTokenType(path, value)` decide qué editor renderizar mirando la ruta (`color.*`, `typography.*`, `motion.duration.*`, etc.) y el formato del valor.
 
-Cada fila de token se puede expandir (click) y muestra un mini-ejemplo real:
+### 4. Indicador visual de overrides
+- Fila con override activo: badge "Modificado" + valor base tachado a la izquierda del valor actual.
+- Sidebar muestra contador "(N)" por sección con overrides.
 
-| Token                | Mini-ejemplo en vivo                                      |
-|----------------------|-----------------------------------------------------------|
-| `primary`            | Un botón "Guardar" + un chip activo                       |
-| `card` / `border`    | Una mini-tarjeta con título + texto                       |
-| `muted`              | Tres filas alternas                                        |
-| `destructive`        | Botón "Eliminar"                                           |
-| `popup.maxWidth`     | Caja con regla milimétrica indicando el ancho             |
-| `poi.state.*`        | Renderiza un marker SVG con ese color (reusa PoiPreview)  |
-| `motion.*`           | Animación bucle de un cuadrado moviéndose con ese easing  |
-| `radius.*`           | Cuadrado con ese radio                                    |
-| `z-index.*`          | Diagrama de capas mostrando la posición                   |
+## Realtime
+Canal `app_settings` filtrado por `key=design_system_overrides`. Al publicar un admin, el resto de sesiones abiertas (no en modo edición) reciben el evento y el `ThemeProvider` re-inyecta las vars. Si una sesión está en modo edición, aparece un toast "Otro admin ha publicado cambios" con botón "Actualizar".
 
-Todo se construye con primitives existentes — sin tocar el catálogo.
+## Seguridad y salvaguardas
 
-### F. Reorganización de grupos
+- **Solo lectura para no admin**: el endpoint de write valida rol via `has_role(auth.uid(), 'admin'|'master')` (RLS).
+- **Histórico**: cada `Publicar` guarda una fila en una nueva tabla `design_system_history` (`id, value jsonb, published_by, published_at`). Pestaña "Historial" con botón "Restaurar versión".
+- **Reset total**: botón "Restaurar valores de fábrica" vacía los overrides.
+- **Validación**: cada editor valida formato (HSL, número, cubic-bezier...). Si un valor es inválido, no se aplica y se marca rojo.
 
-La sidebar pasa de 10 grupos planos a **2 niveles**:
-
-```text
-Esenciales
-  Color
-  Tipografía
-  Densidad
-  Radius
-  Motion
-
-Dominio
-  POI (marcadores)
-  Popup (fichas)
-  Map (capas/zoom)
-
-Avanzado
-  Z-index
-  Elevation
-```
-
-"Avanzado" colapsado por defecto. El gestor entra y ve solo lo que reconoce.
-
-### G. Tipografía — preview real
-
-Reemplazar el valor crudo (`16px / 1.4 / 500`) por una línea con esa tipografía aplicada:
+## Archivos nuevos
 
 ```text
-Encabezado H3
-text-h3 · 18px / 1.3 / 600 · usado en títulos de panel y diálogos
+src/design-system/runtime/
+  theme-provider.tsx          # Carga overrides + realtime + inyección CSS vars
+  apply-overrides.ts          # buildEffectiveTokens + writeCssVars
+  edit-mode-store.ts          # Zustand: editMode on/off, draftOverrides, publish/discard
+  token-types.ts              # inferTokenType + metadata por categoría
+
+src/components/admin/design-system/editors/
+  ColorEditor.tsx
+  FontFamilyEditor.tsx
+  NumberEditor.tsx            # px/rem/ms/unitless
+  EasingEditor.tsx
+  ShadowEditor.tsx
+  TokenEditorPopover.tsx      # dispatcher por tipo
+
+src/components/admin/design-system/
+  EditModeBar.tsx             # Barra flotante con Descartar/Publicar
+  OverrideBadge.tsx
+  HistoryTab.tsx              # Lista versiones + restaurar
 ```
 
-### H. Motion — preview con easing real
+## Archivos editados
 
-Cada token de duración/easing renderiza un cuadrado que se anima en bucle con esos valores. Hover pausa para inspeccionar.
+```text
+src/App.tsx                                    # Monta <DesignSystemThemeProvider>
+src/components/admin/DesignSystemPanel.tsx     # Añade toggle + tab Historial
+src/components/admin/design-system/TokenRow.tsx # Botón Pencil + popover
+src/components/admin/design-system/token-grouping.ts # Marcar filas con override
+src/components/UserMenu.tsx                    # Atajo "Editar tema" (admin)
+```
 
----
+## Migraciones BD
 
-## Lo que NO cambia
+```sql
+-- 1. Crear tabla de historial
+create table public.design_system_history (
+  id uuid primary key default gen_random_uuid(),
+  value jsonb not null,
+  published_by uuid references auth.users(id),
+  published_at timestamptz not null default now(),
+  note text
+);
+alter table public.design_system_history enable row level security;
+create policy "DS history readable by all"
+  on public.design_system_history for select using (true);
+create policy "DS history writable by admin/master"
+  on public.design_system_history for insert
+  with check (public._is_admin_or_master(auth.uid()));
 
-- Sigue siendo **read-only**. Nivel 2 (overrides en sesión) se queda como estaba previsto, en una iteración aparte.
-- Las stories de Storybook no se tocan.
-- Los archivos `tokens/source/*.json` no se tocan: el diccionario de etiquetas vive aparte y no es la verdad de los tokens; solo los anota.
+-- 2. Asegurar key inicial en app_settings (vacío)
+insert into public.app_settings (key, value)
+values ('design_system_overrides', '{}'::jsonb)
+on conflict (key) do nothing;
 
----
+-- 3. Habilitar realtime
+alter publication supabase_realtime add table public.app_settings;
+```
 
-## Detalle técnico
+## Plan de entrega (1 PR)
 
-Archivos a tocar:
+1. ThemeProvider + apply-overrides + carga inicial sin UI (verificable: vars cambian si edito BD a mano).
+2. Editor inline de **color** (caso más complejo) + edit-mode-store + EditModeBar + Publicar/Descartar.
+3. Resto de editores (Number, FontFamily, Easing, Shadow).
+4. Pestaña Historial + restaurar versiones.
+5. Realtime + toast de cambios externos.
 
-1. `src/components/admin/design-system/token-glossary.ts` *(nuevo)* — diccionario label + usage.
-2. `src/components/admin/design-system/token-row.tsx` *(nuevo)* — fila con swatch doble, descripción y zona expandible.
-3. `src/components/admin/design-system/token-previews/` *(nuevo)* — un componente de preview por tipo (color, radius, motion, z-index, popup, poi).
-4. `src/components/admin/design-system/token-grouping.ts` *(nuevo)* — helpers `pairLightDark()`, `dedupeByValue()`, `groupBySection()`.
-5. `src/components/admin/DesignSystemPanel.tsx` — refactor de la pestaña Tokens; el resto (Primitives / Patterns / Memorias) no cambia.
+## Fuera de alcance (futuro)
 
-Reglas que se respetan:
-- Cero hex hardcoded ni clases `bg-gray-*` (los swatches reciben el color como `style={{ background: 'hsl(...)' }}` a partir del valor del propio token — eso es dato, no estilo).
-- Uso de `@/design-system/primitives/*` en todas las piezas nuevas.
-- Sin emojis; iconos Lucide.
-- Sin tocar el resto del AdminPanel.
-
----
-
-## Criterio de cierre
-
-- Un usuario no técnico abre Tokens → Color y ve una lista corta, con nombres en castellano y descripción de uso.
-- No hay 5 swatches blancos seguidos.
-- Light y dark conviven en una sola fila.
-- Click en `primary` muestra un botón real usando ese color.
-- "POI" y "Popup" tienen previews coherentes con lo que se ve en el mapa.
-- Z-index y Elevation siguen accesibles pero detrás del bloque "Avanzado".
-
-¿Tiramos con esto, o quieres que añada/quite alguna de las secciones (por ejemplo, "Dónde se usa" como búsqueda real en código en vez de curado a mano)?
+- Editar tokens de **dominio** (`poi.json`, `popup.json`) con preview visual usando los componentes `PoiPreview`/`PopupPreview` que ya existen — se puede añadir en una iteración posterior reutilizando esos renderers como preview en el popover.
+- Editar markdown del glosario (`token-glossary.ts`) desde la UI.
+- Exportar overrides como JSON para commitearlos al repo como nueva base.
