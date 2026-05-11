@@ -1177,9 +1177,10 @@ export function LocationMap() {
     };
     applyRingWidth(mapRef.current.getZoom());
     // Inicializa el render mode (Ola 1 — arquitectura visual por zoom).
-    // En cada zoomend recalcula el modo; si cambia, repinta TODOS los markers
-    // (los call-sites de createCustomIcon no necesitan saber el modo: lo lee
-    // del módulo). Ver `mem://style/map/health-rings-rule` + plan Ola 1.
+    // En cada zoomend recalcula el modo; si cambia, emite un evento que un
+    // useEffect con acceso al estado fresco (selección/focus/recent) consume
+    // para repintar los markers. Mantiene los call-sites intactos: lo lee
+    // `createCustomIcon` del módulo `map-icons`.
     setCurrentRenderMode(getRenderModeForZoom(mapRef.current.getZoom()));
     mapRef.current.on('zoomend', () => {
       if (!mapRef.current) return;
@@ -1187,19 +1188,7 @@ export function LocationMap() {
       applyRingWidth(zoom);
       const changed = setCurrentRenderMode(getRenderModeForZoom(zoom));
       if (changed) {
-        markersRef.current.forEach((marker, locationId) => {
-          const location = locationsRef.current.get(locationId);
-          const isSelected = selectedLocationsRef.current?.has(locationId) ?? false;
-          const isFocused = focusedLocationIdRef.current === locationId;
-          const isEnriched = !!location?.enrichedData;
-          const isRecentlyEnriched = recentlyEnrichedIdsRef.current?.has(locationId) ?? false;
-          marker.setIcon(createCustomIcon(
-            isSelected, isFocused, isEnriched, location,
-            criteriaTimestampRef.current ?? 0,
-            isRecentlyEnriched,
-            getTintForLocation(locationId),
-          ));
-        });
+        window.dispatchEvent(new CustomEvent('map-render-mode-changed'));
       }
     });
     const resizeObserver = new ResizeObserver(() => {
