@@ -150,6 +150,54 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
     setRenaming(true);
   };
 
+  // Three per-candidate actions used by the inline list when there is a coherence conflict.
+  const handleUseName = async (candidateName?: string) => {
+    if (!candidateName || candidateName === location.name) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase
+        .from('locations')
+        .update({ name: candidateName, updated_at: new Date().toISOString() })
+        .eq('id', location.id);
+      if (error) throw error;
+      const result = await triggerEnrichLocation(location.id, { focusAfter: false });
+      if (result.success) enrichmentFailureStore.invalidate(location.id);
+    } catch {
+      toast.error('No se pudo renombrar');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleMovePoint = async (lat?: number, lng?: number) => {
+    if (typeof lat !== 'number' || typeof lng !== 'number') return;
+    setBusy(true);
+    try {
+      const { error } = await supabase
+        .from('locations')
+        .update({ latitude: lat, longitude: lng, updated_at: new Date().toISOString() })
+        .eq('id', location.id);
+      if (error) throw error;
+      const result = await triggerEnrichLocation(location.id, { focusAfter: false });
+      if (result.success) enrichmentFailureStore.invalidate(location.id);
+    } catch {
+      toast.error('No se pudieron actualizar las coordenadas');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleIgnoreConflict = async () => {
+    setBusy(true);
+    try {
+      const result = await triggerEnrichLocation(location.id, { focusAfter: false, skipValidation: true });
+      if (result.success) enrichmentFailureStore.invalidate(location.id);
+      else if (result.error) toast.error(result.error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const compact = variant === 'row';
   const padding = compact ? 'p-2' : 'p-3';
   const titleSize = compact ? 'text-[11px]' : 'text-xs';
