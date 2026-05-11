@@ -359,7 +359,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   >
    <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
     className={`bg-card rounded-xl shadow-2xl w-full overflow-hidden flex flex-col max-h-full ${
-     (defaultTab || 'users') === 'geography'
+     (defaultTab || 'users') === 'geography' || (defaultTab || 'users') === 'design-system'
        ? 'max-w-6xl h-[92vh]'
        : 'max-w-4xl h-[90vh]'
     }`}
