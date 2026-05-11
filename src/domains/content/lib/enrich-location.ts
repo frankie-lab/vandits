@@ -143,23 +143,32 @@ export async function triggerEnrichLocation(
 
       if (data && data.success === false && data.reason === 'name_coordinate_mismatch') {
         toast.dismiss(toastId);
+        const mismatchKind: 'name' | 'coordinate' = data.mismatchKind === 'coordinate' ? 'coordinate' : 'name';
         await persistFailure('coherence', data.message ?? 'Nombre y coordenadas no coinciden', {
+          mismatchKind,
           candidates: data.nearbyCandidates ?? [],
           nameLocation: data.nameLocation ?? null,
           providedName: data.providedName ?? location.name,
         });
-        window.dispatchEvent(new CustomEvent('open-nearby-context', {
-          detail: {
-            locationId,
-            location,
-            reason: 'name-coordinate-mismatch',
-            providedName: data.providedName,
-            nameLocation: data.nameLocation,
-            nearbyCandidates: data.nearbyCandidates ?? [],
-          },
-        }));
+        // Solo abrimos el panel de contexto cercano si NO hay candidatos.
+        // Si los hay, el usuario los resolverá desde el popup (UnenrichedRecoveryBlock).
+        if (!Array.isArray(data.nearbyCandidates) || data.nearbyCandidates.length === 0) {
+          window.dispatchEvent(new CustomEvent('open-nearby-context', {
+            detail: {
+              locationId,
+              location,
+              reason: 'name-coordinate-mismatch',
+              providedName: data.providedName,
+              nameLocation: data.nameLocation,
+              nearbyCandidates: [],
+            },
+          }));
+        }
+        const km = data.nameLocation?.distanceKm ?? '?';
         toast.info(
-          `"${data.providedName}" está a ${data.nameLocation?.distanceKm ?? '?'} km de estas coordenadas. Selecciona la identidad correcta.`,
+          mismatchKind === 'coordinate'
+            ? `"${data.providedName}" está a ${km} km. Revisa si las coordenadas son correctas.`
+            : `"${data.providedName}" está a ${km} km de estas coordenadas. Selecciona la identidad correcta.`,
           { duration: 6000 },
         );
         return { success: false, error: 'name_coordinate_mismatch' };
