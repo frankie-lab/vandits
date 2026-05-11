@@ -457,27 +457,40 @@
   word-break: break-word;
 }
 
-/* Rich marker — POI = polaroid clásico (foto Hero o placeholder)
-   Marco blanco 3px arriba/laterales + franja inferior ~13px (caption strip).
-   Color de estado como outline 1px alrededor del marco. Ver
-   `mem://style/map/zoom-driven-hero`. */
+/* Rich marker — POI = polaroid (foto Hero o placeholder)
+   Cuadrado redondeado con marco blanco uniforme + flechita inferior
+   centrada que apunta a la coordenada. Borde fino del color de estado.
+   Ver `mem://style/map/zoom-driven-hero`. */
 .poi-hero-marker { background: transparent; }
 .poi-hero-marker__wrap {
   display: block;
   box-sizing: border-box;
+}
+.poi-hero-marker__card {
+  position: absolute;
+  inset: 0 0 6px 0;
+  box-sizing: border-box;
   background: hsl(var(--background));
-  border-radius: 2px;
-  outline: 1px solid var(--marker-state-color, hsl(var(--border)));
+  border: 1px solid var(--marker-state-color, hsl(var(--border)));
+  border-radius: 12px;
   box-shadow: 0 2px 6px hsl(var(--foreground) / 0.18);
-  padding: 3px 3px 13px 3px;
+  padding: 4px;
+}
+.poi-hero-marker__pointer {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  display: block;
+  filter: drop-shadow(0 1px 1px hsl(var(--foreground) / 0.18));
 }
 .poi-hero-marker__photo {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 100%;
+  height: 100%;
   background: hsl(var(--muted));
   overflow: hidden;
-  border-radius: 1px;
+  border-radius: 8px;
 }
 .poi-hero-marker__img {
   position: absolute;
@@ -509,18 +522,19 @@
   height: 18px;
   opacity: 0.7;
 }
-.poi-hero-marker.is-own .poi-hero-marker__wrap {
+.poi-hero-marker.is-own .poi-hero-marker__card {
   box-shadow: 0 2px 6px hsl(var(--foreground) / 0.22), 0 0 0 1px hsl(var(--background));
 }
 .poi-hero-marker__halo {
   position: absolute;
-  inset: -3px;
-  border-radius: 4px;
+  inset: -3px -3px 3px -3px;
+  border-radius: 14px;
   box-shadow:
     0 0 0 2px hsl(var(--background) / 0.95),
     0 0 12px hsl(var(--background) / 0.45);
   pointer-events: none;
 }
+
 /* Global loading bar — indeterminate animation + cursor while blocking */
 @keyframes global-loading-slide {
   0%   { transform: translateX(-100%); }
