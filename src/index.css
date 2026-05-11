@@ -142,6 +142,8 @@
      si usa la clase `.overlay-respect-progress` o si es un Radix overlay. */
   :root {
     --bottom-progress-h: 0px;
+    --bottom-footer-h: 0px;
+    --bottom-overlay-safe-h: 0px;
     --overlay-progress-gap: 12px;
     /* Top floating header (FloatingToolbar logo + counters + search + actions).
        Toolbar sits at top-4 with h-10 → 16+40 = 56px; reserve a bit extra so
@@ -159,20 +161,20 @@
   [data-radix-alert-dialog-overlay],
   .overlay-respect-progress {
     padding-top: calc(var(--top-header-h, 0px) + var(--overlay-progress-gap, 12px)) !important;
-    padding-bottom: calc(var(--bottom-progress-h, 0px) + var(--overlay-progress-gap, 12px)) !important;
+    padding-bottom: calc(var(--bottom-overlay-safe-h, 0px) + var(--overlay-progress-gap, 12px)) !important;
   }
 
   [data-radix-dialog-overlay] > *,
   [data-radix-alert-dialog-overlay] > *,
   .overlay-respect-progress > * {
-    max-height: calc(100vh - var(--top-header-h, 0px) - var(--bottom-progress-h, 0px) - 2 * var(--overlay-progress-gap, 12px)) !important;
+    max-height: calc(100vh - var(--top-header-h, 0px) - var(--bottom-overlay-safe-h, 0px) - 2 * var(--overlay-progress-gap, 12px)) !important;
   }
 
   /* Bottom-anchored sheets/drawers (Radix Sheet side="bottom", custom drawers
      with `fixed bottom-0`) also need to lift above the progress bar. */
   [data-radix-dialog-content][data-side="bottom"],
   .sheet-respect-progress {
-    bottom: calc(var(--bottom-progress-h, 0px) + var(--overlay-progress-gap, 12px)) !important;
+    bottom: calc(var(--bottom-overlay-safe-h, 0px) + var(--overlay-progress-gap, 12px)) !important;
   }
 
   /* Top-anchored sheets/drawers must clear the floating header. */
