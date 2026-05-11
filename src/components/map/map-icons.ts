@@ -176,29 +176,12 @@ export const createCustomIcon = (
     return getStateColor(hex, currentState, stateRules);
   };
 
-  // Thumbnail circular SOLO en marker focused/selected (no por zoom). Helper
-  // único: este bloque. Fuente de imagen: enriched (público) primero, luego
-  // user_image_url (la visibilidad de almacenamiento ya está gobernada por
-  // RLS — si el URL llega al cliente es porque puede verla). Si la imagen
-  // falla, `onerror` la oculta y el marker queda como antes.
-  // Ver `.lovable/plan.md` y `mem://style/map/focused-thumbnail-rule`.
-  // Miniatura solo en focused (1 punto) y solo cuando el zoom lo permite
-  // (standard/rich). En `compact` o `micro` el zoom manda y no se muestra
-  // miniatura aunque haya selección masiva o focus. La regla única es por
-  // zoom — selección añade halo (en `shadow`), nunca cambia la forma.
-  const showThumb = isFocused && (renderMode === 'standard' || renderMode === 'rich');
-  const thumbUrl = showThumb
-    ? ((location?.enrichedData?.imagen as string | undefined)
-        || (location?.customData?.user_image_url as string | undefined)
-        || '')
-    : '';
-  // No `crossorigin="anonymous"`: muchos hosts (Wikimedia, OneDrive thumbs,
-  // ipx) sirven imágenes sin cabeceras CORS — con el atributo el navegador
-  // bloquea la carga y `onerror` oculta el thumb. Aquí solo pintamos un
-  // <img>, no accedemos al canvas, así que CORS no aporta nada.
-  const thumbHtml = thumbUrl
-    ? `<img class="poi-thumb" src="${thumbUrl.replace(/"/g, '&quot;')}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'" />`
-    : '';
+  // Regla canónica por zoom (ver `mem://style/map/zoom-driven-hero`):
+  //   • La imagen Hero aparece SOLO en el hover Polaroid (z≥14) y como
+  //     marker en `rich` (z≥17, rama heroUrl más abajo).
+  //   • NO se pinta miniatura circular sobre el marker focused/selected.
+  //   La antigua `focused-thumbnail-rule` queda deprecada.
+
 
   const baseColor = entry.fill_color;
   const baseColorLight = entry.fill_color_light || adjustHslLightness(baseColor, 15);
@@ -283,7 +266,7 @@ export const createCustomIcon = (
           <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="${skipGradient ? applyStateColor(baseColor) : `url(#pinGrad-${location?.id || 'default'})`}" stroke="white" stroke-width="${borderWidth}"/>
           <circle cx="12" cy="12" r="${dotSize}" fill="white" fillOpacity="0.95"/>
         </svg>
-        ${thumbHtml}
+
       </div>
       `,
       iconSize: [pinWidth, pinHeight],
@@ -326,7 +309,7 @@ export const createCustomIcon = (
           <circle cx="12" cy="12" r="11" fill="${skipGradient ? applyStateColor(baseColor) : `url(#dotGrad-${location?.id || 'default'})`}" stroke="white" stroke-width="${borderWidth}"/>
         </svg>
       </div>
-      ${thumbHtml}
+
     </div>
     `,
     iconSize: [containerSize, containerSize],
