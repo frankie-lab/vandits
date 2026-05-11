@@ -10,7 +10,7 @@ import { startLoading, updateLoading, endLoading } from '@/shared/loading';
 export type SyncPhase = 'idle' | 'own' | 'social' | 'done';
 
 export function useDatabaseSync(userId?: string | null) {
-  const { addDocument, _resetStoreState } = useLocationsStore();
+  const { addDocument, applyCatalogSnapshot, _resetStoreState } = useLocationsStore();
   const hasLoadedRef = useRef(false);
   const reloadInFlightRef = useRef<Promise<void> | null>(null);
   const reloadQueuedRef = useRef(false);
@@ -18,6 +18,11 @@ export function useDatabaseSync(userId?: string | null) {
 
   const loadFromDatabase = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true;
+    // Card bloqueante SOLO en cold start real (store vacío). Si ya hay docs en
+    // memoria, mostramos progreso superior pero el mapa permanece interactivo.
+    // Ver mem://ui/loading-feedback-system y plan delta-merge.
+    const storeHadDocs = useLocationsStore.getState().documents.length > 0;
+    const blocking = !silent && !storeHadDocs;
     let loadingActive = false;
     const ensureEndLoading = () => {
       if (loadingActive) {
@@ -26,7 +31,11 @@ export function useDatabaseSync(userId?: string | null) {
       }
     };
     if (!silent) {
-      startLoading('db-sync', 'Cargando catálogo', { blocking: true });
+      startLoading(
+        'db-sync',
+        blocking ? 'Cargando catálogo' : 'Sincronizando catálogo',
+        { blocking },
+      );
       loadingActive = true;
     }
     try {
@@ -109,29 +118,26 @@ export function useDatabaseSync(userId?: string | null) {
         };
       };
 
-      _resetStoreState();
-      let ownLocCount = 0;
-      ownDocs.forEach(doc => {
-        const kmlDoc = buildDoc(doc);
-        ownLocCount += kmlDoc.locations.length;
-        addDocument(kmlDoc);
-      });
+      // Delta merge en dos pasos con scope (mine → social). El primer paso NO
+      // toca docs sociales del store; el segundo NO toca los míos. Así nunca
+      // hay un instante con catálogo vacío y los markers no parpadean.
+      const ownKmlDocs = ownDocs.map(buildDoc);
+      const otherKmlDocs = otherDocs.map(buildDoc);
+      const ownLocCount = ownKmlDocs.reduce((acc, d) => acc + d.locations.length, 0);
+
+      applyCatalogSnapshot(ownKmlDocs, { ownerScope: 'mine', currentUserId: currentUserId ?? null });
 
       if (ownDocs.length > 0) {
         console.log(`[useDatabaseSync] Own data loaded: ${ownDocs.length} docs, ${ownLocCount} locations`);
       }
 
-      // Mapa ya tiene contenido renderizable → cerramos la modal bloqueante.
-      // Los docs ajenos se montan a continuación en background sin tarjeta.
+      // Mapa ya tiene contenido renderizable → cerramos cualquier bloqueo.
       ensureEndLoading();
 
       setSyncPhase('social');
       await new Promise(resolve => setTimeout(resolve, 0));
 
-      otherDocs.forEach(doc => {
-        const kmlDoc = buildDoc(doc);
-        addDocument(kmlDoc);
-      });
+      applyCatalogSnapshot(otherKmlDocs, { ownerScope: 'social', currentUserId: currentUserId ?? null });
 
       setSyncPhase('done');
       // Load summary is shown in the welcome card on the map (no toast to avoid duplication)

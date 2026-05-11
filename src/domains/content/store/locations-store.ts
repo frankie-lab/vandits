@@ -11,6 +11,7 @@ import { isLocationVisibleInGlobalMap } from '@/domains/content/lib/document-vis
 import { compareLocationsHierarchical } from '@/shared/geography/hierarchy';
 import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
+import { applyCatalogSnapshotPure, type ApplySnapshotOpts } from './catalog-snapshot';
 
 function getPersistentFilters(filters: FilterCriteria): FilterCriteria {
   return {
@@ -54,6 +55,10 @@ interface LocationsState {
 
   // Actions
   addDocument: (doc: KMLDocument) => void;
+  /** Delta-merge a fresh catalog snapshot. Preserva referencias de objetos no
+   *  cambiados y solo toca documentos dentro del `ownerScope`. Sustituye al
+   *  patrón destructivo `_resetStoreState()` + `addDocument(...)` en bucle. */
+  applyCatalogSnapshot: (docs: KMLDocument[], opts: ApplySnapshotOpts) => void;
   removeDocument: (id: string, options?: { deleteLocations?: boolean }) => Promise<void>;
   clearAllDocuments: () => Promise<void>;
   _resetStoreState: () => void;
@@ -158,6 +163,28 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       ? state.documents.map((d, i) => i === existing ? doc : d)
       : [...state.documents, doc];
     return { documents, _docVersion: state._docVersion + 1 };
+  }),
+
+  applyCatalogSnapshot: (docs, opts) => set((state) => {
+    const { documents, mutated, removedLocationIds } = applyCatalogSnapshotPure(
+      state.documents,
+      docs,
+      opts,
+    );
+    if (!mutated) return {};
+    // Clean selection from ids that no longer exist.
+    let selectedLocations = state.selectedLocations;
+    if (removedLocationIds.size > 0 && state.selectedLocations.size > 0) {
+      const next = new Set(state.selectedLocations);
+      let touched = false;
+      removedLocationIds.forEach((id) => { if (next.delete(id)) touched = true; });
+      if (touched) selectedLocations = next;
+    }
+    return {
+      documents,
+      selectedLocations,
+      _docVersion: state._docVersion + 1,
+    };
   }),
 
   removeDocument: async (id, options = {}) => {
