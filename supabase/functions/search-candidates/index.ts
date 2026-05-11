@@ -2,15 +2,16 @@
  * search-candidates — búsqueda multi-fuente de candidatos POI por nombre.
  *
  * Fuentes consultadas en paralelo (toggles vía tabla `data_sources`):
- *   - search.wikipedia_es
- *   - search.wikipedia_en
+ *   - search.wikipedia_es / search.wikipedia_en
  *   - search.wikidata
  *   - search.nominatim
  *   - search.geonames        (requiere GEONAMES_USERNAME)
  *   - search.photon          (sin key, gratis)
  *   - search.google_places   (requiere GOOGLE_PLACES_API_KEY)
+ *   - search.village.*       (16 catálogos "Pueblos más bonitos", fallback)
  *
  * Ver mem://logic/enrichment/recovery-search-multisource
+ * Ver mem://logic/enrichment/village-catalogs-fallback
  */
 
 const corsHeaders = {
@@ -18,6 +19,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 import { getEnabledSourceCodes } from '../_shared/data-sources.ts';
+import { searchVillageCatalogs } from '../_shared/village-catalogs/index.ts';
 
 type SourceCode =
   | 'wikipedia-es'
@@ -26,7 +28,8 @@ type SourceCode =
   | 'nominatim'
   | 'geonames'
   | 'photon'
-  | 'google-places';
+  | 'google-places'
+  | 'village-catalog';
 
 interface Candidate {
   name: string;
@@ -44,6 +47,7 @@ interface Body {
   term: string;
   near?: { lat: number; lng: number };
   limit?: number;
+  countryCode?: string; // ISO α2 — hint para village catalogs
 }
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
@@ -271,6 +275,7 @@ function dedup(candidates: Candidate[]): Candidate[] {
     photon: 4,
     nominatim: 5,
     geonames: 6,
+    'village-catalog': 7, // último: solo si nadie más lo trajo
   };
   for (const c of candidates) {
     const dupIdx = out.findIndex(
@@ -324,6 +329,9 @@ Deno.serve(async (req) => {
     }
 
     const enabled = await getEnabledSearchSources();
+    // Para village-catalogs necesitamos el Set crudo de codes habilitados.
+    const allEnabledCodes = await getEnabledSourceCodes('search');
+
     const tasks: Array<Promise<Candidate[]>> = [];
     if (enabled.has('wikipedia-es')) tasks.push(searchWikipedia('es', term, limit));
     if (enabled.has('wikipedia-en')) tasks.push(searchWikipedia('en', term, limit));
@@ -332,6 +340,32 @@ Deno.serve(async (req) => {
     if (enabled.has('geonames')) tasks.push(searchGeoNames(term, limit));
     if (enabled.has('photon')) tasks.push(searchPhoton(term, limit, body.near));
     if (enabled.has('google-places')) tasks.push(searchGooglePlaces(term, limit, body.near));
+
+    // Village catalogs (fallback) — gating individual por adapter
+    tasks.push(
+      (async (): Promise<Candidate[]> => {
+        try {
+          const hits = await searchVillageCatalogs(
+            term,
+            body.countryCode ?? null,
+            allEnabledCodes, // null = todos habilitados
+          );
+          return hits.map((h) => ({
+            name: h.name,
+            lat: h.lat,
+            lng: h.lng,
+            url: h.url,
+            country: h.country,
+            source: 'village-catalog' as const,
+            // Marker en URL para que el cliente pueda mostrar badge del catálogo
+            locality: h.sourceName,
+          }));
+        } catch (e) {
+          console.warn('[search-candidates] village-catalogs failed:', e);
+          return [];
+        }
+      })(),
+    );
 
     const results = await Promise.all(tasks);
     let candidates = dedup(results.flat());

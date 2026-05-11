@@ -2867,6 +2867,54 @@ export type Database = {
         }
         Relationships: []
       }
+      village_catalog_entries: {
+        Row: {
+          catalog_code: string
+          country_code: string | null
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          last_refreshed_at: string
+          latitude: number | null
+          longitude: number | null
+          name: string
+          name_canonical: string
+          raw: Json
+          source_url: string
+        }
+        Insert: {
+          catalog_code: string
+          country_code?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          last_refreshed_at?: string
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          name_canonical: string
+          raw?: Json
+          source_url: string
+        }
+        Update: {
+          catalog_code?: string
+          country_code?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          last_refreshed_at?: string
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          name_canonical?: string
+          raw?: Json
+          source_url?: string
+        }
+        Relationships: []
+      }
       waypoints: {
         Row: {
           created_at: string
