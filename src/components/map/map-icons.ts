@@ -197,19 +197,20 @@ export const createCustomIcon = (
     : '';
 
   // ── Rich (z≥11) — marker = polaroid (foto Hero o placeholder) ───────────
-  // En modo rich, TODO POI se pinta como polaroid clásico (marco blanco
-  // + franja inferior + sombra). Si hay imagen Hero válida, se usa; si no
-  // (o si onerror disparó antes), se renderiza placeholder gris con icono
-  // de foto. Health rings, collection tint y halo de focus se conservan
-  // como capas alrededor del polaroid. Ver `mem://style/map/zoom-driven-hero`.
+  // Forma canónica: cuadrado redondeado con marco blanco uniforme + flecha
+  // inferior centrada que apunta a la coordenada (estilo Google Maps photo
+  // marker). iconAnchor en la punta. Foto ocupa casi toda el área. Si no
+  // hay imagen Hero válida, placeholder gris con icono Lucide `image`.
+  // Ver `mem://style/map/zoom-driven-hero`.
   if (renderMode === 'rich') {
     const heroId = location?.id;
     const heroUrl = heroId && !heroFailedIds.has(heroId)
       ? getPointHeroImage(location)
       : null;
-    const photoSize = 40;
-    const polaroidW = 46;       // 40 + 3px marco izq + 3px marco dcho
-    const polaroidH = 56;       // 3 + 40 + 13 (franja inferior)
+    const cardSize = 50;
+    const pointerH = 6;
+    const polaroidW = cardSize;
+    const polaroidH = cardSize + pointerH;
     let heroCumulative = 0;
     const heroRingShadow = healthRings
       .map((ring) => {
@@ -223,7 +224,6 @@ export const createCustomIcon = (
       : '';
     const ownClass = isOwn ? ' is-own' : '';
     const safeId = heroId ? String(heroId).replace(/"/g, '&quot;') : '';
-    // Icono Lucide `image` (placeholder cuando no hay foto)
     const placeholderSvg = `
       <svg class="poi-hero-marker__placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
@@ -240,16 +240,22 @@ export const createCustomIcon = (
       html: `
       <div class="poi-hero-marker__wrap" style="--marker-state-color:${entry.fill_color}; width:${polaroidW}px; height:${polaroidH}px; position:relative; filter:${shadow}${heroRingShadow}; ${animationStyle}">
         ${collectionTint ? `<div class="collection-tint-ring" style="--collection-tint:${collectionTint}"></div>` : ''}
-        <div class="poi-hero-marker__photo${photoClass}">
-          ${placeholderHtml}
-          ${photoHtml}
+        <div class="poi-hero-marker__card">
+          <div class="poi-hero-marker__photo${photoClass}">
+            ${placeholderHtml}
+            ${photoHtml}
+          </div>
         </div>
+        <svg class="poi-hero-marker__pointer" width="14" height="${pointerH + 1}" viewBox="0 0 14 7" aria-hidden="true">
+          <path d="M0 0 H14 L7 7 Z" fill="hsl(var(--background))" stroke="var(--marker-state-color)" stroke-width="1" stroke-linejoin="miter"/>
+          <path d="M1 0 H13" stroke="hsl(var(--background))" stroke-width="1.4"/>
+        </svg>
         ${haloHtml}
       </div>
       `,
       iconSize: [polaroidW, polaroidH],
-      iconAnchor: [polaroidW / 2, 3 + photoSize / 2],
-      popupAnchor: [0, -(3 + photoSize / 2)],
+      iconAnchor: [polaroidW / 2, polaroidH],
+      popupAnchor: [0, -polaroidH],
     });
   }
 
