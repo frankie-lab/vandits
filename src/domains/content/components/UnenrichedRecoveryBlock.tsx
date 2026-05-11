@@ -466,7 +466,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar otro nombre…"
+                  placeholder="Buscar en Wikipedia, Wikidata, OSM…"
                   disabled={busy || searching}
                   className="w-full text-[11px] pl-6 pr-2 py-1.5 rounded border border-border bg-background"
                 />
