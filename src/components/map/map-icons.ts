@@ -258,6 +258,7 @@ export const createCustomIcon = (
           <circle cx="12" cy="12" r="11" fill="${skipGradient ? applyStateColor(baseColor) : `url(#dotGrad-${location?.id || 'default'})`}" stroke="white" stroke-width="${borderWidth}"/>
         </svg>
       </div>
+      ${thumbHtml}
     </div>
     `,
     iconSize: [containerSize, containerSize],
