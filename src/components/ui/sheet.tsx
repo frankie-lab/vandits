@@ -47,6 +47,29 @@ const sheetVariants = cva(
  },
 );
 
+// CSS canónico para que los sheets respeten barra superior y barra de progreso.
+// Mismas vars que dialogs: --top-header-h, --bottom-progress-h, --overlay-progress-gap.
+const sheetSafeStyle: Record<NonNullable<VariantProps<typeof sheetVariants>['side']>, React.CSSProperties> = {
+ left: {
+ top: 'calc(var(--top-header-h, 0px) + var(--overlay-progress-gap, 12px))',
+ bottom: 'calc(var(--bottom-progress-h, 0px) + var(--overlay-progress-gap, 12px))',
+ height: 'auto',
+ },
+ right: {
+ top: 'calc(var(--top-header-h, 0px) + var(--overlay-progress-gap, 12px))',
+ bottom: 'calc(var(--bottom-progress-h, 0px) + var(--overlay-progress-gap, 12px))',
+ height: 'auto',
+ },
+ top: {
+ top: 'calc(var(--top-header-h, 0px) + var(--overlay-progress-gap, 12px))',
+ maxHeight: 'calc(100vh - var(--top-header-h, 0px) - var(--bottom-progress-h, 0px) - 2 * var(--overlay-progress-gap, 12px))',
+ },
+ bottom: {
+ bottom: 'calc(var(--bottom-progress-h, 0px) + var(--overlay-progress-gap, 12px))',
+ maxHeight: 'calc(100vh - var(--top-header-h, 0px) - var(--bottom-progress-h, 0px) - 2 * var(--overlay-progress-gap, 12px))',
+ },
+};
+
 interface SheetContentProps
  extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
   VariantProps<typeof sheetVariants> {
@@ -54,10 +77,15 @@ interface SheetContentProps
  }
 
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = "right", className, children, overlay = true, ...props }, ref) => (
+  ({ side = "right", className, children, overlay = true, style, ...props }, ref) => (
    <SheetPortal>
    {overlay && <SheetOverlay />}
-   <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
+   <SheetPrimitive.Content
+    ref={ref}
+    className={cn(sheetVariants({ side }), className)}
+    style={{ ...sheetSafeStyle[side], ...style }}
+    {...props}
+   >
    {children}
    <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
    <X className="h-4 w-4" />
