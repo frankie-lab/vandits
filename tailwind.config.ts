@@ -66,6 +66,11 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        'token-xs': 'var(--radius-xs)',
+        'token-sm': 'var(--radius-sm)',
+        'token-md': 'var(--radius-md)',
+        'token-lg': 'var(--radius-lg)',
+        'token-xl': 'var(--radius-xl)',
       },
       boxShadow: {
         'xs': 'var(--shadow-xs)',
@@ -102,6 +107,12 @@ export default {
         'micro': ['var(--text-micro)', { lineHeight: 'var(--lh-micro)', letterSpacing: '0.01em' }],
       },
       height: {
+        'control-sm': 'var(--control-h-sm)',
+        'control-md': 'var(--control-h-md)',
+        'control-lg': 'var(--control-h-lg)',
+        'control-xl': 'var(--control-h-xl)',
+      },
+      width: {
         'control-sm': 'var(--control-h-sm)',
         'control-md': 'var(--control-h-md)',
         'control-lg': 'var(--control-h-lg)',
