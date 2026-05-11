@@ -106,7 +106,10 @@ export function PoiPreview({
   const ringPad = orderedHealth.length * RING_W + (collectionTint ? RING_W + 2 : 0);
   const totalDiameter = diameter + ringPad * 2 + (focused ? 4 : 0);
 
-  const showThumb = focused && heroSrc && !isMicro && !isRich;
+  // Miniatura focused/selected ELIMINADA — la regla canónica por zoom
+  // (mem://style/map/zoom-driven-hero) usa solo el hero marker en `rich`
+  // y el rollover Polaroid para mostrar la imagen Hero.
+  const showThumb = false;
 
   return (
     <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
