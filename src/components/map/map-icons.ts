@@ -180,9 +180,8 @@ export const createCustomIcon = (
   //   • La imagen Hero aparece SOLO en el hover Polaroid (z≥14) y como
   //     marker en `rich` (z≥17, rama heroUrl más abajo).
   //   • NO se pinta miniatura circular sobre el marker focused/selected.
-  //     El rollover Polaroid y el hero marker ya cubren ese caso.
-  // La antigua `focused-thumbnail-rule` queda deprecada.
-  const thumbHtml = '';
+  //   La antigua `focused-thumbnail-rule` queda deprecada.
+
 
   const baseColor = entry.fill_color;
   const baseColorLight = entry.fill_color_light || adjustHslLightness(baseColor, 15);
