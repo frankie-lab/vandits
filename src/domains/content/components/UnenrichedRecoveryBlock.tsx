@@ -222,6 +222,62 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
         </div>
       </div>
 
+      {!renaming && allCandidates.length > 0 && (
+        <div className="flex flex-col gap-1 border-t border-amber-200/40 dark:border-amber-800/40 pt-2">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            {isCoordinateMismatch
+              ? 'Misma identidad, coordenadas distintas'
+              : 'Candidatos cercanos'}
+          </div>
+          {allCandidates.map((c, idx) => {
+            const geo = [c.locality, c.region, c.country].filter(Boolean).join(' · ');
+            return (
+              <div
+                key={`${c.name}-${idx}`}
+                className="flex items-center gap-1.5 flex-wrap rounded border border-border/60 bg-background/60 px-1.5 py-1"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] font-medium truncate">{c.name}</div>
+                  <div className="text-[10px] text-muted-foreground truncate">
+                    {c.distanceKm != null && <span>{c.distanceKm} km</span>}
+                    {geo && <span>{c.distanceKm != null ? ' · ' : ''}{geo}</span>}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 text-[10px] px-1.5"
+                  onClick={() => handleUseName(c.name)}
+                  disabled={busy || !c.name || c.name === location.name}
+                  title="Usar este nombre para el punto"
+                >
+                  Usar nombre
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 text-[10px] px-1.5"
+                  onClick={() => handleMovePoint(c.lat, c.lng)}
+                  disabled={busy || typeof c.lat !== 'number' || typeof c.lng !== 'number'}
+                  title="Mover el punto a estas coordenadas"
+                >
+                  Mover aquí
+                </Button>
+              </div>
+            );
+          })}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 text-[10px] self-start text-muted-foreground"
+            onClick={handleIgnoreConflict}
+            disabled={busy}
+          >
+            Ignorar conflicto y enriquecer igual
+          </Button>
+        </div>
+      )}
+
       {renaming ? (
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-1">
