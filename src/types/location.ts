@@ -262,6 +262,13 @@ export interface GeoLocation {
  enrichedData?: EnrichedLocationData;
  /** Estado de enriquecimiento en BD: null=no intentado, enriched, unresolved, manual, pending */
  enrichmentStatus?: LocationEnrichmentDBStatus;
+ /**
+  * Salud de la cadena administrativa (FKs continent..sublocality + place_type).
+  * Cache del campo `locations.geo_health` calculado en DB. Usado para pintar el
+  * anillo amarillo "cadena rota" sobre el marker. Ver
+  * `mem://style/map/health-rings-rule`.
+  */
+ geoHealth?: 'ok' | 'broken' | 'partial' | 'stale_name' | 'empty' | null;
  /** ID del documento de origen */
  documentId?: string;
  /** Whether this location is approved for the general map */

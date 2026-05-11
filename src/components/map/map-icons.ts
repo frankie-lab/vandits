@@ -13,13 +13,17 @@ import { adjustHslLightness } from './map-utils';
 import { getMarkerSizeConfig, getBaseSize, getHoverSize } from './useMarkerSizeConfig';
 import { getMarkerStateRules, getStateColor, getStateShadow, getStateBorderWidth } from './useMarkerStateRules';
 import { getPointConfigKey } from '@/domains/content/lib/point-visual-state';
-import { hasEnrichmentFailure } from '@/domains/content/lib/enrichment-failure-state';
+import {
+  getPointHealthRings,
+  RING_COLORS,
+  RING_WIDTH,
+} from '@/domains/content/lib/point-health-rings';
 
-// Anillo rojo de 5px sobre los marcadores con fallo de enriquecimiento.
-// Es un overlay encima de la paleta canónica (verde/gris/naranja). No
-// sustituye al estado, sólo lo flaggea. Ver mem://style/map/error-outline-rule.
-const ERROR_RING_WIDTH = 5;
-const ERROR_RING_COLOR = '#dc2626';
+// Anillos de salud (5px) apilados POR FUERA del marker y del collection-tint.
+// Helper único: `getPointHealthRings`. No sustituyen al stroke blanco ni al
+// tinte de colección — son una capa aditiva. Ver
+// `mem://style/map/health-rings-rule`.
+const RING_GAP = RING_WIDTH;
 
 export const createCustomIcon = (
   isSelected: boolean,
@@ -45,11 +49,14 @@ export const createCustomIcon = (
   const size = getBaseSize(entry, isRecentlyEnriched, isFocused, isSelected);
   const hoverSize = getHoverSize(entry);
 
-  // Anillo rojo de error: helper único + regla "verde nunca marca error".
-  // Es un overlay que rodea al icono base; no muta la paleta de estado.
-  const showErrorRing = hasEnrichmentFailure(location);
-  const errorPad = showErrorRing ? ERROR_RING_WIDTH + 2 : 0;
-  const containerSize = size + errorPad * 2;
+  // Anillos de salud (rojo error / amarillo cadena rota / naranja vacío),
+  // apilados de dentro hacia fuera por orden de severidad. Helper único:
+  // `getPointHealthRings`. La regla "verde nunca marca error" vive dentro
+  // de `hasEnrichmentFailure` y aquí se respeta automáticamente.
+  const healthRings = getPointHealthRings(location);
+  const ringCount = healthRings.length;
+  const ringPad = ringCount > 0 ? ringCount * RING_GAP + 2 : 0;
+  const containerSize = size + ringPad * 2;
 
   const animationStyle = isRecentlyEnriched
     ? 'animation: enriched-celebrate 3.5s ease-out;'
@@ -88,18 +95,22 @@ export const createCustomIcon = (
     const pinWidth = pinHeight * 0.7;
     const dotSize = pinHeight * 0.25;
 
-    // Para pin, el anillo rojo se simula con un drop-shadow plano que respeta
-    // la silueta de la lágrima. En la práctica, los pines suelen ser puntos
-    // enriquecidos (verdes) y por la regla "verde nunca marca error" nunca
-    // verán el anillo, pero lo soportamos por completitud.
-    const errorShadow = showErrorRing
-      ? ` drop-shadow(0 0 0 ${ERROR_RING_WIDTH}px ${ERROR_RING_COLOR})`
-      : '';
+    // Para pin (lágrima), cada anillo de salud se simula con un drop-shadow
+    // plano que respeta la silueta. Se apilan de dentro a fuera. La regla
+    // "verde nunca marca error" vive en `hasEnrichmentFailure` → ya filtrada.
+    let cumulativeOffset = 0;
+    const ringShadow = healthRings
+      .map((ring) => {
+        cumulativeOffset += RING_WIDTH;
+        return ` drop-shadow(0 0 0 ${cumulativeOffset}px ${RING_COLORS[ring]})`;
+      })
+      .join('');
+    const hasErrorRing = healthRings.includes('error');
 
     return L.divIcon({
-      className: `custom-marker${isRecentlyEnriched ? ' recently-enriched' : ''}${showErrorRing ? ' has-enrichment-error' : ''}`,
+      className: `custom-marker${isRecentlyEnriched ? ' recently-enriched' : ''}${hasErrorRing ? ' has-enrichment-error' : ''}`,
       html: `
-      <div style="width: ${pinWidth}px; height: ${pinHeight}px; position: relative; filter: ${shadow}${errorShadow}; ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center bottom;" ${hoverAttr.replace("'1'", "'1'")}>
+      <div style="width: ${pinWidth}px; height: ${pinHeight}px; position: relative; filter: ${shadow}${ringShadow}; ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center bottom;" ${hoverAttr.replace("'1'", "'1'")}>
         ${collectionTint ? `<div class="collection-tint-ring" style="--collection-tint:${collectionTint}"></div>` : ''}
         <svg width="${pinWidth}" height="${pinHeight}" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
@@ -119,16 +130,29 @@ export const createCustomIcon = (
     });
   }
 
-  // Default: small circle (the norm for all three states)
-  // El anillo rojo de error se renderiza como un div absoluto alrededor del
-  // SVG base, ampliando iconSize por `errorPad` en cada lado para que el
-  // marcador siga centrado y el anchor del popup sea correcto.
+  // Default: small circle (the norm for all three states).
+  // Los anillos de salud se renderizan como divs absolutos concéntricos
+  // alrededor del SVG base, apilados de dentro hacia fuera por severidad.
+  // El stroke blanco interior y el `collection-tint-ring` no se tocan: la
+  // capa de salud va SIEMPRE por fuera de ambos. `containerSize` se expande
+  // para que el icono siga centrado y el popupAnchor sea correcto.
+  const hasErrorRing = healthRings.includes('error');
+  const ringsHtml = healthRings
+    .map((ring, idx) => {
+      // idx 0 = el anillo más interno (justo fuera del marker base + tint).
+      // idx N = el más externo (más severo). Cada anillo ocupa RING_WIDTH px
+      // hacia afuera, sin gaps.
+      const innerInset = (ringCount - 1 - idx) * RING_GAP;
+      return `<div style="position:absolute; top:${innerInset}px; left:${innerInset}px; right:${innerInset}px; bottom:${innerInset}px; border-radius:50%; border:${RING_WIDTH}px solid ${RING_COLORS[ring]}; box-sizing:border-box; pointer-events:none;"></div>`;
+    })
+    .join('');
+
   return L.divIcon({
-    className: `custom-marker-dot${isRecentlyEnriched ? ' recently-enriched' : ''}${showErrorRing ? ' has-enrichment-error' : ''}`,
+    className: `custom-marker-dot${isRecentlyEnriched ? ' recently-enriched' : ''}${hasErrorRing ? ' has-enrichment-error' : ''}`,
     html: `
     <div style="width: ${containerSize}px; height: ${containerSize}px; position: relative; filter: ${shadow}; ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center center;" ${hoverAttr}>
-      ${showErrorRing ? `<div style="position:absolute; inset:0; border-radius:50%; border:${ERROR_RING_WIDTH}px solid ${ERROR_RING_COLOR}; box-sizing:border-box; pointer-events:none;"></div>` : ''}
-      <div style="position:absolute; left:${errorPad}px; top:${errorPad}px; width:${size}px; height:${size}px;">
+      ${ringsHtml}
+      <div style="position:absolute; left:${ringPad}px; top:${ringPad}px; width:${size}px; height:${size}px;">
         ${collectionTint ? `<div class="collection-tint-ring" style="--collection-tint:${collectionTint}"></div>` : ''}
         <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
