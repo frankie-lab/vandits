@@ -196,18 +196,17 @@ export const createCustomIcon = (
     ? `onmouseenter="this.style.transform='scale(${scaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'"`
     : '';
 
-  // ── Rich (z≥11) — marker = polaroid (foto Hero o placeholder) ───────────
-  // Forma canónica: cuadrado redondeado con marco blanco uniforme + flecha
-  // inferior centrada que apunta a la coordenada (estilo Google Maps photo
-  // marker). iconAnchor en la punta. Foto ocupa casi toda el área. Si no
-  // hay imagen Hero válida, placeholder gris con icono Lucide `image`.
+  // ── Rich (z≥11) — polaroid AÑADIDA encima del dot canónico ──────────────
+  // La polaroid NO sustituye al marker: es una capa decorativa flotando
+  // sobre el dot estándar. El dot canónico (color de estado + health rings
+  // + collection tint) sigue siendo la coordenada real y el área clicable.
   // Ver `mem://style/map/zoom-driven-hero`.
+  let polaroidHtml = '';
   if (renderMode === 'rich') {
     const heroId = location?.id;
-    // Pasamos ownership = { isOwn } igual que `map-tooltip.ts`. Sin esto, los
-    // POIs propios con `user_image_visibility='private'` (default) caen al
-    // branch de visitante anónimo y la polaroid renderiza placeholder pese
-    // a tener `user_image_url`. Single source of truth: `getPointHeroImage`.
+    // Pasamos ownership = { isOwn } igual que `map-tooltip.ts` para que los
+    // POIs propios con `user_image_visibility='private'` (default) muestren
+    // su `user_image_url`. Single source of truth: `getPointHeroImage`.
     const heroUrl = heroId && !heroFailedIds.has(heroId)
       ? getPointHeroImage(location, { isOwn })
       : null;
@@ -215,17 +214,6 @@ export const createCustomIcon = (
     const pointerH = 6;
     const polaroidW = cardSize;
     const polaroidH = cardSize + pointerH;
-    let heroCumulative = 0;
-    const heroRingShadow = healthRings
-      .map((ring) => {
-        heroCumulative += RING_WIDTH;
-        return ` drop-shadow(0 0 0 ${heroCumulative}px ${RING_COLORS[ring]})`;
-      })
-      .join('');
-    const hasErrorRing = healthRings.includes('error');
-    const haloHtml = (isFocused || isSelected)
-      ? '<div class="poi-hero-marker__halo"></div>'
-      : '';
     const ownClass = isOwn ? ' is-own' : '';
     const safeId = heroId ? String(heroId).replace(/"/g, '&quot;') : '';
     const placeholderSvg = `
@@ -234,33 +222,22 @@ export const createCustomIcon = (
         <circle cx="9" cy="9" r="2"/>
         <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
       </svg>`;
-    const photoHtml = heroUrl
-      ? `<img class="poi-hero-marker__img" src="${heroUrl.replace(/"/g, '&quot;')}" alt="" referrerpolicy="no-referrer" onerror="window.__markHeroFailed && window.__markHeroFailed('${safeId}'); this.style.display='none'; this.parentElement.classList.add('is-empty');" />`
-      : '';
     const placeholderHtml = `<div class="poi-hero-marker__placeholder">${placeholderSvg}</div>`;
-    const photoClass = heroUrl ? '' : ' is-empty';
-    return L.divIcon({
-      className: `poi-hero-marker${isRecentlyEnriched ? ' recently-enriched' : ''}${hasErrorRing ? ' has-enrichment-error' : ''}${ownClass}`,
-      html: `
-      <div class="poi-hero-marker__wrap" style="--marker-state-color:${entry.fill_color}; width:${polaroidW}px; height:${polaroidH}px; position:relative; filter:${shadow}${heroRingShadow}; ${animationStyle}">
-        ${collectionTint ? `<div class="collection-tint-ring" style="--collection-tint:${collectionTint}"></div>` : ''}
+    // Renderiza UNO solo: imagen o placeholder. Si la imagen falla en
+    // runtime, marcamos el ID en `heroFailedIds` y sustituimos in-place.
+    const photoInner = heroUrl
+      ? `<img class="poi-hero-marker__img" src="${heroUrl.replace(/"/g, '&quot;')}" alt="" referrerpolicy="no-referrer" onerror="window.__markHeroFailed && window.__markHeroFailed('${safeId}'); var p=this.parentElement; if(p){ p.innerHTML='${placeholderHtml.replace(/'/g, "\\'").replace(/\n/g, '')}'; }" />`
+      : placeholderHtml;
+    polaroidHtml = `
+      <div class="poi-hero-marker poi-hero-marker--addon${ownClass}" style="position:absolute; left:50%; bottom:calc(100% + 4px); transform:translateX(-50%); width:${polaroidW}px; height:${polaroidH}px; pointer-events:none; --marker-state-color:${entry.fill_color};">
         <div class="poi-hero-marker__card">
-          <div class="poi-hero-marker__photo${photoClass}">
-            ${placeholderHtml}
-            ${photoHtml}
-          </div>
+          <div class="poi-hero-marker__photo">${photoInner}</div>
         </div>
         <svg class="poi-hero-marker__pointer" width="14" height="${pointerH + 1}" viewBox="0 0 14 7" aria-hidden="true">
           <path d="M0 0 H14 L7 7 Z" fill="hsl(var(--background))" stroke="var(--marker-state-color)" stroke-width="1" stroke-linejoin="miter"/>
           <path d="M1 0 H13" stroke="hsl(var(--background))" stroke-width="1.4"/>
         </svg>
-        ${haloHtml}
-      </div>
-      `,
-      iconSize: [polaroidW, polaroidH],
-      iconAnchor: [polaroidW / 2, polaroidH],
-      popupAnchor: [0, -polaroidH],
-    });
+      </div>`;
   }
 
   // Pin (teardrop) shape — only when explicitly configured for this state
