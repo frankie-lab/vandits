@@ -18,10 +18,8 @@ interface PreviewProps {
 }
 
 export function TokenPreview({ row, groupId }: PreviewProps) {
-  // Color: muestra in-place del color aplicado a primitives reales
-  if (groupId === 'color') {
-    return <ColorPreview row={row} />;
-  }
+  // Color rows ya no expanden: el preview vive en el propio row (TokenRow).
+  if (groupId === 'color') return null;
   if (groupId === 'poi') return <PoiTokenPreview row={row} />;
   if (groupId === 'popup') return <PopupTokenPreview row={row} />;
   if (groupId === 'motion') return <MotionTokenPreview row={row} />;
