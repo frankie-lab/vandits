@@ -45,9 +45,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 const App = () => (
  <QueryClientProvider client={queryClient}>
  <IconLibraryProvider>
+ <DesignSystemThemeProvider>
  <TooltipProvider>
     <Toaster />
      <GlobalLoadingBar />
+     <EditModeBar />
  <BrowserRouter>
  <Routes>
  <Route path="/auth" element={<Auth />} />
