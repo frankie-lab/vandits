@@ -201,26 +201,28 @@ function ColorSwatchColumn({
   const css = toCssColor(live);
   const hex = parseHslTriplet(live) ? hslTripletToHex(live) : null;
 
-  // Surface destino del MISMO modo (mapeado o fallback a surface.background).
   const role = extractRole(path) ?? '';
-  const mappedBgPath = resolveTargetBackgroundPath(path);
-  const fallbackBgPath = `color.${mode}.surface.background`;
-  const surfacePath = mappedBgPath ?? fallbackBgPath;
-  const surfaceTriplet = String(useResolvedTokenValue(surfacePath) ?? '');
-  const surfaceCss = surfaceTriplet ? toCssColor(surfaceTriplet) : undefined;
-
-  const wcag = computeWcag(live, surfaceTriplet || undefined);
-
-  // Texto secundario contrastado contra el surface (no contra el color del token).
-  const surfaceHsl = parseHslTriplet(surfaceTriplet);
-  const onSurfaceText = surfaceHsl && surfaceHsl.l > 55 ? 'text-black/70' : 'text-white/80';
-
   const foreground = isForegroundRole(role);
   const surfaceItself = isSurfaceRole(role);
 
-  // Cuando el token ES un surface, no hay contexto separado: pintamos toda la
-  // columna con el propio color (que coincide con el surface).
-  const canvasBg = surfaceItself ? css : (surfaceCss ?? css);
+  // WCAG: se sigue calculando contra el surface destino real (donde el color
+  // se aplica de verdad). Esto NO cambia el lienzo de la columna.
+  const wcagTargetPath = resolveTargetBackgroundPath(path) ?? `color.${mode}.surface.background`;
+  const wcagSurfaceTriplet = String(useResolvedTokenValue(wcagTargetPath) ?? '');
+  const wcag = computeWcag(live, wcagSurfaceTriplet || undefined);
+
+  // Lienzo de la columna: SIEMPRE el fondo de página del modo (claro/oscuro).
+  // Excepción única: si el token ES el propio fondo de página, pintamos la
+  // columna con su color (no hay otra cosa que demostrar encima).
+  const pageBgTriplet = String(
+    useResolvedTokenValue(`color.${mode}.surface.background`) ?? ''
+  );
+  const pageBgCss = pageBgTriplet ? toCssColor(pageBgTriplet) : undefined;
+  const canvasBg = surfaceItself ? css : (pageBgCss ?? css);
+
+  // Texto secundario contrastado contra el lienzo (no contra el surface destino).
+  const canvasHsl = parseHslTriplet(surfaceItself ? live : pageBgTriplet);
+  const onSurfaceText = canvasHsl && canvasHsl.l > 55 ? 'text-black/70' : 'text-white/80';
 
   // Para chips, escoger color de texto contrastado contra el chip mismo.
   const chipHsl = parseHslTriplet(live);

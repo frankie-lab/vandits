@@ -358,10 +358,10 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
   >
    <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
-    className={`bg-card rounded-xl shadow-2xl w-full overflow-hidden flex flex-col max-h-full ${
+    className={`bg-card rounded-xl shadow-2xl w-full overflow-hidden flex flex-col h-full max-h-full ${
      (defaultTab || 'users') === 'geography' || (defaultTab || 'users') === 'design-system'
-       ? 'max-w-6xl h-[92vh]'
-       : 'max-w-4xl h-[90vh]'
+       ? 'max-w-6xl'
+       : 'max-w-4xl'
     }`}
    >
   <div className="flex items-center justify-between p-4 border-b">
