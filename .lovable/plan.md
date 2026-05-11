@@ -1,32 +1,55 @@
-# Problema
+## Objetivo
 
-En la **Paleta primitiva** las dos columnas pintan el cuadrado entero con el color del primitivo. No hay fondo claro vs fondo oscuro, así que no se ve el efecto del color en cada modo. Neutral 0 (#FFFFFF) sale como dos columnas blancas idénticas; un gris medio sale como dos rectángulos iguales.
+Dejar **una sola regla de POIs por zoom**, sin ramas paralelas que se contradigan. Restaurar el formato acordado: puntos pequeños → rollover Polaroid con foto Hero → en proximidad el marker se convierte en la foto Hero.
 
-# Lo que quieres ver
+## Regla canónica (frozen)
 
-Cada primitivo en **su contexto real**:
-- Columna **Claro** = fondo claro real de la app (el surface del modo claro). Encima, el color del primitivo como muestra.
-- Columna **Oscuro** = fondo oscuro real de la app (el surface del modo oscuro). Encima, el color del primitivo como muestra.
+| Zoom | Modo | Marker | Hover |
+|---|---|---|---|
+| ≤ 9 | `micro` | Punto plano 5px (color de estado) | — |
+| 10-13 | `compact` | SVG plano (sin gradiente, sin health rings, sin tint) | Polaroid sin imagen |
+| 14-16 | `standard` | SVG completo (gradiente + health rings + collection tint) | **Polaroid con foto Hero** |
+| ≥ 17 | `rich` | **El marker ES la foto Hero** (40px cuadrado, borde de estado). Sin imagen → cae a SVG `standard` | Polaroid con foto Hero |
 
-Así de un vistazo ves si el primitivo "se come" o "destaca" sobre cada fondo.
+Modificadores que **NO** cambian la regla, solo añaden capa:
+- `isFocused` (1 clic) → pulse + halo, mantiene la forma que dicta el zoom.
+- `isSelected` (selección masiva) → halo blanco en `shadow`, nunca cambia forma ni tamaño.
+- `collectionTint` → anillo de colección por fuera del marker base.
+- `healthRings` → anillos rojo/amarillo/naranja por fuera del tint.
+- `isOwn` → halo blanco más marcado + `mine-pane` (capa superior).
 
-# Solución
+## Cambios
 
-En `src/components/admin/design-system/TokenRow.tsx`, rama de primitivos:
+### 1. `src/components/map/map-icons.ts`
+- **Eliminar** el bloque `showThumb` + `thumbHtml` + `.poi-thumb` (líneas ~176-194 y los dos `${thumbHtml}` insertados en pin/dot).
+- Mantener la rama `heroUrl` (modo `rich`) — esa es la regla buena.
+- Confirmar que el escape de `micro` es solo por `isFocused` (ya hecho).
 
-1. **Lienzo de la columna** = `color.{mode}.surface.background`  
-   → Claro pinta fondo claro, Oscuro pinta fondo oscuro. Siempre, sin excepción.
-2. **Muestra del primitivo** = chip rectangular grande centrado, relleno con el color del primitivo, con borde sutil `border-border/40` para que no desaparezca cuando primitivo ≈ lienzo (Neutral 0 sobre blanco).
-3. **HEX** dentro del chip si hay contraste suficiente, o debajo del chip sobre el lienzo si no.
-4. **Label "CLARO" / "OSCURO"** arriba, color contrastado contra el **lienzo** (no contra el chip).
-5. Si el primitivo es casi igual al lienzo (diferencia de luminancia < 6%), pintar un patrón ajedrezado micro detrás del chip para que siempre se vea el borde de la muestra.
+### 2. `src/index.css`
+- **Eliminar** las reglas de `.poi-thumb` (alrededor de la línea 380) que ya no usa nadie.
+- Verificar que `.poi-hover-tooltip__img` solo se muestra con `.map-zoom-standard` / `.map-zoom-rich` (ya está, no se toca).
 
-Semánticos: sin cambios.
+### 3. Memoria
+- Marcar `mem://style/map/focused-thumbnail-rule` como **deprecada** (sustituida por el rollover Polaroid + hero marker en `mem://style/map/zoom-driven-hero`).
+- Actualizar `mem://index.md` para sacar la entrada vieja del listado.
 
-# Fichero
+### 4. Verificación
+- En `LocationMap.tsx` el `zoomend` ya aplica `map-zoom-{micro|compact|standard|rich}` al contenedor y dispara `map-render-mode-changed` para repintar markers.
+- Comprobar que `buildHoverTooltipHtml` se cablea en todos los markers (línea 1403, ya está) y que la imagen Hero llega vía `getPointHeroImage`.
 
-- `src/components/admin/design-system/TokenRow.tsx` — solo la rama `isPrimitive` dentro de `ColorSwatchColumn`.
+## Lo que NO se toca
 
-# Riesgo
+- La cadena de prioridad de paleta (`getPointVisualState`).
+- Los anillos de salud (`getPointHealthRings`).
+- El `collection-tint-ring`.
+- Las panes `mine-pane` / `others-pane` / `selection-pane`.
+- La gating de clustering (sigue desactivado de facto).
 
-Bajo. Cambio visual local a una sola rama de un componente. No afecta a tokens semánticos, ni a edición, ni al vínculo claro↔oscuro.
+## Resultado esperado
+
+- Vista mundial (Francia entera, 699 seleccionados): solo puntitos 5px de color. Cero miniaturas.
+- Vista regional (zoom 11-13): círculos planos de color, sin foto, hover muestra solo el nombre.
+- Vista local (zoom 14-16): círculos con gradiente + rings, hover Polaroid con foto Hero.
+- Vista muy cercana (zoom 17+): el marker es la foto Hero, hover sigue mostrando la Polaroid.
+
+Una sola regla. Sin ramas que la salten.
