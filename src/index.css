@@ -368,23 +368,10 @@
   box-sizing: border-box;
 }
 
-/* Thumbnail circular en marker focused/selected (Ola 3 — UX, no rendimiento).
-   Helper único: createCustomIcon decide cuándo inyectarlo. Tamaño fijo 24px
-   sin importar el zoom; se posiciona arriba-derecha sobre el marker base.
-   Ver mem://style/map/focused-thumbnail-rule. */
-.poi-thumb {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-  object-fit: cover;
-  background: #f3f4f6;
-  pointer-events: none;
-}
+/* `.poi-thumb` (focused/selected thumbnail) ELIMINADO — la regla canónica
+   por zoom (mem://style/map/zoom-driven-hero) sustituye este modificador
+   por el rollover Polaroid (z≥14) y el hero marker (z≥17). */
+
 
 /* ─── Hover preview tooltip + rich marker (zoom-driven hero image) ──────
    Una sola tarjeta en todos los zooms: misma superficie, tipografía,
