@@ -1628,6 +1628,27 @@ export function LocationMap() {
     return unsub;
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds]);
 
+  // Render-mode change (Ola 1): cuando zoomend cambia el modo en map-icons,
+  // repintamos todos los markers con el estado React actual (selección/focus/
+  // recent) para que el cambio de fidelidad sea atómico y no pierda highlights.
+  useEffect(() => {
+    const handler = () => {
+      markersRef.current.forEach((marker, locationId) => {
+        const location = locationsRef.current.get(locationId);
+        const isSelected = selectedLocations.has(locationId);
+        const isFocused = focusedLocationId === locationId;
+        const isEnriched = !!location?.enrichedData;
+        const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
+        marker.setIcon(createCustomIcon(
+          isSelected, isFocused, isEnriched, location, criteriaTimestamp,
+          isRecentlyEnriched, getTintForLocation(locationId),
+        ));
+      });
+    };
+    window.addEventListener('map-render-mode-changed', handler);
+    return () => window.removeEventListener('map-render-mode-changed', handler);
+  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds]);
+
   // Anillo rojo de error: pre-warm de fallos al montar el mapa y re-render
   // de iconos cuando el store de fallos invalida (realtime / location:enriched).
   // Ver mem://style/map/error-outline-rule.
