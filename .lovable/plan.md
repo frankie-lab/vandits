@@ -1,80 +1,62 @@
-# Plan: fila única de color con 3 columnas
+# Plan: render del color en su contexto (claro/oscuro)
 
-Cambio acotado a `src/components/admin/design-system/TokenRow.tsx` y dependencias visuales. Sin tocar build pipeline ni `color.json`.
+Cambio acotado a `ColorSwatchColumn` en `src/components/admin/design-system/TokenRow.tsx`. Ni store ni tokens cambian.
 
-## Resultado visual
+## Problema
 
-Cada token de color pasa de 2 filas (label + 2 swatches contextuales) a **1 fila con 3 columnas**:
+Hoy cada columna se pinta entera con el color del token. Resultado: dos rectángulos de color y ningún contexto. No se aprecia cómo se lee el color sobre fondo claro vs fondo oscuro, que es justamente la razón de tener par light/dark.
+
+## Resultado visual nuevo
+
+Cada columna pasa a ser un **lienzo de surface** (su `surface.background` del modo) con la muestra del color **dentro**, como aparecería en la app real.
 
 ```text
-┌─────────────────────────┬───────────────────────┬───────────────────────┐
-│ INFO                    │ CLARO                 │ OSCURO                │
-│ token.name              │ ┌───────────────────┐ │ ┌───────────────────┐ │
-│ [Modificado] → brand.500│ │  swatch grande    │ │ │  swatch grande    │ │
-│ Descripción uso         │ │  CLARO            │ │ │  OSCURO           │ │
-│ --css-var-1             │ │  #RRGGBB          │ │ │  #RRGGBB          │ │
-│ --css-var-2             │ │  4.8:1 AA         │ │ │  6.2:1 AAA        │ │
-│ [⛓ Auto-link]           │ └───────────────────┘ │ └───────────────────┘ │
-└─────────────────────────┴───────────────────────┴───────────────────────┘
+┌───── CLARO ─────────────┐  ┌───── OSCURO ────────────┐
+│ surface light (#FBFAF9) │  │ surface dark (#101318)  │
+│                         │  │                         │
+│   ┌──────────────────┐  │  │   ┌──────────────────┐  │
+│   │   color sample   │  │  │   │   color sample   │  │
+│   │   "Texto sobre"  │  │  │   │   "Texto sobre"  │  │
+│   │   #DF6C20  4.5:1 │  │  │   │   #E87A30  6.2:1 │  │
+│   └──────────────────┘  │  │   └──────────────────┘  │
+│ CLARO                   │  │ OSCURO                  │
+└─────────────────────────┘  └─────────────────────────┘
 ```
 
-- **Columna 1 (info)**: nombre, badge "Modificado", chip `→ $ref`, descripción de uso, lista de CSS vars emitidas, toggle **Auto-link** (por fila, default ON).
-- **Columna 2 (Claro)**: swatch grande clickable. Overlay con label "CLARO", HEX y badge WCAG contra `surface.background.light` (o el surface mapeado en `ROLE_SURFACE_MAP`). Click → popover con sliders HSL + input HEX.
-- **Columna 3 (Oscuro)**: idéntico, contra `surface.background.dark`.
+- **Fondo de la columna** = `surface.background` del modo (o el surface mapeado por `ROLE_SURFACE_MAP` para roles especiales: `poi.* → map.background`, `state.* → surface.card`, etc.). Click en la columna NO edita el surface, sigue editando el token.
+- **Muestra central** (chip) = el color del token. Forma según rol:
+  - Texto (`text.*`, `*.foreground`): una palabra/frase pintada en el color del token sobre el surface. Sin chip de fondo. Esto demuestra legibilidad real.
+  - Resto (brand, surface, state.bg, poi, map): un chip rectangular ~70% × 60% relleno del color, con HEX y badge WCAG superpuestos.
+- **Label del modo** ("Claro" / "Oscuro") en una esquina, con color contrastado contra el surface (no contra el color del token).
+- **WCAG badge** se mantiene, calculado contra el surface destino (igual que ahora).
+- **Click en cualquier punto de la columna** abre el editor del color (mantiene `EditableTokenSurface`).
 
-El swatch ocupa toda la altura de la columna (≈80–96px), texto superpuesto con contraste auto (claro/oscuro según luminancia del swatch).
+## Detección rol-tipo (texto vs fondo)
 
-## Comportamiento auto-link
+Helper local muy simple basado en el path:
 
-**Toggle por fila**, persistido en `edit-mode-store` como `linkedPairs: Record<tokenPath, boolean>`. Default `true`.
+```ts
+function isForegroundRole(role: string): boolean {
+  if (role.startsWith('text.')) return true;
+  if (role.endsWith('Foreground') || role.endsWith('-foreground')) return true;
+  if (role === 'brand.accentForeground') return true;
+  return false;
+}
+```
 
-- **Linked ON**: al editar Claro, se recalcula Oscuro vía `deriveOppositeTriplet` + iteración WCAG (ya existente en `color-adaptive.ts`). Y viceversa. La columna gemela muestra una sutil animación `pulse-once` cuando se recalcula.
-- **Linked OFF**: las dos columnas son independientes; el usuario edita cada una a mano. Si los valores divergen del par perceptual sugerido, aparece un micro-hint "Sugerencia disponible" con botón para aplicarla puntualmente.
+Si es foreground → render como texto sobre surface. Si no → chip relleno.
 
-Se elimina el botón explícito "Generar opuesto" (queda implícito por el toggle).
+## Casos especiales
 
-## Picker inline
-
-Un único componente `<ColorSwatchEditor mode="light|dark" />`:
-- Click → `Popover` (shadcn) con:
-  - HEX input
-  - 3 sliders H/S/L
-  - Preview del swatch sobre el surface destino
-  - Badge WCAG en vivo
-- Onchange → `setDraftValue(tokenPath, mode, hsl)`; si `linkedPairs[tokenPath]` → también `setDraftValue(tokenPath, oppositeMode, derived)`.
+- **Token surface (p. ej. `surface.background`, `surface.card`)**: el "fondo" y el "color del token" coinciden. En ese caso la columna se pinta entera con el propio color (como ahora) y la muestra se omite — no hay contexto que enseñar.
+- **Sin `surface` mapeado**: fallback a `surface.background` del modo.
 
 ## Archivos a tocar
 
-1. **`TokenRow.tsx`** — reescribir el render de filas de color (`isColorRow`) con el nuevo layout 3-col. El resto de tipos (number, shadow, etc.) sigue igual.
-2. **`design-system/ColorSwatchEditor.tsx`** *(nuevo)* — swatch + popover picker.
-3. **`design-system/ColorPairInfo.tsx`** *(nuevo)* — columna izquierda (nombre, ref, vars, toggle auto-link).
-4. **`runtime/edit-mode-store.ts`** — añadir `linkedPairs` y acciones `setLinked(tokenPath, bool)` + `isLinked(tokenPath)`.
-5. **`TokenEditors.tsx`** — ya no necesario para el caso color (queda para otros tipos); limpiar imports muertos.
+Solo `src/components/admin/design-system/TokenRow.tsx` (función `ColorSwatchColumn` + helper `isForegroundRole`). El resto (info column, auto-link, store) queda intacto.
 
 ## Fuera de alcance
 
-- `color.json`, build pipeline, runtime apply-overrides: sin cambios.
-- Storybook stories adicionales: sin cambios (se beneficiarán automáticamente).
-- Otros tipos de token (number, duration, shadow): sin cambios.
-
-## Detalle técnico clave
-
-```ts
-// edit-mode-store.ts
-linkedPairs: Record<string, boolean>; // default true si ausente
-setLinked(path, val): void;
-
-// TokenRow.tsx (color branch)
-const linked = isLinked(tokenPath);
-const onChange = (mode, hsl) => {
-  setDraft(tokenPath, mode, hsl);
-  if (linked) {
-    const target = ROLE_SURFACE_MAP[tokenPath] ?? 'surface.background';
-    const targetBg = resolveTokenValue(target, oppositeMode);
-    const derived = suggestPair(hsl, mode, targetBg).opposite;
-    setDraft(tokenPath, oppositeMode, derived);
-  }
-};
-```
-
-Tras aprobación implemento directamente sobre estos archivos.
+- Reglas de mapeo (`ROLE_SURFACE_MAP`) — no se tocan.
+- Editor de color (popover) — no cambia.
+- Otros tipos de token — no cambian.

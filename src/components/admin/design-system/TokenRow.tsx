@@ -170,6 +170,21 @@ function ColorInfoColumn({
   );
 }
 
+function extractRole(path: string): string | undefined {
+  const m = path.match(/^color\.(?:light|dark)\.(.+)$/);
+  return m ? m[1] : undefined;
+}
+
+function isForegroundRole(role: string): boolean {
+  if (role.startsWith('text.')) return true;
+  if (/Foreground$/.test(role)) return true;
+  return false;
+}
+
+function isSurfaceRole(role: string): boolean {
+  return role.startsWith('surface.') || role.startsWith('map.') && role === 'map.background';
+}
+
 function ColorSwatchColumn({
   token,
   fallback,
@@ -186,16 +201,40 @@ function ColorSwatchColumn({
   const css = toCssColor(live);
   const hex = parseHslTriplet(live) ? hslTripletToHex(live) : null;
 
-  const targetBgPath = resolveTargetBackgroundPath(path);
-  const targetBg = useResolvedTokenValue(targetBgPath);
-  const wcag = computeWcag(live, typeof targetBg === 'string' ? targetBg : undefined);
+  // Surface destino del MISMO modo (mapeado o fallback a surface.background).
+  const role = extractRole(path) ?? '';
+  const mappedBgPath = resolveTargetBackgroundPath(path);
+  const fallbackBgPath = `color.${mode}.surface.background`;
+  const surfacePath = mappedBgPath ?? fallbackBgPath;
+  const surfaceTriplet = String(useResolvedTokenValue(surfacePath) ?? '');
+  const surfaceCss = surfaceTriplet ? toCssColor(surfaceTriplet) : undefined;
 
-  // Luminancia del propio swatch → texto contrastado superpuesto.
-  const fgHsl = parseHslTriplet(live);
-  const onSwatchText = fgHsl && fgHsl.l > 55 ? 'text-black/80' : 'text-white/90';
+  const wcag = computeWcag(live, surfaceTriplet || undefined);
+
+  // Texto secundario contrastado contra el surface (no contra el color del token).
+  const surfaceHsl = parseHslTriplet(surfaceTriplet);
+  const onSurfaceText = surfaceHsl && surfaceHsl.l > 55 ? 'text-black/70' : 'text-white/80';
+
+  const foreground = isForegroundRole(role);
+  const surfaceItself = isSurfaceRole(role);
+
+  // Cuando el token ES un surface, no hay contexto separado: pintamos toda la
+  // columna con el propio color (que coincide con el surface).
+  const canvasBg = surfaceItself ? css : (surfaceCss ?? css);
+
+  // Para chips, escoger color de texto contrastado contra el chip mismo.
+  const chipHsl = parseHslTriplet(live);
+  const onChipText = chipHsl && chipHsl.l > 55 ? 'text-black/85' : 'text-white/95';
 
   return (
-    <div className={`relative ${withDivider ? 'md:border-l border-t md:border-t-0 border-border' : 'border-t md:border-t-0 border-border'}`}>
+    <div
+      className={
+        'relative ' +
+        (withDivider
+          ? 'md:border-l border-t md:border-t-0 border-border'
+          : 'border-t md:border-t-0 border-border')
+      }
+    >
       <EditableTokenSurface
         path={path}
         label={mode === 'dark' ? 'Modo oscuro' : 'Modo claro'}
@@ -203,18 +242,55 @@ function ColorSwatchColumn({
         className="block w-full h-full"
       >
         <div
-          className="relative h-full min-h-[112px] w-full flex flex-col justify-between p-3"
-          style={{ background: css }}
+          className="relative h-full min-h-[128px] w-full flex flex-col justify-between p-3 gap-3"
+          style={{ background: canvasBg }}
         >
-          <div className={`flex items-center justify-between gap-2 ${onSwatchText}`}>
+          {/* Header: label modo + WCAG */}
+          <div className={`flex items-center justify-between gap-2 ${onSurfaceText}`}>
             <span className="text-[10px] uppercase tracking-wide font-semibold">
               {mode === 'dark' ? 'Oscuro' : 'Claro'}
             </span>
-            {wcag && <WcagBadge {...wcag} onSwatchText={onSwatchText} />}
+            {wcag && !surfaceItself && (
+              <WcagBadge {...wcag} onSwatchText={onSurfaceText} />
+            )}
           </div>
-          <code className={`text-sm font-mono font-semibold ${onSwatchText}`}>
-            {hex ?? live}
-          </code>
+
+          {/* Muestra del color en contexto */}
+          {surfaceItself ? (
+            // El token ES el surface: solo HEX, sin chip.
+            <code className={`text-sm font-mono font-semibold ${onChipText}`}>
+              {hex ?? live}
+            </code>
+          ) : foreground ? (
+            // Token de texto: pintamos texto en el color del token sobre el surface.
+            <div className="flex flex-col gap-1 min-w-0">
+              <div
+                className="text-lg font-semibold truncate leading-tight"
+                style={{ color: css }}
+              >
+                Texto sobre fondo
+              </div>
+              <code
+                className="text-xs font-mono"
+                style={{ color: css }}
+              >
+                {hex ?? live}
+              </code>
+            </div>
+          ) : (
+            // Chip relleno con el color, sobre el surface.
+            <div
+              className="rounded-token-sm border border-border/30 px-2.5 py-2 flex items-center justify-between gap-2 shadow-token-sm"
+              style={{ background: css }}
+            >
+              <span className={`text-[10px] uppercase tracking-wide font-semibold ${onChipText}`}>
+                Muestra
+              </span>
+              <code className={`text-xs font-mono font-semibold ${onChipText}`}>
+                {hex ?? live}
+              </code>
+            </div>
+          )}
         </div>
       </EditableTokenSurface>
     </div>
