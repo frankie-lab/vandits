@@ -109,11 +109,6 @@ export function HistoryTab() {
         );
       })}
 
-      <div className="pt-2">
-        <Button size="sm" variant="ghost" onClick={() => setEditMode(true)}>
-          Activar modo edición
-        </Button>
-      </div>
     </div>
   );
 }
