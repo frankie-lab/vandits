@@ -29,8 +29,9 @@ import {
 
 import { AuditPanel } from './AuditPanel';
 import { GeographyBackfillPanel } from './admin/GeographyBackfillPanel';
+import { DataSourcesPanel } from './admin/DataSourcesPanel';
 
-type AdminTab = 'users' | 'permissions' | 'markers' | 'routes' | 'icons' | 'enrichment' | 'audit' | 'geography';
+type AdminTab = 'users' | 'permissions' | 'markers' | 'routes' | 'icons' | 'enrichment' | 'audit' | 'geography' | 'sources';
 
 interface AdminPanelProps {
  onClose: () => void;
