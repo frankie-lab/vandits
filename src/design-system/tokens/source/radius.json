@@ -1,0 +1,11 @@
+{
+  "$schema": "Radius tokens — base radius + density scale. --radius drives Tailwind's lg/md/sm; token-* are the density scale.",
+  "radius": {
+    "base":      { "value": "0.625rem", "_css": "--radius" },
+    "xs":        { "value": "4px",      "_css": "--radius-xs" },
+    "sm":        { "value": "6px",      "_css": "--radius-sm" },
+    "md":        { "value": "8px",      "_css": "--radius-md" },
+    "lg":        { "value": "12px",     "_css": "--radius-lg" },
+    "xl":        { "value": "16px",     "_css": "--radius-xl" }
+  }
+}

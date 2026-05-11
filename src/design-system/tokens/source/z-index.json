@@ -1,0 +1,18 @@
+{
+  "$schema": "Z-index scale — named layer stack. Drives Tailwind's z-base..z-max utilities.",
+  "zIndex": {
+    "base":          { "value": "1",    "_css": "--z-base" },
+    "map":           { "value": "10",   "_css": "--z-map" },
+    "mapOverlay":    { "value": "500",  "_css": "--z-map-overlay" },
+    "toolbar":       { "value": "1000", "_css": "--z-toolbar" },
+    "toolbarRaised": { "value": "1200", "_css": "--z-toolbar-raised" },
+    "popover":       { "value": "1100", "_css": "--z-popover" },
+    "modal":         { "value": "2000", "_css": "--z-modal" },
+    "modalNested":   { "value": "2001", "_css": "--z-modal-nested" },
+    "modalTop":      { "value": "2002", "_css": "--z-modal-top" },
+    "toast":         { "value": "2100", "_css": "--z-toast" },
+    "progressBar":   { "value": "2100", "_css": "--z-progress-bar" },
+    "modalImport":   { "value": "2200", "_css": "--z-modal-import" },
+    "max":           { "value": "9999", "_css": "--z-max" }
+  }
+}

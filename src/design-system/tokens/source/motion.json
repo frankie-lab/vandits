@@ -1,0 +1,18 @@
+{
+  "$schema": "Motion tokens — durations + easings. Each duration carries a _reducedMotion variant emitted under @media (prefers-reduced-motion: reduce).",
+  "motion": {
+    "duration": {
+      "instant": { "value": "80ms",  "_css": "--dur-instant", "_reducedMotion": "0ms" },
+      "fast":    { "value": "120ms", "_css": "--dur-fast",    "_reducedMotion": "0ms" },
+      "base":    { "value": "200ms", "_css": "--dur-base",    "_reducedMotion": "0ms" },
+      "slow":    { "value": "320ms", "_css": "--dur-slow",    "_reducedMotion": "0ms" },
+      "xslow":   { "value": "480ms", "_css": "--dur-xslow",   "_reducedMotion": "0ms" }
+    },
+    "easing": {
+      "standard":   { "value": "cubic-bezier(0.2, 0, 0, 1)", "_css": "--ease-standard" },
+      "emphasized": { "value": "cubic-bezier(0.3, 0, 0, 1)", "_css": "--ease-emphasized" },
+      "decel":      { "value": "cubic-bezier(0, 0, 0.2, 1)", "_css": "--ease-decel" },
+      "accel":      { "value": "cubic-bezier(0.4, 0, 1, 1)", "_css": "--ease-accel" }
+    }
+  }
+}
