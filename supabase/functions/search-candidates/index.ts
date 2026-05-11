@@ -301,25 +301,13 @@ async function getEnabledSearchSources(): Promise<Set<SourceCode>> {
   const fallback = new Set<SourceCode>([
     'wikipedia-es', 'wikipedia-en', 'wikidata', 'nominatim', 'geonames', 'photon', 'google-places',
   ]);
-  try {
-    const supaUrl = Deno.env.get('SUPABASE_URL') ?? Deno.env.get('VITE_SUPABASE_URL');
-    const supaKey =
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SECRET_KEYS');
-    if (!supaUrl || !supaKey) return fallback;
-    const supa = createClient(supaUrl, supaKey);
-    const { data } = await supa
-      .from('data_sources')
-      .select('code, enabled')
-      .eq('kind', 'search');
-    if (!Array.isArray(data) || data.length === 0) return fallback;
-    const enabled = new Set<SourceCode>();
-    for (const row of data) {
-      if (row.enabled && CODE_MAP[row.code]) enabled.add(CODE_MAP[row.code]);
-    }
-    return enabled;
-  } catch {
-    return fallback;
+  const codes = await getEnabledSourceCodes('search');
+  if (codes === null) return fallback;
+  const enabled = new Set<SourceCode>();
+  for (const code of codes) {
+    if (CODE_MAP[code]) enabled.add(CODE_MAP[code]);
   }
+  return enabled;
 }
 
 Deno.serve(async (req) => {
