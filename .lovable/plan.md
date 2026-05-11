@@ -1,174 +1,158 @@
-# Fase DS-UX1A — Popup Matrix + Skeleton System + Panel Loading (final)
+## Objetivo
 
-Bloque coherente: espera, carga y preview estructural. Sin tocar Leaflet adapter, sin Fase 4B, sin endurecer ESLint, sin Empty States ni Hover Tooltip (esos van a DS-UX1B).
+Convertir el DS Inspector actual (técnico, lleno de tripletes HSL y nombres como `color · light · popoverForeground`) en un panel comprensible para alguien no técnico, sin perder la información para quien sí lo es.
 
-Ejecutable como **3 PRs independientes**, cada uno reversible sin afectar a los otros.
+Tres problemas a resolver:
+1. **Incomprensible**: nombres crudos, valores HSL sin contexto, sin descripción.
+2. **Colores repetidos**: muchos blancos/casi-blancos visualmente idénticos (background, card, popover, primaryForeground…) que parecen errores.
+3. **Sin contexto de uso**: el gestor no sabe *dónde* impacta cada token ni *qué pasa* si cambia.
 
 ---
 
-## A.1 — Popup Matrix (PR-1)
+## Cambios por sección
 
-Renderer no-Leaflet en Storybook que captura los estados canónicos del popup del mapa.
+### A. Vista de Tokens — nuevo layout
 
-Archivos nuevos:
+Reemplazar la lista actual de filas planas por una tabla de tres columnas:
 
 ```text
-src/design-system/map/__stories__/
-├── PopupPreview.tsx               (renderer token-driven, sin Leaflet)
-├── PopupMatrix.stories.tsx
-├── PopupResponsive.stories.tsx
-└── PopupFocused.stories.tsx
+┌─ Swatch ─┬─ Identidad ──────────────────┬─ Dónde se usa ──────────────┐
+│ █ █      │ Color de marca               │ Botones principales,        │
+│ light    │ primary                       │ anillo de foco, enlaces     │
+│ dark     │ Naranja cálido (24·75·50)    │ activos.                    │
+└──────────┴──────────────────────────────┴─────────────────────────────┘
 ```
 
-**Matriz principal (5×3):**
+- **Swatch doble**: para tokens de color que existen en light y dark, mostrar las dos muestras juntas (mini etiqueta "L" / "D"). Para los demás, una sola muestra.
+- **Identidad**: línea 1 = nombre humano en español; línea 2 = nombre técnico (`primary`, `--popover-foreground`) en monospace pequeño; línea 3 = descripción breve del valor (formato + tono dominante).
+- **Dónde se usa**: 1–2 frases curadas por token. Para los principales (primary, secondary, accent, destructive, muted, foreground, background, card, popover, border, ring, sidebar-*) escribiremos a mano la descripción. Para el resto, fallback genérico.
+
+### B. Diccionario de etiquetas + usos
+
+Crear `src/components/admin/design-system/token-glossary.ts`:
+
+```ts
+// Estructura:
+{
+  "color.primary":            { label: "Color de marca",          usage: "Botones primarios, anillo de foco, enlaces activos" },
+  "color.primaryForeground":  { label: "Texto sobre marca",       usage: "Color del texto dentro de botones primarios" },
+  "color.muted":              { label: "Fondo sutil",             usage: "Filas alternas, separadores suaves, chips inactivos" },
+  "color.border":             { label: "Borde estándar",          usage: "Tarjetas, inputs, separadores de paneles" },
+  // … cubrir los ~25 tokens semánticos principales
+  "poi.state.enriched":       { label: "Punto enriquecido",       usage: "Marcador verde del POI con descripción IA" },
+  "poi.ring.error":           { label: "Anillo de error",         usage: "Halo rojo alrededor de POIs fallidos" },
+  "popup.maxWidth":           { label: "Ancho máximo del popup",  usage: "Limita el ancho de la ficha que abre el mapa" },
+  // …
+}
+```
+
+Si una clave no está en el diccionario, mostrar "—" en lugar del nombre técnico desnudo.
+
+### C. Dedupe de valores idénticos
+
+Antes de renderizar, agrupar tokens de color con **el mismo HSL** en una sola fila "alias":
 
 ```text
-                       Mío         Seguido     Servicio
-  Importado           [gris]       [gris]      [sky]
-  Vacío               [naranja]    [naranja]   [sky]
-  Loading enrichment  [skeleton]   [skeleton]  [skeleton]
-  Enriquecido         [verde]      [verde]     [sky]
-  Con error           [+rojo]      [+rojo]     [+rojo]
+█ #FFFFFF — Blanco puro
+   Usado como: card · popover · primaryForeground · secondaryForeground
 ```
 
-Cada celda: header (nombre + tipo) → hero (imagen, placeholder SVG, o `HeroImageSkeleton`) → cuerpo (descripción / skeleton / empty CTA / recovery block) → footer (collection chips + acciones).
+Esto elimina el ruido visual de 5 swatches blancos seguidos. La fila desplegable permite ver cada alias y su CSS var.
 
-**Stories adicionales:**
-- `PopupResponsive` — el mismo popup a 320 / 375 / 414 / 768 px (clamp del wrapper interno).
-- `PopupFocused` — popup en estado `selected/focused` (POI seleccionado desde búsqueda o ruta). Validación visual aislada, fuera de la matriz principal.
+### D. Light vs Dark emparejado
 
-**Tokens — `src/design-system/tokens/source/popup.json` (valores actuales exactos, sin rediseño):**
-- `header.height`, `body.padding`, `hero.ratio`, `actionRow.height`, `maxWidth`, `maxHeight`
-- Regenerar con `npm run tokens:build`. **No** se toca `buildPopupHtml` ni el adapter Leaflet.
+Hoy el panel lista `color · light · *` y luego `color · dark · *` como si fueran tokens distintos. Cambio: una fila por nombre semántico (`primary`, `background`, …) con **dos muestras** dentro (L y D). Eso refleja la realidad — son el mismo token con dos valores según tema — y reduce la lista a la mitad.
 
-Memoria nueva: `mem://style/popup/matrix-rule` — 5 estados × 3 orígenes + variante focused.
+### E. Previsualización en vivo (expandible)
 
----
+Cada fila de token se puede expandir (click) y muestra un mini-ejemplo real:
 
-## A.2 — Skeleton System (PR-2)
+| Token                | Mini-ejemplo en vivo                                      |
+|----------------------|-----------------------------------------------------------|
+| `primary`            | Un botón "Guardar" + un chip activo                       |
+| `card` / `border`    | Una mini-tarjeta con título + texto                       |
+| `muted`              | Tres filas alternas                                        |
+| `destructive`        | Botón "Eliminar"                                           |
+| `popup.maxWidth`     | Caja con regla milimétrica indicando el ancho             |
+| `poi.state.*`        | Renderiza un marker SVG con ese color (reusa PoiPreview)  |
+| `motion.*`           | Animación bucle de un cuadrado moviéndose con ese easing  |
+| `radius.*`           | Cuadrado con ese radio                                    |
+| `z-index.*`          | Diagrama de capas mostrando la posición                   |
 
-`AppSkeleton` ya existe. Convertirlo en patrones nombrados que vivan **dentro del DS**, con re-export legacy desde `src/shared/...`.
+Todo se construye con primitives existentes — sin tocar el catálogo.
 
-Archivos nuevos:
+### F. Reorganización de grupos
+
+La sidebar pasa de 10 grupos planos a **2 niveles**:
 
 ```text
-src/design-system/patterns/Skeletons/
-├── PoiCardSkeleton.tsx
-├── PoiPopupSkeleton.tsx
-├── PanelListSkeleton.tsx          (props: rows: number)
-├── HeroImageSkeleton.tsx          (props: ratio: "16/9" | "4/3" | "1/1")
-├── BadgeRowSkeleton.tsx           (props: count: number)
-└── index.ts
+Esenciales
+  Color
+  Tipografía
+  Densidad
+  Radius
+  Motion
 
-src/shared/components/ui/skeletons/index.ts   (re-export legacy)
+Dominio
+  POI (marcadores)
+  Popup (fichas)
+  Map (capas/zoom)
 
-src/design-system/patterns/__stories__/Skeletons.stories.tsx
+Avanzado
+  Z-index
+  Elevation
 ```
 
-**Regla de "cero hardcoded sizes" — matizada:**
-- **Permitido**: props funcionales (`rows`, `count`, `ratio`).
-- **Prohibido**: valores absolutos en px/rem para alturas base, radios, gaps, paddings → siempre desde density/radius/spacing tokens (`h-control-md`, `rounded-token-sm`, `gap-2`).
+"Avanzado" colapsado por defecto. El gestor entra y ve solo lo que reconoce.
 
-Story: grid con los 5 patrones individuales + densidad alta (10× `PoiCardSkeleton`) para validar ritmo visual.
+### G. Tipografía — preview real
 
-**Cableado mínimo (lo que el usuario percibe ya):**
-- `DocumentWaypointsTabs` → `PoiCardSkeleton × N` mientras fetch
-- `GalleryView` → `HeroImageSkeleton ratio="16/9"` antes de cargar imagen
-- `NearbyPanel` (recovery) → `PanelListSkeleton rows={6}`
-
-NO tocar mapa ni clusters. Resto de `animate-pulse` quedan como follow-up.
-
-Memoria nueva: `mem://ui/skeleton-patterns` — catálogo, props permitidos, reglas de uso.
-
----
-
-## A.3 — Panel Loading (PR-3)
-
-Nivel intermedio entre `GlobalLoadingBar` (top) y la barra inferior multi-lane: panel concreto cargando.
-
-**API de `PanelShell` (ampliada, sin breaking changes):**
-
-```tsx
-<PanelShell
-  loading={isLoading}
-  loadingFallback={<PanelListSkeleton rows={6} />}
-  hasContent={items.length > 0}
->
-  {/* contenido normal */}
-</PanelShell>
-```
-
-**Contrato explícito de loading (clave del ajuste pedido):**
-
-| Caso | hasContent | loading | Render |
-|------|------------|---------|--------|
-| Fetch inicial | `false` | `true` | `loadingFallback` reemplaza children + spinner en header |
-| Refresh parcial | `true` | `true` | **Children intactos** + spinner en header (no parpadea) |
-| Vacío real | `false` | `false` | Children (empty state lo maneja DS-UX1B) |
-| Normal | `true` | `false` | Children |
-
-Reglas:
-- `loading` siempre activa el `AppSpinner` xs a la derecha del título.
-- `loadingFallback` sólo reemplaza children cuando `hasContent === false`.
-- Sin `loadingFallback` y sin contenido → fallback por defecto = `PanelListSkeleton rows={4}`.
-- El usuario sigue pudiendo interactuar con header, tabs y footer mientras `loading`.
-- Ningún estado activa `body.is-blocking-load`.
-
-**Cableado mínimo:**
-- `ImportedContentPanel` (`useDocuments`)
-- `CollectionsPanel`
-- `NearbyPanel`
-
-Story: `src/design-system/patterns/__stories__/PanelShellLoading.stories.tsx` con 4 escenarios (fetch inicial / refresh parcial / vacío / normal) y las 3 variantes form/library/workflow.
-
-Memoria nueva: `mem://ui/panel-loading-pattern` — contrato `hasContent`/`loading`/`loadingFallback` y ejemplos.
-
----
-
-## Verificación (condición de cierre)
-
-Antes de cerrar DS-UX1A:
-
-1. `npm run tokens:build` — emite `popup.json` sin errores
-2. `npm run build-storybook` — todas las stories nuevas compilan
-3. `npm run lint` — cero nuevos warnings
-4. **Smoke visual y de interacción** en `/`:
-   - Mapa sigue clicable mientras un panel está en `loading`
-   - Refresh parcial no parpadea (mismos items visibles, solo spinner en header)
-   - Ningún loading local activa `body.is-blocking-load`
-   - Popup abre con estado correcto, incluido `loading enrichment` cuando hay enrich en curso
-
----
-
-## PR layout
+Reemplazar el valor crudo (`16px / 1.4 / 500`) por una línea con esa tipografía aplicada:
 
 ```text
-PR-1  DS-UX1A·Popup    → popup.json + PopupPreview + 3 stories + memoria
-PR-2  DS-UX1A·Skeleton → 5 patterns + re-export legacy + story + cableado mínimo
-PR-3  DS-UX1A·Panel    → PanelShell(loading/hasContent/loadingFallback) + cableado + story + memoria
+Encabezado H3
+text-h3 · 18px / 1.3 / 600 · usado en títulos de panel y diálogos
 ```
 
----
+### H. Motion — preview con easing real
 
-## Memorias a crear/actualizar
-
-- `mem://style/popup/matrix-rule` (nuevo)
-- `mem://ui/skeleton-patterns` (nuevo)
-- `mem://ui/panel-loading-pattern` (nuevo)
-- `mem://architecture/design-system-phase-4a` (referencia a DS-UX1A)
-- `mem://ui/shared-primitives` (anotar ubicación canónica en `design-system/patterns/Skeletons/` + re-export legacy)
+Cada token de duración/easing renderiza un cuadrado que se anima en bucle con esos valores. Hover pausa para inspeccionar.
 
 ---
 
-## Fuera de alcance (DS-UX1B, siguiente iteración)
+## Lo que NO cambia
 
-- Empty States canónicos (`AppEmptyState` + catálogo de presets)
-- Hover Preview tooltip (story + tokens de timing)
+- Sigue siendo **read-only**. Nivel 2 (overrides en sesión) se queda como estaba previsto, en una iteración aparte.
+- Las stories de Storybook no se tocan.
+- Los archivos `tokens/source/*.json` no se tocan: el diccionario de etiquetas vive aparte y no es la verdad de los tokens; solo los anota.
 
 ---
 
-## Riesgos
+## Detalle técnico
 
-- **Tokens de popup**: valores iniciales = exactos a los actuales. Rediseño visual del popup, si llega, va en otra iteración.
-- **Skeleton overreach**: limitar cableado a los 3 puntos listados; resto como follow-up.
-- **PanelShell breaking**: `loading`, `loadingFallback` y `hasContent` son opcionales. Sin ellos, `PanelShell` se comporta exactamente igual que hoy.
+Archivos a tocar:
+
+1. `src/components/admin/design-system/token-glossary.ts` *(nuevo)* — diccionario label + usage.
+2. `src/components/admin/design-system/token-row.tsx` *(nuevo)* — fila con swatch doble, descripción y zona expandible.
+3. `src/components/admin/design-system/token-previews/` *(nuevo)* — un componente de preview por tipo (color, radius, motion, z-index, popup, poi).
+4. `src/components/admin/design-system/token-grouping.ts` *(nuevo)* — helpers `pairLightDark()`, `dedupeByValue()`, `groupBySection()`.
+5. `src/components/admin/DesignSystemPanel.tsx` — refactor de la pestaña Tokens; el resto (Primitives / Patterns / Memorias) no cambia.
+
+Reglas que se respetan:
+- Cero hex hardcoded ni clases `bg-gray-*` (los swatches reciben el color como `style={{ background: 'hsl(...)' }}` a partir del valor del propio token — eso es dato, no estilo).
+- Uso de `@/design-system/primitives/*` en todas las piezas nuevas.
+- Sin emojis; iconos Lucide.
+- Sin tocar el resto del AdminPanel.
+
+---
+
+## Criterio de cierre
+
+- Un usuario no técnico abre Tokens → Color y ve una lista corta, con nombres en castellano y descripción de uso.
+- No hay 5 swatches blancos seguidos.
+- Light y dark conviven en una sola fila.
+- Click en `primary` muestra un botón real usando ese color.
+- "POI" y "Popup" tienen previews coherentes con lo que se ve en el mapa.
+- Z-index y Elevation siguen accesibles pero detrás del bloque "Avanzado".
+
+¿Tiramos con esto, o quieres que añada/quite alguna de las secciones (por ejemplo, "Dónde se usa" como búsqueda real en código en vez de curado a mano)?
