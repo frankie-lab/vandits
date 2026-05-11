@@ -39,11 +39,11 @@ const DialogContent = React.forwardRef<
  // `top` shifts the midpoint by (header - bottom)/2; `maxHeight` caps the
  // dialog so it never crashes into either bar (regardless of fixed h-[..vh]
  // values inside). Source-of-truth CSS vars in src/index.css:
- //   --top-header-h, --bottom-progress-h, --overlay-progress-gap
+  //   --top-header-h, --bottom-overlay-safe-h, --overlay-progress-gap
  style={{
- top: 'calc(50% + (var(--top-header-h, 0px) - var(--bottom-progress-h, 0px)) / 2)',
+  top: 'calc(50% + (var(--top-header-h, 0px) - var(--bottom-overlay-safe-h, 0px)) / 2)',
  maxHeight:
- 'calc(100vh - var(--top-header-h, 0px) - var(--bottom-progress-h, 0px) - 2 * var(--overlay-progress-gap, 12px))',
+  'calc(100vh - var(--top-header-h, 0px) - var(--bottom-overlay-safe-h, 0px) - 2 * var(--overlay-progress-gap, 12px))',
  ...style,
  }}
  className={cn(

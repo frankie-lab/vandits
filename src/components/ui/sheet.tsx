@@ -47,26 +47,26 @@ const sheetVariants = cva(
  },
 );
 
-// CSS canónico para que los sheets respeten barra superior y barra de progreso.
-// Mismas vars que dialogs: --top-header-h, --bottom-progress-h, --overlay-progress-gap.
+// CSS canónico para que los sheets respeten barra superior y cualquier chrome inferior fijo.
+// Mismas vars que dialogs: --top-header-h, --bottom-overlay-safe-h, --overlay-progress-gap.
 const sheetSafeStyle: Record<NonNullable<VariantProps<typeof sheetVariants>['side']>, React.CSSProperties> = {
  left: {
  top: 'calc(var(--top-header-h, 0px) + var(--overlay-progress-gap, 12px))',
- bottom: 'calc(var(--bottom-progress-h, 0px) + var(--overlay-progress-gap, 12px))',
+  bottom: 'calc(var(--bottom-overlay-safe-h, 0px) + var(--overlay-progress-gap, 12px))',
  height: 'auto',
  },
  right: {
  top: 'calc(var(--top-header-h, 0px) + var(--overlay-progress-gap, 12px))',
- bottom: 'calc(var(--bottom-progress-h, 0px) + var(--overlay-progress-gap, 12px))',
+  bottom: 'calc(var(--bottom-overlay-safe-h, 0px) + var(--overlay-progress-gap, 12px))',
  height: 'auto',
  },
  top: {
  top: 'calc(var(--top-header-h, 0px) + var(--overlay-progress-gap, 12px))',
- maxHeight: 'calc(100vh - var(--top-header-h, 0px) - var(--bottom-progress-h, 0px) - 2 * var(--overlay-progress-gap, 12px))',
+  maxHeight: 'calc(100vh - var(--top-header-h, 0px) - var(--bottom-overlay-safe-h, 0px) - 2 * var(--overlay-progress-gap, 12px))',
  },
  bottom: {
- bottom: 'calc(var(--bottom-progress-h, 0px) + var(--overlay-progress-gap, 12px))',
- maxHeight: 'calc(100vh - var(--top-header-h, 0px) - var(--bottom-progress-h, 0px) - 2 * var(--overlay-progress-gap, 12px))',
+  bottom: 'calc(var(--bottom-overlay-safe-h, 0px) + var(--overlay-progress-gap, 12px))',
+  maxHeight: 'calc(100vh - var(--top-header-h, 0px) - var(--bottom-overlay-safe-h, 0px) - 2 * var(--overlay-progress-gap, 12px))',
  },
 };
 

@@ -37,9 +37,9 @@ const AlertDialogContent = React.forwardRef<
  // bar, never overlapping either. See src/components/ui/dialog.tsx for the
  // canonical rule and src/index.css for the CSS vars.
  style={{
- top: 'calc(50% + (var(--top-header-h, 0px) - var(--bottom-progress-h, 0px)) / 2)',
+  top: 'calc(50% + (var(--top-header-h, 0px) - var(--bottom-overlay-safe-h, 0px)) / 2)',
  maxHeight:
- 'calc(100vh - var(--top-header-h, 0px) - var(--bottom-progress-h, 0px) - 2 * var(--overlay-progress-gap, 12px))',
+  'calc(100vh - var(--top-header-h, 0px) - var(--bottom-overlay-safe-h, 0px) - 2 * var(--overlay-progress-gap, 12px))',
  ...style,
  }}
  className={cn(
