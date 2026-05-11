@@ -49,11 +49,14 @@ export const createCustomIcon = (
   const size = getBaseSize(entry, isRecentlyEnriched, isFocused, isSelected);
   const hoverSize = getHoverSize(entry);
 
-  // Anillo rojo de error: helper único + regla "verde nunca marca error".
-  // Es un overlay que rodea al icono base; no muta la paleta de estado.
-  const showErrorRing = hasEnrichmentFailure(location);
-  const errorPad = showErrorRing ? ERROR_RING_WIDTH + 2 : 0;
-  const containerSize = size + errorPad * 2;
+  // Anillos de salud (rojo error / amarillo cadena rota / naranja vacío),
+  // apilados de dentro hacia fuera por orden de severidad. Helper único:
+  // `getPointHealthRings`. La regla "verde nunca marca error" vive dentro
+  // de `hasEnrichmentFailure` y aquí se respeta automáticamente.
+  const healthRings = getPointHealthRings(location);
+  const ringCount = healthRings.length;
+  const ringPad = ringCount > 0 ? ringCount * RING_GAP + 2 : 0;
+  const containerSize = size + ringPad * 2;
 
   const animationStyle = isRecentlyEnriched
     ? 'animation: enriched-celebrate 3.5s ease-out;'
