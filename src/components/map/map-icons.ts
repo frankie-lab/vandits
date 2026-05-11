@@ -159,6 +159,22 @@ export const createCustomIcon = (
     return getStateColor(hex, currentState, stateRules);
   };
 
+  // Thumbnail circular SOLO en marker focused/selected (no por zoom). Helper
+  // único: este bloque. Fuente de imagen: enriched (público) primero, luego
+  // user_image_url (la visibilidad de almacenamiento ya está gobernada por
+  // RLS — si el URL llega al cliente es porque puede verla). Si la imagen
+  // falla, `onerror` la oculta y el marker queda como antes.
+  // Ver `.lovable/plan.md` y `mem://style/map/focused-thumbnail-rule`.
+  const showThumb = (isFocused || isSelected);
+  const thumbUrl = showThumb
+    ? ((location?.enrichedData?.imagen as string | undefined)
+        || (location?.customData?.user_image_url as string | undefined)
+        || '')
+    : '';
+  const thumbHtml = thumbUrl
+    ? `<img class="poi-thumb" src="${thumbUrl}" alt="" crossorigin="anonymous" onerror="this.style.display='none'" />`
+    : '';
+
   const baseColor = entry.fill_color;
   const baseColorLight = entry.fill_color_light || adjustHslLightness(baseColor, 15);
   const scaleRatio = hoverSize ? hoverSize / size : 1;
@@ -199,6 +215,7 @@ export const createCustomIcon = (
           <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="${skipGradient ? applyStateColor(baseColor) : `url(#pinGrad-${location?.id || 'default'})`}" stroke="white" stroke-width="${borderWidth}"/>
           <circle cx="12" cy="12" r="${dotSize}" fill="white" fillOpacity="0.95"/>
         </svg>
+        ${thumbHtml}
       </div>
       `,
       iconSize: [pinWidth, pinHeight],
@@ -241,6 +258,7 @@ export const createCustomIcon = (
           <circle cx="12" cy="12" r="11" fill="${skipGradient ? applyStateColor(baseColor) : `url(#dotGrad-${location?.id || 'default'})`}" stroke="white" stroke-width="${borderWidth}"/>
         </svg>
       </div>
+      ${thumbHtml}
     </div>
     `,
     iconSize: [containerSize, containerSize],

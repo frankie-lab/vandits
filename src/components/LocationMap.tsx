@@ -1224,6 +1224,14 @@ export function LocationMap() {
     // Scale control removed - using custom MapScaleBar component instead
 
     // Initialize marker cluster group
+    //
+    // CANVAS_BACKEND_TRIGGER (deferred — ver `.lovable/plan.md` y
+    // `mem://architecture/canvas-backend-deferred`):
+    //   El backend canvas para markers se considerará SOLO cuando, tras
+    //   clustering, queden >5.000 markers individuales visibles en viewport
+    //   simultáneamente. Con `maxClusterRadius: 50` esto ocurre muy tarde:
+    //   medición 2026-05-11 → 5.073 puntos totales → 319 DOM nodes. El cluster
+    //   ya hace ese trabajo. No introducir canvas como optimización prematura.
  markerClusterRef.current = L.markerClusterGroup({
  maxClusterRadius: 50,
  spiderfyOnMaxZoom: true,

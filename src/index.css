@@ -360,6 +360,24 @@
   pointer-events: none;
   box-sizing: border-box;
 }
+
+/* Thumbnail circular en marker focused/selected (Ola 3 — UX, no rendimiento).
+   Helper único: createCustomIcon decide cuándo inyectarlo. Tamaño fijo 24px
+   sin importar el zoom; se posiciona arriba-derecha sobre el marker base.
+   Ver mem://style/map/focused-thumbnail-rule. */
+.poi-thumb {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  object-fit: cover;
+  background: #f3f4f6;
+  pointer-events: none;
+}
 /* Global loading bar — indeterminate animation + cursor while blocking */
 @keyframes global-loading-slide {
   0%   { transform: translateX(-100%); }
