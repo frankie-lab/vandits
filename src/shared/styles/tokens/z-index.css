@@ -1,0 +1,41 @@
+/**
+ * Z-index scale — VANDITS UX v1
+ *
+ * Escala nombrada para TODA la app. Mapeo 1:1 con los valores numéricos
+ * existentes para garantizar 0 cambio funcional al migrar.
+ *
+ * Layers (de fondo a frente):
+ *   --z-base           1     contenido normal
+ *   --z-map            10    capa por defecto del mapa (overlays internos Leaflet)
+ *   --z-map-overlay    500   botones flotantes sobre el mapa (search bar, etc.)
+ *   --z-toolbar        1000  FloatingToolbar / SemanticSearch / MapScaleBar
+ *   --z-toolbar-raised 1200  variantes elevadas del toolbar
+ *   --z-popover        1100  Radix Popover / DropdownMenu / Select
+ *   --z-modal          2000  Dialog / Sheet / AdminPanel / TrashPanel
+ *   --z-modal-nested   2001  contenido dentro de modal (popovers, photo menus)
+ *   --z-modal-top      2002  capa superior del modal anidado
+ *   --z-toast          2100  AlertDialog / Sonner / UserProfileEditor
+ *   --z-progress-bar   2100  BottomProgressBar (mismo nivel que toasts)
+ *   --z-modal-import   2200  ImportSummaryDialog (debe estar por encima del progress bar)
+ *   --z-max            9999  emergencias (EnrichmentCardConfig). Idealmente eliminar.
+ *
+ * Uso desde Tailwind: `z-modal`, `z-popover`, etc. (ver tailwind.config.ts).
+ * Uso desde CSS: `z-index: var(--z-modal);`
+ *
+ * Ver mem://style/tokens/z-index-scale.
+ */
+:root {
+  --z-base: 1;
+  --z-map: 10;
+  --z-map-overlay: 500;
+  --z-toolbar: 1000;
+  --z-toolbar-raised: 1200;
+  --z-popover: 1100;
+  --z-modal: 2000;
+  --z-modal-nested: 2001;
+  --z-modal-top: 2002;
+  --z-toast: 2100;
+  --z-progress-bar: 2100;
+  --z-modal-import: 2200;
+  --z-max: 9999;
+}

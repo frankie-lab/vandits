@@ -1,7 +1,16 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Space+Grotesk:wght@500;600;700&display=swap');
 
-/* Panel System tokens (VANDITS UX v1) — fuente única de spacing/dimensiones de paneles. */
+/* Design system tokens (VANDITS UX v1) — fuente única de:
+   - geometría de paneles
+   - escala z-index (sustituye z-[\d+] sueltos)
+   - tipografía (sustituye text-[Npx] sueltos)
+   - motion (duraciones + easings, coherente con motion-presets.ts)
+   - density (alturas de controles, tamaños de icono, radios) */
 @import './shared/components/ui/panel/tokens.css';
+@import './shared/styles/tokens/z-index.css';
+@import './shared/styles/tokens/typography.css';
+@import './shared/styles/tokens/motion.css';
+@import './shared/styles/tokens/density.css';
 
 @tailwind base;
 @tailwind components;
