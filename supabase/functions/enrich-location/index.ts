@@ -727,17 +727,21 @@ async function validateNameCoordinateCoherence(
     // y NO se aborta, aunque exista un homónimo lejano.
     const nearbyPages = await fetchNearbyWikipediaPages(coordinates, COHERENCE_NEARBY_RADIUS_M, 10);
     const nearbyExtracts = await fetchPageExtracts(nearbyPages.map((p) => p.pageid));
-    const nearbyCandidates: NonNullable<CoherenceResult['nearbyCandidates']> = nearbyPages.map((p) => {
+    const nearbyCandidates: CoherenceCandidate[] = nearbyPages.map((p) => {
       const info = nearbyExtracts[String(p.pageid)] || {};
+      const distM = Math.round(p.dist);
       return {
         name: p.title,
-        distanceM: Math.round(p.dist),
+        distanceM: distM,
+        distanceKm: Math.round((distM / 1000) * 10) / 10,
         url: info.fullurl || `https://es.wikipedia.org/wiki/${encodeURIComponent(p.title)}`,
         extract: info.extract?.substring(0, 240),
+        lat: typeof p.lat === 'number' ? p.lat : undefined,
+        lng: typeof p.lon === 'number' ? p.lon : undefined,
       };
     });
 
-    const localBest = nearbyCandidates.reduce<{ score: number; cand?: typeof nearbyCandidates[number] }>(
+    const localBest = nearbyCandidates.reduce<{ score: number; cand?: CoherenceCandidate }>(
       (acc, c) => {
         const s = nameOverlapScore(cleanName, c.name);
         return s > acc.score ? { score: s, cand: c } : acc;
@@ -798,19 +802,68 @@ async function validateNameCoordinateCoherence(
     }
 
     // ── Capa C · Desambiguación por geografía administrativa ──────────
-    // El candidato textual está LEJOS. Solo se aborta si además:
-    //  - no comparte ninguna pieza geográfica conocida del POI, y
-    //  - la distancia es realmente significativa (> COHERENCE_HARD_REJECT_KM).
-    // En cualquier otro caso permitimos enriquecer (la coherencia local
-    // y la geografía resuelta del POI sostienen la identidad).
+    // El candidato textual está LEJOS. Resolvemos SU bloque administrativo
+    // (reverse-geocoding sus coords) y lo comparamos con el del POI:
+    //   - admin chain coincide → es la MISMA identidad: el error está en las
+    //     coords del POI (mismatchKind='coordinate'). Sugerimos mover.
+    //   - admin chain difiere → es un homónimo en otra zona
+    //     (mismatchKind='name'). Sugerimos renombrar o elegir candidato cercano.
     const candidateExtract = page?.extract || '';
-    const geoSupports = candidateMatchesGeoContext(page?.title || '', candidateExtract, geoContext);
-    if (geoSupports) {
-      console.log(
-        `[coherence] OK: textual candidate matches POI geoContext (${JSON.stringify(geoContext)})`,
-      );
-      return result;
+    const textSupports = candidateMatchesGeoContext(page?.title || '', candidateExtract, geoContext);
+
+    let candidateGeo: { country?: string; region?: string; locality?: string } = {};
+    try {
+      const rg = await reverseGeocodeLocation(wikiCoords.lat, wikiCoords.lon);
+      candidateGeo = {
+        country: rg?.country,
+        region: rg?.region,
+        locality: rg?.zone, // zone() ya engloba city/town/municipality en este helper
+      };
+    } catch (e) {
+      console.warn('[coherence] reverse-geocode of candidate failed', e);
     }
+
+    const sameCountry = compareCountries(geoContext?.country, candidateGeo.country) === 'equal';
+    const norm = (s?: string) => (s ?? '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').trim();
+    const sameRegion = !!candidateGeo.region && !!geoContext?.region &&
+      norm(candidateGeo.region) === norm(geoContext.region);
+    const sameLocality = !!candidateGeo.locality && !!geoContext?.locality &&
+      norm(candidateGeo.locality) === norm(geoContext.locality);
+
+    // Identidad compatible si COUNTRY+REGION (al menos) coinciden, o si COUNTRY+LOCALITY coinciden.
+    const adminChainCompatible =
+      (sameCountry && sameRegion) ||
+      (sameCountry && sameLocality) ||
+      textSupports;
+
+    const nameLocation = {
+      lat: wikiCoords.lat,
+      lng: wikiCoords.lon,
+      title: page.title,
+      url: page.fullurl || `https://es.wikipedia.org/wiki/${encodeURIComponent(page.title)}`,
+      distanceKm: Math.round(distanceKm * 10) / 10,
+      country: candidateGeo.country,
+      region: candidateGeo.region,
+      locality: candidateGeo.locality,
+    };
+
+    if (adminChainCompatible) {
+      // Mismo lugar, coords mal. NUNCA bajo COHERENCE_THRESHOLD_KM.
+      console.log(
+        `[coherence] coordinate_mismatch: same admin chain (${candidateGeo.country}/${candidateGeo.region}), distance=${distanceKm.toFixed(1)}km`,
+      );
+      return {
+        ok: false,
+        reason: 'name_coordinate_mismatch',
+        mismatchKind: 'coordinate',
+        providedName: cleanName,
+        providedCoords: coordinates,
+        nameLocation,
+        nearbyCandidates: nearbyCandidates.slice(0, 5),
+      };
+    }
+
+    // Por debajo del umbral duro: dejamos enriquecer (homónimo cercano).
     if (distanceKm < COHERENCE_HARD_REJECT_KM) {
       console.log(
         `[coherence] OK: textual candidate ${distanceKm.toFixed(1)}km away but under hard-reject threshold (${COHERENCE_HARD_REJECT_KM}km)`,
@@ -818,18 +871,14 @@ async function validateNameCoordinateCoherence(
       return result;
     }
 
+    // Homónimo lejano con admin chain distinta → name_mismatch.
     return {
       ok: false,
       reason: 'name_coordinate_mismatch',
+      mismatchKind: 'name',
       providedName: cleanName,
       providedCoords: coordinates,
-      nameLocation: {
-        lat: wikiCoords.lat,
-        lng: wikiCoords.lon,
-        title: page.title,
-        url: page.fullurl || `https://es.wikipedia.org/wiki/${encodeURIComponent(page.title)}`,
-        distanceKm: Math.round(distanceKm * 10) / 10,
-      },
+      nameLocation,
       nearbyCandidates: nearbyCandidates.slice(0, 5),
     };
   } catch (e) {
