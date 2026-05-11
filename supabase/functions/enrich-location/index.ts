@@ -680,7 +680,7 @@ async function fetchNearbyWikipediaPages(
   coordinates: { lat: number; lng: number },
   radiusMeters: number,
   limit: number,
-): Promise<Array<{ pageid: number; title: string; dist: number }>> {
+): Promise<Array<{ pageid: number; title: string; dist: number; lat?: number; lon?: number }>> {
   try {
     const geoUrl = `https://es.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${coordinates.lat}|${coordinates.lng}&gsradius=${radiusMeters}&gslimit=${limit}&format=json&origin=*`;
     const r = await fetch(geoUrl);
