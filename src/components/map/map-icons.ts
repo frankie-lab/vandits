@@ -171,8 +171,12 @@ export const createCustomIcon = (
         || (location?.customData?.user_image_url as string | undefined)
         || '')
     : '';
+  // No `crossorigin="anonymous"`: muchos hosts (Wikimedia, OneDrive thumbs,
+  // ipx) sirven imágenes sin cabeceras CORS — con el atributo el navegador
+  // bloquea la carga y `onerror` oculta el thumb. Aquí solo pintamos un
+  // <img>, no accedemos al canvas, así que CORS no aporta nada.
   const thumbHtml = thumbUrl
-    ? `<img class="poi-thumb" src="${thumbUrl}" alt="" crossorigin="anonymous" onerror="this.style.display='none'" />`
+    ? `<img class="poi-thumb" src="${thumbUrl.replace(/"/g, '&quot;')}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'" />`
     : '';
 
   const baseColor = entry.fill_color;
