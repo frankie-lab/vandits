@@ -27,6 +27,14 @@
         },
         "danger": {
           "500": { "value": "0 72% 55%" }
+        },
+        "poi": {
+          "mine":     { "value": "0 0% 100%"    },
+          "followed": { "value": "45 93% 81%"   },
+          "service":  { "value": "199 95% 86%"  },
+          "enriched": { "value": "142 71% 45%"  },
+          "empty":    { "value": "24 95% 53%"   },
+          "error":    { "value": "0 72% 51%"    }
         }
       },
       "dark": {
