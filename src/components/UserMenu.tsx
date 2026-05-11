@@ -519,6 +519,11 @@ export function UserMenu({
                <Database className="w-4 h-4 mr-2 text-cyan-500" />
                Fuentes de datos
                </DropdownMenuItem>
+
+               <DropdownMenuItem onClick={() => onOpenAdmin?.('design-system')} className="cursor-pointer">
+               <Palette className="w-4 h-4 mr-2 text-fuchsia-500" />
+               Design System
+               </DropdownMenuItem>
    </>
    )}
 
