@@ -418,8 +418,6 @@ function MemoriesList() {
 
 export function DesignSystemPanel() {
   const [section, setSection] = useState<Section>('tokens');
-  const editMode = useDesignSystemEdit((s) => s.editMode);
-  const setEditMode = useDesignSystemEdit((s) => s.setEditMode);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -444,17 +442,6 @@ export function DesignSystemPanel() {
             {s.label}
           </Button>
         ))}
-        <div className="ml-auto flex items-center gap-2">
-          <Button
-            size="sm"
-            variant={editMode ? 'cta' : 'outline'}
-            onClick={() => setEditMode(!editMode)}
-            title={editMode ? 'Salir del modo edición' : 'Activar modo edición'}
-          >
-            <Pencil className="w-3.5 h-3.5 mr-1.5" />
-            {editMode ? 'Editando tema' : 'Editar tema'}
-          </Button>
-        </div>
       </div>
 
       {section === 'tokens' && <TokensSection />}
