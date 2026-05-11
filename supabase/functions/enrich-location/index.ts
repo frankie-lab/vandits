@@ -2375,17 +2375,22 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
           const nearbyExtracts = await fetchPageExtracts(nearbyPages.map((p) => p.pageid));
           const nearbyCandidates = nearbyPages.map((p) => {
             const info = nearbyExtracts[String(p.pageid)] || {};
+            const distM = Math.round(p.dist);
             return {
               name: p.title,
-              distanceM: Math.round(p.dist),
+              distanceM: distM,
+              distanceKm: Math.round((distM / 1000) * 10) / 10,
               url: info.fullurl || `https://es.wikipedia.org/wiki/${encodeURIComponent(p.title)}`,
               extract: info.extract?.substring(0, 240),
+              lat: typeof p.lat === 'number' ? p.lat : undefined,
+              lng: typeof p.lon === 'number' ? p.lon : undefined,
             };
           });
           return new Response(
             JSON.stringify({
               success: false,
               reason: 'name_coordinate_mismatch',
+              mismatchKind: 'name',
               providedName: location.name,
               providedCoords: location.coordinates,
               nearbyCandidates,
