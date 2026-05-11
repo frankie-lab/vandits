@@ -55,6 +55,10 @@ interface LocationsState {
 
   // Actions
   addDocument: (doc: KMLDocument) => void;
+  /** Delta-merge a fresh catalog snapshot. Preserva referencias de objetos no
+   *  cambiados y solo toca documentos dentro del `ownerScope`. Sustituye al
+   *  patrón destructivo `_resetStoreState()` + `addDocument(...)` en bucle. */
+  applyCatalogSnapshot: (docs: KMLDocument[], opts: ApplySnapshotOpts) => void;
   removeDocument: (id: string, options?: { deleteLocations?: boolean }) => Promise<void>;
   clearAllDocuments: () => Promise<void>;
   _resetStoreState: () => void;
