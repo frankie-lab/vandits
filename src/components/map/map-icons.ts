@@ -318,3 +318,9 @@ export const createCustomIcon = (
       </div>
 
     </div>
+    `,
+    iconSize: [containerSize, containerSize],
+    iconAnchor: [containerSize / 2, containerSize / 2],
+    popupAnchor: [0, -containerSize / 2],
+  });
+};
