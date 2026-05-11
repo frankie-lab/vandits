@@ -13,7 +13,6 @@
  */
 import * as React from 'react';
 import { tokens } from '@/design-system/tokens';
-import { HeroImageSkeleton } from '@/design-system/patterns/Skeletons';
 
 const hsl = (triplet: string) => `hsl(${triplet})`;
 
