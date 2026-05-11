@@ -77,7 +77,7 @@ export function CatalogLoadingCard({ userDisplayName, lastSeenAt }: CatalogLoadi
     return () => window.clearInterval(id);
   }, [task?.id]);
 
-  if (!task) return null;
+  if (!shouldShow || !task) return null;
 
   const current = task.current ?? 0;
   const total = task.total ?? 0;
