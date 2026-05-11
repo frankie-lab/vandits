@@ -204,18 +204,21 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
     }
     setBusy(true);
     try {
+      const description = form.description.trim();
       const { error } = await supabase
         .from('locations')
         .update({
           name,
           latitude: lat,
           longitude: lng,
+          description: description || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', location.id);
       if (error) throw error;
       useLocationsStore.getState().updateLocation(location.id, {
         name,
+        description: description || undefined,
         coordinates: { ...location.coordinates, lat, lng },
         updatedAt: new Date(),
       });
