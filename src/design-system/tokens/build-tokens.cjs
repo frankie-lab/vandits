@@ -65,6 +65,7 @@ function emitCss(tokens) {
   const reducedMotionVars = [];
 
   for (const t of tokens) {
+    if (!t.cssName) continue;
     const line = `  ${t.cssName}: ${t.value};`;
     const isDark = t.path[0] === 'color' && t.path[1] === 'dark';
     if (isDark) {
