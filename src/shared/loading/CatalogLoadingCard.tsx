@@ -5,6 +5,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Compass, Loader2 } from 'lucide-react';
 import { useActiveLoadings } from './loading-bus';
+import { useLocationsStore } from '@/domains/content/store/locations-store';
 
 
 function formatEta(ms: number): string {
