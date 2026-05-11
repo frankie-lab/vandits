@@ -19,6 +19,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { EnrichmentLane } from '@/shared/progress/EnrichmentLane';
 import { GeocodingLane } from '@/shared/progress/GeocodingLane';
+import { clearBottomSafeInset, setBottomSafeInset } from '@/shared/layout/overlay-safe-area';
 
 export function BottomProgressBar() {
   const [enrichmentActive, setEnrichmentActive] = useState(false);
@@ -27,31 +28,21 @@ export function BottomProgressBar() {
 
   const anyActive = enrichmentActive || geocodingActive;
 
-  // Publish bar height as a global CSS variable so full-viewport overlays
-  // (dialogs, sheets, admin panels) can reserve space and not be obscured.
-  // Consumed by `:root { --bottom-progress-h }` rule in index.css.
   useEffect(() => {
-    const root = document.documentElement;
     if (!anyActive) {
-      root.style.setProperty('--bottom-progress-h', '0px');
-      root.style.setProperty('--overlay-progress-gap', '12px');
+      clearBottomSafeInset('progress');
       return;
     }
     const measure = () => {
       const h = barRef.current?.offsetHeight ?? 0;
-      root.style.setProperty('--bottom-progress-h', `${h}px`);
-      // Cuando la barra está activa, dar 20px de respiro entre modal y barra
-      // (12px base + 8px extra). Lo consumen TODOS los overlays vía el helper
-      // transversal `.overlay-respect-progress` en index.css.
-      root.style.setProperty('--overlay-progress-gap', h > 0 ? '20px' : '12px');
+      setBottomSafeInset('progress', h);
     };
     measure();
     const ro = new ResizeObserver(measure);
     if (barRef.current) ro.observe(barRef.current);
     return () => {
       ro.disconnect();
-      root.style.setProperty('--bottom-progress-h', '0px');
-      root.style.setProperty('--overlay-progress-gap', '12px');
+      clearBottomSafeInset('progress');
     };
   }, [anyActive]);
   return (
