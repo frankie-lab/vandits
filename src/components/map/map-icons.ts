@@ -100,8 +100,11 @@ export const createCustomIcon = (
   // naranja) se preservan: la paleta canónica vive en `entry.fill_color`.
   // Ola 2: en `micro`, los puntos propios (`isOwn`) son mayores y con halo
   // más visible para distinguirlos sobre el ruido global.
+  // Regla única: el zoom manda. `isFocused` (1 punto, click directo) puede
+  // escapar para destacar, pero la selección masiva NO — si no, al filtrar
+  // miles de puntos en vista global se romperían los 5px del modo micro.
   const renderMode = currentRenderMode;
-  if (renderMode === 'micro' && !isFocused && !isSelected) {
+  if (renderMode === 'micro' && !isFocused) {
     // Tamaño fijo en vista global para garantizar progresión monotónica
     // (micro 5px < compact ~8px < standard ~12px < rich ~14px). La pertenencia
     // (`isOwn`) se diferencia solo por halo más marcado y por `mine-pane`
@@ -179,7 +182,11 @@ export const createCustomIcon = (
   // RLS — si el URL llega al cliente es porque puede verla). Si la imagen
   // falla, `onerror` la oculta y el marker queda como antes.
   // Ver `.lovable/plan.md` y `mem://style/map/focused-thumbnail-rule`.
-  const showThumb = (isFocused || isSelected);
+  // Miniatura solo en focused (1 punto) y solo cuando el zoom lo permite
+  // (standard/rich). En `compact` o `micro` el zoom manda y no se muestra
+  // miniatura aunque haya selección masiva o focus. La regla única es por
+  // zoom — selección añade halo (en `shadow`), nunca cambia la forma.
+  const showThumb = isFocused && (renderMode === 'standard' || renderMode === 'rich');
   const thumbUrl = showThumb
     ? ((location?.enrichedData?.imagen as string | undefined)
         || (location?.customData?.user_image_url as string | undefined)
