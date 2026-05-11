@@ -84,20 +84,20 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
   const [renameValue, setRenameValue] = React.useState('');
   const [form, setForm] = React.useState({
     name: location.name ?? '',
-    lat: String(location.lat ?? ''),
-    lng: String(location.lng ?? ''),
+    lat: String(location.coordinates.lat ?? ''),
+    lng: String(location.coordinates.lng ?? ''),
   });
 
   // Reset al cambiar de location
   React.useEffect(() => {
     setForm({
       name: location.name ?? '',
-      lat: String(location.lat ?? ''),
-      lng: String(location.lng ?? ''),
+      lat: String(location.coordinates.lat ?? ''),
+      lng: String(location.coordinates.lng ?? ''),
     });
     setRenameValue(location.name ?? '');
     setEditingAll(false);
-  }, [location.id, location.name, location.lat, location.lng]);
+  }, [location.id, location.name, location.coordinates.lat, location.coordinates.lng]);
 
   // Tab por defecto según candidatos
   React.useEffect(() => {
@@ -401,51 +401,47 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
                     Sin coincidencias cercanas.
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-1.5">
-                    {candidates.map((c, idx) => (
-                      <div
-                        key={`${c.name ?? 'cand'}-${idx}`}
-                        className="flex items-center gap-2 rounded border border-border/50 bg-background/80 px-2 py-1.5"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[11px] font-medium truncate">{c.name}</div>
-                          <div className="text-[10px] text-muted-foreground truncate">
-                            {c.distanceKm != null && <span>a {c.distanceKm} km</span>}
-                            {geoLine(c) && (
-                              <span>
-                                {c.distanceKm != null ? ' · ' : ''}
-                                {geoLine(c)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="default"
-                          className="h-7 text-[10px] px-2 gap-1"
-                          onClick={() =>
-                            mode === 'move'
-                              ? handleMovePoint(c.lat, c.lng)
-                              : handleUseName(c.name)
-                          }
+                  <div className="flex flex-col gap-1">
+                    {candidates.map((c, idx) => {
+                      const apply = () =>
+                        mode === 'move'
+                          ? handleMovePoint(c.lat, c.lng)
+                          : handleUseName(c.name);
+                      return (
+                        <button
+                          key={`${c.name ?? 'cand'}-${idx}`}
+                          type="button"
+                          onClick={apply}
                           disabled={busy}
+                          className="group w-full text-left flex items-start gap-2 rounded border border-border/50 bg-background/80 hover:bg-background hover:border-primary/40 px-2.5 py-2 transition-colors disabled:opacity-50"
+                          title={mode === 'move' ? 'Mover el punto aquí' : 'Usar este nombre'}
                         >
-                          {busy ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : mode === 'move' ? (
-                            <>
-                              <MapPin className="w-3 h-3" />
-                              Mover aquí
-                            </>
-                          ) : (
-                            <>
-                              <TypeIcon className="w-3 h-3" />
-                              Usar nombre
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    ))}
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[12px] font-medium leading-snug break-words">
+                              {c.name}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground mt-0.5 leading-snug break-words">
+                              {c.distanceKm != null && <span>a {c.distanceKm} km</span>}
+                              {geoLine(c) && (
+                                <span>
+                                  {c.distanceKm != null ? ' · ' : ''}
+                                  {geoLine(c)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <span className="flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors mt-0.5">
+                            {busy ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : mode === 'move' ? (
+                              <MapPin className="w-3.5 h-3.5" />
+                            ) : (
+                              <TypeIcon className="w-3.5 h-3.5" />
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </>
