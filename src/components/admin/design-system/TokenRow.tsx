@@ -17,7 +17,7 @@
  * cambios live (draft) se reflejen al instante.
  */
 import { useState } from 'react';
-import { ChevronDown, Pencil, Wand2 } from 'lucide-react';
+import { ChevronDown, Pencil, Link2, Link2Off } from 'lucide-react';
 import type { PairedRow, LeafToken } from './token-grouping';
 import { isColorValue, toCssColor } from './token-grouping';
 import { hslTripletToHex, parseHslTriplet } from './color-conversions';
@@ -25,9 +25,7 @@ import {
   contrastRatio,
   wcagLevel,
   tripletToRgb,
-  deriveOppositeTriplet,
   resolveTargetBackgroundPath,
-  resolveOppositeModePath,
 } from './color-adaptive';
 import { lookupGlossary } from './token-glossary';
 import { TokenPreview } from './TokenPreviews';
@@ -55,17 +53,8 @@ export function TokenRow({ row, groupId }: Props) {
     (t) => t.path.join('.') in draft || t.path.join('.') in published,
   );
 
-  const colorLayout = isColorRow(row);
-
-  if (colorLayout) {
-    return (
-      <div className="border border-border rounded-token-md bg-card overflow-hidden">
-        <div className="px-3 pt-3 pb-2">
-          <RowHeader entry={entry} row={row} hasOverride={hasOverride} />
-        </div>
-        <ColorColumns row={row} />
-      </div>
-    );
+  if (isColorRow(row)) {
+    return <ColorRowLayout row={row} entry={entry} hasOverride={hasOverride} />;
   }
 
   return <NonColorRow row={row} groupId={groupId} entry={entry} hasOverride={hasOverride} editableTokens={editableTokens} />;
@@ -79,19 +68,62 @@ function isColorRow(row: PairedRow): boolean {
   return false;
 }
 
-// ─── Header (compartido) ───────────────────────────────────────────
+// ─── Color row: 3 columnas (Info · Claro · Oscuro) ─────────────────
 
-function RowHeader({
-  entry,
+function ColorRowLayout({
   row,
+  entry,
   hasOverride,
 }: {
-  entry: ReturnType<typeof lookupGlossary>;
   row: PairedRow;
+  entry: ReturnType<typeof lookupGlossary>;
   hasOverride: boolean;
 }) {
+  const lightToken = row.kind === 'lightDark' ? row.light : row.tokens[0];
+  const darkToken = row.kind === 'lightDark' ? row.dark : undefined;
+
   return (
-    <div className="min-w-0">
+    <div className="border border-border rounded-token-md bg-card overflow-hidden grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+      <ColorInfoColumn row={row} entry={entry} hasOverride={hasOverride} anchorPath={lightToken?.path.join('.')} hasDark={!!darkToken} />
+      {lightToken && (
+        <ColorSwatchColumn
+          token={lightToken}
+          fallback={String(row.kind === 'lightDark' ? row.light.value : row.value)}
+          mode="light"
+        />
+      )}
+      {darkToken ? (
+        <ColorSwatchColumn token={darkToken} fallback={String(darkToken.value)} mode="dark" withDivider />
+      ) : (
+        <div className="hidden md:block border-l border-border bg-muted/20" />
+      )}
+    </div>
+  );
+}
+
+function ColorInfoColumn({
+  row,
+  entry,
+  hasOverride,
+  anchorPath,
+  hasDark,
+}: {
+  row: PairedRow;
+  entry: ReturnType<typeof lookupGlossary>;
+  hasOverride: boolean;
+  anchorPath?: string;
+  hasDark: boolean;
+}) {
+  const isLinked = useDesignSystemEdit((s) => (anchorPath ? s.isLinked(anchorPath) : false));
+  const setLinked = useDesignSystemEdit((s) => s.setLinked);
+  const canLink = !!anchorPath && hasDark && !!anchorPath.match(/^color\.(light|dark)\./);
+
+  const cssVars = collectEditableTokens(row)
+    .map((t) => t.cssVar)
+    .filter(Boolean) as string[];
+
+  return (
+    <div className="p-3 min-w-0 md:border-r border-border flex flex-col gap-2">
       <div className="flex items-center gap-2 flex-wrap">
         <div className="text-sm font-medium truncate">{entry.label}</div>
         {hasOverride && (
@@ -101,40 +133,44 @@ function RowHeader({
         )}
         <RefChip row={row} />
       </div>
-      <div className="text-xs text-muted-foreground mt-0.5">{entry.usage}</div>
-      <AliasChips row={row} />
+      <div className="text-xs text-muted-foreground">{entry.usage}</div>
+      {cssVars.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {cssVars.map((v) => (
+            <code
+              key={v}
+              className="inline-flex items-center px-1.5 py-0.5 rounded-token-sm bg-muted text-[10px] font-mono text-muted-foreground"
+            >
+              {v}
+            </code>
+          ))}
+        </div>
+      )}
+      {canLink && (
+        <button
+          type="button"
+          onClick={() => setLinked(anchorPath!, !isLinked)}
+          className={
+            'mt-auto inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-token-sm border w-fit transition-colors ' +
+            (isLinked
+              ? 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15'
+              : 'border-border text-muted-foreground hover:bg-muted/40')
+          }
+          title={
+            isLinked
+              ? 'Auto-link activo: al editar un modo se calcula el equivalente perceptual del otro'
+              : 'Auto-link desactivado: cada modo se edita por separado'
+          }
+        >
+          {isLinked ? <Link2 className="w-3 h-3" /> : <Link2Off className="w-3 h-3" />}
+          <span>{isLinked ? 'Claro ↔ Oscuro vinculados' : 'Edición independiente'}</span>
+        </button>
+      )}
     </div>
   );
 }
 
-// ─── Color layout (1 o 2 columnas) ────────────────────────────────
-
-function ColorColumns({ row }: { row: PairedRow }) {
-  if (row.kind === 'lightDark') {
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 border-t border-border">
-        <ColorColumn token={row.light} fallback={String(row.light.value)} mode="light" />
-        {row.dark && (
-          <ColorColumn
-            token={row.dark}
-            fallback={String(row.dark.value)}
-            mode="dark"
-            withDivider
-          />
-        )}
-      </div>
-    );
-  }
-  // single con color
-  const single = row.tokens[0];
-  return (
-    <div className="border-t border-border">
-      <ColorColumn token={single} fallback={String(row.value)} mode="light" />
-    </div>
-  );
-}
-
-function ColorColumn({
+function ColorSwatchColumn({
   token,
   fallback,
   mode,
@@ -150,72 +186,37 @@ function ColorColumn({
   const css = toCssColor(live);
   const hex = parseHslTriplet(live) ? hslTripletToHex(live) : null;
 
-  // Fondo destino (mismo modo) según ROLE_SURFACE_MAP.
   const targetBgPath = resolveTargetBackgroundPath(path);
   const targetBg = useResolvedTokenValue(targetBgPath);
   const wcag = computeWcag(live, typeof targetBg === 'string' ? targetBg : undefined);
 
-  // Path del gemelo (otro modo) para la sugerencia.
-  const oppositePath = resolveOppositeModePath(path);
-  const oppositeBg = useResolvedTokenValue(
-    oppositePath ? resolveTargetBackgroundPath(oppositePath) : undefined,
-  );
-  const setDraft = useDesignSystemEdit((s) => s.setDraft);
-
-  const applyOppositeSuggestion = () => {
-    if (!oppositePath) return;
-    const suggested = deriveOppositeTriplet(live, {
-      from: mode,
-      targetBgTriplet: typeof oppositeBg === 'string' ? oppositeBg : undefined,
-      minContrast: 3,
-    });
-    if (suggested) setDraft(oppositePath, suggested);
-  };
-
-  // Fondo contextual: el swatch claro se ve sobre superficie clara,
-  // el oscuro sobre superficie oscura, para reflejar el contexto real.
-  const wrapBg = mode === 'dark' ? 'bg-foreground/90' : 'bg-background';
-  const labelColor = mode === 'dark' ? 'text-background/70' : 'text-muted-foreground';
-  const hexColor = mode === 'dark' ? 'text-background' : 'text-foreground';
-  const dividerClass = withDivider ? 'sm:border-l border-border' : '';
+  // Luminancia del propio swatch → texto contrastado superpuesto.
+  const fgHsl = parseHslTriplet(live);
+  const onSwatchText = fgHsl && fgHsl.l > 55 ? 'text-black/80' : 'text-white/90';
 
   return (
-    <div className={`p-3 ${wrapBg} ${dividerClass}`}>
-      <div className="flex items-center justify-between mb-2 gap-2">
-        <span className={`text-[10px] uppercase tracking-wide ${labelColor}`}>
-          {mode === 'dark' ? 'Oscuro' : 'Claro'}
-        </span>
-        <code className={`text-xs font-mono ${hexColor}`}>{hex ?? live}</code>
-      </div>
+    <div className={`relative ${withDivider ? 'md:border-l border-t md:border-t-0 border-border' : 'border-t md:border-t-0 border-border'}`}>
       <EditableTokenSurface
         path={path}
         label={mode === 'dark' ? 'Modo oscuro' : 'Modo claro'}
         title={`Editar ${mode === 'dark' ? 'modo oscuro' : 'modo claro'}`}
-        className="block w-full"
+        className="block w-full h-full"
       >
         <div
-          className="h-12 w-full rounded-token-sm border border-border"
+          className="relative h-full min-h-[112px] w-full flex flex-col justify-between p-3"
           style={{ background: css }}
-        />
+        >
+          <div className={`flex items-center justify-between gap-2 ${onSwatchText}`}>
+            <span className="text-[10px] uppercase tracking-wide font-semibold">
+              {mode === 'dark' ? 'Oscuro' : 'Claro'}
+            </span>
+            {wcag && <WcagBadge {...wcag} onSwatchText={onSwatchText} />}
+          </div>
+          <code className={`text-sm font-mono font-semibold ${onSwatchText}`}>
+            {hex ?? live}
+          </code>
+        </div>
       </EditableTokenSurface>
-      <div className="flex items-center justify-between gap-2 mt-2 min-h-[1.25rem]">
-        {wcag ? (
-          <WcagBadge {...wcag} mode={mode} />
-        ) : (
-          <span />
-        )}
-        {oppositePath && (
-          <button
-            type="button"
-            onClick={applyOppositeSuggestion}
-            title={`Generar ${mode === 'dark' ? 'modo claro' : 'modo oscuro'} equivalente`}
-            className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-token-sm hover:bg-muted/60 transition-colors ${labelColor}`}
-          >
-            <Wand2 className="w-3 h-3" />
-            <span>Generar opuesto</span>
-          </button>
-        )}
-      </div>
     </div>
   );
 }
@@ -234,22 +235,20 @@ function computeWcag(triplet: string, bgTriplet?: string): WcagInfo | null {
   return { ratio, level: wcagLevel(ratio, { uiComponent: true }) };
 }
 
-function WcagBadge({ ratio, level, mode }: WcagInfo & { mode: 'light' | 'dark' }) {
-  const dim = mode === 'dark' ? 'text-background/80' : 'text-muted-foreground';
-  const tone =
-    level === 'fail'
-      ? 'bg-destructive/15 text-destructive'
-      : level === 'AAA'
-        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-        : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400';
+function WcagBadge({ ratio, level, onSwatchText }: WcagInfo & { onSwatchText: string }) {
+  const fail = level === 'fail';
   return (
     <span
-      className={`inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded-token-sm ${tone}`}
+      className={
+        'inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded-token-sm backdrop-blur-sm ' +
+        (fail
+          ? 'bg-destructive/80 text-destructive-foreground'
+          : `bg-background/70 ${onSwatchText}`)
+      }
       title={`Contraste vs surface destino · ${ratio.toFixed(2)}:1`}
     >
-      <span className={dim}>·</span>
       <span>{ratio.toFixed(2)}:1</span>
-      <span className="font-semibold">{level === 'fail' ? 'fail' : level}</span>
+      <span className="font-semibold">{fail ? 'fail' : level}</span>
     </span>
   );
 }
