@@ -19,6 +19,7 @@ import {
   RING_WIDTH,
 } from '@/domains/content/lib/point-health-rings';
 import { getPointHeroImage } from '@/domains/content/lib/point-hero-image';
+import { ZOOM_THRESHOLDS } from '@/design-system/map/rules/zoom-thresholds';
 
 /**
  * IDs cuya hero image ha fallado en runtime. Como un divIcon no puede
@@ -52,9 +53,14 @@ export type MarkerRenderMode = 'micro' | 'compact' | 'standard' | 'rich';
 let currentRenderMode: MarkerRenderMode = 'standard';
 
 export const getRenderModeForZoom = (zoom: number): MarkerRenderMode => {
-  if (zoom <= 9) return 'micro';
-  if (zoom <= 13) return 'compact';
-  if (zoom <= 16) return 'standard';
+  // Fuente única: tokens/map.json (ZOOM_THRESHOLDS). NO hardcodear umbrales aquí.
+  // Bandas: zoom ≤ microMax → micro; zoom ≥ richMin → rich (polaroid);
+  // resto = compact (dot estándar). `standard` queda absorbido por `rich`
+  // desde que richMin bajó a 11 (ver `mem://style/map/zoom-driven-hero`).
+  const { microMax, richMin, standardMax } = ZOOM_THRESHOLDS;
+  if (zoom <= microMax) return 'micro';
+  if (zoom >= richMin) return 'rich';
+  if (zoom <= standardMax) return 'compact';
   return 'rich';
 };
 
