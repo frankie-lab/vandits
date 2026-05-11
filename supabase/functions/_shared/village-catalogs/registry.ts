@@ -27,23 +27,18 @@ function makeStandardBuilder(baseUrl: string, prefix: string) {
 }
 
 export const ADAPTERS: VillageCatalogAdapter[] = [
-  // ES — lospueblosmasbonitosdeespana.org (estructura /pueblos/{slug}/)
+  // ES — lospueblosmasbonitosdeespana.org (Next.js SPA, listing en /pueblos)
   {
     code: 'search.village.es',
     name: 'Pueblos más bonitos de España',
     countryCodes: ['ES'],
-    listingUrls: ['https://lospueblosmasbonitosdeespana.org/listado-pueblos/'],
-    linkPattern: /href="https?:\/\/lospueblosmasbonitosdeespana\.org\/([a-z0-9-]+)\/?"/gi,
+    listingUrls: ['https://lospueblosmasbonitosdeespana.org/pueblos'],
+    linkPattern: /href="\/pueblos\/([a-z0-9-]+)"/gi,
     buildEntry: (m) => {
       const slug = m[1];
-      const SKIP = new Set([
-        'listado-pueblos', 'contacto', 'aviso-legal', 'politica-de-privacidad',
-        'politica-de-cookies', 'la-asociacion', 'noticias', 'tienda', 'eventos',
-        'wp-content', 'wp-admin', 'feed', 'category', 'tag',
-      ]);
-      if (SKIP.has(slug)) return null;
+      if (!slug || slug.length < 2) return null;
       return {
-        url: `https://lospueblosmasbonitosdeespana.org/${slug}/`,
+        url: `https://lospueblosmasbonitosdeespana.org/pueblos/${slug}`,
         name: slugToName(slug),
       };
     },

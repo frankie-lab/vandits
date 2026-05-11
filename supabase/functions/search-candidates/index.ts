@@ -357,7 +357,6 @@ Deno.serve(async (req) => {
             url: h.url,
             country: h.country,
             source: 'village-catalog' as const,
-            // Marker en URL para que el cliente pueda mostrar badge del catálogo
             locality: h.sourceName,
           }));
         } catch (e) {
@@ -387,5 +386,7 @@ Deno.serve(async (req) => {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+  }
+});
   }
 });
