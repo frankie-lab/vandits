@@ -238,7 +238,7 @@ export function GeographyTree() {
  case 'zone': return <Building2 className="w-4 h-4 text-purple-500" />;
  case 'comarca': return <Landmark className="w-4 h-4 text-teal-500" />;
  case 'localidad': return <Home className="w-4 h-4 text-rose-500" />;
- case 'sublocalidad': return <MapPin className="w-4 h-4 text-gray-500" />;
+ case 'sublocalidad': return <MapPin className="w-4 h-4 text-muted-foreground" />;
  case 'calle': return <Milestone className="w-4 h-4 text-slate-500" />;
  }
  };

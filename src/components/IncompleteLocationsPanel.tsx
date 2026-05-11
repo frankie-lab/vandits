@@ -321,12 +321,12 @@ export function IncompleteLocationsPanel({
  key={idx}
  onClick={() => handleSelectSuggestion(location.id, suggestion)}
  disabled={isUpdating}
- className="w-full text-left px-2.5 py-2 text-xs bg-white border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+ className="w-full text-left px-2.5 py-2 text-xs bg-card border border-border rounded-md hover:bg-accent hover:border-primary/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
  >
- <div className="font-medium text-gray-900 truncate">
+ <div className="font-medium text-foreground truncate">
  {suggestion.shortName}
  </div>
- <div className="text-[10px] text-gray-500 truncate mt-0.5">
+ <div className="text-[10px] text-muted-foreground truncate mt-0.5">
  {suggestion.displayName}
  </div>
  </button>

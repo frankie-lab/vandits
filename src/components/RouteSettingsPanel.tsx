@@ -217,7 +217,7 @@ export function RouteSettingsPanel({ onClose }: RouteSettingsPanelProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 z-[2000] flex items-center justify-center p-4"
+      className="fixed inset-0 bg-foreground/50 z-modal flex items-center justify-center p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <motion.div

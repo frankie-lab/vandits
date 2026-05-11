@@ -59,7 +59,7 @@ function LocationDetailColumn({
   
   return (
     <div className={cn(
-      "p-4 space-y-3 bg-white dark:bg-slate-900 rounded-lg",
+      "p-4 space-y-3 bg-card rounded-lg",
       isMarkedForDelete && "bg-red-50 dark:bg-red-950/30 opacity-60",
       isMarkedForKeep && "bg-green-50 dark:bg-green-950/30"
     )}>
@@ -90,7 +90,7 @@ function LocationDetailColumn({
         {enriched?.indice_interes && (
           <div className="flex items-center gap-0.5 px-2 py-1 bg-amber-100 rounded-full" title={enriched.indice_interes_notas || 'Índice de interés IA'}>
             {[1,2,3,4,5].map(star => (
-              <span key={star} className={cn("text-sm", star <= enriched.indice_interes ? "text-amber-600" : "text-gray-300")}>
+              <span key={star} className={cn("text-sm", star <= enriched.indice_interes ? "text-amber-600" : "text-muted-foreground/40")}>
                 {star <= enriched.indice_interes ? '★' : '☆'}
               </span>
             ))}
@@ -102,7 +102,7 @@ function LocationDetailColumn({
         {userRating > 0 && (
           <div className="flex items-center gap-0.5" title="Tu valoración">
             {[1,2,3,4,5].map(star => (
-              <span key={star} className={cn("text-sm", star <= userRating ? "text-amber-500" : "text-gray-300")}>
+              <span key={star} className={cn("text-sm", star <= userRating ? "text-amber-500" : "text-muted-foreground/40")}>
                 {star <= userRating ? '★' : '☆'}
               </span>
             ))}
@@ -422,7 +422,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
 
   const getEnrichmentBadge = (location: GeoLocation) => {
     if (location.enrichedData?.descripcion) return <Badge className="bg-green-500/10 text-green-600 text-[10px]">Enriquecido</Badge>;
-    if (location.description) return <Badge className="bg-gray-400/10 text-gray-600 text-[10px]">Importado</Badge>;
+    if (location.description) return <Badge className="bg-muted text-muted-foreground text-[10px]">Importado</Badge>;
     return <Badge className="bg-orange-500/10 text-orange-600 text-[10px]">Vacío</Badge>;
   };
 
@@ -606,7 +606,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.03 }}
                       className={cn(
-                        "border rounded-xl overflow-hidden transition-all bg-white/75 dark:bg-slate-900/75 shadow-sm backdrop-blur-sm",
+                        "border rounded-xl overflow-hidden transition-all bg-card/75 shadow-sm backdrop-blur-sm",
                         pendingAction && "ring-2 ring-primary",
                         isInQueue && "opacity-50 pointer-events-none",
                         selectedForBatch.has(pair.id) && "ring-2 ring-primary/50"

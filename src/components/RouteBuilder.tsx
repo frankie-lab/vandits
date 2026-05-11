@@ -1538,7 +1538,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             intermediateWaypoints.forEach((wp, idx) => {
               items.push(
                 <div key={`wp-${idx}`} className="flex items-center gap-2 p-2 rounded-lg border border-emerald-300/60 dark:border-emerald-700/60 bg-emerald-50/30 dark:bg-emerald-950/20">
-                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 text-white text-[10px] font-bold shrink-0">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 text-primary-foreground text-[10px] font-bold shrink-0">
                     {idx + 1}
                   </div>
                   <span className="text-xs font-medium truncate flex-1">{wp.name}</span>
@@ -1840,7 +1840,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   </div>
                   {intermediateStops.map((stop, idx) => (
                     <div key={idx} className="flex items-center gap-2 px-2 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-950/20">
-                      <div className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 text-white text-[9px] font-bold shrink-0">
+                      <div className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 text-primary-foreground text-[9px] font-bold shrink-0">
                         {idx + 1}
                       </div>
                       <span className="text-[11px] font-medium truncate flex-1">{stop.name}</span>

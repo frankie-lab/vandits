@@ -55,7 +55,7 @@ const PLACE_TYPE_COLORS: Record<PlaceType, string> = {
  religious_site: 'bg-violet-100 text-violet-700 hover:bg-violet-200',
  natural_reserve: 'bg-teal-100 text-teal-700 hover:bg-teal-200',
  route: 'bg-lime-100 text-lime-700 hover:bg-lime-200',
- other: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+ other: 'bg-muted text-muted-foreground hover:bg-muted/80',
 };
 
 export function PlaceTypeFilter() {

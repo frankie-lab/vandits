@@ -235,7 +235,7 @@ export function FilterBar() {
             placeType: 'bg-orange-100 text-orange-700 hover:bg-orange-200',
             tag: 'bg-purple-100 text-purple-700 hover:bg-purple-200',
             classification: 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200',
-            search: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+            search: 'bg-muted text-muted-foreground hover:bg-muted/80',
           };
           const IconByAxis: Record<FilterAxis, typeof MapPin> = {
             geography: MapPin,
