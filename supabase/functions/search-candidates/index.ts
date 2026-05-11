@@ -46,6 +46,7 @@ interface Body {
   term: string;
   near?: { lat: number; lng: number };
   limit?: number;
+  countryCode?: string; // ISO α2 — hint para village catalogs
 }
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
