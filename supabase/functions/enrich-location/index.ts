@@ -2404,8 +2404,8 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
           console.log(
             `[enrich] ABORT name↔coords mismatch: nominatim="${geoData.country}" (${(geoData as { countryCode?: string }).countryCode ?? '?'}) vs LLM="${aiGeoData.pais}"`,
           );
-          const nearbyPages = await fetchNearbyWikipediaPages(location.coordinates, COHERENCE_NEARBY_RADIUS_M, 5);
-          const nearbyExtracts = await fetchPageExtracts(nearbyPages.map((p) => p.pageid));
+          const nearbyPages = useWikipedia ? await fetchNearbyWikipediaPages(location.coordinates, COHERENCE_NEARBY_RADIUS_M, 5) : [];
+          const nearbyExtracts = useWikipedia ? await fetchPageExtracts(nearbyPages.map((p) => p.pageid)) : {};
           const nearbyCandidates = nearbyPages.map((p) => {
             const info = nearbyExtracts[String(p.pageid)] || {};
             const distM = Math.round(p.dist);
