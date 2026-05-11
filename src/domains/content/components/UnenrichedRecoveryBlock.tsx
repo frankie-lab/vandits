@@ -49,6 +49,26 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
 
   const soft = parsed ? isCoherenceKind(parsed.kind) : false;
   const candidates = parsed?.candidates ?? [];
+  const mismatchKind = parsed?.mismatchKind;
+  const isCoordinateMismatch = parsed?.kind === 'coherence' && mismatchKind === 'coordinate';
+  // Recommended row = textual candidate from nameLocation when present; else first nearby.
+  const recommendedFromName = parsed?.nameLocation && parsed.nameLocation.title
+    ? {
+        name: parsed.nameLocation.title,
+        lat: parsed.nameLocation.lat,
+        lng: parsed.nameLocation.lng,
+        distanceKm: parsed.nameLocation.distanceKm,
+        url: parsed.nameLocation.url,
+        country: parsed.nameLocation.country,
+        region: parsed.nameLocation.region,
+        locality: parsed.nameLocation.locality,
+      }
+    : null;
+  const allCandidates = [
+    ...(recommendedFromName ? [recommendedFromName] : []),
+    ...candidates.filter((c) => !recommendedFromName || c.name !== recommendedFromName.name),
+  ].slice(0, 5);
+
   const tone =
     parsed == null
       ? 'bg-muted/40 border-border/60'
@@ -128,6 +148,54 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
   const startRename = () => {
     setRenameValue(candidates[0]?.name ?? location.name);
     setRenaming(true);
+  };
+
+  // Three per-candidate actions used by the inline list when there is a coherence conflict.
+  const handleUseName = async (candidateName?: string) => {
+    if (!candidateName || candidateName === location.name) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase
+        .from('locations')
+        .update({ name: candidateName, updated_at: new Date().toISOString() })
+        .eq('id', location.id);
+      if (error) throw error;
+      const result = await triggerEnrichLocation(location.id, { focusAfter: false });
+      if (result.success) enrichmentFailureStore.invalidate(location.id);
+    } catch {
+      toast.error('No se pudo renombrar');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleMovePoint = async (lat?: number, lng?: number) => {
+    if (typeof lat !== 'number' || typeof lng !== 'number') return;
+    setBusy(true);
+    try {
+      const { error } = await supabase
+        .from('locations')
+        .update({ latitude: lat, longitude: lng, updated_at: new Date().toISOString() })
+        .eq('id', location.id);
+      if (error) throw error;
+      const result = await triggerEnrichLocation(location.id, { focusAfter: false });
+      if (result.success) enrichmentFailureStore.invalidate(location.id);
+    } catch {
+      toast.error('No se pudieron actualizar las coordenadas');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleIgnoreConflict = async () => {
+    setBusy(true);
+    try {
+      const result = await triggerEnrichLocation(location.id, { focusAfter: false, skipValidation: true });
+      if (result.success) enrichmentFailureStore.invalidate(location.id);
+      else if (result.error) toast.error(result.error);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const compact = variant === 'row';

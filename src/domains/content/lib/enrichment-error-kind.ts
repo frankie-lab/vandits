@@ -27,15 +27,25 @@ export interface CoherenceCandidate {
   lat?: number;
   lng?: number;
   distanceKm?: number;
+  distanceM?: number;
   url?: string;
   matchScore?: number;
+  country?: string;
+  region?: string;
+  locality?: string;
+  extract?: string;
 }
 
 export interface ParsedEnrichmentError {
   kind: EnrichmentErrorKind;
   message: string;
+  /** Para `coherence`: `'name'` (homónimo) vs `'coordinate'` (misma identidad, coords mal). */
+  mismatchKind?: 'name' | 'coordinate';
   candidates?: CoherenceCandidate[];
-  nameLocation?: { lat?: number; lng?: number; distanceKm?: number; title?: string; url?: string };
+  nameLocation?: {
+    lat?: number; lng?: number; distanceKm?: number; title?: string; url?: string;
+    country?: string; region?: string; locality?: string;
+  };
   providedName?: string;
   httpStatus?: number;
 }
@@ -56,6 +66,7 @@ export function parseEnrichmentError(raw: unknown): ParsedEnrichmentError {
     return {
       kind: (r.kind as EnrichmentErrorKind) ?? 'unknown',
       message: typeof r.message === 'string' ? r.message : 'Error desconocido',
+      mismatchKind: r.mismatchKind,
       candidates: Array.isArray(r.candidates) ? r.candidates : undefined,
       nameLocation: r.nameLocation,
       providedName: r.providedName,
