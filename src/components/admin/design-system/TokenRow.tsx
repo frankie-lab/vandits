@@ -204,8 +204,10 @@ function ColorSwatchColumn({
   const isPrimitive = path.startsWith('color.primitives.');
   const role = extractRole(path) ?? '';
   const foreground = !isPrimitive && isForegroundRole(role);
-  // Primitivos = pintura cruda: la columna entera se pinta con su color (como un surface).
-  const surfaceItself = isPrimitive || isSurfaceRole(role);
+  // Solo los surfaces semánticos pintan TODA la columna con su color.
+  // Los primitivos se muestran como chip sobre el lienzo del modo (claro/oscuro)
+  // para que se vea el contraste real.
+  const surfaceItself = !isPrimitive && isSurfaceRole(role);
 
   // WCAG: se sigue calculando contra el surface destino real (donde el color
   // se aplica de verdad). Esto NO cambia el lienzo de la columna.
@@ -214,8 +216,7 @@ function ColorSwatchColumn({
   const wcag = computeWcag(live, wcagSurfaceTriplet || undefined);
 
   // Lienzo de la columna: SIEMPRE el fondo de página del modo (claro/oscuro).
-  // Excepción única: si el token ES el propio fondo de página, pintamos la
-  // columna con su color (no hay otra cosa que demostrar encima).
+  // Excepción única: si el token ES el propio fondo de página semántico.
   const pageBgTriplet = String(
     useResolvedTokenValue(`color.${mode}.surface.background`) ?? ''
   );
@@ -229,6 +230,16 @@ function ColorSwatchColumn({
   // Para chips, escoger color de texto contrastado contra el chip mismo.
   const chipHsl = parseHslTriplet(live);
   const onChipText = chipHsl && chipHsl.l > 55 ? 'text-black/85' : 'text-white/95';
+
+  // Si el primitivo es casi indistinguible del lienzo, mostramos un ajedrezado
+  // sutil detrás del chip para que su borde nunca desaparezca.
+  const needsCheckerboard =
+    isPrimitive &&
+    canvasHsl != null &&
+    chipHsl != null &&
+    Math.abs(canvasHsl.l - chipHsl.l) < 6 &&
+    Math.abs(canvasHsl.s - chipHsl.s) < 10;
+
 
   return (
     <div
@@ -282,19 +293,39 @@ function ColorSwatchColumn({
               </code>
             </div>
           ) : (
-            // Chip relleno con el color, sobre el surface.
+            // Chip relleno con el color, sobre el surface del modo.
+            // En primitivos: chip más grande y centrado, con ajedrezado de
+            // respaldo si el color es casi igual al lienzo.
             <div
-              className="rounded-token-sm border border-border/30 px-2.5 py-2 flex items-center justify-between gap-2 shadow-token-sm"
-              style={{ background: css }}
+              className={
+                'rounded-token-sm border border-border/40 shadow-token-sm relative overflow-hidden ' +
+                (isPrimitive
+                  ? 'flex-1 min-h-[64px] flex items-end justify-center p-2'
+                  : 'px-2.5 py-2 flex items-center justify-between gap-2')
+              }
+              style={
+                needsCheckerboard
+                  ? {
+                      backgroundColor: css,
+                      backgroundImage:
+                        'linear-gradient(45deg, hsl(0 0% 50% / 0.18) 25%, transparent 25%), linear-gradient(-45deg, hsl(0 0% 50% / 0.18) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(0 0% 50% / 0.18) 75%), linear-gradient(-45deg, transparent 75%, hsl(0 0% 50% / 0.18) 75%)',
+                      backgroundSize: '8px 8px',
+                      backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0',
+                    }
+                  : { background: css }
+              }
             >
-              <span className={`text-[10px] uppercase tracking-wide font-semibold ${onChipText}`}>
-                Muestra
-              </span>
+              {!isPrimitive && (
+                <span className={`text-[10px] uppercase tracking-wide font-semibold ${onChipText}`}>
+                  Muestra
+                </span>
+              )}
               <code className={`text-xs font-mono font-semibold ${onChipText}`}>
                 {hex ?? live}
               </code>
             </div>
           )}
+
         </div>
       </EditableTokenSurface>
     </div>

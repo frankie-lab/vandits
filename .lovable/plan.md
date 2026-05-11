@@ -1,45 +1,32 @@
-## Qué arreglo
+# Problema
 
-1. **Cuadros de color que salen vacíos** en algunas filas (acento de marca, texto sobre acento, etc.).
-2. **El modal del Back Office se mete debajo de la barra inferior** de progreso (la del enriquecimiento por lotes).
+En la **Paleta primitiva** las dos columnas pintan el cuadrado entero con el color del primitivo. No hay fondo claro vs fondo oscuro, así que no se ve el efecto del color en cada modo. Neutral 0 (#FFFFFF) sale como dos columnas blancas idénticas; un gris medio sale como dos rectángulos iguales.
 
-## Cómo lo arreglo
+# Lo que quieres ver
 
-### 1. Cuadros de color vacíos
+Cada primitivo en **su contexto real**:
+- Columna **Claro** = fondo claro real de la app (el surface del modo claro). Encima, el color del primitivo como muestra.
+- Columna **Oscuro** = fondo oscuro real de la app (el surface del modo oscuro). Encima, el color del primitivo como muestra.
 
-Ahora mismo, en cada fila, el fondo de la columna Claro/Oscuro intenta ser "el sitio donde ese color se usa de verdad" — y en muchos casos ese sitio **es el propio color**, así que la muestra desaparece (color encima de color = no ves nada).
+Así de un vistazo ves si el primitivo "se come" o "destaca" sobre cada fondo.
 
-Cambio:
-- **Fondo de la columna = siempre el fondo de la app** (blanco hueso en Claro, casi negro en Oscuro). Sin excepciones, salvo que el token sea literalmente "fondo de página".
-- **La muestra del color va dentro**, como cuadrado relleno o como texto (si es un token de tipografía).
-- **El badge de contraste (WCAG)** sigue calculándose contra el sitio real donde se usa el color — el badge no miente, sólo cambia dónde dibujamos la muestra.
+# Solución
 
-Resultado: en TODAS las filas verás el cuadrado del color claramente, sobre fondo claro u oscuro.
+En `src/components/admin/design-system/TokenRow.tsx`, rama de primitivos:
 
-### 2. Modal pisando la barra inferior
+1. **Lienzo de la columna** = `color.{mode}.surface.background`  
+   → Claro pinta fondo claro, Oscuro pinta fondo oscuro. Siempre, sin excepción.
+2. **Muestra del primitivo** = chip rectangular grande centrado, relleno con el color del primitivo, con borde sutil `border-border/40` para que no desaparezca cuando primitivo ≈ lienzo (Neutral 0 sobre blanco).
+3. **HEX** dentro del chip si hay contraste suficiente, o debajo del chip sobre el lienzo si no.
+4. **Label "CLARO" / "OSCURO"** arriba, color contrastado contra el **lienzo** (no contra el chip).
+5. Si el primitivo es casi igual al lienzo (diferencia de luminancia < 6%), pintar un patrón ajedrezado micro detrás del chip para que siempre se vea el borde de la muestra.
 
-El sistema ya tiene una regla global que dice "todos los modales se encogen cuando aparece la barra inferior". Pero este modal tiene una altura fija a pelo (`h-[92vh]`) que se salta esa regla.
+Semánticos: sin cambios.
 
-Cambio:
-- Quito la altura fija. El modal pasa a obedecer la regla global.
-- Cuando enciendes un batch de enriquecimiento → la barra aparece, el modal se encoge solo y queda un poco de aire entre los dos.
-- Cuando termina → la barra desaparece, el modal se expande otra vez.
+# Fichero
 
-## Archivos que toco (3, mínimos)
+- `src/components/admin/design-system/TokenRow.tsx` — solo la rama `isPrimitive` dentro de `ColorSwatchColumn`.
 
-- `src/components/admin/design-system/TokenRow.tsx` — el fondo de las columnas.
-- `src/components/AdminPanel.tsx` — quitar `h-[92vh]` y `h-[90vh]`.
-- `src/components/BottomProgressBar.tsx` — publicar un margen un poco mayor cuando la barra está activa.
+# Riesgo
 
-## Lo que NO toco
-
-- La lógica de vincular Claro↔Oscuro (sigue igual).
-- El editor de color (sigue igual).
-- Cómo se calculan los contrastes (sigue igual).
-- Los demás modales (heredan la regla automáticamente).
-
-## Comprobación final
-
-- Abrir Design System → todas las filas muestran los cuadros de color visibles en Claro y Oscuro.
-- Lanzar un batch → la barra inferior aparece, el modal se ajusta solo.
-- Cerrar el batch → el modal vuelve a su tamaño.
+Bajo. Cambio visual local a una sola rama de un componente. No afecta a tokens semánticos, ni a edición, ni al vínculo claro↔oscuro.
