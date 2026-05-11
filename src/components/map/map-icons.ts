@@ -100,8 +100,11 @@ export const createCustomIcon = (
   // naranja) se preservan: la paleta canónica vive en `entry.fill_color`.
   // Ola 2: en `micro`, los puntos propios (`isOwn`) son mayores y con halo
   // más visible para distinguirlos sobre el ruido global.
+  // Regla única: el zoom manda. `isFocused` (1 punto, click directo) puede
+  // escapar para destacar, pero la selección masiva NO — si no, al filtrar
+  // miles de puntos en vista global se romperían los 5px del modo micro.
   const renderMode = currentRenderMode;
-  if (renderMode === 'micro' && !isFocused && !isSelected) {
+  if (renderMode === 'micro' && !isFocused) {
     // Tamaño fijo en vista global para garantizar progresión monotónica
     // (micro 5px < compact ~8px < standard ~12px < rich ~14px). La pertenencia
     // (`isOwn`) se diferencia solo por halo más marcado y por `mine-pane`
