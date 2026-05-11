@@ -45,7 +45,6 @@ interface Props {
 }
 
 type Mode = 'move' | 'rename';
-type Tab = 'nearby' | 'rename';
 
 function geoLine(c: Pick<CoherenceCandidate, 'locality' | 'region' | 'country'>): string {
   return [c.locality, c.region, c.country].filter(Boolean).join(' · ');
@@ -80,13 +79,12 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
   const { parsed, loading } = useEnrichmentFailure(location.id, !isEnriched);
 
   const [busy, setBusy] = React.useState(false);
-  const [tab, setTab] = React.useState<Tab>('nearby');
   const [editingAll, setEditingAll] = React.useState(false);
-  const [renameValue, setRenameValue] = React.useState('');
   const [form, setForm] = React.useState({
     name: location.name ?? '',
     lat: String(location.coordinates.lat ?? ''),
     lng: String(location.coordinates.lng ?? ''),
+    description: location.description ?? '',
   });
 
   // Reset al cambiar de location
@@ -95,17 +93,10 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
       name: location.name ?? '',
       lat: String(location.coordinates.lat ?? ''),
       lng: String(location.coordinates.lng ?? ''),
+      description: location.description ?? '',
     });
-    setRenameValue(location.name ?? '');
     setEditingAll(false);
-  }, [location.id, location.name, location.coordinates.lat, location.coordinates.lng]);
-
-  // Tab por defecto según candidatos
-  React.useEffect(() => {
-    if (!parsed) return;
-    const cands = getCandidates(parsed);
-    setTab(cands.length === 0 ? 'rename' : 'nearby');
-  }, [parsed?.kind, parsed?.candidates?.length, parsed?.nameLocation?.title]);
+  }, [location.id, location.name, location.coordinates.lat, location.coordinates.lng, location.description]);
 
   if (isEnriched) return null;
 
@@ -203,33 +194,6 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
     }
   };
 
-  const handleRename = async () => {
-    const next = renameValue.trim();
-    if (!next || next === location.name) return;
-    setBusy(true);
-    try {
-      const { error } = await supabase
-        .from('locations')
-        .update({ name: next, updated_at: new Date().toISOString() })
-        .eq('id', location.id);
-      if (error) throw error;
-      useLocationsStore.getState().updateLocation(location.id, {
-        name: next,
-        updatedAt: new Date(),
-      });
-      const result = await triggerEnrichLocation(location.id, {
-        focusAfter: false,
-        skipValidation: true,
-      });
-      if (result.success) enrichmentFailureStore.invalidate(location.id);
-      else if (result.error) toast.error(result.error);
-    } catch {
-      toast.error('No se pudo renombrar');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const handleSaveAll = async () => {
     const name = form.name.trim();
     const lat = parseFloat(form.lat);
@@ -240,18 +204,21 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
     }
     setBusy(true);
     try {
+      const description = form.description.trim();
       const { error } = await supabase
         .from('locations')
         .update({
           name,
           latitude: lat,
           longitude: lng,
+          description: description || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', location.id);
       if (error) throw error;
       useLocationsStore.getState().updateLocation(location.id, {
         name,
+        description: description || undefined,
         coordinates: { ...location.coordinates, lat, lng },
         updatedAt: new Date(),
       });
@@ -399,128 +366,68 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
       </div>
 
       {!editingAll && (
-        <>
-          {/* Tabs full-width */}
-          <div className="grid grid-cols-2 border-t border-border/40">
-            <button
-              type="button"
-              onClick={() => setTab('nearby')}
-              className={`text-[11px] font-medium py-1.5 transition-colors ${
-                tab === 'nearby'
-                  ? 'bg-background/80 text-foreground border-b-2 border-primary'
-                  : 'text-muted-foreground hover:bg-background/40 border-b-2 border-transparent'
-              }`}
-            >
-              Lugares cercanos {candidates.length > 0 && `(${candidates.length})`}
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab('rename')}
-              className={`text-[11px] font-medium py-1.5 transition-colors ${
-                tab === 'rename'
-                  ? 'bg-background/80 text-foreground border-b-2 border-primary'
-                  : 'text-muted-foreground hover:bg-background/40 border-b-2 border-transparent'
-              }`}
-            >
-              Renombrar
-            </button>
+        <div className="border-t border-border/40 pt-1.5">
+          <div className="px-1 pb-1 text-[11px] font-medium text-muted-foreground">
+            Lugares cercanos {candidates.length > 0 && `(${candidates.length})`}
           </div>
-
-          {/* Contenido tab */}
-          <div className="py-1">
-            {tab === 'nearby' && (
-              <>
-                {candidates.length === 0 ? (
-                  <div className="text-[11px] text-muted-foreground text-center py-3">
-                    Sin coincidencias cercanas.
-                  </div>
-                ) : (
-                  <div className="flex flex-col divide-y divide-border/50">
-                    {candidates.map((c, idx) => {
-                      const apply = () =>
-                        mode === 'move'
-                          ? handleMovePoint(c.lat, c.lng)
-                          : handleUseName(c.name);
-                      return (
-                        <button
-                          key={`${c.name ?? 'cand'}-${idx}`}
-                          type="button"
-                          onClick={apply}
-                          disabled={busy}
-                          className="group w-full text-left flex items-start gap-2 py-1.5 hover:bg-muted/40 transition-colors disabled:opacity-50"
-                          title={mode === 'move' ? 'Mover el punto aquí' : 'Usar este nombre'}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="text-[12px] font-medium leading-snug break-words">
-                              {c.name}
-                            </div>
-                            <div className="text-[10px] text-muted-foreground mt-0.5 leading-snug break-words">
-                              {c.distanceKm != null && <span>a {c.distanceKm} km</span>}
-                              {geoLine(c) && (
-                                <span>
-                                  {c.distanceKm != null ? ' · ' : ''}
-                                  {geoLine(c)}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <span className="flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors mt-0.5">
-                            {busy ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : mode === 'move' ? (
-                              <MapPin className="w-3.5 h-3.5" />
-                            ) : (
-                              <TypeIcon className="w-3.5 h-3.5" />
-                            )}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
-            )}
-
-            {tab === 'rename' && (
-              <div className="flex flex-col gap-2">
-                <input
-                  value={renameValue}
-                  onChange={(e) => setRenameValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleRename();
-                  }}
-                  className="w-full text-xs px-2 py-1.5 rounded border border-border bg-background"
-                  placeholder="Nuevo nombre"
-                />
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    size="sm"
-                    variant="default"
-                    className="h-7 text-[11px] px-2.5 gap-1 flex-1"
-                    onClick={handleRename}
-                    disabled={busy || !renameValue.trim() || renameValue.trim() === location.name}
+          {candidates.length === 0 ? (
+            <div className="text-[11px] text-muted-foreground text-center py-3">
+              Sin coincidencias cercanas.
+            </div>
+          ) : (
+            <div className="flex flex-col divide-y divide-border/50">
+              {candidates.map((c, idx) => {
+                const apply = () =>
+                  mode === 'move'
+                    ? handleMovePoint(c.lat, c.lng)
+                    : handleUseName(c.name);
+                return (
+                  <button
+                    key={`${c.name ?? 'cand'}-${idx}`}
+                    type="button"
+                    onClick={apply}
+                    disabled={busy}
+                    className="group w-full text-left flex items-start gap-2 py-1.5 hover:bg-muted/40 transition-colors disabled:opacity-50"
+                    title={mode === 'move' ? 'Mover el punto aquí' : 'Usar este nombre'}
                   >
-                    {busy ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Sparkles className="w-3 h-3" />
-                    )}
-                    Guardar y reenriquecer
-                  </Button>
-                </div>
-                <button
-                  type="button"
-                  className="text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 self-start disabled:opacity-50"
-                  onClick={handleIgnoreConflict}
-                  disabled={busy}
-                >
-                  <RefreshCw className="w-3 h-3" />
-                  Ignorar conflicto y enriquecer igual
-                </button>
-              </div>
-            )}
-          </div>
-        </>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[12px] font-medium leading-snug break-words">
+                        {c.name}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-snug break-words">
+                        {c.distanceKm != null && <span>a {c.distanceKm} km</span>}
+                        {geoLine(c) && (
+                          <span>
+                            {c.distanceKm != null ? ' · ' : ''}
+                            {geoLine(c)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors mt-0.5">
+                      {busy ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : mode === 'move' ? (
+                        <MapPin className="w-3.5 h-3.5" />
+                      ) : (
+                        <TypeIcon className="w-3.5 h-3.5" />
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <button
+            type="button"
+            className="mt-1.5 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 disabled:opacity-50"
+            onClick={handleIgnoreConflict}
+            disabled={busy}
+          >
+            <RefreshCw className="w-3 h-3" />
+            Ignorar conflicto y enriquecer igual
+          </button>
+        </div>
       )}
 
       {/* Modo "Editar todos los campos" */}
@@ -554,6 +461,16 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
               />
             </label>
           </div>
+          <label className="text-[10px] text-muted-foreground">
+            Notas
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              rows={3}
+              className="w-full text-xs px-2 py-1.5 rounded border border-border bg-background mt-0.5 resize-y"
+              placeholder="Notas o descripción manual"
+            />
+          </label>
           <div className="flex items-center gap-1.5">
             <Button
               size="sm"
@@ -593,7 +510,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
             disabled={busy}
           >
             <RefreshCw className="w-3 h-3" />
-            Editar campos y reenriquecer
+            Editar
           </Button>
         </div>
       )}
