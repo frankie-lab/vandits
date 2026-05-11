@@ -15,7 +15,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { Input } from '@/design-system/primitives/input';
 import { Button } from '@/design-system/primitives/button';
 import { Label } from '@/design-system/primitives/label';
-import { isHslTriplet } from '@/components/admin/design-system/token-grouping';
 import {
   parseHslTriplet,
   formatHslTriplet,
@@ -23,14 +22,11 @@ import {
   rgbToHsl,
   rgbToHex,
   parseHex,
-  hslTripletToHex,
-  hexToHslTriplet,
   type Hsl,
   type Rgb,
 } from '@/components/admin/design-system/color-conversions';
 import { getAllLeaves } from '@/design-system/runtime/token-registry';
 import { useResolvedTokenValue } from '@/components/admin/design-system/useResolvedTokenValue';
-import { useDesignSystemEdit } from '@/design-system/runtime/edit-mode-store';
 
 type Common = {
   value: string | number;
