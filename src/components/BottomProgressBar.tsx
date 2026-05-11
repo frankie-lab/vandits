@@ -34,11 +34,16 @@ export function BottomProgressBar() {
     const root = document.documentElement;
     if (!anyActive) {
       root.style.setProperty('--bottom-progress-h', '0px');
+      root.style.setProperty('--overlay-progress-gap', '12px');
       return;
     }
     const measure = () => {
       const h = barRef.current?.offsetHeight ?? 0;
       root.style.setProperty('--bottom-progress-h', `${h}px`);
+      // Cuando la barra está activa, dar 20px de respiro entre modal y barra
+      // (12px base + 8px extra). Lo consumen TODOS los overlays vía el helper
+      // transversal `.overlay-respect-progress` en index.css.
+      root.style.setProperty('--overlay-progress-gap', h > 0 ? '20px' : '12px');
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -46,6 +51,7 @@ export function BottomProgressBar() {
     return () => {
       ro.disconnect();
       root.style.setProperty('--bottom-progress-h', '0px');
+      root.style.setProperty('--overlay-progress-gap', '12px');
     };
   }, [anyActive]);
   return (
