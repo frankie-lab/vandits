@@ -1186,13 +1186,25 @@ export function LocationMap() {
     // antes/después con un currentRenderMode obsoleto (módulo singleton entre
     // remounts) se repinte. Sin esto, en vista global los puntos se quedan
     // en 'standard' y no aplica la representación 'micro'.
-    setCurrentRenderMode(getRenderModeForZoom(mapRef.current.getZoom()));
+    const applyZoomModeClass = (mode: MarkerRenderMode) => {
+      const c = mapRef.current?.getContainer();
+      if (!c) return;
+      c.classList.toggle('map-zoom-micro', mode === 'micro');
+      c.classList.toggle('map-zoom-compact', mode === 'compact');
+      c.classList.toggle('map-zoom-standard', mode === 'standard');
+      c.classList.toggle('map-zoom-rich', mode === 'rich');
+    };
+    const initialMode = getRenderModeForZoom(mapRef.current.getZoom());
+    setCurrentRenderMode(initialMode);
+    applyZoomModeClass(initialMode);
     window.dispatchEvent(new CustomEvent('map-render-mode-changed'));
     mapRef.current.on('zoomend', () => {
       if (!mapRef.current) return;
       const zoom = mapRef.current.getZoom();
       applyRingWidth(zoom);
-      const changed = setCurrentRenderMode(getRenderModeForZoom(zoom));
+      const mode = getRenderModeForZoom(zoom);
+      const changed = setCurrentRenderMode(mode);
+      applyZoomModeClass(mode);
       if (changed) {
         window.dispatchEvent(new CustomEvent('map-render-mode-changed'));
       }
