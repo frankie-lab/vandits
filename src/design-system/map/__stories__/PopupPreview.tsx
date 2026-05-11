@@ -363,7 +363,7 @@ function Chip({ tint, label }: { tint: string; label: string }) {
         alignItems: 'center',
         gap: 4,
         padding: '2px 8px',
-        borderRadius: tokens.radius.full,
+        borderRadius: 999,
         background: `${tint} / 0.15`,
         backgroundColor: 'transparent',
         border: `1px solid ${tint}`,
