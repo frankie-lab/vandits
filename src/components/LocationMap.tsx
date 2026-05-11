@@ -1635,7 +1635,7 @@ export function LocationMap() {
  const isFocused = focusedLocationId === locationId;
  const isEnriched = !!location?.enrichedData;
  const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
- marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, getTintForLocation(locationId)));
+ marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, getTintForLocation(locationId), getLocationOwnership(locationId, currentUserId).isOwn));
  });
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds]);
 
