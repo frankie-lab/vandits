@@ -1654,6 +1654,7 @@ export function LocationMap() {
       const isFocused = focusedLocationId === id;
       const isEnriched = !!location.enrichedData;
       const isRecentlyEnriched = recentlyEnrichedIds.has(id);
+      const ownership3 = getLocationOwnership(id, currentUserId);
       marker.setIcon(
         createCustomIcon(
           isSelected,
@@ -1663,9 +1664,14 @@ export function LocationMap() {
           criteriaTimestamp,
           isRecentlyEnriched,
           getTintForLocation(id),
-          getLocationOwnership(id, currentUserId).isOwn,
+          ownership3.isOwn,
         ),
       );
+      marker.unbindTooltip();
+      marker.bindTooltip(buildHoverTooltipHtml(location, ownership3), {
+        direction: 'top', offset: [0, -12],
+        className: 'poi-hover-tooltip-wrap', opacity: 1,
+      });
     };
     window.addEventListener('location-realtime-update', handler);
     return () => window.removeEventListener('location-realtime-update', handler);
