@@ -766,11 +766,11 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  {initials}
  </AvatarFallback>
  </Avatar>
- <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+ <div className="absolute inset-0 flex items-center justify-center bg-foreground/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
  {uploadingAvatar ? (
- <Loader2 className="w-4 h-4 text-white animate-spin" />
+ <Loader2 className="w-4 h-4 text-background animate-spin" />
  ) : (
- <Camera className="w-4 h-4 text-white" />
+ <Camera className="w-4 h-4 text-background" />
  )}
  </div>
  <input

@@ -129,7 +129,7 @@ export function CollectionAppearanceDialog({ open, collection, onClose, onSave }
                 className="w-full h-full rounded-full flex items-center justify-center"
                 style={{ backgroundColor: color }}
               >
-                <SelectedIcon className="w-6 h-6 text-white" />
+                <SelectedIcon className="w-6 h-6 text-primary-foreground" />
               </div>
             </div>
             <div className="flex-1 space-y-1">

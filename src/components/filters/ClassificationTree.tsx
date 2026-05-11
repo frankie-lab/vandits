@@ -197,7 +197,7 @@ export function ClassificationTree() {
  case '3': return <MapPin className="w-4 h-4 text-rose-500" />;
  case '4': return <Mountain className="w-4 h-4 text-blue-500" />;
  case '5': return <TreePine className="w-4 h-4 text-green-500" />;
- default: return <Layers className="w-4 h-4 text-gray-500" />;
+ default: return <Layers className="w-4 h-4 text-muted-foreground" />;
  }
  };
 
