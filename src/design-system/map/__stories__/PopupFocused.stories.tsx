@@ -66,19 +66,19 @@ function Frame({ label, children }: { label: string; children: React.ReactNode }
     <div
       style={{
         padding: 64,
-        background: `hsl(${tokens.color.light.background})`,
+        background: `hsl(${tokens.color.light.surface.background})`,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         gap: 12,
         fontFamily: tokens.typography.fontFamily.body,
-        color: `hsl(${tokens.color.light.foreground})`,
+        color: `hsl(${tokens.color.light.text.primary})`,
       }}
     >
       <span
         style={{
           font: `${tokens.typography.weight.medium} ${tokens.typography.size.caption}/1 ${tokens.typography.fontFamily.mono}`,
-          color: `hsl(${tokens.color.light.mutedForeground})`,
+          color: `hsl(${tokens.color.light.text.secondary})`,
         }}
       >
         {label}

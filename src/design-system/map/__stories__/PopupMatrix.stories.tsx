@@ -35,14 +35,14 @@ export const Matrix5x3: Story = {
     <div
       style={{
         padding: 32,
-        background: `hsl(${tokens.color.light.background})`,
+        background: `hsl(${tokens.color.light.surface.background})`,
         minHeight: '100vh',
         display: 'grid',
         gridTemplateColumns: `auto repeat(${ORIGINS.length}, 1fr)`,
         gap: 24,
         alignItems: 'start',
         fontFamily: tokens.typography.fontFamily.body,
-        color: `hsl(${tokens.color.light.foreground})`,
+        color: `hsl(${tokens.color.light.text.primary})`,
       }}
     >
       <div />
@@ -72,7 +72,7 @@ function RowFragment({ state }: { state: PopupState }) {
       <div
         style={{
           font: `${tokens.typography.weight.medium} ${tokens.typography.size.body}/${tokens.typography.lineHeight.body} ${tokens.typography.fontFamily.body}`,
-          color: `hsl(${tokens.color.light.mutedForeground})`,
+          color: `hsl(${tokens.color.light.text.secondary})`,
           alignSelf: 'center',
         }}
       >

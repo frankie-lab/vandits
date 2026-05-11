@@ -193,7 +193,7 @@ export function PoiPreview({
         <span
           style={{
             font: `${tokens.typography.weight.medium} ${tokens.typography.size.caption}/${tokens.typography.lineHeight.caption} ${tokens.typography.fontFamily.body}`,
-            color: `hsl(${tokens.color.light.foreground})`,
+            color: `hsl(${tokens.color.light.text.primary})`,
           }}
         >
           {label}
@@ -243,8 +243,8 @@ export function MapCanvas({
             position: 'absolute',
             top: 8,
             left: 8,
-            background: `hsl(${tokens.color.light.foreground} / 0.78)`,
-            color: `hsl(${tokens.color.light.background})`,
+            background: `hsl(${tokens.color.light.text.primary} / 0.78)`,
+            color: `hsl(${tokens.color.light.surface.background})`,
             font: `${tokens.typography.weight.semibold} ${tokens.typography.size.caption}/1 ${tokens.typography.fontFamily.mono}`,
             padding: '4px 8px',
             borderRadius: tokens.radius.sm,
