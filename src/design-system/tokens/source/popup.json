@@ -1,0 +1,27 @@
+{
+  "$schema": "Popup tokens — sizing for the map popup wrapper, header, hero image, body and action row. Values match the current Leaflet popup output exactly (no redesign). Consumed by Storybook PopupPreview and any future builder migrating off `buildPopupHtml`.",
+  "popup": {
+    "maxWidth":   { "value": "360px", "_css": "--popup-max-width" },
+    "minWidth":   { "value": "220px", "_css": "--popup-min-width" },
+    "maxHeight":  { "value": "70vh",  "_css": "--popup-max-height" },
+    "header": {
+      "height":   { "value": "48px",  "_css": "--popup-header-height" },
+      "padding":  { "value": "12px",  "_css": "--popup-header-padding" }
+    },
+    "body": {
+      "padding":  { "value": "16px",  "_css": "--popup-body-padding" },
+      "gap":      { "value": "12px",  "_css": "--popup-body-gap" }
+    },
+    "hero": {
+      "ratio":    { "value": "16 / 9", "_css": "--popup-hero-ratio" }
+    },
+    "actionRow": {
+      "height":   { "value": "44px",  "_css": "--popup-action-row-height" },
+      "gap":      { "value": "8px",   "_css": "--popup-action-row-gap" }
+    },
+    "closeButton": {
+      "size":     { "value": "24px",  "_css": "--popup-close-size" },
+      "offset":   { "value": "8px",   "_css": "--popup-close-offset" }
+    }
+  }
+}
