@@ -9,6 +9,7 @@
     "tokens:watch": "node --watch-path=src/design-system/tokens/source src/design-system/tokens/build-tokens.cjs",
     "predev": "npm run tokens:build",
     "prebuild": "npm run tokens:build",
+    "prebuild:dev": "npm run tokens:build",
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
