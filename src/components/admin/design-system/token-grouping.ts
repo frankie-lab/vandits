@@ -38,7 +38,7 @@ export type PairedRow =
       dark?: LeafToken;
     };
 
-type RawLeaf = { value?: string | number; $ref?: string; _css?: string };
+type RawLeaf = { value?: string | number; $ref?: string; _css?: string | string[] };
 
 function isLeaf(node: unknown): node is RawLeaf {
   return !!node && typeof node === 'object' && ('value' in (node as RawLeaf) || '$ref' in (node as RawLeaf));
@@ -84,13 +84,14 @@ export function flattenTokens(data: unknown, path: string[] = [], root: unknown 
     if (k.startsWith('$')) continue;
     const next = [...path, k];
     if (isLeaf(v)) {
+      const cssVars = Array.isArray(v._css) ? v._css : v._css ? [v._css] : [];
       out.push({
         path: next,
         glossaryKey: toGlossaryKey(next),
         value: resolveValue(v, root) ?? '',
-        cssVar: v._css,
+        cssVar: cssVars[0],
         refPath: v.$ref,
-        isPrimitive: !v._css && !v.$ref,
+        isPrimitive: cssVars.length === 0 && !v.$ref,
       });
     } else if (v && typeof v === 'object') {
       out.push(...flattenTokens(v, next, root));
