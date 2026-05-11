@@ -342,7 +342,6 @@ Deno.serve(async (req) => {
     if (enabled.has('google-places')) tasks.push(searchGooglePlaces(term, limit, body.near));
 
     // Village catalogs (fallback) — gating individual por adapter
-    let villageDebug: any = null;
     tasks.push(
       (async (): Promise<Candidate[]> => {
         try {
@@ -351,12 +350,6 @@ Deno.serve(async (req) => {
             body.countryCode ?? null,
             allEnabledCodes, // null = todos habilitados
           );
-          villageDebug = {
-            hitsCount: hits.length,
-            hits: hits.slice(0, 3).map((h) => ({ name: h.name, source: h.source, sim: h.similarity })),
-            enabledCodesCount: allEnabledCodes?.size ?? null,
-            villageCodesEnabled: allEnabledCodes ? Array.from(allEnabledCodes).filter((c) => c.startsWith('search.village.')) : null,
-          };
           return hits.map((h) => ({
             name: h.name,
             lat: h.lat,
@@ -367,7 +360,7 @@ Deno.serve(async (req) => {
             locality: h.sourceName,
           }));
         } catch (e) {
-          villageDebug = { error: String(e) };
+          console.warn('[search-candidates] village-catalogs failed:', e);
           return [];
         }
       })(),
@@ -385,14 +378,15 @@ Deno.serve(async (req) => {
 
     candidates = candidates.slice(0, Math.min(limit * 2, 12));
 
-    return new Response(
-      JSON.stringify({ candidates, enabledSources: Array.from(enabled), villageDebug }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
+    return new Response(JSON.stringify({ candidates, enabledSources: Array.from(enabled) }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   } catch (err) {
     return new Response(JSON.stringify({ candidates: [], error: String(err) }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+  }
+});
   }
 });
