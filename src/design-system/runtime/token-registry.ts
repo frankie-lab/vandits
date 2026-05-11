@@ -64,7 +64,7 @@ const SOURCES: Record<string, unknown> = {
   elevation: elevationTokens,
 };
 
-type Raw = { value?: string | number; $ref?: string; _css?: string };
+type Raw = { value?: string | number; $ref?: string; _css?: string | string[] };
 
 function isLeaf(n: unknown): n is Raw {
   return !!n && typeof n === 'object' && ('value' in (n as Raw) || '$ref' in (n as Raw));
