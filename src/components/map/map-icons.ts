@@ -19,6 +19,7 @@ import {
   RING_WIDTH,
 } from '@/domains/content/lib/point-health-rings';
 import { getPointHeroImage } from '@/domains/content/lib/point-hero-image';
+import { ZOOM_THRESHOLDS } from '@/design-system/map/rules/zoom-thresholds';
 
 /**
  * IDs cuya hero image ha fallado en runtime. Como un divIcon no puede
