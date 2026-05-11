@@ -93,7 +93,7 @@ export async function triggerEnrichLocation(
     // recuperación o el panel de Contexto cercano.
     if (!enrichedData) {
       const { data, error } = await supabase.functions.invoke('enrich-location', {
-        body: { location },
+        body: { location, skipValidation },
       });
 
       if (error) throw error;
