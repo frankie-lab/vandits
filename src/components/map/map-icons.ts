@@ -182,7 +182,11 @@ export const createCustomIcon = (
   // RLS — si el URL llega al cliente es porque puede verla). Si la imagen
   // falla, `onerror` la oculta y el marker queda como antes.
   // Ver `.lovable/plan.md` y `mem://style/map/focused-thumbnail-rule`.
-  const showThumb = (isFocused || isSelected);
+  // Miniatura solo en focused (1 punto) y solo cuando el zoom lo permite
+  // (standard/rich). En `compact` o `micro` el zoom manda y no se muestra
+  // miniatura aunque haya selección masiva o focus. La regla única es por
+  // zoom — selección añade halo (en `shadow`), nunca cambia la forma.
+  const showThumb = isFocused && (renderMode === 'standard' || renderMode === 'rich');
   const thumbUrl = showThumb
     ? ((location?.enrichedData?.imagen as string | undefined)
         || (location?.customData?.user_image_url as string | undefined)
