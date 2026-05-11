@@ -79,13 +79,12 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
   const { parsed, loading } = useEnrichmentFailure(location.id, !isEnriched);
 
   const [busy, setBusy] = React.useState(false);
-  const [tab, setTab] = React.useState<Tab>('nearby');
   const [editingAll, setEditingAll] = React.useState(false);
-  const [renameValue, setRenameValue] = React.useState('');
   const [form, setForm] = React.useState({
     name: location.name ?? '',
     lat: String(location.coordinates.lat ?? ''),
     lng: String(location.coordinates.lng ?? ''),
+    description: location.description ?? '',
   });
 
   // Reset al cambiar de location
