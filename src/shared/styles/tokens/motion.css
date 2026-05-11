@@ -1,0 +1,43 @@
+/**
+ * Motion tokens — VANDITS UX v1
+ *
+ * Duraciones y easings canónicos para CSS transitions/animations.
+ * Para framer-motion usar `motion-presets.ts` (mismas curvas).
+ *
+ * Duraciones:
+ *   --dur-instant   80ms     micro feedback (hover/active)
+ *   --dur-fast      120ms    chips, switches
+ *   --dur-base      200ms    panel/popover open
+ *   --dur-slow      320ms    sheet enter/exit
+ *   --dur-xslow     480ms    overlays grandes
+ *
+ * Easings:
+ *   --ease-standard   cubic-bezier(.2,0,0,1)        UI por defecto
+ *   --ease-emphasized cubic-bezier(.3,0,0,1)        entradas destacadas
+ *   --ease-decel      cubic-bezier(0,0,.2,1)        material decel
+ *   --ease-accel      cubic-bezier(.4,0,1,1)        salidas
+ *
+ * Ver mem://style/tokens/motion-presets.
+ */
+:root {
+  --dur-instant: 80ms;
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --dur-xslow: 480ms;
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.3, 0, 0, 1);
+  --ease-decel: cubic-bezier(0, 0, 0.2, 1);
+  --ease-accel: cubic-bezier(0.4, 0, 1, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 0ms;
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+    --dur-xslow: 0ms;
+  }
+}

@@ -1,0 +1,57 @@
+/**
+ * Typography scale — VANDITS UX v1
+ *
+ * Una escala única que sustituye los `text-xs/sm/base/lg/xl` y los `text-[Npx]`
+ * literales sueltos por componentes.
+ *
+ * Familias:
+ *   --font-display   Space Grotesk   títulos, números grandes, marca
+ *   --font-body      DM Sans         UI por defecto
+ *   --font-mono      ui-monospace    códigos, coordenadas, IDs técnicos
+ *
+ * Tamaños (font-size · line-height · letter-spacing):
+ *   --text-h1        28 · 32 · -0.01em
+ *   --text-h2        22 · 28 · -0.005em
+ *   --text-h3        18 · 24 · 0
+ *   --text-h4        16 · 22 · 0
+ *   --text-body      14 · 20 · 0
+ *   --text-sm        13 · 18 · 0
+ *   --text-caption   12 · 16 · 0.005em
+ *   --text-micro     11 · 14 · 0.01em       (badges, contadores, footnotes)
+ *
+ * Pesos canónicos:
+ *   --fw-regular 400 / --fw-medium 500 / --fw-semibold 600 / --fw-bold 700
+ *
+ * Uso desde Tailwind: `text-h3`, `text-caption`, `font-display`.
+ * Uso desde CSS: `font: var(--fw-medium) var(--text-body) / 20px var(--font-body);`
+ *
+ * Ver mem://style/tokens/typography-scale.
+ */
+:root {
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --text-h1: 28px;
+  --text-h2: 22px;
+  --text-h3: 18px;
+  --text-h4: 16px;
+  --text-body: 14px;
+  --text-sm: 13px;
+  --text-caption: 12px;
+  --text-micro: 11px;
+
+  --lh-h1: 32px;
+  --lh-h2: 28px;
+  --lh-h3: 24px;
+  --lh-h4: 22px;
+  --lh-body: 20px;
+  --lh-sm: 18px;
+  --lh-caption: 16px;
+  --lh-micro: 14px;
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+}

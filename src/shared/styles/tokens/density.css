@@ -1,0 +1,47 @@
+/**
+ * Density tokens — VANDITS UX v1
+ *
+ * Alturas de controles, tamaños de icono y radios canónicos. Sustituyen
+ * los `h-8 / h-9 / h-10 / h-11 / h-12` y `h-3 w-3 / h-4 w-4 / h-5 w-5`
+ * dispersos por la app.
+ *
+ * Controles (alturas):
+ *   --control-h-sm   32px   chips, filtros, toolbar dense
+ *   --control-h-md   36px   inputs/buttons por defecto
+ *   --control-h-lg   44px   CTA primaria, inputs de panel form
+ *   --control-h-xl   56px   filas de lista (panel-list-row)
+ *
+ * Iconos:
+ *   --icon-xs        12px   inline en texto pequeño
+ *   --icon-sm        14px   chips, badges
+ *   --icon-md        18px   buttons por defecto, toolbar
+ *   --icon-lg        22px   headers, acciones primarias
+ *   --icon-xl        28px   empty-state, hero
+ *
+ * Radios:
+ *   --radius-xs      4px    chips internos
+ *   --radius-sm      6px    inputs, tooltips
+ *   --radius-md      8px    botones, cards pequeñas
+ *   --radius-lg      12px   panel-card-radius
+ *   --radius-xl      16px   panel-radius
+ *
+ * Ver mem://style/tokens/density-scale.
+ */
+:root {
+  --control-h-sm: 32px;
+  --control-h-md: 36px;
+  --control-h-lg: 44px;
+  --control-h-xl: 56px;
+
+  --icon-xs: 12px;
+  --icon-sm: 14px;
+  --icon-md: 18px;
+  --icon-lg: 22px;
+  --icon-xl: 28px;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
