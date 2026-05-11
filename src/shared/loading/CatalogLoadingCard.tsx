@@ -40,6 +40,11 @@ interface CatalogLoadingCardProps {
 export function CatalogLoadingCard({ userDisplayName, lastSeenAt }: CatalogLoadingCardProps = {}) {
   const tasks = useActiveLoadings(0);
   const task = tasks.find((t) => t.id === 'db-sync');
+  const hasDocs = useLocationsStore((s) => s.documents.length > 0);
+  // La card representa "no hay catálogo usable todavía", no "hay sync en curso".
+  // Doble gate: tarea bloqueante + store vacío. Defensa frente a bugs futuros
+  // que marquen blocking=true con datos cargados.
+  const shouldShow = !!task && task.blocking === true && !hasDocs;
 
   // EMA del ritmo (items/ms). Más estable que current/elapsed global cuando
   // updateLoading dispara saltos discretos (1 tick por página).
