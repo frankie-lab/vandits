@@ -282,6 +282,25 @@ export const createCustomIcon = (
     });
   }
 
+  // Default: small circle (the norm for all three states).
+  // Los anillos de salud se renderizan como divs absolutos concéntricos
+  // alrededor del SVG base, apilados de dentro hacia fuera por severidad.
+  // El stroke blanco interior y el `collection-tint-ring` no se tocan: la
+  // capa de salud va SIEMPRE por fuera de ambos. `containerSize` se expande
+  // para que el icono siga centrado y el popupAnchor sea correcto.
+  // En modo `rich` se inyecta además la polaroid como capa flotante encima
+  // del dot (pointer-events: none, no afecta al click ni al anchor).
+  const hasErrorRing = healthRings.includes('error');
+  const ringsHtml = healthRings
+    .map((ring, idx) => {
+      const innerInset = (ringCount - 1 - idx) * RING_GAP;
+      return `<div style="position:absolute; top:${innerInset}px; left:${innerInset}px; right:${innerInset}px; bottom:${innerInset}px; border-radius:50%; border:${RING_WIDTH}px solid ${RING_COLORS[ring]}; box-sizing:border-box; pointer-events:none;"></div>`;
+    })
+    .join('');
+
+  return L.divIcon({
+    className: `custom-marker-dot${isRecentlyEnriched ? ' recently-enriched' : ''}${hasErrorRing ? ' has-enrichment-error' : ''}${polaroidHtml ? ' has-polaroid' : ''}`,
+    html: `
     <div style="width: ${containerSize}px; height: ${containerSize}px; position: relative; filter: ${shadow}; ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center center; overflow: visible;" ${hoverAttr}>
       ${polaroidHtml}
       ${ringsHtml}
@@ -299,29 +318,3 @@ export const createCustomIcon = (
       </div>
 
     </div>
-
-  return L.divIcon({
-    className: `custom-marker-dot${isRecentlyEnriched ? ' recently-enriched' : ''}${hasErrorRing ? ' has-enrichment-error' : ''}`,
-    html: `
-    <div style="width: ${containerSize}px; height: ${containerSize}px; position: relative; filter: ${shadow}; ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center center;" ${hoverAttr}>
-      ${ringsHtml}
-      <div style="position:absolute; left:${ringPad}px; top:${ringPad}px; width:${size}px; height:${size}px;">
-        ${collectionTint ? `<div class="collection-tint-ring" style="--collection-tint:${collectionTint}"></div>` : ''}
-        <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          ${skipGradient ? '' : `<defs>
-            <linearGradient id="dotGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style="stop-color:${applyStateColor(baseColorLight)}" />
-              <stop offset="100%" style="stop-color:${applyStateColor(baseColor)}" />
-            </linearGradient>
-          </defs>`}
-          <circle cx="12" cy="12" r="11" fill="${skipGradient ? applyStateColor(baseColor) : `url(#dotGrad-${location?.id || 'default'})`}" stroke="white" stroke-width="${borderWidth}"/>
-        </svg>
-      </div>
-
-    </div>
-    `,
-    iconSize: [containerSize, containerSize],
-    iconAnchor: [containerSize / 2, containerSize / 2],
-    popupAnchor: [0, -containerSize / 2],
-  });
-};
