@@ -510,7 +510,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
             disabled={busy}
           >
             <RefreshCw className="w-3 h-3" />
-            Editar campos y reenriquecer
+            Editar
           </Button>
         </div>
       )}
