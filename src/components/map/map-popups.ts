@@ -970,7 +970,7 @@ ${actionButtonsHtml}
   const moreDataCount = filteredCustomData.length - 6;
 
   return `
-<div style="min-width: 280px; max-width: 350px; font-family: 'Inter', system-ui, sans-serif;">
+<div style="min-width: ${CARD.minWidth}px; max-width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY};">
 ${statusBarHtml}
 
 ${buildImageSection(location, null, ownershipInfo)}
