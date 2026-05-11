@@ -16,11 +16,9 @@ import {
 } from '@/design-system/runtime/apply-overrides';
 
 interface State {
-  editMode: boolean;
   published: OverrideMap;
   draft: OverrideMap;
 
-  setEditMode: (v: boolean) => void;
   hydrate: (published: OverrideMap) => void;
   setDraft: (path: string, value: string | number) => void;
   /** Restaurar el valor de fábrica de un alias (re-vincular a su $ref). */
@@ -42,16 +40,12 @@ function apply(map: OverrideMap) {
 }
 
 export const useDesignSystemEdit = create<State>((set, get) => ({
-  editMode: false,
   published: {},
   draft: {},
 
-  setEditMode: (v) => set({ editMode: v }),
-
   hydrate: (published) => {
     set({ published });
-    if (!get().editMode) apply(published);
-    else apply(effective(published, get().draft));
+    apply(effective(published, get().draft));
   },
 
   setDraft: (path, value) => {
