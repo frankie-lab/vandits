@@ -42,10 +42,10 @@ export const POI_RENDER_SCALE: Record<PoiRenderMode, number> = {
 
 /**
  * Palette color per visual state. Source: tokens/poi.json → state.
- * Returned as CSS-ready hex strings.
+ * Returned wrapped in `hsl(...)` because tokens are HSL triplets (DS grammar).
  */
 export const POI_STATE_COLOR: Record<PoiVisualState, string> = {
-  enriched: String(tokens.poi.state.enriched),
-  imported: String(tokens.poi.state.imported),
-  empty: String(tokens.poi.state.empty),
+  enriched: `hsl(${tokens.poi.state.enriched})`,
+  imported: `hsl(${tokens.poi.state.imported})`,
+  empty: `hsl(${tokens.poi.state.empty})`,
 };

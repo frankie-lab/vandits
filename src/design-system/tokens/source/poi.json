@@ -1,17 +1,30 @@
 {
-  "$schema": "POI tokens — marker visual states, health rings, collection rings, render-mode scales. Single source for src/design-system/map/rules/poi-visual-rules.ts and Storybook stories. Hex literals here ONLY; never duplicated inline in rules/icons/adapters.",
+  "$schema": "POI tokens — marker visual states, health rings, collection rings, render-mode scales, origin borders and collection tint samples. HSL triplets only (matches color.json grammar). Consumed by src/design-system/map/rules/poi-visual-rules.ts and Storybook stories via `hsl(var(--token))` or `hsl(${tokens.poi.…})`.",
   "poi": {
     "state": {
-      "enriched": { "value": "#22c55e", "_css": "--poi-state-enriched" },
-      "imported": { "value": "#9ca3af", "_css": "--poi-state-imported" },
-      "empty":    { "value": "#f97316", "_css": "--poi-state-empty" }
+      "enriched": { "value": "142 71% 45%", "_css": "--poi-state-enriched" },
+      "imported": { "value": "220 9% 65%",  "_css": "--poi-state-imported" },
+      "empty":    { "value": "24 95% 53%",  "_css": "--poi-state-empty" }
     },
     "ring": {
-      "width":          { "value": "5px",       "_css": "--poi-ring-width" },
-      "empty":          { "value": "#f97316",   "_css": "--poi-ring-empty" },
-      "chain":          { "value": "#eab308",   "_css": "--poi-ring-chain" },
-      "error":          { "value": "#dc2626",   "_css": "--poi-ring-error" },
-      "collectionGap":  { "value": "2px",       "_css": "--poi-ring-collection-gap" }
+      "width":          { "value": "5px",          "_css": "--poi-ring-width" },
+      "empty":          { "value": "24 95% 53%",   "_css": "--poi-ring-empty" },
+      "chain":          { "value": "45 93% 47%",   "_css": "--poi-ring-chain" },
+      "error":          { "value": "0 72% 51%",    "_css": "--poi-ring-error" },
+      "collectionGap":  { "value": "2px",          "_css": "--poi-ring-collection-gap" }
+    },
+    "originBorder": {
+      "my":       { "value": "0 0% 100%",    "_css": "--poi-origin-border-my" },
+      "followed": { "value": "45 93% 81%",   "_css": "--poi-origin-border-followed" },
+      "service":  { "value": "199 95% 86%",  "_css": "--poi-origin-border-service" },
+      "catalog":  { "value": "251 91% 92%",  "_css": "--poi-origin-border-catalog" }
+    },
+    "collectionTintSample": {
+      "violet":  { "value": "258 90% 66%", "_css": "--poi-collection-tint-violet" },
+      "sky":     { "value": "199 89% 48%", "_css": "--poi-collection-tint-sky" },
+      "pink":    { "value": "330 81% 60%", "_css": "--poi-collection-tint-pink" },
+      "emerald": { "value": "160 84% 39%", "_css": "--poi-collection-tint-emerald" },
+      "amber":   { "value": "38 92% 50%",  "_css": "--poi-collection-tint-amber" }
     },
     "renderScale": {
       "micro":    { "value": 0.45, "_css": "--poi-scale-micro" },
