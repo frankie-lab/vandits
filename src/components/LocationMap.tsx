@@ -292,7 +292,7 @@ export function LocationMap() {
        const marker = L.marker([location.coordinates.lat, location.coordinates.lng], {
          icon: createCustomIcon(false, isFocused, !!location.enrichedData, location, criteriaTimestamp, false, getTintForLocation(location.id)),
        });
-       marker.bindTooltip(location.name, { direction: 'top', offset: [0, -12] });
+       marker.bindTooltip(buildHoverTooltipHtml(location), { direction: 'top', offset: [0, -12], className: 'poi-hover-tooltip-wrap', opacity: 1 });
        marker.on('click', () => setFocusedLocation(location.id));
        previewMarkersGroupRef.current?.addLayer(marker);
        bounds.push([location.coordinates.lat, location.coordinates.lng]);
@@ -1380,6 +1380,17 @@ export function LocationMap() {
   const marker = L.marker([markerLat, markerLng], {
   icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, getTintForLocation(location.id), ownership.isOwn),
   pane: ownership.isOwn ? 'mine-pane' : 'others-pane',
+  });
+
+  // Hover preview tooltip (single helper). Visibility of the hero image is
+  // gated by CSS classes on the map container (`map-zoom-standard`,
+  // `map-zoom-rich`) set in the zoomend listener. The same tooltip works at
+  // every zoom; CSS hides/shows the <img>.
+  marker.bindTooltip(buildHoverTooltipHtml(location), {
+    direction: 'top',
+    offset: [0, -12],
+    className: 'poi-hover-tooltip-wrap',
+    opacity: 1,
   });
 
        // Create popup with content including ownership info
