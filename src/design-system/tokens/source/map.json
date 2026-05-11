@@ -15,6 +15,11 @@
       "markerFocused": { "value": 650, "_css": "--map-pane-marker-focused" },
       "tooltip":       { "value": 700, "_css": "--map-pane-tooltip" },
       "popup":         { "value": 800, "_css": "--map-pane-popup" }
+    },
+    "canvas": {
+      "tileA":    { "value": "40 18% 88%", "_css": "--map-canvas-tile-a" },
+      "tileB":    { "value": "40 12% 84%", "_css": "--map-canvas-tile-b" },
+      "tileSize": { "value": "24px",       "_css": "--map-canvas-tile-size" }
     }
   }
 }
