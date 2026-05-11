@@ -352,10 +352,12 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
       : 'Estos lugares están cerca de tus coordenadas. Renombra al correcto.';
   const candidates = getCandidates(parsed);
 
+  const accent = soft ? 'border-amber-400/60' : 'border-red-400/60';
+
   return (
-    <div className={`rounded-lg border ${tone} flex flex-col`}>
+    <div className={`flex flex-col border-t-2 ${accent}`}>
       {/* Cabecera */}
-      <div className="flex items-start gap-2 px-3 pt-2.5 pb-2">
+      <div className="flex items-start gap-2 pt-2 pb-1.5">
         <AlertCircle className={`w-4 h-4 flex-shrink-0 mt-0.5 ${iconClass}`} />
         <div className="flex-1 min-w-0">
           <div className="text-[12px] font-semibold leading-tight">{title}</div>
