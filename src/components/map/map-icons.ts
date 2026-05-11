@@ -107,8 +107,16 @@ export const createCustomIcon = (
   const skipGradient = renderMode === 'compact';
 
 
-  const size = getBaseSize(entry, isRecentlyEnriched, isFocused, isSelected);
-  const hoverSize = getHoverSize(entry);
+  // Factor de escala por render mode (Ola 1 — arquitectura visual por zoom).
+  // El tamaño base sigue saliendo de la BD (`marker_size_config`), y se
+  // multiplica por un factor según modo para que la progresión sea
+  // perceptible al usuario entre zoom medio (compact) y cercano (rich).
+  // `micro` no llega aquí (vuelve antes con divIcon plano).
+  const modeScale = renderMode === 'compact' ? 0.7 : renderMode === 'rich' ? 1.15 : 1;
+  const baseSize = getBaseSize(entry, isRecentlyEnriched, isFocused, isSelected);
+  const baseHover = getHoverSize(entry);
+  const size = Math.max(6, Math.round(baseSize * modeScale));
+  const hoverSize = baseHover ? Math.max(size, Math.round(baseHover * modeScale)) : baseHover;
 
   // Anillos de salud (rojo error / amarillo cadena rota / naranja vacío),
   // apilados de dentro hacia fuera por orden de severidad. Helper único:
