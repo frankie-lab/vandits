@@ -1593,6 +1593,7 @@ export function LocationMap() {
       const isFocused = focusedLocationId === id;
       const isEnriched = !!location.enrichedData;
       const isRecentlyEnriched = recentlyEnrichedIds.has(id);
+      const ownership2 = getLocationOwnership(id, currentUserId);
       marker.setIcon(
         createCustomIcon(
           isSelected,
@@ -1602,9 +1603,15 @@ export function LocationMap() {
           criteriaTimestamp,
           isRecentlyEnriched,
           getTintForLocation(id),
-          getLocationOwnership(id, currentUserId).isOwn,
+          ownership2.isOwn,
         ),
       );
+      // Rebuild hover tooltip so the Hero <img> reflects post-enrichment state.
+      marker.unbindTooltip();
+      marker.bindTooltip(buildHoverTooltipHtml(location, ownership2), {
+        direction: 'top', offset: [0, -12],
+        className: 'poi-hover-tooltip-wrap', opacity: 1,
+      });
     });
   }, [realtimeTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
