@@ -76,14 +76,18 @@ const DS_MEMORIES: Array<{ id: string; label: string }> = [
 
 function TokensSection() {
   const [groupId, setGroupId] = useState<string>('color');
+  const [colorTier, setColorTier] = useState<'primitives' | 'semantics'>('semantics');
   const [query, setQuery] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const rows = useMemo(() => {
     const data = TOKEN_DATA[groupId];
     if (!data) return [];
-    return buildRows(data, { dedupe: groupId === 'color' });
-  }, [groupId]);
+    if (groupId === 'color') {
+      return buildRows(data, { only: colorTier });
+    }
+    return buildRows(data, { dedupe: true });
+  }, [groupId, colorTier]);
 
   const filteredRows = useMemo(() => {
     if (!query.trim()) return rows;
@@ -147,6 +151,29 @@ function TokensSection() {
 
       {/* Token list */}
       <div className="flex-1 min-w-0 flex flex-col">
+        {groupId === 'color' && (
+          <div className="px-3 pt-3 pb-2 border-b flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={colorTier === 'primitives' ? 'filter-chip-active' : 'filter-chip'}
+              onClick={() => setColorTier('primitives')}
+            >
+              Paleta primitiva
+            </Button>
+            <Button
+              size="sm"
+              variant={colorTier === 'semantics' ? 'filter-chip-active' : 'filter-chip'}
+              onClick={() => setColorTier('semantics')}
+            >
+              Tokens semánticos
+            </Button>
+            <span className="text-xs text-muted-foreground ml-2">
+              {colorTier === 'primitives'
+                ? 'Editar un primitivo cascadea a todos los semánticos que lo referencian.'
+                : 'Cada token apunta a un color de la paleta. Edítalo para desvincularlo.'}
+            </span>
+          </div>
+        )}
         <div className="p-3 border-b">
           <Input
             placeholder="Buscar por nombre, uso o valor…"
