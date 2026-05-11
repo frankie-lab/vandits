@@ -1,0 +1,18 @@
+{
+  "$schema": "Density tokens — control heights and icon sizes. Radii live in radius.json. Drives Tailwind's h-control-* and w-control-*.",
+  "density": {
+    "controlHeight": {
+      "sm": { "value": "32px", "_css": "--control-h-sm" },
+      "md": { "value": "36px", "_css": "--control-h-md" },
+      "lg": { "value": "44px", "_css": "--control-h-lg" },
+      "xl": { "value": "56px", "_css": "--control-h-xl" }
+    },
+    "iconSize": {
+      "xs": { "value": "12px", "_css": "--icon-xs" },
+      "sm": { "value": "14px", "_css": "--icon-sm" },
+      "md": { "value": "18px", "_css": "--icon-md" },
+      "lg": { "value": "22px", "_css": "--icon-lg" },
+      "xl": { "value": "28px", "_css": "--icon-xl" }
+    }
+  }
+}

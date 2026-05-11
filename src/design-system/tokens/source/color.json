@@ -1,0 +1,47 @@
+{
+  "$schema": "Color tokens — semantic palette. Values are HSL triplets (consumed via hsl(var(--name)) in Tailwind). Light mode = :root, dark mode = .dark.",
+  "color": {
+    "light": {
+      "background":             { "value": "40 20% 98%",  "_css": "--background" },
+      "foreground":             { "value": "220 20% 14%", "_css": "--foreground" },
+      "card":                   { "value": "0 0% 100%",   "_css": "--card" },
+      "cardForeground":         { "value": "220 20% 14%", "_css": "--card-foreground" },
+      "popover":                { "value": "0 0% 100%",   "_css": "--popover" },
+      "popoverForeground":      { "value": "220 20% 14%", "_css": "--popover-foreground" },
+      "primary":                { "value": "24 75% 50%",  "_css": "--primary" },
+      "primaryForeground":      { "value": "0 0% 100%",   "_css": "--primary-foreground" },
+      "secondary":              { "value": "200 65% 48%", "_css": "--secondary" },
+      "secondaryForeground":    { "value": "0 0% 100%",   "_css": "--secondary-foreground" },
+      "muted":                  { "value": "40 15% 93%",  "_css": "--muted" },
+      "mutedForeground":        { "value": "220 10% 46%", "_css": "--muted-foreground" },
+      "accent":                 { "value": "24 60% 94%",  "_css": "--accent" },
+      "accentForeground":       { "value": "24 75% 35%",  "_css": "--accent-foreground" },
+      "destructive":            { "value": "0 72% 55%",   "_css": "--destructive" },
+      "destructiveForeground":  { "value": "0 0% 100%",   "_css": "--destructive-foreground" },
+      "border":                 { "value": "40 15% 88%",  "_css": "--border" },
+      "input":                  { "value": "40 15% 88%",  "_css": "--input" },
+      "ring":                   { "value": "24 75% 50%",  "_css": "--ring" }
+    },
+    "dark": {
+      "background":             { "value": "220 20% 8%",  "_css": "--background" },
+      "foreground":             { "value": "40 15% 94%",  "_css": "--foreground" },
+      "card":                   { "value": "220 20% 11%", "_css": "--card" },
+      "cardForeground":         { "value": "40 15% 94%",  "_css": "--card-foreground" },
+      "popover":                { "value": "220 20% 11%", "_css": "--popover" },
+      "popoverForeground":      { "value": "40 15% 94%",  "_css": "--popover-foreground" },
+      "primary":                { "value": "24 80% 55%",  "_css": "--primary" },
+      "primaryForeground":      { "value": "220 20% 8%",  "_css": "--primary-foreground" },
+      "secondary":              { "value": "200 60% 52%", "_css": "--secondary" },
+      "secondaryForeground":    { "value": "220 20% 8%",  "_css": "--secondary-foreground" },
+      "muted":                  { "value": "220 18% 16%", "_css": "--muted" },
+      "mutedForeground":        { "value": "40 10% 58%",  "_css": "--muted-foreground" },
+      "accent":                 { "value": "24 40% 18%",  "_css": "--accent" },
+      "accentForeground":       { "value": "24 70% 70%",  "_css": "--accent-foreground" },
+      "destructive":            { "value": "0 65% 48%",   "_css": "--destructive" },
+      "destructiveForeground":  { "value": "0 0% 100%",   "_css": "--destructive-foreground" },
+      "border":                 { "value": "220 18% 18%", "_css": "--border" },
+      "input":                  { "value": "220 18% 18%", "_css": "--input" },
+      "ring":                   { "value": "24 80% 55%",  "_css": "--ring" }
+    }
+  }
+}

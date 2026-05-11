@@ -1,0 +1,36 @@
+{
+  "$schema": "Typography tokens — families, sizes, line-heights, weights. Used by Tailwind's text-h1..text-micro and font-display/body utilities.",
+  "typography": {
+    "fontFamily": {
+      "display": { "value": "'Space Grotesk', system-ui, sans-serif",                    "_css": "--font-display" },
+      "body":    { "value": "'DM Sans', system-ui, sans-serif",                          "_css": "--font-body" },
+      "mono":    { "value": "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",  "_css": "--font-mono" }
+    },
+    "size": {
+      "h1":      { "value": "28px", "_css": "--text-h1" },
+      "h2":      { "value": "22px", "_css": "--text-h2" },
+      "h3":      { "value": "18px", "_css": "--text-h3" },
+      "h4":      { "value": "16px", "_css": "--text-h4" },
+      "body":    { "value": "14px", "_css": "--text-body" },
+      "sm":      { "value": "13px", "_css": "--text-sm" },
+      "caption": { "value": "12px", "_css": "--text-caption" },
+      "micro":   { "value": "11px", "_css": "--text-micro" }
+    },
+    "lineHeight": {
+      "h1":      { "value": "32px", "_css": "--lh-h1" },
+      "h2":      { "value": "28px", "_css": "--lh-h2" },
+      "h3":      { "value": "24px", "_css": "--lh-h3" },
+      "h4":      { "value": "22px", "_css": "--lh-h4" },
+      "body":    { "value": "20px", "_css": "--lh-body" },
+      "sm":      { "value": "18px", "_css": "--lh-sm" },
+      "caption": { "value": "16px", "_css": "--lh-caption" },
+      "micro":   { "value": "14px", "_css": "--lh-micro" }
+    },
+    "weight": {
+      "regular":  { "value": "400", "_css": "--fw-regular" },
+      "medium":   { "value": "500", "_css": "--fw-medium" },
+      "semibold": { "value": "600", "_css": "--fw-semibold" },
+      "bold":     { "value": "700", "_css": "--fw-bold" }
+    }
+  }
+}
