@@ -1,102 +1,77 @@
+# Plan: cerrar el episodio `stale_name=2527` / `broken=49`
+
+## Contexto
+
+Tras localizar `admin_areas.name` a idioma nativo (España, Francia, Italia, Alemania…), la recomputación masiva de `geo_health` ha aflorado desajustes preexistentes entre:
+
+- El **cache legacy** en `locations.country / region / zone` (mayoritariamente en inglés desde imports antiguos).
+- La **verdad canónica** en `admin_areas.name` (ahora en idioma nativo).
+
+Mientras ambos estaban en inglés, coincidían por casualidad. Ahora no.
+
+La Core rule del proyecto dice: **"Vista única para geografía resuelta — cero columnas-cache duplicadas"**. El cliente lee siempre `v_locations_resolved`. Por tanto el `stale_name` actual es un anillo amarillo que **compara contra un cache que ya no es fuente de verdad**.
+
 ## Objetivo
 
-Eliminar el amarillo masivo en España (1176 puntos `stale_name`) atacando la causa raíz: el desajuste entre el cache legacy `locations.country = "España"` y el canónico `admin_areas.name = "Spain"`. Para ello, **localizamos `admin_areas.name` al idioma principal de la app (español)** usando `name_translations->>'es'` como fuente, y limpiamos el placeholder `(sin provincia)`.
+Dejar el sistema en un estado coherente con esa Core rule: `geo_health` sólo debe avisar de problemas reales (FK roto, cadena incompleta), no de divergencias entre el cache legacy y el canónico.
 
-Cero cambios en código cliente. Solo migración + repoblado de `geo_health`. La vista `v_locations_resolved` reflejará automáticamente los nombres nuevos.
+## Pasos
 
-## Diagnóstico (ya confirmado)
+### Paso 1 — Refrescar el cache legacy desde el canónico (one-shot)
 
-- 1176 puntos `stale_name` están **100% en España, 0 en el resto del mundo**.
-- 100% tienen `country = "España"` (cache) ≠ `admin_areas.name = "Spain"` (canónico).
-- 77% del desajuste es solo país; 23% suma uniprovinciales con placeholder `"(sin provincia)"`.
-- `name_translations` ya contiene la traducción ES para la mayoría de países (`es:"España"`, `en:"Spain"`, …).
+Operación de mantenimiento, no cambio de modelo:
 
-## Cambios
-
-### 1. Migración SQL — renombrar admin_areas a idioma de la app
-
-```text
-PASO A — Backup defensivo
-  Guardar (id, name) → admin_areas_name_backup_2026_05_11 (tabla temporal)
-  por si hace falta revertir.
-
-PASO B — Países (depth=1, type=country)
-  UPDATE admin_areas
-     SET name = name_translations->>'es',
-         name_lang = 'es'
-   WHERE name_translations ? 'es'
-     AND name_translations->>'es' <> ''
-     AND name_translations->>'es' <> name;
-  → Spain→España, Germany→Alemania, France→Francia, etc.
-
-PASO C — Continentes (depth=0)
-  Mismo UPDATE filtrando depth=0.
-  → Europe→Europa, Africa→África, etc.
-
-PASO D — Uniprovinciales sin nombre real
-  UPDATE admin_areas a
-     SET name = p.name
-    FROM admin_areas p
-   WHERE a.name = '(sin provincia)'
-     AND a.parent_id = p.id;
-  → "(sin provincia)" hijo de "Comunidad de Madrid" → "Comunidad de Madrid"
-  → "(sin provincia)" hijo de "Principado de Asturias" → "Principado de Asturias"
-  Quedan 60+ filas con nombre humano, NO duplican el padre porque
-  van indexadas por place_type=province (jerarquía distinta).
-
-PASO E — Recalcular geo_health de los puntos afectados
-  UPDATE locations
-     SET geo_health = _compute_geo_health(
-         continent, country, region, zone,
-         continent_id, country_id, region_id, zone_id)
-   WHERE geo_health IN ('stale_name','broken','partial')
-     AND deleted_at IS NULL;
-  (Llamar a la función centralizada existente, no recalcular inline.)
+```sql
+UPDATE locations l
+SET
+  continent = ac.name,
+  country   = aco.name,
+  region    = ar.name,
+  zone      = az.name
+FROM admin_areas ac
+LEFT JOIN admin_areas aco ON aco.id = l.country_id
+LEFT JOIN admin_areas ar  ON ar.id  = l.region_id
+LEFT JOIN admin_areas az  ON az.id  = l.zone_id
+WHERE ac.id = l.continent_id
+  AND l.deleted_at IS NULL
+  AND l.geo_health IN ('stale_name','partial');
 ```
 
-### 2. Verificación post-migración
+Esto alinea el cache con los nombres nativos sin re-geocodificar.
 
-Consulta de control que debe devolver ~0:
+### Paso 2 — Reparar los 49 `broken`
 
-```text
-SELECT geo_health, count(*) FROM locations
-WHERE country_code='ES' AND deleted_at IS NULL
-GROUP BY 1;
+Investigar primero (consulta read-only) si son:
+
+- **a)** FKs huérfanos por los merges de `_merge_admin_area()` (apuntan a `admin_areas.id` ya borrados).
+- **b)** Puntos con coordenadas válidas pero sin ningún `admin_areas` que las contenga.
+
+Si (a): redirigir FKs a la fila canónica resultante del merge usando `place_merge_history` si existe, o por matching de nombre+depth.
+Si (b): encolar en `geocoding_jobs` (auto-repair) para re-resolver vía `resolve-admin-area`.
+
+### Paso 3 — Recomputar `geo_health` final
+
+```sql
+UPDATE locations
+SET geo_health = _compute_geo_health(continent, country, region, zone,
+                                     continent_id, country_id, region_id, zone_id)
+WHERE geo_health IN ('stale_name','broken','partial');
 ```
 
-Esperado: `ok` ~1290, `stale_name` ~0, `partial` y `broken` sin cambios.
+Verificación: `SELECT geo_health, count(*) FROM locations WHERE deleted_at IS NULL GROUP BY 1` debe quedar dominado por `ok`.
 
-Visualmente en el mapa: desaparece la marea amarilla en España manteniendo intactos verdes/grises/naranjas y los amarillos que sí indiquen `broken` real.
+### Paso 4 (opcional, fuera de scope hoy) — Deprecar el cache
 
-### 3. Documentación
+Documentar en memoria que `locations.country/region/zone` es **derivado y sólo refresca via trigger** desde `admin_areas`. Cualquier UPDATE manual a esos strings queda prohibido. La fuente de verdad es FK + `v_locations_resolved`.
 
-- Actualizar `mem://database/canonical-admin-areas` con la política: **`admin_areas.name` = nombre primario en idioma de la app (es); traducciones en `name_translations`. El cache legacy `locations.country/region/zone` queda alineado por construcción**.
-- Actualizar `mem://style/map/health-rings-rule` reflejando que tras esta migración `stale_name` queda como categoría residual solo para puntos importados con strings exóticos.
+## Riesgos
+
+- El UPDATE masivo del paso 1 toca ~2.500 filas. Es seguro: sólo reescribe strings ya derivables de los FKs.
+- Los 49 `broken` requieren inspección antes de actuar; no aplicar fix ciego.
+- No tocar `_compute_geo_health` ni la lógica de anillos: la regla "cadena rota = amarillo / error = rojo" sigue intacta.
 
 ## Fuera de scope
 
-- No tocar el helper cliente `point-health-rings.ts` (la regla actual sigue siendo correcta una vez `geo_health` recalculado).
-- No refrescar `locations.country/region/zone` (siguen siendo cache deprecado; la regla Core "Vista única" sigue intacta).
-- No modificar la función `_compute_geo_health` — su lógica es correcta; solo cambian los datos canónicos contra los que compara.
-- No tocar `name_translations` (sigue siendo la fuente para internacionalización futura).
-
-## Riesgos y mitigación
-
-| Riesgo | Mitigación |
-|---|---|
-| Algún `admin_areas` no tiene `name_translations->>'es'` | UPDATE filtra `WHERE name_translations ? 'es'`; los que no tengan se quedan con su nombre actual. |
-| `_compute_geo_health` falla para alguna fila | Filtramos `WHERE geo_health IN ('stale_name','broken','partial')`; las `ok` no se tocan. |
-| Vista `v_locations_resolved` queda desincronizada | Es una vista, no materializada — refleja cambios al instante. |
-| Algún componente UI lee `admin_areas.name` y espera inglés | Auditoría rápida: la app es 100% en español, no hay punto donde se asuma inglés. |
-
-## Plan de implementación
-
-1. Crear tabla backup `admin_areas_name_backup_2026_05_11`.
-2. Ejecutar UPDATE de países (depth=1).
-3. Ejecutar UPDATE de continentes (depth=0).
-4. Ejecutar UPDATE de uniprovinciales `(sin provincia)`.
-5. Recomputar `geo_health` para filas afectadas.
-6. Ejecutar consulta de verificación.
-7. Actualizar memorias.
-
-Tiempo estimado: 1 migración SQL en una sola tanda. Sin cambios de código.
+- No se cambia client code.
+- No se modifica `name_translations` ni la vista `v_locations_resolved`.
+- No se re-geocodifica nada que tenga FKs ya resueltos.
