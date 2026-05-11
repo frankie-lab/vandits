@@ -1,17 +1,13 @@
 /**
  * DesignSystemPanel — Nivel 1 "DS Inspector" (read-only).
  *
- * Vista interna del catálogo del Design System:
- *   - Tokens  : valores fuente leídos de `src/design-system/tokens/source/*.json`.
- *   - Primitives : galería rápida de los primitives canónicos (Button, Badge, Input, Card, Switch, etc.).
- *   - Patterns : composiciones (Skeletons) y referencia a stories de Popup.
- *   - Memorias : índice de entradas `mem://` relacionadas con DS (informativo).
- *
- * No edita nada. Para experimentar con valores en sesión, se hará en Nivel 2.
+ * Tokens reorganizados en Esenciales / Dominio / Avanzado con filas humanas:
+ * label + uso + preview en vivo. Light/Dark se emparejan. Valores idénticos
+ * se deduplican en una fila "alias".
  */
 import { useMemo, useState } from 'react';
 import {
-  Palette, Type, Layers, Box, Sparkles, BookOpen, ExternalLink,
+  Palette, Type, Layers, Box, Sparkles, BookOpen, ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/design-system/primitives/button';
 import { Badge } from '@/design-system/primitives/badge';
@@ -39,31 +35,28 @@ import mapTokens from '@/design-system/tokens/source/map.json';
 import poiTokens from '@/design-system/tokens/source/poi.json';
 import elevationTokens from '@/design-system/tokens/source/elevation.json';
 
+import { buildRows, GROUP_SECTIONS, SECTION_LABEL, type GroupSection } from './design-system/token-grouping';
+import { lookupGlossary } from './design-system/token-glossary';
+import { TokenRow } from './design-system/TokenRow';
+
 type Section = 'tokens' | 'primitives' | 'patterns' | 'memories';
 
-interface TokenGroup {
-  id: string;
-  label: string;
-  icon: typeof Palette;
-  data: unknown;
-}
-
-const TOKEN_GROUPS: TokenGroup[] = [
-  { id: 'color',      label: 'Color',      icon: Palette, data: colorTokens },
-  { id: 'typography', label: 'Tipografía', icon: Type,    data: typographyTokens },
-  { id: 'density',    label: 'Densidad',   icon: Box,     data: densityTokens },
-  { id: 'motion',     label: 'Motion',     icon: Sparkles, data: motionTokens },
-  { id: 'radius',     label: 'Radius',     icon: Box,     data: radiusTokens },
-  { id: 'z-index',    label: 'Z-index',    icon: Layers,  data: zindexTokens },
-  { id: 'popup',      label: 'Popup',      icon: Box,     data: popupTokens },
-  { id: 'map',        label: 'Map',        icon: Layers,  data: mapTokens },
-  { id: 'poi',        label: 'POI',        icon: Box,     data: poiTokens },
-  { id: 'elevation',  label: 'Elevation',  icon: Layers,  data: elevationTokens },
-];
+const TOKEN_DATA: Record<string, unknown> = {
+  color: colorTokens,
+  typography: typographyTokens,
+  density: densityTokens,
+  motion: motionTokens,
+  radius: radiusTokens,
+  'z-index': zindexTokens,
+  popup: popupTokens,
+  map: mapTokens,
+  poi: poiTokens,
+  elevation: elevationTokens,
+};
 
 const DS_MEMORIES: Array<{ id: string; label: string }> = [
   { id: 'style/tokens/design-system-v1',       label: 'Design system tokens v1' },
-  { id: 'ui/shared-primitives',                label: 'Shared UI primitives (AppTooltip/Spinner/Skeleton/EmptyState)' },
+  { id: 'ui/shared-primitives',                label: 'Shared UI primitives' },
   { id: 'style/tokens/color-codemod-phase-4',  label: 'Color codemod Phase 4' },
   { id: 'style/tokens/button-variants-v1',     label: 'Button variants v1' },
   { id: 'architecture/design-system-phase-1',  label: 'Phase 1 — tokens foundation' },
@@ -77,106 +70,170 @@ const DS_MEMORIES: Array<{ id: string; label: string }> = [
   { id: 'ui/panel-body-children-rule',         label: 'Panel children rule' },
 ];
 
-// --- Helpers --------------------------------------------------------------
+// ─── Tokens section ────────────────────────────────────────────────
 
-/** Detecta si un nodo del JSON es una entrada de token (tiene `value`). */
-function isLeafToken(node: unknown): node is { value: string; _css?: string } {
-  return !!node && typeof node === 'object' && 'value' in (node as Record<string, unknown>);
-}
+function TokensSection() {
+  const [groupId, setGroupId] = useState<string>('color');
+  const [query, setQuery] = useState('');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
-interface LeafEntry {
-  path: string[];
-  value: string;
-  cssVar?: string;
-}
+  const rows = useMemo(() => {
+    const data = TOKEN_DATA[groupId];
+    if (!data) return [];
+    return buildRows(data, { dedupe: groupId === 'color' });
+  }, [groupId]);
 
-function walkTokens(data: unknown, path: string[] = []): LeafEntry[] {
-  if (!data || typeof data !== 'object') return [];
-  // Skip metadata keys
-  const entries: LeafEntry[] = [];
-  for (const [k, v] of Object.entries(data as Record<string, unknown>)) {
-    if (k.startsWith('$')) continue;
-    const nextPath = [...path, k];
-    if (isLeafToken(v)) {
-      entries.push({ path: nextPath, value: String(v.value), cssVar: v._css });
-    } else if (v && typeof v === 'object') {
-      entries.push(...walkTokens(v, nextPath));
-    }
-  }
-  return entries;
-}
+  const filteredRows = useMemo(() => {
+    if (!query.trim()) return rows;
+    const q = query.toLowerCase();
+    return rows.filter((r) => {
+      const entry = lookupGlossary(r.glossaryKey);
+      const labelHit = entry.label.toLowerCase().includes(q) || entry.usage.toLowerCase().includes(q);
+      if (labelHit) return true;
+      if (r.kind === 'single') {
+        return r.tokens.some(
+          (t) =>
+            t.path.join('.').toLowerCase().includes(q) ||
+            (t.cssVar ?? '').toLowerCase().includes(q) ||
+            String(t.value).toLowerCase().includes(q),
+        );
+      }
+      return (
+        r.light.path.join('.').toLowerCase().includes(q) ||
+        (r.light.cssVar ?? '').toLowerCase().includes(q) ||
+        String(r.light.value).toLowerCase().includes(q) ||
+        (r.dark ? String(r.dark.value).toLowerCase().includes(q) : false)
+      );
+    });
+  }, [rows, query]);
 
-function isHslTriplet(value: string): boolean {
-  // HSL triplet without commas, e.g. "24 75% 50%"
-  return /^\d+(\.\d+)?\s+\d+(\.\d+)?%\s+\d+(\.\d+)?%$/.test(value.trim());
-}
+  const groupsBySection: Record<GroupSection, typeof GROUP_SECTIONS> = {
+    essentials: GROUP_SECTIONS.filter((g) => g.section === 'essentials'),
+    domain: GROUP_SECTIONS.filter((g) => g.section === 'domain'),
+    advanced: GROUP_SECTIONS.filter((g) => g.section === 'advanced'),
+  };
 
-// --- Token previews -------------------------------------------------------
-
-function TokenSwatch({ value, cssVar }: { value: string; cssVar?: string }) {
-  const isHsl = isHslTriplet(value);
-  const isHex = /^#[0-9a-f]{3,8}$/i.test(value);
-  const isColor = isHsl || isHex;
-  const style: React.CSSProperties = isHsl
-    ? { background: `hsl(${value})` }
-    : isHex
-    ? { background: value }
-    : {};
-  if (isColor) {
-    return (
-      <div
-        className="h-8 w-12 rounded-token-sm border border-border shrink-0"
-        style={style}
-        aria-label={cssVar ?? value}
-      />
-    );
-  }
-  // Duration (e.g. 200ms) → render mini progress bar that loops
-  if (/\d+m?s$/.test(value.trim())) {
-    return (
-      <span className="text-xs font-mono text-muted-foreground">{value}</span>
-    );
-  }
-  // Sizes (px/em/rem/%/vh)
-  if (/^[\d.]+(px|rem|em|%|vh|vw)/.test(value.trim())) {
-    return <span className="text-xs font-mono text-muted-foreground">{value}</span>;
-  }
-  return <span className="text-xs font-mono text-muted-foreground truncate">{value}</span>;
-}
-
-function TokenTable({ data }: { data: unknown }) {
-  const rows = useMemo(() => walkTokens(data), [data]);
-  if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">Sin tokens en este grupo.</p>;
-  }
   return (
-    <div className="space-y-1">
-      {rows.map((row) => (
-        <div
-          key={row.path.join('.')}
-          className="flex items-center gap-3 px-3 py-2 rounded-token-sm hover:bg-muted/40"
+    <div className="flex-1 min-h-0 flex overflow-hidden">
+      {/* Sidebar */}
+      <div className="w-56 shrink-0 border-r overflow-y-auto py-2">
+        <SidebarSection
+          label={SECTION_LABEL.essentials}
+          groups={groupsBySection.essentials}
+          activeId={groupId}
+          onSelect={setGroupId}
+        />
+        <SidebarSection
+          label={SECTION_LABEL.domain}
+          groups={groupsBySection.domain}
+          activeId={groupId}
+          onSelect={setGroupId}
+        />
+        <Collapsible
+          label={SECTION_LABEL.advanced}
+          open={advancedOpen}
+          onToggle={() => setAdvancedOpen((v) => !v)}
         >
-          <TokenSwatch value={row.value} cssVar={row.cssVar} />
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium truncate">
-              {row.path.join(' · ')}
-            </div>
-            {row.cssVar && (
-              <div className="text-xs font-mono text-muted-foreground truncate">
-                {row.cssVar}
-              </div>
+          <SidebarSection
+            label=""
+            groups={groupsBySection.advanced}
+            activeId={groupId}
+            onSelect={setGroupId}
+          />
+        </Collapsible>
+      </div>
+
+      {/* Token list */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        <div className="p-3 border-b">
+          <Input
+            placeholder="Buscar por nombre, uso o valor…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="h-9"
+          />
+        </div>
+        <ScrollArea className="flex-1">
+          <div className="p-3 space-y-2">
+            {filteredRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                Sin tokens que coincidan con la búsqueda.
+              </p>
+            ) : (
+              filteredRows.map((row, idx) => (
+                <TokenRow
+                  key={`${row.glossaryKey}-${idx}`}
+                  row={row}
+                  groupId={groupId}
+                />
+              ))
             )}
           </div>
-          <code className="text-xs font-mono text-muted-foreground shrink-0">
-            {row.value}
-          </code>
+        </ScrollArea>
+      </div>
+    </div>
+  );
+}
+
+function SidebarSection({
+  label,
+  groups,
+  activeId,
+  onSelect,
+}: {
+  label: string;
+  groups: typeof GROUP_SECTIONS;
+  activeId: string;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div className="mb-2">
+      {label && (
+        <div className="px-3 pt-3 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+          {label}
         </div>
+      )}
+      {groups.map((g) => (
+        <button
+          key={g.id}
+          onClick={() => onSelect(g.id)}
+          className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted/50 transition-colors ${
+            activeId === g.id ? 'bg-muted font-medium' : ''
+          }`}
+        >
+          {g.label}
+        </button>
       ))}
     </div>
   );
 }
 
-// --- Primitives gallery ---------------------------------------------------
+function Collapsible({
+  label,
+  open,
+  onToggle,
+  children,
+}: {
+  label: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mb-2">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-3 pt-3 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <span>{label}</span>
+        <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && children}
+    </div>
+  );
+}
+
+// ─── Primitives gallery ───────────────────────────────────────────
 
 function PrimitivesGallery() {
   return (
@@ -250,7 +307,7 @@ function PrimitivesGallery() {
   );
 }
 
-// --- Patterns gallery -----------------------------------------------------
+// ─── Patterns gallery ─────────────────────────────────────────────
 
 function PatternsGallery() {
   return (
@@ -302,14 +359,13 @@ function PatternsGallery() {
   );
 }
 
-// --- Memories list --------------------------------------------------------
+// ─── Memories list ────────────────────────────────────────────────
 
 function MemoriesList() {
   return (
     <div className="space-y-2">
       <p className="text-sm text-muted-foreground mb-3">
-        Reglas vivas del Design System almacenadas como memoria del proyecto.
-        Solo lectura — para editar, pídelo en chat.
+        Reglas vivas del Design System. Solo lectura — pídelo en chat si hace falta editar.
       </p>
       {DS_MEMORIES.map((m) => (
         <div
@@ -329,35 +385,10 @@ function MemoriesList() {
   );
 }
 
-// --- Main panel -----------------------------------------------------------
+// ─── Main panel ────────────────────────────────────────────────────
 
 export function DesignSystemPanel() {
   const [section, setSection] = useState<Section>('tokens');
-  const [tokenGroup, setTokenGroup] = useState<string>('color');
-  const [query, setQuery] = useState('');
-
-  const activeGroup = TOKEN_GROUPS.find((g) => g.id === tokenGroup) ?? TOKEN_GROUPS[0];
-
-  const filteredGroup = useMemo(() => {
-    if (!query.trim()) return activeGroup.data;
-    // Filter leaves matching path or value
-    const q = query.toLowerCase();
-    function prune(node: unknown, path: string[] = []): unknown {
-      if (!node || typeof node !== 'object') return undefined;
-      if (isLeafToken(node)) {
-        const hay = [...path, node.value, node._css ?? ''].join(' ').toLowerCase();
-        return hay.includes(q) ? node : undefined;
-      }
-      const next: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
-        if (k.startsWith('$')) continue;
-        const pruned = prune(v, [...path, k]);
-        if (pruned !== undefined) next[k] = pruned;
-      }
-      return Object.keys(next).length ? next : undefined;
-    }
-    return prune(activeGroup.data) ?? {};
-  }, [activeGroup, query]);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -386,68 +417,31 @@ export function DesignSystemPanel() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 flex overflow-hidden">
-        {section === 'tokens' && (
-          <>
-            {/* Token group sidebar */}
-            <div className="w-48 shrink-0 border-r overflow-y-auto py-2">
-              {TOKEN_GROUPS.map((g) => (
-                <button
-                  key={g.id}
-                  onClick={() => setTokenGroup(g.id)}
-                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted/50 transition-colors ${
-                    tokenGroup === g.id ? 'bg-muted font-medium' : ''
-                  }`}
-                >
-                  <g.icon className="w-4 h-4 text-muted-foreground" />
-                  {g.label}
-                </button>
-              ))}
-            </div>
+      {section === 'tokens' && <TokensSection />}
 
-            {/* Token list */}
-            <div className="flex-1 min-w-0 flex flex-col">
-              <div className="p-3 border-b">
-                <Input
-                  placeholder="Buscar token…"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="h-9"
-                />
-              </div>
-              <ScrollArea className="flex-1">
-                <div className="p-3">
-                  <TokenTable data={filteredGroup} />
-                </div>
-              </ScrollArea>
-            </div>
-          </>
-        )}
+      {section === 'primitives' && (
+        <ScrollArea className="flex-1">
+          <div className="p-4 pb-8">
+            <PrimitivesGallery />
+          </div>
+        </ScrollArea>
+      )}
 
-        {section === 'primitives' && (
-          <ScrollArea className="flex-1">
-            <div className="p-4 pb-8">
-              <PrimitivesGallery />
-            </div>
-          </ScrollArea>
-        )}
+      {section === 'patterns' && (
+        <ScrollArea className="flex-1">
+          <div className="p-4 pb-8">
+            <PatternsGallery />
+          </div>
+        </ScrollArea>
+      )}
 
-        {section === 'patterns' && (
-          <ScrollArea className="flex-1">
-            <div className="p-4 pb-8">
-              <PatternsGallery />
-            </div>
-          </ScrollArea>
-        )}
-
-        {section === 'memories' && (
-          <ScrollArea className="flex-1">
-            <div className="p-4 pb-8">
-              <MemoriesList />
-            </div>
-          </ScrollArea>
-        )}
-      </div>
+      {section === 'memories' && (
+        <ScrollArea className="flex-1">
+          <div className="p-4 pb-8">
+            <MemoriesList />
+          </div>
+        </ScrollArea>
+      )}
     </div>
   );
 }
