@@ -329,7 +329,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
 
  if (permissionsLoading) {
  return (
- <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50" onClick={onClose}>
+ <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 overlay-respect-progress" onClick={onClose}>
  <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-card rounded-xl shadow-2xl p-8 max-w-md mx-4 flex flex-col items-center" onClick={e => e.stopPropagation()}>
  <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
  <p className="text-muted-foreground">Verificando permisos...</p>
@@ -340,7 +340,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
 
  if (!canManageUsers && !isMaster()) {
  return (
- <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50" onClick={onClose}>
+ <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 overlay-respect-progress" onClick={onClose}>
  <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-card rounded-xl shadow-2xl p-8 max-w-md mx-4" onClick={e => e.stopPropagation()}>
  <Shield className="w-16 h-16 text-destructive mx-auto mb-4" />
  <h2 className="text-xl font-bold text-center mb-2">Acceso denegado</h2>
