@@ -622,7 +622,7 @@ Añadir a mi colección
     };
 
     return `
-<div id="${popupId}" style="min-width: ${CARD.minWidth}px; max-width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: calc(100vh - 160px);">
+<div id="${popupId}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: calc(100vh - 160px);">
 ${statusBarHtml}
 
 <!-- Hero (fija, no participa en el scroll) -->
@@ -970,7 +970,7 @@ ${actionButtonsHtml}
   const moreDataCount = filteredCustomData.length - 6;
 
   return `
-<div style="min-width: ${CARD.minWidth}px; max-width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY};">
+<div style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY};">
 ${statusBarHtml}
 
 ${buildImageSection(location, null, ownershipInfo)}
