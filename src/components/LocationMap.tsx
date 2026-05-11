@@ -39,7 +39,7 @@ import {
   calculateVisitRelevance, formatTimeAgo, createFilterLink, parseLocalizacionToLinks,
   type VisitRelevanceInfo,
 } from './map/map-utils';
-import { createCustomIcon } from './map/map-icons';
+import { createCustomIcon, getRenderModeForZoom, setCurrentRenderMode } from './map/map-icons';
 import { onMarkerSizeConfigChange, getMarkerSizeConfig } from './map/useMarkerSizeConfig';
 import {
   prewarmEnrichmentFailures,
@@ -1176,8 +1176,20 @@ export function LocationMap() {
       document.documentElement.style.setProperty('--collection-ring-width', w);
     };
     applyRingWidth(mapRef.current.getZoom());
+    // Inicializa el render mode (Ola 1 — arquitectura visual por zoom).
+    // En cada zoomend recalcula el modo; si cambia, emite un evento que un
+    // useEffect con acceso al estado fresco (selección/focus/recent) consume
+    // para repintar los markers. Mantiene los call-sites intactos: lo lee
+    // `createCustomIcon` del módulo `map-icons`.
+    setCurrentRenderMode(getRenderModeForZoom(mapRef.current.getZoom()));
     mapRef.current.on('zoomend', () => {
-      if (mapRef.current) applyRingWidth(mapRef.current.getZoom());
+      if (!mapRef.current) return;
+      const zoom = mapRef.current.getZoom();
+      applyRingWidth(zoom);
+      const changed = setCurrentRenderMode(getRenderModeForZoom(zoom));
+      if (changed) {
+        window.dispatchEvent(new CustomEvent('map-render-mode-changed'));
+      }
     });
     const resizeObserver = new ResizeObserver(() => {
       const map = mapRef.current;
@@ -1614,6 +1626,27 @@ export function LocationMap() {
       });
     });
     return unsub;
+  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds]);
+
+  // Render-mode change (Ola 1): cuando zoomend cambia el modo en map-icons,
+  // repintamos todos los markers con el estado React actual (selección/focus/
+  // recent) para que el cambio de fidelidad sea atómico y no pierda highlights.
+  useEffect(() => {
+    const handler = () => {
+      markersRef.current.forEach((marker, locationId) => {
+        const location = locationsRef.current.get(locationId);
+        const isSelected = selectedLocations.has(locationId);
+        const isFocused = focusedLocationId === locationId;
+        const isEnriched = !!location?.enrichedData;
+        const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
+        marker.setIcon(createCustomIcon(
+          isSelected, isFocused, isEnriched, location, criteriaTimestamp,
+          isRecentlyEnriched, getTintForLocation(locationId),
+        ));
+      });
+    };
+    window.addEventListener('map-render-mode-changed', handler);
+    return () => window.removeEventListener('map-render-mode-changed', handler);
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds]);
 
   // Anillo rojo de error: pre-warm de fallos al montar el mapa y re-render
