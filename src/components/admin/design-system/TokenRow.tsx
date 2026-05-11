@@ -252,39 +252,6 @@ function WcagBadge({ ratio, level, onSwatchText }: WcagInfo & { onSwatchText: st
     </span>
   );
 }
-interface WcagInfo {
-  ratio: number;
-  level: ReturnType<typeof wcagLevel>;
-}
-
-function computeWcag(triplet: string, bgTriplet?: string): WcagInfo | null {
-  if (!bgTriplet) return null;
-  const fg = tripletToRgb(triplet);
-  const bg = tripletToRgb(bgTriplet);
-  if (!fg || !bg) return null;
-  const ratio = contrastRatio(fg, bg);
-  return { ratio, level: wcagLevel(ratio, { uiComponent: true }) };
-}
-
-function WcagBadge({ ratio, level, mode }: WcagInfo & { mode: 'light' | 'dark' }) {
-  const dim = mode === 'dark' ? 'text-background/80' : 'text-muted-foreground';
-  const tone =
-    level === 'fail'
-      ? 'bg-destructive/15 text-destructive'
-      : level === 'AAA'
-        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-        : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400';
-  return (
-    <span
-      className={`inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded-token-sm ${tone}`}
-      title={`Contraste vs surface destino · ${ratio.toFixed(2)}:1`}
-    >
-      <span className={dim}>·</span>
-      <span>{ratio.toFixed(2)}:1</span>
-      <span className="font-semibold">{level === 'fail' ? 'fail' : level}</span>
-    </span>
-  );
-}
 
 // ─── No-color layout (radius, density, typography, motion, etc.) ──
 
