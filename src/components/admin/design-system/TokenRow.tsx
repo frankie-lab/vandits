@@ -33,7 +33,7 @@ export function TokenRow({ row, groupId }: Props) {
 
   const editableTokens = collectEditableTokens(row);
   const hasOverride = editableTokens.some(
-    (t) => t.path in draft || t.path in published,
+    (t) => t.path.join(".") in draft || t.path.join(".") in published,
   );
 
   return (
