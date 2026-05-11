@@ -62,6 +62,7 @@ function apply(map: OverrideMap) {
 export const useDesignSystemEdit = create<State>((set, get) => ({
   published: {},
   draft: {},
+  linkedPairs: {},
 
   hydrate: (published) => {
     set({ published });
@@ -70,8 +71,43 @@ export const useDesignSystemEdit = create<State>((set, get) => ({
 
   setDraft: (path, value) => {
     const draft = { ...get().draft, [path]: value };
+
+    // Auto-link: if this is a color.{light|dark}.role token and its pair is
+    // linked (default true), propagate the perceptual opposite to the twin.
+    const key = pairKey(path);
+    const linked = key ? get().linkedPairs[key] !== false : false;
+    if (linked && key && typeof value === 'string') {
+      const oppositePath = resolveOppositeModePath(path);
+      const mode: 'light' | 'dark' = path.includes('.light.') ? 'light' : 'dark';
+      if (oppositePath && parseHslTriplet(value)) {
+        const oppositeBgPath = resolveTargetBackgroundPath(oppositePath);
+        const bgLeaf = oppositeBgPath ? getLeaf(oppositeBgPath) : undefined;
+        const bgTriplet =
+          (oppositeBgPath && (draft[oppositeBgPath] ?? get().published[oppositeBgPath])) ??
+          bgLeaf?.baseValue;
+        const derived = deriveOppositeTriplet(value, {
+          from: mode,
+          targetBgTriplet: typeof bgTriplet === 'string' ? bgTriplet : undefined,
+          minContrast: 3,
+        });
+        if (derived) draft[oppositePath] = derived;
+      }
+    }
+
     set({ draft });
     apply(effective(get().published, draft));
+  },
+
+  setLinked: (path, value) => {
+    const key = pairKey(path);
+    if (!key) return;
+    set({ linkedPairs: { ...get().linkedPairs, [key]: value } });
+  },
+
+  isLinked: (path) => {
+    const key = pairKey(path);
+    if (!key) return false;
+    return get().linkedPairs[key] !== false;
   },
 
   resetToBase: (path) => {
