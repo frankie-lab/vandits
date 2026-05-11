@@ -49,11 +49,11 @@ export function resolveEffective(
 }
 
 function emitLeaf(leaf: TokenLeaf, overrides: OverrideMap): string | null {
-  if (!leaf.cssVar) return null;
+  if (!leaf.cssVars || leaf.cssVars.length === 0) return null;
   const effective = resolveEffective(leaf.path, overrides);
   if (effective === undefined) return null;
   if (String(effective) === String(leaf.baseValue)) return null;
-  return `${leaf.cssVar}: ${effective};`;
+  return leaf.cssVars.map((v) => `${v}: ${effective};`).join('');
 }
 
 export function applyOverrides(overrides: OverrideMap): void {
