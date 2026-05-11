@@ -2,15 +2,16 @@
  * search-candidates — búsqueda multi-fuente de candidatos POI por nombre.
  *
  * Fuentes consultadas en paralelo (toggles vía tabla `data_sources`):
- *   - search.wikipedia_es
- *   - search.wikipedia_en
+ *   - search.wikipedia_es / search.wikipedia_en
  *   - search.wikidata
  *   - search.nominatim
  *   - search.geonames        (requiere GEONAMES_USERNAME)
  *   - search.photon          (sin key, gratis)
  *   - search.google_places   (requiere GOOGLE_PLACES_API_KEY)
+ *   - search.village.*       (16 catálogos "Pueblos más bonitos", fallback)
  *
  * Ver mem://logic/enrichment/recovery-search-multisource
+ * Ver mem://logic/enrichment/village-catalogs-fallback
  */
 
 const corsHeaders = {
