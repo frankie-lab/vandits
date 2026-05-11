@@ -13,13 +13,17 @@ import { adjustHslLightness } from './map-utils';
 import { getMarkerSizeConfig, getBaseSize, getHoverSize } from './useMarkerSizeConfig';
 import { getMarkerStateRules, getStateColor, getStateShadow, getStateBorderWidth } from './useMarkerStateRules';
 import { getPointConfigKey } from '@/domains/content/lib/point-visual-state';
-import { hasEnrichmentFailure } from '@/domains/content/lib/enrichment-failure-state';
+import {
+  getPointHealthRings,
+  RING_COLORS,
+  RING_WIDTH,
+} from '@/domains/content/lib/point-health-rings';
 
-// Anillo rojo de 5px sobre los marcadores con fallo de enriquecimiento.
-// Es un overlay encima de la paleta canónica (verde/gris/naranja). No
-// sustituye al estado, sólo lo flaggea. Ver mem://style/map/error-outline-rule.
-const ERROR_RING_WIDTH = 5;
-const ERROR_RING_COLOR = '#dc2626';
+// Anillos de salud (5px) apilados POR FUERA del marker y del collection-tint.
+// Helper único: `getPointHealthRings`. No sustituyen al stroke blanco ni al
+// tinte de colección — son una capa aditiva. Ver
+// `mem://style/map/health-rings-rule`.
+const RING_GAP = RING_WIDTH;
 
 export const createCustomIcon = (
   isSelected: boolean,
