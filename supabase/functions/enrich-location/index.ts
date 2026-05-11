@@ -2440,8 +2440,8 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
         // del cliente ofrecerá renombrar / contexto cercano.
         if (isUnverifiableLLMOutput({ descripcion: enrichedData?.descripcion })) {
           console.log(`[enrich] ABORT llm_unverifiable for "${location.name}"`);
-          const nearbyPages = await fetchNearbyWikipediaPages(location.coordinates, COHERENCE_NEARBY_RADIUS_M, 5);
-          const nearbyExtracts = await fetchPageExtracts(nearbyPages.map((p) => p.pageid));
+          const nearbyPages = useWikipedia ? await fetchNearbyWikipediaPages(location.coordinates, COHERENCE_NEARBY_RADIUS_M, 5) : [];
+          const nearbyExtracts = useWikipedia ? await fetchPageExtracts(nearbyPages.map((p) => p.pageid)) : {};
           const nearbyCandidates = nearbyPages.map((p) => {
             const info = nearbyExtracts[String(p.pageid)] || {};
             return {
