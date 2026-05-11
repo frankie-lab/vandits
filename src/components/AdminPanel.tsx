@@ -30,8 +30,9 @@ import {
 import { AuditPanel } from './AuditPanel';
 import { GeographyBackfillPanel } from './admin/GeographyBackfillPanel';
 import { DataSourcesPanel } from './admin/DataSourcesPanel';
+import { DesignSystemPanel } from './admin/DesignSystemPanel';
 
-type AdminTab = 'users' | 'permissions' | 'markers' | 'routes' | 'icons' | 'enrichment' | 'audit' | 'geography' | 'sources';
+type AdminTab = 'users' | 'permissions' | 'markers' | 'routes' | 'icons' | 'enrichment' | 'audit' | 'geography' | 'sources' | 'design-system';
 
 interface AdminPanelProps {
  onClose: () => void;
@@ -358,7 +359,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   >
    <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
     className={`bg-card rounded-xl shadow-2xl w-full overflow-hidden flex flex-col max-h-full ${
-     (defaultTab || 'users') === 'geography'
+     (defaultTab || 'users') === 'geography' || (defaultTab || 'users') === 'design-system'
        ? 'max-w-6xl h-[92vh]'
        : 'max-w-4xl h-[90vh]'
     }`}
@@ -368,7 +369,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   <div className="p-2 bg-primary/10 rounded-lg"><Shield className="w-5 h-5 text-primary" /></div>
   <div>
   <h2 className="text-lg font-bold">
-  {{ users: 'Gestión de usuarios', permissions: 'Permisos por rol', markers: 'Tamaños de marcadores', routes: 'Motor de rutas', icons: 'Galería de iconos', enrichment: 'Configuración de fichas', audit: 'Auditoría de preferencias', geography: 'Geografía universal', sources: 'Fuentes de datos' }[defaultTab || 'users'] || 'Panel de Administración'}
+  {{ users: 'Gestión de usuarios', permissions: 'Permisos por rol', markers: 'Tamaños de marcadores', routes: 'Motor de rutas', icons: 'Galería de iconos', enrichment: 'Configuración de fichas', audit: 'Auditoría de preferencias', geography: 'Geografía universal', sources: 'Fuentes de datos', 'design-system': 'Design System' }[defaultTab || 'users'] || 'Panel de Administración'}
   </h2>
   <p className="text-sm text-muted-foreground">Back Office</p>
   </div>
@@ -496,6 +497,10 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
 
     {isMaster() && defaultTab === 'sources' && (
     <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><DataSourcesPanel /></div>
+    )}
+
+    {isMaster() && defaultTab === 'design-system' && (
+    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><DesignSystemPanel /></div>
     )}
    </div>
  </motion.div>
