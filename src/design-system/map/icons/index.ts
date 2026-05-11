@@ -12,10 +12,8 @@
 
 export {
   createCustomIcon,
-  createSelectedIcon,
-  createHoverTooltipIcon,
-  setMapRenderMode,
+  setCurrentRenderMode,
   getCurrentRenderMode,
-  zoomToRenderMode,
+  getRenderModeForZoom,
   type MarkerRenderMode,
 } from '@/components/map/map-icons';
