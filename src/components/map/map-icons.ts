@@ -109,7 +109,7 @@ export const createCustomIcon = (
     // (micro 5px < compact ~8px < standard ~12px < rich ~14px). La pertenencia
     // (`isOwn`) se diferencia solo por halo más marcado y por `mine-pane`
     // (capa superior), nunca por diámetro. Ver `.lovable/plan.md`.
-    const microSize = 7;
+    const microSize = 10;
     const dot = entry.fill_color;
     const haloStyle = isOwn
       ? 'box-shadow:0 0 0 1.25px rgba(255,255,255,1),0 0 3px rgba(0,0,0,0.4);'
