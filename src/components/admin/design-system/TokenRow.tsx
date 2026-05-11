@@ -46,13 +46,14 @@ export function TokenRow({ row, groupId }: Props) {
         >
           <Swatch row={row} groupId={groupId} />
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="text-sm font-medium truncate">{entry.label}</div>
               {hasOverride && (
                 <Badge variant="outline" className="text-[10px] h-4 px-1.5">
                   Modificado
                 </Badge>
               )}
+              <RefChip row={row} />
             </div>
             <div className="text-xs text-muted-foreground mt-0.5 truncate">{entry.usage}</div>
             <AliasChips row={row} />
@@ -76,6 +77,31 @@ export function TokenRow({ row, groupId }: Props) {
       )}
     </div>
   );
+}
+
+/** Pequeño chip "→ neutral.0" cuando el token es un alias. */
+function RefChip({ row }: { row: PairedRow }) {
+  let refPath: string | undefined;
+  if (row.kind === 'lightDark') {
+    // Resolvemos el "nombre del primitivo" desde la ruta dotted del refPath.
+    refPath = extractRefName(row.light.refPath);
+  } else {
+    refPath = extractRefName(row.refPath);
+  }
+  if (!refPath) return null;
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground px-1.5 py-0.5 rounded-token-sm bg-muted">
+      <span aria-hidden>→</span>
+      {refPath}
+    </span>
+  );
+}
+
+function extractRefName(refPath?: string): string | undefined {
+  if (!refPath) return undefined;
+  // "color.primitives.light.neutral.0" → "neutral.0"
+  const m = refPath.match(/^color\.primitives\.(?:light|dark)\.(.+)$/);
+  return m ? m[1] : refPath;
 }
 
 function collectEditableTokens(row: PairedRow): LeafToken[] {
