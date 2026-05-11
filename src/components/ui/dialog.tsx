@@ -30,13 +30,24 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 const DialogContent = React.forwardRef<
  React.ElementRef<typeof DialogPrimitive.Content>,
  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, style, ...props }, ref) => (
  <DialogPortal>
  <DialogOverlay />
  <DialogPrimitive.Content
  ref={ref}
+ // Centered between the top floating header and the bottom progress bar.
+ // `top` shifts the midpoint by (header - bottom)/2; `maxHeight` caps the
+ // dialog so it never crashes into either bar (regardless of fixed h-[..vh]
+ // values inside). Source-of-truth CSS vars in src/index.css:
+ //   --top-header-h, --bottom-progress-h, --overlay-progress-gap
+ style={{
+ top: 'calc(50% + (var(--top-header-h, 0px) - var(--bottom-progress-h, 0px)) / 2)',
+ maxHeight:
+ 'calc(100vh - var(--top-header-h, 0px) - var(--bottom-progress-h, 0px) - 2 * var(--overlay-progress-gap, 12px))',
+ ...style,
+ }}
  className={cn(
- "fixed left-[50%] top-[50%] z-[2001] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+ "fixed left-[50%] z-[2001] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg overflow-hidden",
  className,
  )}
  {...props}
