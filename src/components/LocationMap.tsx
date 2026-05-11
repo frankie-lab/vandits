@@ -25,6 +25,7 @@ import { usePermissions } from '@/domains/identity';
 import { useSocialStats } from '@/domains/social';
 import { useMapTheme } from '@/hooks/use-map-theme';
 import { CatalogLoadingCard, useActiveLoadings } from '@/shared/loading';
+import { clearBottomSafeInset, setBottomSafeInset } from '@/shared/layout/overlay-safe-area';
 import { supabase } from '@/integrations/supabase/client';
 import { getLucideSvgString, getMapMarkerHtml, getStopTypeIconKey } from '@/lib/icon-utils';
 import { fetchIpGeolocation } from '@/lib/ip-geolocation';
@@ -1944,6 +1945,33 @@ export function LocationMap() {
 
   // Ref al contenedor de la card para detectar clicks fuera.
   const welcomeCardRef = useRef<HTMLDivElement | null>(null);
+  const bottomLegendRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const measureFooterSafeInset = () => {
+      const el = bottomLegendRef.current;
+      if (!el) {
+        clearBottomSafeInset('footer');
+        return;
+      }
+
+      const rect = el.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const bottomInset = Math.max(0, viewportHeight - rect.top);
+      setBottomSafeInset('footer', bottomInset);
+    };
+
+    measureFooterSafeInset();
+    const ro = new ResizeObserver(measureFooterSafeInset);
+    if (bottomLegendRef.current) ro.observe(bottomLegendRef.current);
+    window.addEventListener('resize', measureFooterSafeInset);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measureFooterSafeInset);
+      clearBottomSafeInset('footer');
+    };
+  }, [locations.length, totalLocations, mapTheme, showZoomButton]);
 
   // Reabrir summary desde el menú/avatar mediante evento.
   useEffect(() => {
@@ -2028,7 +2056,7 @@ export function LocationMap() {
  {/* Map Center Settings - now in UserProfileEditor */}
 
  {/* Legend and stats - single line bottom right */}
- <div className="absolute bottom-4 right-4 z-[999]">
+  <div ref={bottomLegendRef} className="absolute bottom-4 right-4 z-[999]">
  <div className={cn(
  "backdrop-blur-sm rounded-full px-4 py-2 shadow-md text-xs flex items-center gap-4",
  mapTheme === 'dark' ? 'bg-gray-900/95' : 'bg-white/95'
