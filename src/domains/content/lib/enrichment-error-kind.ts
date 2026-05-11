@@ -66,6 +66,7 @@ export function parseEnrichmentError(raw: unknown): ParsedEnrichmentError {
     return {
       kind: (r.kind as EnrichmentErrorKind) ?? 'unknown',
       message: typeof r.message === 'string' ? r.message : 'Error desconocido',
+      mismatchKind: r.mismatchKind,
       candidates: Array.isArray(r.candidates) ? r.candidates : undefined,
       nameLocation: r.nameLocation,
       providedName: r.providedName,
