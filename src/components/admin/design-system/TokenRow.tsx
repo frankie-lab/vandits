@@ -204,8 +204,10 @@ function ColorSwatchColumn({
   const isPrimitive = path.startsWith('color.primitives.');
   const role = extractRole(path) ?? '';
   const foreground = !isPrimitive && isForegroundRole(role);
-  // Primitivos = pintura cruda: la columna entera se pinta con su color (como un surface).
-  const surfaceItself = isPrimitive || isSurfaceRole(role);
+  // Solo los surfaces semánticos pintan TODA la columna con su color.
+  // Los primitivos se muestran como chip sobre el lienzo del modo (claro/oscuro)
+  // para que se vea el contraste real.
+  const surfaceItself = !isPrimitive && isSurfaceRole(role);
 
   // WCAG: se sigue calculando contra el surface destino real (donde el color
   // se aplica de verdad). Esto NO cambia el lienzo de la columna.
@@ -214,8 +216,7 @@ function ColorSwatchColumn({
   const wcag = computeWcag(live, wcagSurfaceTriplet || undefined);
 
   // Lienzo de la columna: SIEMPRE el fondo de página del modo (claro/oscuro).
-  // Excepción única: si el token ES el propio fondo de página, pintamos la
-  // columna con su color (no hay otra cosa que demostrar encima).
+  // Excepción única: si el token ES el propio fondo de página semántico.
   const pageBgTriplet = String(
     useResolvedTokenValue(`color.${mode}.surface.background`) ?? ''
   );
@@ -229,6 +230,16 @@ function ColorSwatchColumn({
   // Para chips, escoger color de texto contrastado contra el chip mismo.
   const chipHsl = parseHslTriplet(live);
   const onChipText = chipHsl && chipHsl.l > 55 ? 'text-black/85' : 'text-white/95';
+
+  // Si el primitivo es casi indistinguible del lienzo, mostramos un ajedrezado
+  // sutil detrás del chip para que su borde nunca desaparezca.
+  const needsCheckerboard =
+    isPrimitive &&
+    canvasHsl != null &&
+    chipHsl != null &&
+    Math.abs(canvasHsl.l - chipHsl.l) < 6 &&
+    Math.abs(canvasHsl.s - chipHsl.s) < 10;
+
 
   return (
     <div
