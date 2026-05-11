@@ -1,63 +1,69 @@
-## Diagnóstico
+## Polaroid marker desde z≥11
 
-Revisado el cableado actual (`src/components/map/map-icons.ts`, `LocationMap.tsx`, `map-tooltip.ts`, `index.css`):
+Bajar el umbral de la imagen Hero como marker: desde **z=11** (vista metro/ciudad) y todos los zooms superiores, cada POI se pinta como un **polaroid clásico** con la imagen Hero o un **placeholder gris con icono de foto** si el punto no tiene imagen.
 
-1. **El zoom-band sí se calcula y propaga** (`zoomend` → `setCurrentRenderMode` → evento `map-render-mode-changed` → repaint vía `setIcon`).
-2. Pero hay **3 huecos** que explican lo que ves:
+### 1. Token de zoom (single source of truth)
 
-### Hueco 1 — Cluster oculta la progresión perceptible
-En vista global (z≤9) la mayoría de markers están dentro de `MarkerClusterGroup`. Lo que ves son globos de cluster, NO los 5px del modo micro. Al hacer zoom, los clusters se rompen y aparecen markers que ya estaban creados en el band intermedio (compact/standard), por lo que el salto entre bands se nota poco. Además los factores actuales (`compact 0.7 / standard 1.0 / rich 1.15`) producen una progresión demasiado tenue.
+`src/design-system/tokens/source/map.json` → bajar `richMin` de **17 → 11**.
+Rebuild tokens (`npm run build:tokens`) propaga a `tokens.css`, `tokens.ts` y Tailwind. La rama `renderMode === 'rich'` en `map-icons.ts` se activa automáticamente desde z11.
 
-### Hueco 2 — El tooltip Polaroid queda "congelado" sin imagen
-`marker.bindTooltip(buildHoverTooltipHtml(loc, ownership))` se llama UNA sola vez al crear el marker. Si en ese momento la location todavía no tenía `enrichedData.imagen` (típico para puntos importados sin enriquecer), el HTML del tooltip se baquea SIN `<img>`. Cuando luego se enriquece o cambias de banda, el `setIcon` repinta el marker pero **no rehace el tooltip**, así que la Polaroid sigue sin foto para siempre.
+`heroMin` (14) se baja también a 11 para que el hover-tooltip polaroid y el marker polaroid coincidan en la misma banda.
 
-### Hueco 3 — El gating CSS para la imagen funciona, pero solo si la `<img>` existe
-`.map-zoom-standard .poi-hover-tooltip__img { display:block }` está bien, pero solo aplica si el `<img>` está en el DOM. Por el hueco 2, en muchos puntos no está.
+Actualizar `mem://style/map/zoom-driven-hero` para reflejar el nuevo umbral.
 
----
+### 2. Placeholder cuando no hay imagen
 
-## Plan de cambios (mínimo, transversal)
+Hoy, en `rich` sin `heroUrl`, el código cae al SVG dot/pin estándar. Pasa a devolver siempre el `divIcon` polaroid:
 
-### A) `src/components/map/map-icons.ts` — amplificar la progresión
-- `modeScale`: pasar de `compact 0.7 / standard 1.0 / rich 1.15` a **`compact 0.55 / standard 1.0 / rich 1.35`**.
-- Mantener el resto del canon (micro 5px, compact = SVG plano, standard = SVG completo, rich = imagen Hero 40px).
-- Sin cambios en paleta, anillos de salud, tint de colección.
+- Si hay `heroUrl` → `<img>` como ahora.
+- Si no → `<div class="poi-hero-marker__placeholder">` con icono `ImageIcon` Lucide (inline SVG, color `hsl(var(--muted-foreground))`, fondo gris muy claro y patrón sutil de líneas diagonales para look "foto vacía").
 
-### B) `src/components/LocationMap.tsx` — rebuild del tooltip al cambiar de banda
-En el handler `map-render-mode-changed` (línea ~1697), tras `marker.setIcon(...)` añadir:
-```ts
-marker.unbindTooltip();
-marker.bindTooltip(buildHoverTooltipHtml(location, ownership), {
-  direction: 'top', offset: [0, -12],
-  className: 'poi-hover-tooltip-wrap', opacity: 1,
-});
+El icono se inyecta como SVG hardcodeado en el HTML del divIcon (mismo patrón que el resto de markers; Lucide no se puede importar a un string de divIcon, así que se copia el path del icono `image` de Lucide).
+
+### 3. Estilo polaroid clásico
+
+Reescribir `.poi-hero-marker` en `src/index.css`:
+
+```text
+┌────────────┐  ← marco blanco 3px arriba/izq/dcha
+│            │
+│   IMAGEN   │  ← 40×40 (imagen) o placeholder
+│            │
+├────────────┤
+│            │  ← franja blanca inferior ~10px (caption strip)
+└────────────┘
+   sombra suave abajo
 ```
-Esto garantiza que al entrar en standard/rich la `<img>` del Hero aparezca aunque el punto se haya enriquecido después de crear el marker.
 
-### C) `src/components/LocationMap.tsx` — refresco al enriquecer
-Hay un useEffect que escucha `recentlyEnrichedIds`/eventos de enriquecimiento y llama `setIcon`. Añadir también el `unbindTooltip + bindTooltip` con el `buildHoverTooltipHtml` actualizado para el id afectado. Mismo helper, sin lógica nueva.
+- Tamaño total: **46×56** (40 imagen + 3px marco + 3px marco + 10px franja inferior).
+- `background: hsl(var(--background))` (blanco en light, papel oscuro respeta theme).
+- `border-radius: 2px` (look fotográfico, no redondeado tipo card).
+- `box-shadow: 0 2px 6px hsl(var(--foreground) / 0.18)`.
+- Borde de **color de estado** (`--marker-state-color`) como `outline: 1px solid` ALREDEDOR del marco blanco — apenas perceptible pero respeta semántica verde/gris/naranja.
+- Health rings (rojo/amarillo/naranja) se siguen apilando como `drop-shadow` por fuera del polaroid (helper existente, no cambia).
+- Collection tint, halo de focus, recently-enriched y `is-own`: se conservan tal cual; solo se reposicionan al nuevo tamaño.
 
-### D) Pequeño refresh del cluster
-Tras `setCurrentRenderMode` con cambio de banda, llamar `markerClusterRef.current?.refreshClusters()` para que los markers que asoman al hacer spiderfy hereden el icono correcto.
+`iconAnchor` pasa a `[heroSize/2, 40]` (ancla en el centro de la imagen, no en el centro del polaroid) para que el polaroid "cuelgue" del punto geográfico de forma natural.
 
----
+### 4. Banda compact (z10-13): comportamiento residual
 
-## Lo que NO se toca
+El umbral nuevo (z11) hace que la banda `compact` quede en z10. A z10 se sigue pintando el marker estándar (dot/pin) como hasta ahora — sin cambios. Eso da una transición limpia: z≤9 micro 2px → z=10 dot → z≥11 polaroid.
 
-- Helper único `createCustomIcon` y los 4 modos (micro/compact/standard/rich) siguen siendo single source of truth.
-- `getPointVisualState` (paleta verde/gris/naranja), health rings, collection tint, ownership halo.
-- `buildHoverTooltipHtml` y el gating CSS (`.map-zoom-standard/rich .poi-hover-tooltip__img`).
-- Lógica de visibilidad (`isLocationVisibleInGlobalMap`), filtros, buckets.
+### 5. Performance
 
-## Verificación
+A z11 sobre Madrid hay ~80-150 puntos visibles tras clustering (capturado en el screenshot). Polaroid es un `<div>` con `<img>` lazy por el navegador. El `CANVAS_BACKEND_TRIGGER` (>5k markers tras cluster) sigue sin activarse. Sin impacto.
 
-1. Zoom 7 (vista global): puntos micro 5px (en zonas sin cluster).
-2. Zoom 12 (regional): círculos pequeños planos, hover Polaroid sin foto.
-3. Zoom 15 (local): círculos completos con gradiente + anillos, hover Polaroid **con foto Hero**.
-4. Zoom 18 (cercano): marker = foto Hero 40px, hover Polaroid también con foto.
-5. Enriquecer un punto en zoom 15 → la Polaroid pasa a mostrar la foto sin recargar.
+### 6. Sin cambios en
 
-## Archivos a tocar
+- `getPointVisualState`, `getPointHealthRings`, `getPointHeroImage` — siguen siendo el SoT.
+- Hover tooltip de map-tooltip.ts (sigue mostrando polaroid grande al hover sobre el marker pequeño en banda compact, irrelevante desde z≥11 porque el marker YA es polaroid).
+- Clustering, popup, panels.
 
-- `src/components/map/map-icons.ts` (1 línea: el objeto `modeScale`)
-- `src/components/LocationMap.tsx` (handler `map-render-mode-changed` + handler de enriquecimiento + un `refreshClusters`)
+### Archivos a tocar
+
+```text
+src/design-system/tokens/source/map.json        # richMin 17→11, heroMin 14→11
+src/components/map/map-icons.ts                 # rama heroUrl → siempre polaroid con placeholder fallback
+src/index.css                                   # .poi-hero-marker rediseño polaroid + .poi-hero-marker__placeholder
+mem://style/map/zoom-driven-hero                # actualizar regla canónica
+```
