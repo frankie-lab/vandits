@@ -67,7 +67,7 @@ const ROLE_COLORS: Record<AppRole, string> = {
  moderator: 'bg-orange-500',
  editor: 'bg-blue-500',
  supervisor: 'bg-cyan-500',
- user: 'bg-gray-500',
+ user: 'bg-muted-foreground',
 };
 
 const PERMISSION_LABELS: Record<AppPermission, string> = {
@@ -329,7 +329,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
 
  if (permissionsLoading) {
  return (
- <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 overlay-respect-progress" onClick={onClose}>
+ <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-modal flex items-center justify-center bg-foreground/50 overlay-respect-progress" onClick={onClose}>
  <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-card rounded-xl shadow-2xl p-8 max-w-md mx-4 flex flex-col items-center" onClick={e => e.stopPropagation()}>
  <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
  <p className="text-muted-foreground">Verificando permisos...</p>
@@ -340,7 +340,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
 
  if (!canManageUsers && !isMaster()) {
  return (
- <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 overlay-respect-progress" onClick={onClose}>
+ <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-modal flex items-center justify-center bg-foreground/50 overlay-respect-progress" onClick={onClose}>
  <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-card rounded-xl shadow-2xl p-8 max-w-md mx-4" onClick={e => e.stopPropagation()}>
  <Shield className="w-16 h-16 text-destructive mx-auto mb-4" />
  <h2 className="text-xl font-bold text-center mb-2">Acceso denegado</h2>
@@ -353,7 +353,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
 
  return (
  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-  className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 p-4 overlay-respect-progress"
+  className="fixed inset-0 z-modal flex items-center justify-center bg-foreground/50 p-4 overlay-respect-progress"
   onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
   >
    <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
@@ -408,7 +408,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  const isSaving = savingRole === `${user.id}-${role}`;
  return (
  <button key={role} onClick={() => toggleUserRole(user.id, role, hasRole)} disabled={isSaving}
- className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${hasRole ? `${ROLE_COLORS[role]} text-white` : 'bg-muted text-muted-foreground hover:bg-muted/80'} ${isSaving ? 'opacity-50' : ''}`}>
+ className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${hasRole ? `${ROLE_COLORS[role]} text-primary-foreground` : 'bg-muted text-muted-foreground hover:bg-muted/80'} ${isSaving ? 'opacity-50' : ''}`}>
  {isSaving ? (<Loader2 className="w-3 h-3 animate-spin" />) : (ROLE_LABELS[role])}
  </button>
  );
@@ -439,7 +439,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  <button onClick={() => { setExpandedRoles(prev => { const next = new Set(prev); if (next.has(role)) next.delete(role); else next.add(role); return next; }); }}
  className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
  <div className="flex items-center gap-3">
- <Badge className={`${ROLE_COLORS[role]} text-white`}>{ROLE_LABELS[role]}</Badge>
+ <Badge className={`${ROLE_COLORS[role]} text-primary-foreground`}>{ROLE_LABELS[role]}</Badge>
  <span className="text-sm text-muted-foreground">{rolePermissions.filter(rp => rp.role === role).length} permisos</span>
  </div>
  {isExpanded ? <ChevronDown className="w-5 h-5 text-muted-foreground" /> : <ChevronRight className="w-5 h-5 text-muted-foreground" />}

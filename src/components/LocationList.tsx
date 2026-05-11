@@ -20,7 +20,7 @@ import {
 const statusConfig = {
   current: { color: 'bg-green-500', label: 'Final' },
   previous: { color: 'bg-blue-500', label: 'Pendiente' },
-  unknown: { color: 'bg-gray-400', label: 'Importado' },
+  unknown: { color: 'bg-muted-foreground/60', label: 'Importado' },
   new: { color: 'bg-orange-500', label: 'Vacío' },
 };
 

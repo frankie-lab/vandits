@@ -37,7 +37,7 @@ const THEME_ORDER: MapTheme[] = ['light', 'dark'];
 const getButtonStyles = (theme: MapTheme) => {
  switch (theme) {
  case 'dark':
- return 'bg-gray-800 hover:bg-gray-700 text-yellow-400';
+ return 'bg-foreground hover:bg-foreground/90 text-amber-400';
  default:
  return '';
  }
