@@ -45,7 +45,6 @@ interface Props {
 }
 
 type Mode = 'move' | 'rename';
-type Tab = 'nearby' | 'rename';
 
 function geoLine(c: Pick<CoherenceCandidate, 'locality' | 'region' | 'country'>): string {
   return [c.locality, c.region, c.country].filter(Boolean).join(' · ');
