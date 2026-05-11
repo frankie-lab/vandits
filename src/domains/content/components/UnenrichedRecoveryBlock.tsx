@@ -340,9 +340,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
   // Con conflicto: tabs + footer.
   const mode = resolveMode(parsed);
   const soft = isCoherenceKind(parsed.kind);
-  const tone = soft
-    ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200/60'
-    : 'bg-red-50 dark:bg-red-900/20 border-red-200/60';
+  
   const iconClass = soft ? 'text-amber-600' : 'text-red-600';
   const title =
     mode === 'move' ? 'Mismo nombre, coordenadas distintas' : 'El nombre no encaja con la zona';
@@ -352,10 +350,12 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
       : 'Estos lugares están cerca de tus coordenadas. Renombra al correcto.';
   const candidates = getCandidates(parsed);
 
+  const accent = soft ? 'border-amber-400/60' : 'border-red-400/60';
+
   return (
-    <div className={`rounded-lg border ${tone} flex flex-col`}>
+    <div className={`flex flex-col border-t-2 ${accent}`}>
       {/* Cabecera */}
-      <div className="flex items-start gap-2 px-3 pt-2.5 pb-2">
+      <div className="flex items-start gap-2 pt-2 pb-1.5">
         <AlertCircle className={`w-4 h-4 flex-shrink-0 mt-0.5 ${iconClass}`} />
         <div className="flex-1 min-w-0">
           <div className="text-[12px] font-semibold leading-tight">{title}</div>
@@ -393,7 +393,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
           </div>
 
           {/* Contenido tab */}
-          <div className="px-3 py-2 bg-background/40">
+          <div className="py-1">
             {tab === 'nearby' && (
               <>
                 {candidates.length === 0 ? (
@@ -401,7 +401,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
                     Sin coincidencias cercanas.
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col divide-y divide-border/50">
                     {candidates.map((c, idx) => {
                       const apply = () =>
                         mode === 'move'
@@ -413,7 +413,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
                           type="button"
                           onClick={apply}
                           disabled={busy}
-                          className="group w-full text-left flex items-start gap-2 rounded border border-border/50 bg-background/80 hover:bg-background hover:border-primary/40 px-2.5 py-2 transition-colors disabled:opacity-50"
+                          className="group w-full text-left flex items-start gap-2 py-1.5 hover:bg-muted/40 transition-colors disabled:opacity-50"
                           title={mode === 'move' ? 'Mover el punto aquí' : 'Usar este nombre'}
                         >
                           <div className="flex-1 min-w-0">
