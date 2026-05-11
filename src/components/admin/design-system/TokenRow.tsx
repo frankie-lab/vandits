@@ -193,7 +193,6 @@ function Swatch({ row, groupId }: { row: PairedRow; groupId: string }) {
     );
   }
 
-  const single = row.tokens[0];
   const live = String(singleLive ?? row.value);
 
   if (isColorValue(live)) {
