@@ -100,23 +100,24 @@ function EditButton({ tokens, row }: { tokens: LeafToken[]; row: PairedRow }) {
       <PopoverContent className="w-80" align="end">
         <div className="space-y-4">
           {tokens.map((t) => {
-            const leaf = getLeaf(t.path);
+            const dotted = t.path.join('.');
+            const leaf = getLeaf(dotted);
             if (!leaf) return null;
-            const current = draft[t.path] ?? published[t.path] ?? leaf.baseValue;
+            const current = draft[dotted] ?? published[dotted] ?? leaf.baseValue;
             const modeLabel =
               row.kind === 'lightDark'
-                ? t.path.includes('.dark.')
+                ? dotted.includes('.dark.')
                   ? 'Modo oscuro'
                   : 'Modo claro'
-                : t.path;
+                : dotted;
             return (
-              <div key={t.path} className="space-y-2">
+              <div key={dotted} className="space-y-2">
                 <div className="text-xs font-medium">{modeLabel}</div>
                 <TokenValueEditor
                   type={leaf.type}
                   value={current}
                   baseValue={leaf.baseValue}
-                  onChange={(next) => setDraft(t.path, next)}
+                  onChange={(next) => setDraft(dotted, next)}
                 />
               </div>
             );
