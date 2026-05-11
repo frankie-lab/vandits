@@ -1068,7 +1068,7 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  }`}>
  {privacyData.default_location_visibility === option.value && (
  <div className="w-full h-full flex items-center justify-center">
- <div className="w-1.5 h-1.5 rounded-full bg-white" />
+ <div className="w-1.5 h-1.5 rounded-full bg-primary-foreground" />
  </div>
  )}
  </div>
@@ -1108,7 +1108,7 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  }`}>
  {privacyData.default_photo_visibility === option.value && (
  <div className="w-full h-full flex items-center justify-center">
- <div className="w-1.5 h-1.5 rounded-full bg-white" />
+ <div className="w-1.5 h-1.5 rounded-full bg-primary-foreground" />
  </div>
  )}
  </div>
@@ -1148,7 +1148,7 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  }`}>
  {privacyData.default_note_visibility === option.value && (
  <div className="w-full h-full flex items-center justify-center">
- <div className="w-1.5 h-1.5 rounded-full bg-white" />
+ <div className="w-1.5 h-1.5 rounded-full bg-primary-foreground" />
  </div>
  )}
  </div>
