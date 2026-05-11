@@ -1837,9 +1837,40 @@ serve(async (req) => {
     
     // 3. Merge: profile overrides > global config (v2 card schema)
     const activeFieldKeys = new Set(getActiveFields(globalConfig).map((f) => f.key));
-    const configuredImageSources = Array.isArray(imageSources) && imageSources.length > 0
+
+    // Toggles del panel admin "Fuentes de datos" (kind='enrichment').
+    // Se cargan una sola vez por request y se cachean 60s en el worker.
+    const enrichmentSources = await getEnabledSourceCodes('enrichment');
+    const useWikipedia = isSourceEnabled(enrichmentSources, 'enrich.wikipedia');
+    const useWikidata = isSourceEnabled(enrichmentSources, 'enrich.wikidata');
+    const useNominatim = isSourceEnabled(enrichmentSources, 'enrich.nominatim');
+    const useGeoNames = isSourceEnabled(enrichmentSources, 'enrich.geonames');
+    const useOverpass = isSourceEnabled(enrichmentSources, 'enrich.overpass');
+    const useCommons = isSourceEnabled(enrichmentSources, 'enrich.commons');
+    const useWikidataSparql = isSourceEnabled(enrichmentSources, 'enrich.wikidata_sparql');
+    const useOpenverse = isSourceEnabled(enrichmentSources, 'enrich.openverse');
+    console.log(
+      `[data_sources] enrichment → wp=${useWikipedia} wd=${useWikidata} ` +
+      `nom=${useNominatim} gn=${useGeoNames} ovp=${useOverpass} ` +
+      `cmm=${useCommons} sparql=${useWikidataSparql} ovrs=${useOpenverse}`
+    );
+
+    // Mapeo source-string-UI → toggle de data_sources
+    const isImageSourceAllowed = (s: string): boolean => {
+      if (s === 'user_uploaded') return true; // fuente interna, no externa
+      if (s === 'wikipedia') return useWikipedia;
+      if (s === 'wikimedia_commons') return useCommons;
+      if (s === 'wikimedia_geosearch') return useCommons;
+      if (s === 'wikidata') return useWikidataSparql; // imagen via SPARQL nearby
+      if (s === 'openverse') return useOpenverse;
+      if (s === 'osm') return useOverpass;
+      return true;
+    };
+
+    const configuredImageSources = (Array.isArray(imageSources) && imageSources.length > 0
       ? imageSources
-      : (globalConfig.image_sources ?? DEFAULT_CARD_CONFIG_V2.image_sources);
+      : (globalConfig.image_sources ?? DEFAULT_CARD_CONFIG_V2.image_sources)
+    ).filter((s: any) => typeof s === 'string' && isImageSourceAllowed(s));
     const activeExternalImageSources = configuredImageSources.filter((source): source is string => typeof source === 'string' && source !== 'user_uploaded');
     const shouldGenerateImage = generateImage && (profilePrefs?.enrichment_include_image ?? globalConfig.include_image) && activeExternalImageSources.length > 0;
     const minLength = profilePrefs?.enrichment_min_length ?? globalConfig.min_length;
