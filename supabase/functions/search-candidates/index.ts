@@ -328,6 +328,9 @@ Deno.serve(async (req) => {
     }
 
     const enabled = await getEnabledSearchSources();
+    // Para village-catalogs necesitamos el Set crudo de codes habilitados.
+    const allEnabledCodes = await getEnabledSourceCodes('search');
+
     const tasks: Array<Promise<Candidate[]>> = [];
     if (enabled.has('wikipedia-es')) tasks.push(searchWikipedia('es', term, limit));
     if (enabled.has('wikipedia-en')) tasks.push(searchWikipedia('en', term, limit));
@@ -336,6 +339,32 @@ Deno.serve(async (req) => {
     if (enabled.has('geonames')) tasks.push(searchGeoNames(term, limit));
     if (enabled.has('photon')) tasks.push(searchPhoton(term, limit, body.near));
     if (enabled.has('google-places')) tasks.push(searchGooglePlaces(term, limit, body.near));
+
+    // Village catalogs (fallback) — gating individual por adapter
+    tasks.push(
+      (async (): Promise<Candidate[]> => {
+        try {
+          const hits = await searchVillageCatalogs(
+            term,
+            body.countryCode ?? null,
+            allEnabledCodes, // null = todos habilitados
+          );
+          return hits.map((h) => ({
+            name: h.name,
+            lat: h.lat,
+            lng: h.lng,
+            url: h.url,
+            country: h.country,
+            source: 'village-catalog' as const,
+            // Marker en URL para que el cliente pueda mostrar badge del catálogo
+            locality: h.sourceName,
+          }));
+        } catch (e) {
+          console.warn('[search-candidates] village-catalogs failed:', e);
+          return [];
+        }
+      })(),
+    );
 
     const results = await Promise.all(tasks);
     let candidates = dedup(results.flat());
