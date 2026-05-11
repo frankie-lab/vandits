@@ -12,6 +12,8 @@ import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
 import DuplicatePolicy from "./pages/DuplicatePolicy";
 import { GlobalLoadingBar } from "@/shared/loading";
+import { DesignSystemThemeProvider } from "@/design-system/runtime/theme-provider";
+import { EditModeBar } from "@/components/admin/design-system/EditModeBar";
 
 
 const queryClient = new QueryClient();
