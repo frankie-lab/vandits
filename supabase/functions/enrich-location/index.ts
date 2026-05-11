@@ -1931,16 +1931,21 @@ serve(async (req) => {
         },
       );
       if (!coherence.ok && coherence.reason === 'name_coordinate_mismatch') {
-        console.log(`[enrich] ABORT: name "${coherence.providedName}" is at ${coherence.nameLocation?.distanceKm}km from provided coords. Returning candidates.`);
+        const kind = coherence.mismatchKind ?? 'name';
+        console.log(`[enrich] ABORT (${kind}): "${coherence.providedName}" candidate at ${coherence.nameLocation?.distanceKm}km. Returning candidates.`);
+        const message = kind === 'coordinate'
+          ? `"${coherence.providedName}" parece estar en ${coherence.nameLocation?.locality ?? coherence.nameLocation?.region ?? coherence.nameLocation?.country ?? 'otro punto'}, a ${coherence.nameLocation?.distanceKm} km de las coordenadas indicadas. ¿Mover el punto?`
+          : `El nombre "${coherence.providedName}" corresponde a un lugar que está a ${coherence.nameLocation?.distanceKm} km de las coordenadas. Selecciona la identidad correcta.`;
         return new Response(
           JSON.stringify({
             success: false,
             reason: 'name_coordinate_mismatch',
+            mismatchKind: kind,
             providedName: coherence.providedName,
             providedCoords: coherence.providedCoords,
             nameLocation: coherence.nameLocation,
             nearbyCandidates: coherence.nearbyCandidates ?? [],
-            message: `El nombre "${coherence.providedName}" corresponde a un lugar que está a ${coherence.nameLocation?.distanceKm} km de las coordenadas proporcionadas.`,
+            message,
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
