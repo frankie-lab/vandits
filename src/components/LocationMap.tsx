@@ -1181,7 +1181,12 @@ export function LocationMap() {
     // useEffect con acceso al estado fresco (selección/focus/recent) consume
     // para repintar los markers. Mantiene los call-sites intactos: lo lee
     // `createCustomIcon` del módulo `map-icons`.
+    // Fuerza el modo inicial y notifica para que cualquier marker creado
+    // antes/después con un currentRenderMode obsoleto (módulo singleton entre
+    // remounts) se repinte. Sin esto, en vista global los puntos se quedan
+    // en 'standard' y no aplica la representación 'micro'.
     setCurrentRenderMode(getRenderModeForZoom(mapRef.current.getZoom()));
+    window.dispatchEvent(new CustomEvent('map-render-mode-changed'));
     mapRef.current.on('zoomend', () => {
       if (!mapRef.current) return;
       const zoom = mapRef.current.getZoom();
