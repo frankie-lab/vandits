@@ -25,6 +25,33 @@ import {
 // `mem://style/map/health-rings-rule`.
 const RING_GAP = RING_WIDTH;
 
+/**
+ * Modo de render por zoom (Ola 1 — arquitectura visual por zoom).
+ * Single source of truth: `currentRenderMode` se actualiza desde `LocationMap`
+ * en cada `zoomend`. `createCustomIcon` lo lee internamente — los call-sites
+ * no cambian. Las invariantes (3 estados, health rings, collection tint) se
+ * mantienen en `standard`/`rich`; se simplifican en `compact` y desaparecen
+ * en `micro` para soportar zoom global con miles de puntos.
+ */
+export type MarkerRenderMode = 'micro' | 'compact' | 'standard' | 'rich';
+
+let currentRenderMode: MarkerRenderMode = 'standard';
+
+export const getRenderModeForZoom = (zoom: number): MarkerRenderMode => {
+  if (zoom <= 9) return 'micro';
+  if (zoom <= 13) return 'compact';
+  if (zoom <= 16) return 'standard';
+  return 'rich';
+};
+
+export const setCurrentRenderMode = (mode: MarkerRenderMode): boolean => {
+  if (currentRenderMode === mode) return false;
+  currentRenderMode = mode;
+  return true;
+};
+
+export const getCurrentRenderMode = (): MarkerRenderMode => currentRenderMode;
+
 export const createCustomIcon = (
   isSelected: boolean,
   isFocused: boolean,
