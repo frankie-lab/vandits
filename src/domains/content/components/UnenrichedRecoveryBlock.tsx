@@ -1,28 +1,42 @@
 /**
- * UnenrichedRecoveryBlock — single component shown inside the ficha of any
- * non-enriched POI (popup, ficha completa, document waypoint row).
+ * UnenrichedRecoveryBlock — bloque único de resolución para POIs sin enriquecer.
  *
- * Mirrors the resolution UI from BatchEnrichmentPanel.ErrorsResolutionList,
- * scoped to one location, hydrated from the most recent enrichment_jobs row
- * via `useEnrichmentFailure`.
+ * Diseño "2 caminos claros + preselección":
+ *  - Cabecera: título del caso + frase corta.
+ *  - Recomendación destacada: el mejor candidato preseleccionado con CTA primario.
+ *  - Acciones secundarias colapsadas (ver alternativas, mantener, renombrar manual,
+ *    contexto cercano, reintentar).
  *
- * Variants:
- *  - 'card' : full-width block (used in GalleryView / ficha completa)
- *  - 'row'  : compact one-line block (used in DocumentWaypointsTabs rows)
+ * Casos (verdict):
+ *  - coordinate_mismatch  → CTA "Mover el punto aquí"
+ *  - name_mismatch / llm_unverifiable / no_match → CTA "Renombrar a …"
+ *  - sin parsed (aún sin enriquecer y sin error) → CTA "Enriquecer"
  *
- * See mem://logic/enrichment/per-poi-recovery-block
+ * Variantes:
+ *  - 'card' : popup / ficha completa
+ *  - 'row'  : compacta (1 línea cabecera + CTA), el resto detrás del popover
+ *
+ * Ver mem://logic/enrichment/per-poi-recovery-block
  */
 
 import * as React from 'react';
-import { AlertCircle, Compass, Edit3, Loader2, RefreshCw } from 'lucide-react';
+import {
+  AlertCircle,
+  ChevronDown,
+  Compass,
+  Edit3,
+  Loader2,
+  MapPin,
+  RefreshCw,
+  Type as TypeIcon,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation } from '@/types/location';
 import {
   isCoherenceKind,
-  labelForKind,
+  type CoherenceCandidate,
   type ParsedEnrichmentError,
 } from '@/domains/content/lib/enrichment-error-kind';
 import { triggerEnrichLocation } from '@/domains/content/lib/enrich-location';
@@ -37,23 +51,39 @@ interface Props {
   variant?: 'card' | 'row';
 }
 
-export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
-  const isEnriched = getPointVisualState(location) === 'enriched';
-  const { parsed, loading } = useEnrichmentFailure(location.id, !isEnriched);
+type RecommendationKind = 'move' | 'rename' | 'enrich';
 
-  const [busy, setBusy] = React.useState(false);
-  const [renaming, setRenaming] = React.useState(false);
-  const [renameValue, setRenameValue] = React.useState('');
+interface Recommendation {
+  kind: RecommendationKind;
+  title: string;
+  hint: string;
+  candidate: CoherenceCandidate | null;
+  candidates: CoherenceCandidate[];
+  primaryLabel: string;
+  secondaryLabel: string;
+}
 
-  if (isEnriched) return null;
+function geoLine(c: Pick<CoherenceCandidate, 'locality' | 'region' | 'country'>): string {
+  return [c.locality, c.region, c.country].filter(Boolean).join(' · ');
+}
 
-  const soft = parsed ? isCoherenceKind(parsed.kind) : false;
-  const candidates = parsed?.candidates ?? [];
-  const mismatchKind = parsed?.mismatchKind;
-  const isCoordinateMismatch = parsed?.kind === 'coherence' && mismatchKind === 'coordinate';
-  // Recommended row = textual candidate from nameLocation when present; else first nearby.
-  const recommendedFromName = parsed?.nameLocation && parsed.nameLocation.title
-    ? {
+function getRecommendation(parsed: ParsedEnrichmentError | null): Recommendation {
+  // Caso sin error: aún no enriquecido.
+  if (!parsed) {
+    return {
+      kind: 'enrich',
+      title: 'Aún sin enriquecer',
+      hint: 'Lanza la IA para generar la ficha de este punto.',
+      candidate: null,
+      candidates: [],
+      primaryLabel: 'Enriquecer',
+      secondaryLabel: 'Contexto cercano',
+    };
+  }
+
+  const candidates = parsed.candidates ?? [];
+  const nameLoc = parsed.nameLocation && parsed.nameLocation.title
+    ? ({
         name: parsed.nameLocation.title,
         lat: parsed.nameLocation.lat,
         lng: parsed.nameLocation.lng,
@@ -62,43 +92,77 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
         country: parsed.nameLocation.country,
         region: parsed.nameLocation.region,
         locality: parsed.nameLocation.locality,
-      }
+      } as CoherenceCandidate)
     : null;
-  const allCandidates = [
-    ...(recommendedFromName ? [recommendedFromName] : []),
-    ...candidates.filter((c) => !recommendedFromName || c.name !== recommendedFromName.name),
-  ].slice(0, 5);
 
-  const tone =
-    parsed == null
-      ? 'bg-muted/40 border-border/60'
-      : soft
-        ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200/50'
-        : 'bg-red-50 dark:bg-red-900/20 border-red-200/50';
-  const iconClass =
-    parsed == null ? 'text-muted-foreground' : soft ? 'text-amber-600' : 'text-red-600';
-  const badgeClass =
-    parsed == null
-      ? 'border-border text-muted-foreground'
-      : soft
-        ? 'border-amber-400 text-amber-700'
-        : 'border-red-400 text-red-700';
+  // Determina el modo: coords mal vs nombre mal.
+  const isCoordinateMismatch = parsed.mismatchKind === 'coordinate';
 
-  const message = parsed?.message ?? 'Este punto aún no se ha enriquecido.';
-  const distanceKm = parsed?.nameLocation?.distanceKm;
-  const showRenameButton =
-    (parsed?.kind === 'coherence' || parsed?.kind === 'llm_unverifiable') &&
-    candidates.length > 0;
+  if (isCoordinateMismatch) {
+    // Mismo nombre, lejos. Recomendamos mover.
+    const candidate = nameLoc ?? candidates[0] ?? null;
+    const allCandidates = candidate
+      ? [candidate, ...candidates.filter((c) => c.name !== candidate.name)]
+      : candidates;
+    return {
+      kind: 'move',
+      title: 'Mismo nombre, coordenadas distintas',
+      hint: 'El nombre coincide con un lugar lejano. Mueve el punto si es el mismo lugar.',
+      candidate,
+      candidates: allCandidates,
+      primaryLabel: 'Mover el punto aquí',
+      secondaryLabel: 'Mantener mis coordenadas',
+    };
+  }
 
+  // Nombre no encaja con la zona (coherence-name, llm_unverifiable, no_match).
+  const candidate = candidates[0] ?? null;
+  return {
+    kind: 'rename',
+    title: 'El nombre no encaja con la zona',
+    hint: candidate
+      ? 'Estos lugares están cerca de tus coordenadas. Renombra al correcto.'
+      : 'No encontramos un lugar coincidente cerca de tus coordenadas.',
+    candidate,
+    candidates,
+    primaryLabel: candidate ? `Renombrar a "${candidate.name ?? ''}"` : 'Renombrar manualmente',
+    secondaryLabel: 'Mantener nombre',
+  };
+}
+
+export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
+  const isEnriched = getPointVisualState(location) === 'enriched';
+  const { parsed, loading } = useEnrichmentFailure(location.id, !isEnriched);
+
+  const [busy, setBusy] = React.useState(false);
+  const [expanded, setExpanded] = React.useState(false);
+  const [renaming, setRenaming] = React.useState(false);
+  const [renameValue, setRenameValue] = React.useState('');
+
+  if (isEnriched) return null;
+
+  const rec = getRecommendation(parsed);
+  const soft = parsed ? isCoherenceKind(parsed.kind) : false;
+  const tone = parsed == null
+    ? 'bg-muted/40 border-border/60'
+    : soft
+      ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200/60'
+      : 'bg-red-50 dark:bg-red-900/20 border-red-200/60';
+  const iconClass = parsed == null
+    ? 'text-muted-foreground'
+    : soft
+      ? 'text-amber-600'
+      : 'text-red-600';
+
+  const alternatives = rec.candidates.filter((c) => c !== rec.candidate);
+
+  // ── handlers ──────────────────────────────────────────────────────────────
   const handleRetry = async () => {
     setBusy(true);
     try {
       const result = await triggerEnrichLocation(location.id, { focusAfter: false });
-      if (result.success) {
-        enrichmentFailureStore.invalidate(location.id);
-      } else if (result.error) {
-        toast.error(result.error);
-      }
+      if (result.success) enrichmentFailureStore.invalidate(location.id);
+      else if (result.error) toast.error(result.error);
     } finally {
       setBusy(false);
     }
@@ -113,44 +177,12 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
           reason: parsed?.kind === 'coherence' ? 'name-coordinate-mismatch' : 'manual',
           providedName: parsed?.providedName ?? location.name,
           nameLocation: parsed?.nameLocation,
-          nearbyCandidates: candidates,
+          nearbyCandidates: parsed?.candidates ?? [],
         },
       }),
     );
   };
 
-  const handleRename = async () => {
-    const next = renameValue.trim();
-    if (!next || next === location.name) {
-      setRenaming(false);
-      return;
-    }
-    setBusy(true);
-    try {
-      const { error } = await supabase
-        .from('locations')
-        .update({ name: next, updated_at: new Date().toISOString() })
-        .eq('id', location.id);
-      if (error) throw error;
-      setRenaming(false);
-      setRenameValue('');
-      const result = await triggerEnrichLocation(location.id, { focusAfter: false });
-      if (result.success) {
-        enrichmentFailureStore.invalidate(location.id);
-      }
-    } catch (e) {
-      toast.error('No se pudo renombrar');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const startRename = () => {
-    setRenameValue(candidates[0]?.name ?? location.name);
-    setRenaming(true);
-  };
-
-  // Three per-candidate actions used by the inline list when there is a coherence conflict.
   const handleUseName = async (candidateName?: string) => {
     if (!candidateName || candidateName === location.name) return;
     setBusy(true);
@@ -190,7 +222,10 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
   const handleIgnoreConflict = async () => {
     setBusy(true);
     try {
-      const result = await triggerEnrichLocation(location.id, { focusAfter: false, skipValidation: true });
+      const result = await triggerEnrichLocation(location.id, {
+        focusAfter: false,
+        skipValidation: true,
+      });
       if (result.success) enrichmentFailureStore.invalidate(location.id);
       else if (result.error) toast.error(result.error);
     } finally {
@@ -198,88 +233,251 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
     }
   };
 
-  const compact = variant === 'row';
-  const padding = compact ? 'p-2' : 'p-3';
-  const titleSize = compact ? 'text-[11px]' : 'text-xs';
+  const handleRename = async () => {
+    const next = renameValue.trim();
+    if (!next || next === location.name) {
+      setRenaming(false);
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error } = await supabase
+        .from('locations')
+        .update({ name: next, updated_at: new Date().toISOString() })
+        .eq('id', location.id);
+      if (error) throw error;
+      setRenaming(false);
+      setRenameValue('');
+      const result = await triggerEnrichLocation(location.id, { focusAfter: false });
+      if (result.success) enrichmentFailureStore.invalidate(location.id);
+    } catch {
+      toast.error('No se pudo renombrar');
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  return (
-    <div className={`rounded-lg border ${tone} ${padding} flex flex-col gap-2`}>
-      <div className="flex items-start gap-2">
-        <AlertCircle className={`w-4 h-4 flex-shrink-0 mt-0.5 ${iconClass}`} />
+  const startRename = () => {
+    setRenameValue(rec.candidate?.name ?? location.name);
+    setRenaming(true);
+  };
+
+  // CTA primario según el modo recomendado.
+  const runPrimary = () => {
+    if (rec.kind === 'move' && rec.candidate) {
+      return handleMovePoint(rec.candidate.lat, rec.candidate.lng);
+    }
+    if (rec.kind === 'rename') {
+      if (rec.candidate?.name) return handleUseName(rec.candidate.name);
+      return startRename();
+    }
+    return handleRetry();
+  };
+
+  const runSecondary = () => {
+    if (rec.kind === 'enrich') return handleOpenContext();
+    return handleIgnoreConflict();
+  };
+
+  // ── render: variante row (compacta) ───────────────────────────────────────
+  if (variant === 'row') {
+    return (
+      <div className={`rounded-lg border ${tone} px-2 py-1.5 flex items-center gap-2`}>
+        <AlertCircle className={`w-3.5 h-3.5 flex-shrink-0 ${iconClass}`} />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="outline" className={`text-[9px] px-1.5 py-0 h-4 ${badgeClass}`}>
-              {parsed ? labelForKind(parsed.kind) : 'Sin enriquecer'}
-            </Badge>
-            {distanceKm != null && (
-              <span className="text-[10px] text-muted-foreground">{distanceKm} km</span>
-            )}
-            {loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
-          </div>
-          {!compact && (
-            <p className={`${titleSize} text-muted-foreground mt-1 line-clamp-2`}>{message}</p>
+          <div className="text-[11px] font-medium truncate">{rec.title}</div>
+          {rec.candidate && (
+            <div className="text-[10px] text-muted-foreground truncate">
+              {rec.candidate.name}
+              {rec.candidate.distanceKm != null && ` · ${rec.candidate.distanceKm} km`}
+            </div>
           )}
         </div>
+        <Button
+          size="sm"
+          variant="default"
+          className="h-7 text-[11px] px-2"
+          onClick={runPrimary}
+          disabled={busy}
+        >
+          {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : rec.primaryLabel}
+        </Button>
+      </div>
+    );
+  }
+
+  // ── render: variante card ─────────────────────────────────────────────────
+  return (
+    <div className={`rounded-lg border ${tone} flex flex-col`}>
+      {/* Cabecera */}
+      <div className="flex items-start gap-2 px-3 pt-2.5 pb-2">
+        <AlertCircle className={`w-4 h-4 flex-shrink-0 mt-0.5 ${iconClass}`} />
+        <div className="flex-1 min-w-0">
+          <div className="text-[12px] font-semibold leading-tight">{rec.title}</div>
+          <div className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{rec.hint}</div>
+        </div>
+        {loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground mt-1" />}
       </div>
 
-      {!renaming && allCandidates.length > 0 && (
-        <div className="flex flex-col gap-1 border-t border-amber-200/40 dark:border-amber-800/40 pt-2">
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            {isCoordinateMismatch
-              ? 'Misma identidad, coordenadas distintas'
-              : 'Candidatos cercanos'}
-          </div>
-          {allCandidates.map((c, idx) => {
-            const geo = [c.locality, c.region, c.country].filter(Boolean).join(' · ');
-            return (
-              <div
-                key={`${c.name}-${idx}`}
-                className="flex items-center gap-1.5 flex-wrap rounded border border-border/60 bg-background/60 px-1.5 py-1"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="text-[11px] font-medium truncate">{c.name}</div>
-                  <div className="text-[10px] text-muted-foreground truncate">
-                    {c.distanceKm != null && <span>{c.distanceKm} km</span>}
-                    {geo && <span>{c.distanceKm != null ? ' · ' : ''}{geo}</span>}
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 text-[10px] px-1.5"
-                  onClick={() => handleUseName(c.name)}
-                  disabled={busy || !c.name || c.name === location.name}
-                  title="Usar este nombre para el punto"
-                >
-                  Usar nombre
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 text-[10px] px-1.5"
-                  onClick={() => handleMovePoint(c.lat, c.lng)}
-                  disabled={busy || typeof c.lat !== 'number' || typeof c.lng !== 'number'}
-                  title="Mover el punto a estas coordenadas"
-                >
-                  Mover aquí
-                </Button>
+      {/* Recomendación */}
+      {rec.candidate && !renaming && (
+        <div className="mx-3 mb-2 rounded-md border border-border/60 bg-background/80 px-2.5 py-2 flex flex-col gap-2">
+          <div className="flex items-start gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="text-[12px] font-medium leading-tight break-words">
+                {rec.candidate.name}
               </div>
-            );
-          })}
+              <div className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
+                {rec.candidate.distanceKm != null && (
+                  <span>a {rec.candidate.distanceKm} km</span>
+                )}
+                {geoLine(rec.candidate) && (
+                  <span>
+                    {rec.candidate.distanceKm != null ? ' · ' : ''}
+                    {geoLine(rec.candidate)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="sm"
+              variant="default"
+              className="h-7 text-[11px] px-2.5 gap-1 flex-1"
+              onClick={runPrimary}
+              disabled={busy}
+            >
+              {busy ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : rec.kind === 'move' ? (
+                <MapPin className="w-3 h-3" />
+              ) : (
+                <TypeIcon className="w-3 h-3" />
+              )}
+              <span className="truncate">{rec.primaryLabel}</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-[11px] px-2"
+              onClick={runSecondary}
+              disabled={busy}
+            >
+              {rec.secondaryLabel}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Caso enrich (sin candidate): CTA primario aislado */}
+      {!rec.candidate && !renaming && rec.kind === 'enrich' && (
+        <div className="mx-3 mb-2 flex items-center gap-1.5">
+          <Button
+            size="sm"
+            variant="default"
+            className="h-7 text-[11px] px-2.5 gap-1 flex-1"
+            onClick={runPrimary}
+            disabled={busy}
+          >
+            {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+            {rec.primaryLabel}
+          </Button>
           <Button
             size="sm"
             variant="ghost"
-            className="h-6 text-[10px] self-start text-muted-foreground"
-            onClick={handleIgnoreConflict}
+            className="h-7 text-[11px] px-2 gap-1"
+            onClick={runSecondary}
             disabled={busy}
           >
-            Ignorar conflicto y enriquecer igual
+            <Compass className="w-3 h-3" />
+            {rec.secondaryLabel}
           </Button>
         </div>
       )}
 
-      {renaming ? (
-        <div className="flex flex-col gap-1.5">
+      {/* Caso rename sin candidato: solo "Renombrar manualmente" */}
+      {!rec.candidate && !renaming && rec.kind === 'rename' && (
+        <div className="mx-3 mb-2 flex items-center gap-1.5">
+          <Button
+            size="sm"
+            variant="default"
+            className="h-7 text-[11px] px-2.5 gap-1 flex-1"
+            onClick={startRename}
+            disabled={busy}
+          >
+            <Edit3 className="w-3 h-3" />
+            Renombrar manualmente
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-[11px] px-2"
+            onClick={runSecondary}
+            disabled={busy}
+          >
+            {rec.secondaryLabel}
+          </Button>
+        </div>
+      )}
+
+      {/* Alternativas colapsadas */}
+      {!renaming && alternatives.length > 0 && (
+        <div className="mx-3 mb-2">
+          <button
+            type="button"
+            className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+            onClick={() => setExpanded((v) => !v)}
+          >
+            <ChevronDown
+              className={`w-3 h-3 transition-transform ${expanded ? 'rotate-180' : ''}`}
+            />
+            {expanded
+              ? 'Ocultar alternativas'
+              : `Ver ${alternatives.length} alternativa${alternatives.length === 1 ? '' : 's'}`}
+          </button>
+          {expanded && (
+            <div className="mt-1.5 flex flex-col gap-1">
+              {alternatives.map((c, idx) => (
+                <div
+                  key={`${c.name ?? 'cand'}-${idx}`}
+                  className="flex items-center gap-2 rounded border border-border/50 bg-background/60 px-2 py-1.5"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[11px] font-medium truncate">{c.name}</div>
+                    <div className="text-[10px] text-muted-foreground truncate">
+                      {c.distanceKm != null && <span>{c.distanceKm} km</span>}
+                      {geoLine(c) && (
+                        <span>
+                          {c.distanceKm != null ? ' · ' : ''}
+                          {geoLine(c)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 text-[10px] px-1.5"
+                    onClick={() =>
+                      rec.kind === 'move'
+                        ? handleMovePoint(c.lat, c.lng)
+                        : handleUseName(c.name)
+                    }
+                    disabled={busy}
+                  >
+                    {rec.kind === 'move' ? 'Mover aquí' : 'Usar nombre'}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Input de renombrado manual */}
+      {renaming && (
+        <div className="mx-3 mb-2 flex flex-col gap-1.5">
           <div className="flex items-center gap-1">
             <input
               autoFocus
@@ -316,57 +514,40 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
               Cancelar
             </Button>
           </div>
-          {candidates.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {candidates.slice(0, 4).map((c, idx) => (
-                <button
-                  key={`${c.name}-${idx}`}
-                  type="button"
-                  onClick={() => setRenameValue(c.name ?? '')}
-                  className="text-[10px] px-1.5 py-0.5 rounded border border-amber-300 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30"
-                >
-                  {c.name}
-                  {c.distanceKm != null && (
-                    <span className="ml-1 text-muted-foreground">{c.distanceKm}km</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
-      ) : (
-        <div className="flex items-center gap-1 flex-wrap">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 text-[11px] gap-1"
+      )}
+
+      {/* Pie de acciones secundarias (text-link) */}
+      {!renaming && (
+        <div className="border-t border-border/40 px-3 py-1.5 flex items-center gap-3 text-[11px]">
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
             onClick={handleRetry}
             disabled={busy}
           >
-            {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+            <RefreshCw className="w-3 h-3" />
             Reintentar
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 text-[11px] gap-1 text-amber-700 dark:text-amber-400"
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
             onClick={handleOpenContext}
             disabled={busy}
           >
             <Compass className="w-3 h-3" />
             Contexto cercano
-          </Button>
-          {showRenameButton && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 text-[11px] gap-1"
+          </button>
+          {rec.kind !== 'enrich' && (
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground disabled:opacity-50 ml-auto"
               onClick={startRename}
               disabled={busy}
             >
               <Edit3 className="w-3 h-3" />
-              Renombrar
-            </Button>
+              Renombrar…
+            </button>
           )}
         </div>
       )}
