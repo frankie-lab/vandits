@@ -74,6 +74,58 @@ export default {
         'large': 'var(--shadow-lg)',
         'xl': 'var(--shadow-xl)',
       },
+      // ── Design-system tokens exposed as Tailwind utilities ─────────────
+      // (z-index / typography / density / motion). Wired from
+      // src/shared/styles/tokens/*.css through CSS variables.
+      zIndex: {
+        base: 'var(--z-base)',
+        map: 'var(--z-map)',
+        'map-overlay': 'var(--z-map-overlay)',
+        toolbar: 'var(--z-toolbar)',
+        'toolbar-raised': 'var(--z-toolbar-raised)',
+        popover: 'var(--z-popover)',
+        modal: 'var(--z-modal)',
+        'modal-nested': 'var(--z-modal-nested)',
+        'modal-top': 'var(--z-modal-top)',
+        toast: 'var(--z-toast)',
+        'progress-bar': 'var(--z-progress-bar)',
+        'modal-import': 'var(--z-modal-import)',
+        max: 'var(--z-max)',
+      },
+      fontSize: {
+        'h1': ['var(--text-h1)', { lineHeight: 'var(--lh-h1)', letterSpacing: '-0.01em' }],
+        'h2': ['var(--text-h2)', { lineHeight: 'var(--lh-h2)', letterSpacing: '-0.005em' }],
+        'h3': ['var(--text-h3)', { lineHeight: 'var(--lh-h3)' }],
+        'h4': ['var(--text-h4)', { lineHeight: 'var(--lh-h4)' }],
+        'body': ['var(--text-body)', { lineHeight: 'var(--lh-body)' }],
+        'caption': ['var(--text-caption)', { lineHeight: 'var(--lh-caption)', letterSpacing: '0.005em' }],
+        'micro': ['var(--text-micro)', { lineHeight: 'var(--lh-micro)', letterSpacing: '0.01em' }],
+      },
+      height: {
+        'control-sm': 'var(--control-h-sm)',
+        'control-md': 'var(--control-h-md)',
+        'control-lg': 'var(--control-h-lg)',
+        'control-xl': 'var(--control-h-xl)',
+      },
+      minHeight: {
+        'control-sm': 'var(--control-h-sm)',
+        'control-md': 'var(--control-h-md)',
+        'control-lg': 'var(--control-h-lg)',
+        'control-xl': 'var(--control-h-xl)',
+      },
+      transitionDuration: {
+        instant: 'var(--dur-instant)',
+        fast: 'var(--dur-fast)',
+        base: 'var(--dur-base)',
+        slow: 'var(--dur-slow)',
+        xslow: 'var(--dur-xslow)',
+      },
+      transitionTimingFunction: {
+        standard: 'var(--ease-standard)',
+        emphasized: 'var(--ease-emphasized)',
+        decel: 'var(--ease-decel)',
+        accel: 'var(--ease-accel)',
+      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
