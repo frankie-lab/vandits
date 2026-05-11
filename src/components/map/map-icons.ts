@@ -102,7 +102,7 @@ export const createCustomIcon = (
   // apilados de dentro hacia fuera por orden de severidad. Helper único:
   // `getPointHealthRings`. La regla "verde nunca marca error" vive dentro
   // de `hasEnrichmentFailure` y aquí se respeta automáticamente.
-  const healthRings = getPointHealthRings(location);
+  const healthRings = skipHealthRings ? [] : getPointHealthRings(location);
   const ringCount = healthRings.length;
   const ringPad = ringCount > 0 ? ringCount * RING_GAP + 2 : 0;
   const containerSize = size + ringPad * 2;
