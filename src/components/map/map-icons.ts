@@ -88,10 +88,14 @@ export const createCustomIcon = (
   // más visible para distinguirlos sobre el ruido global.
   const renderMode = currentRenderMode;
   if (renderMode === 'micro' && !isFocused && !isSelected) {
-    const microSize = isOwn ? 9 : 5;
+    // Tamaño fijo en vista global para garantizar progresión monotónica
+    // (micro 5px < compact ~8px < standard ~12px < rich ~14px). La pertenencia
+    // (`isOwn`) se diferencia solo por halo más marcado y por `mine-pane`
+    // (capa superior), nunca por diámetro. Ver `.lovable/plan.md`.
+    const microSize = 5;
     const dot = entry.fill_color;
     const haloStyle = isOwn
-      ? 'box-shadow:0 0 0 1.5px rgba(255,255,255,1),0 0 4px rgba(0,0,0,0.35);'
+      ? 'box-shadow:0 0 0 1.25px rgba(255,255,255,1),0 0 3px rgba(0,0,0,0.4);'
       : 'box-shadow:0 0 0 1px rgba(255,255,255,0.85);opacity:0.85;';
     return L.divIcon({
       className: `custom-marker-micro${isOwn ? ' is-own' : ''}`,
