@@ -23,7 +23,10 @@ interface State {
   setEditMode: (v: boolean) => void;
   hydrate: (published: OverrideMap) => void;
   setDraft: (path: string, value: string | number) => void;
+  /** Restaurar el valor de fábrica de un alias (re-vincular a su $ref). */
   resetToBase: (path: string) => void;
+  /** Alias de resetToBase con nombre semántico: vuelve a heredar del primitivo. */
+  relink: (path: string) => void;
   discard: () => void;
   publish: (note?: string) => Promise<void>;
   resetAll: () => Promise<void>;
@@ -64,6 +67,10 @@ export const useDesignSystemEdit = create<State>((set, get) => ({
     delete published[path];
     set({ draft, published });
     apply(effective(published, draft));
+  },
+
+  relink: (path) => {
+    get().resetToBase(path);
   },
 
   discard: () => {
