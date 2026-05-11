@@ -15,7 +15,7 @@
  * ellos), por eso no usamos AnimatePresence al borrarlos — sólo escondemos
  * el chrome exterior cuando ningún lane está activo.
  */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { EnrichmentLane } from '@/shared/progress/EnrichmentLane';
 import { GeocodingLane } from '@/shared/progress/GeocodingLane';
@@ -23,15 +23,38 @@ import { GeocodingLane } from '@/shared/progress/GeocodingLane';
 export function BottomProgressBar() {
   const [enrichmentActive, setEnrichmentActive] = useState(false);
   const [geocodingActive, setGeocodingActive] = useState(false);
+  const barRef = useRef<HTMLDivElement | null>(null);
 
   const anyActive = enrichmentActive || geocodingActive;
 
+  // Publish bar height as a global CSS variable so full-viewport overlays
+  // (dialogs, sheets, admin panels) can reserve space and not be obscured.
+  // Consumed by `:root { --bottom-progress-h }` rule in index.css.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!anyActive) {
+      root.style.setProperty('--bottom-progress-h', '0px');
+      return;
+    }
+    const measure = () => {
+      const h = barRef.current?.offsetHeight ?? 0;
+      root.style.setProperty('--bottom-progress-h', `${h}px`);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (barRef.current) ro.observe(barRef.current);
+    return () => {
+      ro.disconnect();
+      root.style.setProperty('--bottom-progress-h', '0px');
+    };
+  }, [anyActive]);
   return (
     <motion.div
+      ref={barRef}
       initial={false}
       animate={{ y: anyActive ? 0 : 120, opacity: anyActive ? 1 : 0 }}
       transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-      className="fixed bottom-0 left-0 right-0 z-[1000] pointer-events-none"
+      className="fixed bottom-0 left-0 right-0 z-[2100] pointer-events-none"
       aria-hidden={!anyActive}
     >
       <div
