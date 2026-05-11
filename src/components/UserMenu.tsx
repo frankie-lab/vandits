@@ -65,9 +65,10 @@ import {
     FileText,
      FolderOpen,
      Tag,
-      Cloud,
-      Layers,
-  type LucideIcon,
+       Cloud,
+       Layers,
+       Database,
+   type LucideIcon,
 } from 'lucide-react';
 
 // Icon map removed (was curator-specific)
