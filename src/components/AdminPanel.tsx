@@ -30,8 +30,9 @@ import {
 import { AuditPanel } from './AuditPanel';
 import { GeographyBackfillPanel } from './admin/GeographyBackfillPanel';
 import { DataSourcesPanel } from './admin/DataSourcesPanel';
+import { DesignSystemPanel } from './admin/DesignSystemPanel';
 
-type AdminTab = 'users' | 'permissions' | 'markers' | 'routes' | 'icons' | 'enrichment' | 'audit' | 'geography' | 'sources';
+type AdminTab = 'users' | 'permissions' | 'markers' | 'routes' | 'icons' | 'enrichment' | 'audit' | 'geography' | 'sources' | 'design-system';
 
 interface AdminPanelProps {
  onClose: () => void;
