@@ -61,15 +61,20 @@ function collectTokens(tree, breadcrumbs = [], root = tree) {
     if (!node || typeof node !== 'object') continue;
     if (key.startsWith('$')) continue;
     if ('value' in node || '$ref' in node) {
-      // `_css` is optional: tokens without it are emitted in TS only
-      // (e.g. zoom thresholds, numeric scales, pane z-indices consumed
-      // exclusively from TypeScript rules/adapters).
+      // `_css` is optional and may be a string or an array (a single
+      // semantic token can drive multiple CSS vars, e.g. `surface.card`
+      // emits `--surface-card` AND legacy `--card`/`--muted`).
+      const cssNames = Array.isArray(node._css)
+        ? node._css
+        : node._css
+          ? [node._css]
+          : [];
       tokens.push({
         path: [...breadcrumbs, key],
-        cssName: node._css || null,
+        cssNames,
         value: resolveValue(node, root),
         reducedMotion: node._reducedMotion,
-        isPrimitive: !node._css && !node.$ref,
+        isPrimitive: cssNames.length === 0 && !node.$ref,
       });
     } else {
       tokens.push(...collectTokens(node, [...breadcrumbs, key], root));
@@ -85,16 +90,15 @@ function emitCss(tokens) {
   const reducedMotionVars = [];
 
   for (const t of tokens) {
-    if (!t.cssName) continue;
-    const line = `  ${t.cssName}: ${t.value};`;
+    if (!t.cssNames || t.cssNames.length === 0) continue;
     const isDark = t.path[0] === 'color' && t.path[1] === 'dark';
-    if (isDark) {
-      darkVars.push(line);
-    } else {
-      lightVars.push(line);
-    }
-    if (t.reducedMotion !== undefined) {
-      reducedMotionVars.push(`    ${t.cssName}: ${t.reducedMotion};`);
+    for (const cssName of t.cssNames) {
+      const line = `  ${cssName}: ${t.value};`;
+      if (isDark) darkVars.push(line);
+      else lightVars.push(line);
+      if (t.reducedMotion !== undefined) {
+        reducedMotionVars.push(`    ${cssName}: ${t.reducedMotion};`);
+      }
     }
   }
 
@@ -168,10 +172,12 @@ function emitTailwind(tokens) {
   // need to import it yet.
   const grouped = {};
   for (const t of tokens) {
-    if (!t.cssName) continue;
+    if (!t.cssNames || t.cssNames.length === 0) continue;
     const category = t.path[0];
     grouped[category] = grouped[category] || {};
-    grouped[category][t.cssName] = `var(${t.cssName})`;
+    for (const cssName of t.cssNames) {
+      grouped[category][cssName] = `var(${cssName})`;
+    }
   }
   return `/**
  * VANDITS Design System — Tailwind token bridge (auto-generated)

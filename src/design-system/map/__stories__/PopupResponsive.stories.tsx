@@ -26,13 +26,13 @@ export const ViewportWidths: Story = {
     <div
       style={{
         padding: 32,
-        background: `hsl(${tokens.color.light.background})`,
+        background: `hsl(${tokens.color.light.surface.background})`,
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
         gap: 24,
         fontFamily: tokens.typography.fontFamily.body,
-        color: `hsl(${tokens.color.light.foreground})`,
+        color: `hsl(${tokens.color.light.text.primary})`,
       }}
     >
       {WIDTHS.map((w) => (
@@ -40,7 +40,7 @@ export const ViewportWidths: Story = {
           <span
             style={{
               font: `${tokens.typography.weight.semibold} ${tokens.typography.size.caption}/1 ${tokens.typography.fontFamily.mono}`,
-              color: `hsl(${tokens.color.light.mutedForeground})`,
+              color: `hsl(${tokens.color.light.text.secondary})`,
             }}
           >
             container = {w}px
@@ -48,7 +48,7 @@ export const ViewportWidths: Story = {
           <div
             style={{
               width: w,
-              border: `1px dashed hsl(${tokens.color.light.border})`,
+              border: `1px dashed hsl(${tokens.color.light.surface.border})`,
               padding: 8,
             }}
           >

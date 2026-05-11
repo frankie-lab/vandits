@@ -1,5 +1,5 @@
 {
-  "$schema": "Color tokens — two-tier system. `primitives.*` define the raw palette (no CSS var emitted). `color.light.*` and `color.dark.*` are semantic aliases that point to a primitive via $ref. Editing a primitive cascades to every alias that references it. Editing a semantic token directly overrides only that alias.",
+  "$schema": "Color tokens — taxonomía de 7 grupos (brand, surface, text, state, map, poi, shadow). Cada token semántico apunta a un primitivo vía $ref y emite uno o varios CSS vars en `_css` (array). Esto permite que un único token semántico alimente a la vez su nombre canónico (--brand-primary) y los nombres legacy de shadcn (--primary, --ring) sin necesidad de renombrar componentes. Los tokens de map.* y poi.* viven en map.json/poi.json; aquí solo se exponen alias para que aparezcan agrupados en el panel de color.",
   "color": {
     "primitives": {
       "light": {
@@ -19,6 +19,12 @@
         "info": {
           "500": { "value": "200 65% 48%" }
         },
+        "success": {
+          "500": { "value": "142 71% 45%" }
+        },
+        "warning": {
+          "500": { "value": "45 93% 47%" }
+        },
         "danger": {
           "500": { "value": "0 72% 55%" }
         }
@@ -30,7 +36,7 @@
           "500": { "value": "40 10% 58%"  },
           "700": { "value": "220 18% 18%" },
           "800": { "value": "220 18% 16%" },
-          "900": { "value": "220 20% 11%" },
+          "900": { "value": "220 18% 13%" },
           "950": { "value": "220 20% 8%"  }
         },
         "brand": {
@@ -41,52 +47,101 @@
         "info": {
           "500": { "value": "200 60% 52%" }
         },
+        "success": {
+          "500": { "value": "142 65% 55%" }
+        },
+        "warning": {
+          "500": { "value": "45 90% 60%" }
+        },
         "danger": {
           "500": { "value": "0 65% 48%" }
         }
       }
     },
+
     "light": {
-      "background":             { "$ref": "color.primitives.light.neutral.50",  "_css": "--background" },
-      "foreground":             { "$ref": "color.primitives.light.neutral.900", "_css": "--foreground" },
-      "card":                   { "$ref": "color.primitives.light.neutral.0",   "_css": "--card" },
-      "cardForeground":         { "$ref": "color.primitives.light.neutral.900", "_css": "--card-foreground" },
-      "popover":                { "$ref": "color.primitives.light.neutral.0",   "_css": "--popover" },
-      "popoverForeground":      { "$ref": "color.primitives.light.neutral.900", "_css": "--popover-foreground" },
-      "primary":                { "$ref": "color.primitives.light.brand.500",   "_css": "--primary" },
-      "primaryForeground":      { "$ref": "color.primitives.light.neutral.0",   "_css": "--primary-foreground" },
-      "secondary":              { "$ref": "color.primitives.light.info.500",    "_css": "--secondary" },
-      "secondaryForeground":    { "$ref": "color.primitives.light.neutral.0",   "_css": "--secondary-foreground" },
-      "muted":                  { "$ref": "color.primitives.light.neutral.100", "_css": "--muted" },
-      "mutedForeground":        { "$ref": "color.primitives.light.neutral.500", "_css": "--muted-foreground" },
-      "accent":                 { "$ref": "color.primitives.light.brand.50",    "_css": "--accent" },
-      "accentForeground":       { "$ref": "color.primitives.light.brand.700",   "_css": "--accent-foreground" },
-      "destructive":            { "$ref": "color.primitives.light.danger.500",  "_css": "--destructive" },
-      "destructiveForeground":  { "$ref": "color.primitives.light.neutral.0",   "_css": "--destructive-foreground" },
-      "border":                 { "$ref": "color.primitives.light.neutral.200", "_css": "--border" },
-      "input":                  { "$ref": "color.primitives.light.neutral.200", "_css": "--input" },
-      "ring":                   { "$ref": "color.primitives.light.brand.500",   "_css": "--ring" }
+      "brand": {
+        "primary":          { "$ref": "color.primitives.light.brand.500",  "_css": ["--brand-primary", "--primary", "--ring"] },
+        "accent":           { "$ref": "color.primitives.light.brand.50",   "_css": ["--brand-accent", "--accent"] },
+        "accentForeground": { "$ref": "color.primitives.light.brand.700",  "_css": ["--brand-accent-foreground", "--accent-foreground"] }
+      },
+      "surface": {
+        "background": { "$ref": "color.primitives.light.neutral.50",  "_css": ["--surface-bg", "--background"] },
+        "card":       { "$ref": "color.primitives.light.neutral.0",   "_css": ["--surface-card", "--card"] },
+        "popup":      { "$ref": "color.primitives.light.neutral.0",   "_css": ["--surface-popup", "--popover"] },
+        "muted":      { "$ref": "color.primitives.light.neutral.100", "_css": ["--surface-muted", "--muted"] },
+        "overlay":    { "$ref": "color.primitives.light.neutral.900", "_css": ["--surface-overlay"] },
+        "border":     { "$ref": "color.primitives.light.neutral.200", "_css": ["--surface-border", "--border", "--input"] }
+      },
+      "text": {
+        "primary":   { "$ref": "color.primitives.light.neutral.900", "_css": ["--text-primary", "--foreground", "--card-foreground", "--popover-foreground"] },
+        "secondary": { "$ref": "color.primitives.light.neutral.500", "_css": ["--text-secondary", "--muted-foreground"] },
+        "inverse":   { "$ref": "color.primitives.light.neutral.0",   "_css": ["--text-inverse", "--primary-foreground", "--secondary-foreground", "--destructive-foreground"] }
+      },
+      "state": {
+        "success": { "$ref": "color.primitives.light.success.500", "_css": ["--state-success"] },
+        "warning": { "$ref": "color.primitives.light.warning.500", "_css": ["--state-warning"] },
+        "error":   { "$ref": "color.primitives.light.danger.500",  "_css": ["--state-error", "--destructive"] },
+        "loading": { "$ref": "color.primitives.light.info.500",    "_css": ["--state-loading", "--secondary"] }
+      },
+      "map": {
+        "background": { "$ref": "map.canvas.tileA",            "_css": ["--color-map-bg"] },
+        "route":      { "$ref": "color.primitives.light.brand.500", "_css": ["--color-map-route"] },
+        "selected":   { "$ref": "color.primitives.light.brand.500", "_css": ["--color-map-selected"] }
+      },
+      "poi": {
+        "mine":     { "$ref": "poi.originBorder.my",       "_css": ["--color-poi-mine"] },
+        "followed": { "$ref": "poi.originBorder.followed", "_css": ["--color-poi-followed"] },
+        "service":  { "$ref": "poi.originBorder.service",  "_css": ["--color-poi-service"] },
+        "enriched": { "$ref": "poi.state.enriched",        "_css": ["--color-poi-enriched"] },
+        "empty":    { "$ref": "poi.state.empty",           "_css": ["--color-poi-empty"] },
+        "error":    { "$ref": "poi.ring.error",            "_css": ["--color-poi-error"] }
+      }
     },
+
     "dark": {
-      "background":             { "$ref": "color.primitives.dark.neutral.950", "_css": "--background" },
-      "foreground":             { "$ref": "color.primitives.dark.neutral.100", "_css": "--foreground" },
-      "card":                   { "$ref": "color.primitives.dark.neutral.900", "_css": "--card" },
-      "cardForeground":         { "$ref": "color.primitives.dark.neutral.100", "_css": "--card-foreground" },
-      "popover":                { "$ref": "color.primitives.dark.neutral.900", "_css": "--popover" },
-      "popoverForeground":      { "$ref": "color.primitives.dark.neutral.100", "_css": "--popover-foreground" },
-      "primary":                { "$ref": "color.primitives.dark.brand.500",   "_css": "--primary" },
-      "primaryForeground":      { "$ref": "color.primitives.dark.neutral.950", "_css": "--primary-foreground" },
-      "secondary":              { "$ref": "color.primitives.dark.info.500",    "_css": "--secondary" },
-      "secondaryForeground":    { "$ref": "color.primitives.dark.neutral.950", "_css": "--secondary-foreground" },
-      "muted":                  { "$ref": "color.primitives.dark.neutral.800", "_css": "--muted" },
-      "mutedForeground":        { "$ref": "color.primitives.dark.neutral.500", "_css": "--muted-foreground" },
-      "accent":                 { "$ref": "color.primitives.dark.brand.900",   "_css": "--accent" },
-      "accentForeground":       { "$ref": "color.primitives.dark.brand.300",   "_css": "--accent-foreground" },
-      "destructive":            { "$ref": "color.primitives.dark.danger.500",  "_css": "--destructive" },
-      "destructiveForeground":  { "$ref": "color.primitives.dark.neutral.0",   "_css": "--destructive-foreground" },
-      "border":                 { "$ref": "color.primitives.dark.neutral.700", "_css": "--border" },
-      "input":                  { "$ref": "color.primitives.dark.neutral.700", "_css": "--input" },
-      "ring":                   { "$ref": "color.primitives.dark.brand.500",   "_css": "--ring" }
+      "brand": {
+        "primary":          { "$ref": "color.primitives.dark.brand.500", "_css": ["--brand-primary", "--primary", "--ring"] },
+        "accent":           { "$ref": "color.primitives.dark.brand.900", "_css": ["--brand-accent", "--accent"] },
+        "accentForeground": { "$ref": "color.primitives.dark.brand.300", "_css": ["--brand-accent-foreground", "--accent-foreground"] }
+      },
+      "surface": {
+        "background": { "$ref": "color.primitives.dark.neutral.950", "_css": ["--surface-bg", "--background"] },
+        "card":       { "$ref": "color.primitives.dark.neutral.900", "_css": ["--surface-card", "--card"] },
+        "popup":      { "$ref": "color.primitives.dark.neutral.900", "_css": ["--surface-popup", "--popover"] },
+        "muted":      { "$ref": "color.primitives.dark.neutral.800", "_css": ["--surface-muted", "--muted"] },
+        "overlay":    { "$ref": "color.primitives.dark.neutral.950", "_css": ["--surface-overlay"] },
+        "border":     { "$ref": "color.primitives.dark.neutral.700", "_css": ["--surface-border", "--border", "--input"] }
+      },
+      "text": {
+        "primary":   { "$ref": "color.primitives.dark.neutral.100", "_css": ["--text-primary", "--foreground", "--card-foreground", "--popover-foreground"] },
+        "secondary": { "$ref": "color.primitives.dark.neutral.500", "_css": ["--text-secondary", "--muted-foreground"] },
+        "inverse":   { "$ref": "color.primitives.dark.neutral.0",   "_css": ["--text-inverse", "--primary-foreground", "--secondary-foreground", "--destructive-foreground"] }
+      },
+      "state": {
+        "success": { "$ref": "color.primitives.dark.success.500", "_css": ["--state-success"] },
+        "warning": { "$ref": "color.primitives.dark.warning.500", "_css": ["--state-warning"] },
+        "error":   { "$ref": "color.primitives.dark.danger.500",  "_css": ["--state-error", "--destructive"] },
+        "loading": { "$ref": "color.primitives.dark.info.500",    "_css": ["--state-loading", "--secondary"] }
+      },
+      "map": {
+        "background": { "$ref": "map.canvas.tileA",           "_css": ["--color-map-bg"] },
+        "route":      { "$ref": "color.primitives.dark.brand.500", "_css": ["--color-map-route"] },
+        "selected":   { "$ref": "color.primitives.dark.brand.500", "_css": ["--color-map-selected"] }
+      },
+      "poi": {
+        "mine":     { "$ref": "poi.originBorder.my",       "_css": ["--color-poi-mine"] },
+        "followed": { "$ref": "poi.originBorder.followed", "_css": ["--color-poi-followed"] },
+        "service":  { "$ref": "poi.originBorder.service",  "_css": ["--color-poi-service"] },
+        "enriched": { "$ref": "poi.state.enriched",        "_css": ["--color-poi-enriched"] },
+        "empty":    { "$ref": "poi.state.empty",           "_css": ["--color-poi-empty"] },
+        "error":    { "$ref": "poi.ring.error",            "_css": ["--color-poi-error"] }
+      },
+      "shadow": {
+        "sm": { "value": "0 1px 2px 0 hsl(0 0% 0% / 0.4)",    "_css": ["--shadow-sm"] },
+        "md": { "value": "0 4px 12px -2px hsl(0 0% 0% / 0.5)", "_css": ["--shadow-md"] },
+        "lg": { "value": "0 16px 32px -8px hsl(0 0% 0% / 0.6)", "_css": ["--shadow-lg"] }
+      }
     }
   }
 }

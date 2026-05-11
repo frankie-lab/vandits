@@ -81,10 +81,10 @@ export function PopupPreview({
   title,
 }: PopupPreviewProps) {
   const tint = STATE_TINT[state];
-  const fg = `hsl(${tokens.color.light.foreground})`;
-  const mutedFg = `hsl(${tokens.color.light.mutedForeground})`;
-  const bg = `hsl(${tokens.color.light.card})`;
-  const border = `hsl(${tokens.color.light.border})`;
+  const fg = `hsl(${tokens.color.light.text.primary})`;
+  const mutedFg = `hsl(${tokens.color.light.text.secondary})`;
+  const bg = `hsl(${tokens.color.light.surface.card})`;
+  const border = `hsl(${tokens.color.light.surface.border})`;
 
   const isLoading = state === 'loadingEnrichment';
   const isError = state === 'error';
@@ -120,7 +120,7 @@ export function PopupPreview({
           height: tokens.popup.header.height,
           padding: `0 ${tokens.popup.header.padding}`,
           background: `${tint}`,
-          color: `hsl(${tokens.color.light.background})`,
+          color: `hsl(${tokens.color.light.surface.background})`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -152,7 +152,7 @@ export function PopupPreview({
       <div
         style={{
           aspectRatio: tokens.popup.hero.ratio,
-          background: `hsl(${tokens.color.light.muted})`,
+          background: `hsl(${tokens.color.light.surface.muted})`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -180,7 +180,7 @@ export function PopupPreview({
               padding: '2px 8px',
               borderRadius: tokens.radius.sm,
               background: `hsl(${tokens.poi.ring.error})`,
-              color: `hsl(${tokens.color.light.background})`,
+              color: `hsl(${tokens.color.light.surface.background})`,
               font: `${tokens.typography.weight.semibold} ${tokens.typography.size.caption}/1 ${tokens.typography.fontFamily.body}`,
             }}
           >
@@ -231,7 +231,7 @@ export function PopupPreview({
           gap: tokens.popup.actionRow.gap,
           borderTop: `1px solid ${border}`,
           flexShrink: 0,
-          background: `hsl(${tokens.color.light.background})`,
+          background: `hsl(${tokens.color.light.surface.background})`,
         }}
       >
         <ActionButton label="Abrir" primary tint={tint} />
@@ -252,8 +252,8 @@ function HeroSkeletonInline() {
       style={{
         position: 'absolute',
         inset: 0,
-        background: `hsl(${tokens.color.light.muted})`,
-        backgroundImage: `linear-gradient(90deg, transparent 0%, hsl(${tokens.color.light.background} / 0.4) 50%, transparent 100%)`,
+        background: `hsl(${tokens.color.light.surface.muted})`,
+        backgroundImage: `linear-gradient(90deg, transparent 0%, hsl(${tokens.color.light.surface.background} / 0.4) 50%, transparent 100%)`,
         backgroundSize: '200% 100%',
         animation: 'shimmer 1.4s linear infinite',
       }}
@@ -283,7 +283,7 @@ function LoadingLines() {
         style={{
           height: 10,
           width: '100%',
-          background: `hsl(${tokens.color.light.muted})`,
+          background: `hsl(${tokens.color.light.surface.muted})`,
           borderRadius: tokens.radius.sm,
         }}
       />
@@ -291,7 +291,7 @@ function LoadingLines() {
         style={{
           height: 10,
           width: '88%',
-          background: `hsl(${tokens.color.light.muted})`,
+          background: `hsl(${tokens.color.light.surface.muted})`,
           borderRadius: tokens.radius.sm,
         }}
       />
@@ -299,7 +299,7 @@ function LoadingLines() {
         style={{
           height: 10,
           width: '64%',
-          background: `hsl(${tokens.color.light.muted})`,
+          background: `hsl(${tokens.color.light.surface.muted})`,
           borderRadius: tokens.radius.sm,
         }}
       />
@@ -364,7 +364,7 @@ function ErrorRecoveryBlock() {
       <span
         style={{
           fontSize: tokens.typography.size.caption,
-          color: `hsl(${tokens.color.light.mutedForeground})`,
+          color: `hsl(${tokens.color.light.text.secondary})`,
         }}
       >
         El nombre no coincide con las coordenadas. Mueve el punto o reintenta.
@@ -421,9 +421,9 @@ function ActionButton({
         borderRadius: tokens.radius.md,
         background: primary ? tint : 'transparent',
         color: primary
-          ? `hsl(${tokens.color.light.background})`
-          : `hsl(${tokens.color.light.foreground})`,
-        border: primary ? 'none' : `1px solid hsl(${tokens.color.light.border})`,
+          ? `hsl(${tokens.color.light.surface.background})`
+          : `hsl(${tokens.color.light.text.primary})`,
+        border: primary ? 'none' : `1px solid hsl(${tokens.color.light.surface.border})`,
         font: `${tokens.typography.weight.medium} ${tokens.typography.size.caption}/1 ${tokens.typography.fontFamily.body}`,
         cursor: 'pointer',
       }}

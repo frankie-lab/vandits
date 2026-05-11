@@ -19,26 +19,38 @@ export interface GlossaryEntry {
 }
 
 export const TOKEN_GLOSSARY: Record<string, GlossaryEntry> = {
-  // ─── Color · semánticos ────────────────────────────────────────────
-  'color.background':         { label: 'Fondo de página',          usage: 'Fondo base de toda la app, detrás del mapa y los paneles.' },
-  'color.foreground':         { label: 'Texto principal',          usage: 'Color por defecto del texto sobre el fondo de página.' },
-  'color.card':               { label: 'Fondo de tarjeta',         usage: 'Tarjetas, paneles flotantes, diálogos, popups.' },
-  'color.cardForeground':     { label: 'Texto sobre tarjeta',      usage: 'Texto dentro de tarjetas y paneles.' },
-  'color.popover':            { label: 'Fondo de popover',         usage: 'Menús desplegables, tooltips densos, autocompletados.' },
-  'color.popoverForeground':  { label: 'Texto sobre popover',      usage: 'Texto dentro de menús desplegables.' },
-  'color.primary':            { label: 'Color de marca',           usage: 'Botones principales (CTA), anillo de foco, enlaces activos.' },
-  'color.primaryForeground':  { label: 'Texto sobre marca',        usage: 'Color del texto dentro de botones primarios.' },
-  'color.secondary':          { label: 'Color secundario',         usage: 'Botones secundarios y acentos azules (rutas, agua, mar).' },
-  'color.secondaryForeground':{ label: 'Texto sobre secundario',   usage: 'Texto dentro de botones secundarios.' },
-  'color.muted':              { label: 'Fondo sutil',              usage: 'Filas alternas, chips inactivos, separadores suaves.' },
-  'color.mutedForeground':    { label: 'Texto atenuado',           usage: 'Texto auxiliar, descripciones, metadatos.' },
-  'color.accent':             { label: 'Acento cálido',            usage: 'Hover de items de menú y resaltes suaves.' },
-  'color.accentForeground':   { label: 'Texto sobre acento',       usage: 'Texto sobre fondos de acento.' },
-  'color.destructive':        { label: 'Color de aviso/borrar',    usage: 'Botones de eliminar, errores duros, anillo de POI roto.' },
-  'color.destructiveForeground': { label: 'Texto sobre destructivo', usage: 'Texto dentro de botones de eliminar.' },
-  'color.border':             { label: 'Borde estándar',           usage: 'Bordes de tarjetas, inputs, separadores entre paneles.' },
-  'color.input':              { label: 'Borde de input',           usage: 'Borde por defecto de inputs y selects.' },
-  'color.ring':               { label: 'Anillo de foco',           usage: 'Halo de teclado al hacer foco con Tab.' },
+  // ─── Color · 7 grupos canónicos ────────────────────────────────────
+  // Brand
+  'color.brand.primary':           { label: 'Color de marca',          usage: 'Botones primarios (CTA), anillo de foco, enlaces activos. Emite --brand-primary, --primary y --ring.' },
+  'color.brand.accent':            { label: 'Acento de marca',         usage: 'Hover de items de menú, badges premium, resaltes cálidos. Emite --brand-accent y --accent.' },
+  'color.brand.accentForeground':  { label: 'Texto sobre acento',      usage: 'Texto dentro de superficies con color de acento.' },
+  // Surface
+  'color.surface.background':      { label: 'Fondo de página',         usage: 'Fondo base de la app, detrás del mapa y los paneles. Emite --surface-bg y --background.' },
+  'color.surface.card':            { label: 'Fondo de tarjeta',        usage: 'Tarjetas, paneles, diálogos. Emite --surface-card y --card.' },
+  'color.surface.popup':           { label: 'Fondo de popup',          usage: 'Menús desplegables, popovers, tooltips densos. Emite --surface-popup y --popover.' },
+  'color.surface.muted':           { label: 'Fondo sutil',             usage: 'Filas alternas, chips inactivos, separadores suaves. Emite --surface-muted y --muted.' },
+  'color.surface.overlay':         { label: 'Velo/scrim',              usage: 'Capa oscura detrás de modales y bottom-sheets.' },
+  'color.surface.border':          { label: 'Borde estándar',          usage: 'Bordes de tarjetas, inputs, separadores. Emite --surface-border, --border y --input.' },
+  // Text
+  'color.text.primary':            { label: 'Texto principal',         usage: 'Color por defecto del texto. Emite --text-primary, --foreground, --card-foreground y --popover-foreground.' },
+  'color.text.secondary':          { label: 'Texto atenuado',          usage: 'Texto auxiliar, descripciones, metadatos. Emite --text-secondary y --muted-foreground.' },
+  'color.text.inverse':            { label: 'Texto inverso',           usage: 'Texto sobre superficies de color (botones primarios, badges, destructivos). Emite --text-inverse y los *-foreground legacy.' },
+  // State
+  'color.state.success':           { label: 'Éxito',                   usage: 'Confirmaciones, badges verdes, anillo de salud OK.' },
+  'color.state.warning':           { label: 'Aviso',                   usage: 'Advertencias, anillo ámbar de cadena admin rota, warnings de import.' },
+  'color.state.error':             { label: 'Error',                   usage: 'Errores duros, botones de eliminar, anillo de POI con fallo. Emite --state-error y --destructive.' },
+  'color.state.loading':           { label: 'Cargando / info',         usage: 'Indicadores de carga, mensajes informativos azules. Emite --state-loading y --secondary.' },
+  // Map (alias de map.*)
+  'color.map.background':          { label: 'Fondo del mapa',          usage: 'Tono base del canvas de tiles (vista previa en el panel).' },
+  'color.map.route':               { label: 'Ruta base',               usage: 'Color por defecto de polylines de ruta en el mapa.' },
+  'color.map.selected':            { label: 'Selección en mapa',       usage: 'Halo de foco, ruta activa, drag-selection.' },
+  // POI (alias de poi.*)
+  'color.poi.mine':                { label: 'POI propio',              usage: 'Borde de markers de origen propio.' },
+  'color.poi.followed':            { label: 'POI seguido',             usage: 'Borde de markers de usuarios seguidos.' },
+  'color.poi.service':             { label: 'POI servicio',            usage: 'Borde de markers de servicios/partners.' },
+  'color.poi.enriched':            { label: 'POI enriquecido',         usage: 'Verde — punto con descripción IA (estado canónico).' },
+  'color.poi.empty':                { label: 'POI vacío',               usage: 'Naranja — punto sin contenido (estado canónico).' },
+  'color.poi.error':               { label: 'POI con error',           usage: 'Rojo — anillo de salud por fallo de enriquecimiento.' },
 
   // ─── Tipografía ────────────────────────────────────────────────────
   'typography.fontFamily.display': { label: 'Fuente de titulares',  usage: 'Encabezados H1–H3 y números destacados.' },
