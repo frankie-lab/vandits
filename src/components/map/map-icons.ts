@@ -190,20 +190,20 @@ export const createCustomIcon = (
     ? `onmouseenter="this.style.transform='scale(${scaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'"`
     : '';
 
-  // ── Rich (z≥17) — marker = imagen Hero ─────────────────────────────────
-  // En modo rich, si el POI tiene imagen Hero (enrichedData.imagen o
-  // user_image_url), el marker ES la foto: cuadrado redondeado 40px con
-  // borde 2px en el color del estado. Se conservan health rings, collection
-  // tint y ownership como capas alrededor. focused/selected añaden un halo
-  // blanco — no sustituyen la foto. Sin imagen → cae al render estándar
-  // (SVG dot/pin de abajo). Si `onerror` dispara, marcamos el id en
-  // `heroFailedIds` y el próximo repaint usará el SVG.
-  const heroId = location?.id;
-  const heroUrl = renderMode === 'rich' && heroId && !heroFailedIds.has(heroId)
-    ? getPointHeroImage(location)
-    : null;
-  if (heroUrl) {
-    const heroSize = 40;
+  // ── Rich (z≥11) — marker = polaroid (foto Hero o placeholder) ───────────
+  // En modo rich, TODO POI se pinta como polaroid clásico (marco blanco
+  // + franja inferior + sombra). Si hay imagen Hero válida, se usa; si no
+  // (o si onerror disparó antes), se renderiza placeholder gris con icono
+  // de foto. Health rings, collection tint y halo de focus se conservan
+  // como capas alrededor del polaroid. Ver `mem://style/map/zoom-driven-hero`.
+  if (renderMode === 'rich') {
+    const heroId = location?.id;
+    const heroUrl = heroId && !heroFailedIds.has(heroId)
+      ? getPointHeroImage(location)
+      : null;
+    const photoSize = 40;
+    const polaroidW = 46;       // 40 + 3px marco izq + 3px marco dcho
+    const polaroidH = 56;       // 3 + 40 + 13 (franja inferior)
     let heroCumulative = 0;
     const heroRingShadow = healthRings
       .map((ring) => {
@@ -216,20 +216,34 @@ export const createCustomIcon = (
       ? '<div class="poi-hero-marker__halo"></div>'
       : '';
     const ownClass = isOwn ? ' is-own' : '';
-    const safeUrl = heroUrl.replace(/"/g, '&quot;');
-    const safeId = String(heroId).replace(/"/g, '&quot;');
+    const safeId = heroId ? String(heroId).replace(/"/g, '&quot;') : '';
+    // Icono Lucide `image` (placeholder cuando no hay foto)
+    const placeholderSvg = `
+      <svg class="poi-hero-marker__placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+        <circle cx="9" cy="9" r="2"/>
+        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+      </svg>`;
+    const photoHtml = heroUrl
+      ? `<img class="poi-hero-marker__img" src="${heroUrl.replace(/"/g, '&quot;')}" alt="" referrerpolicy="no-referrer" onerror="window.__markHeroFailed && window.__markHeroFailed('${safeId}'); this.style.display='none'; this.parentElement.classList.add('is-empty');" />`
+      : '';
+    const placeholderHtml = `<div class="poi-hero-marker__placeholder">${placeholderSvg}</div>`;
+    const photoClass = heroUrl ? '' : ' is-empty';
     return L.divIcon({
       className: `poi-hero-marker${isRecentlyEnriched ? ' recently-enriched' : ''}${hasErrorRing ? ' has-enrichment-error' : ''}${ownClass}`,
       html: `
-      <div class="poi-hero-marker__wrap" style="--marker-state-color:${entry.fill_color}; width:${heroSize}px; height:${heroSize}px; position:relative; filter:${shadow}${heroRingShadow}; ${animationStyle}">
+      <div class="poi-hero-marker__wrap" style="--marker-state-color:${entry.fill_color}; width:${polaroidW}px; height:${polaroidH}px; position:relative; filter:${shadow}${heroRingShadow}; ${animationStyle}">
         ${collectionTint ? `<div class="collection-tint-ring" style="--collection-tint:${collectionTint}"></div>` : ''}
-        <img class="poi-hero-marker__img" src="${safeUrl}" alt="" referrerpolicy="no-referrer" onerror="window.__markHeroFailed && window.__markHeroFailed('${safeId}'); this.style.display='none';" />
+        <div class="poi-hero-marker__photo${photoClass}">
+          ${placeholderHtml}
+          ${photoHtml}
+        </div>
         ${haloHtml}
       </div>
       `,
-      iconSize: [heroSize, heroSize],
-      iconAnchor: [heroSize / 2, heroSize / 2],
-      popupAnchor: [0, -heroSize / 2],
+      iconSize: [polaroidW, polaroidH],
+      iconAnchor: [polaroidW / 2, 3 + photoSize / 2],
+      popupAnchor: [0, -(3 + photoSize / 2)],
     });
   }
 
