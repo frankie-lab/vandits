@@ -1,80 +1,240 @@
-## Lo que el usuario está viendo y por qué tiene razón
+# Plan: Taxonomía mínima de color (~25 tokens, 7 grupos)
 
-Dos problemas reales en el panel de Diseño:
-
-### Problema 1 — UX: el color no es clicable
-
-Para editar un color hay que apuntar al lápiz pequeño de la derecha. El swatch del row, los hex `#DF6C20 / #E87A30`, los chips `→ brand.500` y los previews "Guardar" en claro/oscuro **muestran color pero no responden al click**. Es contraintuitivo y desperdicia mucho espacio horizontal.
-
-### Problema 2 — Bug: lo que se muestra no es lo que está aplicado
-
-`TokenRow.tsx` y `TokenPreviews.tsx` leen `row.light.value` y `row.value` resueltos por `token-grouping.ts`, que es un snapshot **estático del JSON**. No mira `draft` ni `published` del store. Resultado: si editas un primitivo (`brand.500`) o un alias (`color.light.primary`), el row del alias y su preview "Guardar" siguen pintando el color baseline mientras el resto de la app ya muestra el nuevo. De ahí el "no son los que aparecen".
-
-El editor sí funciona (`getLeaf` + draft/published en `EditButton`), pero la presentación del row no.
-
-## Plan
-
-### A. Bug: una sola fuente de verdad para el color mostrado
-
-1. Sustituir todas las lecturas estáticas `row.value` / `row.light.value` / `row.dark.value` por un helper único `useResolvedTokenValue(path: string)` que devuelve `draft[path] ?? published[path] ?? leaf.baseValue`.
-2. Aplicarlo en:
-   - `TokenRow.tsx` › `Swatch` (header), `ValueColumn` (columna hex), `RefChip`.
-   - `TokenPreviews.tsx` › `ColorPreview`, `ColorExample` y el resto de previews que pintan color (`Poi`, `Popup`, `Map`).
-3. El helper se suscribe al store (`useDesignSystemEdit`), así cualquier cambio en el draft re-renderiza row + preview en vivo. Cero más snapshots desactualizados.
-
-### B. UX: clicar el color = editar el color
-
-1. **Nuevo wrapper `<EditableTokenSurface token>`** (un solo helper) que en `editMode=ON` envuelve a `children` en un `Popover` con el editor del token; en `editMode=OFF` lo deja decorativo. Reutiliza el `Popover + TokenValueEditor` existente.
-2. Lo aplicamos a:
-   - **Swatch del header** del row (claro/oscuro: cada mitad abre su editor).
-   - **ValueColumn** (línea claro / línea oscuro, cada hex es clicable).
-   - **Previews** del bloque expandido (`Guardar`, `Acción`, tarjeta, borde, ring, texto…): el propio botón/elemento es el trigger.
-3. El **botón lápiz desaparece** salvo en rows que no tengan superficie clicable (caso raro). Se recupera espacio horizontal.
-
-### C. Color editor: paleta, HEX/RGB y picker estándar
-
-Rediseñar `ColorEditor` con un layout tipo Figma/Tailwind. Mismo `value` (`H S% L%`) por dentro, mejor UI por fuera:
+## Estructura final
 
 ```text
-┌────────────────────────────────────────────┐
-│  ┌────────┐   HEX  [ #DF6C20         ]    │
-│  │ swatch │   RGB  [ 223 ] [108] [ 32 ]   │
-│  │ 64×64  │   HSL  [ 22 ] [73%] [50%]    │
-│  └────────┘                                │
-│  Paleta primitiva (presets clicables)      │
-│  ▢ ▢ ▢ ▢ ▢ ▢ ▢ ▢ ▢ ▢   (10–12 swatches)   │
-│  Picker nativo  [ <input type="color"> ]   │
-│  Sliders  H ━●━ S ━●━ L ━●━                │
-│  Base: 22 73% 50%      [Restablecer]       │
-└────────────────────────────────────────────┘
+color/
+├── primitives/            ← paletas base (no editables como semánticas)
+│   ├── neutral.{0,50,100,200,300,500,700,900,950}
+│   ├── brand.{300,500,700}
+│   ├── success.{500,600}
+│   ├── warning.{500,600}
+│   ├── danger.{500,600}
+│   └── info.{500,600}
+│
+└── semantic/
+    ├── brand/
+    │   ├── primary           → --brand-primary, --ring
+    │   └── accent            → --brand-accent
+    │
+    ├── surface/
+    │   ├── background        → --surface-bg
+    │   ├── card              → --surface-card, --surface-panel
+    │   ├── popup             → --surface-popup, --surface-tooltip
+    │   └── overlay           → --surface-overlay (scrim/modal backdrop)
+    │
+    ├── text/
+    │   ├── primary           → --text-primary
+    │   ├── secondary         → --text-secondary, --text-muted
+    │   └── inverse           → --text-inverse (sobre superficies de color)
+    │
+    ├── state/
+    │   ├── success           → --state-success
+    │   ├── warning           → --state-warning
+    │   ├── error             → --state-error
+    │   └── loading           → --state-loading
+    │
+    ├── map/
+    │   ├── background        → --map-bg (tile canvas neutro)
+    │   ├── route             → --map-route (polyline base)
+    │   └── selected          → --map-selected (focus ring / drag selection / route activa)
+    │
+    ├── poi/
+    │   ├── mine              → --poi-mine (origen propio)
+    │   ├── followed          → --poi-followed (origen seguido)
+    │   ├── service           → --poi-service (origen servicio/partner)
+    │   ├── enriched          → --poi-enriched (verde, estado canónico)
+    │   ├── empty             → --poi-empty (naranja, estado canónico)
+    │   └── error             → --poi-error (rojo, anillo de salud)
+    │
+    └── shadow/
+        ├── sm                → --shadow-sm
+        ├── md                → --shadow-md
+        └── lg                → --shadow-lg
 ```
 
-- **Input HEX**: pegar `#DF6C20` o `DF6C20` actualiza HSL automáticamente.
-- **Inputs RGB** (3 campos numéricos 0–255): edita por canales.
-- **Inputs HSL** (3 numéricos): edita por canales con la misma semántica que el `value` interno.
-- **Paleta primitiva**: en aliases, muestra los 12 primitivos del modo actual (`neutral.0..950 + brand + info + danger`) como swatches clicables → asigna el valor del primitivo (no relink, asigna valor directo; el "Desvincular/relink" sigue donde está).
-- **Picker nativo**: `<input type="color">` para los que prefieren el selector del SO.
-- **Sliders H/S/L** se conservan como ajuste fino.
-- Conversiones HEX↔RGB↔HSL en un único `src/components/admin/design-system/color-conversions.ts` (sin dependencias).
+**Total**: 25 tokens semánticos (2 + 4 + 3 + 4 + 3 + 6 + 3) + primitivos.
 
-### D. Tocar solo presentación
+---
 
-No se modifica: persistencia (`app_settings.design_system_overrides`), historial, `build-tokens.cjs`, JSON de tokens, modelo primitives/alias, ni la lógica de `setDraft`/`relink`.
+## Cómo se preserva 100% el sistema POI
 
-## Archivos
+La regla canónica de marker (memoria `mem://style/map/health-rings-rule` + paleta de 3 estados) sigue intacta:
 
-**Modificar**
-- `src/components/admin/design-system/TokenRow.tsx` — usar helper resuelto + envolver swatch y ValueColumn en `EditableTokenSurface`; degradar lápiz a fallback.
-- `src/components/admin/design-system/TokenPreviews.tsx` — leer valor resuelto y envolver previews clicables.
-- `src/components/admin/design-system/TokenEditors.tsx` — rediseñar `ColorEditor` (HEX/RGB/HSL + paleta + picker nativo + sliders).
+| Concepto actual | Token resultante |
+|---|---|
+| Verde = enriched | `poi.enriched` |
+| Gris = imported | `text.secondary` (heredado) |
+| Naranja = empty | `poi.empty` |
+| Anillo rojo = error de enriquecimiento | `poi.error` |
+| Anillo ámbar = cadena admin rota | `state.warning` |
+| Anillo naranja = vacío | `poi.empty` (reutilizado) |
+| Origen mío / seguido / servicio | `poi.mine` / `poi.followed` / `poi.service` |
+| Collection tint ring | NO es un color fijo — se mantiene el cómputo dinámico desde `collection-chip-color.ts` (no entra en tokens) |
+| Focused thumbnail (24px circular) | borde usa `map.selected` |
+| Hero image en z≥17 | borde usa `map.selected` o color de estado correspondiente |
 
-**Crear**
-- `src/components/admin/design-system/EditableTokenSurface.tsx` — wrapper único.
-- `src/components/admin/design-system/useResolvedTokenValue.ts` — hook único de lectura.
-- `src/components/admin/design-system/color-conversions.ts` — HEX/RGB/HSL helpers.
+Helpers `getPointVisualState` y `getPointHealthRings` siguen siendo el único punto de decisión; cambia solo el path de origen del color que devuelven.
 
-## Fuera de alcance
+---
 
-- No se cambia ningún color del propio panel admin.
-- No se altera la estructura de primitives/alias ni el comportamiento de "Desvincular/relink".
-- No se introduce librería externa de color picker; todo nativo (`<input type="color">` + inputs numéricos).
+## Cómo se preserva el resto
+
+| Lugar de uso actual | Token resultante |
+|---|---|
+| `--background`, `--card`, `--popover`, `--muted` (shadcn) | `surface.background` / `surface.card` / `surface.popup` / `surface.card` |
+| `--foreground`, `--card-foreground`, `--popover-foreground` | `text.primary` |
+| `--muted-foreground` | `text.secondary` |
+| `--primary`, `--ring` | `brand.primary` |
+| `--primary-foreground`, `--destructive-foreground` | `text.inverse` |
+| `--secondary`, `--accent` | `brand.accent` |
+| `--destructive` | `state.error` |
+| `--border`, `--input` | derivado de `surface.card` con opacity (1 var compartida `--border-default`) |
+| Route polyline base + alternativas | `map.route` (base) + tint dinámico desde preferencias (sin token) |
+| Toast success/warning/error/info | `state.*` |
+| Badge premium/sponsored | `brand.accent` |
+| Skeleton base/shimmer | `surface.card` + opacity |
+| Sidebar/topbar/tabs | `surface.card` + `text.primary` |
+
+Lo que **no necesita token propio** (se resuelve por composición):
+- Hover/active/subtle de brand → opacity sobre `brand.primary` (CSS `color-mix` o alpha).
+- Disabled → opacity 0.5 sobre el color base.
+- Border subtle/strong → opacity sobre `text.secondary`.
+- Bg de estados (success-bg, error-bg) → `color-mix(state.X 12%, surface.card)`.
+
+---
+
+## Plan de ejecución (7 pasos)
+
+### 1. Reescribir `src/design-system/tokens/source/color.json`
+Estructura nueva con `primitives` + `semantic.{7 grupos}`. Cada token semántico:
+```json
+{
+  "value": "{neutral.50}",
+  "_css": ["--surface-bg"],
+  "_description": "Fondo general de la app"
+}
+```
+`_css` array permite que un mismo token alimente varios CSS vars compartidos (ej. `surface.card` → `--surface-card` y `--surface-panel`).
+
+### 2. Actualizar `build-tokens.cjs`
+- Recorrido recursivo de `semantic.*`.
+- Emite una línea `--var: hsl(value);` por cada entrada de `_css`.
+- Genera `tokens.css`, `tokens.ts` y `tailwind.tokens.cjs` con la nueva jerarquía.
+
+### 3. Reescribir bloques de color en `src/index.css`
+Eliminar los ~20 CSS vars shadcn antiguos. Emitir los nuevos ~30 CSS vars (algunos tokens producen 2 vars).
+
+### 4. Actualizar `tailwind.config.ts`
+Mapping plano legible:
+```ts
+colors: {
+  "brand-primary": "hsl(var(--brand-primary))",
+  "brand-accent":  "hsl(var(--brand-accent))",
+  "surface-bg":    "hsl(var(--surface-bg))",
+  "surface-card":  "hsl(var(--surface-card))",
+  "surface-popup": "hsl(var(--surface-popup))",
+  "surface-overlay":"hsl(var(--surface-overlay))",
+  "text-primary":  "hsl(var(--text-primary))",
+  "text-secondary":"hsl(var(--text-secondary))",
+  "text-inverse":  "hsl(var(--text-inverse))",
+  "state-success": "hsl(var(--state-success))",
+  "state-warning": "hsl(var(--state-warning))",
+  "state-error":   "hsl(var(--state-error))",
+  "state-loading": "hsl(var(--state-loading))",
+  "map-bg":        "hsl(var(--map-bg))",
+  "map-route":     "hsl(var(--map-route))",
+  "map-selected":  "hsl(var(--map-selected))",
+  "poi-mine":      "hsl(var(--poi-mine))",
+  "poi-followed":  "hsl(var(--poi-followed))",
+  "poi-service":   "hsl(var(--poi-service))",
+  "poi-enriched":  "hsl(var(--poi-enriched))",
+  "poi-empty":     "hsl(var(--poi-empty))",
+  "poi-error":     "hsl(var(--poi-error))",
+}
+```
+
+### 5. Codemod transversal — renombrado total
+Script `scripts/codemod-color-tokens-v2.cjs` aplica:
+
+| Antiguo | Nuevo |
+|---|---|
+| `bg-background` | `bg-surface-bg` |
+| `bg-card`, `bg-muted` | `bg-surface-card` |
+| `bg-popover` | `bg-surface-popup` |
+| `text-foreground`, `text-card-foreground`, `text-popover-foreground` | `text-text-primary` |
+| `text-muted-foreground` | `text-text-secondary` |
+| `bg-primary`, `ring-ring` | `bg-brand-primary`, `ring-brand-primary` |
+| `text-primary-foreground`, `text-destructive-foreground` | `text-text-inverse` |
+| `bg-secondary`, `bg-accent` | `bg-brand-accent` |
+| `bg-destructive`, `text-destructive` | `bg-state-error`, `text-state-error` |
+| `border-border`, `border-input` | `border-surface-card` (con opacity vía clase utilitaria) |
+
+Cobertura: todo `src/components/ui/*` + `src/components/**` + `src/pages/**` + `src/domains/**`. El build de Tailwind falla si queda algún huérfano → señal clara.
+
+### 6. Reescribir el inspector admin
+- `token-grouping.ts`: 7 grupos finales (brand, surface, text, state, map, poi, shadow).
+- `token-glossary.ts`: labels humanos por path.
+- `TokenRow` ya soporta el editor HEX/RGB/HSL + paleta — solo cambia el origen del registro.
+- Sin árbol colapsable (no es necesario con 25 tokens): lista plana agrupada por sección, búsqueda en cabecera.
+- Eliminar `EditableTokenSurface` superflua si la matriz queda obvia.
+
+### 7. Conectar helpers POI/mapa a los nuevos tokens
+- `getPointVisualState(loc)` lee de `--poi-enriched / --poi-empty` + `text.secondary` para imported.
+- `getPointHealthRings(loc)` lee de `--poi-error / --state-warning / --poi-empty`.
+- `createCustomIcon` (focused thumb): borde = `--map-selected` o color de estado.
+- Route polyline base = `--map-route`; alternativas usan tint dinámico existente (sin token).
+
+---
+
+## Limpieza colateral
+
+- **Borrar** `src/design-system/tokens/source/poi.json` (su contenido de color migra; las reglas de zoom/tamaño no son color y van a `map-rules.json` aparte si aplica).
+- **Borrar** `src/design-system/tokens/source/map.json` (idem).
+- **Mantener** `elevation.json` solo si contiene offsets/blur (no color). Si solo era color, se elimina y entra en `shadow.{sm,md,lg}`.
+- **Reconsiderar** `EditableTokenSurface` y `useResolvedTokenValue`: simplificar si el árbol nuevo lo permite.
+
+---
+
+## Archivos afectados
+
+**Reescritos**:
+- `src/design-system/tokens/source/color.json`
+- `src/design-system/tokens/build-tokens.cjs`
+- `src/index.css` (bloque colores)
+- `tailwind.config.ts` (sección colors)
+- `src/components/ui/*` (vía codemod)
+- Todo `src/` con clases Tailwind de color (vía codemod)
+
+**Nuevos**:
+- `scripts/codemod-color-tokens-v2.cjs`
+
+**Actualizados**:
+- `src/components/admin/design-system/token-glossary.ts`
+- `src/components/admin/design-system/token-grouping.ts`
+- `src/design-system/runtime/apply-overrides.ts`
+- `src/design-system/runtime/token-registry.ts`
+- `src/domains/content/lib/point-visual-state.ts` (lectura de tokens)
+- `src/domains/content/lib/point-health-rings.ts` (lectura de tokens)
+
+**Borrados**:
+- `src/design-system/tokens/source/poi.json`
+- `src/design-system/tokens/source/map.json` (si solo color)
+
+---
+
+## Riesgos y mitigaciones
+
+1. **Bordes**: hoy hay `--border` y `--input` con valores distintos en dark mode. Solución: 1 CSS var `--border-default` derivada de `surface.card` con opacity; si en QA visual aparece un caso que necesita borde fuerte, se introduce `--border-strong` (1 token más).
+2. **Pérdida de matices `hover/active`**: se resuelven con `color-mix()` o utilidades Tailwind (`bg-brand-primary/90`). Si algún componente lo necesita explícito, se añade en una segunda iteración.
+3. **Anillo ámbar (admin chain broken)**: comparte color con warnings de UI vía `state.warning`. Es semánticamente correcto (es una alerta) y reduce duplicación.
+4. **Codemod incompleto**: el build de Tailwind falla con clases inválidas, lo que sirve como red de seguridad. Tras el codemod, recorrido manual por 6 vistas: home/mapa, vista doc, admin design system, popup POI, panel itinerarios, signin.
+
+---
+
+## Out of scope
+
+- Typography, radius, density, motion, z-index — sin cambios.
+- Cambios visuales (los valores se preservan; solo cambia la organización).
+- Colección tint (sigue calculándose dinámicamente desde `collection-chip-color.ts`).
+- Route alternative tints (siguen viniendo de preferencias usuario).
