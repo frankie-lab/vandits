@@ -1717,6 +1717,7 @@ export function LocationMap() {
         marker.setIcon(createCustomIcon(
           isSelected, isFocused, isEnriched, location, criteriaTimestamp,
           isRecentlyEnriched, getTintForLocation(locationId),
+          getLocationOwnership(locationId, currentUserId).isOwn,
         ));
       });
 
