@@ -1,55 +1,63 @@
-## Objetivo
+## Diagnóstico
 
-Dejar **una sola regla de POIs por zoom**, sin ramas paralelas que se contradigan. Restaurar el formato acordado: puntos pequeños → rollover Polaroid con foto Hero → en proximidad el marker se convierte en la foto Hero.
+Revisado el cableado actual (`src/components/map/map-icons.ts`, `LocationMap.tsx`, `map-tooltip.ts`, `index.css`):
 
-## Regla canónica (frozen)
+1. **El zoom-band sí se calcula y propaga** (`zoomend` → `setCurrentRenderMode` → evento `map-render-mode-changed` → repaint vía `setIcon`).
+2. Pero hay **3 huecos** que explican lo que ves:
 
-| Zoom | Modo | Marker | Hover |
-|---|---|---|---|
-| ≤ 9 | `micro` | Punto plano 5px (color de estado) | — |
-| 10-13 | `compact` | SVG plano (sin gradiente, sin health rings, sin tint) | Polaroid sin imagen |
-| 14-16 | `standard` | SVG completo (gradiente + health rings + collection tint) | **Polaroid con foto Hero** |
-| ≥ 17 | `rich` | **El marker ES la foto Hero** (40px cuadrado, borde de estado). Sin imagen → cae a SVG `standard` | Polaroid con foto Hero |
+### Hueco 1 — Cluster oculta la progresión perceptible
+En vista global (z≤9) la mayoría de markers están dentro de `MarkerClusterGroup`. Lo que ves son globos de cluster, NO los 5px del modo micro. Al hacer zoom, los clusters se rompen y aparecen markers que ya estaban creados en el band intermedio (compact/standard), por lo que el salto entre bands se nota poco. Además los factores actuales (`compact 0.7 / standard 1.0 / rich 1.15`) producen una progresión demasiado tenue.
 
-Modificadores que **NO** cambian la regla, solo añaden capa:
-- `isFocused` (1 clic) → pulse + halo, mantiene la forma que dicta el zoom.
-- `isSelected` (selección masiva) → halo blanco en `shadow`, nunca cambia forma ni tamaño.
-- `collectionTint` → anillo de colección por fuera del marker base.
-- `healthRings` → anillos rojo/amarillo/naranja por fuera del tint.
-- `isOwn` → halo blanco más marcado + `mine-pane` (capa superior).
+### Hueco 2 — El tooltip Polaroid queda "congelado" sin imagen
+`marker.bindTooltip(buildHoverTooltipHtml(loc, ownership))` se llama UNA sola vez al crear el marker. Si en ese momento la location todavía no tenía `enrichedData.imagen` (típico para puntos importados sin enriquecer), el HTML del tooltip se baquea SIN `<img>`. Cuando luego se enriquece o cambias de banda, el `setIcon` repinta el marker pero **no rehace el tooltip**, así que la Polaroid sigue sin foto para siempre.
 
-## Cambios
+### Hueco 3 — El gating CSS para la imagen funciona, pero solo si la `<img>` existe
+`.map-zoom-standard .poi-hover-tooltip__img { display:block }` está bien, pero solo aplica si el `<img>` está en el DOM. Por el hueco 2, en muchos puntos no está.
 
-### 1. `src/components/map/map-icons.ts`
-- **Eliminar** el bloque `showThumb` + `thumbHtml` + `.poi-thumb` (líneas ~176-194 y los dos `${thumbHtml}` insertados en pin/dot).
-- Mantener la rama `heroUrl` (modo `rich`) — esa es la regla buena.
-- Confirmar que el escape de `micro` es solo por `isFocused` (ya hecho).
+---
 
-### 2. `src/index.css`
-- **Eliminar** las reglas de `.poi-thumb` (alrededor de la línea 380) que ya no usa nadie.
-- Verificar que `.poi-hover-tooltip__img` solo se muestra con `.map-zoom-standard` / `.map-zoom-rich` (ya está, no se toca).
+## Plan de cambios (mínimo, transversal)
 
-### 3. Memoria
-- Marcar `mem://style/map/focused-thumbnail-rule` como **deprecada** (sustituida por el rollover Polaroid + hero marker en `mem://style/map/zoom-driven-hero`).
-- Actualizar `mem://index.md` para sacar la entrada vieja del listado.
+### A) `src/components/map/map-icons.ts` — amplificar la progresión
+- `modeScale`: pasar de `compact 0.7 / standard 1.0 / rich 1.15` a **`compact 0.55 / standard 1.0 / rich 1.35`**.
+- Mantener el resto del canon (micro 5px, compact = SVG plano, standard = SVG completo, rich = imagen Hero 40px).
+- Sin cambios en paleta, anillos de salud, tint de colección.
 
-### 4. Verificación
-- En `LocationMap.tsx` el `zoomend` ya aplica `map-zoom-{micro|compact|standard|rich}` al contenedor y dispara `map-render-mode-changed` para repintar markers.
-- Comprobar que `buildHoverTooltipHtml` se cablea en todos los markers (línea 1403, ya está) y que la imagen Hero llega vía `getPointHeroImage`.
+### B) `src/components/LocationMap.tsx` — rebuild del tooltip al cambiar de banda
+En el handler `map-render-mode-changed` (línea ~1697), tras `marker.setIcon(...)` añadir:
+```ts
+marker.unbindTooltip();
+marker.bindTooltip(buildHoverTooltipHtml(location, ownership), {
+  direction: 'top', offset: [0, -12],
+  className: 'poi-hover-tooltip-wrap', opacity: 1,
+});
+```
+Esto garantiza que al entrar en standard/rich la `<img>` del Hero aparezca aunque el punto se haya enriquecido después de crear el marker.
+
+### C) `src/components/LocationMap.tsx` — refresco al enriquecer
+Hay un useEffect que escucha `recentlyEnrichedIds`/eventos de enriquecimiento y llama `setIcon`. Añadir también el `unbindTooltip + bindTooltip` con el `buildHoverTooltipHtml` actualizado para el id afectado. Mismo helper, sin lógica nueva.
+
+### D) Pequeño refresh del cluster
+Tras `setCurrentRenderMode` con cambio de banda, llamar `markerClusterRef.current?.refreshClusters()` para que los markers que asoman al hacer spiderfy hereden el icono correcto.
+
+---
 
 ## Lo que NO se toca
 
-- La cadena de prioridad de paleta (`getPointVisualState`).
-- Los anillos de salud (`getPointHealthRings`).
-- El `collection-tint-ring`.
-- Las panes `mine-pane` / `others-pane` / `selection-pane`.
-- La gating de clustering (sigue desactivado de facto).
+- Helper único `createCustomIcon` y los 4 modos (micro/compact/standard/rich) siguen siendo single source of truth.
+- `getPointVisualState` (paleta verde/gris/naranja), health rings, collection tint, ownership halo.
+- `buildHoverTooltipHtml` y el gating CSS (`.map-zoom-standard/rich .poi-hover-tooltip__img`).
+- Lógica de visibilidad (`isLocationVisibleInGlobalMap`), filtros, buckets.
 
-## Resultado esperado
+## Verificación
 
-- Vista mundial (Francia entera, 699 seleccionados): solo puntitos 5px de color. Cero miniaturas.
-- Vista regional (zoom 11-13): círculos planos de color, sin foto, hover muestra solo el nombre.
-- Vista local (zoom 14-16): círculos con gradiente + rings, hover Polaroid con foto Hero.
-- Vista muy cercana (zoom 17+): el marker es la foto Hero, hover sigue mostrando la Polaroid.
+1. Zoom 7 (vista global): puntos micro 5px (en zonas sin cluster).
+2. Zoom 12 (regional): círculos pequeños planos, hover Polaroid sin foto.
+3. Zoom 15 (local): círculos completos con gradiente + anillos, hover Polaroid **con foto Hero**.
+4. Zoom 18 (cercano): marker = foto Hero 40px, hover Polaroid también con foto.
+5. Enriquecer un punto en zoom 15 → la Polaroid pasa a mostrar la foto sin recargar.
 
-Una sola regla. Sin ramas que la salten.
+## Archivos a tocar
+
+- `src/components/map/map-icons.ts` (1 línea: el objeto `modeScale`)
+- `src/components/LocationMap.tsx` (handler `map-render-mode-changed` + handler de enriquecimiento + un `refreshClusters`)
