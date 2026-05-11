@@ -555,13 +555,31 @@ export interface CoherenceGeoContext {
   comarca?: string;
 }
 
+interface CoherenceCandidate {
+  name: string;
+  distanceM: number;
+  distanceKm: number;
+  url: string;
+  extract?: string;
+  lat?: number;
+  lng?: number;
+  country?: string;
+  region?: string;
+  locality?: string;
+}
+
 interface CoherenceResult {
   ok: boolean;
   reason?: 'name_coordinate_mismatch';
+  /** `name`: homónimo en otra zona. `coordinate`: misma identidad, coords mal. */
+  mismatchKind?: 'name' | 'coordinate';
   providedName: string;
   providedCoords: { lat: number; lng: number };
-  nameLocation?: { lat: number; lng: number; title: string; url: string; distanceKm: number };
-  nearbyCandidates?: Array<{ name: string; distanceM: number; url: string; extract?: string }>;
+  nameLocation?: {
+    lat: number; lng: number; title: string; url: string; distanceKm: number;
+    country?: string; region?: string; locality?: string;
+  };
+  nearbyCandidates?: CoherenceCandidate[];
 }
 
 // Devuelve un score 0..100 de solapamiento textual entre un nombre POI y un
