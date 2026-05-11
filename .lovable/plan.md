@@ -1,69 +1,42 @@
-## Polaroid marker desde z≥11
+## Problema
 
-Bajar el umbral de la imagen Hero como marker: desde **z=11** (vista metro/ciudad) y todos los zooms superiores, cada POI se pinta como un **polaroid clásico** con la imagen Hero o un **placeholder gris con icono de foto** si el punto no tiene imagen.
+En `src/components/map/map-icons.ts` el modo `rich` (z≥11) **reemplaza** el marker estándar por la polaroid. La regla canónica es: el POI sigue siendo el dot de color (estado + health rings + collection tint), y la polaroid es solo una **capa añadida** flotando encima.
 
-### 1. Token de zoom (single source of truth)
+Además, en la rama actual el placeholder gris (patrón diagonal) se renderiza **siempre** en el DOM aunque haya imagen Hero válida, manchando el área de la foto en el momento previo a que la imagen pinte (y en cualquier zona transparente del `<img>`).
 
-`src/design-system/tokens/source/map.json` → bajar `richMin` de **17 → 11**.
-Rebuild tokens (`npm run build:tokens`) propaga a `tokens.css`, `tokens.ts` y Tailwind. La rama `renderMode === 'rich'` en `map-icons.ts` se activa automáticamente desde z11.
+## Cambios
 
-`heroMin` (14) se baja también a 11 para que el hover-tooltip polaroid y el marker polaroid coincidan en la misma banda.
+### 1. `src/components/map/map-icons.ts` — la polaroid se añade al dot, no lo sustituye
 
-Actualizar `mem://style/map/zoom-driven-hero` para reflejar el nuevo umbral.
+- Eliminar el `return L.divIcon(...)` temprano de la rama `if (renderMode === 'rich')`.
+- En su lugar, dejar que el flujo continúe hasta la rama "Default: small circle" (dot canónico con gradiente, stroke blanco, health rings y collection tint).
+- Calcular un `polaroidHtml` cuando `renderMode === 'rich'` (cuadrado redondeado 50×56 con marco blanco, pointer triangular abajo apuntando al dot, foto Hero o placeholder dentro). En el resto de modos, `polaroidHtml = ''`.
+- Inyectar `polaroidHtml` como hijo absolute del contenedor del dot, posicionado **arriba** (`position:absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); pointer-events: none`). De este modo:
+  - El `iconAnchor` sigue siendo el centro del dot (la coordenada real).
+  - `iconSize` no cambia (Leaflet permite que el HTML interno se desborde del bounding box; ya lo hace el tooltip).
+  - Click, popup, halo focused y health rings siguen funcionando exactamente como en `compact`/`standard`.
+  - El dot canónico es invariante en todas las bandas excepto `micro`.
 
-### 2. Placeholder cuando no hay imagen
+### 2. Arreglar placeholder superpuesto
 
-Hoy, en `rich` sin `heroUrl`, el código cae al SVG dot/pin estándar. Pasa a devolver siempre el `divIcon` polaroid:
+En el HTML de la polaroid, renderizar **uno solo** de los dos:
 
-- Si hay `heroUrl` → `<img>` como ahora.
-- Si no → `<div class="poi-hero-marker__placeholder">` con icono `ImageIcon` Lucide (inline SVG, color `hsl(var(--muted-foreground))`, fondo gris muy claro y patrón sutil de líneas diagonales para look "foto vacía").
-
-El icono se inyecta como SVG hardcodeado en el HTML del divIcon (mismo patrón que el resto de markers; Lucide no se puede importar a un string de divIcon, así que se copia el path del icono `image` de Lucide).
-
-### 3. Estilo polaroid clásico
-
-Reescribir `.poi-hero-marker` en `src/index.css`:
-
-```text
-┌────────────┐  ← marco blanco 3px arriba/izq/dcha
-│            │
-│   IMAGEN   │  ← 40×40 (imagen) o placeholder
-│            │
-├────────────┤
-│            │  ← franja blanca inferior ~10px (caption strip)
-└────────────┘
-   sombra suave abajo
+```ts
+const photoInner = heroUrl ? photoHtml : placeholderHtml;
 ```
 
-- Tamaño total: **46×56** (40 imagen + 3px marco + 3px marco + 10px franja inferior).
-- `background: hsl(var(--background))` (blanco en light, papel oscuro respeta theme).
-- `border-radius: 2px` (look fotográfico, no redondeado tipo card).
-- `box-shadow: 0 2px 6px hsl(var(--foreground) / 0.18)`.
-- Borde de **color de estado** (`--marker-state-color`) como `outline: 1px solid` ALREDEDOR del marco blanco — apenas perceptible pero respeta semántica verde/gris/naranja.
-- Health rings (rojo/amarillo/naranja) se siguen apilando como `drop-shadow` por fuera del polaroid (helper existente, no cambia).
-- Collection tint, halo de focus, recently-enriched y `is-own`: se conservan tal cual; solo se reposicionan al nuevo tamaño.
+Y en `onerror` del `<img>` (cuando la imagen falla en runtime), reemplazar el contenido del `__photo` por el placeholder en lugar de superponerlo (vía `parentElement.innerHTML = placeholderSvg`). Ya marcamos el ID en `heroFailedIds` para el siguiente repintado.
 
-`iconAnchor` pasa a `[heroSize/2, 40]` (ancla en el centro de la imagen, no en el centro del polaroid) para que el polaroid "cuelgue" del punto geográfico de forma natural.
+### 3. `src/index.css` — ajustes mínimos
 
-### 4. Banda compact (z10-13): comportamiento residual
+- `.poi-hero-marker__wrap` deja de ser el contenedor del marker; pasa a ser solo el wrapper interno de la polaroid flotante.
+- Mantener `.poi-hero-marker__card`, `__pointer`, `__photo`, `__img`, `__placeholder`, `__halo` como están (sin tocar tokens ni colores).
+- Añadir `pointer-events: none` al wrapper polaroid para que todos los clicks vayan al dot.
 
-El umbral nuevo (z11) hace que la banda `compact` quede en z10. A z10 se sigue pintando el marker estándar (dot/pin) como hasta ahora — sin cambios. Eso da una transición limpia: z≤9 micro 2px → z=10 dot → z≥11 polaroid.
+## Notas técnicas
 
-### 5. Performance
-
-A z11 sobre Madrid hay ~80-150 puntos visibles tras clustering (capturado en el screenshot). Polaroid es un `<div>` con `<img>` lazy por el navegador. El `CANVAS_BACKEND_TRIGGER` (>5k markers tras cluster) sigue sin activarse. Sin impacto.
-
-### 6. Sin cambios en
-
-- `getPointVisualState`, `getPointHealthRings`, `getPointHeroImage` — siguen siendo el SoT.
-- Hover tooltip de map-tooltip.ts (sigue mostrando polaroid grande al hover sobre el marker pequeño en banda compact, irrelevante desde z≥11 porque el marker YA es polaroid).
-- Clustering, popup, panels.
-
-### Archivos a tocar
-
-```text
-src/design-system/tokens/source/map.json        # richMin 17→11, heroMin 14→11
-src/components/map/map-icons.ts                 # rama heroUrl → siempre polaroid con placeholder fallback
-src/index.css                                   # .poi-hero-marker rediseño polaroid + .poi-hero-marker__placeholder
-mem://style/map/zoom-driven-hero                # actualizar regla canónica
-```
+- Single source of truth: el dot canónico es siempre el marker. La polaroid es decoración de zoom alto.
+- Memoria `mem://style/map/zoom-driven-hero` se actualizará: "a z≥11 el marker añade una polaroid flotante encima; el dot canónico nunca desaparece".
+- No tocar tokens `map.json` ni `ZOOM_THRESHOLDS`.
+- Cluster, realtime y force-update siguen funcionando porque todo el HTML va en el mismo `divIcon`.
+- No se altera la lógica de `getPointHeroImage` ni la paleta de los 3 estados.
