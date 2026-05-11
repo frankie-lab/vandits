@@ -39,7 +39,7 @@ import {
   calculateVisitRelevance, formatTimeAgo, createFilterLink, parseLocalizacionToLinks,
   type VisitRelevanceInfo,
 } from './map/map-utils';
-import { createCustomIcon } from './map/map-icons';
+import { createCustomIcon, getRenderModeForZoom, setCurrentRenderMode } from './map/map-icons';
 import { onMarkerSizeConfigChange, getMarkerSizeConfig } from './map/useMarkerSizeConfig';
 import {
   prewarmEnrichmentFailures,
