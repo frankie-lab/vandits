@@ -461,6 +461,16 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
               />
             </label>
           </div>
+          <label className="text-[10px] text-muted-foreground">
+            Notas
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              rows={3}
+              className="w-full text-xs px-2 py-1.5 rounded border border-border bg-background mt-0.5 resize-y"
+              placeholder="Notas o descripción manual"
+            />
+          </label>
           <div className="flex items-center gap-1.5">
             <Button
               size="sm"
