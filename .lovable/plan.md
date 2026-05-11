@@ -1,82 +1,174 @@
-# Estabilizar Fase 4A — Map Lab (v2, tokens HSL)
+# Fase DS-UX1A — Popup Matrix + Skeleton System + Panel Loading (final)
 
-Aprobación incorporada: los tokens nuevos van en HSL (`"45 93% 81%"`), no en hex. Al revisar el build actual descubrimos que los tokens POI existentes (`poi.state.enriched/imported/empty`, `poi.ring.*`) **ya están en hex**, lo que rompe la gramática del DS. Por coherencia transversal, esta fase de estabilización los migra todos a HSL.
+Bloque coherente: espera, carga y preview estructural. Sin tocar Leaflet adapter, sin Fase 4B, sin endurecer ESLint, sin Empty States ni Hover Tooltip (esos van a DS-UX1B).
 
-## Diagnóstico ampliado
+Ejecutable como **3 PRs independientes**, cada uno reversible sin afectar a los otros.
 
-1. **Gramática de color mixta en tokens.** `source/color.json` usa HSL triplet (`"24 75% 50%"`). `source/poi.json` usa hex (`"#22c55e"`, `"#f97316"`, `"#dc2626"`). Dos gramáticas conviviendo en el mismo DS.
-2. **Imports de tokens incoherentes en stories.** Las 9 stories importan `@/design-system/tokens/build/tokens` (ruta interna al artefacto generado). Regla acordada en Fase 1: barrel `@/design-system/tokens`.
-3. **Hex literales en `PoiPreview.tsx` y stories.** `ORIGIN_BORDER`, `MapCanvas` (fondo simulado), tintes de colección en `CollectionRing` y `MapDensityStress`. Contradicen "cero literales de color en stories".
-4. **`storybook-static/` no está en `.gitignore`.**
-5. **No se ha verificado** `npm run build-storybook` tras añadir las 9 stories.
-6. **Devdeps redundantes**: `@storybook/react` y `@storybook/blocks` listados directamente aunque entran transitivamente. Ruido menor.
+---
 
-## Plan
+## A.1 — Popup Matrix (PR-1)
 
-### Paso 1 — Migrar TODOS los tokens POI a HSL (transversal)
-En `src/design-system/tokens/source/poi.json`, reemplazar hex por HSL triplet manteniendo el mismo color. Equivalencias:
+Renderer no-Leaflet en Storybook que captura los estados canónicos del popup del mapa.
+
+Archivos nuevos:
+
+```text
+src/design-system/map/__stories__/
+├── PopupPreview.tsx               (renderer token-driven, sin Leaflet)
+├── PopupMatrix.stories.tsx
+├── PopupResponsive.stories.tsx
+└── PopupFocused.stories.tsx
 ```
-state.enriched:  "#22c55e" → "142 71% 45%"
-state.imported:  "#9ca3af" → "220 9% 65%"
-state.empty:     "#24 95% 53%" → "24 95% 53%"  (#f97316)
-ring.empty:      "#f97316" → "24 95% 53%"
-ring.chain:      "#eab308" → "45 93% 47%"
-ring.error:      "#dc2626" → "0 72% 51%"
+
+**Matriz principal (5×3):**
+
+```text
+                       Mío         Seguido     Servicio
+  Importado           [gris]       [gris]      [sky]
+  Vacío               [naranja]    [naranja]   [sky]
+  Loading enrichment  [skeleton]   [skeleton]  [skeleton]
+  Enriquecido         [verde]      [verde]     [sky]
+  Con error           [+rojo]      [+rojo]     [+rojo]
 ```
-Y añadir los nuevos sets también en HSL:
+
+Cada celda: header (nombre + tipo) → hero (imagen, placeholder SVG, o `HeroImageSkeleton`) → cuerpo (descripción / skeleton / empty CTA / recovery block) → footer (collection chips + acciones).
+
+**Stories adicionales:**
+- `PopupResponsive` — el mismo popup a 320 / 375 / 414 / 768 px (clamp del wrapper interno).
+- `PopupFocused` — popup en estado `selected/focused` (POI seleccionado desde búsqueda o ruta). Validación visual aislada, fuera de la matriz principal.
+
+**Tokens — `src/design-system/tokens/source/popup.json` (valores actuales exactos, sin rediseño):**
+- `header.height`, `body.padding`, `hero.ratio`, `actionRow.height`, `maxWidth`, `maxHeight`
+- Regenerar con `npm run tokens:build`. **No** se toca `buildPopupHtml` ni el adapter Leaflet.
+
+Memoria nueva: `mem://style/popup/matrix-rule` — 5 estados × 3 orígenes + variante focused.
+
+---
+
+## A.2 — Skeleton System (PR-2)
+
+`AppSkeleton` ya existe. Convertirlo en patrones nombrados que vivan **dentro del DS**, con re-export legacy desde `src/shared/...`.
+
+Archivos nuevos:
+
+```text
+src/design-system/patterns/Skeletons/
+├── PoiCardSkeleton.tsx
+├── PoiPopupSkeleton.tsx
+├── PanelListSkeleton.tsx          (props: rows: number)
+├── HeroImageSkeleton.tsx          (props: ratio: "16/9" | "4/3" | "1/1")
+├── BadgeRowSkeleton.tsx           (props: count: number)
+└── index.ts
+
+src/shared/components/ui/skeletons/index.ts   (re-export legacy)
+
+src/design-system/patterns/__stories__/Skeletons.stories.tsx
 ```
-originBorder.my:       "0 0% 100%"
-originBorder.followed: "45 93% 81%"   (#fde68a)
-originBorder.service:  "199 95% 86%"  (#bae6fd)
-originBorder.catalog:  "251 91% 92%"  (#ddd6fe)
 
-collectionTintSample.violet:  "258 90% 66%"
-collectionTintSample.sky:     "199 89% 48%"
-collectionTintSample.pink:    "330 81% 60%"
-collectionTintSample.emerald: "160 84% 39%"
-collectionTintSample.amber:   "38 92% 50%"
+**Regla de "cero hardcoded sizes" — matizada:**
+- **Permitido**: props funcionales (`rows`, `count`, `ratio`).
+- **Prohibido**: valores absolutos en px/rem para alturas base, radios, gaps, paddings → siempre desde density/radius/spacing tokens (`h-control-md`, `rounded-token-sm`, `gap-2`).
+
+Story: grid con los 5 patrones individuales + densidad alta (10× `PoiCardSkeleton`) para validar ritmo visual.
+
+**Cableado mínimo (lo que el usuario percibe ya):**
+- `DocumentWaypointsTabs` → `PoiCardSkeleton × N` mientras fetch
+- `GalleryView` → `HeroImageSkeleton ratio="16/9"` antes de cargar imagen
+- `NearbyPanel` (recovery) → `PanelListSkeleton rows={6}`
+
+NO tocar mapa ni clusters. Resto de `animate-pulse` quedan como follow-up.
+
+Memoria nueva: `mem://ui/skeleton-patterns` — catálogo, props permitidos, reglas de uso.
+
+---
+
+## A.3 — Panel Loading (PR-3)
+
+Nivel intermedio entre `GlobalLoadingBar` (top) y la barra inferior multi-lane: panel concreto cargando.
+
+**API de `PanelShell` (ampliada, sin breaking changes):**
+
+```tsx
+<PanelShell
+  loading={isLoading}
+  loadingFallback={<PanelListSkeleton rows={6} />}
+  hasContent={items.length > 0}
+>
+  {/* contenido normal */}
+</PanelShell>
 ```
-Y en `source/map.json` añadir:
+
+**Contrato explícito de loading (clave del ajuste pedido):**
+
+| Caso | hasContent | loading | Render |
+|------|------------|---------|--------|
+| Fetch inicial | `false` | `true` | `loadingFallback` reemplaza children + spinner en header |
+| Refresh parcial | `true` | `true` | **Children intactos** + spinner en header (no parpadea) |
+| Vacío real | `false` | `false` | Children (empty state lo maneja DS-UX1B) |
+| Normal | `true` | `false` | Children |
+
+Reglas:
+- `loading` siempre activa el `AppSpinner` xs a la derecha del título.
+- `loadingFallback` sólo reemplaza children cuando `hasContent === false`.
+- Sin `loadingFallback` y sin contenido → fallback por defecto = `PanelListSkeleton rows={4}`.
+- El usuario sigue pudiendo interactuar con header, tabs y footer mientras `loading`.
+- Ningún estado activa `body.is-blocking-load`.
+
+**Cableado mínimo:**
+- `ImportedContentPanel` (`useDocuments`)
+- `CollectionsPanel`
+- `NearbyPanel`
+
+Story: `src/design-system/patterns/__stories__/PanelShellLoading.stories.tsx` con 4 escenarios (fetch inicial / refresh parcial / vacío / normal) y las 3 variantes form/library/workflow.
+
+Memoria nueva: `mem://ui/panel-loading-pattern` — contrato `hasContent`/`loading`/`loadingFallback` y ejemplos.
+
+---
+
+## Verificación (condición de cierre)
+
+Antes de cerrar DS-UX1A:
+
+1. `npm run tokens:build` — emite `popup.json` sin errores
+2. `npm run build-storybook` — todas las stories nuevas compilan
+3. `npm run lint` — cero nuevos warnings
+4. **Smoke visual y de interacción** en `/`:
+   - Mapa sigue clicable mientras un panel está en `loading`
+   - Refresh parcial no parpadea (mismos items visibles, solo spinner en header)
+   - Ningún loading local activa `body.is-blocking-load`
+   - Popup abre con estado correcto, incluido `loading enrichment` cuando hay enrich en curso
+
+---
+
+## PR layout
+
+```text
+PR-1  DS-UX1A·Popup    → popup.json + PopupPreview + 3 stories + memoria
+PR-2  DS-UX1A·Skeleton → 5 patterns + re-export legacy + story + cableado mínimo
+PR-3  DS-UX1A·Panel    → PanelShell(loading/hasContent/loadingFallback) + cableado + story + memoria
 ```
-canvas.tileA:   "40 18% 88%"  (#e7e3da)
-canvas.tileB:   "40 12% 84%"  (#ddd9d0)
-canvas.tileSize: "24px"
-```
-Marcar cada uno con `_css` para que el build emita la CSS var correspondiente (`--poi-origin-border-*`, `--map-canvas-tile-*`).
 
-### Paso 2 — Adaptar consumidores TS al cambio de gramática
-Cualquier sitio que use `tokens.poi.state.X` directamente como valor CSS debe envolverlo en `hsl(...)`:
-- `src/design-system/map/__stories__/PoiPreview.tsx`: `STATE_COLOR`, `HEALTH_COLOR`, `ORIGIN_BORDER` pasan a devolver `` `hsl(${tokens.poi.state[s]})` ``.
-- Cualquier otro consumidor TS de `tokens.poi.*` (grep para confirmar). Esperado: ninguno en producto todavía; el helper Leaflet `createCustomIcon` sigue usando su propia lógica legacy hasta Fase 5.
-- Tailwind `tailwind.tokens.cjs` no se ve afectado porque ya consume las CSS vars con `hsl(var(--token))`.
+---
 
-### Paso 3 — Normalizar imports en stories
-- `PoiPreview.tsx`, `ZoomLevelMatrix.stories.tsx` → `import { tokens } from '@/design-system/tokens'` (barrel).
-- Stories que pintan tintes (`CollectionRing`, `MapDensityStress`) → leer de `tokens.poi.collectionTintSample.*`.
-- `MapCanvas` background construido con `linear-gradient` interpolando `hsl(var(--map-canvas-tile-a))` y `hsl(var(--map-canvas-tile-b))`.
+## Memorias a crear/actualizar
 
-### Paso 4 — Higiene del repo
-- Añadir `storybook-static/` al `.gitignore`.
-- Quitar `@storybook/react` y `@storybook/blocks` de devDependencies directas (siguen disponibles transitivamente; si Storybook se queja, se reinsertan).
+- `mem://style/popup/matrix-rule` (nuevo)
+- `mem://ui/skeleton-patterns` (nuevo)
+- `mem://ui/panel-loading-pattern` (nuevo)
+- `mem://architecture/design-system-phase-4a` (referencia a DS-UX1A)
+- `mem://ui/shared-primitives` (anotar ubicación canónica en `design-system/patterns/Skeletons/` + re-export legacy)
 
-### Paso 5 — Verificación obligatoria antes de cerrar
-Como pide el revisor:
-1. `npm run tokens:build` → confirma que los HSL nuevos se emiten en `tokens.ts`, `tokens.css` (CSS vars `--poi-*`, `--map-canvas-*`) y `tailwind.tokens.cjs`.
-2. `npm run build-storybook` → build estático de las 9 stories sin errores.
-3. `npm run lint` → cero nuevos warnings/errores introducidos por la fase.
+---
 
-Si alguno falla, se corrige en sitio antes de marcar la fase como cerrada.
+## Fuera de alcance (DS-UX1B, siguiente iteración)
 
-### Paso 6 — Registro
-Actualizar `mem://architecture/design-system-phase-4a.md` con la nota de estabilización (tokens POI en HSL, imports normalizados, build verificado). Sin entrada nueva en el índice de memoria — sigue siendo "Fase 4A".
+- Empty States canónicos (`AppEmptyState` + catálogo de presets)
+- Hover Preview tooltip (story + tokens de timing)
 
-## Fuera de alcance (Fase 4B / 5)
-- No tocar `src/design-system/map/{rules,icons,adapters}`.
-- No migrar primitives (`src/components/ui/*` → `src/design-system/primitives/*`).
-- No endurecer ESLint contra imports de `@/components/ui/*`.
-- No tocar el `createCustomIcon` legacy de Leaflet (sigue leyendo de su sitio actual hasta Fase 5).
+---
 
-## Riesgos y mitigación
-- **Riesgo**: algún consumidor TS de `tokens.poi.*` rompe al recibir un triplet en vez de hex. **Mitigación**: grep antes de migrar; si aparece consumo en producto, se envuelve en `hsl(...)` o se migra al CSS var equivalente.
-- **Riesgo**: `build-storybook` falla por peer deps SB 8.6 vs declarados ^8.4. **Mitigación**: si falla, alinear `package.json` a `^8.6.0` (semver compatible).
-- **Riesgo**: pérdida de fidelidad visual al convertir hex→HSL. **Mitigación**: equivalencias calculadas con redondeo estándar; diff visual revisable en Storybook tras el build.
+## Riesgos
+
+- **Tokens de popup**: valores iniciales = exactos a los actuales. Rediseño visual del popup, si llega, va en otra iteración.
+- **Skeleton overreach**: limitar cableado a los 3 puntos listados; resto como follow-up.
+- **PanelShell breaking**: `loading`, `loadingFallback` y `hasContent` son opcionales. Sin ellos, `PanelShell` se comporta exactamente igual que hoy.
