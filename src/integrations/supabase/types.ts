@@ -3164,6 +3164,10 @@ export type Database = {
         }
         Returns: string
       }
+      _enqueue_geo_repair: {
+        Args: { _location_id: string; _user_id: string }
+        Returns: undefined
+      }
       _is_admin_or_master: { Args: { _uid: string }; Returns: boolean }
       _merge_admin_area: {
         Args: { _canonical: string; _orphan: string }
