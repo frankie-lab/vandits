@@ -14,13 +14,33 @@ import {
   cacheApplied,
   type OverrideMap,
 } from '@/design-system/runtime/apply-overrides';
+import { getLeaf } from '@/design-system/runtime/token-registry';
+import {
+  deriveOppositeTriplet,
+  resolveOppositeModePath,
+  resolveTargetBackgroundPath,
+} from '@/components/admin/design-system/color-adaptive';
+import { parseHslTriplet } from '@/components/admin/design-system/color-conversions';
+
+/** Pair key per token role (without light/dark prefix). True = auto-link. */
+type LinkedMap = Record<string, boolean>;
+
+function pairKey(path: string): string | undefined {
+  const m = path.match(/^color\.(light|dark)\.(.+)$/);
+  return m ? m[2] : undefined;
+}
 
 interface State {
   published: OverrideMap;
   draft: OverrideMap;
+  linkedPairs: LinkedMap;
 
   hydrate: (published: OverrideMap) => void;
   setDraft: (path: string, value: string | number) => void;
+  /** Toggle auto-link for a color pair (key = role without mode). */
+  setLinked: (path: string, value: boolean) => void;
+  /** True when the pair is currently auto-linked (default true). */
+  isLinked: (path: string) => boolean;
   /** Restaurar el valor de fábrica de un alias (re-vincular a su $ref). */
   resetToBase: (path: string) => void;
   /** Alias de resetToBase con nombre semántico: vuelve a heredar del primitivo. */
