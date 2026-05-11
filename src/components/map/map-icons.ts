@@ -73,6 +73,28 @@ export const createCustomIcon = (
   const configKey = getPointConfigKey(location);
   const entry = sizeConfig[configKey] || sizeConfig.empty || sizeConfig.imported;
 
+  // ── Render mode por zoom (Ola 1) ───────────────────────────────────────
+  // En `micro` (z≤9) devolvemos un divIcon plano — sin SVG, gradiente, tint
+  // ni health rings — para soportar miles de puntos en vista global sin
+  // saturación visual ni coste DOM por marker. Los 3 estados (verde/gris/
+  // naranja) se preservan: la paleta canónica vive en `entry.fill_color`.
+  const renderMode = currentRenderMode;
+  if (renderMode === 'micro' && !isFocused && !isSelected) {
+    const microSize = 6;
+    const dot = entry.fill_color;
+    return L.divIcon({
+      className: 'custom-marker-micro',
+      html: `<div style="width:${microSize}px;height:${microSize}px;border-radius:50%;background:${dot};box-shadow:0 0 0 1px rgba(255,255,255,0.9);"></div>`,
+      iconSize: [microSize, microSize],
+      iconAnchor: [microSize / 2, microSize / 2],
+      popupAnchor: [0, -microSize / 2],
+    });
+  }
+  // En `compact` (z10–13) saltamos los health rings y el gradiente: SVG
+  // plano con `fill_color`. Tint de colección y borde se mantienen.
+  const skipHealthRings = renderMode === 'compact';
+  const skipGradient = renderMode === 'compact';
+
   const size = getBaseSize(entry, isRecentlyEnriched, isFocused, isSelected);
   const hoverSize = getHoverSize(entry);
 
