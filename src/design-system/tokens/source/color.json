@@ -1,47 +1,92 @@
 {
-  "$schema": "Color tokens — semantic palette. Values are HSL triplets (consumed via hsl(var(--name)) in Tailwind). Light mode = :root, dark mode = .dark.",
+  "$schema": "Color tokens — two-tier system. `primitives.*` define the raw palette (no CSS var emitted). `color.light.*` and `color.dark.*` are semantic aliases that point to a primitive via $ref. Editing a primitive cascades to every alias that references it. Editing a semantic token directly overrides only that alias.",
   "color": {
+    "primitives": {
+      "light": {
+        "neutral": {
+          "0":   { "value": "0 0% 100%"  },
+          "50":  { "value": "40 20% 98%" },
+          "100": { "value": "40 15% 93%" },
+          "200": { "value": "40 15% 88%" },
+          "500": { "value": "220 10% 46%" },
+          "900": { "value": "220 20% 14%" }
+        },
+        "brand": {
+          "50":  { "value": "24 60% 94%" },
+          "500": { "value": "24 75% 50%" },
+          "700": { "value": "24 75% 35%" }
+        },
+        "info": {
+          "500": { "value": "200 65% 48%" }
+        },
+        "danger": {
+          "500": { "value": "0 72% 55%" }
+        }
+      },
+      "dark": {
+        "neutral": {
+          "0":   { "value": "0 0% 100%"   },
+          "100": { "value": "40 15% 94%"  },
+          "500": { "value": "40 10% 58%"  },
+          "700": { "value": "220 18% 18%" },
+          "800": { "value": "220 18% 16%" },
+          "900": { "value": "220 20% 11%" },
+          "950": { "value": "220 20% 8%"  }
+        },
+        "brand": {
+          "300": { "value": "24 70% 70%" },
+          "500": { "value": "24 80% 55%" },
+          "900": { "value": "24 40% 18%" }
+        },
+        "info": {
+          "500": { "value": "200 60% 52%" }
+        },
+        "danger": {
+          "500": { "value": "0 65% 48%" }
+        }
+      }
+    },
     "light": {
-      "background":             { "value": "40 20% 98%",  "_css": "--background" },
-      "foreground":             { "value": "220 20% 14%", "_css": "--foreground" },
-      "card":                   { "value": "0 0% 100%",   "_css": "--card" },
-      "cardForeground":         { "value": "220 20% 14%", "_css": "--card-foreground" },
-      "popover":                { "value": "0 0% 100%",   "_css": "--popover" },
-      "popoverForeground":      { "value": "220 20% 14%", "_css": "--popover-foreground" },
-      "primary":                { "value": "24 75% 50%",  "_css": "--primary" },
-      "primaryForeground":      { "value": "0 0% 100%",   "_css": "--primary-foreground" },
-      "secondary":              { "value": "200 65% 48%", "_css": "--secondary" },
-      "secondaryForeground":    { "value": "0 0% 100%",   "_css": "--secondary-foreground" },
-      "muted":                  { "value": "40 15% 93%",  "_css": "--muted" },
-      "mutedForeground":        { "value": "220 10% 46%", "_css": "--muted-foreground" },
-      "accent":                 { "value": "24 60% 94%",  "_css": "--accent" },
-      "accentForeground":       { "value": "24 75% 35%",  "_css": "--accent-foreground" },
-      "destructive":            { "value": "0 72% 55%",   "_css": "--destructive" },
-      "destructiveForeground":  { "value": "0 0% 100%",   "_css": "--destructive-foreground" },
-      "border":                 { "value": "40 15% 88%",  "_css": "--border" },
-      "input":                  { "value": "40 15% 88%",  "_css": "--input" },
-      "ring":                   { "value": "24 75% 50%",  "_css": "--ring" }
+      "background":             { "$ref": "color.primitives.light.neutral.50",  "_css": "--background" },
+      "foreground":             { "$ref": "color.primitives.light.neutral.900", "_css": "--foreground" },
+      "card":                   { "$ref": "color.primitives.light.neutral.0",   "_css": "--card" },
+      "cardForeground":         { "$ref": "color.primitives.light.neutral.900", "_css": "--card-foreground" },
+      "popover":                { "$ref": "color.primitives.light.neutral.0",   "_css": "--popover" },
+      "popoverForeground":      { "$ref": "color.primitives.light.neutral.900", "_css": "--popover-foreground" },
+      "primary":                { "$ref": "color.primitives.light.brand.500",   "_css": "--primary" },
+      "primaryForeground":      { "$ref": "color.primitives.light.neutral.0",   "_css": "--primary-foreground" },
+      "secondary":              { "$ref": "color.primitives.light.info.500",    "_css": "--secondary" },
+      "secondaryForeground":    { "$ref": "color.primitives.light.neutral.0",   "_css": "--secondary-foreground" },
+      "muted":                  { "$ref": "color.primitives.light.neutral.100", "_css": "--muted" },
+      "mutedForeground":        { "$ref": "color.primitives.light.neutral.500", "_css": "--muted-foreground" },
+      "accent":                 { "$ref": "color.primitives.light.brand.50",    "_css": "--accent" },
+      "accentForeground":       { "$ref": "color.primitives.light.brand.700",   "_css": "--accent-foreground" },
+      "destructive":            { "$ref": "color.primitives.light.danger.500",  "_css": "--destructive" },
+      "destructiveForeground":  { "$ref": "color.primitives.light.neutral.0",   "_css": "--destructive-foreground" },
+      "border":                 { "$ref": "color.primitives.light.neutral.200", "_css": "--border" },
+      "input":                  { "$ref": "color.primitives.light.neutral.200", "_css": "--input" },
+      "ring":                   { "$ref": "color.primitives.light.brand.500",   "_css": "--ring" }
     },
     "dark": {
-      "background":             { "value": "220 20% 8%",  "_css": "--background" },
-      "foreground":             { "value": "40 15% 94%",  "_css": "--foreground" },
-      "card":                   { "value": "220 20% 11%", "_css": "--card" },
-      "cardForeground":         { "value": "40 15% 94%",  "_css": "--card-foreground" },
-      "popover":                { "value": "220 20% 11%", "_css": "--popover" },
-      "popoverForeground":      { "value": "40 15% 94%",  "_css": "--popover-foreground" },
-      "primary":                { "value": "24 80% 55%",  "_css": "--primary" },
-      "primaryForeground":      { "value": "220 20% 8%",  "_css": "--primary-foreground" },
-      "secondary":              { "value": "200 60% 52%", "_css": "--secondary" },
-      "secondaryForeground":    { "value": "220 20% 8%",  "_css": "--secondary-foreground" },
-      "muted":                  { "value": "220 18% 16%", "_css": "--muted" },
-      "mutedForeground":        { "value": "40 10% 58%",  "_css": "--muted-foreground" },
-      "accent":                 { "value": "24 40% 18%",  "_css": "--accent" },
-      "accentForeground":       { "value": "24 70% 70%",  "_css": "--accent-foreground" },
-      "destructive":            { "value": "0 65% 48%",   "_css": "--destructive" },
-      "destructiveForeground":  { "value": "0 0% 100%",   "_css": "--destructive-foreground" },
-      "border":                 { "value": "220 18% 18%", "_css": "--border" },
-      "input":                  { "value": "220 18% 18%", "_css": "--input" },
-      "ring":                   { "value": "24 80% 55%",  "_css": "--ring" }
+      "background":             { "$ref": "color.primitives.dark.neutral.950", "_css": "--background" },
+      "foreground":             { "$ref": "color.primitives.dark.neutral.100", "_css": "--foreground" },
+      "card":                   { "$ref": "color.primitives.dark.neutral.900", "_css": "--card" },
+      "cardForeground":         { "$ref": "color.primitives.dark.neutral.100", "_css": "--card-foreground" },
+      "popover":                { "$ref": "color.primitives.dark.neutral.900", "_css": "--popover" },
+      "popoverForeground":      { "$ref": "color.primitives.dark.neutral.100", "_css": "--popover-foreground" },
+      "primary":                { "$ref": "color.primitives.dark.brand.500",   "_css": "--primary" },
+      "primaryForeground":      { "$ref": "color.primitives.dark.neutral.950", "_css": "--primary-foreground" },
+      "secondary":              { "$ref": "color.primitives.dark.info.500",    "_css": "--secondary" },
+      "secondaryForeground":    { "$ref": "color.primitives.dark.neutral.950", "_css": "--secondary-foreground" },
+      "muted":                  { "$ref": "color.primitives.dark.neutral.800", "_css": "--muted" },
+      "mutedForeground":        { "$ref": "color.primitives.dark.neutral.500", "_css": "--muted-foreground" },
+      "accent":                 { "$ref": "color.primitives.dark.brand.900",   "_css": "--accent" },
+      "accentForeground":       { "$ref": "color.primitives.dark.brand.300",   "_css": "--accent-foreground" },
+      "destructive":            { "$ref": "color.primitives.dark.danger.500",  "_css": "--destructive" },
+      "destructiveForeground":  { "$ref": "color.primitives.dark.neutral.0",   "_css": "--destructive-foreground" },
+      "border":                 { "$ref": "color.primitives.dark.neutral.700", "_css": "--border" },
+      "input":                  { "$ref": "color.primitives.dark.neutral.700", "_css": "--input" },
+      "ring":                   { "$ref": "color.primitives.dark.brand.500",   "_css": "--ring" }
     }
   }
 }

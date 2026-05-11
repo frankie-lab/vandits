@@ -11,18 +11,25 @@ export interface LeafToken {
   path: string[];
   /** Ruta canónica para mirar el glosario (sin light/dark). Ej.: 'color.primary' */
   glossaryKey: string;
+  /** Valor final, ya resuelto a través de la cadena $ref. */
   value: string | number;
   cssVar?: string;
+  /** Si el token es un alias, ruta dotted al primitivo que referencia. */
+  refPath?: string;
+  /** Primitivo = sin _css y sin $ref. Base de la paleta cruda. */
+  isPrimitive: boolean;
 }
 
 export type PairedRow =
   | {
       kind: 'single';
       glossaryKey: string;
-      label?: string; // override opcional
-      tokens: LeafToken[]; // 1+ alias con el mismo valor
+      label?: string;
+      tokens: LeafToken[];
       value: string | number;
       cssVar?: string;
+      refPath?: string;
+      isPrimitive: boolean;
     }
   | {
       kind: 'lightDark';
@@ -31,22 +38,46 @@ export type PairedRow =
       dark?: LeafToken;
     };
 
-function isLeaf(node: unknown): node is { value: string | number; _css?: string } {
-  return !!node && typeof node === 'object' && 'value' in (node as Record<string, unknown>);
+type RawLeaf = { value?: string | number; $ref?: string; _css?: string };
+
+function isLeaf(node: unknown): node is RawLeaf {
+  return !!node && typeof node === 'object' && ('value' in (node as RawLeaf) || '$ref' in (node as RawLeaf));
+}
+
+function getByPath(root: unknown, dotted: string): unknown {
+  return dotted.split('.').reduce<unknown>(
+    (acc, k) => (acc && typeof acc === 'object' ? (acc as Record<string, unknown>)[k] : undefined),
+    root,
+  );
+}
+
+function resolveValue(leaf: RawLeaf, root: unknown, seen = new Set<string>()): string | number | undefined {
+  if (leaf.value !== undefined) return leaf.value;
+  if (leaf.$ref) {
+    if (seen.has(leaf.$ref)) return undefined;
+    seen.add(leaf.$ref);
+    const target = getByPath(root, leaf.$ref);
+    if (isLeaf(target)) return resolveValue(target, root, seen);
+  }
+  return undefined;
 }
 
 /**
  * Devuelve la clave "humana" del glosario.
  * Color JSON usa `color.light.X` / `color.dark.X` → colapsamos a `color.X`.
+ * Para primitivos `color.primitives.light.neutral.0` colapsamos a `color.primitives.neutral.0`.
  */
 function toGlossaryKey(path: string[]): string {
+  if (path[0] === 'color' && path[1] === 'primitives' && (path[2] === 'light' || path[2] === 'dark')) {
+    return ['color', 'primitives', ...path.slice(3)].join('.');
+  }
   if (path[0] === 'color' && (path[1] === 'light' || path[1] === 'dark')) {
     return ['color', ...path.slice(2)].join('.');
   }
   return path.join('.');
 }
 
-export function flattenTokens(data: unknown, path: string[] = []): LeafToken[] {
+export function flattenTokens(data: unknown, path: string[] = [], root: unknown = data): LeafToken[] {
   if (!data || typeof data !== 'object') return [];
   const out: LeafToken[] = [];
   for (const [k, v] of Object.entries(data as Record<string, unknown>)) {
@@ -56,30 +87,33 @@ export function flattenTokens(data: unknown, path: string[] = []): LeafToken[] {
       out.push({
         path: next,
         glossaryKey: toGlossaryKey(next),
-        value: v.value,
+        value: resolveValue(v, root) ?? '',
         cssVar: v._css,
+        refPath: v.$ref,
+        isPrimitive: !v._css && !v.$ref,
       });
     } else if (v && typeof v === 'object') {
-      out.push(...flattenTokens(v, next));
+      out.push(...flattenTokens(v, next, root));
     }
   }
   return out;
 }
 
-/** Agrupa light/dark de color en una sola fila. Solo aplica al JSON `color`. */
+/** Empareja light/dark de color/semánticos y de primitivos. */
 export function pairLightDark(leaves: LeafToken[]): PairedRow[] {
   const lightByKey = new Map<string, LeafToken>();
   const darkByKey = new Map<string, LeafToken>();
   const passthrough: LeafToken[] = [];
 
   for (const leaf of leaves) {
-    if (leaf.path[0] === 'color' && leaf.path[1] === 'light') {
-      lightByKey.set(leaf.glossaryKey, leaf);
-    } else if (leaf.path[0] === 'color' && leaf.path[1] === 'dark') {
-      darkByKey.set(leaf.glossaryKey, leaf);
-    } else {
-      passthrough.push(leaf);
-    }
+    const p = leaf.path;
+    const isSemanticLight = p[0] === 'color' && p[1] === 'light';
+    const isSemanticDark = p[0] === 'color' && p[1] === 'dark';
+    const isPrimitiveLight = p[0] === 'color' && p[1] === 'primitives' && p[2] === 'light';
+    const isPrimitiveDark = p[0] === 'color' && p[1] === 'primitives' && p[2] === 'dark';
+    if (isSemanticLight || isPrimitiveLight) lightByKey.set(leaf.glossaryKey, leaf);
+    else if (isSemanticDark || isPrimitiveDark) darkByKey.set(leaf.glossaryKey, leaf);
+    else passthrough.push(leaf);
   }
 
   const paired: PairedRow[] = [];
@@ -93,6 +127,8 @@ export function pairLightDark(leaves: LeafToken[]): PairedRow[] {
       tokens: [leaf],
       value: leaf.value,
       cssVar: leaf.cssVar,
+      refPath: leaf.refPath,
+      isPrimitive: leaf.isPrimitive,
     });
   }
   return paired;
@@ -121,14 +157,19 @@ export function dedupeByValue(rows: PairedRow[]): PairedRow[] {
       out.push(fresh);
     }
   }
-
   return out;
 }
 
 /** Transforma un JSON fuente en filas finales listas para renderizar. */
-export function buildRows(data: unknown, opts: { dedupe?: boolean } = {}): PairedRow[] {
+export function buildRows(
+  data: unknown,
+  opts: { dedupe?: boolean; only?: 'primitives' | 'semantics' } = {},
+): PairedRow[] {
   const leaves = flattenTokens(data);
-  const paired = pairLightDark(leaves);
+  const filtered = opts.only
+    ? leaves.filter((l) => (opts.only === 'primitives' ? l.isPrimitive : !l.isPrimitive))
+    : leaves;
+  const paired = pairLightDark(filtered);
   return opts.dedupe ? dedupeByValue(paired) : paired;
 }
 

@@ -34,13 +34,19 @@ export interface TokenLeaf {
   path: string;
   /** Logical group id (matches sidebar). */
   groupId: string;
-  /** CSS variable name (without `--`). undefined → token is not directly editable as a var. */
+  /** CSS variable name (without `--`). undefined → not directly editable as a var. */
   cssVar?: string;
   /** light/dark selector for color tokens. null for everything else. */
   mode: 'light' | 'dark' | null;
-  /** Factory value (immutable). */
+  /** Factory value (immutable, fully resolved through $ref chain). */
   baseValue: string | number;
   type: TokenType;
+  /** If this leaf is a $ref alias, the target dotted path. */
+  refPath?: string;
+  /** Original (unresolved) value or {$ref} as stored in JSON. */
+  rawRef?: string;
+  /** Primitive = no _css var and no $ref (palette base). */
+  isPrimitive: boolean;
 }
 
 const SOURCES: Record<string, unknown> = {
@@ -56,8 +62,29 @@ const SOURCES: Record<string, unknown> = {
   elevation: elevationTokens,
 };
 
-function isLeaf(n: unknown): n is { value: string | number; _css?: string } {
-  return !!n && typeof n === 'object' && 'value' in (n as Record<string, unknown>);
+type Raw = { value?: string | number; $ref?: string; _css?: string };
+
+function isLeaf(n: unknown): n is Raw {
+  return !!n && typeof n === 'object' && ('value' in (n as Raw) || '$ref' in (n as Raw));
+}
+
+function getByPath(root: unknown, dotted: string): unknown {
+  return dotted.split('.').reduce<unknown>(
+    (acc, k) => (acc && typeof acc === 'object' ? (acc as Record<string, unknown>)[k] : undefined),
+    root,
+  );
+}
+
+/** Resolve a leaf's value following $ref chains. Mirrors build-tokens.cjs. */
+function resolveValue(leaf: Raw, root: unknown, seen = new Set<string>()): string | number | undefined {
+  if (leaf.value !== undefined) return leaf.value;
+  if (leaf.$ref) {
+    if (seen.has(leaf.$ref)) return undefined;
+    seen.add(leaf.$ref);
+    const target = getByPath(root, leaf.$ref);
+    if (isLeaf(target)) return resolveValue(target, root, seen);
+  }
+  return undefined;
 }
 
 function inferType(path: string[], value: string | number): TokenType {
@@ -73,33 +100,37 @@ function inferType(path: string[], value: string | number): TokenType {
   return 'text';
 }
 
-function walk(group: string, data: unknown, path: string[], out: TokenLeaf[]) {
+function walk(group: string, data: unknown, path: string[], out: TokenLeaf[], root: unknown) {
   if (!data || typeof data !== 'object') return;
   for (const [k, v] of Object.entries(data as Record<string, unknown>)) {
     if (k.startsWith('$')) continue;
     const next = [...path, k];
     if (isLeaf(v)) {
+      // Mode is based on whether the path traverses light/dark, anywhere in
+      // the chain (handles `color.light.X` and `color.primitives.light.…`).
       const mode: 'light' | 'dark' | null =
-        group === 'color' && (next[1] === 'light' || next[1] === 'dark')
-          ? (next[1] as 'light' | 'dark')
-          : null;
+        next.includes('light') ? 'light' : next.includes('dark') ? 'dark' : null;
+      const value = resolveValue(v, root) ?? '';
       out.push({
         path: next.join('.'),
         groupId: group,
         cssVar: v._css,
-        mode,
-        baseValue: v.value,
-        type: inferType(next, v.value),
+        mode: group === 'color' ? mode : null,
+        baseValue: value,
+        type: inferType(next, value),
+        refPath: v.$ref,
+        rawRef: v.$ref,
+        isPrimitive: !v._css && !v.$ref,
       });
     } else if (v && typeof v === 'object') {
-      walk(group, v, next, out);
+      walk(group, v, next, out, root);
     }
   }
 }
 
 const LEAVES: TokenLeaf[] = (() => {
   const acc: TokenLeaf[] = [];
-  for (const [group, data] of Object.entries(SOURCES)) walk(group, data, [group], acc);
+  for (const [group, data] of Object.entries(SOURCES)) walk(group, data, [group], acc, data);
   return acc;
 })();
 
@@ -115,4 +146,9 @@ export function getLeaf(path: string): TokenLeaf | undefined {
 
 export function getBaseValue(path: string): string | number | undefined {
   return BY_PATH.get(path)?.baseValue;
+}
+
+/** Leaves that reference `primitivePath` directly via $ref. */
+export function getAliasesOf(primitivePath: string): TokenLeaf[] {
+  return LEAVES.filter((l) => l.refPath === primitivePath);
 }

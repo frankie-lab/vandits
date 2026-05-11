@@ -36,23 +36,43 @@ function loadSources() {
 }
 
 // ─── 2. Walk tree, collect tokens with metadata ────────────────────────────
-function collectTokens(tree, breadcrumbs = []) {
+function getByPath(root, dotted) {
+  return dotted.split('.').reduce((acc, k) => (acc ? acc[k] : undefined), root);
+}
+
+function resolveValue(node, root, seen = new Set()) {
+  if (!node || typeof node !== 'object') return undefined;
+  if ('value' in node) return node.value;
+  if ('$ref' in node) {
+    if (seen.has(node.$ref)) {
+      throw new Error(`[build-tokens] cycle detected at $ref ${node.$ref}`);
+    }
+    seen.add(node.$ref);
+    const target = getByPath(root, node.$ref);
+    if (!target) throw new Error(`[build-tokens] unknown $ref ${node.$ref}`);
+    return resolveValue(target, root, seen);
+  }
+  return undefined;
+}
+
+function collectTokens(tree, breadcrumbs = [], root = tree) {
   const tokens = [];
   for (const [key, node] of Object.entries(tree)) {
     if (!node || typeof node !== 'object') continue;
     if (key.startsWith('$')) continue;
-    if ('value' in node) {
+    if ('value' in node || '$ref' in node) {
       // `_css` is optional: tokens without it are emitted in TS only
       // (e.g. zoom thresholds, numeric scales, pane z-indices consumed
       // exclusively from TypeScript rules/adapters).
       tokens.push({
         path: [...breadcrumbs, key],
         cssName: node._css || null,
-        value: node.value,
+        value: resolveValue(node, root),
         reducedMotion: node._reducedMotion,
+        isPrimitive: !node._css && !node.$ref,
       });
     } else {
-      tokens.push(...collectTokens(node, [...breadcrumbs, key]));
+      tokens.push(...collectTokens(node, [...breadcrumbs, key], root));
     }
   }
   return tokens;

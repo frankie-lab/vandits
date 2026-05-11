@@ -1,170 +1,101 @@
+## Diagnóstico
 
-# Nivel 2 — Editor de tokens del Design System
+Tienes razón: en `color.json` hay valores literales repetidos en tokens semánticamente equivalentes. Ejemplos en la captura:
 
-Convertir el DS Inspector en un **editor global** del tema. Master/Admin pueden editar cualquier token (color, tipografía, densidad, radius, motion, popup, poi), ver el resultado en vivo en toda la app, y al guardar el cambio se aplica para todos los usuarios.
+- `#FFFFFF` aparece en `card`, `popover`, `primaryForeground`, `secondaryForeground`, `destructiveForeground`
+- `#1D212B` aparece en `foreground`, `cardForeground`, `popoverForeground`
+- `#FBFAF9` aparece solo en `background` pero conceptualmente es "neutral más claro del tema"
+- Igual en oscuro: `#161A22` está en `card` y `popover`; `#F2F0ED` en los tres "foreground"
 
-## Decisiones cerradas
+Hoy son strings literales sueltos. Editar "color de marca" no cascadea, y editar "fondo de tarjeta" no toca "fondo de popover" aunque casi siempre deban ir juntos. Por eso el inspector enseña filas duplicadas.
 
-- **Alcance**: todos los tokens del DS (los 8 JSON de `src/design-system/tokens/source/`).
-- **Persistencia**: global en BD (`app_settings.key = 'design_system_overrides'`). Afecta a todos los usuarios al recargar y en vivo vía realtime.
-- **UX**: inline en cada fila + toggle global "Editar tema" con preview live de toda la app.
-- **Permisos**: solo `master` / `admin` (mismo gating que ya tiene el panel).
+La solución correcta no es ocultarlas en UI: es introducir **dos niveles de tokens** (primitivos → semánticos) con referencias, y que el editor entienda esa cadena.
 
-## Arquitectura
+## Plan: Tokens primitivos + alias semánticos
+
+### 1. Refactor `color.json` en dos capas
 
 ```text
-src/design-system/tokens/source/*.json   (base, NUNCA se modifica desde UI)
-            │
-            ▼
-   buildEffectiveTokens(base, overrides)  ←─ overrides desde BD
-            │
-            ▼
-   inyecta CSS vars en :root + .dark      ←─ <DesignSystemThemeProvider>
-            │
-            ▼
-   toda la app usa las vars normalmente
+primitives:
+  neutral.0 / 50 / 100 / 200 / 500 / 800 / 900 / 950
+  brand.500 / brand.600
+  info.500
+  danger.500 / danger.600
+  (sin _css — son solo "paleta cruda")
+
+color.light / color.dark:
+  background:            { $ref: "primitives.neutral.50", _css: "--background" }
+  card:                  { $ref: "primitives.neutral.0",  _css: "--card" }
+  popover:               { $ref: "primitives.neutral.0",  _css: "--popover" }
+  primary:               { $ref: "primitives.brand.500",  _css: "--primary" }
+  primaryForeground:     { $ref: "primitives.neutral.0",  _css: "--primary-foreground" }
+  …
 ```
 
-- **Base inmutable**: los JSON del repo siguen siendo la "verdad de fábrica".
-- **Overrides en BD**: solo se guardan los tokens que difieren de la base (diff mínimo).
-- **Aplicación**: un `<DesignSystemThemeProvider>` montado en `App.tsx` lee overrides + escucha realtime y reescribe las CSS vars en `:root` y `.dark` en caliente.
-- **Modo edición**: cambios en memoria (no se guardan hasta pulsar "Publicar"). El toggle global activa el "modo edición" en cualquier punto de la app y muestra una barra flotante con `Descartar` / `Publicar`.
+El resolver de tokens (en `token-registry.ts` y en `apply-overrides.ts`) sigue el `$ref` hasta una hoja con `value`. Las CSS vars se escriben exactamente igual que ahora — cero cambios visuales.
 
-## Modelo de datos
-
-Una sola fila en `app_settings`:
+### 2. Inspector con dos pestañas dentro de "Color"
 
 ```text
-key   = 'design_system_overrides'
-value = {
-  "color.primary.light": "210 80% 55%",
-  "typography.fontFamily.body": "Inter, sans-serif",
-  "density.control.lg": "44px",
-  ...
+Color
+ ├─ Paleta primitiva   ← 10–12 swatches base, fuente única de verdad
+ └─ Tokens semánticos  ← cada uno muestra "→ primitives.neutral.0" y los alias que comparten esa referencia
+```
+
+Ejemplo de fila semántica colapsada:
+
+```text
+Fondo claro de superficie                       CLARO  → neutral.0
+"card, popover, primaryForeground"              OSCURO → neutral.900
+└─ 3 alias agrupados · click para expandir
+```
+
+### 3. Edición en cascada
+
+- **Editar un primitivo** (`neutral.0`) → todos los semánticos que lo referencian cambian a la vez. Un solo color picker afecta a `card`, `popover`, `primaryForeground` simultáneamente. Esto es lo que pediste: dejar de tocar 3 sitios para el mismo color.
+- **Editar un semántico** → opción "Desvincular del primitivo" antes de cambiar el valor (si no, sigue heredando). Útil para excepciones puntuales.
+- **Volver al primitivo** → botón "Re-vincular" restaura el `$ref`.
+
+### 4. Persistencia en `app_settings`
+
+El override map ya guarda por path. Añadimos dos formas de override:
+
+```json
+{
+  "primitives.neutral.0": "0 0% 100%",      // cascada
+  "color.light.card": { "$ref": "primitives.neutral.0" },  // alias
+  "color.light.border": "40 15% 85%"        // override directo (desvinculado)
 }
 ```
 
-Solo guardamos los tokens cambiados respecto a base. Borrar una clave = volver a la base.
+`apply-overrides.ts` resuelve refs antes de escribir las CSS vars.
 
-RLS: lectura pública, escritura solo `master`/`admin` (ya cubierto por `app_settings`).
+### 5. Mismo patrón aplicable después a:
 
-## UI del editor
+- `typography` — `fontFamily.heading` → `fontFamily.sans`, varias escalas comparten weight
+- `radius` — `rounded-token-sm/md/lg` muchas veces colapsan a 2 valores reales
+- `motion` — durations base reutilizadas en varios tokens
 
-### 1. Toggle global "Editar tema"
-- Botón en la cabecera del DS Inspector + atajo en `UserMenu` (solo admin/master).
-- Al activarlo:
-  - Aparece **barra flotante inferior** persistente en TODA la app con: estado ("3 cambios sin publicar"), botones `Descartar` y `Publicar`.
-  - Los cambios se aplican en vivo a las CSS vars pero NO se guardan en BD.
-  - Se puede navegar por la app entera viendo el efecto real.
+Pero **esta primera entrega solo toca `color.json`** para validar el patrón.
 
-### 2. Edición inline en cada fila del Inspector
-Cada `TokenRow` añade un icono `Pencil` a la derecha. Al pulsarlo abre un popover con el editor adecuado al **tipo de token**:
+## Detalles técnicos
 
-| Tipo de token | Editor |
-|---|---|
-| color | `react-colorful` HslColorPicker + input HSL "H S% L%" + swatch live + botón "Resetear" |
-| fontFamily | Select con fuentes seguras + custom string |
-| fontSize / fontWeight / lineHeight | Number input + slider + unidad (px/rem) |
-| density (h, padding, gap) | Number input en px |
-| radius | Number input en px |
-| motion duration | Number input en ms |
-| motion easing | Select de presets + custom cubic-bezier() |
-| z-index | Number input |
-| shadow | Textarea con preview live |
-| popup.* / poi.* (numéricos) | Number input con unidad |
+**Archivos a tocar**:
+- `src/design-system/tokens/source/color.json` — reescritura completa con `primitives` + `$ref`
+- `src/design-system/runtime/token-registry.ts` — nuevo `resolveRef(node)` recursivo; `TokenLeaf` gana campos `refPath?`, `isPrimitive?`
+- `src/design-system/runtime/apply-overrides.ts` — resolver refs antes de escribir CSS
+- `src/design-system/runtime/edit-mode-store.ts` — `setDraft` acepta `{ $ref }` o valor crudo; nuevo `unlink(path)` y `relink(path, ref)`
+- `src/components/admin/design-system/token-grouping.ts` — agrupa por `refPath` en lugar de por valor literal
+- `src/components/admin/design-system/TokenRow.tsx` — chip "→ neutral.0" + acción "Desvincular"
+- `src/components/admin/design-system/TokenEditors.tsx` — `ColorEditor` con toggle "Editar el primitivo vinculado" vs "Sobrescribir solo este alias"
+- `src/components/admin/DesignSystemPanel.tsx` — sub-pestañas "Primitiva" / "Semánticos" dentro de Color
 
-Cada editor:
-- Muestra **valor base** y **valor override** lado a lado.
-- Botón "Volver a la base" elimina el override de esa key.
-- Aplica el cambio a CSS vars al instante.
+**Sin cambios**:
+- CSS vars consumidas por componentes (`--background`, `--primary`, etc.) — los nombres no cambian
+- `index.css` / Tailwind config — siguen leyendo las mismas variables
+- Build pipeline `build-tokens.cjs` — solo necesita resolver refs antes de emitir
+- Otros JSON de tokens (typography, density…) — fase siguiente, fuera de scope ahora
 
-### 3. Detección automática de tipo
-Helper `inferTokenType(path, value)` decide qué editor renderizar mirando la ruta (`color.*`, `typography.*`, `motion.duration.*`, etc.) y el formato del valor.
+**Riesgo principal**: el build de tokens (`build-tokens.cjs`) hoy probablemente espera `value` directo. Si el script no resuelve `$ref`, los archivos generados (`tokens.css`/`.ts`) saldrían vacíos para los alias. Hay que añadir el resolver también ahí.
 
-### 4. Indicador visual de overrides
-- Fila con override activo: badge "Modificado" + valor base tachado a la izquierda del valor actual.
-- Sidebar muestra contador "(N)" por sección con overrides.
-
-## Realtime
-Canal `app_settings` filtrado por `key=design_system_overrides`. Al publicar un admin, el resto de sesiones abiertas (no en modo edición) reciben el evento y el `ThemeProvider` re-inyecta las vars. Si una sesión está en modo edición, aparece un toast "Otro admin ha publicado cambios" con botón "Actualizar".
-
-## Seguridad y salvaguardas
-
-- **Solo lectura para no admin**: el endpoint de write valida rol via `has_role(auth.uid(), 'admin'|'master')` (RLS).
-- **Histórico**: cada `Publicar` guarda una fila en una nueva tabla `design_system_history` (`id, value jsonb, published_by, published_at`). Pestaña "Historial" con botón "Restaurar versión".
-- **Reset total**: botón "Restaurar valores de fábrica" vacía los overrides.
-- **Validación**: cada editor valida formato (HSL, número, cubic-bezier...). Si un valor es inválido, no se aplica y se marca rojo.
-
-## Archivos nuevos
-
-```text
-src/design-system/runtime/
-  theme-provider.tsx          # Carga overrides + realtime + inyección CSS vars
-  apply-overrides.ts          # buildEffectiveTokens + writeCssVars
-  edit-mode-store.ts          # Zustand: editMode on/off, draftOverrides, publish/discard
-  token-types.ts              # inferTokenType + metadata por categoría
-
-src/components/admin/design-system/editors/
-  ColorEditor.tsx
-  FontFamilyEditor.tsx
-  NumberEditor.tsx            # px/rem/ms/unitless
-  EasingEditor.tsx
-  ShadowEditor.tsx
-  TokenEditorPopover.tsx      # dispatcher por tipo
-
-src/components/admin/design-system/
-  EditModeBar.tsx             # Barra flotante con Descartar/Publicar
-  OverrideBadge.tsx
-  HistoryTab.tsx              # Lista versiones + restaurar
-```
-
-## Archivos editados
-
-```text
-src/App.tsx                                    # Monta <DesignSystemThemeProvider>
-src/components/admin/DesignSystemPanel.tsx     # Añade toggle + tab Historial
-src/components/admin/design-system/TokenRow.tsx # Botón Pencil + popover
-src/components/admin/design-system/token-grouping.ts # Marcar filas con override
-src/components/UserMenu.tsx                    # Atajo "Editar tema" (admin)
-```
-
-## Migraciones BD
-
-```sql
--- 1. Crear tabla de historial
-create table public.design_system_history (
-  id uuid primary key default gen_random_uuid(),
-  value jsonb not null,
-  published_by uuid references auth.users(id),
-  published_at timestamptz not null default now(),
-  note text
-);
-alter table public.design_system_history enable row level security;
-create policy "DS history readable by all"
-  on public.design_system_history for select using (true);
-create policy "DS history writable by admin/master"
-  on public.design_system_history for insert
-  with check (public._is_admin_or_master(auth.uid()));
-
--- 2. Asegurar key inicial en app_settings (vacío)
-insert into public.app_settings (key, value)
-values ('design_system_overrides', '{}'::jsonb)
-on conflict (key) do nothing;
-
--- 3. Habilitar realtime
-alter publication supabase_realtime add table public.app_settings;
-```
-
-## Plan de entrega (1 PR)
-
-1. ThemeProvider + apply-overrides + carga inicial sin UI (verificable: vars cambian si edito BD a mano).
-2. Editor inline de **color** (caso más complejo) + edit-mode-store + EditModeBar + Publicar/Descartar.
-3. Resto de editores (Number, FontFamily, Easing, Shadow).
-4. Pestaña Historial + restaurar versiones.
-5. Realtime + toast de cambios externos.
-
-## Fuera de alcance (futuro)
-
-- Editar tokens de **dominio** (`poi.json`, `popup.json`) con preview visual usando los componentes `PoiPreview`/`PopupPreview` que ya existen — se puede añadir en una iteración posterior reutilizando esos renderers como preview en el popover.
-- Editar markdown del glosario (`token-glossary.ts`) desde la UI.
-- Exportar overrides como JSON para commitearlos al repo como nueva base.
+**Sin cambios visuales** al terminar: la app se sigue viendo idéntica hasta que un admin edite. Solo cambia la estructura interna y la UI del inspector.

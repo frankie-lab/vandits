@@ -1,13 +1,19 @@
 /**
  * Apply token overrides to the live document.
  *
- * Writes a single <style id="ds-overrides"> element with two rule blocks:
- *   :root  { ... }   — light-mode + non-color tokens
- *   .dark  { ... }   — dark-mode color tokens
+ * Writes a single <style id="ds-token-overrides"> element with two rule blocks:
+ *   :root  { ... }   — light-mode + non-color tokens (effective != base)
+ *   .dark  { ... }   — dark-mode color tokens (effective != base)
+ *
+ * The override map can target:
+ *   - A primitive path (e.g. "color.primitives.light.neutral.0"): cascades to
+ *     every alias that $refs it.
+ *   - A semantic alias path (e.g. "color.light.card"): overrides only that
+ *     CSS var.
  *
  * Idempotent: call with the latest overrides map on every change.
  */
-import { getLeaf, type TokenLeaf } from './token-registry';
+import { getAllLeaves, getLeaf, type TokenLeaf } from './token-registry';
 
 export type OverrideMap = Record<string, string | number>;
 
@@ -23,15 +29,41 @@ function ensureStyleEl(): HTMLStyleElement {
   return el;
 }
 
+/**
+ * Resolve the effective value for `path` taking overrides + $ref chain into
+ * account. Override on `path` itself wins; otherwise follow $ref to a leaf
+ * whose value (or override) terminates the chain.
+ */
+export function resolveEffective(
+  path: string,
+  overrides: OverrideMap,
+  seen: Set<string> = new Set(),
+): string | number | undefined {
+  if (overrides[path] !== undefined) return overrides[path];
+  if (seen.has(path)) return undefined;
+  seen.add(path);
+  const leaf = getLeaf(path);
+  if (!leaf) return undefined;
+  if (leaf.refPath) return resolveEffective(leaf.refPath, overrides, seen);
+  return leaf.baseValue;
+}
+
+function emitLeaf(leaf: TokenLeaf, overrides: OverrideMap): string | null {
+  if (!leaf.cssVar) return null;
+  const effective = resolveEffective(leaf.path, overrides);
+  if (effective === undefined) return null;
+  if (String(effective) === String(leaf.baseValue)) return null;
+  return `${leaf.cssVar}: ${effective};`;
+}
+
 export function applyOverrides(overrides: OverrideMap): void {
   if (typeof document === 'undefined') return;
   const lightRules: string[] = [];
   const darkRules: string[] = [];
 
-  for (const [path, value] of Object.entries(overrides)) {
-    const leaf = getLeaf(path);
-    if (!leaf || !leaf.cssVar) continue;
-    const rule = `${leaf.cssVar}: ${value};`;
+  for (const leaf of getAllLeaves()) {
+    const rule = emitLeaf(leaf, overrides);
+    if (!rule) continue;
     if (leaf.mode === 'dark') darkRules.push(rule);
     else lightRules.push(rule);
   }
@@ -40,21 +72,6 @@ export function applyOverrides(overrides: OverrideMap): void {
     `:root{${lightRules.join('')}}` +
     (darkRules.length ? `.dark{${darkRules.join('')}}` : '');
   ensureStyleEl().textContent = css;
-}
-
-/** Convenience: apply a single override on top of the current sheet (used in edit mode). */
-export function applyOne(leaf: TokenLeaf, value: string | number): void {
-  if (!leaf.cssVar) return;
-  const map = readApplied();
-  map[leaf.path] = value;
-  applyOverrides(map);
-}
-
-/** Best-effort read of currently applied overrides (parses the style sheet). */
-function readApplied(): OverrideMap {
-  // Stored separately on the window for cheap round-tripping.
-  const cache = (window as unknown as { __dsOverrides?: OverrideMap }).__dsOverrides;
-  return cache ? { ...cache } : {};
 }
 
 export function cacheApplied(overrides: OverrideMap): void {

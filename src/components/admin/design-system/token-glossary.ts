@@ -156,9 +156,30 @@ export const TOKEN_GLOSSARY: Record<string, GlossaryEntry> = {
   'elevation.blur.lg':        { label: 'Blur fuerte',               usage: 'Backdrops de modales.' },
 };
 
+const PRIMITIVE_FAMILY_USAGE: Record<string, string> = {
+  neutral: 'Escala neutra (grises/blancos/negros). La consumen fondos, textos, bordes y separadores.',
+  brand:   'Escala de marca (naranja). La consume el color de marca, anillo de foco, acentos cálidos.',
+  info:    'Escala azul informativa. La consumen acentos secundarios y elementos de mar/agua.',
+  danger:  'Escala roja. La consumen botones destructivos y estados de error.',
+};
+
 /** Devuelve label + usage, o un fallback genérico si la clave no existe. */
 export function lookupGlossary(key: string): GlossaryEntry {
-  return TOKEN_GLOSSARY[key] ?? {
+  const direct = TOKEN_GLOSSARY[key];
+  if (direct) return direct;
+
+  // Primitivos de color: "color.primitives.neutral.0" → "Neutral 0"
+  const primMatch = key.match(/^color\.primitives\.([a-z]+)\.([0-9]+)$/);
+  if (primMatch) {
+    const [, family, step] = primMatch;
+    const cap = family.charAt(0).toUpperCase() + family.slice(1);
+    return {
+      label: `${cap} ${step}`,
+      usage: PRIMITIVE_FAMILY_USAGE[family] ?? 'Color primitivo. Editar afecta a todos los tokens semánticos que lo referencian.',
+    };
+  }
+
+  return {
     label: '—',
     usage: 'Sin descripción curada. Es un token técnico de soporte.',
   };
