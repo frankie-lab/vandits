@@ -40,16 +40,6 @@ type Common = {
 
 // ─── helpers ──────────────────────────────────────────────────────
 
-function parseHsl(v: string): { h: number; s: number; l: number } | null {
-  const m = String(v).trim().match(/^(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%$/);
-  if (!m) return null;
-  return { h: parseFloat(m[1]), s: parseFloat(m[2]), l: parseFloat(m[3]) };
-}
-function hslToString(h: number, s: number, l: number) {
-  const round = (n: number) => Math.round(n * 100) / 100;
-  return `${round(h)} ${round(s)}% ${round(l)}%`;
-}
-
 function detectUnit(v: string | number): string {
   const s = String(v).trim();
   const m = s.match(/(px|rem|em|ms|s|%)$/);
@@ -64,50 +54,234 @@ function stripUnit(v: string | number): number {
 // ─── ColorEditor ──────────────────────────────────────────────────
 
 export function ColorEditor({ value, baseValue, onChange }: Common) {
-  const initial = parseHsl(String(value)) ?? { h: 0, s: 0, l: 50 };
-  const [h, setH] = useState(initial.h);
-  const [s, setS] = useState(initial.s);
-  const [l, setL] = useState(initial.l);
+  const triplet = String(value);
+  const hsl: Hsl = useMemo(
+    () => parseHslTriplet(triplet) ?? { h: 0, s: 0, l: 50 },
+    [triplet],
+  );
+  const rgb: Rgb = useMemo(() => hslToRgb(hsl), [hsl]);
+  const hex = useMemo(() => rgbToHex(rgb), [rgb]);
 
-  useEffect(() => {
-    const next = parseHsl(String(value));
-    if (next) {
-      setH(next.h);
-      setS(next.s);
-      setL(next.l);
-    }
-  }, [value]);
+  const emitHsl = (next: Hsl) => onChange(formatHslTriplet(next));
+  const emitRgb = (next: Rgb) => onChange(formatHslTriplet(rgbToHsl(next)));
 
-  const emit = (nh: number, ns: number, nl: number) => {
-    setH(nh);
-    setS(ns);
-    setL(nl);
-    onChange(hslToString(nh, ns, nl));
+  const [hexDraft, setHexDraft] = useState(hex);
+  useEffect(() => setHexDraft(hex), [hex]);
+
+  const commitHex = (raw: string) => {
+    const parsed = parseHex(raw);
+    if (parsed) emitRgb(parsed);
+    else setHexDraft(hex);
   };
-
-  const hex = isHslTriplet(String(value)) ? hslTripletToHex(String(value)) : null;
 
   return (
     <div className="space-y-3">
+      {/* Swatch + HEX + native picker */}
       <div className="flex items-center gap-3">
         <div
-          className="h-12 w-16 rounded-token-sm border border-border shrink-0"
-          style={{ background: `hsl(${value})` }}
+          className="h-14 w-14 rounded-token-sm border border-border shrink-0"
+          style={{ background: `hsl(${triplet})` }}
         />
-        <div className="flex-1 space-y-1">
-          <div className="font-mono text-xs">{String(value)}</div>
-          {hex && <div className="font-mono text-[10px] text-muted-foreground">{hex}</div>}
+        <div className="flex-1 space-y-1.5 min-w-0">
+          <div className="flex items-center gap-2">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground w-7 shrink-0">
+              HEX
+            </Label>
+            <Input
+              value={hexDraft}
+              onChange={(e) => setHexDraft(e.target.value)}
+              onBlur={(e) => commitHex(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+              }}
+              className="h-7 text-xs font-mono"
+              spellCheck={false}
+            />
+            <input
+              type="color"
+              value={hex}
+              onChange={(e) => commitHex(e.target.value)}
+              className="h-7 w-9 rounded-token-sm border border-border bg-transparent cursor-pointer shrink-0"
+              title="Selector nativo"
+            />
+          </div>
+          <div className="font-mono text-[10px] text-muted-foreground truncate">
+            hsl({triplet})
+          </div>
         </div>
       </div>
 
+      {/* RGB numeric */}
+      <ChannelRow
+        label="RGB"
+        names={['R', 'G', 'B']}
+        max={[255, 255, 255]}
+        values={[rgb.r, rgb.g, rgb.b]}
+        onChange={(idx, v) => {
+          const next: Rgb = { ...rgb };
+          if (idx === 0) next.r = v;
+          else if (idx === 1) next.g = v;
+          else next.b = v;
+          emitRgb(next);
+        }}
+      />
+
+      {/* HSL numeric */}
+      <ChannelRow
+        label="HSL"
+        names={['H', 'S', 'L']}
+        max={[360, 100, 100]}
+        suffix={['', '%', '%']}
+        values={[Math.round(hsl.h), Math.round(hsl.s), Math.round(hsl.l)]}
+        onChange={(idx, v) => {
+          const next: Hsl = { ...hsl };
+          if (idx === 0) next.h = v;
+          else if (idx === 1) next.s = v;
+          else next.l = v;
+          emitHsl(next);
+        }}
+      />
+
+      {/* Fine-tune sliders */}
       <div className="grid grid-cols-3 gap-2">
-        <Slider label="H" min={0} max={360} value={h} onChange={(v) => emit(v, s, l)} />
-        <Slider label="S" min={0} max={100} value={s} onChange={(v) => emit(h, v, l)} suffix="%" />
-        <Slider label="L" min={0} max={100} value={l} onChange={(v) => emit(h, s, v)} suffix="%" />
+        <Slider label="H" min={0} max={360} value={hsl.h} onChange={(v) => emitHsl({ ...hsl, h: v })} />
+        <Slider label="S" min={0} max={100} value={hsl.s} onChange={(v) => emitHsl({ ...hsl, s: v })} suffix="%" />
+        <Slider label="L" min={0} max={100} value={hsl.l} onChange={(v) => emitHsl({ ...hsl, l: v })} suffix="%" />
       </div>
+
+      {/* Primitive palette */}
+      <PrimitivePalette currentTriplet={triplet} onPick={(t) => onChange(t)} />
 
       <ResetRow baseValue={baseValue} value={value} onChange={onChange} />
     </div>
+  );
+}
+
+function ChannelRow({
+  label,
+  values,
+  names,
+  max,
+  suffix,
+  onChange,
+}: {
+  label: string;
+  values: number[];
+  names: string[];
+  max: number[];
+  suffix?: string[];
+  onChange: (idx: number, value: number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground w-7 shrink-0">
+        {label}
+      </Label>
+      <div className="grid grid-cols-3 gap-1.5 flex-1">
+        {values.map((v, i) => (
+          <div key={i} className="flex items-center gap-1">
+            <span className="text-[10px] font-mono text-muted-foreground w-3">
+              {names[i]}
+            </span>
+            <Input
+              type="number"
+              min={0}
+              max={max[i]}
+              value={Number.isFinite(v) ? v : 0}
+              onChange={(e) => {
+                const n = parseFloat(e.target.value);
+                if (Number.isFinite(n)) onChange(i, n);
+              }}
+              className="h-7 text-xs font-mono px-1.5"
+            />
+            {suffix?.[i] && (
+              <span className="text-[10px] font-mono text-muted-foreground">
+                {suffix[i]}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PrimitivePalette({
+  currentTriplet,
+  onPick,
+}: {
+  currentTriplet: string;
+  onPick: (triplet: string) => void;
+}) {
+  const isDark =
+    typeof document !== 'undefined' &&
+    document.documentElement.classList.contains('dark');
+  const mode: 'light' | 'dark' = isDark ? 'dark' : 'light';
+
+  const primitives = useMemo(
+    () =>
+      getAllLeaves().filter(
+        (l) =>
+          l.groupId === 'color' &&
+          l.isPrimitive &&
+          l.mode === mode &&
+          l.path.startsWith('color.primitives.'),
+      ),
+    [mode],
+  );
+
+  if (!primitives.length) return null;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        Paleta primitiva ({mode === 'dark' ? 'oscuro' : 'claro'})
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {primitives.map((p) => (
+          <PaletteSwatch
+            key={p.path}
+            primitivePath={p.path}
+            fallbackTriplet={String(p.baseValue)}
+            label={p.path.replace(`color.primitives.${mode}.`, '')}
+            currentTriplet={currentTriplet}
+            onPick={onPick}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PaletteSwatch({
+  primitivePath,
+  fallbackTriplet,
+  label,
+  onPick,
+  currentTriplet,
+}: {
+  primitivePath: string;
+  fallbackTriplet: string;
+  label: string;
+  currentTriplet: string;
+  onPick: (triplet: string) => void;
+}) {
+  const live = useResolvedTokenValue(primitivePath);
+  const triplet = String(live ?? fallbackTriplet);
+  const selected = triplet.trim() === currentTriplet.trim();
+  return (
+    <button
+      type="button"
+      title={`${label} · ${triplet}`}
+      onClick={() => onPick(triplet)}
+      className={
+        'h-7 w-7 rounded-token-sm border transition-shadow ' +
+        (selected
+          ? 'border-foreground ring-2 ring-ring'
+          : 'border-border hover:ring-2 hover:ring-ring/40')
+      }
+      style={{ background: `hsl(${triplet})` }}
+    />
   );
 }
 
