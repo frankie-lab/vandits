@@ -172,10 +172,12 @@ function emitTailwind(tokens) {
   // need to import it yet.
   const grouped = {};
   for (const t of tokens) {
-    if (!t.cssName) continue;
+    if (!t.cssNames || t.cssNames.length === 0) continue;
     const category = t.path[0];
     grouped[category] = grouped[category] || {};
-    grouped[category][t.cssName] = `var(${t.cssName})`;
+    for (const cssName of t.cssNames) {
+      grouped[category][cssName] = `var(${cssName})`;
+    }
   }
   return `/**
  * VANDITS Design System — Tailwind token bridge (auto-generated)
