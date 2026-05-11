@@ -18,6 +18,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 import { getEnabledSourceCodes } from '../_shared/data-sources.ts';
+import { searchVillageCatalogs } from '../_shared/village-catalogs/index.ts';
 
 type SourceCode =
   | 'wikipedia-es'
@@ -26,7 +27,8 @@ type SourceCode =
   | 'nominatim'
   | 'geonames'
   | 'photon'
-  | 'google-places';
+  | 'google-places'
+  | 'village-catalog';
 
 interface Candidate {
   name: string;
