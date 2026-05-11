@@ -1337,8 +1337,11 @@ export function LocationMap() {
        // Create popup with content including ownership info
  const popupContent = createPopupContent(location, criteriaTimestamp, ownership, canEnrichLocations);
  marker.bindPopup(popupContent, {
- maxWidth: 380,
- minWidth: 280,
+ // Ancho fijo único — debe coincidir con CARD.maxWidth en card-style-tokens.
+ // Mantiene el wrapper de Leaflet con el mismo ancho para popups enriquecidos
+ // y no enriquecidos. No usar valores distintos aquí.
+ maxWidth: 360,
+ minWidth: 360,
  // No `maxHeight` here: the popup root owns its own scroll so the hero
  // image stays fixed while only the body scrolls.
  className: 'custom-popup',
