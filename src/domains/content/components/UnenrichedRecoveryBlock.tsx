@@ -84,20 +84,20 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
   const [renameValue, setRenameValue] = React.useState('');
   const [form, setForm] = React.useState({
     name: location.name ?? '',
-    lat: String(location.latitude ?? ''),
-    lng: String(location.longitude ?? ''),
+    lat: String(location.lat ?? ''),
+    lng: String(location.lng ?? ''),
   });
 
   // Reset al cambiar de location
   React.useEffect(() => {
     setForm({
       name: location.name ?? '',
-      lat: String(location.latitude ?? ''),
-      lng: String(location.longitude ?? ''),
+      lat: String(location.lat ?? ''),
+      lng: String(location.lng ?? ''),
     });
     setRenameValue(location.name ?? '');
     setEditingAll(false);
-  }, [location.id, location.name, location.latitude, location.longitude]);
+  }, [location.id, location.name, location.lat, location.lng]);
 
   // Tab por defecto según candidatos
   React.useEffect(() => {
