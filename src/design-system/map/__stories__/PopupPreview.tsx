@@ -130,7 +130,7 @@ export function PopupPreview({
       >
         <span
           style={{
-            font: `${tokens.typography.weight.semibold} ${tokens.typography.size.body}/${tokens.typography.lineHeight.tight} ${tokens.typography.fontFamily.body}`,
+            font: `${tokens.typography.weight.semibold} ${tokens.typography.size.body}/${tokens.typography.lineHeight.body} ${tokens.typography.fontFamily.body}`,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
