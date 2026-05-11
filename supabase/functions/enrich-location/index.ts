@@ -567,18 +567,78 @@ interface CoherenceResult {
 // Devuelve un score 0..100 de solapamiento textual entre un nombre POI y un
 // título de Wikipedia. Helper único — usado por la coherencia y el ranking
 // de candidatos cercanos.
+//
+// Mejoras vs. versión literal:
+//   - Strip diacríticos + minúsculas (Á→a, ñ→n).
+//   - Quita contenido entre paréntesis del título Wiki ("Isla Bella (Taormina)" → "Isla Bella").
+//   - Aplica equivalencias toponímicas ES/IT/EN/FR (isola↔isla, monte↔mount↔mont, lago↔lake↔lac…).
+//   - Fallback Sørensen-Dice sobre bigramas: pilla variantes ortográficas ("isola"↔"isla").
 function nameOverlapScore(poiName: string, title: string): number {
-  const a = (poiName || '').toLowerCase().trim();
-  const b = (title || '').toLowerCase().trim();
+  const a = normalizeToponym(poiName);
+  const b = normalizeToponym(title);
   if (!a || !b) return 0;
   let score = 0;
   if (b.includes(a) || a.includes(b)) score += 50;
-  const words = a.split(/\s+/).filter((w) => w.length > 2);
-  if (words.length > 0) {
-    const matched = words.filter((w) => b.includes(w)).length;
-    score += (matched / words.length) * 50;
+  const wordsA = a.split(/\s+/).filter((w) => w.length > 2);
+  const wordsB = new Set(b.split(/\s+/).filter((w) => w.length > 2));
+  if (wordsA.length > 0) {
+    const matched = wordsA.filter((w) => wordsB.has(w)).length;
+    score += (matched / wordsA.length) * 50;
   }
+  // Sørensen-Dice sobre bigramas — captura "isola" vs "isla" (Dice ≈ 0.57).
+  const dice = diceCoefficient(a, b) * 100;
+  if (dice > score) score = dice;
   return score;
+}
+
+// Equivalencias toponímicas frecuentes. Mantener pequeño y conservador.
+const TOPONYM_EQUIVALENCES: Record<string, string> = {
+  // islands
+  isola: 'isla', isole: 'isla', isle: 'isla', islet: 'isla', ile: 'isla', ilha: 'isla',
+  // mountains
+  monte: 'mount', montagna: 'mount', mont: 'mount', mountain: 'mount', montana: 'mount',
+  montaña: 'mount',
+  // lakes
+  lago: 'lake', lac: 'lake', lac_: 'lake',
+  // saints
+  san: 'saint', santo: 'saint', santa: 'saint', sao: 'saint', sankt: 'saint', sant: 'saint',
+  // beach
+  playa: 'beach', spiaggia: 'beach', plage: 'beach', praia: 'beach',
+  // river / sea / bay
+  rio: 'river', fiume: 'river', mar: 'sea', mare: 'sea', bahia: 'bay', baia: 'bay',
+};
+
+function normalizeToponym(s: string): string {
+  if (!s) return '';
+  let v = s.toLowerCase().trim();
+  // Quita paréntesis "Foo (Bar)" → "Foo"
+  v = v.replace(/\s*\([^)]*\)\s*/g, ' ');
+  // Strip diacríticos
+  v = v.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+  // Tokeniza y normaliza por equivalencias
+  v = v
+    .replace(/[^\p{L}\p{N}\s-]+/gu, ' ')
+    .split(/\s+/)
+    .map((w) => TOPONYM_EQUIVALENCES[w] ?? w)
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+  return v;
+}
+
+function diceCoefficient(a: string, b: string): number {
+  const ga = bigrams(a.replace(/\s+/g, ''));
+  const gb = bigrams(b.replace(/\s+/g, ''));
+  if (ga.size === 0 || gb.size === 0) return 0;
+  let intersection = 0;
+  for (const g of ga) if (gb.has(g)) intersection++;
+  return (2 * intersection) / (ga.size + gb.size);
+}
+
+function bigrams(s: string): Set<string> {
+  const out = new Set<string>();
+  for (let i = 0; i < s.length - 1; i++) out.add(s.slice(i, i + 2));
+  return out;
 }
 
 // ¿El extract/título del candidato menciona alguna pieza de la geografía
