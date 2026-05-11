@@ -1,60 +1,44 @@
-# Unificar fila de token de color
+# Click directo en el color para editarlo (sin modo edición)
 
-## Problema actual
+## Problema
 
-Cada token de color hoy ocupa dos zonas que dicen casi lo mismo:
-
-1. **Header del row**: swatch partido claro/oscuro + columna derecha con `CLARO #DF6C20` / `OSCURO #E87A30`.
-2. **Bloque "Vista previa" expandido**: dos tarjetas grandes "Modo claro" y "Modo oscuro" con el mismo color aplicado a un botón/ejemplo.
-
-Resultado: cuatro hits visuales para el mismo dato, el color picker queda detrás de un swatch diminuto y el bloque expandido aporta poca cosa nueva.
-
-## Propuesta
-
-Una sola **fila de token** con cabecera compacta + **dos columnas grandes** (Claro / Oscuro) siempre visibles, cada una funcionando como botón → abre el color picker (`EditableTokenSurface` ya existente).
-
-```text
-┌──────────────────────────────────────────────────────────────────────┐
-│  Color de marca  → brand.500   [Modificado]                          │
-│  Botones primarios (CTA), anillo de foco… Emite --brand-primary…     │
-├──────────────────────────────┬───────────────────────────────────────┤
-│  CLARO            #DF6C20    │  OSCURO            #E87A30            │
-│  ┌────────────────────────┐  │  ┌────────────────────────────────┐   │
-│  │  swatch grande clicable│  │  │  swatch grande clicable        │   │
-│  │  (sobre fondo claro)   │  │  │  (sobre fondo oscuro)          │   │
-│  └────────────────────────┘  │  └────────────────────────────────┘   │
-└──────────────────────────────┴───────────────────────────────────────┘
-```
-
-- Sin chevron de expandir/colapsar para tokens `lightDark` (no hay nada que ocultar).
-- Click en cualquier punto de la columna izquierda → popover color picker del modo claro. Idem oscuro.
-- En modo lectura (editMode off): swatches no clicables, hex visible, sin hover ring.
-- En modo edición: ring de focus + cursor pointer + popover con `TokenValueEditor`.
-- Fondo del swatch claro: `bg-background`; del oscuro: bloque oscuro tipo `bg-foreground/90` (mismo truco que el preview actual) para que ambos se lean en contexto.
-
-## Tokens no-color y `single`
-
-- `single` con valor color (poi.\*, map.\*): una sola columna grande del mismo estilo, sin partición.
-- `single` no-color (radius, density, motion, typography, z-index, elevation): se conserva el comportamiento expandible actual (chevron + preview específico). Solo cambia el caso `lightDark`/color.
+- Hoy, hacer click sobre el swatch no abre nada: `EditableTokenSurface` solo se vuelve clicable cuando `editMode === true`.
+- El botón "Editar tema" alterna `editMode`, pero no genera feedback visible cerca del row, así que parece que "no hace nada".
+- El usuario espera comportamiento directo: **un click sobre el color abre el picker**. Punto.
 
 ## Cambios
 
-### `src/components/admin/design-system/TokenRow.tsx`
-- Detectar `row.kind === 'lightDark'`: renderizar nuevo layout de cabecera + grid 2 columnas, **sin** estado `open` ni chevron, **sin** invocar `<TokenPreview>` para este caso.
-- Detectar `row.kind === 'single'` con color: layout cabecera + 1 columna grande clicable, también sin expand.
-- Resto de casos (`single` no-color): se mantiene el comportamiento actual (header compacto + chevron + `TokenPreview`).
-- Quitar `Swatch` y `ValueColumn` del header en los casos color (quedan inlined en las columnas grandes); seguir usándolos para no-color.
+### 1. `EditableTokenSurface.tsx` — quitar el gate de `editMode`
+- Siempre que haya `path` válido + `leaf` en el registry, envolver `children` en el `<button>` con popover.
+- Eliminar la rama `if (!editMode) return <>{children}</>`.
+- Resultado: cualquier swatch del inspector (color, radius, density…) es clicable directo.
 
-### `src/components/admin/design-system/TokenPreviews.tsx`
-- `ColorPreview` deja de usarse (los rows color ya no expanden). Se puede eliminar la función y su rama en `TokenPreview` para evitar código muerto.
-- `LiveColorExample` / `ColorExample` se eliminan o se reciclan dentro de `TokenRow` como `ColorColumn` (mantienen el patrón "fondo claro/oscuro + swatch grande clicable", pero sin el botón "Guardar"/"Eliminar"/"Acción" que confunde — el preview decorativo dentro del swatch es opcional y queda fuera de scope salvo que se pida).
+### 2. `TokenRow.tsx` — EditButton fallback siempre disponible
+- Quitar `if (!editMode) return null` dentro de `EditButton`. El lápiz fallback para no-color (poco usado ahora que los color rows ya tienen swatch clicable, pero válido para rows raros sin superficie clicable) deja de depender de editMode.
+
+### 3. `DesignSystemPanel.tsx` — eliminar el toggle "Editar tema"
+- Quitar el `<Button variant={editMode ? 'cta' : 'outline'}>Editar tema / Editando tema</Button>` de la cabecera del panel. Ya no hay modo que activar.
+
+### 4. `HistoryTab.tsx` — eliminar "Activar modo edición"
+- Quitar el botón al final del listado de historial.
+
+### 5. `EditModeBar.tsx` — barra reactiva a cambios, no a modo
+- Mostrar siempre que `changeCount > 0` (hay drafts sin publicar), independientemente de `editMode`.
+- Texto: "Cambios sin publicar · N" (en lugar de "Editando tema").
+- Quitar botón "Salir". Solo quedan **Descartar** y **Publicar**.
+
+### 6. `edit-mode-store.ts` — `editMode` deja de filtrar
+- `editMode` queda obsoleto. Para minimizar superficie tocada se inicializa en `true` y `setEditMode` se vuelve no-op (o se elimina, pero hace falta limpiar los pocos lugares que aún lo importan: `useResolvedTokenValue`, `EditableTokenSurface`).
+- Limpieza preferida: eliminar `editMode` y `setEditMode` del state; los consumidores ya no los necesitan tras los cambios anteriores.
+
+## Conexión con dónde se aplica (no se pierde)
+
+La descripción del glosario (`entry.usage`) sigue en la cabecera de cada row: *"Botones primarios (CTA), anillo de foco, enlaces activos. Emite --brand-primary, --primary y --ring."* Eso es exactamente la conexión con dónde se aplica. No se toca.
+
+Adicionalmente, los `AliasChips` (cuando el row tiene varios CSS vars asociados) siguen renderizándose debajo de la descripción.
 
 ## Out of scope
-- Taxonomía de tokens (ya definida en pasos previos).
-- Tokens no-color y su preview expandible.
-- Inspector lateral, búsqueda, agrupación.
-- Cambios en `EditableTokenSurface` o `TokenValueEditor` (se reutilizan tal cual).
 
-## Riesgos
-- Pérdida del mini-ejemplo "botón Guardar / Eliminar" del `ColorPreview` actual. Si se quiere conservar como decoración, puede ir embebido dentro del swatch grande (texto blanco/negro encima del color). Pendiente de decisión del usuario.
-- Algunos tokens color que hoy expanden a un preview específico (background, border, ring) pierden ese matiz. Si interesa conservarlo, se puede mantener el chevron solo para esos casos concretos.
+- Cambiar el layout 2 columnas (ya hecho en el turno previo).
+- Tocar el editor de color (`TokenValueEditor`).
+- Mover el popover / cambiar su tamaño.
