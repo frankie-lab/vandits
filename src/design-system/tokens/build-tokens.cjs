@@ -41,10 +41,13 @@ function collectTokens(tree, breadcrumbs = []) {
   for (const [key, node] of Object.entries(tree)) {
     if (!node || typeof node !== 'object') continue;
     if (key.startsWith('$')) continue;
-    if ('value' in node && '_css' in node) {
+    if ('value' in node) {
+      // `_css` is optional: tokens without it are emitted in TS only
+      // (e.g. zoom thresholds, numeric scales, pane z-indices consumed
+      // exclusively from TypeScript rules/adapters).
       tokens.push({
         path: [...breadcrumbs, key],
-        cssName: node._css,
+        cssName: node._css || null,
         value: node.value,
         reducedMotion: node._reducedMotion,
       });
