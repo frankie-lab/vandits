@@ -340,9 +340,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
   // Con conflicto: tabs + footer.
   const mode = resolveMode(parsed);
   const soft = isCoherenceKind(parsed.kind);
-  const tone = soft
-    ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200/60'
-    : 'bg-red-50 dark:bg-red-900/20 border-red-200/60';
+  void tone;
   const iconClass = soft ? 'text-amber-600' : 'text-red-600';
   const title =
     mode === 'move' ? 'Mismo nombre, coordenadas distintas' : 'El nombre no encaja con la zona';
