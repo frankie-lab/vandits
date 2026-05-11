@@ -274,6 +274,7 @@ function dedup(candidates: Candidate[]): Candidate[] {
     photon: 4,
     nominatim: 5,
     geonames: 6,
+    'village-catalog': 7, // último: solo si nadie más lo trajo
   };
   for (const c of candidates) {
     const dupIdx = out.findIndex(
