@@ -113,7 +113,6 @@ export async function searchVillageCatalogs(
     : ADAPTERS.filter((a) => a.countryCodes.includes('*'));
 
   const applicable = candidates.filter((a) => enabledSet === null || enabledSet.has(a.code));
-  console.log('[village-catalogs] country=', countryCode, 'applicable=', applicable.map((a) => a.code), 'enabledSetSize=', enabledSet?.size);
   if (applicable.length === 0) return [];
 
   const termCanon = canonicalize(term);
