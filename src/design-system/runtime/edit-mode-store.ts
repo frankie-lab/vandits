@@ -75,14 +75,13 @@ export const useDesignSystemEdit = create<State>((set, get) => ({
     const next = effective(get().published, get().draft);
     const { error } = await supabase
       .from('app_settings')
-      .update({ value: next as unknown as object, updated_at: new Date().toISOString() })
+      .update({ value: next as never, updated_at: new Date().toISOString() })
       .eq('key', 'design_system_overrides');
     if (error) throw error;
 
-    await supabase.from('design_system_history').insert({
-      value: next as unknown as object,
-      note: note ?? null,
-    });
+    await supabase
+      .from('design_system_history')
+      .insert([{ value: next as never, note: note ?? null }]);
 
     set({ published: next, draft: {} });
     apply(next);
@@ -91,13 +90,12 @@ export const useDesignSystemEdit = create<State>((set, get) => ({
   resetAll: async () => {
     const { error } = await supabase
       .from('app_settings')
-      .update({ value: {} as unknown as object, updated_at: new Date().toISOString() })
+      .update({ value: {} as never, updated_at: new Date().toISOString() })
       .eq('key', 'design_system_overrides');
     if (error) throw error;
-    await supabase.from('design_system_history').insert({
-      value: {} as unknown as object,
-      note: 'Restaurar valores de fábrica',
-    });
+    await supabase
+      .from('design_system_history')
+      .insert([{ value: {} as never, note: 'Restaurar valores de fábrica' }]);
     set({ published: {}, draft: {} });
     apply({});
   },
