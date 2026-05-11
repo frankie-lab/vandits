@@ -1593,6 +1593,7 @@ export function LocationMap() {
       const isFocused = focusedLocationId === id;
       const isEnriched = !!location.enrichedData;
       const isRecentlyEnriched = recentlyEnrichedIds.has(id);
+      const ownership2 = getLocationOwnership(id, currentUserId);
       marker.setIcon(
         createCustomIcon(
           isSelected,
@@ -1602,9 +1603,15 @@ export function LocationMap() {
           criteriaTimestamp,
           isRecentlyEnriched,
           getTintForLocation(id),
-          getLocationOwnership(id, currentUserId).isOwn,
+          ownership2.isOwn,
         ),
       );
+      // Rebuild hover tooltip so the Hero <img> reflects post-enrichment state.
+      marker.unbindTooltip();
+      marker.bindTooltip(buildHoverTooltipHtml(location, ownership2), {
+        direction: 'top', offset: [0, -12],
+        className: 'poi-hover-tooltip-wrap', opacity: 1,
+      });
     });
   }, [realtimeTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1647,6 +1654,7 @@ export function LocationMap() {
       const isFocused = focusedLocationId === id;
       const isEnriched = !!location.enrichedData;
       const isRecentlyEnriched = recentlyEnrichedIds.has(id);
+      const ownership3 = getLocationOwnership(id, currentUserId);
       marker.setIcon(
         createCustomIcon(
           isSelected,
@@ -1656,9 +1664,14 @@ export function LocationMap() {
           criteriaTimestamp,
           isRecentlyEnriched,
           getTintForLocation(id),
-          getLocationOwnership(id, currentUserId).isOwn,
+          ownership3.isOwn,
         ),
       );
+      marker.unbindTooltip();
+      marker.bindTooltip(buildHoverTooltipHtml(location, ownership3), {
+        direction: 'top', offset: [0, -12],
+        className: 'poi-hover-tooltip-wrap', opacity: 1,
+      });
     };
     window.addEventListener('location-realtime-update', handler);
     return () => window.removeEventListener('location-realtime-update', handler);
@@ -1702,16 +1715,32 @@ export function LocationMap() {
         const isFocused = focusedLocationId === locationId;
         const isEnriched = !!location?.enrichedData;
         const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
+        const ownership = getLocationOwnership(locationId, currentUserId);
         marker.setIcon(createCustomIcon(
           isSelected, isFocused, isEnriched, location, criteriaTimestamp,
           isRecentlyEnriched, getTintForLocation(locationId),
-          getLocationOwnership(locationId, currentUserId).isOwn,
+          ownership.isOwn,
         ));
+        // Rebuild tooltip so the Hero <img> appears as soon as the marker
+        // enters standard/rich, even if the location was enriched after the
+        // marker was originally created. Same helper, no new logic.
+        if (location) {
+          marker.unbindTooltip();
+          marker.bindTooltip(buildHoverTooltipHtml(location, ownership), {
+            direction: 'top',
+            offset: [0, -12],
+            className: 'poi-hover-tooltip-wrap',
+            opacity: 1,
+          });
+        }
       });
+      // Refresh cluster icons so markers emerging from spiderfy inherit
+      // the current band's icon.
+      markerClusterRef.current?.refreshClusters();
     };
     window.addEventListener('map-render-mode-changed', handler);
     return () => window.removeEventListener('map-render-mode-changed', handler);
-  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds]);
+  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, currentUserId]);
 
   // Anillo rojo de error: pre-warm de fallos al montar el mapa y re-render
   // de iconos cuando el store de fallos invalida (realtime / location:enriched).
