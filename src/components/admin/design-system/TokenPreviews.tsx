@@ -9,6 +9,8 @@ import { Button } from '@/design-system/primitives/button';
 import { Badge } from '@/design-system/primitives/badge';
 import { Card, CardContent } from '@/design-system/primitives/card';
 import { Input } from '@/design-system/primitives/input';
+import { useResolvedTokenValue } from './useResolvedTokenValue';
+import { EditableTokenSurface } from './EditableTokenSurface';
 
 interface PreviewProps {
   row: PairedRow;
@@ -36,26 +38,52 @@ export function TokenPreview({ row, groupId }: PreviewProps) {
 
 function ColorPreview({ row }: { row: PairedRow }) {
   if (row.kind !== 'lightDark') return null;
-  const lightCss = toCssColor(String(row.light.value));
-  const key = row.glossaryKey;
-
-  // Ejemplo adaptado por rol del color.
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-      <div className="space-y-2">
-        <div className="text-xs text-muted-foreground">Modo claro</div>
-        <ColorExample colorKey={key} cssColor={lightCss} mode="light" />
-      </div>
+      <LiveColorExample
+        token={row.light}
+        fallback={String(row.light.value)}
+        colorKey={row.glossaryKey}
+        mode="light"
+      />
       {row.dark && (
-        <div className="space-y-2">
-          <div className="text-xs text-muted-foreground">Modo oscuro</div>
-          <ColorExample
-            colorKey={key}
-            cssColor={toCssColor(String(row.dark.value))}
-            mode="dark"
-          />
-        </div>
+        <LiveColorExample
+          token={row.dark}
+          fallback={String(row.dark.value)}
+          colorKey={row.glossaryKey}
+          mode="dark"
+        />
       )}
+    </div>
+  );
+}
+
+function LiveColorExample({
+  token,
+  fallback,
+  colorKey,
+  mode,
+}: {
+  token: import('./token-grouping').LeafToken;
+  fallback: string;
+  colorKey: string;
+  mode: 'light' | 'dark';
+}) {
+  const path = token.path.join('.');
+  const live = String(useResolvedTokenValue(path) ?? fallback);
+  return (
+    <div className="space-y-2">
+      <div className="text-xs text-muted-foreground">
+        {mode === 'dark' ? 'Modo oscuro' : 'Modo claro'}
+      </div>
+      <EditableTokenSurface
+        path={path}
+        label={mode === 'dark' ? 'Modo oscuro' : 'Modo claro'}
+        title="Editar color"
+        className="block w-full"
+      >
+        <ColorExample colorKey={colorKey} cssColor={toCssColor(live)} mode={mode} />
+      </EditableTokenSurface>
     </div>
   );
 }
