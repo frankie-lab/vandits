@@ -7,8 +7,10 @@
  */
 import { useMemo, useState } from 'react';
 import {
-  Palette, Type, Layers, Box, Sparkles, BookOpen, ChevronDown,
+  Palette, Type, Layers, Box, Sparkles, BookOpen, ChevronDown, History, Pencil,
 } from 'lucide-react';
+import { HistoryTab } from './design-system/HistoryTab';
+import { useDesignSystemEdit } from '@/design-system/runtime/edit-mode-store';
 import { Button } from '@/design-system/primitives/button';
 import { Badge } from '@/design-system/primitives/badge';
 import { Input } from '@/design-system/primitives/input';
@@ -39,7 +41,7 @@ import { buildRows, GROUP_SECTIONS, SECTION_LABEL, type GroupSection } from './d
 import { lookupGlossary } from './design-system/token-glossary';
 import { TokenRow } from './design-system/TokenRow';
 
-type Section = 'tokens' | 'primitives' | 'patterns' | 'memories';
+type Section = 'tokens' | 'primitives' | 'patterns' | 'memories' | 'history';
 
 const TOKEN_DATA: Record<string, unknown> = {
   color: colorTokens,
@@ -389,6 +391,8 @@ function MemoriesList() {
 
 export function DesignSystemPanel() {
   const [section, setSection] = useState<Section>('tokens');
+  const editMode = useDesignSystemEdit((s) => s.editMode);
+  const setEditMode = useDesignSystemEdit((s) => s.setEditMode);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -400,6 +404,7 @@ export function DesignSystemPanel() {
             { id: 'primitives', label: 'Primitives', icon: Box },
             { id: 'patterns', label: 'Patterns', icon: Layers },
             { id: 'memories', label: 'Memorias', icon: BookOpen },
+            { id: 'history', label: 'Historial', icon: History },
           ] as const
         ).map((s) => (
           <Button
@@ -412,8 +417,16 @@ export function DesignSystemPanel() {
             {s.label}
           </Button>
         ))}
-        <div className="ml-auto text-xs text-muted-foreground">
-          DS Inspector · Read-only
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            size="sm"
+            variant={editMode ? 'cta' : 'outline'}
+            onClick={() => setEditMode(!editMode)}
+            title={editMode ? 'Salir del modo edición' : 'Activar modo edición'}
+          >
+            <Pencil className="w-3.5 h-3.5 mr-1.5" />
+            {editMode ? 'Editando tema' : 'Editar tema'}
+          </Button>
         </div>
       </div>
 
@@ -439,6 +452,14 @@ export function DesignSystemPanel() {
         <ScrollArea className="flex-1">
           <div className="p-4 pb-8">
             <MemoriesList />
+          </div>
+        </ScrollArea>
+      )}
+
+      {section === 'history' && (
+        <ScrollArea className="flex-1">
+          <div className="p-4 pb-8">
+            <HistoryTab />
           </div>
         </ScrollArea>
       )}
