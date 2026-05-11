@@ -1618,6 +1618,7 @@ export function LocationMap() {
           criteriaTimestamp,
           isRecentlyEnriched,
           getTintForLocation(id),
+          getLocationOwnership(id, currentUserId).isOwn,
         ),
       );
     };
