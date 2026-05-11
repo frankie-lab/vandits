@@ -204,8 +204,12 @@ export const createCustomIcon = (
   // Ver `mem://style/map/zoom-driven-hero`.
   if (renderMode === 'rich') {
     const heroId = location?.id;
+    // Pasamos ownership = { isOwn } igual que `map-tooltip.ts`. Sin esto, los
+    // POIs propios con `user_image_visibility='private'` (default) caen al
+    // branch de visitante anónimo y la polaroid renderiza placeholder pese
+    // a tener `user_image_url`. Single source of truth: `getPointHeroImage`.
     const heroUrl = heroId && !heroFailedIds.has(heroId)
-      ? getPointHeroImage(location)
+      ? getPointHeroImage(location, { isOwn })
       : null;
     const cardSize = 50;
     const pointerH = 6;
