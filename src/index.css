@@ -385,6 +385,7 @@
    - En map-zoom-rich, los markers con imagen Hero se renderizan como
      cuadrado redondeado 40px (helper único: createCustomIcon).
    Ver mem://style/map/zoom-driven-hero. */
+/* Default (low zoom): dark pill with just the name, no image. */
 .leaflet-tooltip.poi-hover-tooltip-wrap {
   padding: 6px 8px;
   background: rgba(20, 20, 20, 0.92);
@@ -399,14 +400,93 @@
 .poi-hover-tooltip__img { display: none; }
 .poi-hover-tooltip__name { font-size: 13px; line-height: 1.2; font-weight: 500; }
 
+/* Medium/high zoom: polaroid-style white photo card with downward tail
+   pointing at the POI (like Google My Maps photo pins). */
+.map-zoom-standard .leaflet-tooltip.poi-hover-tooltip-wrap,
+.map-zoom-rich     .leaflet-tooltip.poi-hover-tooltip-wrap {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+.map-zoom-standard .leaflet-tooltip.poi-hover-tooltip-wrap .poi-hover-tooltip,
+.map-zoom-rich     .leaflet-tooltip.poi-hover-tooltip-wrap .poi-hover-tooltip {
+  position: relative;
+  display: block;
+  max-width: none;
+  width: 140px;
+  padding: 5px 5px 6px;
+  background: #ffffff;
+  border-radius: 6px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28), 0 1px 2px rgba(0, 0, 0, 0.18);
+  color: #1a1a1a;
+}
+/* Downward tail pointing at the marker */
+.map-zoom-standard .leaflet-tooltip.poi-hover-tooltip-wrap .poi-hover-tooltip::after,
+.map-zoom-rich     .leaflet-tooltip.poi-hover-tooltip-wrap .poi-hover-tooltip::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  width: 0;
+  height: 0;
+  margin-left: -7px;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 9px solid #ffffff;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.18));
+}
 .map-zoom-standard .leaflet-tooltip.poi-hover-tooltip-wrap .poi-hover-tooltip__img,
 .map-zoom-rich     .leaflet-tooltip.poi-hover-tooltip-wrap .poi-hover-tooltip__img {
   display: block;
-  width: 200px;
-  height: 120px;
+  width: 100%;
+  height: 90px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: 3px;
   background: #1a1a1a;
+}
+.map-zoom-standard .leaflet-tooltip.poi-hover-tooltip-wrap .poi-hover-tooltip__name,
+.map-zoom-rich     .leaflet-tooltip.poi-hover-tooltip-wrap .poi-hover-tooltip__name {
+  margin-top: 5px;
+  padding: 0 2px;
+  font-size: 11px;
+  line-height: 1.25;
+  font-weight: 600;
+  color: #1a1a1a;
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* If there's no hero image, hide the polaroid frame and fall back to dark pill */
+.map-zoom-standard .leaflet-tooltip.poi-hover-tooltip-wrap:not(:has(.poi-hover-tooltip__img)),
+.map-zoom-rich     .leaflet-tooltip.poi-hover-tooltip-wrap:not(:has(.poi-hover-tooltip__img)) {
+  padding: 6px 8px;
+  background: rgba(20, 20, 20, 0.92);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+.map-zoom-standard .leaflet-tooltip.poi-hover-tooltip-wrap:not(:has(.poi-hover-tooltip__img)) .poi-hover-tooltip,
+.map-zoom-rich     .leaflet-tooltip.poi-hover-tooltip-wrap:not(:has(.poi-hover-tooltip__img)) .poi-hover-tooltip {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  width: auto;
+  color: #fff;
+}
+.map-zoom-standard .leaflet-tooltip.poi-hover-tooltip-wrap:not(:has(.poi-hover-tooltip__img)) .poi-hover-tooltip::after,
+.map-zoom-rich     .leaflet-tooltip.poi-hover-tooltip-wrap:not(:has(.poi-hover-tooltip__img)) .poi-hover-tooltip::after {
+  display: none;
+}
+.map-zoom-standard .leaflet-tooltip.poi-hover-tooltip-wrap:not(:has(.poi-hover-tooltip__img)) .poi-hover-tooltip__name,
+.map-zoom-rich     .leaflet-tooltip.poi-hover-tooltip-wrap:not(:has(.poi-hover-tooltip__img)) .poi-hover-tooltip__name {
+  color: #fff;
+  text-align: left;
+  font-weight: 500;
+  margin-top: 0;
+  padding: 0;
 }
 
 /* Rich marker — POI = imagen Hero */
