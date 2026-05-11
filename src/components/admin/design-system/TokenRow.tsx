@@ -182,7 +182,11 @@ function isForegroundRole(role: string): boolean {
 }
 
 function isSurfaceRole(role: string): boolean {
-  return role.startsWith('surface.') || role.startsWith('map.') && role === 'map.background';
+  // Roles que SON el lienzo de la app y por tanto pintan toda la columna.
+  // En este DS no hay `surface.*`; los fondos viven en `n.*` (neutral) + `map.background`.
+  if (role === 'map.background') return true;
+  if (role === 'n.background' || role === 'n.card' || role === 'n.popup' || role === 'n.muted' || role === 'n.overlay') return true;
+  return false;
 }
 
 function ColorSwatchColumn({
