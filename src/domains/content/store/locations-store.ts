@@ -165,6 +165,28 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     return { documents, _docVersion: state._docVersion + 1 };
   }),
 
+  applyCatalogSnapshot: (docs, opts) => set((state) => {
+    const { documents, mutated, removedLocationIds } = applyCatalogSnapshotPure(
+      state.documents,
+      docs,
+      opts,
+    );
+    if (!mutated) return {};
+    // Clean selection from ids that no longer exist.
+    let selectedLocations = state.selectedLocations;
+    if (removedLocationIds.size > 0 && state.selectedLocations.size > 0) {
+      const next = new Set(state.selectedLocations);
+      let touched = false;
+      removedLocationIds.forEach((id) => { if (next.delete(id)) touched = true; });
+      if (touched) selectedLocations = next;
+    }
+    return {
+      documents,
+      selectedLocations,
+      _docVersion: state._docVersion + 1,
+    };
+  }),
+
   removeDocument: async (id, options = {}) => {
     const deleteLocations = options.deleteLocations === true;
     // Persist the deletion in the backend.
