@@ -384,6 +384,57 @@ export type Database = {
         }
         Relationships: []
       }
+      data_sources: {
+        Row: {
+          code: string
+          config: Json
+          created_at: string
+          description: string | null
+          enabled: boolean
+          id: string
+          kind: Database["public"]["Enums"]["data_source_kind"]
+          name: string
+          priority: number
+          requires_secret: boolean
+          secret_name: string | null
+          stats: Json
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          code: string
+          config?: Json
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          kind: Database["public"]["Enums"]["data_source_kind"]
+          name: string
+          priority?: number
+          requires_secret?: boolean
+          secret_name?: string | null
+          stats?: Json
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          code?: string
+          config?: Json
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          kind?: Database["public"]["Enums"]["data_source_kind"]
+          name?: string
+          priority?: number
+          requires_secret?: boolean
+          secret_name?: string | null
+          stats?: Json
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: []
+      }
       document_tracks: {
         Row: {
           color: string | null
@@ -3467,6 +3518,7 @@ export type Database = {
         | "supervisor"
         | "curator"
       collection_item_type: "place" | "waypoint" | "route"
+      data_source_kind: "search" | "enrichment" | "scraper"
       document_import_status:
         | "parsing"
         | "reviewing"
@@ -3667,6 +3719,7 @@ export const Constants = {
         "curator",
       ],
       collection_item_type: ["place", "waypoint", "route"],
+      data_source_kind: ["search", "enrichment", "scraper"],
       document_import_status: [
         "parsing",
         "reviewing",
