@@ -90,16 +90,15 @@ function emitCss(tokens) {
   const reducedMotionVars = [];
 
   for (const t of tokens) {
-    if (!t.cssName) continue;
-    const line = `  ${t.cssName}: ${t.value};`;
+    if (!t.cssNames || t.cssNames.length === 0) continue;
     const isDark = t.path[0] === 'color' && t.path[1] === 'dark';
-    if (isDark) {
-      darkVars.push(line);
-    } else {
-      lightVars.push(line);
-    }
-    if (t.reducedMotion !== undefined) {
-      reducedMotionVars.push(`    ${t.cssName}: ${t.reducedMotion};`);
+    for (const cssName of t.cssNames) {
+      const line = `  ${cssName}: ${t.value};`;
+      if (isDark) darkVars.push(line);
+      else lightVars.push(line);
+      if (t.reducedMotion !== undefined) {
+        reducedMotionVars.push(`    ${cssName}: ${t.reducedMotion};`);
+      }
     }
   }
 
