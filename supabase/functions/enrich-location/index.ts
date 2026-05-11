@@ -1896,22 +1896,8 @@ serve(async (req) => {
       console.log(`Using ${profileType} overrides - expectedNature: ${expectedNature}, searchRadius: ${searchRadiusMeters}`);
     }
 
-    // Step 0: Consultar todas las fuentes de datos en paralelo
-    // Respeta los toggles de `data_sources` (kind='enrichment') del panel admin.
-    const enrichmentSources = await getEnabledSourceCodes('enrichment');
-    const useWikipedia = isSourceEnabled(enrichmentSources, 'enrich.wikipedia');
-    const useWikidata = isSourceEnabled(enrichmentSources, 'enrich.wikidata');
-    const useNominatim = isSourceEnabled(enrichmentSources, 'enrich.nominatim');
-    const useGeoNames = isSourceEnabled(enrichmentSources, 'enrich.geonames');
-    const useOverpass = isSourceEnabled(enrichmentSources, 'enrich.overpass');
-    const useCommons = isSourceEnabled(enrichmentSources, 'enrich.commons');
-    const useWikidataSparql = isSourceEnabled(enrichmentSources, 'enrich.wikidata_sparql');
-    const useOpenverse = isSourceEnabled(enrichmentSources, 'enrich.openverse');
-    console.log(
-      `[data_sources] enrichment toggles → wikipedia=${useWikipedia} wikidata=${useWikidata} ` +
-      `nominatim=${useNominatim} geonames=${useGeoNames} overpass=${useOverpass} ` +
-      `commons=${useCommons} sparql=${useWikidataSparql} openverse=${useOpenverse}`
-    );
+    // Step 0: Consultar todas las fuentes de datos en paralelo.
+    // Respeta toggles de `data_sources` (cargados arriba en useWikipedia/useWikidata/...).
     console.log('Fetching data from multiple sources in parallel...');
 
     const [geocodeResult, wikipediaResult, wikidataResult, geonamesResult] = await Promise.all([
