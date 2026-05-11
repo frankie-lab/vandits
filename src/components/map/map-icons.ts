@@ -130,11 +130,15 @@ export const createCustomIcon = (
   // Solo aporta un halo blanco sutil + borde algo más grueso. Focused/recent
   // siguen pudiendo modular color porque actúan sobre 1 punto puntual.
   const isMassSelect = currentState === 'selected';
-  const shadow = isMassSelect
+  // Halo de propiedad (Ola 2): los puntos del usuario reciben un drop-shadow
+  // blanco fino (~1px) que se acumula con el shadow base. No altera color ni
+  // tamaño en compact/standard/rich — solo da prioridad visual sutil.
+  const ownHalo = isOwn && !isMassSelect ? ' drop-shadow(0 0 0 1px rgba(255,255,255,0.9))' : '';
+  const shadow = (isMassSelect
     ? 'drop-shadow(0 0 0 1.5px rgba(255,255,255,0.95)) drop-shadow(0 1px 3px rgba(0,0,0,0.35))'
     : currentState !== 'normal'
       ? getStateShadow(currentState, '#000000', stateRules)
-      : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
+      : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))') + ownHalo;
   const baseBorderWidth = getStateBorderWidth(currentState, stateRules);
   const borderWidth = isMassSelect ? Math.max(2, baseBorderWidth) : baseBorderWidth;
 
