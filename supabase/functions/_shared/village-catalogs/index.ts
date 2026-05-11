@@ -78,8 +78,12 @@ async function fetchAdapterEntries(adapter: VillageCatalogAdapter): Promise<Vill
 async function ensureEntries(adapter: VillageCatalogAdapter): Promise<VillageEntry[]> {
   const ttl = adapter.ttlDays ?? DEFAULT_TTL_DAYS;
   const cached = await getFreshEntries(adapter.code, ttl);
-  if (cached && cached.length > 0) return cached;
+  if (cached && cached.length > 0) {
+    console.log('[village-catalogs]', adapter.code, 'cache hit', cached.length);
+    return cached;
+  }
   const fetched = await fetchAdapterEntries(adapter);
+  console.log('[village-catalogs]', adapter.code, 'fetched', fetched.length);
   if (fetched.length === 0) return [];
   await upsertEntries(fetched);
   return fetched;
