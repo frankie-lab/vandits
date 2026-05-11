@@ -18,7 +18,17 @@ export function useDatabaseSync(userId?: string | null) {
 
   const loadFromDatabase = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true;
-    if (!silent) startLoading('db-sync', 'Cargando catálogo', { blocking: true });
+    let loadingActive = false;
+    const ensureEndLoading = () => {
+      if (loadingActive) {
+        endLoading('db-sync');
+        loadingActive = false;
+      }
+    };
+    if (!silent) {
+      startLoading('db-sync', 'Cargando catálogo', { blocking: true });
+      loadingActive = true;
+    }
     try {
       console.log('[useDatabaseSync] Starting parallel load...');
       setSyncPhase('own');
@@ -50,9 +60,15 @@ export function useDatabaseSync(userId?: string | null) {
       const profilesMap = await fetchProfiles(ownerIds);
 
       console.log('[useDatabaseSync] Fetching locations...');
-      const dbLocations = await fetchAllLocationsPaginated();
+      const dbLocations = await fetchAllLocationsPaginated({
+        withCount: !silent,
+        onPage: silent
+          ? undefined
+          : (loaded, total) => {
+              updateLoading('db-sync', loaded, total ?? undefined);
+            },
+      });
       console.log('[useDatabaseSync] Locations fetched:', dbLocations.length);
-      if (!silent) updateLoading('db-sync', 0, dbLocations.length);
 
       const adoptedFromIds = new Set<string>();
       const userDocIds = new Set(ownDocs.map(d => d.id));
@@ -104,18 +120,18 @@ export function useDatabaseSync(userId?: string | null) {
       if (ownDocs.length > 0) {
         console.log(`[useDatabaseSync] Own data loaded: ${ownDocs.length} docs, ${ownLocCount} locations`);
       }
-      if (!silent) updateLoading('db-sync', ownLocCount);
+
+      // Mapa ya tiene contenido renderizable → cerramos la modal bloqueante.
+      // Los docs ajenos se montan a continuación en background sin tarjeta.
+      ensureEndLoading();
 
       setSyncPhase('social');
       await new Promise(resolve => setTimeout(resolve, 0));
 
-      let otherLocCount = 0;
       otherDocs.forEach(doc => {
         const kmlDoc = buildDoc(doc);
-        otherLocCount += kmlDoc.locations.length;
         addDocument(kmlDoc);
       });
-      if (!silent) updateLoading('db-sync', ownLocCount + otherLocCount);
 
       setSyncPhase('done');
       // Load summary is shown in the welcome card on the map (no toast to avoid duplication)
@@ -134,7 +150,7 @@ export function useDatabaseSync(userId?: string | null) {
       }
       setSyncPhase('done');
     } finally {
-      if (!silent) endLoading('db-sync');
+      ensureEndLoading();
     }
   }, [addDocument, _resetStoreState]);
 

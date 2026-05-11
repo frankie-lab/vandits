@@ -2,9 +2,10 @@
 // the initial catalog sync is in flight. Mirrors the welcome summary card
 // (greeting + last login + counts) and adds a live progress bar with ETA.
 // Real progress only — no simulation.
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Compass, Loader2 } from 'lucide-react';
 import { useActiveLoadings } from './loading-bus';
+
 
 function formatEta(ms: number): string {
   if (!Number.isFinite(ms) || ms <= 0) return '—';
@@ -38,6 +39,38 @@ interface CatalogLoadingCardProps {
 export function CatalogLoadingCard({ userDisplayName, lastSeenAt }: CatalogLoadingCardProps = {}) {
   const tasks = useActiveLoadings(0);
   const task = tasks.find((t) => t.id === 'db-sync');
+
+  // EMA del ritmo (items/ms). Más estable que current/elapsed global cuando
+  // updateLoading dispara saltos discretos (1 tick por página).
+  const lastSampleRef = useRef<{ t: number; v: number } | null>(null);
+  const rateEmaRef = useRef<number | null>(null);
+  const [, force] = useState(0);
+
+  useEffect(() => {
+    if (!task) {
+      lastSampleRef.current = null;
+      rateEmaRef.current = null;
+      return;
+    }
+    const now = Date.now();
+    const v = task.current ?? 0;
+    const last = lastSampleRef.current;
+    if (last && v > last.v && now > last.t) {
+      const instant = (v - last.v) / (now - last.t); // items/ms
+      const prev = rateEmaRef.current;
+      const alpha = 0.4; // EMA factor — prioriza muestras recientes
+      rateEmaRef.current = prev == null ? instant : prev * (1 - alpha) + instant * alpha;
+    }
+    lastSampleRef.current = { t: now, v };
+  }, [task?.current, task?.total]);
+
+  // Tick para refrescar ETA cada 500ms mientras hay tarea activa.
+  useEffect(() => {
+    if (!task) return;
+    const id = window.setInterval(() => force((x) => x + 1), 500);
+    return () => window.clearInterval(id);
+  }, [task?.id]);
+
   if (!task) return null;
 
   const current = task.current ?? 0;
@@ -47,12 +80,13 @@ export function CatalogLoadingCard({ userDisplayName, lastSeenAt }: CatalogLoadi
 
   const elapsedMs = Date.now() - task.startedAt;
   let etaLabel: string | null = null;
-  if (determinate && current > 0 && elapsedMs > 500 && current < total) {
-    const rate = current / elapsedMs;
-    const remainingMs = (total - current) / rate;
-    etaLabel = formatEta(remainingMs);
-  } else if (determinate && current < total) {
-    etaLabel = 'Calculando…';
+  if (determinate && current < total) {
+    const rate = rateEmaRef.current;
+    if (rate && rate > 0 && elapsedMs > 600) {
+      etaLabel = formatEta((total - current) / rate);
+    } else {
+      etaLabel = 'Calculando…';
+    }
   }
 
   const showLastSeen =
