@@ -39,7 +39,8 @@ import {
   calculateVisitRelevance, formatTimeAgo, createFilterLink, parseLocalizacionToLinks,
   type VisitRelevanceInfo,
 } from './map/map-utils';
-import { createCustomIcon, getRenderModeForZoom, setCurrentRenderMode } from './map/map-icons';
+import { createCustomIcon, getRenderModeForZoom, setCurrentRenderMode, type MarkerRenderMode } from './map/map-icons';
+import { buildHoverTooltipHtml } from './map/map-tooltip';
 import { onMarkerSizeConfigChange, getMarkerSizeConfig } from './map/useMarkerSizeConfig';
 import {
   prewarmEnrichmentFailures,
@@ -292,7 +293,7 @@ export function LocationMap() {
        const marker = L.marker([location.coordinates.lat, location.coordinates.lng], {
          icon: createCustomIcon(false, isFocused, !!location.enrichedData, location, criteriaTimestamp, false, getTintForLocation(location.id)),
        });
-       marker.bindTooltip(location.name, { direction: 'top', offset: [0, -12] });
+       marker.bindTooltip(buildHoverTooltipHtml(location), { direction: 'top', offset: [0, -12], className: 'poi-hover-tooltip-wrap', opacity: 1 });
        marker.on('click', () => setFocusedLocation(location.id));
        previewMarkersGroupRef.current?.addLayer(marker);
        bounds.push([location.coordinates.lat, location.coordinates.lng]);
@@ -1185,13 +1186,25 @@ export function LocationMap() {
     // antes/después con un currentRenderMode obsoleto (módulo singleton entre
     // remounts) se repinte. Sin esto, en vista global los puntos se quedan
     // en 'standard' y no aplica la representación 'micro'.
-    setCurrentRenderMode(getRenderModeForZoom(mapRef.current.getZoom()));
+    const applyZoomModeClass = (mode: MarkerRenderMode) => {
+      const c = mapRef.current?.getContainer();
+      if (!c) return;
+      c.classList.toggle('map-zoom-micro', mode === 'micro');
+      c.classList.toggle('map-zoom-compact', mode === 'compact');
+      c.classList.toggle('map-zoom-standard', mode === 'standard');
+      c.classList.toggle('map-zoom-rich', mode === 'rich');
+    };
+    const initialMode = getRenderModeForZoom(mapRef.current.getZoom());
+    setCurrentRenderMode(initialMode);
+    applyZoomModeClass(initialMode);
     window.dispatchEvent(new CustomEvent('map-render-mode-changed'));
     mapRef.current.on('zoomend', () => {
       if (!mapRef.current) return;
       const zoom = mapRef.current.getZoom();
       applyRingWidth(zoom);
-      const changed = setCurrentRenderMode(getRenderModeForZoom(zoom));
+      const mode = getRenderModeForZoom(zoom);
+      const changed = setCurrentRenderMode(mode);
+      applyZoomModeClass(mode);
       if (changed) {
         window.dispatchEvent(new CustomEvent('map-render-mode-changed'));
       }
@@ -1380,6 +1393,17 @@ export function LocationMap() {
   const marker = L.marker([markerLat, markerLng], {
   icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, getTintForLocation(location.id), ownership.isOwn),
   pane: ownership.isOwn ? 'mine-pane' : 'others-pane',
+  });
+
+  // Hover preview tooltip (single helper). Visibility of the hero image is
+  // gated by CSS classes on the map container (`map-zoom-standard`,
+  // `map-zoom-rich`) set in the zoomend listener. The same tooltip works at
+  // every zoom; CSS hides/shows the <img>.
+  marker.bindTooltip(buildHoverTooltipHtml(location), {
+    direction: 'top',
+    offset: [0, -12],
+    className: 'poi-hover-tooltip-wrap',
+    opacity: 1,
   });
 
        // Create popup with content including ownership info

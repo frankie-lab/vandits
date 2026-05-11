@@ -18,6 +18,20 @@ import {
   RING_COLORS,
   RING_WIDTH,
 } from '@/domains/content/lib/point-health-rings';
+import { getPointHeroImage } from '@/domains/content/lib/point-hero-image';
+
+/**
+ * IDs cuya hero image ha fallado en runtime. Como un divIcon no puede
+ * re-pintarse a sí mismo desde `onerror`, marcamos el ID aquí; la siguiente
+ * llamada a `createCustomIcon` salta la rama hero y devuelve el SVG estándar.
+ * El refresh natural por `zoomend` / `map-render-mode-changed` los repinta.
+ */
+const heroFailedIds = new Set<string>();
+if (typeof window !== 'undefined') {
+  (window as any).__markHeroFailed = (id: string) => {
+    if (id) heroFailedIds.add(id);
+  };
+}
 
 // Anillos de salud (5px) apilados POR FUERA del marker y del collection-tint.
 // Helper único: `getPointHealthRings`. No sustituyen al stroke blanco ni al
@@ -185,6 +199,49 @@ export const createCustomIcon = (
   const hoverAttr = scaleRatio > 1
     ? `onmouseenter="this.style.transform='scale(${scaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'"`
     : '';
+
+  // ── Rich (z≥17) — marker = imagen Hero ─────────────────────────────────
+  // En modo rich, si el POI tiene imagen Hero (enrichedData.imagen o
+  // user_image_url), el marker ES la foto: cuadrado redondeado 40px con
+  // borde 2px en el color del estado. Se conservan health rings, collection
+  // tint y ownership como capas alrededor. focused/selected añaden un halo
+  // blanco — no sustituyen la foto. Sin imagen → cae al render estándar
+  // (SVG dot/pin de abajo). Si `onerror` dispara, marcamos el id en
+  // `heroFailedIds` y el próximo repaint usará el SVG.
+  const heroId = location?.id;
+  const heroUrl = renderMode === 'rich' && heroId && !heroFailedIds.has(heroId)
+    ? getPointHeroImage(location)
+    : null;
+  if (heroUrl) {
+    const heroSize = 40;
+    let heroCumulative = 0;
+    const heroRingShadow = healthRings
+      .map((ring) => {
+        heroCumulative += RING_WIDTH;
+        return ` drop-shadow(0 0 0 ${heroCumulative}px ${RING_COLORS[ring]})`;
+      })
+      .join('');
+    const hasErrorRing = healthRings.includes('error');
+    const haloHtml = (isFocused || isSelected)
+      ? '<div class="poi-hero-marker__halo"></div>'
+      : '';
+    const ownClass = isOwn ? ' is-own' : '';
+    const safeUrl = heroUrl.replace(/"/g, '&quot;');
+    const safeId = String(heroId).replace(/"/g, '&quot;');
+    return L.divIcon({
+      className: `poi-hero-marker${isRecentlyEnriched ? ' recently-enriched' : ''}${hasErrorRing ? ' has-enrichment-error' : ''}${ownClass}`,
+      html: `
+      <div class="poi-hero-marker__wrap" style="--marker-state-color:${entry.fill_color}; width:${heroSize}px; height:${heroSize}px; position:relative; filter:${shadow}${heroRingShadow}; ${animationStyle}">
+        ${collectionTint ? `<div class="collection-tint-ring" style="--collection-tint:${collectionTint}"></div>` : ''}
+        <img class="poi-hero-marker__img" src="${safeUrl}" alt="" referrerpolicy="no-referrer" onerror="window.__markHeroFailed && window.__markHeroFailed('${safeId}'); this.style.display='none';" />
+        ${haloHtml}
+      </div>
+      `,
+      iconSize: [heroSize, heroSize],
+      iconAnchor: [heroSize / 2, heroSize / 2],
+      popupAnchor: [0, -heroSize / 2],
+    });
+  }
 
   // Pin (teardrop) shape — only when explicitly configured for this state
   if (entry.marker_shape === 'pin') {

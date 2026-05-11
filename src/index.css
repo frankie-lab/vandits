@@ -378,6 +378,60 @@
   background: #f3f4f6;
   pointer-events: none;
 }
+
+/* ─── Hover preview tooltip + rich marker (zoom-driven hero image) ──────
+   - Tooltip por defecto = solo nombre.
+   - En map-zoom-standard / map-zoom-rich, el tooltip añade la imagen Hero.
+   - En map-zoom-rich, los markers con imagen Hero se renderizan como
+     cuadrado redondeado 40px (helper único: createCustomIcon).
+   Ver mem://style/map/zoom-driven-hero. */
+.leaflet-tooltip.poi-hover-tooltip-wrap {
+  padding: 6px 8px;
+  background: rgba(20, 20, 20, 0.92);
+  color: #fff;
+  border: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  border-radius: 8px;
+  white-space: normal;
+}
+.leaflet-tooltip.poi-hover-tooltip-wrap::before { display: none; }
+.poi-hover-tooltip { display: flex; flex-direction: column; gap: 4px; max-width: 220px; }
+.poi-hover-tooltip__img { display: none; }
+.poi-hover-tooltip__name { font-size: 13px; line-height: 1.2; font-weight: 500; }
+
+.map-zoom-standard .leaflet-tooltip.poi-hover-tooltip-wrap .poi-hover-tooltip__img,
+.map-zoom-rich     .leaflet-tooltip.poi-hover-tooltip-wrap .poi-hover-tooltip__img {
+  display: block;
+  width: 200px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #1a1a1a;
+}
+
+/* Rich marker — POI = imagen Hero */
+.poi-hero-marker { background: transparent; }
+.poi-hero-marker__wrap { display: block; box-sizing: border-box; }
+.poi-hero-marker__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid var(--marker-state-color, #fff);
+  background: #1a1a1a;
+  box-sizing: border-box;
+}
+.poi-hero-marker.is-own .poi-hero-marker__img {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9);
+}
+.poi-hero-marker__halo {
+  position: absolute;
+  inset: -4px;
+  border-radius: 12px;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95), 0 0 12px rgba(255, 255, 255, 0.45);
+  pointer-events: none;
+}
 /* Global loading bar — indeterminate animation + cursor while blocking */
 @keyframes global-loading-slide {
   0%   { transform: translateX(-100%); }
