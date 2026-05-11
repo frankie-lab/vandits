@@ -514,6 +514,11 @@ export function UserMenu({
                <Compass className="w-4 h-4 mr-2 text-amber-500" />
                Geografía universal
                </DropdownMenuItem>
+
+               <DropdownMenuItem onClick={() => onOpenAdmin?.('sources')} className="cursor-pointer">
+               <Database className="w-4 h-4 mr-2 text-cyan-500" />
+               Fuentes de datos
+               </DropdownMenuItem>
    </>
    )}
 
