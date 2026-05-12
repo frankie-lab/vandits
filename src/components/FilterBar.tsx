@@ -382,11 +382,12 @@ export function FilterBar() {
       </div>
       <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin">
         {(() => {
-          // healthFilter NO se aplica en el pipeline cliente (es server-side
-          // vía RPC). Por tanto `filteredLocations` ya es el universo correcto:
-          // refleja Geo/Tipo/Tags/búsqueda y los counts de cada chip NO se
-          // colapsan a 0 cuando uno está activo.
-          const counts = getHealthBucketCounts(filteredLocations);
+          // healthFilter SÍ se aplica en el pipeline cliente
+          // (location-filtering.ts línea ~135). Por eso los counts de cada
+          // chip se calculan sobre `filteredIgnoringHealth`: el universo
+          // post-Geo/Tipo/Tags/búsqueda PERO antes del eje Salud, para que
+          // los chips no se canibalicen al activar uno.
+          const counts = getHealthBucketCounts(filteredIgnoringHealth);
           const buckets: Array<{
             id: HealthFilter | null;
             label: string;
