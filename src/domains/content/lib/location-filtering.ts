@@ -51,6 +51,10 @@ export function matchesLocationFilters(
     includePlaceType?: boolean;
     /** Sub-eje de exploración: aplicar el filtro `tag`/`tags`. Default true. */
     includeTags?: boolean;
+    /** Aplicar el eje de Salud operativa (Health Rings v2). Default true.
+     *  Los chips del eje Salud lo desactivan para calcular sus counts sobre
+     *  el universo SIN healthFilter (evita que se canibalicen entre sí). */
+    includeHealth?: boolean;
   },
 ): boolean {
   const {
@@ -60,6 +64,7 @@ export function matchesLocationFilters(
     includeSemanticResults = true,
     includePlaceType = true,
     includeTags = true,
+    includeHealth = true,
   } = options ?? {};
 
   const {
