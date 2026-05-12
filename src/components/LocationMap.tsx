@@ -2001,7 +2001,16 @@ export function LocationMap() {
 
     v2MarkersRef.current = newMarkers;
 
+    // Refresca icons V2 en cada zoomend para que sigan el canon de bandas
+    // (micro/compact/standard/rich). Sin esto, los markers V2 quedarían
+    // congelados en el render mode del zoom inicial.
+    const onZoomEnd = () => {
+      refreshV2Icons(map, v2MarkersRef.current, v2Features);
+    };
+    map.on('zoomend', onZoomEnd);
+
     return () => {
+      map.off('zoomend', onZoomEnd);
       clearV2Features(map, v2MarkersRef.current);
     };
   }, [shouldUseV2Render, v2Features, setFocusedLocation]);
