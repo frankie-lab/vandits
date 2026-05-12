@@ -1527,6 +1527,16 @@ export function LocationMap() {
       kept: keepIds.size,
     });
   }, [locationIds, zoomState, locations.length, keepIds.size, markerLocations.length]);
+
+  // Publica el subset visual al discovery-store para que features opt-in
+  // (CTA "Sólo visibles" del eje Salud) puedan leerlo sin acceder al mapa.
+  // No es la verdad lógica del filtro — sólo subset visual del viewport.
+  React.useEffect(() => {
+    const ids = new Set<string>(markerLocations.map((l) => l.id));
+    import('@/domains/discovery').then(({ useDiscoveryStore }) => {
+      useDiscoveryStore.getState().setVisibleLocationIds(ids);
+    }).catch(() => { /* no-op: discovery store optional in tests */ });
+  }, [locationIds]);
  
  useEffect(() => {
  if (!mapRef.current || !markerClusterRef.current) return;
