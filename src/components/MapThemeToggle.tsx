@@ -1,12 +1,6 @@
 import React from 'react';
-import { Moon, Sun, Layers } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
- DropdownMenu,
- DropdownMenuContent,
- DropdownMenuItem,
- DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
 export type MapTheme = 'light' | 'dark';
@@ -32,8 +26,6 @@ export const MAP_TILE_LAYERS: Record<MapTheme, { url: string; attribution: strin
  },
 };
 
-const THEME_ORDER: MapTheme[] = ['light', 'dark'];
-
 const getButtonStyles = (theme: MapTheme) => {
  switch (theme) {
  case 'dark':
@@ -44,36 +36,23 @@ const getButtonStyles = (theme: MapTheme) => {
 };
 
 export function MapThemeToggle({ theme, onThemeChange, className }: MapThemeToggleProps) {
+  const nextTheme: MapTheme = theme === 'dark' ? 'light' : 'dark';
+
  return (
- <DropdownMenu>
- <DropdownMenuTrigger asChild>
  <Button
+  type="button"
  variant="secondary"
  size="icon"
+  onClick={() => onThemeChange(nextTheme)}
+  aria-label={`Cambiar mapa a ${MAP_TILE_LAYERS[nextTheme].name.toLowerCase()}`}
+  title={`Cambiar mapa a ${MAP_TILE_LAYERS[nextTheme].name.toLowerCase()}`}
  className={cn(
  "w-9 h-9 rounded-full shadow-md",
  getButtonStyles(theme),
  className
  )}
  >
- <Layers className="w-4 h-4" />
+  {MAP_TILE_LAYERS[nextTheme].icon}
  </Button>
- </DropdownMenuTrigger>
- <DropdownMenuContent align="end" className="min-w-[140px]">
- {THEME_ORDER.map((t) => (
- <DropdownMenuItem
- key={t}
- onClick={() => onThemeChange(t)}
- className={cn(
- "flex items-center gap-2 cursor-pointer",
- theme === t && "bg-accent"
- )}
- >
- {MAP_TILE_LAYERS[t].icon}
- <span>{MAP_TILE_LAYERS[t].name}</span>
- </DropdownMenuItem>
- ))}
- </DropdownMenuContent>
- </DropdownMenu>
  );
 }
