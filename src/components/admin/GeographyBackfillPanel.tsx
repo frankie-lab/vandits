@@ -362,6 +362,15 @@ export function GeographyBackfillPanel() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-4 p-4 overflow-hidden">
+      {/* Subheader: framing del panel como consola admin */}
+      <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 text-xs text-muted-foreground leading-relaxed">
+        <p>
+          Operaciones <strong className="text-foreground">globales y masivas</strong> sobre jerarquías administrativas.
+          {' '}Para reparaciones puntuales usa <strong className="text-foreground">Salud</strong> en el mapa
+          (chips bajo el filtro principal).
+        </p>
+      </div>
+
       {/* PASO 1 — Modo de normalización (3 tarjetas a ancho completo) */}
       <section className="rounded-lg border bg-muted/10">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3">
