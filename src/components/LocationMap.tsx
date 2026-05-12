@@ -2171,8 +2171,8 @@ export function LocationMap() {
  <MapScaleBar map={mapRef.current} units={measurementUnits} />
  
  {/* "Ver N ubicaciones" — integrado en la pill inferior derecha (ver bloque legend) */}
- {/* Map theme toggle + locate-me — top right */}
- <div className="absolute top-4 right-4 z-[999] flex items-center gap-2">
+  {/* Map theme toggle + locate-me — centered over the map */}
+  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[999] flex items-center gap-2 pointer-events-none [&>*]:pointer-events-auto">
    <Tooltip>
      <TooltipTrigger asChild>
        <button
@@ -2193,7 +2193,7 @@ export function LocationMap() {
            : <LocateFixed className="h-4 w-4" />}
        </button>
      </TooltipTrigger>
-     <TooltipContent side="left">
+     <TooltipContent side="top">
        {userLocation ? 'Centrar en mi ubicación' : 'Localizarme'}
      </TooltipContent>
    </Tooltip>
