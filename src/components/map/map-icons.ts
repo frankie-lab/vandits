@@ -180,7 +180,10 @@ export const createCustomIcon = (
     // Rampa progresiva por zoom (z6→2, z7→3, z8→4, z9→5). Evita el salto
     // brusco de 2px a compact. La pertenencia (`isOwn`) se diferencia solo
     // por halo más marcado, nunca por diámetro.
-    const microSize = currentZoom <= 6 ? 2 : Math.min(5, currentZoom - 4);
+    // Rampa progresiva por zoom (z≤6→2, z7→3, z8→4, z9→5, z10→6).
+    // Extiende un paso más antes de pasar a compact (microMax=10) para
+    // suavizar la transición visual a SVG en z11.
+    const microSize = currentZoom <= 6 ? 2 : Math.min(6, currentZoom - 4);
     const dot = entry.fill_color;
     const haloStyle = isOwn ? '' : 'opacity:0.85;';
     return L.divIcon({
