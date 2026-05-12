@@ -137,7 +137,7 @@ export function matchesLocationFilters(
   // getPointHealthRings(loc). NO duplicamos predicados aquí: si un POI
   // enriquecido no marca review/hardError es porque el helper no lo
   // devuelve, no porque el filtro lo bloquee.
-  if (filters.healthFilter) {
+  if (includeHealth && filters.healthFilter) {
     const rings = getPointHealthRings(loc);
     if (!rings.includes(filters.healthFilter)) return false;
   }
