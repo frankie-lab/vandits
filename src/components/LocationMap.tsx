@@ -756,8 +756,94 @@ export function LocationMap() {
  setShowZoomButton(false);
  }, [locations]);
 
+  // Single source of truth for "go to my location". Used by both the geolocation
+  // startup path (applyMapCenter) and the LocateFixed button (handleLocateMe).
+  // Returns true on success (GPS or button-IP fallback), false otherwise.
+  // - 'startup': silent (no toasts, no setLocating). Never marks centered on failure.
+  // - 'button': interactive (toasts + setLocating). IP fallback preserved as today.
+  const centerOnUserLocation = useCallback(async (
+    source: 'startup' | 'button',
+    immediate: boolean = false,
+  ): Promise<boolean> => {
+    const map = mapRef.current;
+    if (!map) return false;
+
+    const applyView = (lat: number, lng: number) => {
+      if (immediate) {
+        map.setView([lat, lng], INITIAL_GEOLOCATION_ZOOM);
+      } else {
+        map.flyTo([lat, lng], INITIAL_GEOLOCATION_ZOOM, { duration: 0.8 });
+      }
+    };
+
+    const fetchIpFallback = async (): Promise<boolean> => {
+      const result = await fetchIpGeolocation();
+      if (!result) return false;
+      setUserLocation({ lat: result.lat, lng: result.lng, accuracy: result.accuracy, source: 'ip' });
+      applyView(result.lat, result.lng);
+      setIsCenteredOnUser(true);
+      if (source === 'button') toast.success('Ubicación aproximada obtenida');
+      return true;
+    };
+
+    if (!navigator.geolocation) {
+      if (source === 'button') {
+        toast.error('Tu navegador no soporta geolocalización');
+      }
+      return false;
+    }
+
+    if (source === 'button') {
+      setLocating(true);
+      toast.info('Solicitando ubicación…');
+    }
+
+    return new Promise<boolean>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+          setUserLocation({ lat: latitude, lng: longitude, accuracy, source: 'gps' });
+          applyView(latitude, longitude);
+          setIsCenteredOnUser(true);
+          if (source === 'button') {
+            setLocating(false);
+            toast.success('Ubicación obtenida');
+          }
+          resolve(true);
+        },
+        async (error) => {
+          if (source === 'startup') {
+            console.warn('[centerOnUserLocation] startup GPS failed:', error);
+            resolve(false);
+            return;
+          }
+          // button: try IP fallback unless permission was explicitly denied
+          const canFallback = error.code !== error.PERMISSION_DENIED;
+          const ok = canFallback ? await fetchIpFallback() : false;
+          setLocating(false);
+          if (ok) {
+            resolve(true);
+            return;
+          }
+          const msg =
+            error.code === error.PERMISSION_DENIED
+              ? 'Permiso de ubicación denegado por el navegador'
+              : error.code === error.POSITION_UNAVAILABLE
+                ? 'Ubicación no disponible'
+                : error.code === error.TIMEOUT
+                  ? 'El navegador tardó demasiado en responder'
+                  : 'No se pudo obtener tu ubicación';
+          toast.error(msg);
+          console.warn('[centerOnUserLocation] manual locate failed:', error);
+          resolve(false);
+        },
+        GEOLOCATION_OPTS,
+      );
+    });
+  }, []);
+
   // Apply map center based on user configuration
- const applyMapCenter = useCallback((immediate: boolean = true, config?: MapCenterConfig) => {
+  const applyMapCenter = useCallback((immediate: boolean = true, config?: MapCenterConfig) => {
  if (!mapRef.current) return;
  
  const centerConfig = config || mapCenterConfig;
