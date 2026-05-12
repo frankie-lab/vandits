@@ -20,6 +20,36 @@ import {
 } from '@/domains/content/lib/point-health-rings';
 import { getPointHeroImage } from '@/domains/content/lib/point-hero-image';
 import { ZOOM_THRESHOLDS } from '@/design-system/map/rules/zoom-thresholds';
+import { tokens } from '@/design-system/tokens';
+
+/**
+ * Helper único: factor de escala por zoom (no solo por banda).
+ * Lee `poi.renderScale.byZoom.zNN` con fallback a la escala por banda.
+ * Garantiza una rampa continua z11→z16 sin saltos de >2× entre niveles.
+ */
+const getModeScaleForZoom = (zoom: number, mode: MarkerRenderMode): number => {
+  const byZoom = (tokens as any)?.poi?.renderScale?.byZoom;
+  const zKey = `z${Math.round(zoom)}`;
+  const v = byZoom?.[zKey];
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  // Fallback por banda (valores históricos).
+  if (mode === 'compact') return 0.9;
+  if (mode === 'standard') return 1.0;
+  if (mode === 'rich') return 1.1;
+  return 1.0;
+};
+
+/**
+ * Sombra base por modo. Doble capa SOLO en standard/rich; compact mantiene
+ * sombra simple para no ensuciar vistas de densidad. Tokenizado en
+ * `poi.shadow.{compact,standard,rich}`.
+ */
+const getShadowForMode = (mode: MarkerRenderMode): string => {
+  const shadowTokens = (tokens as any)?.poi?.shadow;
+  if (mode === 'rich') return shadowTokens?.rich ?? 'drop-shadow(0 1px 1px rgba(0,0,0,0.35)) drop-shadow(0 3px 6px rgba(0,0,0,0.22))';
+  if (mode === 'standard') return shadowTokens?.standard ?? 'drop-shadow(0 1px 1px rgba(0,0,0,0.35)) drop-shadow(0 3px 6px rgba(0,0,0,0.22))';
+  return shadowTokens?.compact ?? 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
+};
 
 /**
  * IDs cuya hero image ha fallado en runtime. Como un divIcon no puede
