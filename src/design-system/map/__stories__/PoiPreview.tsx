@@ -16,6 +16,11 @@ import type {
   PoiVisualState,
   PoiHealthState,
 } from '@/design-system/map/types';
+import {
+  COHERENCE_GLYPH_PATH_COORDINATE,
+  COHERENCE_GLYPH_PATH_NAME,
+  type CoherenceGlyph,
+} from '@/domains/content/lib/point-health-rings';
 
 // All color tokens are HSL triplets ("H S% L%"). Wrap once here.
 const hsl = (triplet: string) => `hsl(${triplet})`;
