@@ -32,11 +32,12 @@
       "standard": { "value": 1,    "_css": "--poi-scale-standard" },
       "rich":     { "value": 1.15, "_css": "--poi-scale-rich" },
       "byZoom": {
-        "z11": { "value": 0.85, "_css": "--poi-scale-z11" },
-        "z12": { "value": 0.95, "_css": "--poi-scale-z12" },
-        "z13": { "value": 1.00, "_css": "--poi-scale-z13" },
-        "z14": { "value": 1.05, "_css": "--poi-scale-z14" },
-        "z15": { "value": 1.10, "_css": "--poi-scale-z15" },
+        "z10": { "value": 0.85, "_css": "--poi-scale-z10" },
+        "z11": { "value": 0.95, "_css": "--poi-scale-z11" },
+        "z12": { "value": 1.00, "_css": "--poi-scale-z12" },
+        "z13": { "value": 1.05, "_css": "--poi-scale-z13" },
+        "z14": { "value": 1.10, "_css": "--poi-scale-z14" },
+        "z15": { "value": 1.15, "_css": "--poi-scale-z15" },
         "z16": { "value": 1.15, "_css": "--poi-scale-z16" }
       }
     },
