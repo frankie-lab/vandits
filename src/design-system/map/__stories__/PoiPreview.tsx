@@ -200,6 +200,42 @@ export function PoiPreview({
             }}
           />
         )}
+
+        {isRich && glyph && (
+          <span
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              top: -4,
+              right: -4,
+              width: 14,
+              height: 14,
+              borderRadius: '50%',
+              background: `${HEALTH_COLOR.review}`,
+              boxShadow: `0 0 0 1.5px hsl(${tokens.color.light.surface.background})`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <svg
+              width="9"
+              height="9"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              dangerouslySetInnerHTML={{
+                __html:
+                  glyph === 'coordinate'
+                    ? COHERENCE_GLYPH_PATH_COORDINATE
+                    : COHERENCE_GLYPH_PATH_NAME,
+              }}
+            />
+          </span>
+        )}
       </div>
       {label && (
         <span
