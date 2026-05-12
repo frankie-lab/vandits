@@ -1213,11 +1213,16 @@ export function LocationMap() {
     setCurrentRenderMode(initialMode);
     applyZoomModeClass(initialMode);
     window.dispatchEvent(new CustomEvent('map-render-mode-changed'));
+    // Viewport Culling v1: snapshot inicial de bounds + zoom.
+    setZoomState(mapRef.current.getZoom());
+    setViewportBounds(mapRef.current.getBounds());
     mapRef.current.on('zoomend', () => {
       if (!mapRef.current) return;
       const zoom = mapRef.current.getZoom();
       applyRingWidth(zoom);
       setCurrentZoom(zoom);
+      setZoomState(zoom);
+      setViewportBounds(mapRef.current.getBounds());
       const mode = getRenderModeForZoom(zoom);
       const changed = setCurrentRenderMode(mode);
       applyZoomModeClass(mode);
@@ -1228,6 +1233,19 @@ export function LocationMap() {
         // tamaño aunque el modo no cambie. Forzamos repintado de markers.
         window.dispatchEvent(new CustomEvent('map-render-mode-changed'));
       }
+    });
+    // Viewport Culling v1: actualiza bounds tras pan (sin tocar zoom mode).
+    mapRef.current.on('moveend', () => {
+      if (!mapRef.current) return;
+      setViewportBounds(mapRef.current.getBounds());
+    });
+    // Viewport Culling v1: rastrea popup abierto a nivel de mapa para keepIds.
+    mapRef.current.on('popupopen', (e: L.PopupEvent) => {
+      const id = (e.popup.options as { locationId?: string })?.locationId ?? null;
+      setOpenPopupLocationId(id);
+    });
+    mapRef.current.on('popupclose', () => {
+      setOpenPopupLocationId(null);
     });
     const resizeObserver = new ResizeObserver(() => {
       const map = mapRef.current;
