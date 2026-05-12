@@ -1,142 +1,67 @@
 ## Objetivo
 
-Alinear el código al 100% con la matriz canónica POI por zoom. Esto NO cambia las bases absolutas 12/16/18/24, pero sí **aumenta la presencia visual antes** porque fija los umbrales en su posición canónica (un zoom más bajo que la versión histórica) y sube el micro max de z9 de 5px → 6px.
-
----
-
-## Bandas canónicas (objetivo final)
-
-```
-micro      z ≤ 9
-compact    z 10–11
-standard   z 12–14
-rich       z 15+
-```
-
----
+Adelantar un zoom todas las bandas POI: lo que ahora ocurre en z15 debe ocurrir en z14, z14→z13, etc. Sin tocar bases (12/16/18/24), `byZoom`, culling padding, polaroid ni renderer.
 
 ## Cambios
 
 ### 1. `src/design-system/tokens/source/map.json`
 
-Asegurar / fijar los umbrales canónicos:
-
 ```json
 "zoom": {
-  "microMax":    { "value": 9,  ... },
-  "compactMax":  { "value": 11, ... },
-  "standardMax": { "value": 14, ... },
-  "heroMin":     { "value": 15, ... },
-  "richMin":     { "value": 15, ... }
+  "microMax": 8,
+  "compactMax": 10,
+  "standardMax": 13,
+  "heroMin": 14,
+  "richMin": 14
 }
 ```
 
-### 2. `src/design-system/tokens/source/poi.json`
+(antes: 9 / 11 / 14 / 15 / 15)
 
-Restaurar / confirmar `poi.renderScale.byZoom`:
+### 2. `src/design-system/tokens/source/poi.json` — `byZoom`
 
-```json
-"byZoom": {
-  "z10": 0.85,
-  "z11": 0.95,
-  "z12": 1.00,
-  "z13": 1.05,
-  "z14": 1.10,
-  "z15": 1.15,
-  "z16": 1.15
-}
+Reasignar la rampa para que cada zoom entero conserve la escala que tenía un zoom más arriba:
+
+```
+z9  → 0.85  (antes 0.95, era última de micro)
+z10 → 0.95  (antes 0.85, primera compact) → ahora primera compact con la escala que tenía z11
+z11 → 1.00
+z12 → 1.05
+z13 → 1.10
+z14 → 1.15  (entrada rich)
+z15 → 1.15
 ```
 
-Si en alguna iteración previa quedaron valores subidos (ej. 0.95→1.30), hay que **revertirlos** a estos valores canónicos.
+Equivalente: misma curva 0.85→1.15 pero desplazada un zoom a la izquierda.
 
-### 3. `src/components/map/map-icons.ts` — rampa micro
+### 3. Reconstruir tokens
 
-Sustituir la fórmula actual `Math.min(5, currentZoom - 4)` por:
+`node scripts/build-tokens.cjs` para regenerar `tokens.css` / `tokens.ts` / `tailwind.tokens.cjs`.
 
-```ts
-const microSize = currentZoom <= 6 ? 2 : Math.min(6, currentZoom - 4);
-```
+### 4. Verificar consumidores deterministas
 
-Resultado:
+Solo lectura, sin cambios esperados:
+- `src/components/map/map-icons.ts` — `getRenderModeForZoom`, `getModeScaleForZoom` leen de tokens.
+- `src/components/map/viewport-culling.ts` — pad por zoom usa los mismos thresholds (z10–11 / z12–14 / z≥15). Como las bandas se desplazan, hay que decidir si el culling también se desplaza.
 
-| Zoom | Tamaño |
-|------|--------|
-| z ≤ 6 | 2px |
-| z 7   | 3px |
-| z 8   | 4px |
-| z 9   | 6px (micro max) |
+### 5. Culling — pregunta abierta
 
-Nota: el salto 4 → 6 entre z8 y z9 es intencional (la versión `Math.min(6, …)` da `min(6, 5) = 5` en z9 sólo si el cap fuera 5; con cap 6 da `min(6, 5) = 5`… ❗ revisar fórmula). 
+Dos opciones, elijo por defecto **B** salvo indicación contraria:
 
-Fórmula verificada que produce 2/3/4/6:
-- `z≤6` → 2 (rama explícita)
-- `z=7` → `min(6, 3) = 3`
-- `z=8` → `min(6, 4) = 4`
-- `z=9` → `min(6, 5) = 5` ← **incorrecto**, daría 5px no 6px
+- **A.** Mantener el culling tal cual (pad 1.0 z10–11, 0.75 z12–14, 0.5 z≥15). Resultado: el culling deja de coincidir con las bandas visuales (compact ahora es z9–10 pero culling sigue empezando en z10).
+- **B.** Desplazar también el culling un zoom (pad 1.0 z9–10, 0.75 z11–13, 0.5 z≥14) para que siga acoplado a las bandas. Coherente con la regla "el culling empieza con compact".
 
-Para llegar a **z9=6px** la fórmula tiene que ser `Math.min(6, currentZoom - 3)` ó usar mapa explícito. Usaremos un mapa explícito para evitar ambigüedad:
+### 6. Memoria
 
-```ts
-const microSize =
-  currentZoom <= 6 ? 2 :
-  currentZoom === 7 ? 3 :
-  currentZoom === 8 ? 4 :
-  6; // z9 (último escalón micro antes de compact)
-```
-
-Esto produce exactamente: z≤6=2 · z7=3 · z8=4 · z9=6.
-
-Comentario adyacente actualizado a:
-> Rampa explícita por zoom (z≤6→2, z7→3, z8→4, z9→6). Cap micro = 6px en z9 antes de saltar a SVG compact en z10.
-
-### 4. `src/components/map/viewport-culling.ts`
-
-Asegurar / fijar:
-
-```ts
-export function shouldCullByViewport(zoom: number): boolean {
-  return zoom >= 10;
-}
-
-export function getViewportPadForZoom(zoom: number): number {
-  if (zoom >= 15) return 0.5;
-  if (zoom >= 12) return 0.75;
-  if (zoom >= 10) return 1.0;
-  return 0;
-}
-```
-
-(Ya está aplicado; verificar que no se haya revertido.)
-
-### 5. Rebuild
-
-```bash
-node src/design-system/tokens/build-tokens.cjs
-```
-
-### 6. Memoria — actualizar `mem://style/map/poi-zoom-canon`
-
-- Banda micro: tope = 6px en z9 (no 5).
-- Resto de tablas (bandas, modeScale, bases, modificadores, polaroid, culling, excepciones) sin cambio.
-- Añadir nota: el canon usa umbrales **un zoom más bajos** que la versión histórica → aumenta la presencia visual de los POIs sin tocar las bases.
-
-### 7. Verificación
-
-- Recarga preview, barrer zoom 6 → 16 sobre una colección densa.
-- z9 = microdot 6px (más grande que z8=4px).
-- z10 = SVG compact (no microdot).
-- z12 = SVG con gradient + health rings + doble sombra.
-- z15 = polaroid hero.
-
----
+Actualizar `mem://style/map/poi-zoom-canon` con los nuevos umbrales (micro≤8 / compact 9–10 / standard 11–13 / rich≥14) y la nueva curva `byZoom`. Index core line también.
 
 ## Fuera de alcance
 
-- Bases POI (12/16/18/24) — sin cambios.
-- Paleta, decoraciones, polaroid, health rings, tipos especiales (`home`, `user_gps`, `nearby_result`, `photo_thumbnail`, `route_*`) — sin cambios.
+Bases absolutas, polaroid, health rings, V2 renderer, repaint legacy (ya arreglado), filtros, tipos.
 
----
+## Criterio de cierre
 
-## Nota explícita
-
-Este plan **no cambia las bases absolutas 12/16/18/24**, pero sí **aumenta la presencia visual antes**, porque adelanta un zoom la entrada a `compact`, `standard` y `rich`, y sube el micro max de z9 de 5px → 6px. El culling también se adelanta para que el rendimiento siga compensando el aumento de densidad visible.
+- z13 muestra polaroid 50×56 (antes z15).
+- z11 → z12 → z13 crece dentro de standard.
+- z9 → z10 crece dentro de compact.
+- Sin saltos visuales bruscos al cruzar bandas.
