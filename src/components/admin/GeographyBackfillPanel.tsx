@@ -78,20 +78,20 @@ interface ModeMeta {
 
 const MODE_META: Record<Mode, ModeMeta> = {
   repair: {
-    title: 'Reparar cadenas rotas',
-    desc: 'Solo puntos con jerarquía inconsistente o cuyo nombre no coincide con el catálogo.',
+    title: 'Reconciliar jerarquía (global)',
+    desc: 'Repara FKs y cadenas inconsistentes en el universo seleccionado. Operación masiva.',
     icon: Wrench,
     iconClass: 'text-destructive',
   },
   fill: {
-    title: 'Rellenar huecos',
-    desc: 'Solo puntos sin jerarquía completa. No toca nada existente.',
+    title: 'Rellenar huecos admin (global)',
+    desc: 'Rellena niveles administrativos faltantes en el universo seleccionado. Operación masiva.',
     icon: Plus,
     iconClass: 'text-amber-600',
   },
   review: {
-    title: 'Revisar normalizados',
-    desc: 'Recorre todos los puntos no vacíos y sobrescribe niveles que difieran de OSM.',
+    title: 'Re-normalizar admin contra OSM',
+    desc: 'Re-normaliza todos los puntos no vacíos contra OSM. Útil tras renombrar/fusionar áreas. Operación masiva.',
     icon: RotateCcw,
     iconClass: 'text-primary',
   },
