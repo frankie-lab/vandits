@@ -110,6 +110,11 @@ export function HealthRepairPreviewDialog({
       const row = Array.isArray(data) ? data[0] : data;
       const enq = row?.enqueued_count ?? 0;
       if (enq > 0) {
+        // PR-4A.3a: si la RPC devolvió un job_id (no fue 'no_eligible'),
+        // engancharlo al store global para que la BottomProgressBar lo muestre.
+        if (row?.job_id) {
+          await useGeocodingJobStore.getState().attachToJob(row.job_id);
+        }
         toast.success(`Encolados ${enq} ${enq === 1 ? 'punto' : 'puntos'} para reparación`);
         onOpenChange(false);
       } else {
