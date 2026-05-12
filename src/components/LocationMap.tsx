@@ -28,6 +28,13 @@ import { ZOOM_THRESHOLDS } from '@/design-system/map/rules/zoom-thresholds';
 // Zoom de arranque polaroid: leemos del canon (richMin del design system) para
 // no romper si el token cambia. Hoy = 12.
 const INITIAL_GEOLOCATION_ZOOM = ZOOM_THRESHOLDS.richMin;
+// Opciones GPS únicas compartidas por arranque y botón "Centrar mi ubicación".
+// maximumAge:60_000 permite reutilizar la lectura del arranque al pulsar el botón.
+const GEOLOCATION_OPTS: PositionOptions = {
+  enableHighAccuracy: true,
+  timeout: 10000,
+  maximumAge: 60_000,
+};
 import { toast } from 'sonner';
 import { playEnrichmentComplete } from '@/lib/sounds';
 import { usePermissions } from '@/domains/identity';
@@ -749,8 +756,94 @@ export function LocationMap() {
  setShowZoomButton(false);
  }, [locations]);
 
+  // Single source of truth for "go to my location". Used by both the geolocation
+  // startup path (applyMapCenter) and the LocateFixed button (handleLocateMe).
+  // Returns true on success (GPS or button-IP fallback), false otherwise.
+  // - 'startup': silent (no toasts, no setLocating). Never marks centered on failure.
+  // - 'button': interactive (toasts + setLocating). IP fallback preserved as today.
+  const centerOnUserLocation = useCallback(async (
+    source: 'startup' | 'button',
+    immediate: boolean = false,
+  ): Promise<boolean> => {
+    const map = mapRef.current;
+    if (!map) return false;
+
+    const applyView = (lat: number, lng: number) => {
+      if (immediate) {
+        map.setView([lat, lng], INITIAL_GEOLOCATION_ZOOM);
+      } else {
+        map.flyTo([lat, lng], INITIAL_GEOLOCATION_ZOOM, { duration: 0.8 });
+      }
+    };
+
+    const fetchIpFallback = async (): Promise<boolean> => {
+      const result = await fetchIpGeolocation();
+      if (!result) return false;
+      setUserLocation({ lat: result.lat, lng: result.lng, accuracy: result.accuracy, source: 'ip' });
+      applyView(result.lat, result.lng);
+      setIsCenteredOnUser(true);
+      if (source === 'button') toast.success('Ubicación aproximada obtenida');
+      return true;
+    };
+
+    if (!navigator.geolocation) {
+      if (source === 'button') {
+        toast.error('Tu navegador no soporta geolocalización');
+      }
+      return false;
+    }
+
+    if (source === 'button') {
+      setLocating(true);
+      toast.info('Solicitando ubicación…');
+    }
+
+    return new Promise<boolean>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+          setUserLocation({ lat: latitude, lng: longitude, accuracy, source: 'gps' });
+          applyView(latitude, longitude);
+          setIsCenteredOnUser(true);
+          if (source === 'button') {
+            setLocating(false);
+            toast.success('Ubicación obtenida');
+          }
+          resolve(true);
+        },
+        async (error) => {
+          if (source === 'startup') {
+            console.warn('[centerOnUserLocation] startup GPS failed:', error);
+            resolve(false);
+            return;
+          }
+          // button: try IP fallback unless permission was explicitly denied
+          const canFallback = error.code !== error.PERMISSION_DENIED;
+          const ok = canFallback ? await fetchIpFallback() : false;
+          setLocating(false);
+          if (ok) {
+            resolve(true);
+            return;
+          }
+          const msg =
+            error.code === error.PERMISSION_DENIED
+              ? 'Permiso de ubicación denegado por el navegador'
+              : error.code === error.POSITION_UNAVAILABLE
+                ? 'Ubicación no disponible'
+                : error.code === error.TIMEOUT
+                  ? 'El navegador tardó demasiado en responder'
+                  : 'No se pudo obtener tu ubicación';
+          toast.error(msg);
+          console.warn('[centerOnUserLocation] manual locate failed:', error);
+          resolve(false);
+        },
+        GEOLOCATION_OPTS,
+      );
+    });
+  }, []);
+
   // Apply map center based on user configuration
- const applyMapCenter = useCallback((immediate: boolean = true, config?: MapCenterConfig) => {
+  const applyMapCenter = useCallback((immediate: boolean = true, config?: MapCenterConfig) => {
  if (!mapRef.current) return;
  
  const centerConfig = config || mapCenterConfig;
@@ -768,44 +861,13 @@ export function LocationMap() {
  if (locations.length > 0) {
  setTimeout(() => zoomToBounds(immediate, 1), immediate ? 50 : 800);
  }
- } else if (centerConfig.mode === 'geolocation') {
-      // Use GPS location
- if (navigator.geolocation) {
- navigator.geolocation.getCurrentPosition(
-  (position) => {
-   const { latitude, longitude } = position.coords;
-   // Seed userLocation so the contextual button knows the map already starts on GPS.
-   setUserLocation({
-     lat: latitude,
-     lng: longitude,
-     accuracy: position.coords.accuracy,
-     source: 'gps',
-   });
-   if (immediate) {
-   mapRef.current?.setView([latitude, longitude], INITIAL_GEOLOCATION_ZOOM);
-   } else {
-   mapRef.current?.flyTo([latitude, longitude], INITIAL_GEOLOCATION_ZOOM, { duration: 0.8 });
-   }
-   // NOTA: en modo geolocation NO hacemos zoomToBounds automático.
-   // El arranque queda en GPS + zoom polaroid; el botón Globe2 ofrece
-   // la transición a vista global cuando el usuario lo decida.
-   },
-  (error) => {
- console.warn('Geolocation error:', error);
-            // Silently fall back to auto-fit; the welcome card already informs the user
-            // Fallback to auto
- if (locations.length > 0) {
- zoomToBounds(immediate, 1);
- }
- },
- { enableHighAccuracy: true, timeout: 10000 }
- );
- } else {
-        // Fallback to auto
- if (locations.length > 0) {
- zoomToBounds(immediate, 1);
- }
- }
+  } else if (centerConfig.mode === 'geolocation') {
+       // Use GPS via shared contract. Silent on startup; no auto zoomToBounds on success.
+       void centerOnUserLocation('startup', immediate).then((ok) => {
+         if (!ok && !navigator.geolocation && locations.length > 0) {
+           zoomToBounds(immediate, 1);
+         }
+       });
     } else {
       // Auto mode - zoom to show all points, or center on user GPS if empty
       if (locations.length > 0) {
@@ -960,56 +1022,8 @@ export function LocationMap() {
   }, []);
 
   const handleLocateMe = useCallback(async () => {
-    if (!navigator.geolocation) {
-      toast.error('Tu navegador no soporta geolocalización');
-      return;
-    }
-    setLocating(true);
-    toast.info('Solicitando ubicación…');
-
-    const fetchIpLocation = async () => {
-      const result = await fetchIpGeolocation();
-      if (result) {
-        const loc = { lat: result.lat, lng: result.lng, accuracy: result.accuracy, source: 'ip' as const };
-        setUserLocation(loc);
-        toast.success('Ubicación aproximada obtenida');
-        mapRef.current?.flyTo([loc.lat, loc.lng], 10, { duration: 0.8 });
-        return true;
-      }
-      return false;
-    };
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const loc = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          source: 'gps' as const,
-        };
-        setUserLocation(loc);
-        setLocating(false);
-        toast.success('Ubicación obtenida');
-        mapRef.current?.flyTo([loc.lat, loc.lng], 13, { duration: 0.8 });
-      },
-      async (error) => {
-        const usedFallback = error.code !== error.PERMISSION_DENIED && await fetchIpLocation();
-        setLocating(false);
-        if (usedFallback) return;
-        const msg =
-          error.code === error.PERMISSION_DENIED
-            ? 'Permiso de ubicación denegado por el navegador'
-            : error.code === error.POSITION_UNAVAILABLE
-              ? 'Ubicación no disponible'
-              : error.code === error.TIMEOUT
-                ? 'El navegador tardó demasiado en responder'
-                : 'No se pudo obtener tu ubicación';
-        toast.error(msg);
-        console.warn('[geolocation] manual locate failed:', error);
-      },
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
-    );
-  }, []);
+    await centerOnUserLocation('button', false);
+  }, [centerOnUserLocation]);
 
   useEffect(() => {
   if (!mapRef.current || !userLocation) return;
