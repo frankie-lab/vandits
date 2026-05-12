@@ -128,5 +128,14 @@ export function matchesLocationFilters(
     }
   }
 
+  // Eje "Salud operativa" (Health Rings v2). Delega 100% en
+  // getPointHealthRings(loc). NO duplicamos predicados aquí: si un POI
+  // enriquecido no marca review/hardError es porque el helper no lo
+  // devuelve, no porque el filtro lo bloquee.
+  if (filters.healthFilter) {
+    const rings = getPointHealthRings(loc);
+    if (!rings.includes(filters.healthFilter)) return false;
+  }
+
   return true;
 }
