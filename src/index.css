@@ -489,7 +489,6 @@
   position: relative;
   width: 100%;
   height: 100%;
-  background: hsl(var(--muted));
   overflow: hidden;
   border-radius: 8px;
 }
@@ -502,27 +501,14 @@
   object-fit: cover;
   box-sizing: border-box;
 }
-.poi-hero-marker__placeholder {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background:
-    repeating-linear-gradient(
-      45deg,
-      hsl(var(--muted)) 0,
-      hsl(var(--muted)) 4px,
-      hsl(var(--muted-foreground) / 0.06) 4px,
-      hsl(var(--muted-foreground) / 0.06) 8px
-    );
-  color: hsl(var(--muted-foreground));
-}
-.poi-hero-marker__placeholder-icon {
-  width: 18px;
-  height: 18px;
-  opacity: 0.7;
-}
+/* DEPRECATED — placeholder ya no se renderiza dentro de la polaroid.
+   Si no hay foto Hero, no hay polaroid (solo el dot canónico).
+   Reglas conservadas comentadas hasta confirmar que ningún otro componente
+   las usa (grep limpio en el momento del cambio). */
+/*
+.poi-hero-marker__placeholder { ... }
+.poi-hero-marker__placeholder-icon { ... }
+*/
 .poi-hero-marker.is-own .poi-hero-marker__card {
   box-shadow: 0 2px 6px hsl(var(--foreground) / 0.22), 0 0 0 1px hsl(var(--background));
 }
