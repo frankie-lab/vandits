@@ -1,36 +1,54 @@
-## Problemas detectados (captura)
+# Cambio de regla canónica: polaroid siempre en `rich`
 
-1. **Placeholder de imagen sobre fotos reales**: aparece el icono de marco de imagen (Lucide) encima de polaroids que sí tienen foto Hero.
-2. **Código/markup visible detrás de la polaroid**: se ven trozos de texto/HTML asomando alrededor del marco. Causa probable: el `onerror` inyecta `placeholderHtml` escapado como string dentro del atributo HTML, dejando residuo visible cuando la cadena se rompe.
-3. **El triángulo de la polaroid se monta sobre el dot**: el pointer toca/eclipsa el círculo de color del POI. El dot debe seguir siendo claramente un dot.
-4. **El dot del POI casi no se ve** debajo de la polaroid.
+## Nueva regla canónica (sustituye a la actual)
 
-Todo esto se resuelve **una sola vez** dentro del helper único `createCustomIcon` (`src/components/map/map-icons.ts`) — no hay parches por POI.
+A `z ≥ richMin` (`rich` mode), TODOS los POIs muestran polaroid 50×56 flotante 8px sobre el dot canónico:
 
-## Cambios transversales
+- **Con foto Hero** (`getPointHeroImage(loc, { isOwn })` → url) → polaroid con `<img>` real.
+- **Sin foto Hero** (helper devuelve `null` o el `<img>` falla en runtime) → polaroid con **placeholder = icono de imagen** centrado sobre fondo `hsl(var(--muted))`, mismo marco/pointer/borde de estado.
 
-### 1. `src/components/map/map-icons.ts` — rama `rich`
+El dot canónico se mantiene idéntico al de `compact` debajo del pointer en ambos casos. La polaroid es siempre capa decorativa flotante (`pointer-events: none`); el host de click, health rings y collection tint sigue siendo el dot.
 
-- **Polaroid solo si hay foto real**. Calcular `heroUrl = getPointHeroImage(loc, { isOwn })` al inicio. Si `heroUrl` es null → `polaroidHtml = ''` y no se inyecta nada. El POI queda como dot canónico puro (igual que `compact`). Esto elimina de raíz el "placeholder de imagen sobre el POI" para todos los puntos sin foto.
-- **Eliminar la rama `placeholderHtml` por completo** dentro de la polaroid: ya no se construye ni se referencia. Esto borra también el string escapado del `onerror`, que es la fuente del "código por detrás" visible.
-- **`onerror` simplificado y seguro**: en vez de re-inyectar HTML, el `onerror` solo marca el ID en `heroFailedIds` y oculta el `<img>` (`this.style.display='none'`). En el siguiente repintado por zoom/render-mode, esa imagen ya no entra → no hay polaroid. Cero string-en-atributo.
-- **El dot canónico no escala en `rich`**: `modeScale` pasa a `1.0` para `rich` (igual que `compact`). El dot mantiene tamaño consistente y sigue siendo claramente un dot bajo la polaroid.
-- **Separación clara entre pointer y dot**: la polaroid se ancla con `bottom: calc(100% + 8px)` (en lugar de 4px). El triángulo deja de tocar el círculo y queda un aire visible entre ambos.
+Invariantes que NO cambian: 3-state palette, health rings, collection tint, halo de propiedad, `ZOOM_THRESHOLDS`, cluster, realtime, `iconAnchor` = centro del dot.
 
-### 2. `src/index.css` — limpieza
+## Cambios técnicos
 
-- `.poi-hero-marker__photo`: eliminar `background: hsl(var(--muted))`. El marco blanco del card es suficiente fondo; sin foto no hay polaroid en absoluto.
-- Marcar como deprecadas (comentadas) `.poi-hero-marker__placeholder` y `.poi-hero-marker__placeholder-icon`. Ya no se generan desde la polaroid.
+### 1) `src/components/map/map-icons.ts` — rama `rich`
 
-### 3. Memoria
+Reescribir el bloque `if (renderMode === 'rich')` (líneas ~207–242):
 
-Actualizar `mem://style/map/zoom-driven-hero`:
+- Calcular `heroUrl` igual que ahora (con `heroFailedIds` + `getPointHeroImage`).
+- Construir `polaroidHtml` SIEMPRE (no condicionado a `heroUrl`). Dentro de `.poi-hero-marker__photo`:
+  - Si `heroUrl` → `<img class="poi-hero-marker__img" ...>` con el `onerror` actual (marca `heroFailedIds` + `display='none'` + revela el placeholder hermano vía CSS sibling).
+  - Renderizar SIEMPRE un hermano `<div class="poi-hero-marker__placeholder">` con SVG de icono imagen (Lucide `image`) inline. Cuando hay `<img>` válido, queda oculto debajo (z-index lower) o detrás del `<img>` que ocupa `inset:0`. Cuando el `<img>` falla y se oculta (`display:none`), el placeholder queda visible automáticamente.
+  - Sin foto desde el inicio → no se renderiza `<img>`, solo el placeholder.
+- Mantener pointer SVG, `--marker-state-color`, `is-own` class.
 
-> A z≥11 el marker es siempre el dot canónico. Si y solo si hay `heroUrl` real (vía `getPointHeroImage(loc, { isOwn })`), se añade encima una polaroid 50×56 con la foto, separada 8px del dot por el pointer. Sin foto = sin polaroid. El placeholder de imagen ya no se renderiza nunca dentro del marker.
+### 2) `src/index.css` — restaurar y refinar placeholder
 
-## Por qué es transversal
+- Devolver `background: hsl(var(--muted))` a `.poi-hero-marker__photo` (como fondo base del marco).
+- Reemplazar el bloque comentado por reglas activas:
+  ```
+  .poi-hero-marker__placeholder {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: hsl(var(--muted-foreground));
+    background: hsl(var(--muted));
+    border-radius: 8px;
+  }
+  .poi-hero-marker__placeholder-icon { width: 60%; height: 60%; opacity: 0.7; }
+  ```
+- El `<img>` con `position:absolute; inset:0` se pinta encima del placeholder; al fallar y aplicar `display:none` el placeholder queda visible sin re-render.
 
-- Todo vive en `createCustomIcon` (helper único llamado desde `LocationMap` para todos los markers — añadir/actualizar/cluster/realtime).
-- `getPointHeroImage` sigue siendo el SoT de "¿hay foto?".
-- No se toca paleta, health rings, collection tint, `ZOOM_THRESHOLDS`, tokens ni cluster.
-- Cualquier POI nuevo o modificado pasa automáticamente por la nueva regla — no hay listas blancas ni casos hardcodeados.
+### 3) Memoria — actualizar regla canónica
+
+Reescribir `mem://style/map/zoom-driven-hero` y la línea Core en `mem://index.md` para reflejar:
+
+> A z≥richMin (rich) TODO POI muestra polaroid 50×56 flotante 8px sobre el dot canónico (idéntico al de compact). Con foto Hero → `<img>` real. Sin foto o tras fallo `onerror` → placeholder con icono Lucide `image` sobre fondo muted, mismo marco/pointer/borde de estado. El dot sigue siendo host de click, health rings y collection tint. Helper único `getPointHeroImage(loc, { isOwn })` decide si hay foto. `pointer-events: none` en `.poi-hero-marker--addon`. No volver a variar.
+
+## Archivos tocados
+
+- `src/components/map/map-icons.ts` (rama `rich` + className `has-polaroid` ahora siempre true en rich)
+- `src/index.css` (.poi-hero-marker__photo / __placeholder / __placeholder-icon)
+- `mem://style/map/zoom-driven-hero` (regla actualizada)
+- `mem://index.md` (línea Core "Zoom-driven hero / polaroid")

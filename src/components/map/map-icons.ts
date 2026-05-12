@@ -198,47 +198,48 @@ export const createCustomIcon = (
     ? `onmouseenter="this.style.transform='scale(${scaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'"`
     : '';
 
-  // ── Rich (z≥11) — polaroid AÑADIDA encima del dot canónico ──────────────
-  // La polaroid SOLO se renderiza cuando hay foto Hero real. Sin foto → el
-  // POI queda como dot canónico puro (igual que `compact`). Cero placeholder
-  // de imagen, cero marco vacío. El dot sigue siendo la coordenada real, el
-  // área clicable y el host de health rings + collection tint.
-  // Ver `mem://style/map/zoom-driven-hero`.
+  // ── Rich (z≥richMin) — polaroid SIEMPRE encima del dot canónico ─────────
+  // Regla canónica: TODO POI muestra polaroid en `rich`. Con foto Hero real
+  // → `<img>`. Sin foto (o tras fallo `onerror`) → placeholder con icono
+  // imagen sobre fondo muted. El dot canónico debajo no cambia: sigue
+  // siendo la coordenada real, el área clicable y el host de health rings
+  // + collection tint. Ver `mem://style/map/zoom-driven-hero`.
   let polaroidHtml = '';
   if (renderMode === 'rich') {
     const heroId = location?.id;
-    // Single source of truth: `getPointHeroImage`. Pasamos `isOwn` igual que
-    // `map-tooltip.ts` para que los POIs propios con visibilidad privada
-    // muestren su `user_image_url`.
     const heroUrl = heroId && !heroFailedIds.has(heroId)
       ? getPointHeroImage(location, { isOwn })
       : null;
-    if (heroUrl) {
-      const cardSize = 50;
-      const pointerH = 6;
-      const polaroidW = cardSize;
-      const polaroidH = cardSize + pointerH;
-      const ownClass = isOwn ? ' is-own' : '';
-      const safeId = heroId ? String(heroId).replace(/"/g, '&quot;') : '';
-      const safeUrl = heroUrl.replace(/"/g, '&quot;');
-      // `onerror` solo marca el fallo y oculta el `<img>` — sin reinyectar
-      // HTML escapado en el atributo (la fuente del "código residual" visto
-      // detrás del marco). El siguiente repintado por zoom/render-mode
-      // saltará la rama y no habrá polaroid.
-      const onerror = `window.__markHeroFailed && window.__markHeroFailed('${safeId}'); this.style.display='none';`;
-      polaroidHtml = `
-        <div class="poi-hero-marker poi-hero-marker--addon${ownClass}" style="position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%); width:${polaroidW}px; height:${polaroidH}px; pointer-events:none; --marker-state-color:${entry.fill_color};">
-          <div class="poi-hero-marker__card">
-            <div class="poi-hero-marker__photo">
-              <img class="poi-hero-marker__img" src="${safeUrl}" alt="" referrerpolicy="no-referrer" onerror="${onerror}" />
-            </div>
+    const cardSize = 50;
+    const pointerH = 6;
+    const polaroidW = cardSize;
+    const polaroidH = cardSize + pointerH;
+    const ownClass = isOwn ? ' is-own' : '';
+    const safeId = heroId ? String(heroId).replace(/"/g, '&quot;') : '';
+    const safeUrl = heroUrl ? heroUrl.replace(/"/g, '&quot;') : '';
+    // `onerror` solo marca el fallo y oculta el `<img>` — el placeholder
+    // hermano queda visible automáticamente (está debajo, mismo `inset:0`).
+    const onerror = `window.__markHeroFailed && window.__markHeroFailed('${safeId}'); this.style.display='none';`;
+    // Lucide `image` icon inline (placeholder). Se renderiza SIEMPRE; si
+    // hay `<img>` válido, queda tapado. Al fallar el `<img>` (display:none)
+    // emerge sin re-render del divIcon.
+    const placeholderSvg = `<svg class="poi-hero-marker__placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`;
+    const imgHtml = heroUrl
+      ? `<img class="poi-hero-marker__img" src="${safeUrl}" alt="" referrerpolicy="no-referrer" onerror="${onerror}" />`
+      : '';
+    polaroidHtml = `
+      <div class="poi-hero-marker poi-hero-marker--addon${ownClass}" style="position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%); width:${polaroidW}px; height:${polaroidH}px; pointer-events:none; --marker-state-color:${entry.fill_color};">
+        <div class="poi-hero-marker__card">
+          <div class="poi-hero-marker__photo">
+            <div class="poi-hero-marker__placeholder">${placeholderSvg}</div>
+            ${imgHtml}
           </div>
-          <svg class="poi-hero-marker__pointer" width="14" height="${pointerH + 1}" viewBox="0 0 14 7" aria-hidden="true">
-            <path d="M0 0 H14 L7 7 Z" fill="hsl(var(--background))" stroke="var(--marker-state-color)" stroke-width="1" stroke-linejoin="miter"/>
-            <path d="M1 0 H13" stroke="hsl(var(--background))" stroke-width="1.4"/>
-          </svg>
-        </div>`;
-    }
+        </div>
+        <svg class="poi-hero-marker__pointer" width="14" height="${pointerH + 1}" viewBox="0 0 14 7" aria-hidden="true">
+          <path d="M0 0 H14 L7 7 Z" fill="hsl(var(--background))" stroke="var(--marker-state-color)" stroke-width="1" stroke-linejoin="miter"/>
+          <path d="M1 0 H13" stroke="hsl(var(--background))" stroke-width="1.4"/>
+        </svg>
+      </div>`;
   }
 
   // Pin (teardrop) shape — only when explicitly configured for this state
