@@ -278,5 +278,20 @@ export function getActiveFilterChips(
     });
   }
 
+  // Salud operativa (Health Rings v2)
+  if (filters.healthFilter) {
+    const bucket = filters.healthFilter;
+    chips.push({
+      axis: 'health',
+      id: `health:${bucket}`,
+      label: HEALTH_LABELS[bucket],
+      remove: (f) => {
+        const next = { ...f };
+        delete (next as Record<string, unknown>).healthFilter;
+        return next;
+      },
+    });
+  }
+
   return chips;
 }
