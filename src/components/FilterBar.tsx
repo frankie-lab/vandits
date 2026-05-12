@@ -43,6 +43,7 @@ import { CLASSIFICATION_TREE } from './filters/ClassificationTree';
 import { loadLocationsFromDatabase } from '@/domains/content';
 import { HealthFilterActionCTA } from './discovery/HealthFilterActionCTA';
 import { useSelectionFitOnStart } from './discovery/use-selection-fit-on-start';
+import { useHealthFilterFit } from './discovery/use-health-filter-fit';
 import { getHealthBucketCounts } from '@/domains/content/lib/location-health-counts';
 import { toast } from 'sonner';
 
@@ -102,6 +103,11 @@ export function FilterBar() {
   // PR-4A.1 — Auto-fit del mapa cuando arranca una selección masiva (0 → N).
   // Internamente debounced 250ms y con guard "solo el primer fit".
   useSelectionFitOnStart(selectedLocations);
+
+  // PR-A — Auto-fit al activar / cambiar un chip del eje "Salud".
+  // Universo lógico = filteredLocations (NUNCA markerLocations / viewport).
+  // Geo / Tipo / Tags / búsqueda no disparan fit.
+  useHealthFilterFit(filters.healthFilter ?? null, filteredLocations as any);
 
   // Handle bulk delete of filtered locations
  const handleBulkDelete = useCallback(async () => {
