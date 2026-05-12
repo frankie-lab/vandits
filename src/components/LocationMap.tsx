@@ -28,6 +28,13 @@ import { ZOOM_THRESHOLDS } from '@/design-system/map/rules/zoom-thresholds';
 // Zoom de arranque polaroid: leemos del canon (richMin del design system) para
 // no romper si el token cambia. Hoy = 12.
 const INITIAL_GEOLOCATION_ZOOM = ZOOM_THRESHOLDS.richMin;
+// Opciones GPS únicas compartidas por arranque y botón "Centrar mi ubicación".
+// maximumAge:60_000 permite reutilizar la lectura del arranque al pulsar el botón.
+const GEOLOCATION_OPTS: PositionOptions = {
+  enableHighAccuracy: true,
+  timeout: 10000,
+  maximumAge: 60_000,
+};
 import { toast } from 'sonner';
 import { playEnrichmentComplete } from '@/lib/sounds';
 import { usePermissions } from '@/domains/identity';
