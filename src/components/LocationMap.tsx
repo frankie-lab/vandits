@@ -40,7 +40,7 @@ import {
   calculateVisitRelevance, formatTimeAgo, createFilterLink, parseLocalizacionToLinks,
   type VisitRelevanceInfo,
 } from './map/map-utils';
-import { createCustomIcon, getRenderModeForZoom, setCurrentRenderMode, type MarkerRenderMode } from './map/map-icons';
+import { createCustomIcon, getRenderModeForZoom, setCurrentRenderMode, setCurrentZoom, type MarkerRenderMode } from './map/map-icons';
 import { buildHoverTooltipHtml } from './map/map-tooltip';
 import { onMarkerSizeConfigChange, getMarkerSizeConfig } from './map/useMarkerSizeConfig';
 import {
@@ -1196,6 +1196,7 @@ export function LocationMap() {
       c.classList.toggle('map-zoom-rich', mode === 'rich');
     };
     const initialMode = getRenderModeForZoom(mapRef.current.getZoom());
+    setCurrentZoom(mapRef.current.getZoom());
     setCurrentRenderMode(initialMode);
     applyZoomModeClass(initialMode);
     window.dispatchEvent(new CustomEvent('map-render-mode-changed'));
@@ -1203,10 +1204,15 @@ export function LocationMap() {
       if (!mapRef.current) return;
       const zoom = mapRef.current.getZoom();
       applyRingWidth(zoom);
+      setCurrentZoom(zoom);
       const mode = getRenderModeForZoom(zoom);
       const changed = setCurrentRenderMode(mode);
       applyZoomModeClass(mode);
       if (changed) {
+        window.dispatchEvent(new CustomEvent('map-render-mode-changed'));
+      } else if (mode === 'micro') {
+        // Dentro de micro la rampa por zoom (z6→2px ... z9→5px) cambia el
+        // tamaño aunque el modo no cambie. Forzamos repintado de markers.
         window.dispatchEvent(new CustomEvent('map-render-mode-changed'));
       }
     });

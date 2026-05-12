@@ -3,10 +3,10 @@
   "map": {
     "zoom": {
       "microMax":    { "value": 9,  "_css": "--map-zoom-micro-max" },
-      "compactMax":  { "value": 13, "_css": "--map-zoom-compact-max" },
-      "standardMax": { "value": 16, "_css": "--map-zoom-standard-max" },
-      "heroMin":     { "value": 11, "_css": "--map-zoom-hero-min" },
-      "richMin":     { "value": 11, "_css": "--map-zoom-rich-min" }
+      "compactMax":  { "value": 12, "_css": "--map-zoom-compact-max" },
+      "standardMax": { "value": 15, "_css": "--map-zoom-standard-max" },
+      "heroMin":     { "value": 16, "_css": "--map-zoom-hero-min" },
+      "richMin":     { "value": 16, "_css": "--map-zoom-rich-min" }
     },
     "pane": {
       "tile":          { "value": 200, "_css": "--map-pane-tile" },

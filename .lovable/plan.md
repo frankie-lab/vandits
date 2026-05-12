@@ -1,54 +1,115 @@
-# Cambio de regla canónica: polaroid siempre en `rich`
+# Zoom bands v2 — progresión proporcional sin saltos
 
-## Nueva regla canónica (sustituye a la actual)
+Aplicamos tu propuesta con los dos ajustes finales.
 
-A `z ≥ richMin` (`rich` mode), TODOS los POIs muestran polaroid 50×56 flotante 8px sobre el dot canónico:
+## Bandas finales
 
-- **Con foto Hero** (`getPointHeroImage(loc, { isOwn })` → url) → polaroid con `<img>` real.
-- **Sin foto Hero** (helper devuelve `null` o el `<img>` falla en runtime) → polaroid con **placeholder = icono de imagen** centrado sobre fondo `hsl(var(--muted))`, mismo marco/pointer/borde de estado.
+```
+z ≤ 6       micro          2px
+z 7–9       micro-grown    3 / 4 / 5 px (progresivo por zoom)
+z 10–12     compact        SVG dot, collection-tint, sin health rings, modeScale 0.9
+z 13–15     standard       dot grande, health rings, collection-tint, SIN polaroid, modeScale 1.0
+z ≥ 16      rich           polaroid + hero/placeholder + dot pleno, modeScale 1.1
+```
 
-El dot canónico se mantiene idéntico al de `compact` debajo del pointer en ambos casos. La polaroid es siempre capa decorativa flotante (`pointer-events: none`); el host de click, health rings y collection tint sigue siendo el dot.
+Excepción única: **`isFocused` (click directo)** puede escapar de su banda y renderizar `rich` antes. **`isSelected` NO escapa** — riesgo de bulk/filtro/ruta.
 
-Invariantes que NO cambian: 3-state palette, health rings, collection tint, halo de propiedad, `ZOOM_THRESHOLDS`, cluster, realtime, `iconAnchor` = centro del dot.
+## Cambios concretos
 
-## Cambios técnicos
+### 1. Tokens (`src/design-system/tokens/source/map.json`)
 
-### 1) `src/components/map/map-icons.ts` — rama `rich`
+```json
+"zoom": {
+  "microMax":    9,
+  "compactMax":  12,
+  "standardMax": 15,
+  "heroMin":     16,
+  "richMin":     16
+}
+```
 
-Reescribir el bloque `if (renderMode === 'rich')` (líneas ~207–242):
+(Hoy `richMin=11`, `compactMax=13`. Restaura `standard` como banda real y mueve la polaroid a z≥16.)
 
-- Calcular `heroUrl` igual que ahora (con `heroFailedIds` + `getPointHeroImage`).
-- Construir `polaroidHtml` SIEMPRE (no condicionado a `heroUrl`). Dentro de `.poi-hero-marker__photo`:
-  - Si `heroUrl` → `<img class="poi-hero-marker__img" ...>` con el `onerror` actual (marca `heroFailedIds` + `display='none'` + revela el placeholder hermano vía CSS sibling).
-  - Renderizar SIEMPRE un hermano `<div class="poi-hero-marker__placeholder">` con SVG de icono imagen (Lucide `image`) inline. Cuando hay `<img>` válido, queda oculto debajo (z-index lower) o detrás del `<img>` que ocupa `inset:0`. Cuando el `<img>` falla y se oculta (`display:none`), el placeholder queda visible automáticamente.
-  - Sin foto desde el inicio → no se renderiza `<img>`, solo el placeholder.
-- Mantener pointer SVG, `--marker-state-color`, `is-own` class.
+Tras editar, regenerar tokens: `node src/design-system/tokens/build-tokens.cjs`.
 
-### 2) `src/index.css` — restaurar y refinar placeholder
+### 2. `getRenderModeForZoom` — sin cambios
 
-- Devolver `background: hsl(var(--muted))` a `.poi-hero-marker__photo` (como fondo base del marco).
-- Reemplazar el bloque comentado por reglas activas:
-  ```
-  .poi-hero-marker__placeholder {
-    position: absolute; inset: 0;
-    display: flex; align-items: center; justify-content: center;
-    color: hsl(var(--muted-foreground));
-    background: hsl(var(--muted));
-    border-radius: 8px;
-  }
-  .poi-hero-marker__placeholder-icon { width: 60%; height: 60%; opacity: 0.7; }
-  ```
-- El `<img>` con `position:absolute; inset:0` se pinta encima del placeholder; al fallar y aplicar `display:none` el placeholder queda visible sin re-render.
+Ya lee `microMax`, `standardMax`, `richMin` desde `ZOOM_THRESHOLDS`. Con los nuevos tokens, las 4 bandas (`micro` / `compact` / `standard` / `rich`) vuelven a coexistir.
 
-### 3) Memoria — actualizar regla canónica
+### 3. `modeScale` corregido (`src/components/map/map-icons.ts`)
 
-Reescribir `mem://style/map/zoom-driven-hero` y la línea Core en `mem://index.md` para reflejar:
+Hoy:
+```ts
+const modeScale = renderMode === 'compact' ? 0.9 : renderMode === 'rich' ? 0.9 : 1;
+```
 
-> A z≥richMin (rich) TODO POI muestra polaroid 50×56 flotante 8px sobre el dot canónico (idéntico al de compact). Con foto Hero → `<img>` real. Sin foto o tras fallo `onerror` → placeholder con icono Lucide `image` sobre fondo muted, mismo marco/pointer/borde de estado. El dot sigue siendo host de click, health rings y collection tint. Helper único `getPointHeroImage(loc, { isOwn })` decide si hay foto. `pointer-events: none` en `.poi-hero-marker--addon`. No volver a variar.
+Cambio:
+```ts
+const modeScale =
+  renderMode === 'compact' ? 0.9 :
+  renderMode === 'standard' ? 1.0 :
+  renderMode === 'rich' ? 1.1 :
+  1.0;
+```
 
-## Archivos tocados
+Así el dot en `rich` gana presencia bajo la polaroid, en lugar de quedar reducido.
 
-- `src/components/map/map-icons.ts` (rama `rich` + className `has-polaroid` ahora siempre true en rich)
-- `src/index.css` (.poi-hero-marker__photo / __placeholder / __placeholder-icon)
-- `mem://style/map/zoom-driven-hero` (regla actualizada)
-- `mem://index.md` (línea Core "Zoom-driven hero / polaroid")
+### 4. Modo `micro` con crecimiento progresivo (z7–z9)
+
+Hoy `micro` devuelve un divIcon plano de **2px fijo**. Lo sustituimos por una rampa por zoom:
+
+```
+z ≤ 6 → 2px
+z = 7 → 3px
+z = 8 → 4px
+z = 9 → 5px
+```
+
+Implementación: añadir `currentZoom` paralelo a `currentRenderMode` en `map-icons.ts`, con `setCurrentZoom(z)` invocado desde el mismo handler de `zoomend` en `LocationMap` que ya llama a `setCurrentRenderMode`. En la rama `micro`:
+
+```ts
+const microSize = currentZoom <= 6 ? 2 : Math.min(5, currentZoom - 4);
+```
+
+Sin cambios en halo/own/paleta: 3 colores (verde/gris/naranja) intactos.
+
+### 5. Modo `standard` (z13–z15) — restaurado
+
+`standard` lleva tiempo absorbido por `rich`. Verificamos que la rama "default circle" funcione sin polaroid:
+
+- `polaroidHtml` solo se construye cuando `effectiveMode === 'rich'` (ya es así).
+- `skipHealthRings` y `skipGradient` solo se activan en `compact` (ya es así → `standard` ve health rings + gradiente).
+- `modeScale` para `standard` = `1.0` (ver punto 3).
+- Resultado: en z13–z15 se ven dots completos con gradiente, health rings y collection-tint, **sin polaroid**.
+
+### 6. Excepción focused → rich (conservadora)
+
+```ts
+const effectiveMode = isFocused ? 'rich' : currentRenderMode;
+```
+
+Aplicar `effectiveMode` en lugar de `renderMode` para: decisión de polaroid, `modeScale`, `skipHealthRings`, `skipGradient`. No tocar `isSelected` — la selección masiva (filtros, ruta) no debe hacer aparecer polaroids en cascada.
+
+### 7. Memoria
+
+- Actualizar `mem://style/map/zoom-driven-hero` con las 5 bandas, `richMin=16`, `modeScale rich=1.1`, y la regla "polaroid solo z≥16 salvo `isFocused`".
+- Actualizar `mem://style/map/micro-marker-size` para reflejar la rampa 2→5px en z6–9.
+- Actualizar el Core de `mem://index.md` (entrada *Zoom-driven hero / polaroid*).
+
+### 8. Storybook
+
+`ZoomLevelMatrix.stories.tsx` ya muestra `z=4,8,11,14,16,18`. Tras regenerar tokens: z=8 cae en `micro-grown`, z=11/14 en `compact`/`standard`, z=16/18 en `rich`. Sirve como QA visual sin tocar la story.
+
+## Archivos a tocar
+
+- `src/design-system/tokens/source/map.json` — nuevos thresholds
+- `src/design-system/tokens/build-tokens.cjs` — re-run para emitir `tokens.ts`/`tokens.css`/`tailwind.tokens.cjs`
+- `src/components/map/map-icons.ts` — `currentZoom` + rampa micro + nuevo `modeScale` + `effectiveMode` (focused only)
+- `src/components/LocationMap.tsx` — `setCurrentZoom(map.getZoom())` en el handler `zoomend` que ya llama a `setCurrentRenderMode`
+- `mem://style/map/zoom-driven-hero`, `mem://style/map/micro-marker-size`, `mem://index.md` — actualizar reglas canónicas
+
+## Riesgos
+
+- La polaroid desaparece en una franja amplia (z11–z15) donde hoy estaba. Es exactamente lo pedido. QA visual urbano z13–z15 antes de cerrar.
+- `modeScale` rich = 1.1 hace que el dot crezca un 10% sobre el tamaño base de la BD (`marker_size_config`). Si en QA resulta excesivo bajo la polaroid, ajustar a 1.0.
+- Sin cambios de paleta, health rings, collection-tint ni ownership.

@@ -51,16 +51,17 @@ const RING_GAP = RING_WIDTH;
 export type MarkerRenderMode = 'micro' | 'compact' | 'standard' | 'rich';
 
 let currentRenderMode: MarkerRenderMode = 'standard';
+let currentZoom = 12;
 
 export const getRenderModeForZoom = (zoom: number): MarkerRenderMode => {
   // Fuente única: tokens/map.json (ZOOM_THRESHOLDS). NO hardcodear umbrales aquí.
-  // Bandas: zoom ≤ microMax → micro; zoom ≥ richMin → rich (polaroid);
-  // resto = compact (dot estándar). `standard` queda absorbido por `rich`
-  // desde que richMin bajó a 11 (ver `mem://style/map/zoom-driven-hero`).
-  const { microMax, richMin, standardMax } = ZOOM_THRESHOLDS;
+  // Bandas: micro ≤ microMax · compact ≤ compactMax · standard ≤ standardMax · rich ≥ richMin.
+  // standard vuelve a existir como banda real (z13–15) — la polaroid solo entra en z≥16.
+  const { microMax, compactMax, standardMax, richMin } = ZOOM_THRESHOLDS;
   if (zoom <= microMax) return 'micro';
+  if (zoom <= compactMax) return 'compact';
+  if (zoom <= standardMax) return 'standard';
   if (zoom >= richMin) return 'rich';
-  if (zoom <= standardMax) return 'compact';
   return 'rich';
 };
 
@@ -68,6 +69,10 @@ export const setCurrentRenderMode = (mode: MarkerRenderMode): boolean => {
   if (currentRenderMode === mode) return false;
   currentRenderMode = mode;
   return true;
+};
+
+export const setCurrentZoom = (zoom: number): void => {
+  currentZoom = zoom;
 };
 
 export const getCurrentRenderMode = (): MarkerRenderMode => currentRenderMode;
@@ -109,13 +114,15 @@ export const createCustomIcon = (
   // Regla única: el zoom manda. `isFocused` (1 punto, click directo) puede
   // escapar para destacar, pero la selección masiva NO — si no, al filtrar
   // miles de puntos en vista global se romperían los 5px del modo micro.
-  const renderMode = currentRenderMode;
-  if (renderMode === 'micro' && !isFocused) {
-    // Tamaño fijo en vista global para garantizar progresión monotónica
-    // (micro 5px < compact ~8px < standard ~12px < rich ~14px). La pertenencia
-    // (`isOwn`) se diferencia solo por halo más marcado y por `mine-pane`
-    // (capa superior), nunca por diámetro. Ver `.lovable/plan.md`.
-    const microSize = 2;
+  // Excepción conservadora: `isFocused` (click directo, 1 punto) puede
+  // escapar de su banda y entrar en `rich` para destacar. `isSelected` NO
+  // escapa — selección masiva (filtros, ruta) no debe disparar polaroids.
+  const renderMode: MarkerRenderMode = isFocused ? 'rich' : currentRenderMode;
+  if (renderMode === 'micro') {
+    // Rampa progresiva por zoom (z6→2, z7→3, z8→4, z9→5). Evita el salto
+    // brusco de 2px a compact. La pertenencia (`isOwn`) se diferencia solo
+    // por halo más marcado, nunca por diámetro.
+    const microSize = currentZoom <= 6 ? 2 : Math.min(5, currentZoom - 4);
     const dot = entry.fill_color;
     const haloStyle = isOwn ? '' : 'opacity:0.85;';
     return L.divIcon({
@@ -126,22 +133,23 @@ export const createCustomIcon = (
       popupAnchor: [0, -microSize / 2],
     });
   }
-  // En `compact` (z10–13) saltamos los health rings y el gradiente: SVG
+  // En `compact` (z10–12) saltamos los health rings y el gradiente: SVG
   // plano con `fill_color`. Tint de colección y borde se mantienen.
+  // En `standard` (z13–15) vuelven gradiente + health rings, sin polaroid.
   const skipHealthRings = renderMode === 'compact';
   const skipGradient = renderMode === 'compact';
 
 
   // Factor de escala por render mode (Ola 1 — arquitectura visual por zoom).
   // El tamaño base sigue saliendo de la BD (`marker_size_config`), y se
-  // multiplica por un factor según modo para que la progresión sea
-  // perceptible al usuario entre zoom medio (compact) y cercano (rich).
-  // `micro` no llega aquí (vuelve antes con divIcon plano).
-  // Progresión perceptible entre bands. Ver `mem://style/map/zoom-driven-hero`.
-  // En `rich` el dot mantiene el mismo tamaño que `compact`: la polaroid
-  // (cuando hay foto) flota encima como decoración, pero el dot canónico
-  // tiene que seguir siendo claramente un dot, no una mancha aplastada.
-  const modeScale = renderMode === 'compact' ? 0.9 : renderMode === 'rich' ? 0.9 : 1;
+  // multiplica por un factor según modo para que el dot crezca de forma
+  // perceptible al acercarse. `rich` > `standard` > `compact` para que la
+  // polaroid (z≥16) descanse sobre un dot pleno, no aplastado.
+  const modeScale =
+    renderMode === 'compact' ? 0.9 :
+    renderMode === 'standard' ? 1.0 :
+    renderMode === 'rich' ? 1.1 :
+    1.0;
   const baseSize = getBaseSize(entry, isRecentlyEnriched, isFocused, isSelected);
   const baseHover = getHoverSize(entry);
   const size = Math.max(6, Math.round(baseSize * modeScale));
