@@ -43,6 +43,7 @@ import { CLASSIFICATION_TREE } from './filters/ClassificationTree';
 import { loadLocationsFromDatabase } from '@/domains/content';
 import { HealthFilterActionCTA } from './discovery/HealthFilterActionCTA';
 import { useSelectionFitOnStart } from './discovery/use-selection-fit-on-start';
+import { useHealthFilterFit } from './discovery/use-health-filter-fit';
 import { getHealthBucketCounts } from '@/domains/content/lib/location-health-counts';
 import { toast } from 'sonner';
 
