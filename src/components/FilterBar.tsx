@@ -64,6 +64,9 @@ export function FilterBar() {
   const documents = useLocationsStore(s => s.documents);
   
   const filteredLocations = useFilteredLocations();
+  // Universo SIN healthFilter aplicado: alimenta los counts de los chips
+  // del eje Salud para que no se canibalicen entre sí.
+  const filteredIgnoringHealth = useFilteredLocationsIgnoringHealth();
   const stats = useEnrichedStats();
   const { user } = useAuth();
   // Desglose Catálogo / Mesa / Seguidos sobre el conjunto VISIBLE.
