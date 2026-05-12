@@ -94,7 +94,11 @@ export function FilterBar() {
   }
   }, [selectedDocument, updateDocumentLocations]);
  const filteredCount = filteredLocations.length;
- const selectedCount = selectedLocations.size;
+  const selectedCount = selectedLocations.size;
+
+  // PR-4A.1 — Auto-fit del mapa cuando arranca una selección masiva (0 → N).
+  // Internamente debounced 250ms y con guard "solo el primer fit".
+  useSelectionFitOnStart(selectedLocations);
 
   // Handle bulk delete of filtered locations
  const handleBulkDelete = useCallback(async () => {
