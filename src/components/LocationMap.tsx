@@ -117,7 +117,14 @@ export function LocationMap() {
   const homeMarkerRef = useRef<L.Marker | null>(null);
   const userLocationMarkerRef = useRef<L.Marker | null>(null);
   const userLocationCircleRef = useRef<L.Circle | null>(null);
-  const prevLocationsCountRef = useRef<number>(0);
+ const prevLocationsCountRef = useRef<number>(0);
+  // Último zoom entero usado para repintar markers. byZoom (poi.renderScale.byZoom)
+  // está indexado por zoom entero, así que disparamos `map-render-mode-changed`
+  // en cada cambio de zoom entero, no solo cuando cambia la banda. Sin esto,
+  // intra-banda (z12→z13→z14) los markers quedan congelados a la escala con la
+  // que entraron. useRef para sobrevivir re-renders. Mismo redondeo que
+  // `getModeScaleForZoom` (Math.round) en map-icons.ts.
+  const lastIntZoomRef = useRef<number | null>(null);
    const routeLayersRef = useRef<L.Layer[]>([]);
    const routeGroupRef = useRef<L.LayerGroup | null>(null);
     const advisorPreviewGroupRef = useRef<L.LayerGroup | null>(null);
@@ -1221,9 +1228,11 @@ export function LocationMap() {
     // Viewport Culling v1: snapshot inicial de bounds + zoom.
     setZoomState(mapRef.current.getZoom());
     setViewportBounds(mapRef.current.getBounds());
+    lastIntZoomRef.current = Math.round(mapRef.current.getZoom());
     mapRef.current.on('zoomend', () => {
       if (!mapRef.current) return;
       const zoom = mapRef.current.getZoom();
+      const intZoom = Math.round(zoom); // mismo redondeo que getModeScaleForZoom
       applyRingWidth(zoom);
       setCurrentZoom(zoom);
       setZoomState(zoom);
@@ -1231,13 +1240,15 @@ export function LocationMap() {
       const mode = getRenderModeForZoom(zoom);
       const changed = setCurrentRenderMode(mode);
       applyZoomModeClass(mode);
-      if (changed) {
-        window.dispatchEvent(new CustomEvent('map-render-mode-changed'));
-      } else if (mode === 'micro') {
-        // Dentro de micro la rampa por zoom (z6→2px ... z9→5px) cambia el
-        // tamaño aunque el modo no cambie. Forzamos repintado de markers.
+      // Repintar siempre que cambie el zoom entero: byZoom se indexa por zoom,
+      // no por banda. Sin esto la rampa intra-banda (compact 0.85→0.95,
+      // standard 1.00→1.05→1.10, rich z15→z16) no se aplica y los markers
+      // parecen "congelados" hasta saltar de banda.
+      const zoomTickChanged = lastIntZoomRef.current !== intZoom;
+      if (changed || zoomTickChanged) {
         window.dispatchEvent(new CustomEvent('map-render-mode-changed'));
       }
+      lastIntZoomRef.current = intZoom;
     });
     // Viewport Culling v1: actualiza bounds tras pan (sin tocar zoom mode).
     mapRef.current.on('moveend', () => {
