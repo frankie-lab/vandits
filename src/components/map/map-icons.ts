@@ -207,7 +207,7 @@ export const createCustomIcon = (
   // polaroid (z≥16) descanse sobre un dot pleno, no aplastado.
   // Factor de escala por zoom (no solo por banda). Lookup tokenizado en
   // `poi.renderScale.byZoom` con fallback a la escala por banda. Garantiza
-  // rampa continua z11→z16 (0.85 → 0.95 → 1.00 → 1.05 → 1.10 → 1.15) sin
+  // rampa continua z10→z16 (0.85 → 0.95 → 1.00 → 1.05 → 1.10 → 1.15) sin
   // saltos perceptibles entre niveles consecutivos.
   const modeScale = getModeScaleForZoom(currentZoom, renderMode);
   const baseSize = getBaseSize(entry, isRecentlyEnriched, isFocused, isSelected);
