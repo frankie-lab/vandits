@@ -177,14 +177,14 @@ export const createCustomIcon = (
   // sync defensivo desde call-sites paralelos).
   const renderMode: MarkerRenderMode = isFocused ? 'rich' : getRenderModeForZoom(currentZoom);
   if (renderMode === 'micro') {
-    // Rampa explícita por zoom (z≤6→2, z7→3, z8→4, z9→6). Cap micro = 6px
-    // en z9 antes de saltar a SVG compact en z10. La pertenencia (`isOwn`)
+    // Rampa explícita por zoom (z≤5→2, z6→3, z7→4, z8→6). Cap micro = 6px
+    // en z8 antes de saltar a SVG compact en z9. La pertenencia (`isOwn`)
     // se diferencia solo por halo más marcado, nunca por diámetro.
     const microSize =
-      currentZoom <= 6 ? 2 :
-      currentZoom === 7 ? 3 :
-      currentZoom === 8 ? 4 :
-      6; // z9 — último escalón micro antes de compact
+      currentZoom <= 5 ? 2 :
+      currentZoom === 6 ? 3 :
+      currentZoom === 7 ? 4 :
+      6; // z8 — último escalón micro antes de compact
     const dot = entry.fill_color;
     const haloStyle = isOwn ? '' : 'opacity:0.85;';
     return L.divIcon({
@@ -195,10 +195,10 @@ export const createCustomIcon = (
       popupAnchor: [0, -microSize / 2],
     });
   }
-  // En `compact` (z10–11) saltamos los health rings y el gradiente: SVG
+  // En `compact` (z9–10) saltamos los health rings y el gradiente: SVG
   // plano con `fill_color`. Tint de colección y borde se mantienen.
-  // En `standard` (z12–14) vuelven gradiente + health rings, sin polaroid.
-  // En `rich` (z≥15) se añade polaroid hero.
+  // En `standard` (z11–13) vuelven gradiente + health rings, sin polaroid.
+  // En `rich` (z≥14) se añade polaroid hero.
   const skipHealthRings = renderMode === 'compact';
   const skipGradient = renderMode === 'compact';
 
@@ -207,10 +207,10 @@ export const createCustomIcon = (
   // El tamaño base sigue saliendo de la BD (`marker_size_config`), y se
   // multiplica por un factor según modo para que el dot crezca de forma
   // perceptible al acercarse. `rich` > `standard` > `compact` para que la
-  // polaroid (z≥16) descanse sobre un dot pleno, no aplastado.
+  // polaroid (z≥14) descanse sobre un dot pleno, no aplastado.
   // Factor de escala por zoom (no solo por banda). Lookup tokenizado en
   // `poi.renderScale.byZoom` con fallback a la escala por banda. Garantiza
-  // rampa continua z10→z16 (0.85 → 0.95 → 1.00 → 1.05 → 1.10 → 1.15) sin
+  // rampa continua z9→z16 (0.85 → 0.95 → 1.00 → 1.05 → 1.10 → 1.15) sin
   // saltos perceptibles entre niveles consecutivos.
   const modeScale = getModeScaleForZoom(currentZoom, renderMode);
   const baseSize = getBaseSize(entry, isRecentlyEnriched, isFocused, isSelected);
