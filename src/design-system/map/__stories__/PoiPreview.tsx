@@ -108,9 +108,12 @@ export function PoiPreview({
   const baseDiameter = isMicro ? DOT_PX : isRich ? HERO_PX : 28;
   const diameter = isMicro ? DOT_PX : Math.round(baseDiameter * scale);
 
-  const orderedHealth: PoiHealthState[] = (['hardError', 'review', 'chain', 'partial'] as const).filter(
-    (h) => health.includes(h),
-  );
+  // Health rings only render in standard/rich (canon: createCustomIcon
+  // skipHealthRings on micro/compact). Stories must reflect that.
+  const ringsAllowed = renderMode === 'standard' || renderMode === 'rich';
+  const orderedHealth: PoiHealthState[] = ringsAllowed
+    ? (['hardError', 'review', 'chain', 'partial'] as const).filter((h) => health.includes(h))
+    : [];
 
   const ringPad = orderedHealth.length * RING_W + (collectionTint ? RING_W + 2 : 0);
   const totalDiameter = diameter + ringPad * 2 + (focused ? 4 : 0);
