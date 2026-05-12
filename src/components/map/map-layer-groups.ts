@@ -104,6 +104,26 @@ export function clearAllGroups() {
   layerGroups.forEach(group => group.clearLayers());
 }
 
+/**
+ * Clear all groups but preserve a single layer (typically the marker that
+ * owns an open popup). Avoids `group.clearLayers()` on the group containing
+ * the preserved layer — that call would remove it from the map and close
+ * the popup. Iterates layer-by-layer instead.
+ *
+ * Used by LocationMap rebuild when an open popup must survive a filter
+ * change that would otherwise destroy its host marker.
+ * Ver `mem://logic/map/popup-persist-on-rebuild`.
+ */
+export function clearAllGroupsExcept(preserved: L.Layer): void {
+  layerGroups.forEach(group => {
+    const toRemove: L.Layer[] = [];
+    group.eachLayer(layer => {
+      if (layer !== preserved) toRemove.push(layer);
+    });
+    toRemove.forEach(layer => group.removeLayer(layer));
+  });
+}
+
 /** Get all registered group keys */
 export function getRegisteredKeys(): LayerGroupKey[] {
   return Array.from(layerGroups.keys());
