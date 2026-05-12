@@ -2,11 +2,11 @@
   "$schema": "Map tokens — zoom render-mode thresholds and Leaflet pane z-indices. Single source consumed by src/design-system/map/rules/* and adapters. NEVER hardcode these values inside rules/ or icons/.",
   "map": {
     "zoom": {
-      "microMax":    { "value": 7,  "_css": "--map-zoom-micro-max" },
-      "compactMax":  { "value": 9,  "_css": "--map-zoom-compact-max" },
-      "standardMax": { "value": 12, "_css": "--map-zoom-standard-max" },
-      "heroMin":     { "value": 13, "_css": "--map-zoom-hero-min" },
-      "richMin":     { "value": 13, "_css": "--map-zoom-rich-min" }
+      "microMax":    { "value": 6,  "_css": "--map-zoom-micro-max" },
+      "compactMax":  { "value": 8,  "_css": "--map-zoom-compact-max" },
+      "standardMax": { "value": 11, "_css": "--map-zoom-standard-max" },
+      "heroMin":     { "value": 12, "_css": "--map-zoom-hero-min" },
+      "richMin":     { "value": 12, "_css": "--map-zoom-rich-min" }
     },
     "pane": {
       "tile":          { "value": 200, "_css": "--map-pane-tile" },
