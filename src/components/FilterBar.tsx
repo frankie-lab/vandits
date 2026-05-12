@@ -43,7 +43,10 @@ import { CLASSIFICATION_TREE } from './filters/ClassificationTree';
 import { loadLocationsFromDatabase } from '@/domains/content';
 import { HealthFilterActionCTA } from './discovery/HealthFilterActionCTA';
 import { useSelectionFitOnStart } from './discovery/use-selection-fit-on-start';
+import { getHealthBucketCounts } from '@/domains/content/lib/location-health-counts';
 import { toast } from 'sonner';
+
+const COUNT_FORMATTER = new Intl.NumberFormat('es-ES');
 
 export function FilterBar() {
   const { 
@@ -370,12 +373,22 @@ export function FilterBar() {
       </div>
       <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin">
         {(() => {
-          const buckets: Array<{ id: HealthFilter | null; label: string; cssVar?: string }> = [
-            { id: null,        label: 'Sin filtro' },
-            { id: 'partial',   label: 'Rellenar huecos', cssVar: '--poi-health-partial' },
-            { id: 'chain',     label: 'Reparar cadena',  cssVar: '--poi-health-chain' },
-            { id: 'review',    label: 'Revisar',         cssVar: '--poi-health-review' },
-            { id: 'hardError', label: 'Reintentar',      cssVar: '--poi-health-hard-error' },
+          // healthFilter NO se aplica en el pipeline cliente (es server-side
+          // vía RPC). Por tanto `filteredLocations` ya es el universo correcto:
+          // refleja Geo/Tipo/Tags/búsqueda y los counts de cada chip NO se
+          // colapsan a 0 cuando uno está activo.
+          const counts = getHealthBucketCounts(filteredLocations);
+          const buckets: Array<{
+            id: HealthFilter | null;
+            label: string;
+            cssVar?: string;
+            count: number;
+          }> = [
+            { id: null,        label: 'Sin filtro',      count: counts.total },
+            { id: 'partial',   label: 'Rellenar huecos', cssVar: '--poi-health-partial',    count: counts.partial },
+            { id: 'chain',     label: 'Reparar cadena',  cssVar: '--poi-health-chain',      count: counts.chain },
+            { id: 'review',    label: 'Revisar',         cssVar: '--poi-health-review',     count: counts.review },
+            { id: 'hardError', label: 'Reintentar',      cssVar: '--poi-health-hard-error', count: counts.hardError },
           ];
           return buckets.map((b) => {
             const active = (filters.healthFilter ?? null) === b.id;
@@ -404,6 +417,14 @@ export function FilterBar() {
                   />
                 )}
                 {b.label}
+                <span
+                  className={cn(
+                    'ml-0.5 tabular-nums text-[11px]',
+                    active ? 'opacity-90' : 'text-muted-foreground/80',
+                  )}
+                >
+                  {COUNT_FORMATTER.format(b.count)}
+                </span>
               </Button>
             );
           });

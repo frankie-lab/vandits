@@ -1,95 +1,105 @@
-# PR-4A.1 — Auto-focus mapa al subconjunto
+# PR-4A.2 — Contadores de POIs en chips de salud
 
-Un único contrato canónico para "haz fit a este subconjunto de POIs", reutilizable desde cualquier consola (preview de reparación, selección, salud, etc.) — pero **cableado solo en los dos triggers aprobados**. El resto queda explícito vía CTA.
+## Problema
 
-## Principio rector
+Los chips de salud (Sin filtro / Rellenar huecos / Reparar cadena / Revisar / Reintentar) no informan de cuántos POIs caen en cada bucket. El usuario tiene que hacer click en cada chip para descubrirlo, y el panel se siente "ciego" comparado con el resto de la consola.
 
-> Filtrar ≠ mover cámara. Seleccionar/Reparar = sí puede mover cámara, con guardarraíles.
+## Solución (mínima, sin reestructurar)
 
-## 1) Helper único `requestSubsetFit` (nuevo)
+Mostrar un contador junto al label de cada chip, derivado del **mismo universo que el resto de filtros** (Explorar) pero **ignorando el propio `healthFilter`** (para no auto-colapsar a 0 los demás buckets cuando uno está activo).
 
-Archivo: `src/components/map/subset-fit.ts`
-
-API:
-```ts
-requestSubsetFit(locationIds: string[], opts?: {
-  mode?: 'always' | 'if-outside';   // default 'if-outside'
-  reason: 'repair-preview' | 'selection-start' | 'health-cta' | string;
-})
+```
+[ · Sin filtro 4 779 ]  [ · Rellenar huecos 14 ]  [ · Reparar cadena 7 ]  [ · Revisar 2 ]  [ · Reintentar 0 ]
 ```
 
-Evento: `SUBSET_FIT_BOUNDS_EVENT = 'subset-fit-bounds-request'`.
+## Helper único
 
-Comportamiento del listener (en `LocationMap.tsx`, mismo patrón que `COLLECTION_FIT_BOUNDS_EVENT`):
+`src/domains/content/lib/location-health-counts.ts` (nuevo):
 
-- Resuelve coordenadas vía `markersRef.current.get(id)`. Si un id no está montado (culling), **fallback** a `locationsRef`/`getLocationById` para obtener lat/lng del store.
-- 0 puntos → no-op.
-- 1 punto → si `always` o fuera de viewport: `flyTo([lat,lng], max(zoom, clamp), 0.6)`. Si dentro: no-op.
-- N puntos → `bounds = L.latLngBounds(pts)`. 
-  - Modo `if-outside` (default): calcula `insideRatio`. Si `insideRatio < 0.4` (umbral 40%) → `flyToBounds(bounds, { padding:[60,60], maxZoom: CLAMP, duration: 0.6 })`. Si ≥40% dentro → no-op.
-  - Modo `always`: siempre `flyToBounds`.
-- **Clamp de zoom**: `CLAMP = ZOOM_THRESHOLDS.richMin` (≈ z12) para no saltar a z18 con dos puntos juntos.
-- **Cooldown de intención manual**: si el usuario hizo `pan`/`zoom`/`drag` en los últimos **4s**, abortar el fit (silencioso). Se mantiene un `lastUserInteractionAt` en `LocationMap` enganchando una vez a `map.on('movestart zoomstart dragstart', ...)` con guard `e.originalEvent != null` (ignora fits programáticos).
-- Animación: `flyTo` / `flyToBounds` (no `fitBounds` duro).
+```ts
+export interface HealthBucketCounts {
+  total: number;
+  partial: number;
+  chain: number;
+  review: number;
+  hardError: number;
+}
+export function getHealthBucketCounts(
+  locations: GeoLocation[],
+): HealthBucketCounts
+```
 
-## 2) Triggers cableados ahora
+- Una sola pasada O(n) sobre el array.
+- Reutiliza `hasPartialGeo`, `hasBrokenGeoChain`, `hasReviewFailure`, `hasHardError` de `point-health-rings.ts` (ya canónicos).
+- No filtra; solo cuenta. El caller decide qué universo pasarle.
 
-### A. Preview de reparación (`HealthRepairPreviewDialog`)
-- En `useEffect` con deps `[open, scope.ids.join('|')]`: si `open && scope.ids.length > 0` → `requestSubsetFit(scope.ids, { mode: 'if-outside', reason: 'repair-preview' })`.
-- El diálogo es modal pero no full-screen → el mapa detrás se reencuadra y el contexto queda visible al cerrar.
-- Sin clamp adicional ni segundo fit al confirmar.
+## Cableado en `FilterBar.tsx`
 
-### B. Selección 0 → N (modo Seleccionar de `FilterBar`)
-- Hook nuevo `useSelectionFitOnStart` (en `src/components/discovery/use-selection-fit-on-start.ts`): observa `selectedLocations.length`.
-  - Cuando pasa de `0` → `>0`: programa `setTimeout` 250ms (debounce). Si al disparar sigue habiendo selección, llama `requestSubsetFit(selectedIds, { mode: 'if-outside', reason: 'selection-start' })`.
-  - Cancela el timeout si baja a 0 o si cambia drásticamente antes de disparar.
-  - **No re-fit** en cambios incrementales (1→2, 2→3, etc.). El primer fit cubre la intención inicial; el resto respeta orientación.
-- Montado en `FilterBar.tsx` solo cuando `mode === 'select'` para evitar trabajo en otros modos.
+Sustituir el array literal `buckets` (líneas 372-379) por uno con `count`:
 
-## 3) Triggers explícitamente NO cableados
+1. Calcular el universo "filtrado por todo MENOS healthFilter":
+   ```ts
+   const filteredIgnoringHealth = useMemo(() => {
+     const { healthFilter: _omit, ...rest } = filters;
+     return getAllLocations().filter((loc) =>
+       matchesLocationFilters(loc, rest, /* same opts as store */ ...),
+     );
+   }, [filters, getAllLocations]);
+   ```
+   Para evitar re-implementar las opts del matcher (visibility/document/etc.) y mantener paridad transversal, **opción preferida**: reutilizar `filteredLocations` cuando `filters.healthFilter == null` y, cuando hay healthFilter activo, recomputar el universo neutro vía un selector pequeño en el store (`getFilteredIgnoringHealth()`). Decisión final tras leer `locations-store.ts`: si las opts internas son triviales, hacerlo inline; si no, exponer selector. (Implementación: empezar inline; si requiere copiar >5 líneas del store, mover al store.)
+2. `const counts = useMemo(() => getHealthBucketCounts(filteredIgnoringHealth), [filteredIgnoringHealth])`.
+3. Inyectar `count` en cada bucket:
+   - `Sin filtro` → `counts.total`
+   - `Rellenar huecos` → `counts.partial`
+   - `Reparar cadena` → `counts.chain`
+   - `Revisar` → `counts.review`
+   - `Reintentar` → `counts.hardError`
 
-- Filtros normales (Geo / Tipo / Tags / búsqueda): no mueven cámara.
-- `healthFilter` activo (modo Mantener): no mueve cámara automáticamente. Se difiere a un PR posterior la introducción de un CTA secundario "Ver subconjunto en mapa" en `HealthFilterActionCTA` (no entra ahora).
+## Render del chip
 
-## 4) Cambios de archivos
+Misma fila, mismo `Button` `size="sm"`, mismo gap. El número va como un `<span>` después del label, con tipografía tabular para que no baile:
 
-**Nuevos**
-- `src/components/map/subset-fit.ts` — helper + tipo de evento.
-- `src/components/discovery/use-selection-fit-on-start.ts` — hook de debounce 0→N.
+```tsx
+{b.label}
+<span className="ml-0.5 tabular-nums text-muted-foreground/80 text-[11px]">
+  {formatCount(b.count)}
+</span>
+```
 
-**Editados**
-- `src/components/LocationMap.tsx`
-  - Listener de `SUBSET_FIT_BOUNDS_EVENT` (nuevo `useEffect`, simétrico al de colecciones).
-  - `lastUserInteractionAt` ref + handlers `movestart/zoomstart/dragstart` con guard de `originalEvent`.
-- `src/components/discovery/HealthRepairPreviewDialog.tsx`
-  - `useEffect` que dispara `requestSubsetFit` al abrir con `scope.ids`.
-- `src/components/FilterBar.tsx`
-  - Llamada a `useSelectionFitOnStart(selectedLocations)` dentro del bloque de `mode === 'select'` (o siempre con guard interno).
+Estilo cuando el chip está `active`: el contador hereda el color del label (no aplicar `text-muted-foreground`). Para puntos miles, usar `Intl.NumberFormat(locale).format(n)` o helper existente si lo hay.
+
+## Reglas / no-regresiones
+
+- **No tocar** la lógica del CTA (`HealthFilterActionCTA`) ni el RPC `enqueue_health_repair` — siguen calculando su scope server-side.
+- **No mover** `healthFilter` a otro lugar; sigue siendo single-select dentro del modo Mantener.
+- **No cambiar** label `Sin filtro` (acordado en PR-4A).
+- Los counts **respetan los demás filtros activos** (Geo/Tipo/Tags/búsqueda). Si el usuario filtra "Galicia", los chips muestran salud SOLO de Galicia. Esto es coherente con la consola operativa: "filtros describen universo".
+- Counts derivados client-side. No afectan al server-side filter del RPC (que opera sobre el mismo universo via `_scope_mode`).
+- Bucket `hardError`/`review` con count 0 sigue siendo clickable (UX consistente; el preview ya maneja "no_eligible").
+
+## Archivos
+
+**Nuevo**
+- `src/domains/content/lib/location-health-counts.ts` — helper + tipo.
+
+**Editado**
+- `src/components/FilterBar.tsx` — `buckets` con count + render del span.
 
 **Memoria**
-- Nueva `mem://logic/map/subset-fit-contract` con el contrato (helper, evento, umbrales, cooldown, clamp).
-- Update `mem://index.md` Core: línea breve recordando que cualquier consola que quiera "ver su subconjunto" debe usar `requestSubsetFit`, y que filtros NO mueven cámara.
+- Update `mem://logic/discovery/health-filter-axis`: añadir línea "Chips muestran count del bucket en universo ignorando healthFilter, vía `getHealthBucketCounts`".
+- Sin cambios en Core del index.
 
-## 5) QA manual
+## QA
 
-1. Abrir mapa en Galicia. Activar `healthFilter='partial'` → click "Rellenar huecos" → diálogo se abre y mapa hace fly suave a los 14 puntos europeos. Cerrar → el viewport queda en esa vista (correcto).
-2. Repetir con todos los puntos ya visibles en pantalla → el mapa NO se mueve (insideRatio ≥ 40%).
-3. Modo Seleccionar: seleccionar 5 puntos dispersos vía "Seleccionar N filtrados" → tras 250ms el mapa se reencuadra una vez. Añadir/quitar puntos uno a uno → el mapa NO se mueve.
-4. Mover el mapa manualmente, e inmediatamente abrir el preview de reparación → el fit se aborta por cooldown (4s). Esperar 5s y reintentar → fit se ejecuta.
-5. Aplicar filtro Geo "Portugal" → mapa NO se mueve.
-6. Toggle de colección → sigue funcionando con `requestCollectionFit` (sin regresión).
-7. Selección con 1 punto seleccionado fuera del viewport → flyTo a ese punto con clamp z12.
-8. Ver consola: no warnings, no doble fit en el mismo gesto.
+1. Sin filtros → cada chip muestra el count correcto del universo total.
+2. Filtro Geo "Galicia" activo → counts bajan al subset Galicia. `Sin filtro = total Galicia`.
+3. Activar `Rellenar huecos` → el count de los demás chips NO se colapsa a 0; siguen reflejando su bucket en el universo.
+4. Filtro que deja 0 puntos → todos los chips muestran 0 (incluido `Sin filtro`). Sin error.
+5. Tipografía tabular: contador de 4 779 no salta al pasar a 4 780.
+6. Recompute solo cuando cambian filtros o llega realtime (memoizado).
 
-## 6) Fuera de alcance (futuro)
+## Fuera de alcance
 
-- CTA "Ver subconjunto" en filtro de salud (modo Mantener).
-- Fit a subconjunto desde gallery / lista del Catálogo.
-- PR-4B (CatalogSummary, ContextBar).
-
-## Notas técnicas
-
-- Reutilizamos el patrón `dispatchEvent` ya validado por `requestCollectionFit` para mantener `LocationMap` como única autoridad sobre la cámara.
-- El cooldown de intención manual debe vivir en `LocationMap` (cerca de `mapRef`), no en el helper, porque el helper no sabe de mapa.
-- El guard `e.originalEvent != null` en `movestart`/`zoomstart` es imprescindible: sin él, el propio `flyTo` programático resetea el cooldown y bloquea fits posteriores legítimos.
-- El listener no necesita deps en `[]` aparte de leer markers/locations actuales vía refs (igual que `COLLECTION_FIT_BOUNDS_EVENT`).
+- Iconos / mini-anillos junto al count.
+- Counts en el resto de la app (catálogo, gallery).
+- PR-4B (CatalogSummary, ContextBar, conteos clicables del summary).
