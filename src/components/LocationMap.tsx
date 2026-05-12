@@ -1022,56 +1022,8 @@ export function LocationMap() {
   }, []);
 
   const handleLocateMe = useCallback(async () => {
-    if (!navigator.geolocation) {
-      toast.error('Tu navegador no soporta geolocalización');
-      return;
-    }
-    setLocating(true);
-    toast.info('Solicitando ubicación…');
-
-    const fetchIpLocation = async () => {
-      const result = await fetchIpGeolocation();
-      if (result) {
-        const loc = { lat: result.lat, lng: result.lng, accuracy: result.accuracy, source: 'ip' as const };
-        setUserLocation(loc);
-        toast.success('Ubicación aproximada obtenida');
-        mapRef.current?.flyTo([loc.lat, loc.lng], 10, { duration: 0.8 });
-        return true;
-      }
-      return false;
-    };
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const loc = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          source: 'gps' as const,
-        };
-        setUserLocation(loc);
-        setLocating(false);
-        toast.success('Ubicación obtenida');
-        mapRef.current?.flyTo([loc.lat, loc.lng], 13, { duration: 0.8 });
-      },
-      async (error) => {
-        const usedFallback = error.code !== error.PERMISSION_DENIED && await fetchIpLocation();
-        setLocating(false);
-        if (usedFallback) return;
-        const msg =
-          error.code === error.PERMISSION_DENIED
-            ? 'Permiso de ubicación denegado por el navegador'
-            : error.code === error.POSITION_UNAVAILABLE
-              ? 'Ubicación no disponible'
-              : error.code === error.TIMEOUT
-                ? 'El navegador tardó demasiado en responder'
-                : 'No se pudo obtener tu ubicación';
-        toast.error(msg);
-        console.warn('[geolocation] manual locate failed:', error);
-      },
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
-    );
-  }, []);
+    await centerOnUserLocation('button', false);
+  }, [centerOnUserLocation]);
 
   useEffect(() => {
   if (!mapRef.current || !userLocation) return;
