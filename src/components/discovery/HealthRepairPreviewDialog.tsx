@@ -195,7 +195,7 @@ export function HealthRepairPreviewDialog({
               disabled={!canConfirm}
             >
               {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Confirmar reparación ({scope.total})
+              {exhausted ? 'Sin acciones disponibles' : `Confirmar reparación (${scope.total})`}
             </Button>
           )}
         </DialogFooter>
