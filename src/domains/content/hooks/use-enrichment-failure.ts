@@ -86,6 +86,21 @@ class EnrichmentFailureStore {
   }
 
   /**
+   * Sync accessor — returns the parsed failure record (or `null` if the
+   * cache says "no failure"). Returns `null` for stale/missing entries
+   * too (callers must rely on the prewarm + realtime invalidation cycle).
+   * Used by health-rings v2 helpers (`getEnrichmentFailureBucket`,
+   * `getCoherenceMismatchKind`) inside `createCustomIcon` for thousands
+   * of markers without I/O.
+   */
+  getCachedSync(locationId: string): ParsedEnrichmentError | null {
+    const e = this.cache.get(locationId);
+    if (!e) return null;
+    if (Date.now() - e.fetchedAt > TTL_MS) return null;
+    return e.parsed;
+  }
+
+  /**
    * Bulk pre-warm: pull the most recent N enrichment_jobs for the current
    * user and seed the cache from their `error_messages` maps. After this
    * call, `hasFailureSync(id)` is reliable for every id that appears in any
