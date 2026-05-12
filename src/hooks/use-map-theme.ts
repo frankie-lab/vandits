@@ -69,6 +69,13 @@ export function useMapTheme() {
   }, [update]);
 
   const setMapTheme = useCallback((t: MapTheme) => {
+    // Manual choice ALWAYS disables auto-theme so the solar effect
+    // doesn't immediately revert the user's selection.
+    try {
+      if (localStorage.getItem(AUTO_KEY) === 'true') {
+        localStorage.setItem(AUTO_KEY, 'false');
+      }
+    } catch {}
     update('device', 'theme', t);
     // Emit legacy events for map tile layer
     window.dispatchEvent(new CustomEvent(SET_EVENT, { detail: { theme: t } }));
