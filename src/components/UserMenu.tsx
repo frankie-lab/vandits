@@ -245,9 +245,7 @@ export function UserMenu({
  {initials}
  </AvatarFallback>
  </Avatar>
- {/* Online indicator */}
- <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 border-2 border-background rounded-full bg-green-500" />
- </Button>
+  </Button>
  </DropdownMenuTrigger>
  
  <DropdownMenuContent align="end" className="w-72 z-[1001]">
