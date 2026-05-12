@@ -79,6 +79,7 @@ interface GeocodingJobState {
   lastResult: GeocodingJobLastResult | null;
   start: (initialPending: number, scope?: GeocodingScope) => Promise<void>;
   stop: () => Promise<void>;
+  attachToJob: (jobId: string) => Promise<void>;
   clearLastResult: () => void;
 }
 
