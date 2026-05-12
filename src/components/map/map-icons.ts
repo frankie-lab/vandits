@@ -179,14 +179,13 @@ export const createCustomIcon = (
   // sync defensivo desde call-sites paralelos).
   const renderMode: MarkerRenderMode = isFocused ? 'rich' : getRenderModeForZoom(currentZoom);
   if (renderMode === 'micro') {
-    // Rampa explícita por zoom (z≤5→2, z6→3, z7→4, z8→6). Cap micro = 6px
-    // en z8 antes de saltar a SVG compact en z9. La pertenencia (`isOwn`)
+    // Rampa explícita por zoom (z≤3→2, z4→3, z5→4). Cap micro = 4px en
+    // z5 antes de saltar a SVG compact en z6. La pertenencia (`isOwn`)
     // se diferencia solo por halo más marcado, nunca por diámetro.
     const microSize =
       currentZoom <= 3 ? 2 :
       currentZoom === 4 ? 3 :
-      currentZoom === 5 ? 4 :
-      6; // z6 — último escalón micro antes de compact
+      4; // z5 — último escalón micro antes de compact
     const dot = entry.fill_color;
     const haloStyle = isOwn ? '' : 'opacity:0.85;';
     return L.divIcon({
