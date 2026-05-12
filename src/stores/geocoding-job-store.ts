@@ -46,6 +46,8 @@ export interface GeocodingScope {
   /** Unified health-based scope. Same source of truth as the panel's tabs/tree. */
   healthFilter?: GeoHealth[];
   geoNode?: GeocodingGeoNode;
+  /** Origin tag stored in geocoding_jobs.scope.source (e.g. 'health_cta'). */
+  source?: string;
 }
 
 type JobStatus = 'running' | 'canceling' | 'canceled' | 'completed' | 'failed';
