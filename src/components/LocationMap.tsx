@@ -2197,11 +2197,7 @@ export function LocationMap() {
        {userLocation ? 'Centrar en mi ubicación' : 'Localizarme'}
      </TooltipContent>
    </Tooltip>
-   <MapThemeToggle
-     theme={mapTheme}
-     onThemeChange={_setMapTheme}
-   />
- </div>
+  </div>
  
  {/* Map Center Settings - now in UserProfileEditor */}
 
