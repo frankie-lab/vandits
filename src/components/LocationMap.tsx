@@ -16,7 +16,7 @@ import { getBucketStats } from '@/domains/content/lib/location-bucket';
 import { resetAllFilters } from '@/domains/content/lib/filter-presets';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
-import { Maximize2, MapPin, Home, Upload, Compass, ArrowRight, LocateFixed, Loader2, Globe2 } from 'lucide-react';
+import { Maximize2, MapPin, Home, Upload, Compass, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
