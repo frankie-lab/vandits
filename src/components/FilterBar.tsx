@@ -42,6 +42,7 @@ import {
 import { CLASSIFICATION_TREE } from './filters/ClassificationTree';
 import { loadLocationsFromDatabase } from '@/domains/content';
 import { HealthFilterActionCTA } from './discovery/HealthFilterActionCTA';
+import { useSelectionFitOnStart } from './discovery/use-selection-fit-on-start';
 import { toast } from 'sonner';
 
 export function FilterBar() {
