@@ -775,44 +775,13 @@ export function LocationMap() {
  if (locations.length > 0) {
  setTimeout(() => zoomToBounds(immediate, 1), immediate ? 50 : 800);
  }
- } else if (centerConfig.mode === 'geolocation') {
-      // Use GPS location
- if (navigator.geolocation) {
- navigator.geolocation.getCurrentPosition(
-  (position) => {
-   const { latitude, longitude } = position.coords;
-   // Seed userLocation so the contextual button knows the map already starts on GPS.
-   setUserLocation({
-     lat: latitude,
-     lng: longitude,
-     accuracy: position.coords.accuracy,
-     source: 'gps',
-   });
-   if (immediate) {
-   mapRef.current?.setView([latitude, longitude], INITIAL_GEOLOCATION_ZOOM);
-   } else {
-   mapRef.current?.flyTo([latitude, longitude], INITIAL_GEOLOCATION_ZOOM, { duration: 0.8 });
-   }
-   // NOTA: en modo geolocation NO hacemos zoomToBounds automático.
-   // El arranque queda en GPS + zoom polaroid; el botón Globe2 ofrece
-   // la transición a vista global cuando el usuario lo decida.
-   },
-  (error) => {
- console.warn('Geolocation error:', error);
-            // Silently fall back to auto-fit; the welcome card already informs the user
-            // Fallback to auto
- if (locations.length > 0) {
- zoomToBounds(immediate, 1);
- }
- },
- { enableHighAccuracy: true, timeout: 10000 }
- );
- } else {
-        // Fallback to auto
- if (locations.length > 0) {
- zoomToBounds(immediate, 1);
- }
- }
+  } else if (centerConfig.mode === 'geolocation') {
+       // Use GPS via shared contract. Silent on startup; no auto zoomToBounds on success.
+       void centerOnUserLocation('startup', immediate).then((ok) => {
+         if (!ok && !navigator.geolocation && locations.length > 0) {
+           zoomToBounds(immediate, 1);
+         }
+       });
     } else {
       // Auto mode - zoom to show all points, or center on user GPS if empty
       if (locations.length > 0) {
