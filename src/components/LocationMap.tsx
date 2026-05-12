@@ -78,7 +78,7 @@ import { useCoalescedRealtimeTick } from './map/use-coalesced-realtime-tick';
 import { initPhotoLayer } from './map/map-photo-layer';
 import { initLayerGroups, destroyLayerGroups, getOrCreateGroup, clearAllGroups, applyLayerVisibility } from './map/map-layer-groups';
 import { useV2MapBridge } from '@/hooks/use-v2-map-bridge';
-import { renderV2Features, clearV2Features } from './map/map-v2-renderer';
+import { renderV2Features, clearV2Features, refreshV2Icons } from './map/map-v2-renderer';
 import {
   COLLECTION_VISIBILITY_EVENT,
   COLLECTION_FIT_BOUNDS_EVENT,
