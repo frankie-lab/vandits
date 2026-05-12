@@ -1,11 +1,11 @@
 /**
  * Map Viewport Culling v1 — helpers únicos.
  *
- * Regla canónica (alineada al canon POI z-bands micro≤7 / compact 8–9 / standard 10–12 / rich ≥13):
- *   - z ≤ 7    sin culling (banda micro: microdots baratos)
- *   - z 8–9    culling activo, pad 1.0   (compact, viewport ×2 por eje)
- *   - z 10–12  culling activo, pad 0.75  (standard)
- *   - z ≥ 13   culling estricto, pad 0.5 (rich)
+ * Regla canónica (alineada al canon POI z-bands micro≤6 / compact 7–8 / standard 9–11 / rich ≥12):
+ *   - z ≤ 6    sin culling (banda micro: microdots baratos)
+ *   - z 7–8    culling activo, pad 1.0   (compact, viewport ×2 por eje)
+ *   - z 9–11   culling activo, pad 0.75  (standard)
+ *   - z ≥ 12   culling estricto, pad 0.5 (rich)
  *
  * `keepIds` siempre se renderiza aunque caiga fuera del viewport ampliado.
  * Fuentes keep-always actuales: focusedLocationId, openPopupLocationId.
@@ -21,13 +21,13 @@ import type L from 'leaflet';
 import type { GeoLocation } from '@/types/location';
 
 export function shouldCullByViewport(zoom: number): boolean {
-  return zoom >= 8;
+  return zoom >= 7;
 }
 
 export function getViewportPadForZoom(zoom: number): number {
-  if (zoom >= 13) return 0.5;
-  if (zoom >= 10) return 0.75;
-  if (zoom >= 8) return 1.0;
+  if (zoom >= 12) return 0.5;
+  if (zoom >= 9) return 0.75;
+  if (zoom >= 7) return 1.0;
   return 0;
 }
 
