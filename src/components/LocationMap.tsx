@@ -2199,30 +2199,32 @@ export function LocationMap() {
  {/* "Ver N ubicaciones" — integrado en la pill inferior derecha (ver bloque legend) */}
   {/* Map theme toggle + locate-me — centered over the map */}
   <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[999] flex items-center gap-2 pointer-events-none [&>*]:pointer-events-auto">
-   <Tooltip>
-     <TooltipTrigger asChild>
-       <button
-         type="button"
-         onClick={handleLocateMe}
-         disabled={locating}
-         aria-label="Localizarme"
-         className={cn(
-           "h-9 w-9 inline-flex items-center justify-center rounded-full backdrop-blur-sm shadow-md transition-colors",
-           mapTheme === 'dark'
-             ? 'bg-gray-900/95 text-white hover:bg-gray-800'
-             : 'bg-white/95 text-foreground hover:bg-white',
-           userLocation && 'text-primary'
-         )}
-       >
-         {locating
-           ? <Loader2 className="h-4 w-4 animate-spin" />
-           : <LocateFixed className="h-4 w-4" />}
-       </button>
-     </TooltipTrigger>
-     <TooltipContent side="top">
-       {userLocation ? 'Centrar en mi ubicación' : 'Localizarme'}
-     </TooltipContent>
-   </Tooltip>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={isCenteredOnUser ? () => zoomToBounds(false) : handleLocateMe}
+          disabled={locating}
+          aria-label={isCenteredOnUser ? 'Vista global' : (userLocation ? 'Centrar en mi ubicación' : 'Localizarme')}
+          className={cn(
+            "h-9 w-9 inline-flex items-center justify-center rounded-full backdrop-blur-sm shadow-md transition-colors",
+            mapTheme === 'dark'
+              ? 'bg-gray-900/95 text-white hover:bg-gray-800'
+              : 'bg-white/95 text-foreground hover:bg-white',
+            userLocation && !isCenteredOnUser && 'text-primary'
+          )}
+        >
+          {locating
+            ? <Loader2 className="h-4 w-4 animate-spin" />
+            : isCenteredOnUser
+              ? <Globe2 className="h-4 w-4" />
+              : <LocateFixed className="h-4 w-4" />}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top">
+        {isCenteredOnUser ? 'Vista global' : (userLocation ? 'Centrar en mi ubicación' : 'Localizarme')}
+      </TooltipContent>
+    </Tooltip>
   </div>
  
  {/* Map Center Settings - now in UserProfileEditor */}
