@@ -8,6 +8,10 @@ import 'leaflet.markercluster';
 import { useLocationsStore } from '@/domains/content';
 import { useLayerVisibility, LAYER_VISIBILITY_EVENT, type LayerType } from '@/hooks/use-layer-visibility';
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
+import {
+  applyViewportCulling,
+  getLocationSubsetSignature,
+} from '@/components/map/viewport-culling';
 import { getBucketStats } from '@/domains/content/lib/location-bucket';
 import { resetAllFilters } from '@/domains/content/lib/filter-presets';
 import { GeoLocation } from '@/types/location';
