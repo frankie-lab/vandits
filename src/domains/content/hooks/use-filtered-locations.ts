@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { useLocationsStore } from '@/domains/content/store/locations-store';
 import { GeoLocation } from '@/types/location';
+import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
 
 /**
  * Returns memoized filtered locations. Only recalculates when
@@ -18,6 +19,38 @@ export function useFilteredLocations(): GeoLocation[] {
     return useLocationsStore.getState().getFilteredLocations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docVersion, filters, currentUserId, selectedLocations]);
+}
+
+/**
+ * Devuelve `filteredLocations` IGNORANDO el eje Salud (`healthFilter`).
+ * Lo usan los chips del eje Salud para mostrar su count individual sin
+ * canibalizarse entre sí cuando uno está activo.
+ *
+ * Cuando `healthFilter` está vacío, devuelve la misma referencia que
+ * `useFilteredLocations()` (sin recomputar).
+ */
+export function useFilteredLocationsIgnoringHealth(): GeoLocation[] {
+  const filtered = useFilteredLocations();
+  const docVersion = useLocationsStore(s => s._docVersion);
+  const filters = useLocationsStore(s => s.filters);
+  const currentUserId = useLocationsStore(s => s.currentUserId);
+  const selectedLocations = useLocationsStore(s => s.selectedLocations);
+
+  return useMemo(() => {
+    if (!filters.healthFilter) return filtered;
+    const state = useLocationsStore.getState();
+    const all = state.getAllLocations();
+    const sel = state.selectedLocations;
+    const hasSelection = !!sel && sel.size > 0;
+    const restricted = hasSelection ? all.filter(l => sel.has(l.id)) : all;
+    return restricted.filter(loc =>
+      matchesLocationFilters(loc, filters, {
+        includeGeo: !hasSelection,
+        includeHealth: false,
+      }),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, docVersion, filters, currentUserId, selectedLocations]);
 }
 
 /**
