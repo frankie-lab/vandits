@@ -38,6 +38,7 @@
       "standard": { "value": 1,    "_css": "--poi-scale-standard" },
       "rich":     { "value": 1.15, "_css": "--poi-scale-rich" },
       "byZoom": {
+        "z6":  { "value": 0.75, "_css": "--poi-scale-z6" },
         "z7":  { "value": 0.85, "_css": "--poi-scale-z7" },
         "z8":  { "value": 0.95, "_css": "--poi-scale-z8" },
         "z9":  { "value": 1.00, "_css": "--poi-scale-z9" },
