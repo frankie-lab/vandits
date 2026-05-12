@@ -310,6 +310,15 @@ export type VisitedFilter = 'all' | 'visited' | 'pending';
  */
 export type VisualStateFilter = 'enriched' | 'imported' | 'empty';
 
+/**
+ * Eje "Salud operativa" alineado con Health Rings v2
+ * (`getPointHealthRings` en `point-health-rings.ts`).
+ * Single-select. Delegación 100% en el helper — el matcher NO duplica
+ * predicados de geo/enrichment. Que un POI verde nunca aparezca en
+ * `review`/`hardError` es CONSECUENCIA del helper, no regla del filtro.
+ */
+export type HealthFilter = 'partial' | 'chain' | 'review' | 'hardError';
+
 export type FilterCriteria = {
   allPointsHidden?: boolean; // Kill switch: when true, getFilteredLocations returns []
   continent?: string;
