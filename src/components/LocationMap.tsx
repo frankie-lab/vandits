@@ -89,7 +89,7 @@ import {
 import { useEnrichmentTracker } from './map/useEnrichmentTracker';
 import { useCoalescedRealtimeTick } from './map/use-coalesced-realtime-tick';
 import { initPhotoLayer } from './map/map-photo-layer';
-import { initLayerGroups, destroyLayerGroups, getOrCreateGroup, clearAllGroups, applyLayerVisibility } from './map/map-layer-groups';
+import { initLayerGroups, destroyLayerGroups, getOrCreateGroup, clearAllGroups, clearAllGroupsExcept, applyLayerVisibility } from './map/map-layer-groups';
 import { useV2MapBridge } from '@/hooks/use-v2-map-bridge';
 import { renderV2Features, clearV2Features, refreshV2Icons } from './map/map-v2-renderer';
 import {
@@ -125,7 +125,12 @@ export function LocationMap() {
  const mapRef = useRef<L.Map | null>(null);
  const mapContainerRef = useRef<HTMLDivElement>(null);
  const markersRef = useRef<Map<string, L.Marker>>(new Map());
- const locationsRef = useRef<Map<string, GeoLocation>>(new Map());
+  const locationsRef = useRef<Map<string, GeoLocation>>(new Map());
+  // Ids actualmente permitidos como markers (subset visual). Se usa en el
+  // handler `popupclose` a nivel de mapa para detectar markers preservados
+  // como excepción visual y limpiarlos cuando ya no pertenezcan al subset.
+  // Ver `mem://logic/map/popup-persist-on-rebuild`.
+  const allowedMarkerIdsRef = useRef<Set<string>>(new Set());
  const markerClusterRef = useRef<L.MarkerClusterGroup | null>(null);
  const tileLayerRef = useRef<L.TileLayer | null>(null);
   const homeMarkerRef = useRef<L.Marker | null>(null);
@@ -1340,8 +1345,18 @@ export function LocationMap() {
       const id = (e.popup.options as { locationId?: string })?.locationId ?? null;
       setOpenPopupLocationId(id);
     });
-    mapRef.current.on('popupclose', () => {
+    mapRef.current.on('popupclose', (e: L.PopupEvent) => {
+      const closedId = (e.popup.options as { locationId?: string })?.locationId ?? null;
       setOpenPopupLocationId(null);
+      // PR-POPUP-PERSIST: si el marker fue preservado como excepción visual
+      // (POI fuera del subset actual), eliminarlo al cerrar el popup.
+      if (closedId && !allowedMarkerIdsRef.current.has(closedId)) {
+        const orphan = markersRef.current.get(closedId);
+        if (orphan) {
+          orphan.remove();
+          markersRef.current.delete(closedId);
+        }
+      }
     });
     const resizeObserver = new ResizeObserver(() => {
       const map = mapRef.current;
@@ -1538,21 +1553,50 @@ export function LocationMap() {
     setVisibleLocationIds(new Set<string>(markerLocations.map((l) => l.id)));
   }, [locationIds, setVisibleLocationIds]);
  
- useEffect(() => {
- if (!mapRef.current || !markerClusterRef.current) return;
+  useEffect(() => {
+  if (!mapRef.current || !markerClusterRef.current) return;
+
+    // PR-POPUP-PERSIST: preservar el marker dueño del popup abierto durante
+    // un rebuild del mapa, aunque el POI haya salido del subset filtrado
+    // tras una acción de recovery. Excepción visual estrictamente temporal:
+    // el marker se elimina en `popupclose` si ya no pertenece al subset.
+    // Ver `mem://logic/map/popup-persist-on-rebuild`.
+    const preservedId = openPopupLocationId;
+    const preservedMarker = preservedId ? markersRef.current.get(preservedId) : null;
+    const preservedIsOpen = !!preservedMarker && preservedMarker.isPopupOpen();
+    const preservedLocation = preservedIsOpen
+      ? (locationsRef.current.get(preservedId!) ?? locations.find(l => l.id === preservedId) ?? null)
+      : null;
 
     // Single source of truth para fit / popup refresh / fallback fuera de
     // viewport-culling: `locationsRef` debe contener SIEMPRE el universo
-    // lógico actual (`locations`), no sólo `markerLocations`.
-    // Si lo vaciamos aquí y lo repoblamos sólo al montar markers visibles,
-    // cualquier subset-fit sobre ids hoy fuera del viewport se queda sin
-    // coordenadas de respaldo y no puede encuadrar el subconjunto de Salud.
- locationsRef.current = new Map(locations.map((location) => [location.id, location]));
+    // lógico actual (`locations`), no sólo `markerLocations`. Además, si
+    // hay un POI preservado fuera del filtro, mantenemos su entry para que
+    // el popup tenga datos coherentes hasta que se cierre.
+    const nextLocationsRef = new Map(locations.map((location) => [location.id, location]));
+    if (preservedLocation && !nextLocationsRef.has(preservedLocation.id)) {
+      nextLocationsRef.set(preservedLocation.id, preservedLocation);
+    }
+    locationsRef.current = nextLocationsRef;
 
-    // Clear existing markers from map and layer groups
- markersRef.current.forEach(marker => marker.remove());
- markersRef.current.clear();
-    clearAllGroups();
+    // Clear markers — pero NO el preservado. `marker.remove()` y
+    // `clearAllGroups()` cierran el popup; usamos `clearAllGroupsExcept`
+    // y saltamos el `.remove()` del preservado.
+    markersRef.current.forEach((marker, id) => {
+      if (preservedIsOpen && id === preservedId) return;
+      marker.remove();
+    });
+    const nextMarkers = new Map<string, L.Marker>();
+    if (preservedIsOpen && preservedMarker) {
+      nextMarkers.set(preservedId!, preservedMarker);
+    }
+    markersRef.current = nextMarkers;
+
+    if (preservedIsOpen && preservedMarker) {
+      clearAllGroupsExcept(preservedMarker);
+    } else {
+      clearAllGroups();
+    }
 
   if (markerLocations.length === 0 && locations.length === 0) return;
 
@@ -1565,6 +1609,9 @@ export function LocationMap() {
 
      // Add new markers
   markerLocations.forEach((location) => {
+    // Skip recreating the preserved marker — ya está vivo en el mapa con
+    // popup abierto. Solo refrescamos su icono al final del efecto.
+    if (preservedIsOpen && location.id === preservedId) return;
   const isSelected = selectedLocations.has(location.id);
   const isFocused = focusedLocationId === location.id;
   const isEnriched = !!location.enrichedData;
@@ -1669,6 +1716,31 @@ export function LocationMap() {
  maxZoom: 12 
  });
   }
+
+    // Refresca el icono del marker preservado para reflejar el nuevo estado
+    // (p. ej. recién enriquecido tras una acción del recovery block).
+    if (preservedIsOpen && preservedMarker && preservedLocation) {
+      try {
+        const ownership = getLocationOwnership(preservedLocation.id, currentUserId);
+        preservedMarker.setIcon(
+          createCustomIcon(
+            selectedLocations.has(preservedLocation.id),
+            focusedLocationId === preservedLocation.id,
+            !!preservedLocation.enrichedData,
+            preservedLocation,
+            criteriaTimestamp,
+            false,
+            getTintForLocation(preservedLocation.id),
+            ownership.isOwn,
+          ),
+        );
+      } catch { /* noop */ }
+    }
+
+    // Sincroniza set de ids "permitidos" para que el `popupclose` a nivel
+    // de mapa pueda detectar markers preservados huérfanos (ids ya fuera
+    // del subset filtrado) y limpiarlos al cerrar el popup.
+    allowedMarkerIdsRef.current = new Set(markerLocations.map(l => l.id));
 
     // Prime collection chips store con todos los puntos visibles.
     primeCollectionsForLocations(locations.map((l) => l.id));
