@@ -1,63 +1,55 @@
-## Diagnóstico
+## Objetivo
 
-El culling **sigue cableado** en `viewport-culling.ts` y `LocationMap.tsx` (líneas 1419–1422, listeners `zoomend`/`moveend` 1224–1246, `keepIds` 1409–1414).
+Unificar el tamaño de los POIs de contenido en TODAS las vistas para que el canon transversal (banda por zoom × estado × modeScale) sea la única fuente de verdad. Hoy el renderer V2 usa fallbacks fijos (`14`/`20`) y rompe el canon en cuanto el flag `v2_map_features` está activo.
 
-Lo que cambió: con `microMax=10` y la nueva rampa, **z11 y z12 ya son banda `compact`** (markers ~12 px, no microdots). Pero el helper sólo activa culling en **z≥13**:
+## Canon transversal (recordatorio, NO cambia)
 
-```text
-z ≤ 12   → sin culling   ← agujero
-z 13–15  → pad 0.75
-z ≥ 16   → pad 0.5
-```
 
-Resultado en zonas densas (Madrid) a z11–12: se construyen todos los markers Leaflet del universo filtrado. Eso se percibe como "se ha perdido el filtrado por viewport". Antes del cambio de rampa, z11–12 caían en micro y la ausencia de culling no dolía.
+| Banda    | Zoom    | Forma       | Tamaño                       | Health rings | Tint colección | Polaroid |
+| -------- | ------- | ----------- | ---------------------------- | ------------ | -------------- | -------- |
+| micro    | z ≤ 9   | div plano   | rampa 2/3/4/5/6 px           | no           | no             | no       |
+| compact  | z 10–11 | SVG plano   | base × {0.85, 0.95}          | no           | sí             | no       |
+| standard | z 12–13 | SVG + grad. | base × {1.00, 1.05, 1.10}    | sí           | sí             | no       |
+| rich     | z ≥ 14  | SVG + grad. | base × 1.15 + polaroid 50×56 | sí           | sí             | sí       |
 
-## Cambio propuesto
 
-Extender el culling a la banda compact con pad generoso para panning fluido:
+`base` viene de `marker_size_config[configKey]` (enriched/imported/empty) vía `getBaseSize(entry, isRecentlyEnriched, isFocused, isSelected)`. Excepción única: `isFocused` escapa a `rich`. `isSelected` NO escapa.
 
-```text
-z ≤ 10   → sin culling           (banda micro, microdots baratos)
-z 11–12  → culling activo, pad 1.0   ← NUEVO
-z 13–15  → culling activo, pad 0.75
-z ≥ 16   → culling estricto, pad 0.5
-```
+## Cambios
 
-`pad 1.0` = duplica el viewport en cada eje. Suficiente para pan corto sin huecos.
+### 1. `src/components/map/map-v2-renderer.ts` — delegar en el canon
 
-## Archivos a tocar
+Eliminar el cálculo paralelo (`cfg.default?.base_normal ?? 14` / `?? 20`) y delegar en `createCustomIcon` para POIs de contenido (waypoints/places). El renderer V2 deja de generar su propio SVG/HTML para markers de contenido y queda como adaptador `MapFeature → createCustomIcon`.
 
-- `src/components/map/viewport-culling.ts`
-  - `shouldCullByViewport`: `zoom >= 11`.
-  - `getViewportPadForZoom`: añadir rama `if (zoom >= 11) return 1.0;`.
-  - Actualizar el comentario canónico al inicio del archivo.
+- `createV2Icon(feature)`:
+  - Mapear `feature` → `GeoLocation`-like con los campos que `getPointConfigKey` y `getPointVisualState` necesitan (`enrichedData`, `isApproved`, ownership). Si el `MapFeature` no trae todos los campos, derivar el mínimo viable desde `feature.entityType` + `feature.ownershipSource` + `feature.state`.
+  - Llamar `syncRenderModeFromMap(map)` antes (ya patrón estándar en photo/preview).
+  - Devolver `createCustomIcon(isSelected, isFocused, _, locationLike, 0, false, collectionTint, isOwn)`.
+- Eliminar `getShapeSvg` para shapes que se solapan con el canon (`teardrop`, `circle-solid`). Conservar solo lo que represente entidades NO-POI (si las hay; si no, borrar).
+- Eliminar `decoration` halo/warning/star/check del path de POIs de contenido — las warnings ya se cubren con health rings del canon. Si V2 necesita decoraciones extra, se añaden vía clase CSS sobre el divIcon canónico, no como SVG paralelo.
 
-```ts
-export function shouldCullByViewport(zoom: number): boolean {
-  return zoom >= 11;
-}
+### 2. `renderV2Features` — pasar `map` al icon factory
 
-export function getViewportPadForZoom(zoom: number): number {
-  if (zoom >= 16) return 0.5;
-  if (zoom >= 13) return 0.75;
-  if (zoom >= 11) return 1.0;
-  return 0;
-}
-```
+Hoy `createV2Icon` no recibe `map`. Cambiar la firma para que `renderV2Features` pase `map` a `createV2Icon`, que a su vez llama `syncRenderModeFromMap(map)` antes de `createCustomIcon`. Garantiza que markers creados fuera del `zoomend` principal entran con el render mode correcto (mismo patrón que `map-photo-layer`).
 
-Nada más. `keepIds`, firma de subset, listeners y separación `filteredLocations` vs `markerLocations` quedan idénticos.
+### 3. Re-render en `zoomend` (verificación)
+
+Verificar que el bloque V2 en `LocationMap.tsx` (línea ~1996) recrea o actualiza icons en `zoomend`, igual que el path legacy. Si no lo hace, los V2 markers quedan congelados en la banda del zoom inicial. Acción: añadir listener `zoomend` que regenere los icons V2 vía `createV2Icon`.
+
+### 4. Fuera de scope (no se tocan)
+
+- `map-photo-layer.ts` (fotos OneDrive — fuera del canon de POIs de contenido).
+- Markers de Home, GPS, ruta, nearby — tienen su propia tipología.
+- `useMarkerSizeConfig`, `marker_size_config` BD, `getBaseSize`, `getModeScaleForZoom`, `getRenderModeForZoom`, tokens `map.json`/`poi.json` — el canon ya es correcto, no se modifica.
 
 ## Validación
 
-1. **z10 (micro)**: sin culling, microdots — comportamiento actual.
-2. **z11 — A/B coste con vs sin culling** (zona densa, p.ej. Madrid):
-   - Log DEV `[map-culling]` ya emite `filtered` y `rendered`. Comparar `rendered/filtered` ratio con la rama actual (1.0) y la nueva (debería bajar a ~0.3–0.5 según zoom y densidad).
-   - Confirmar que `rendered` con pad 1.0 < `filtered` total — si no, el culling no aporta y habría que revisar pad.
-   - Medir tiempo de reconstrucción del cluster (perf.now alrededor del effect 1442) en el mismo viewport antes/después.
-3. **z11–12 panning**: pan corto no muestra huecos; pan largo repuebla en `moveend`.
-4. **z13–15 / z≥16**: idéntico a hoy.
-5. **`keepIds`** (focused + popup abierto) sobreviven aunque caigan fuera.
+1. Activar flag `v2_map_features` y cargar mismo dataset en vista global (z6), z11, z14, z16. Comprobar visualmente que un mismo POI tiene exactamente el mismo tamaño que el path legacy en cada banda.
+2. Verificar transición continua al hacer zoom in/out (sin saltos entre V2 y legacy si ambos coexisten en pantalla).
+3. `isFocused` (click directo) sigue escalando a rich. `isSelected` masivo no rompe micro en z6.
+4. Health rings y collection tint aparecen en V2 igual que en legacy según banda.
 
-## Memoria
+## Memoria a actualizar
 
-Actualizar `mem://logic/map/viewport-culling-v1` con la nueva tabla (z≥11 pad 1.0) y nota: el cambio responde a `microMax=10`, que dejó z11–12 fuera del régimen barato de microdots.
+- `mem://style/map/zoom-driven-hero` — añadir nota: "V2 renderer delega en `createCustomIcon`. Prohibidos cálculos paralelos de tamaño POI fuera del canon."
+- Considerar nuevo `mem://constraints/poi-icon-single-source-of-truth` con la regla absoluta: cualquier marker de POI de contenido pasa por `createCustomIcon`. Renderers alternativos solo adaptan input.

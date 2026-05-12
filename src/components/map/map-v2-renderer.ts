@@ -1,105 +1,70 @@
 /**
  * map-v2-renderer.ts — Renders MapFeature[] as Leaflet markers.
  * Used when Phase D flag (v2_map_features) is active.
- * 
- * Note on layering: zIndexOffset is sufficient for the current use case.
- * If clusters, popups, or custom overlays are introduced later, consider
- * using Leaflet pane-based layering for finer z-axis control.
+ *
+ * CANON TRANSVERSAL (2026-05-12):
+ * Este renderer NO genera SVG/HTML propio para POIs de contenido.
+ * Delega 100% en `createCustomIcon` (single source of truth para tamaño,
+ * paleta, banda por zoom, modeScale, health rings y polaroid). El grammar
+ * V2 solo se usa para resolver `entityType` → estado enriquecido/vacío
+ * sintético y para ownership (`isOwn`).
+ *
+ * Antes: cálculos paralelos `cfg.default?.base_normal ?? 14` rompían el
+ * canon — POIs aparecían más grandes en V2 que en legacy a igual zoom.
  */
 
 import L from 'leaflet';
 import type { MapFeature } from '@/domains/v2';
-import { resolveMarkerGrammar } from '@/domains/v2/marker-grammar';
-import { getMarkerSizeConfig } from './useMarkerSizeConfig';
+import { createCustomIcon, syncRenderModeFromMap } from './map-icons';
+import type { GeoLocation } from '@/types/location';
 
-// Shape → HTML mapping
-function getShapeSvg(
-  feature: MapFeature,
-  size: number,
-  zIndex: number,
-): string {
-  const { shape, fillColor, borderColor, decoration } = feature;
-
-  // Decorations overlay
-  let decorationHtml = '';
-  if (decoration?.includes('halo')) {
-    decorationHtml += `<div style="position:absolute;inset:-4px;border-radius:50%;border:3px solid #facc15;pointer-events:none;"></div>`;
-  }
-  if (decoration?.includes('warning')) {
-    decorationHtml += `<div style="position:absolute;top:-6px;right:-6px;width:14px;height:14px;background:#ef4444;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;">
-      <span style="color:white;font-size:8px;font-weight:bold;">!</span>
-    </div>`;
-  }
-  if (decoration?.includes('star')) {
-    decorationHtml += `<div style="position:absolute;bottom:-6px;right:-6px;width:14px;height:14px;background:#facc15;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;">
-      <span style="font-size:8px;">★</span>
-    </div>`;
-  }
-  if (decoration?.includes('check')) {
-    decorationHtml += `<div style="position:absolute;bottom:-6px;left:-6px;width:14px;height:14px;background:#22c55e;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;">
-      <span style="color:white;font-size:8px;">✓</span>
-    </div>`;
-  }
-
-  const border = borderColor || 'white';
-
-  if (shape === 'teardrop') {
-    return `<div style="position:relative;display:inline-block;">
-      ${decorationHtml}
-      <svg width="${size}" height="${Math.round(size * 1.5)}" viewBox="0 0 24 36">
-        <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" 
-              fill="${fillColor}" stroke="${border}" stroke-width="1"/>
-        <circle cx="12" cy="12" r="4" fill="white" fill-opacity="0.9"/>
-      </svg>
-    </div>`;
-  }
-
-  if (shape === 'circle-solid') {
-    return `<div style="position:relative;display:inline-block;">
-      ${decorationHtml}
-      <div style="width:${size}px;height:${size}px;border-radius:50%;background:${fillColor};border:1px solid ${border};box-shadow:0 2px 4px rgba(0,0,0,0.2);"></div>
-    </div>`;
-  }
-
-  if (shape === 'circle-hollow') {
-    return `<div style="position:relative;display:inline-block;">
-      ${decorationHtml}
-      <div style="width:${size}px;height:${size}px;border-radius:50%;background:transparent;border:3px solid ${fillColor};box-shadow:0 2px 4px rgba(0,0,0,0.2);"></div>
-    </div>`;
-  }
-
-  // circle-dashed
-  return `<div style="position:relative;display:inline-block;">
-    ${decorationHtml}
-    <div style="width:${size}px;height:${size}px;border-radius:50%;background:transparent;border:3px dashed ${fillColor};box-shadow:0 2px 4px rgba(0,0,0,0.15);"></div>
-  </div>`;
+/**
+ * Adapta un MapFeature al subset de GeoLocation que `getPointConfigKey`
+ * y `getPointVisualState` necesitan. Regla:
+ *   - shape `teardrop` (place enriquecido) → enriched (verde)
+ *   - resto (waypoint, circle-solid promoted) → empty (naranja)
+ *
+ * V2 no tiene bucket "imported" (gris) porque su grammar parte de places
+ * promovidos o waypoints sin descripción IA. Si en el futuro V2 expone
+ * `description` plana, se añadirá aquí.
+ */
+function featureToLocationLike(feature: MapFeature): Partial<GeoLocation> {
+  const isEnriched = feature.shape === 'teardrop';
+  return {
+    id: feature.id,
+    name: feature.name,
+    coordinates: { lat: feature.latitude, lng: feature.longitude },
+    enrichedData: isEnriched
+      ? ({ descripcion: '__v2_enriched__' } as any)
+      : undefined,
+  };
 }
 
-function createV2Icon(feature: MapFeature, zIndex: number): L.DivIcon {
-  const cfg = getMarkerSizeConfig();
+function createV2Icon(map: L.Map, feature: MapFeature): L.DivIcon {
+  // Sincroniza render mode desde el mapa real (mismo patrón que photo
+  // layer / preview). Sin esto, markers creados antes del primer
+  // `zoomend` entrarían con el default `standard` rompiendo el canon.
+  syncRenderModeFromMap(map);
+
+  const locationLike = featureToLocationLike(feature) as GeoLocation;
+  const isOwn = feature.ownershipSource === 'own';
   const isSelected = feature.state.isSelected;
-  const baseSize = isSelected
-    ? (cfg.default?.base_selected ?? 20)
-    : (cfg.default?.base_normal ?? 14);
 
-  const size = feature.shape === 'teardrop' ? baseSize + 6 : baseSize;
-  const html = getShapeSvg(feature, size, zIndex);
-
-  const anchor = feature.shape === 'teardrop'
-    ? [size / 2, Math.round(size * 1.5)]
-    : [size / 2, size / 2];
-
-  return L.divIcon({
-    className: `v2-marker ${feature.state.isSelected ? 'v2-marker-selected' : ''}`,
-    html,
-    iconSize: [size, feature.shape === 'teardrop' ? Math.round(size * 1.5) : size],
-    iconAnchor: anchor as [number, number],
-  });
+  return createCustomIcon(
+    isSelected,
+    /* isFocused */ false,
+    /* _isEnriched (legacy, ignored) */ false,
+    locationLike,
+    /* _criteriaTimestamp */ 0,
+    /* isRecentlyEnriched */ false,
+    /* collectionTint */ null,
+    isOwn,
+  );
 }
 
 /**
  * Renders V2 MapFeature[] onto a Leaflet map, returning the created markers.
- * Uses zIndexOffset from the marker grammar for proper layering.
+ * Tamaño/paleta/forma se resuelven íntegramente vía `createCustomIcon`.
  */
 export function renderV2Features(
   map: L.Map,
@@ -109,12 +74,9 @@ export function renderV2Features(
   const markers = new Map<string, L.Marker>();
 
   for (const feature of features) {
-    // Resolve grammar for zIndex (visual props already on the feature)
-    const grammar = resolveMarkerGrammar(feature);
-    const icon = createV2Icon(feature, grammar.zIndex);
+    const icon = createV2Icon(map, feature);
     const marker = L.marker([feature.latitude, feature.longitude], {
       icon,
-      zIndexOffset: grammar.zIndex,
     });
 
     // Simple popup with feature name
@@ -139,6 +101,25 @@ export function renderV2Features(
   }
 
   return markers;
+}
+
+/**
+ * Refresca los icons de los markers V2 ya existentes (sin recrear el
+ * marker, preservando popups y handlers). Pensado para `zoomend`: el
+ * canon cambia de banda y el divIcon debe regenerarse.
+ */
+export function refreshV2Icons(
+  map: L.Map,
+  markers: Map<string, L.Marker>,
+  features: MapFeature[],
+): void {
+  if (markers.size === 0) return;
+  const byId = new Map(features.map(f => [f.id, f] as const));
+  markers.forEach((marker, id) => {
+    const feature = byId.get(id);
+    if (!feature) return;
+    marker.setIcon(createV2Icon(map, feature));
+  });
 }
 
 /**
