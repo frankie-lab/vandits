@@ -1,105 +1,53 @@
-# PR-4A.2 — Contadores de POIs en chips de salud
+# PR-4A.3a — Reparación de salud usa el carril Geo existente
 
-## Problema
+## Objetivo
 
-Los chips de salud (Sin filtro / Rellenar huecos / Reparar cadena / Revisar / Reintentar) no informan de cuántos POIs caen en cada bucket. El usuario tiene que hacer click en cada chip para descubrirlo, y el panel se siente "ciego" comparado con el resto de la consola.
+Cuando el usuario confirma una reparación desde el chip "Rellenar huecos" / "Reparar cadena", la `BottomProgressBar` muestra el progreso en el **mismo `GeocodingLane`** que ya existe. Sin nuevo carril, sin store nuevo, sin tocar la RPC.
 
-## Solución (mínima, sin reestructurar)
+## Cambios
 
-Mostrar un contador junto al label de cada chip, derivado del **mismo universo que el resto de filtros** (Explorar) pero **ignorando el propio `healthFilter`** (para no auto-colapsar a 0 los demás buckets cuando uno está activo).
+### 1. `HealthRepairPreviewDialog.tsx`
 
-```
-[ · Sin filtro 4 779 ]  [ · Rellenar huecos 14 ]  [ · Reparar cadena 7 ]  [ · Revisar 2 ]  [ · Reintentar 0 ]
-```
-
-## Helper único
-
-`src/domains/content/lib/location-health-counts.ts` (nuevo):
+Tras un `enqueue_health_repair` exitoso:
 
 ```ts
-export interface HealthBucketCounts {
-  total: number;
-  partial: number;
-  chain: number;
-  review: number;
-  hardError: number;
+if (row?.job_id) {
+  await useGeocodingJobStore.getState().attachToJob(row.job_id);
 }
-export function getHealthBucketCounts(
-  locations: GeoLocation[],
-): HealthBucketCounts
 ```
 
-- Una sola pasada O(n) sobre el array.
-- Reutiliza `hasPartialGeo`, `hasBrokenGeoChain`, `hasReviewFailure`, `hasHardError` de `point-health-rings.ts` (ya canónicos).
-- No filtra; solo cuenta. El caller decide qué universo pasarle.
+- **Guarda `row.job_id != null`** antes de llamar. Si la RPC devolvió `enqueued_count = 0` (audit `no_eligible`), `job_id` es `null` y no hay nada que enganchar — no se llama a `attachToJob`.
+- `attachToJob` ya existe (turno previo). Idempotente.
 
-## Cableado en `FilterBar.tsx`
+### 2. `GeocodingLane.tsx` — copy contextual
 
-Sustituir el array literal `buckets` (líneas 372-379) por uno con `count`:
+El RPC actual ya inserta etiquetas claras (`'health-cta: rellenar huecos admin'`, `'health-cta: reparar cadena'`). Único ajuste:
 
-1. Calcular el universo "filtrado por todo MENOS healthFilter":
-   ```ts
-   const filteredIgnoringHealth = useMemo(() => {
-     const { healthFilter: _omit, ...rest } = filters;
-     return getAllLocations().filter((loc) =>
-       matchesLocationFilters(loc, rest, /* same opts as store */ ...),
-     );
-   }, [filters, getAllLocations]);
-   ```
-   Para evitar re-implementar las opts del matcher (visibility/document/etc.) y mantener paridad transversal, **opción preferida**: reutilizar `filteredLocations` cuando `filters.healthFilter == null` y, cuando hay healthFilter activo, recomputar el universo neutro vía un selector pequeño en el store (`getFilteredIgnoringHealth()`). Decisión final tras leer `locations-store.ts`: si las opts internas son triviales, hacerlo inline; si no, exponer selector. (Implementación: empezar inline; si requiere copiar >5 líneas del store, mover al store.)
-2. `const counts = useMemo(() => getHealthBucketCounts(filteredIgnoringHealth), [filteredIgnoringHealth])`.
-3. Inyectar `count` en cada bucket:
-   - `Sin filtro` → `counts.total`
-   - `Rellenar huecos` → `counts.partial`
-   - `Reparar cadena` → `counts.chain`
-   - `Revisar` → `counts.review`
-   - `Reintentar` → `counts.hardError`
+- Si `scope.source === 'health_cta'`, prefijar el título con `Reparación de salud · {label sin "health-cta: "}`. En caso contrario, copy actual `Normalización geográfica · …` intacto.
+- Sin cambio de icono ni de tono.
 
-## Render del chip
+**Limitación aceptada**: si la reparación de salud se piggybackea sobre un job geo ya en curso (RPC paso 4), el job conserva su `scope.source` original (no-health) y el título seguirá diciendo "Normalización geográfica". El usuario sigue viendo el progreso, sólo el copy puede ser ambiguo. Aceptable para esta iteración: este PR no aísla jobs, eso queda para un PR posterior si se necesita.
 
-Misma fila, mismo `Button` `size="sm"`, mismo gap. El número va como un `<span>` después del label, con tipografía tabular para que no baile:
+### 3. Store — exponer `scope.source`
 
-```tsx
-{b.label}
-<span className="ml-0.5 tabular-nums text-muted-foreground/80 text-[11px]">
-  {formatCount(b.count)}
-</span>
-```
-
-Estilo cuando el chip está `active`: el contador hereda el color del label (no aplicar `text-muted-foreground`). Para puntos miles, usar `Intl.NumberFormat(locale).format(n)` o helper existente si lo hay.
-
-## Reglas / no-regresiones
-
-- **No tocar** la lógica del CTA (`HealthFilterActionCTA`) ni el RPC `enqueue_health_repair` — siguen calculando su scope server-side.
-- **No mover** `healthFilter` a otro lugar; sigue siendo single-select dentro del modo Mantener.
-- **No cambiar** label `Sin filtro` (acordado en PR-4A).
-- Los counts **respetan los demás filtros activos** (Geo/Tipo/Tags/búsqueda). Si el usuario filtra "Galicia", los chips muestran salud SOLO de Galicia. Esto es coherente con la consola operativa: "filtros describen universo".
-- Counts derivados client-side. No afectan al server-side filter del RPC (que opera sobre el mismo universo via `_scope_mode`).
-- Bucket `hardError`/`review` con count 0 sigue siendo clickable (UX consistente; el preview ya maneja "no_eligible").
-
-## Archivos
-
-**Nuevo**
-- `src/domains/content/lib/location-health-counts.ts` — helper + tipo.
-
-**Editado**
-- `src/components/FilterBar.tsx` — `buckets` con count + render del span.
-
-**Memoria**
-- Update `mem://logic/discovery/health-filter-axis`: añadir línea "Chips muestran count del bucket en universo ignorando healthFilter, vía `getHealthBucketCounts`".
-- Sin cambios en Core del index.
-
-## QA
-
-1. Sin filtros → cada chip muestra el count correcto del universo total.
-2. Filtro Geo "Galicia" activo → counts bajan al subset Galicia. `Sin filtro = total Galicia`.
-3. Activar `Rellenar huecos` → el count de los demás chips NO se colapsa a 0; siguen reflejando su bucket en el universo.
-4. Filtro que deja 0 puntos → todos los chips muestran 0 (incluido `Sin filtro`). Sin error.
-5. Tipografía tabular: contador de 4 779 no salta al pasar a 4 780.
-6. Recompute solo cuando cambian filtros o llega realtime (memoizado).
+`geocoding-job-store.ts` → en `applyRow`, mapear `row.scope?.source` a `scope.source` (string opcional). Cero impacto en el resto del flujo.
 
 ## Fuera de alcance
 
-- Iconos / mini-anillos junto al count.
-- Counts en el resto de la app (catálogo, gallery).
-- PR-4B (CatalogSummary, ContextBar, conteos clicables del summary).
+- Carril dedicado "Salud" / `HealthLane`.
+- Split del store por matcher.
+- Modificación del RPC `enqueue_health_repair` para aislar jobs.
+- Jobs paralelos Geo + Salud.
+
+## Criterio de cierre
+
+1. Disparar reparación con elegibles → `BottomProgressBar` aparece, carril Geo muestra "Reparación de salud · …", progresa, desaparece al terminar.
+2. Disparar reparación sin elegibles (RPC devuelve `job_id=null`) → no se llama `attachToJob`, no aparece barra fantasma.
+3. Reparación con job geo ya corriendo → el carril sigue visible, contador sube; el título mantiene "Normalización geográfica" (limitación documentada).
+4. Sin reparación activa → barra oculta.
+
+## Archivos tocados
+
+- `src/components/discovery/HealthRepairPreviewDialog.tsx` — `attachToJob` con guard de `job_id`.
+- `src/stores/geocoding-job-store.ts` — exponer `scope.source` en `applyRow`.
+- `src/shared/progress/GeocodingLane.tsx` — prefijo de título cuando `scope.source === 'health_cta'`.
