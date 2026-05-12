@@ -1541,10 +1541,17 @@ export function LocationMap() {
  useEffect(() => {
  if (!mapRef.current || !markerClusterRef.current) return;
 
+    // Single source of truth para fit / popup refresh / fallback fuera de
+    // viewport-culling: `locationsRef` debe contener SIEMPRE el universo
+    // lógico actual (`locations`), no sólo `markerLocations`.
+    // Si lo vaciamos aquí y lo repoblamos sólo al montar markers visibles,
+    // cualquier subset-fit sobre ids hoy fuera del viewport se queda sin
+    // coordenadas de respaldo y no puede encuadrar el subconjunto de Salud.
+ locationsRef.current = new Map(locations.map((location) => [location.id, location]));
+
     // Clear existing markers from map and layer groups
  markersRef.current.forEach(marker => marker.remove());
  markersRef.current.clear();
- locationsRef.current.clear();
     clearAllGroups();
 
   if (markerLocations.length === 0 && locations.length === 0) return;
