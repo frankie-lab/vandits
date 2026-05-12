@@ -237,6 +237,7 @@ export function FilterBar() {
             tag: 'bg-purple-100 text-purple-700 hover:bg-purple-200',
             classification: 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200',
             search: 'bg-muted text-muted-foreground hover:bg-muted/80',
+            health: 'bg-pink-100 text-pink-700 hover:bg-pink-200',
           };
           const IconByAxis: Record<FilterAxis, typeof MapPin> = {
             geography: MapPin,
@@ -244,6 +245,7 @@ export function FilterBar() {
             tag: Tag,
             classification: Layers,
             search: Search,
+            health: HeartPulse,
           };
           const Icon = IconByAxis[chip.axis];
           return (
