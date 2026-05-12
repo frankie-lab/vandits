@@ -634,6 +634,27 @@ export function GeographyBackfillPanel() {
                     onClose={() => useGeocodingJobStore.getState().clearLastResult()}
                   />
                 )}
+                {selectedIds.size === 0 ? (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 flex gap-2 text-[11px] leading-snug text-amber-900 dark:text-amber-200">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                    <div className="space-y-1">
+                      <div className="font-semibold">Operación masiva</div>
+                      <p>
+                        Vas a procesar los <strong>{universeTotal.toLocaleString()}</strong> puntos del universo. Esto puede tardar y consume cuota.
+                      </p>
+                      <p className="opacity-80">
+                        Para reparar un subconjunto pequeño, usa el filtro <strong>Salud</strong> en el mapa.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-border bg-muted/30 p-2.5 flex gap-2 text-[11px] leading-snug text-muted-foreground">
+                    <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                    <p>
+                      Procesarás los <strong className="text-foreground">{selectedIds.size.toLocaleString()}</strong> puntos seleccionados en el árbol.
+                    </p>
+                  </div>
+                )}
                 <Button
                   onClick={handleStart}
                   className="w-full"
