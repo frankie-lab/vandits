@@ -300,6 +300,14 @@ export const createCustomIcon = (
     const imgHtml = heroUrl
       ? `<img class="poi-hero-marker__img" src="${safeUrl}" alt="" referrerpolicy="no-referrer" onerror="${onerror}" />`
       : '';
+    // Coherence glyph (Health Rings v2): solo cuando bucket=review y kind
+    // original=coherence con mismatchKind. Badge magenta circular 14×14
+    // en esquina superior derecha de la polaroid. SVG path estático
+    // (Lucide MapPin/Type) — cero React per marker.
+    const glyph = getCoherenceGlyph(location);
+    const glyphHtml = glyph
+      ? `<div style="position:absolute; top:-4px; right:-4px; width:14px; height:14px; border-radius:50%; background:hsl(var(--poi-health-review) / 0.95); display:flex; align-items:center; justify-content:center; pointer-events:none; box-shadow:0 0 0 1.5px hsl(var(--background));"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${getCoherenceGlyphPath(glyph)}</svg></div>`
+      : '';
     polaroidHtml = `
       <div class="poi-hero-marker poi-hero-marker--addon${ownClass}" style="position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%); width:${polaroidW}px; height:${polaroidH}px; pointer-events:none; --marker-state-color:${entry.fill_color};">
         <div class="poi-hero-marker__card">
@@ -307,6 +315,7 @@ export const createCustomIcon = (
             <div class="poi-hero-marker__placeholder">${placeholderSvg}</div>
             ${imgHtml}
           </div>
+          ${glyphHtml}
         </div>
         <svg class="poi-hero-marker__pointer" width="14" height="${pointerH + 1}" viewBox="0 0 14 7" aria-hidden="true">
           <path d="M0 0 H14 L7 7 Z" fill="hsl(var(--background))" stroke="var(--marker-state-color)" stroke-width="1" stroke-linejoin="miter"/>
