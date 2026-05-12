@@ -30,6 +30,7 @@ import {
   scopeModeLabel,
 } from '@/domains/discovery/lib/health-filter-scope';
 import { getHierarchyBreadcrumb } from '@/shared/geography/hierarchy';
+import { requestSubsetFit } from '@/components/map/subset-fit';
 
 const FILTER_TITLES: Record<HealthFilter, string> = {
   partial:   'Rellenar huecos',
