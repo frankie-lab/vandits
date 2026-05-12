@@ -1345,8 +1345,18 @@ export function LocationMap() {
       const id = (e.popup.options as { locationId?: string })?.locationId ?? null;
       setOpenPopupLocationId(id);
     });
-    mapRef.current.on('popupclose', () => {
+    mapRef.current.on('popupclose', (e: L.PopupEvent) => {
+      const closedId = (e.popup.options as { locationId?: string })?.locationId ?? null;
       setOpenPopupLocationId(null);
+      // PR-POPUP-PERSIST: si el marker fue preservado como excepción visual
+      // (POI fuera del subset actual), eliminarlo al cerrar el popup.
+      if (closedId && !allowedMarkerIdsRef.current.has(closedId)) {
+        const orphan = markersRef.current.get(closedId);
+        if (orphan) {
+          orphan.remove();
+          markersRef.current.delete(closedId);
+        }
+      }
     });
     const resizeObserver = new ResizeObserver(() => {
       const map = mapRef.current;
