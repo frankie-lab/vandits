@@ -99,6 +99,8 @@ import {
   getTintForLocation,
   getTintForRoute,
 } from '@/domains/content/lib/collection-visibility';
+import { SUBSET_FIT_BOUNDS_EVENT, type SubsetFitDetail } from './map/subset-fit';
+import { ZOOM_THRESHOLDS } from '@/design-system/map/rules/zoom-thresholds';
 
 
 // Fix for default marker icons
