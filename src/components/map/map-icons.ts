@@ -75,6 +75,24 @@ export const setCurrentZoom = (zoom: number): void => {
   currentZoom = zoom;
 };
 
+/**
+ * Sincroniza `currentZoom` (y por tanto el render mode derivado) leyendo
+ * directamente del mapa. Llamar SIEMPRE desde cualquier call-site que cree
+ * markers fuera del effect principal de `LocationMap` (preview, photo,
+ * route, etc.) para evitar que entren con el default `standard` y rompan
+ * la regla canónica de bandas por zoom.
+ */
+export const syncRenderModeFromMap = (map: L.Map | null | undefined): void => {
+  if (!map) return;
+  try {
+    const z = map.getZoom();
+    if (typeof z === 'number' && Number.isFinite(z)) {
+      currentZoom = z;
+      currentRenderMode = getRenderModeForZoom(z);
+    }
+  } catch { /* noop */ }
+};
+
 export const getCurrentRenderMode = (): MarkerRenderMode => currentRenderMode;
 
 export const createCustomIcon = (
