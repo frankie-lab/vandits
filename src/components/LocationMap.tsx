@@ -1494,7 +1494,10 @@ export function LocationMap() {
  closeButton: true,
  autoPan: true,
  autoPanPadding: L.point(50, 80),
- });
+ // Viewport Culling v1: identifica el POI dueño del popup en map-level
+ // popupopen/popupclose para mantenerlo en `keepIds`.
+ locationId: location.id,
+ } as L.PopupOptions & { locationId: string });
 
  marker.on('click', function (this: L.Marker) {
  this.openPopup();
