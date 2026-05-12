@@ -23,6 +23,11 @@ import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
 import { MapScaleBar } from './MapScaleBar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useMapCenterConfig, MapCenterConfig } from './MapCenterSettings';
+import { ZOOM_THRESHOLDS } from '@/design-system/map/rules/zoom-thresholds';
+
+// Zoom de arranque polaroid: leemos del canon (richMin del design system) para
+// no romper si el token cambia. Hoy = 12.
+const INITIAL_GEOLOCATION_ZOOM = ZOOM_THRESHOLDS.richMin;
 import { toast } from 'sonner';
 import { playEnrichmentComplete } from '@/lib/sounds';
 import { usePermissions } from '@/domains/identity';
