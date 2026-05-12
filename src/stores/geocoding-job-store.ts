@@ -335,6 +335,31 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
       `Geocodificación lanzada. Continúa en segundo plano${scope?.label ? ` (${scope.label})` : ''}.`,
     );
   },
+  attachToJob: async (jobId: string) => {
+    if (!jobId) return;
+    // Idempotent: if we're already tracking this job, no-op.
+    if (get().jobId === jobId && get().running) return;
+    try {
+      const { data: row, error } = await supabase
+        .from('geocoding_jobs')
+        .select('*')
+        .eq('id', jobId)
+        .maybeSingle();
+      if (error) {
+        console.warn('[geocoding-job] attachToJob fetch failed:', error.message);
+        return;
+      }
+      if (!row) return;
+      applyRow(row);
+      // Only subscribe when still active; applyRow handles terminal states.
+      const status = (row as Record<string, unknown>).status;
+      if (status === 'running' || status === 'canceling') {
+        subscribeToJob(jobId);
+      }
+    } catch (err) {
+      console.error('[geocoding-job] attachToJob failed:', err);
+    }
+  },
 }));
 
 /**
