@@ -51,16 +51,17 @@ const RING_GAP = RING_WIDTH;
 export type MarkerRenderMode = 'micro' | 'compact' | 'standard' | 'rich';
 
 let currentRenderMode: MarkerRenderMode = 'standard';
+let currentZoom = 12;
 
 export const getRenderModeForZoom = (zoom: number): MarkerRenderMode => {
   // Fuente única: tokens/map.json (ZOOM_THRESHOLDS). NO hardcodear umbrales aquí.
-  // Bandas: zoom ≤ microMax → micro; zoom ≥ richMin → rich (polaroid);
-  // resto = compact (dot estándar). `standard` queda absorbido por `rich`
-  // desde que richMin bajó a 11 (ver `mem://style/map/zoom-driven-hero`).
-  const { microMax, richMin, standardMax } = ZOOM_THRESHOLDS;
+  // Bandas: micro ≤ microMax · compact ≤ compactMax · standard ≤ standardMax · rich ≥ richMin.
+  // standard vuelve a existir como banda real (z13–15) — la polaroid solo entra en z≥16.
+  const { microMax, compactMax, standardMax, richMin } = ZOOM_THRESHOLDS;
   if (zoom <= microMax) return 'micro';
+  if (zoom <= compactMax) return 'compact';
+  if (zoom <= standardMax) return 'standard';
   if (zoom >= richMin) return 'rich';
-  if (zoom <= standardMax) return 'compact';
   return 'rich';
 };
 
@@ -68,6 +69,10 @@ export const setCurrentRenderMode = (mode: MarkerRenderMode): boolean => {
   if (currentRenderMode === mode) return false;
   currentRenderMode = mode;
   return true;
+};
+
+export const setCurrentZoom = (zoom: number): void => {
+  currentZoom = zoom;
 };
 
 export const getCurrentRenderMode = (): MarkerRenderMode => currentRenderMode;
