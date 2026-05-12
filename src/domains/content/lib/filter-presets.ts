@@ -26,7 +26,7 @@
  */
 import type { FilterCriteria } from '@/types/location';
 
-/** Claves del eje "Estado" + búsqueda. Estas son las que limpia "Todos". */
+/** Claves del eje "Estado" + búsqueda + salud. Estas son las que limpia "Todos". */
 const STATE_KEYS = [
   'searchTerm',
   'onlyEnriched',
@@ -35,6 +35,7 @@ const STATE_KEYS = [
   'visualState',
   'visitedFilter',
   'semanticResultIds',
+  'healthFilter',
 ] as const;
 
 /** Claves del eje "Clasificación" (NO se tocan en resetAllFilters). */
