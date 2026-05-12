@@ -1088,6 +1088,31 @@ export function LocationMap() {
     };
   }, [userLocation]);
 
+  // Broadcast locate-me state so external UI (FloatingToolbar) can render the button.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('map-locate-state', {
+      detail: {
+        locating,
+        isCenteredOnUser,
+        hasUserLocation: !!userLocation,
+        mapTheme,
+      },
+    }));
+  }, [locating, isCenteredOnUser, userLocation, mapTheme]);
+
+  // Listen for external toggle requests from FloatingToolbar.
+  useEffect(() => {
+    const onToggle = () => {
+      if (isCenteredOnUser) {
+        zoomToBounds(false);
+      } else {
+        void handleLocateMe();
+      }
+    };
+    window.addEventListener('map-locate-toggle', onToggle);
+    return () => window.removeEventListener('map-locate-toggle', onToggle);
+  }, [isCenteredOnUser, handleLocateMe, zoomToBounds]);
+
   // Update home marker when config changes
  useEffect(() => {
  if (!mapRef.current) return;
