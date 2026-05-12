@@ -43,7 +43,10 @@ import { CLASSIFICATION_TREE } from './filters/ClassificationTree';
 import { loadLocationsFromDatabase } from '@/domains/content';
 import { HealthFilterActionCTA } from './discovery/HealthFilterActionCTA';
 import { useSelectionFitOnStart } from './discovery/use-selection-fit-on-start';
+import { getHealthBucketCounts } from '@/domains/content/lib/location-health-counts';
 import { toast } from 'sonner';
+
+const COUNT_FORMATTER = new Intl.NumberFormat('es-ES');
 
 export function FilterBar() {
   const { 
