@@ -1034,7 +1034,32 @@ export function LocationMap() {
 
  marker.addTo(mapRef.current);
  userLocationMarkerRef.current = marker;
- }, [userLocation, createUserLocationIcon]);
+  }, [userLocation, createUserLocationIcon]);
+
+  // Track whether the map is currently centered on user's location
+  // (proximity-based detection: <150m and zoom >= 13).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const recompute = () => {
+      if (!userLocation) {
+        setIsCenteredOnUser(false);
+        return;
+      }
+      try {
+        const center = map.getCenter();
+        const dist = map.distance(center, [userLocation.lat, userLocation.lng]);
+        setIsCenteredOnUser(dist < 150 && map.getZoom() >= 13);
+      } catch {
+        setIsCenteredOnUser(false);
+      }
+    };
+    recompute();
+    map.on('moveend zoomend', recompute);
+    return () => {
+      map.off('moveend zoomend', recompute);
+    };
+  }, [userLocation]);
 
   // Update home marker when config changes
  useEffect(() => {
