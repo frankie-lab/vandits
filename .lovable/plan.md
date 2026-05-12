@@ -1,50 +1,117 @@
-## Objetivo
+# Health Workflow Split — PR-3A (Contextual CTA + Preview, sin escritura)
 
-Que los health rings (`partial`/`chain`/`review`/`hardError`) sean visibles **2 niveles de zoom antes** que ahora.
+Sólo PR-3A. Cierra el bucle "detectar → previsualizar" desde el mapa con scope estricto y guardarraíles. **Cero escrituras en BD. Cero cambios en Back Office.**
 
-- Hoy: visibles solo en `standard` (z9–11) y `rich` (z≥12).
-- Después: visibles también en `compact` (z7–8). Es decir, **a partir de z7**.
-- `micro` (z≤6) sigue **sin rings** — los dots planos miden 2–6px y los aros de 5px no caben (regla "no rings por debajo de compact" se mantiene como tope técnico).
+## Principios (duros)
 
-## Cambio único (transversal, helper único)
-
-Toda la decisión vive en `createCustomIcon` (`src/components/map/map-icons.ts`, línea 204):
-
-```ts
-// antes
-const skipHealthRings = renderMode === 'compact';
-// después
-const skipHealthRings = false; // micro ya retornó arriba; compact/standard/rich pintan rings
+```
+Mapa       = previsualización local sobre subconjunto seguro
+Backoffice = sin cambios en este PR
 ```
 
-`getPointHealthRings` no cambia (sigue siendo la única fuente de qué aros aplican). El gradient sigue saltado en compact (`skipGradient` queda intacto) — solo añadimos los aros.
+- Scope **nunca** usa `markerLocations` (viewport culling) salvo opt-in explícito.
+- Sin `healthFilter` activo → CTA no se renderiza.
+- Selección manual no vacía → tiene prioridad sobre filtered.
+- "Sólo visibles" es **opt-in explícito** (toggle off por defecto).
+- `review` abre panel manual, no modal de reparación.
+- Ninguna acción escribe en BD.
 
-## Consecuencias visuales
+---
 
-- En z7–8 (compact) los markers planos ganan halos de 5px. Padding del divIcon (`ringPad = ringCount * RING_GAP + 2`) ya está calculado en cada render → no hay clipping ni recolocación manual.
-- El `collection-tint-ring` y el stroke blanco interior siguen entre el marker y los health rings (regla aditiva intacta).
-- `rich`-only sigue exclusivo del glyph MapPin/Type para `coherence + mismatchKind` (no se baja a compact).
+## Alcance PR-3A
 
-## Tokens y memoria
+### 1. Helper único de scope
 
-- Actualizar el bloque "Canon POI por zoom" en `mem://index.md` y `mem://style/map/poi-zoom-canon`: la línea de `compact` pasa a "SVG plano + tint **+ health rings**, sin gradient/polaroid".
-- Actualizar `mem://style/map/health-rings-rule` y el bloque core "Health Rings v2": condición `renderMode ∈ {compact, standard, rich}`.
-- Stories Storybook (`HealthRing.stories.tsx > NoRingsBelowStandard`) — renombrar a `NoRingsInMicro` y dejar solo el caso `micro` como negativo. El caso `compact` pasa a positivo (con rings) en una nueva story.
+`src/domains/discovery/lib/health-filter-scope.ts`
 
-## Verificación (QA)
+```ts
+type ScopeMode = 'filtered' | 'selection' | 'viewport';
 
-1. Mapa global a z7 y z8 con un punto naranja en `partial` + `hardError`: deben verse los dos aros (amber + rojo) alrededor del SVG plano.
-2. Mismo punto a z6: **sin rings** (sigue siendo dot 3px).
-3. Punto verde con `chain`: aro amarillo visible desde z7.
-4. Densidad: comprobar que en z7 con muchos puntos los aros no producen overlap visible molesto (el culling de viewport en z7–8 ya limita a la ventana ampliada).
+interface HealthScopeCtx {
+  filteredLocations: Location[];   // verdad lógica del filtro
+  selectedLocations: Location[];   // selección manual
+  visibleLocations: Location[];    // viewport (sólo si modo='viewport')
+  healthFilter: HealthFilterValue; // partial | chain | review | hardError | null
+  onlyVisible: boolean;            // toggle opt-in del CTA
+}
 
-## Archivos a tocar
+getHealthFilterScopeIds(ctx): { ids: string[]; total: number; mode: ScopeMode }
+```
 
-- `src/components/map/map-icons.ts` — 1 línea (204).
-- `src/design-system/map/__stories__/HealthRing.stories.tsx` — story `NoRingsBelowStandard` se actualiza.
-- `mem://index.md`, `mem://style/map/poi-zoom-canon`, `mem://style/map/health-rings-rule` — texto de la regla.
+Resolución de modo (precedencia):
+1. `selectedLocations.length > 0` → `mode='selection'`, ids = selección ∩ filtered.
+2. `onlyVisible === true` → `mode='viewport'`, ids = visible ∩ filtered.
+3. default → `mode='filtered'`, ids = filteredLocations cuyo `getPointHealthRings(loc)` contenga `healthFilter`.
+4. Sin `healthFilter` → `{ ids: [], total: 0 }`, CTA oculto.
 
-## No-cambios
+Tests (`src/test/health-filter-scope.test.ts`):
+- precedencia selection > viewport > filtered
+- viewport requiere opt-in
+- verde nunca entra en review/hardError (consecuencia del helper)
+- sin healthFilter → ids vacíos
 
-- `getPointHealthRings`, `getEnrichmentFailureBucket`, tokens de color (`--poi-health-*`), grosor de aro (`RING_WIDTH=5`), gap, glyph rich-only: intactos.
-- `home`/`auto`, `createCustomIcon` para V2, photo, preview: heredan automáticamente porque todos pasan por el mismo helper.
+### 2. CTA contextual en FilterBar
+
+`src/components/discovery/HealthFilterActionCTA.tsx`
+
+- Sólo se renderiza si hay `healthFilter` activo.
+- Etiqueta + contador del subconjunto: `Reparar cadenas (47)`.
+- Toggle adyacente "Sólo visibles" (off por defecto). Se oculta si hay selección manual no vacía (la selección manda).
+- Tabla de mapeo (riesgo declarado, no ejecutado en este PR):
+
+| Filtro       | Etiqueta CTA      | Acción al click (PR-3A)      | Riesgo  |
+|--------------|-------------------|------------------------------|---------|
+| `partial`    | Rellenar huecos   | abrir HealthRepairPreviewDialog | bajo    |
+| `chain`      | Reparar cadenas   | abrir HealthRepairPreviewDialog | medio   |
+| `hardError`  | Reintentar        | abrir HealthRepairPreviewDialog | bajo    |
+| `review`     | Abrir revisión    | abrir UnenrichedRecoveryBlock (manual) | manual |
+
+`review` no abre el preview dialog — abre directamente el panel manual existente.
+
+### 3. Preview modal (sin escritura)
+
+`src/components/discovery/HealthRepairPreviewDialog.tsx`
+
+Contenido:
+- Header: verbo + scope (`Reparar cadenas — 47 puntos`).
+- Línea de scope: `Modo: filtro activo` / `selección manual` / `sólo visibles` (según `ScopeMode`).
+- Lista de los **primeros 10** puntos (nombre + breadcrumb geo + chip de health).
+- Total + filtro origen.
+- Footer: **únicamente `Cerrar`**. No hay botón de confirmación deshabilitado en este PR — se evita la confusión visual de un CTA inactivo. La acción real llegará en PR-3B.
+
+### 4. Sin cambios en Back Office, sin renaming
+
+- Cero modificaciones en páginas admin.
+- Cero modificaciones en memorias salvo añadir nota en `mem://logic/discovery/health-filter-axis` describiendo el CTA, el helper de scope y la regla de precedencia.
+
+### 5. Tests y verificación
+
+- Unit: `health-filter-scope.test.ts` (precedencia, viewport opt-in, casos vacíos).
+- Component: render del CTA cuando hay filtro activo, oculto cuando no, contador correcto al alternar `Sólo visibles`, `review` no abre preview.
+- Manual QA en `/`: cada filtro de salud abre la superficie correcta; el dialog lista los 10 puntos del scope correcto y no escribe BD.
+
+---
+
+## Detalles técnicos
+
+- Cero cambios en edge functions, RPCs, schema o Back Office.
+- Cero cambios visuales en markers/rings/popups.
+- CTA: `Button` variant `cta` size `sm`. Toggle "Sólo visibles": variant `filter-chip`.
+- Lectura de `filteredLocations`/`selectedLocations`/`visibleLocations` desde `discovery-store` (todos ya disponibles).
+- Dialog reutiliza `Dialog` primitive del design system y tokens existentes.
+
+## Diferido (no en este PR)
+
+- **PR-3B**: añadir botón de confirmación + cableado real al job (`geocoding_jobs` con `location_ids`, `batch-enrich` para hardError) + audit log + cancelación.
+- **PR-3C**: reetiquetar Back Office a "Mantenimiento geográfico (Admin)" tras medir uso.
+- **PR-3D**: unificar naming en toda la app + memoria `mem://logic/health/workflow-split`.
+
+## Condiciones de cierre PR-3A
+
+- [x] Scope nunca usa `markerLocations`.
+- [x] Sin `healthFilter` activo no hay CTA.
+- [x] Selección manual no vacía tiene prioridad sobre filtered.
+- [x] "Sólo visibles" es opt-in explícito.
+- [x] `review` abre panel manual, no modal de reparación.
+- [x] Ninguna acción escribe en BD.
+- [x] Dialog cierra con un único botón `Cerrar` (sin confirm deshabilitado).

@@ -38,6 +38,7 @@ import {
 } from '@/domains/content/lib/filter-presets';
 import { CLASSIFICATION_TREE } from './filters/ClassificationTree';
 import { loadLocationsFromDatabase } from '@/domains/content';
+import { HealthFilterActionCTA } from './discovery/HealthFilterActionCTA';
 import { toast } from 'sonner';
 
 export function FilterBar() {
@@ -317,6 +318,11 @@ export function FilterBar() {
         });
       })()}
     </div>
+    <HealthFilterActionCTA
+      healthFilter={filters.healthFilter ?? null}
+      filteredLocations={filteredLocations as any}
+      selectedLocationIds={selectedLocations}
+    />
   </div>
 
 
