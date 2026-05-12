@@ -331,7 +331,7 @@ export const createCustomIcon = (
         return ` drop-shadow(0 0 0 ${cumulativeOffset}px ${RING_COLORS[ring]})`;
       })
       .join('');
-    const hasErrorRing = healthRings.includes('error');
+    const hasErrorRing = healthRings.includes('hardError') || healthRings.includes('review');
 
     return L.divIcon({
       className: `custom-marker${isRecentlyEnriched ? ' recently-enriched' : ''}${hasErrorRing ? ' has-enrichment-error' : ''}`,
