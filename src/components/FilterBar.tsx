@@ -299,190 +299,214 @@ export function FilterBar() {
           el universo de puntos se muestra completo y los únicos ejes de
           filtrado son clasificación (Geo / Tipo / Tags / Legacy) y búsqueda. */}
 
-  {/* Eje "Salud operativa" (Health Rings v2) — single-select.
-      Anti-overflow: scroll horizontal en viewports estrechos. */}
-  <div className="space-y-1.5">
-    <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-      <HeartPulse className="w-3 h-3" />
-      Salud
-    </div>
-    <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin">
-      {(() => {
-        const buckets: Array<{ id: HealthFilter | null; label: string; cssVar?: string }> = [
-          { id: null,        label: 'Todos' },
-          { id: 'partial',   label: 'Rellenar huecos', cssVar: '--poi-health-partial' },
-          { id: 'chain',     label: 'Reparar cadena',  cssVar: '--poi-health-chain' },
-          { id: 'review',    label: 'Revisar',         cssVar: '--poi-health-review' },
-          { id: 'hardError', label: 'Reintentar',      cssVar: '--poi-health-hard-error' },
-        ];
-        return buckets.map((b) => {
-          const active = (filters.healthFilter ?? null) === b.id;
+  {/* === PR-4A: Panel modes === */}
+  <PanelModeTabs
+    value={panelMode}
+    onChange={setPanelMode}
+    exploreActive={hasActiveChips}
+    maintainActive={!!filters.healthFilter}
+    selectActive={selectedCount > 0}
+  />
+
+  {/* ── Modo Explorar: Geo / Tipo / Tags / Legacy ── */}
+  {panelMode === 'explore' && (
+    <Tabs defaultValue="geography" className="w-full">
+      <TabsList className="grid w-full grid-cols-4 h-9">
+        {(() => {
+          const hasAxis = (axis: FilterAxis) => activeChips.some((c) => c.axis === axis);
           return (
-            <Button
-              key={b.id ?? 'all'}
-              type="button"
-              variant={active ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                const next = { ...filters };
-                if (b.id == null || active) {
-                  delete (next as Record<string, unknown>).healthFilter;
-                } else {
-                  next.healthFilter = b.id;
-                }
-                setFilters(next);
-              }}
-              className="h-7 px-2 text-xs gap-1.5 shrink-0"
-            >
-              {b.cssVar && (
-                <span
-                  aria-hidden
-                  className="inline-block w-2 h-2 rounded-full"
-                  style={{ background: `hsl(var(${b.cssVar}))` }}
-                />
-              )}
-              {b.label}
-            </Button>
+            <>
+              <TabsTrigger value="geography" className="text-xs gap-1 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">
+                <MapPin className="w-3 h-3" />
+                Geo
+                {hasAxis('geography') && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+              </TabsTrigger>
+              <TabsTrigger value="classification" className="text-xs gap-1 data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700">
+                <Layers className="w-3 h-3" />
+                Tipo
+                {hasAxis('classification') && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+              </TabsTrigger>
+              <TabsTrigger value="tags" className="text-xs gap-1 data-[state=active]:bg-purple-100 data-[state=active]:text-purple-700">
+                <Tag className="w-3 h-3" />
+                Tags
+                {hasAxis('tag') && <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />}
+              </TabsTrigger>
+              <TabsTrigger value="types" className="text-xs gap-1 data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700">
+                <Building2 className="w-3 h-3" />
+                Legacy
+                {hasAxis('placeType') && <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
+              </TabsTrigger>
+            </>
           );
-        });
-      })()}
+        })()}
+      </TabsList>
+
+      <TabsContent value="geography" className="mt-2 min-w-0 overflow-hidden">
+        <GeographyTree />
+      </TabsContent>
+      <TabsContent value="classification" className="mt-2 min-w-0 overflow-hidden">
+        <ClassificationTree />
+      </TabsContent>
+      <TabsContent value="tags" className="mt-2 min-w-0 overflow-hidden">
+        <TagsTree />
+      </TabsContent>
+      <TabsContent value="types" className="mt-2 min-w-0 overflow-hidden">
+        <PlaceTypeFilter />
+      </TabsContent>
+    </Tabs>
+  )}
+
+  {/* ── Modo Mantener: Salud + CTA separado ── */}
+  {panelMode === 'maintain' && (
+    <div className="space-y-2">
+      <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+        <HeartPulse className="w-3 h-3" />
+        Filtro de salud
+      </div>
+      <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin">
+        {(() => {
+          const buckets: Array<{ id: HealthFilter | null; label: string; cssVar?: string }> = [
+            { id: null,        label: 'Sin filtro' },
+            { id: 'partial',   label: 'Rellenar huecos', cssVar: '--poi-health-partial' },
+            { id: 'chain',     label: 'Reparar cadena',  cssVar: '--poi-health-chain' },
+            { id: 'review',    label: 'Revisar',         cssVar: '--poi-health-review' },
+            { id: 'hardError', label: 'Reintentar',      cssVar: '--poi-health-hard-error' },
+          ];
+          return buckets.map((b) => {
+            const active = (filters.healthFilter ?? null) === b.id;
+            return (
+              <Button
+                key={b.id ?? 'all'}
+                type="button"
+                variant={active ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  const next = { ...filters };
+                  if (b.id == null || active) {
+                    delete (next as Record<string, unknown>).healthFilter;
+                  } else {
+                    next.healthFilter = b.id;
+                  }
+                  setFilters(next);
+                }}
+                className="h-7 px-2 text-xs gap-1.5 shrink-0"
+              >
+                {b.cssVar && (
+                  <span
+                    aria-hidden
+                    className="inline-block w-2 h-2 rounded-full"
+                    style={{ background: `hsl(var(${b.cssVar}))` }}
+                  />
+                )}
+                {b.label}
+              </Button>
+            );
+          });
+        })()}
+      </div>
+      <Separator />
+      <div className="space-y-1.5">
+        <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+          Acción sobre subconjunto
+        </div>
+        <HealthFilterActionCTA
+          healthFilter={filters.healthFilter ?? null}
+          filteredLocations={filteredLocations as any}
+          selectedLocationIds={selectedLocations}
+        />
+      </div>
     </div>
-    <HealthFilterActionCTA
-      healthFilter={filters.healthFilter ?? null}
-      filteredLocations={filteredLocations as any}
-      selectedLocationIds={selectedLocations}
-    />
-  </div>
+  )}
 
-
- {/* Tabbed filters */}
- <Tabs defaultValue="geography" className="w-full">
- <TabsList className="grid w-full grid-cols-4 h-9">
-  {(() => {
-    const hasAxis = (axis: FilterAxis) => activeChips.some((c) => c.axis === axis);
-    return (
-      <>
-        <TabsTrigger value="geography" className="text-xs gap-1 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">
-          <MapPin className="w-3 h-3" />
-          Geo
-          {hasAxis('geography') && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
-        </TabsTrigger>
-        <TabsTrigger value="classification" className="text-xs gap-1 data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700">
-          <Layers className="w-3 h-3" />
-          Tipo
-          {hasAxis('classification') && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}
-        </TabsTrigger>
-        <TabsTrigger value="tags" className="text-xs gap-1 data-[state=active]:bg-purple-100 data-[state=active]:text-purple-700">
-          <Tag className="w-3 h-3" />
-          Tags
-          {hasAxis('tag') && <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />}
-        </TabsTrigger>
-        <TabsTrigger value="types" className="text-xs gap-1 data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700">
-          <Building2 className="w-3 h-3" />
-          Legacy
-          {hasAxis('placeType') && <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
-        </TabsTrigger>
-      </>
-    );
-  })()}
- </TabsList>
- 
-  <TabsContent value="geography" className="mt-2 min-w-0 overflow-hidden">
- <GeographyTree />
- </TabsContent>
- 
- <TabsContent value="classification" className="mt-2 min-w-0 overflow-hidden">
- <ClassificationTree />
- </TabsContent>
- 
- <TabsContent value="tags" className="mt-2 min-w-0 overflow-hidden">
- <TagsTree />
- </TabsContent>
- 
- <TabsContent value="types" className="mt-2 min-w-0 overflow-hidden">
- <PlaceTypeFilter />
- </TabsContent>
-  </Tabs>
-   </div>
-
-   {/* Sticky footer: selection actions + controls */}
-   <div className="shrink-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-2 mt-2 space-y-2">
-    {/* Bulk actions on selected points */}
-    <SelectionActions />
-    {/* Selection controls */}
-    <div className="flex items-center justify-between text-sm">
-     <div className="flex items-center gap-2">
-      <span className="text-muted-foreground">
-       <span className="font-medium text-foreground">{selectedCount}</span> seleccionados
-      </span>
-     </div>
-     <div className="flex gap-1">
-      <Button
-       variant="ghost"
-       size="sm"
-       onClick={selectAllLocations}
-       className="text-xs h-7"
-      >
-       Seleccionar todo
-      </Button>
-      <Button
-       variant="ghost"
-       size="sm"
-       onClick={clearSelection}
-       className="text-xs h-7"
-       disabled={selectedCount === 0}
-      >
-       Limpiar
-      </Button>
-     </div>
-    </div>
-
-    {/* Quick select by filter */}
-    {hasActiveChips && filteredCount > 0 && (
-     <div className="flex items-center gap-2">
-      <Button
-       variant="secondary"
-       size="sm"
-       onClick={() => selectByFilter(filters)}
-       className="flex-1 text-xs"
-      >
-       Seleccionar {filteredCount} puntos filtrados
-      </Button>
-      {filteredCount < stats.total && (
-       <AlertDialog>
-        <AlertDialogTrigger asChild>
-         <Button
-          variant="outline"
-          size="icon"
-          disabled={isDeleting}
-          className="h-8 w-8 shrink-0 border-red-300 text-red-600 hover:bg-red-50"
-          title={`Eliminar ${filteredCount} ubicaciones`}
-         >
-          {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-         </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-         <AlertDialogHeader>
-          <AlertDialogTitle>¿Eliminar {filteredCount} ubicaciones?</AlertDialogTitle>
-          <AlertDialogDescription>
-           Se moverán a la papelera. Podrás restaurarlas en los próximos 30 días.
-          </AlertDialogDescription>
-         </AlertDialogHeader>
-         <AlertDialogFooter>
-          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-          <AlertDialogAction
-           onClick={handleBulkDelete}
-           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
-           Eliminar
-          </AlertDialogAction>
-         </AlertDialogFooter>
-        </AlertDialogContent>
-       </AlertDialog>
+  {/* ── Modo Seleccionar: bulk actions + controles ── */}
+  {panelMode === 'select' && (
+    <div className="space-y-2">
+      {selectedCount === 0 ? (
+        <AppEmptyState
+          title="Sin selección"
+          description="Selecciona puntos en el mapa o usa Seleccionar todo / Seleccionar filtrados."
+        />
+      ) : (
+        <SelectionActions />
       )}
-     </div>
-    )}
+
+      <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground">
+            <span className="font-medium text-foreground">{selectedCount}</span> seleccionados
+          </span>
+        </div>
+        <div className="flex gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={selectAllLocations}
+            className="text-xs h-7"
+          >
+            Seleccionar todo
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearSelection}
+            className="text-xs h-7"
+            disabled={selectedCount === 0}
+          >
+            Limpiar
+          </Button>
+        </div>
+      </div>
+
+      {hasActiveChips && filteredCount > 0 && (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => selectByFilter(filters)}
+            className="flex-1 text-xs"
+          >
+            Seleccionar {filteredCount} puntos filtrados
+          </Button>
+          {filteredCount < stats.total && selectedCount > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={isDeleting}
+                  className="h-8 w-8 shrink-0 border-red-300 text-red-600 hover:bg-red-50"
+                  title={`Eliminar ${filteredCount} ubicaciones`}
+                >
+                  {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Eliminar {filteredCount} ubicaciones?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Se moverán a la papelera. Podrás restaurarlas en los próximos 30 días.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleBulkDelete}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Eliminar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
+      )}
+    </div>
+  )}
    </div>
+  </div>
+  );
+}
   </div>
   );
 }
