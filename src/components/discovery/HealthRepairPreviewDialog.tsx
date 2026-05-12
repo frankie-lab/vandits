@@ -77,7 +77,13 @@ export function HealthRepairPreviewDialog({
   const remainder = Math.max(0, scope.total - sample.length);
 
   const [submitting, setSubmitting] = React.useState(false);
-  const canConfirm = REPAIRABLE.has(filter) && scope.total > 0 && !submitting;
+  const [exhausted, setExhausted] = React.useState(false);
+  const canConfirm = REPAIRABLE.has(filter) && scope.total > 0 && !submitting && !exhausted;
+
+  // Reset exhausted state when scope or filter changes
+  React.useEffect(() => {
+    setExhausted(false);
+  }, [filter, scope.mode, scope.total]);
 
   const handleConfirm = React.useCallback(async () => {
     if (!REPAIRABLE.has(filter) || scope.ids.length === 0) return;
@@ -91,12 +97,14 @@ export function HealthRepairPreviewDialog({
       if (error) throw error;
       const row = Array.isArray(data) ? data[0] : data;
       const enq = row?.enqueued_count ?? 0;
-      toast.success(
-        enq > 0
-          ? `Encolados ${enq} ${enq === 1 ? 'punto' : 'puntos'} para reparación`
-          : 'Sin nuevos puntos a encolar (ya estaban en cola)',
-      );
-      onOpenChange(false);
+      if (enq > 0) {
+        toast.success(`Encolados ${enq} ${enq === 1 ? 'punto' : 'puntos'} para reparación`);
+        onOpenChange(false);
+      } else {
+        // Input válido pero 0 elegibles, o todo ya en cola. Audit registrado.
+        toast.info('Sin puntos elegibles ahora mismo. Acción auditada.');
+        setExhausted(true);
+      }
     } catch (err) {
       console.error('[health-repair] enqueue failed', err);
       toast.error('No se pudo encolar la reparación', {
