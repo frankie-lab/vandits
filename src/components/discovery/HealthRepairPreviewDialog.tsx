@@ -24,6 +24,7 @@ import { Button } from '@/design-system/primitives/button';
 import { Badge } from '@/design-system/primitives/badge';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useGeocodingJobStore } from '@/stores/geocoding-job-store';
 import type { HealthFilter } from '@/types/location';
 import {
   type HealthScopeResult,
