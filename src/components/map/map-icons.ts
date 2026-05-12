@@ -177,13 +177,11 @@ export const createCustomIcon = (
   // sync defensivo desde call-sites paralelos).
   const renderMode: MarkerRenderMode = isFocused ? 'rich' : getRenderModeForZoom(currentZoom);
   if (renderMode === 'micro') {
-    // Rampa progresiva por zoom (z6→2, z7→3, z8→4, z9→5). Evita el salto
+    // Rampa progresiva por zoom (z≤6→2, z7→3, z8→4, z9→5). Evita el salto
     // brusco de 2px a compact. La pertenencia (`isOwn`) se diferencia solo
-    // por halo más marcado, nunca por diámetro.
-    // Rampa progresiva por zoom (z≤6→2, z7→3, z8→4, z9→5, z10→6).
-    // Extiende un paso más antes de pasar a compact (microMax=10) para
-    // suavizar la transición visual a SVG en z11.
-    const microSize = currentZoom <= 6 ? 2 : Math.min(6, currentZoom - 4);
+    // por halo más marcado, nunca por diámetro. microMax=9 → z10 ya entra
+    // en `compact` (SVG plano).
+    const microSize = currentZoom <= 6 ? 2 : Math.min(5, currentZoom - 4);
     const dot = entry.fill_color;
     const haloStyle = isOwn ? '' : 'opacity:0.85;';
     return L.divIcon({
@@ -194,9 +192,10 @@ export const createCustomIcon = (
       popupAnchor: [0, -microSize / 2],
     });
   }
-  // En `compact` (z10–12) saltamos los health rings y el gradiente: SVG
+  // En `compact` (z10–11) saltamos los health rings y el gradiente: SVG
   // plano con `fill_color`. Tint de colección y borde se mantienen.
-  // En `standard` (z13–15) vuelven gradiente + health rings, sin polaroid.
+  // En `standard` (z12–14) vuelven gradiente + health rings, sin polaroid.
+  // En `rich` (z≥15) se añade polaroid hero.
   const skipHealthRings = renderMode === 'compact';
   const skipGradient = renderMode === 'compact';
 
