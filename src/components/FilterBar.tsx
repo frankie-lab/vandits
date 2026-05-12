@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, Trash2, Loader2 } from 'lucide-react';
+import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, Trash2, Loader2, HeartPulse } from 'lucide-react';
+import type { HealthFilter } from '@/types/location';
 import { useLocationsStore } from '@/domains/content';
 import { useFilteredLocations, useEnrichedStats } from '@/domains/content/hooks/use-filtered-locations';
 import { getBucketStats } from '@/domains/content/lib/location-bucket';
@@ -236,6 +237,7 @@ export function FilterBar() {
             tag: 'bg-purple-100 text-purple-700 hover:bg-purple-200',
             classification: 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200',
             search: 'bg-muted text-muted-foreground hover:bg-muted/80',
+            health: 'bg-pink-100 text-pink-700 hover:bg-pink-200',
           };
           const IconByAxis: Record<FilterAxis, typeof MapPin> = {
             geography: MapPin,
@@ -243,6 +245,7 @@ export function FilterBar() {
             tag: Tag,
             classification: Layers,
             search: Search,
+            health: HeartPulse,
           };
           const Icon = IconByAxis[chip.axis];
           return (
@@ -265,6 +268,56 @@ export function FilterBar() {
       {/* Bloque "Visita / Estado" eliminado por norma transversal:
           el universo de puntos se muestra completo y los únicos ejes de
           filtrado son clasificación (Geo / Tipo / Tags / Legacy) y búsqueda. */}
+
+  {/* Eje "Salud operativa" (Health Rings v2) — single-select.
+      Anti-overflow: scroll horizontal en viewports estrechos. */}
+  <div className="space-y-1.5">
+    <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+      <HeartPulse className="w-3 h-3" />
+      Salud
+    </div>
+    <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin">
+      {(() => {
+        const buckets: Array<{ id: HealthFilter | null; label: string; cssVar?: string }> = [
+          { id: null,        label: 'Todos' },
+          { id: 'partial',   label: 'Rellenar huecos', cssVar: '--poi-health-partial' },
+          { id: 'chain',     label: 'Reparar cadena',  cssVar: '--poi-health-chain' },
+          { id: 'review',    label: 'Revisar',         cssVar: '--poi-health-review' },
+          { id: 'hardError', label: 'Reintentar',      cssVar: '--poi-health-hard-error' },
+        ];
+        return buckets.map((b) => {
+          const active = (filters.healthFilter ?? null) === b.id;
+          return (
+            <Button
+              key={b.id ?? 'all'}
+              type="button"
+              variant={active ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                const next = { ...filters };
+                if (b.id == null || active) {
+                  delete (next as Record<string, unknown>).healthFilter;
+                } else {
+                  next.healthFilter = b.id;
+                }
+                setFilters(next);
+              }}
+              className="h-7 px-2 text-xs gap-1.5 shrink-0"
+            >
+              {b.cssVar && (
+                <span
+                  aria-hidden
+                  className="inline-block w-2 h-2 rounded-full"
+                  style={{ background: `hsl(var(${b.cssVar}))` }}
+                />
+              )}
+              {b.label}
+            </Button>
+          );
+        });
+      })()}
+    </div>
+  </div>
 
 
  {/* Tabbed filters */}

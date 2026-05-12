@@ -1,6 +1,7 @@
 import type { FilterCriteria, GeoLocation } from '@/types/location';
 import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
 import { getLocationHierarchy, isPlaceholderValue } from '@/shared/geography/hierarchy';
+import { getPointHealthRings } from '@/domains/content/lib/point-health-rings';
 
 /**
  * Matcher ÚNICO para filtros de exploración/navegación sobre un punto.
@@ -125,6 +126,15 @@ export function matchesLocationFilters(
     } else if (!locCode || !locCode.startsWith(classificationCode)) {
       return false;
     }
+  }
+
+  // Eje "Salud operativa" (Health Rings v2). Delega 100% en
+  // getPointHealthRings(loc). NO duplicamos predicados aquí: si un POI
+  // enriquecido no marca review/hardError es porque el helper no lo
+  // devuelve, no porque el filtro lo bloquee.
+  if (filters.healthFilter) {
+    const rings = getPointHealthRings(loc);
+    if (!rings.includes(filters.healthFilter)) return false;
   }
 
   return true;

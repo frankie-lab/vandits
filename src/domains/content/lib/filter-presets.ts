@@ -26,7 +26,7 @@
  */
 import type { FilterCriteria } from '@/types/location';
 
-/** Claves del eje "Estado" + búsqueda. Estas son las que limpia "Todos". */
+/** Claves del eje "Estado" + búsqueda + salud. Estas son las que limpia "Todos". */
 const STATE_KEYS = [
   'searchTerm',
   'onlyEnriched',
@@ -35,6 +35,7 @@ const STATE_KEYS = [
   'visualState',
   'visitedFilter',
   'semanticResultIds',
+  'healthFilter',
 ] as const;
 
 /** Claves del eje "Clasificación" (NO se tocan en resetAllFilters). */
@@ -133,6 +134,7 @@ export function countActiveStateFilters(filters: FilterCriteria): number {
   if (filters.enrichmentStatus) count++;
   if (filters.visitedFilter && filters.visitedFilter !== 'all') count++;
   if (filters.semanticResultIds && filters.semanticResultIds.length > 0) count++;
+  if (filters.healthFilter) count++;
   return count;
 }
 
@@ -153,7 +155,14 @@ export const countActiveExplorationFilters = countActiveStateFilters;
 // en removeFilterChip. Nada más se toca en la UI.
 // ============================================================================
 
-export type FilterAxis = 'geography' | 'placeType' | 'tag' | 'classification' | 'search';
+export type FilterAxis = 'geography' | 'placeType' | 'tag' | 'classification' | 'search' | 'health';
+
+const HEALTH_LABELS: Record<NonNullable<FilterCriteria['healthFilter']>, string> = {
+  partial: 'Rellenar huecos',
+  chain: 'Reparar cadena',
+  review: 'Revisar',
+  hardError: 'Reintentar',
+};
 
 export type ActiveFilterChip = {
   /** Eje al que pertenece (controla color/icono en la UI). */
@@ -264,6 +273,21 @@ export function getActiveFilterChips(
       remove: (f) => {
         const next = { ...f };
         delete (next as Record<string, unknown>).searchTerm;
+        return next;
+      },
+    });
+  }
+
+  // Salud operativa (Health Rings v2)
+  if (filters.healthFilter) {
+    const bucket = filters.healthFilter;
+    chips.push({
+      axis: 'health',
+      id: `health:${bucket}`,
+      label: HEALTH_LABELS[bucket],
+      remove: (f) => {
+        const next = { ...f };
+        delete (next as Record<string, unknown>).healthFilter;
         return next;
       },
     });
