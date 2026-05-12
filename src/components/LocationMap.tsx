@@ -125,7 +125,12 @@ export function LocationMap() {
  const mapRef = useRef<L.Map | null>(null);
  const mapContainerRef = useRef<HTMLDivElement>(null);
  const markersRef = useRef<Map<string, L.Marker>>(new Map());
- const locationsRef = useRef<Map<string, GeoLocation>>(new Map());
+  const locationsRef = useRef<Map<string, GeoLocation>>(new Map());
+  // Ids actualmente permitidos como markers (subset visual). Se usa en el
+  // handler `popupclose` a nivel de mapa para detectar markers preservados
+  // como excepción visual y limpiarlos cuando ya no pertenezcan al subset.
+  // Ver `mem://logic/map/popup-persist-on-rebuild`.
+  const allowedMarkerIdsRef = useRef<Set<string>>(new Set());
  const markerClusterRef = useRef<L.MarkerClusterGroup | null>(null);
  const tileLayerRef = useRef<L.TileLayer | null>(null);
   const homeMarkerRef = useRef<L.Marker | null>(null);
