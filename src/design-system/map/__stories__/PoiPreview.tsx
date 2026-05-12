@@ -16,6 +16,11 @@ import type {
   PoiVisualState,
   PoiHealthState,
 } from '@/design-system/map/types';
+import {
+  COHERENCE_GLYPH_PATH_COORDINATE,
+  COHERENCE_GLYPH_PATH_NAME,
+  type CoherenceGlyph,
+} from '@/domains/content/lib/point-health-rings';
 
 // All color tokens are HSL triplets ("H S% L%"). Wrap once here.
 const hsl = (triplet: string) => `hsl(${triplet})`;
@@ -71,6 +76,8 @@ export interface PoiPreviewProps {
   heroSrc?: string;
   /** Optional collection tint (inner ring, 2px gap to marker). HSL string or `hsl(...)` */
   collectionTint?: string | null;
+  /** Coherence glyph overlay — only painted in `rich` renderMode. */
+  glyph?: CoherenceGlyph | null;
   /** Label shown under the marker (for stories only). */
   label?: string;
 }
@@ -91,6 +98,7 @@ export function PoiPreview({
   focused = false,
   heroSrc,
   collectionTint = null,
+  glyph = null,
   label,
 }: PoiPreviewProps) {
   const scale = RENDER_SCALE[renderMode];
@@ -100,9 +108,12 @@ export function PoiPreview({
   const baseDiameter = isMicro ? DOT_PX : isRich ? HERO_PX : 28;
   const diameter = isMicro ? DOT_PX : Math.round(baseDiameter * scale);
 
-  const orderedHealth: PoiHealthState[] = (['hardError', 'review', 'chain', 'partial'] as const).filter(
-    (h) => health.includes(h),
-  );
+  // Health rings only render in standard/rich (canon: createCustomIcon
+  // skipHealthRings on micro/compact). Stories must reflect that.
+  const ringsAllowed = renderMode === 'standard' || renderMode === 'rich';
+  const orderedHealth: PoiHealthState[] = ringsAllowed
+    ? (['hardError', 'review', 'chain', 'partial'] as const).filter((h) => health.includes(h))
+    : [];
 
   const ringPad = orderedHealth.length * RING_W + (collectionTint ? RING_W + 2 : 0);
   const totalDiameter = diameter + ringPad * 2 + (focused ? 4 : 0);
@@ -191,6 +202,42 @@ export function PoiPreview({
               boxSizing: 'border-box',
             }}
           />
+        )}
+
+        {isRich && glyph && (
+          <span
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              top: -4,
+              right: -4,
+              width: 14,
+              height: 14,
+              borderRadius: '50%',
+              background: `${HEALTH_COLOR.review}`,
+              boxShadow: `0 0 0 1.5px hsl(${tokens.color.light.surface.background})`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <svg
+              width="9"
+              height="9"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              dangerouslySetInnerHTML={{
+                __html:
+                  glyph === 'coordinate'
+                    ? COHERENCE_GLYPH_PATH_COORDINATE
+                    : COHERENCE_GLYPH_PATH_NAME,
+              }}
+            />
+          </span>
         )}
       </div>
       {label && (
