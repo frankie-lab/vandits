@@ -98,6 +98,7 @@ export function PoiPreview({
   focused = false,
   heroSrc,
   collectionTint = null,
+  glyph = null,
   label,
 }: PoiPreviewProps) {
   const scale = RENDER_SCALE[renderMode];
