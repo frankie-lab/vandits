@@ -13,6 +13,7 @@ import {
   getLocationSubsetSignature,
 } from '@/components/map/viewport-culling';
 import { getBucketStats } from '@/domains/content/lib/location-bucket';
+import { useDiscoveryStore } from '@/domains/discovery';
 import { resetAllFilters } from '@/domains/content/lib/filter-presets';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
@@ -1531,12 +1532,10 @@ export function LocationMap() {
   // Publica el subset visual al discovery-store para que features opt-in
   // (CTA "Sólo visibles" del eje Salud) puedan leerlo sin acceder al mapa.
   // No es la verdad lógica del filtro — sólo subset visual del viewport.
+  const setVisibleLocationIds = useDiscoveryStore((s) => s.setVisibleLocationIds);
   React.useEffect(() => {
-    const ids = new Set<string>(markerLocations.map((l) => l.id));
-    import('@/domains/discovery').then(({ useDiscoveryStore }) => {
-      useDiscoveryStore.getState().setVisibleLocationIds(ids);
-    }).catch(() => { /* no-op: discovery store optional in tests */ });
-  }, [locationIds]);
+    setVisibleLocationIds(new Set<string>(markerLocations.map((l) => l.id)));
+  }, [locationIds, setVisibleLocationIds]);
  
  useEffect(() => {
  if (!mapRef.current || !markerClusterRef.current) return;
