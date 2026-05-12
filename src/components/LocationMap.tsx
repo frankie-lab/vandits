@@ -16,7 +16,7 @@ import { getBucketStats } from '@/domains/content/lib/location-bucket';
 import { resetAllFilters } from '@/domains/content/lib/filter-presets';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
-import { Maximize2, MapPin, Home, Upload, Compass, ArrowRight, LocateFixed, Loader2 } from 'lucide-react';
+import { Maximize2, MapPin, Home, Upload, Compass, ArrowRight, LocateFixed, Loader2, Globe2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
@@ -139,7 +139,8 @@ export function LocationMap() {
  const { mapTheme, setMapTheme: _setMapTheme } = useMapTheme();
   // showCenterSettings removed - now in UserProfileEditor
  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number; source?: 'gps' | 'ip' } | null>(null);
-  const [locating, setLocating] = useState(false);
+   const [locating, setLocating] = useState(false);
+   const [isCenteredOnUser, setIsCenteredOnUser] = useState(false);
  
   // Measurement units preference
  const [measurementUnits, setMeasurementUnits] = useState<'metric' | 'imperial' | 'auto'>(() => {
@@ -1033,7 +1034,32 @@ export function LocationMap() {
 
  marker.addTo(mapRef.current);
  userLocationMarkerRef.current = marker;
- }, [userLocation, createUserLocationIcon]);
+  }, [userLocation, createUserLocationIcon]);
+
+  // Track whether the map is currently centered on user's location
+  // (proximity-based detection: <150m and zoom >= 13).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const recompute = () => {
+      if (!userLocation) {
+        setIsCenteredOnUser(false);
+        return;
+      }
+      try {
+        const center = map.getCenter();
+        const dist = map.distance(center, [userLocation.lat, userLocation.lng]);
+        setIsCenteredOnUser(dist < 150 && map.getZoom() >= 13);
+      } catch {
+        setIsCenteredOnUser(false);
+      }
+    };
+    recompute();
+    map.on('moveend zoomend', recompute);
+    return () => {
+      map.off('moveend zoomend', recompute);
+    };
+  }, [userLocation]);
 
   // Update home marker when config changes
  useEffect(() => {
@@ -2173,30 +2199,32 @@ export function LocationMap() {
  {/* "Ver N ubicaciones" — integrado en la pill inferior derecha (ver bloque legend) */}
   {/* Map theme toggle + locate-me — centered over the map */}
   <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[999] flex items-center gap-2 pointer-events-none [&>*]:pointer-events-auto">
-   <Tooltip>
-     <TooltipTrigger asChild>
-       <button
-         type="button"
-         onClick={handleLocateMe}
-         disabled={locating}
-         aria-label="Localizarme"
-         className={cn(
-           "h-9 w-9 inline-flex items-center justify-center rounded-full backdrop-blur-sm shadow-md transition-colors",
-           mapTheme === 'dark'
-             ? 'bg-gray-900/95 text-white hover:bg-gray-800'
-             : 'bg-white/95 text-foreground hover:bg-white',
-           userLocation && 'text-primary'
-         )}
-       >
-         {locating
-           ? <Loader2 className="h-4 w-4 animate-spin" />
-           : <LocateFixed className="h-4 w-4" />}
-       </button>
-     </TooltipTrigger>
-     <TooltipContent side="top">
-       {userLocation ? 'Centrar en mi ubicación' : 'Localizarme'}
-     </TooltipContent>
-   </Tooltip>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={isCenteredOnUser ? () => zoomToBounds(false) : handleLocateMe}
+          disabled={locating}
+          aria-label={isCenteredOnUser ? 'Vista global' : (userLocation ? 'Centrar en mi ubicación' : 'Localizarme')}
+          className={cn(
+            "h-9 w-9 inline-flex items-center justify-center rounded-full backdrop-blur-sm shadow-md transition-colors",
+            mapTheme === 'dark'
+              ? 'bg-gray-900/95 text-white hover:bg-gray-800'
+              : 'bg-white/95 text-foreground hover:bg-white',
+            userLocation && !isCenteredOnUser && 'text-primary'
+          )}
+        >
+          {locating
+            ? <Loader2 className="h-4 w-4 animate-spin" />
+            : isCenteredOnUser
+              ? <Globe2 className="h-4 w-4" />
+              : <LocateFixed className="h-4 w-4" />}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top">
+        {isCenteredOnUser ? 'Vista global' : (userLocation ? 'Centrar en mi ubicación' : 'Localizarme')}
+      </TooltipContent>
+    </Tooltip>
   </div>
  
  {/* Map Center Settings - now in UserProfileEditor */}
