@@ -18,7 +18,7 @@ export type PoiRenderMode = 'micro' | 'compact' | 'standard' | 'rich';
 
 export type PoiVisualState = 'enriched' | 'imported' | 'empty';
 
-export type PoiHealthState = 'empty' | 'chain' | 'error';
+export type PoiHealthState = 'partial' | 'chain' | 'review' | 'hardError';
 
 export type PoiLayerKind =
   | 'tile'
