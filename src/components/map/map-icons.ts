@@ -197,11 +197,13 @@ export const createCustomIcon = (
       popupAnchor: [0, -microSize / 2],
     });
   }
-  // En `compact` (z9–10) saltamos los health rings y el gradiente: SVG
-  // plano con `fill_color`. Tint de colección y borde se mantienen.
-  // En `standard` (z11–13) vuelven gradiente + health rings, sin polaroid.
-  // En `rich` (z≥14) se añade polaroid hero.
-  const skipHealthRings = renderMode === 'compact';
+  // En `compact` (z7–8) saltamos solo el gradiente: SVG plano con
+  // `fill_color`. Tint de colección, borde y health rings se mantienen
+  // (los aros bajan dos zooms para detectar problemas antes — micro
+  // sigue sin rings porque ya retornó arriba con dots de 2–6px).
+  // En `standard` (z9–11) vuelven gradiente + doble sombra.
+  // En `rich` (z≥12) se añade polaroid hero.
+  const skipHealthRings = false;
   const skipGradient = renderMode === 'compact';
 
 

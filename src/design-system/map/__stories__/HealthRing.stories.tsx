@@ -101,12 +101,12 @@ export const WithCollectionTint: Story = {
   ),
 };
 
-/** compact / micro: los rings NUNCA se pintan (regla `renderMode ∈ {standard, rich}`). */
-export const NoRingsBelowStandard: Story = {
+/** compact: rings sí (bajan dos zooms desde z9 → z7). micro: nunca. */
+export const NoRingsInMicro: Story = {
   render: () => (
     <MapCanvas zoomBadge="micro / compact">
       <PoiPreview renderMode="micro" state="imported" health={['partial', 'chain', 'review', 'hardError']} label="micro (sin rings)" />
-      <PoiPreview renderMode="compact" state="imported" health={['partial', 'chain', 'review', 'hardError']} label="compact (sin rings)" />
+      <PoiPreview renderMode="compact" state="imported" health={['partial', 'chain', 'review', 'hardError']} label="compact (con rings)" />
     </MapCanvas>
   ),
 };
