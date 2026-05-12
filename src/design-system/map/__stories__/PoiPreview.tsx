@@ -27,9 +27,10 @@ const STATE_COLOR: Record<PoiVisualState, string> = {
 };
 
 const HEALTH_COLOR: Record<PoiHealthState, string> = {
-  error: hsl(tokens.poi.ring.error),
-  chain: hsl(tokens.poi.ring.chain),
-  empty: hsl(tokens.poi.ring.empty),
+  partial:   hsl(tokens.poi.health.partial),
+  chain:     hsl(tokens.poi.health.chain),
+  review:    hsl(tokens.poi.health.review),
+  hardError: hsl(tokens.poi.health.hardError),
 };
 
 const RENDER_SCALE: Record<PoiRenderMode, number> = {
