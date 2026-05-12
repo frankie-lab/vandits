@@ -1,53 +1,81 @@
-## Botón "Localizarme" contextual
+# Location Toggle Contract — paridad arranque ↔ botón
 
-El botón flotante central pasa a tener **dos modos** que se conmutan según el estado real del mapa.
+Ámbito: solo `src/components/LocationMap.tsx`. Sin cambios en backend, MapCenterSettings, ni en `zoomToBounds`. Implementa un contrato único para "ir a mi ubicación" compartido por el arranque (`mode='geolocation'`) y por el botón "Centrar mi ubicación".
 
-### Comportamiento
+## Diagnóstico
 
-- **Modo A — "Centrar en mi ubicación"** (por defecto)
-  - Icono: `LocateFixed`
-  - Acción: comportamiento actual (`handleLocateMe` → `getCurrentPosition` → `flyTo` a `userLocation`).
-  - Tooltip: "Centrar en mi ubicación".
+Hoy hay dos caminos divergentes:
 
-- **Modo B — "Vista global"**
-  - Icono: `Globe2` (Lucide).
-  - Acción: `zoomToBounds(false)` (mismo helper que ya usa el botón `Maximize2` de la pill inferior derecha → fit a todos los puntos visibles/filtrados).
-  - Tooltip: "Vista global".
+| | Arranque geolocation | Botón LocateFixed |
+|---|---|---|
+| GPS opts | `{enableHighAccuracy:true, timeout:10000}` | `{enableHighAccuracy:true, timeout:20000, maximumAge:0}` |
+| Zoom | `INITIAL_GEOLOCATION_ZOOM` (12) | `13` (GPS) / `10` (IP) |
+| Marca "centrado" | depende del listener `moveend` (timing) | depende del listener `moveend` (timing) |
 
-### Detección (proximidad real)
+Síntomas: zoom distinto al pulsar el botón, posición ligeramente distinta, el icono no cambia a Globe2.
 
-Se calcula en cada `moveend`/`zoomend` del mapa, recordando el último valor en un `useState`:
+## Contrato
 
-```text
-isCenteredOnUser =
-  userLocation != null
-  && distance(map.getCenter(), userLocation) < 150 m
-  && map.getZoom() >= 13
+```ts
+async function centerOnUserLocation(source: 'startup' | 'button'): Promise<boolean>
 ```
 
-- Si `isCenteredOnUser` → render Modo B (Vista global).
-- En cuanto el usuario arrastra/zoom-out → vuelve a Modo A automáticamente.
-- Si aún no hay `userLocation` capturada → siempre Modo A (igual que hoy).
+Pasos comunes (siempre iguales):
 
-### Detalles técnicos
+1. Pide GPS con `GEOLOCATION_OPTS`.
+2. `setUserLocation({ lat, lng, accuracy, source: 'gps' })`.
+3. `flyTo([lat, lng], INITIAL_GEOLOCATION_ZOOM)` (o `setView` si arranque inmediato).
+4. **Solo si los pasos anteriores tienen éxito** → `setIsCenteredOnUser(true)` optimista.
+5. Devuelve `true` en éxito, `false` en fallo (GPS denegado / timeout / sin `navigator.geolocation`).
+6. El listener `moveend/zoomend` ya existente confirma o revierte el flag tras pan/zoom manual.
 
-Cambio único en `src/components/LocationMap.tsx` (bloque líneas 2175-2204):
+### Manejo de errores (importante)
 
-1. Añadir `const [isCenteredOnUser, setIsCenteredOnUser] = useState(false)`.
-2. `useEffect` que engancha `mapRef.current.on('moveend zoomend', recompute)` y limpia en cleanup. El recompute usa `map.distance(center, userLocation)` (Leaflet ya lo expone en metros) y `map.getZoom()`.
-3. En el JSX del botón:
-   - `onClick = isCenteredOnUser ? () => zoomToBounds(false) : handleLocateMe`
-   - `aria-label` y `<TooltipContent>` cambian con `isCenteredOnUser`.
-   - Icono: ternario `isCenteredOnUser ? <Globe2 /> : <LocateFixed />` (manteniendo `Loader2` cuando `locating`).
-4. Importar `Globe2` desde `lucide-react` en el bloque de imports existente.
+- Si GPS falla:
+  - **`source='startup'`**: silencioso. **NO** toca `setIsCenteredOnUser` (queda `false`). El caller decide fallback (`zoomToBounds` si hay puntos).
+  - **`source='button'`**: intenta fallback IP (comportamiento actual). Si IP tiene éxito → `setIsCenteredOnUser(true)` (se conserva la semántica vigente). Si IP también falla → **NO** toca el flag y muestra toast de error.
+- En ningún caso se marca `isCenteredOnUser=true` antes de tener una posición real aplicada al mapa.
 
-Sin tocar:
-- Posición central del wrapper, estilos, `pointer-events`, ni el botón `Maximize2` de la pill inferior (que sigue siendo el atajo "ver todos").
-- `handleLocateMe` ni `zoomToBounds` (se reutilizan tal cual).
+### Diferencias por `source`
 
-### Verificación
+- **`'startup'` — silencioso**: sin toasts, sin `setLocating`. Si falla, retorna `false` y `applyMapCenter` aplica su fallback existente.
+- **`'button'` — interactivo**: gestiona `setLocating(true/false)` y los toasts existentes ("Solicitando ubicación…", éxito, error). Mantiene el fallback IP actual sin ampliarlo ni restringirlo.
 
-1. Estado inicial: botón muestra `LocateFixed`, tooltip "Centrar en mi ubicación".
-2. Click → mapa vuela a tu ubicación; al terminar el `moveend` el botón cambia a `Globe2` y tooltip "Vista global".
-3. Click de nuevo → fit a todos los puntos; el botón vuelve a `LocateFixed`.
-4. Arrastrar el mapa lejos de la ubicación o zoom-out por debajo de z13 → vuelve a modo A sin click.
+## Constantes únicas
+
+Cerca de `INITIAL_GEOLOCATION_ZOOM` (= `ZOOM_THRESHOLDS.richMin`):
+
+```ts
+const GEOLOCATION_OPTS: PositionOptions = {
+  enableHighAccuracy: true,
+  timeout: 10000,
+  maximumAge: 60_000, // permite reutilizar la lectura del arranque
+};
+```
+
+## Cambios concretos en `src/components/LocationMap.tsx`
+
+1. **Crear `centerOnUserLocation(source)`** dentro del componente (`useCallback`), con la lógica y el contrato de error descritos arriba.
+
+2. **`applyMapCenter`, rama `mode === 'geolocation'`**: reemplazar el `navigator.geolocation.getCurrentPosition(...)` inline por `await centerOnUserLocation('startup')`. Si retorna `false` y existe `navigator.geolocation`, no hacer nada extra (queda en el centro actual del mapa); si no existe `navigator.geolocation`, mantener el fallback actual a `zoomToBounds`. **No** se llama a `zoomToBounds` automáticamente cuando GPS tiene éxito (regla ya vigente).
+
+3. **`handleLocateMe`**: pasa a ser un wrapper de `centerOnUserLocation('button')`. No duplica lógica de GPS/IP/zoom.
+
+4. **Listener `moveend/zoomend`**: sin cambios. Sigue siendo la verdad reactiva: si el usuario hace pan/zoom y se aleja del GPS o baja del umbral `richMin`, marca `isCenteredOnUser=false`.
+
+5. **Botón** (Globe2 ↔ LocateFixed): sin cambios estructurales.
+
+6. **Modos `home` y `auto`**: intactos. No usan `centerOnUserLocation`.
+
+## Criterio de cierre
+
+- Arranque geolocation y click en "Mi ubicación" dejan **exactamente** el mismo centro, zoom (`richMin = 12`) y estado de botón (Globe2). Vista indistinguible.
+- Arranque geolocation no muestra toasts ni spinner del botón.
+- Si el GPS de arranque falla, `isCenteredOnUser` queda `false` (botón LocateFixed). Nunca se marca centrado por error.
+- Tras pulsar Globe2 → `zoomToBounds(false)` → botón vuelve a LocateFixed.
+- Pan/zoom manual lejos del GPS → botón vuelve a LocateFixed.
+- Una sola fuente de verdad (`centerOnUserLocation`) para "ir a mi ubicación".
+
+## Fuera de alcance
+
+`MapCenterSettings`, modos `home`/`auto`, `zoomToBounds`, marker/círculo de usuario, backend, persistencia, política del fallback IP (se conserva tal cual hoy).
