@@ -13,6 +13,12 @@
       "error":          { "value": "0 72% 51%",    "_css": "--poi-ring-error" },
       "collectionGap":  { "value": "2px",          "_css": "--poi-ring-collection-gap" }
     },
+    "health": {
+      "partial":   { "value": "45 96% 64%",   "_css": "--poi-health-partial" },
+      "chain":     { "value": "45 93% 47%",   "_css": "--poi-health-chain" },
+      "review":    { "value": "326 77% 50%",  "_css": "--poi-health-review" },
+      "hardError": { "value": "0 72% 51%",    "_css": "--poi-health-hard-error" }
+    },
     "originBorder": {
       "my":       { "value": "0 0% 100%",    "_css": "--poi-origin-border-my" },
       "followed": { "value": "45 93% 81%",   "_css": "--poi-origin-border-followed" },

@@ -27,9 +27,10 @@ const STATE_COLOR: Record<PoiVisualState, string> = {
 };
 
 const HEALTH_COLOR: Record<PoiHealthState, string> = {
-  error: hsl(tokens.poi.ring.error),
-  chain: hsl(tokens.poi.ring.chain),
-  empty: hsl(tokens.poi.ring.empty),
+  partial:   hsl(tokens.poi.health.partial),
+  chain:     hsl(tokens.poi.health.chain),
+  review:    hsl(tokens.poi.health.review),
+  hardError: hsl(tokens.poi.health.hardError),
 };
 
 const RENDER_SCALE: Record<PoiRenderMode, number> = {
@@ -99,7 +100,7 @@ export function PoiPreview({
   const baseDiameter = isMicro ? DOT_PX : isRich ? HERO_PX : 28;
   const diameter = isMicro ? DOT_PX : Math.round(baseDiameter * scale);
 
-  const orderedHealth: PoiHealthState[] = (['error', 'chain', 'empty'] as const).filter(
+  const orderedHealth: PoiHealthState[] = (['hardError', 'review', 'chain', 'partial'] as const).filter(
     (h) => health.includes(h),
   );
 
