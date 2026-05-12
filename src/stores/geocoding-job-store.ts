@@ -46,6 +46,8 @@ export interface GeocodingScope {
   /** Unified health-based scope. Same source of truth as the panel's tabs/tree. */
   healthFilter?: GeoHealth[];
   geoNode?: GeocodingGeoNode;
+  /** Origin tag stored in geocoding_jobs.scope.source (e.g. 'health_cta'). */
+  source?: string;
 }
 
 type JobStatus = 'running' | 'canceling' | 'canceled' | 'completed' | 'failed';
@@ -77,6 +79,7 @@ interface GeocodingJobState {
   lastResult: GeocodingJobLastResult | null;
   start: (initialPending: number, scope?: GeocodingScope) => Promise<void>;
   stop: () => Promise<void>;
+  attachToJob: (jobId: string) => Promise<void>;
   clearLastResult: () => void;
 }
 
@@ -115,6 +118,9 @@ function applyRow(row: Record<string, any>) {
       label: row.label ?? undefined,
       mode: row.mode ?? 'fill',
       catalogOnly: row.catalog_only ?? false,
+      // PR-4A.3a: surface scope.source ('health_cta' for repair jobs spawned
+      // by the health filter) so GeocodingLane can adapt its title.
+      source: (row.scope && typeof row.scope === 'object' && (row.scope as Record<string, unknown>).source as string | undefined) ?? undefined,
     },
     startedAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
   });
@@ -328,6 +334,31 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
     toast.message(
       `Geocodificación lanzada. Continúa en segundo plano${scope?.label ? ` (${scope.label})` : ''}.`,
     );
+  },
+  attachToJob: async (jobId: string) => {
+    if (!jobId) return;
+    // Idempotent: if we're already tracking this job, no-op.
+    if (get().jobId === jobId && get().running) return;
+    try {
+      const { data: row, error } = await supabase
+        .from('geocoding_jobs')
+        .select('*')
+        .eq('id', jobId)
+        .maybeSingle();
+      if (error) {
+        console.warn('[geocoding-job] attachToJob fetch failed:', error.message);
+        return;
+      }
+      if (!row) return;
+      applyRow(row);
+      // Only subscribe when still active; applyRow handles terminal states.
+      const status = (row as Record<string, unknown>).status;
+      if (status === 'running' || status === 'canceling') {
+        subscribeToJob(jobId);
+      }
+    } catch (err) {
+      console.error('[geocoding-job] attachToJob failed:', err);
+    }
   },
 }));
 

@@ -94,7 +94,18 @@ export function GeocodingLane({ onActiveChange }: GeocodingLaneProps) {
           )
         }
         iconTone="amber"
-        title={job.scope?.label ? `Normalización geográfica · ${job.scope.label}` : 'Normalización geográfica'}
+        title={(() => {
+          // PR-4A.3a: si el job nace de la consola de salud, prefijar el título.
+          if (job.scope?.source === 'health_cta') {
+            const cleanLabel = job.scope?.label?.replace(/^health-cta:\s*/i, '');
+            return cleanLabel
+              ? `Reparación de salud · ${cleanLabel}`
+              : 'Reparación de salud';
+          }
+          return job.scope?.label
+            ? `Normalización geográfica · ${job.scope.label}`
+            : 'Normalización geográfica';
+        })()}
         subtitle={
           eta.etaMs !== null
             ? `ETA ${formatDuration(eta.etaMs)} · servidor`
