@@ -139,7 +139,8 @@ export function LocationMap() {
  const { mapTheme, setMapTheme: _setMapTheme } = useMapTheme();
   // showCenterSettings removed - now in UserProfileEditor
  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number; source?: 'gps' | 'ip' } | null>(null);
-  const [locating, setLocating] = useState(false);
+   const [locating, setLocating] = useState(false);
+   const [isCenteredOnUser, setIsCenteredOnUser] = useState(false);
  
   // Measurement units preference
  const [measurementUnits, setMeasurementUnits] = useState<'metric' | 'imperial' | 'auto'>(() => {
