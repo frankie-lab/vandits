@@ -1578,6 +1578,26 @@ export function LocationMap() {
           marker.setPopupContent(
             createPopupContent(location, criteriaTimestamp, ownership, canEnrichLocations),
           );
+          // FIX TRANSVERSAL: cambios de colección (alta/baja, toggle visibilidad,
+          // profile editado) DEBEN repintar también el icono — antes solo se
+          // refrescaba el popup, lo que dejaba el tinte/anillo de colección
+          // desincronizado del estado real.
+          const isSelected = selectedLocations.has(id);
+          const isFocused = focusedLocationId === id;
+          const isEnriched = !!location.enrichedData;
+          const isRecentlyEnriched = recentlyEnrichedIds.has(id);
+          marker.setIcon(
+            createCustomIcon(
+              isSelected,
+              isFocused,
+              isEnriched,
+              location,
+              criteriaTimestamp,
+              isRecentlyEnriched,
+              getTintForLocation(id),
+              ownership.isOwn,
+            ),
+          );
         } catch { /* noop */ }
       });
       // Si fue un refresh completo (invalidateAll), volvemos a primear los
@@ -1587,7 +1607,7 @@ export function LocationMap() {
       }
     });
     return () => { unsubscribe(); };
-  }, [getLocationOwnership, currentUserId, criteriaTimestamp, canEnrichLocations]);
+  }, [getLocationOwnership, currentUserId, criteriaTimestamp, canEnrichLocations, selectedLocations, focusedLocationId, recentlyEnrichedIds]);
 
   // Update popup content and icons when enrichment data changes (without recreating markers)
  useEffect(() => {
