@@ -792,6 +792,10 @@ export function FloatingToolbar({
   />
   </div>
 
+  {/* Locate-me — botón canónico (contrato centerOnUserLocation) */}
+  <div className="w-px h-6 bg-border/50 mx-1" />
+  <LocateMeButton />
+
   {/* Itinerarios — junto al avatar */}
   {onToggleRoutes && (
     <>
