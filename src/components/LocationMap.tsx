@@ -1060,9 +1060,9 @@ export function LocationMap() {
       try {
         const center = map.getCenter();
         const dist = map.distance(center, [userLocation.lat, userLocation.lng]);
-        // Threshold lowered to z>=12 to recognise the polaroid startup view
-        // (applyMapCenter sets zoom 12 when mode === 'geolocation').
-        setIsCenteredOnUser(dist < 150 && map.getZoom() >= 12);
+        // Umbral leído del canon (richMin del design system) para reconocer
+        // el arranque polaroid en modo geolocation.
+        setIsCenteredOnUser(dist < 150 && map.getZoom() >= INITIAL_GEOLOCATION_ZOOM);
       } catch {
         setIsCenteredOnUser(false);
       }
