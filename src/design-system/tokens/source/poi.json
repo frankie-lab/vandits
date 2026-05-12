@@ -30,7 +30,20 @@
       "micro":    { "value": 0.45, "_css": "--poi-scale-micro" },
       "compact":  { "value": 0.7,  "_css": "--poi-scale-compact" },
       "standard": { "value": 1,    "_css": "--poi-scale-standard" },
-      "rich":     { "value": 1.15, "_css": "--poi-scale-rich" }
+      "rich":     { "value": 1.15, "_css": "--poi-scale-rich" },
+      "byZoom": {
+        "z11": { "value": 0.85, "_css": "--poi-scale-z11" },
+        "z12": { "value": 0.95, "_css": "--poi-scale-z12" },
+        "z13": { "value": 1.00, "_css": "--poi-scale-z13" },
+        "z14": { "value": 1.05, "_css": "--poi-scale-z14" },
+        "z15": { "value": 1.10, "_css": "--poi-scale-z15" },
+        "z16": { "value": 1.15, "_css": "--poi-scale-z16" }
+      }
+    },
+    "shadow": {
+      "compact":  { "value": "drop-shadow(0 2px 4px rgba(0,0,0,0.3))", "_css": "--poi-shadow-compact" },
+      "standard": { "value": "drop-shadow(0 1px 1px rgba(0,0,0,0.35)) drop-shadow(0 3px 6px rgba(0,0,0,0.22))", "_css": "--poi-shadow-standard" },
+      "rich":     { "value": "drop-shadow(0 1px 1px rgba(0,0,0,0.35)) drop-shadow(0 3px 6px rgba(0,0,0,0.22))", "_css": "--poi-shadow-rich" }
     },
     "hero": {
       "size":         { "value": "40px",    "_css": "--poi-hero-size" },
