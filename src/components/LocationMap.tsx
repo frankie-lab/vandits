@@ -574,6 +574,15 @@ export function LocationMap() {
   } = useLocationsStore();
   
   const locations = useFilteredLocations();
+
+  // ── Viewport Culling v1 ────────────────────────────────────────────
+  // En z≥13 sólo construimos markers Leaflet para puntos dentro del
+  // viewport ampliado. `keepIds` garantiza que focused / popup-abierto
+  // sobreviven al culling. Ver `src/components/map/viewport-culling.ts`
+  // y `mem://logic/map/viewport-culling-v1`.
+  const [viewportBounds, setViewportBounds] = useState<L.LatLngBounds | null>(null);
+  const [zoomState, setZoomState] = useState<number>(6);
+  const [openPopupLocationId, setOpenPopupLocationId] = useState<string | null>(null);
   
    // Get current user ID for ownership detection
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
