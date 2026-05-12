@@ -423,7 +423,7 @@ export function FilterBar() {
     <div className="space-y-2">
       {selectedCount === 0 ? (
         <AppEmptyState
-          icon={CheckSquare}
+          icon={<CheckSquare />}
           title="Sin selección"
           description="Selecciona puntos en el mapa o usa Seleccionar todo / Seleccionar filtrados."
         />
