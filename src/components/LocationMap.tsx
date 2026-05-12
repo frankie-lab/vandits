@@ -773,25 +773,24 @@ export function LocationMap() {
  if (navigator.geolocation) {
  navigator.geolocation.getCurrentPosition(
   (position) => {
-  const { latitude, longitude } = position.coords;
-  // Seed userLocation so the contextual button knows the map already starts on GPS.
-  setUserLocation({
-    lat: latitude,
-    lng: longitude,
-    accuracy: position.coords.accuracy,
-    source: 'gps',
-  });
-  if (immediate) {
-  mapRef.current?.setView([latitude, longitude], 12);
-  } else {
-  mapRef.current?.flyTo([latitude, longitude], 12, { duration: 0.8 });
-  }
-             // Then zoom to show points with offset
-  if (locations.length > 0) {
-  setTimeout(() => zoomToBounds(immediate, 1), immediate ? 50 : 800);
-  }
-  },
- (error) => {
+   const { latitude, longitude } = position.coords;
+   // Seed userLocation so the contextual button knows the map already starts on GPS.
+   setUserLocation({
+     lat: latitude,
+     lng: longitude,
+     accuracy: position.coords.accuracy,
+     source: 'gps',
+   });
+   if (immediate) {
+   mapRef.current?.setView([latitude, longitude], INITIAL_GEOLOCATION_ZOOM);
+   } else {
+   mapRef.current?.flyTo([latitude, longitude], INITIAL_GEOLOCATION_ZOOM, { duration: 0.8 });
+   }
+   // NOTA: en modo geolocation NO hacemos zoomToBounds automático.
+   // El arranque queda en GPS + zoom polaroid; el botón Globe2 ofrece
+   // la transición a vista global cuando el usuario lo decida.
+   },
+  (error) => {
  console.warn('Geolocation error:', error);
             // Silently fall back to auto-fit; the welcome card already informs the user
             // Fallback to auto
