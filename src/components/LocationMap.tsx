@@ -1707,6 +1707,31 @@ export function LocationMap() {
  });
   }
 
+    // Refresca el icono del marker preservado para reflejar el nuevo estado
+    // (p. ej. recién enriquecido tras una acción del recovery block).
+    if (preservedIsOpen && preservedMarker && preservedLocation) {
+      try {
+        const ownership = getLocationOwnership(preservedLocation.id, currentUserId);
+        preservedMarker.setIcon(
+          createCustomIcon(
+            selectedLocations.has(preservedLocation.id),
+            focusedLocationId === preservedLocation.id,
+            !!preservedLocation.enrichedData,
+            preservedLocation,
+            criteriaTimestamp,
+            false,
+            getTintForLocation(preservedLocation.id),
+            ownership.isOwn,
+          ),
+        );
+      } catch { /* noop */ }
+    }
+
+    // Sincroniza set de ids "permitidos" para que el `popupclose` a nivel
+    // de mapa pueda detectar markers preservados huérfanos (ids ya fuera
+    // del subset filtrado) y limpiarlos al cerrar el popup.
+    allowedMarkerIdsRef.current = new Set(markerLocations.map(l => l.id));
+
     // Prime collection chips store con todos los puntos visibles.
     primeCollectionsForLocations(locations.map((l) => l.id));
   }, [locationIds, toggleLocationSelection, setFocusedLocation]);
