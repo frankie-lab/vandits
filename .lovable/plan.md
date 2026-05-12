@@ -1,103 +1,95 @@
-# PR-3C · Reposicionar Back Office "Geografía universal" como consola admin
+# PR-4A.1 — Auto-focus mapa al subconjunto
 
-PR-3B movió el centro operativo al mapa. El panel sigue siendo útil para operaciones masivas/admin pero su framing actual (wizard "elige modo → universo → lanza") compite visualmente con el flujo Salud del mapa y duplica taxonomía. Este PR re-encuadra el panel sin tocar la maquinaria del job.
+Un único contrato canónico para "haz fit a este subconjunto de POIs", reutilizable desde cualquier consola (preview de reparación, selección, salud, etc.) — pero **cableado solo en los dos triggers aprobados**. El resto queda explícito vía CTA.
 
-## Alcance (PR-3C)
+## Principio rector
 
-A. Rename + subheader (claridad de rol).
-B. Renombrar/recolocar las 3 cards superiores para eliminar la colisión semántica con Salud.
-C. Banner contextual de riesgo en "Lanzar".
-D. Aviso explícito de derivación al mapa para reparaciones puntuales.
+> Filtrar ≠ mover cámara. Seleccionar/Reparar = sí puede mover cámara, con guardarraíles.
 
-**Fuera de PR-3C** (futuros):
-- Job console real (recientes / running / errores / replay) → **PR-3D**.
-- hardError masivo → aplazado.
-- Cambios en RPC, edge functions, o lógica del job → ninguno.
+## 1) Helper único `requestSubsetFit` (nuevo)
 
-## Cambios concretos
+Archivo: `src/components/map/subset-fit.ts`
 
-### 1. Header del panel (`AdminPanel.tsx:372` + `UserMenu.tsx:513`)
-
-- Tab/menu label: `Geografía universal` → **`Mantenimiento geográfico (Admin)`**.
-- Título visual del panel: igual.
-- Subheader nuevo bajo el título (en `GeographyBackfillPanel`):
-  > Operaciones globales y masivas sobre jerarquías administrativas.
-  > Para reparaciones puntuales usa **Salud** en el mapa.
-
-### 2. Cards superiores (`GeographyBackfillPanel.tsx:79-98` `MODE_META`)
-
-Renombrar para reflejar que aquí son **operaciones globales sobre el universo**, no acciones puntuales (las puntuales viven en el mapa).
-
-| Mode interno | Antes | Después | Tono visual |
-|---|---|---|---|
-| `repair` | Reparar cadenas rotas | **Reconciliar jerarquía (global)** | secundario |
-| `fill` | Rellenar huecos | **Rellenar huecos admin (global)** | secundario |
-| `review` | Revisar normalizados | **Re-normalizar admin contra OSM** | primario |
-
-Descripciones nuevas (cortas, dejan claro el ámbito masivo):
-
-- `repair`: "Repara FKs y cadenas inconsistentes en el universo seleccionado. Operación masiva."
-- `fill`: "Rellena niveles administrativos faltantes en el universo seleccionado. Operación masiva."
-- `review`: "Re-normaliza todos los puntos no vacíos contra OSM. Útil tras renombrar/fusionar áreas. Operación masiva."
-
-**No degradamos visualmente** `repair`/`fill` — los 3 cards comparten estilo. La diferenciación se hace por nombre y por aviso textual ("masiva / global"). Más simple que un sub-tier visual y suficiente para alinear el modelo mental.
-
-Sin cambios en `BackendMode`, `modeToHealthFilter`, ni en `geocoding-job-store`. Solo strings + descripciones.
-
-### 3. Banner contextual en "Lanzar" (`GeographyBackfillPanel.tsx:516-657`)
-
-Añadir, justo encima del botón `Lanzar sobre universo (N)`, un bloque ámbar destacado cuando `selectedIds.size === 0` (= "todo el universo"):
-
-```
-[icon AlertTriangle ámbar]  Operación masiva
-Vas a procesar los N puntos del universo. Esto puede tardar y consume cuota.
-Para reparar un subconjunto pequeño, usa el filtro Salud en el mapa.
+API:
+```ts
+requestSubsetFit(locationIds: string[], opts?: {
+  mode?: 'always' | 'if-outside';   // default 'if-outside'
+  reason: 'repair-preview' | 'selection-start' | 'health-cta' | string;
+})
 ```
 
-Cuando `selectedIds.size > 0`, bloque informativo neutro:
-> Procesarás los {N} puntos seleccionados.
+Evento: `SUBSET_FIT_BOUNDS_EVENT = 'subset-fit-bounds-request'`.
 
-Esto marca claramente la diferencia operativa con el CTA del mapa (que ya filtra y previsualiza).
+Comportamiento del listener (en `LocationMap.tsx`, mismo patrón que `COLLECTION_FIT_BOUNDS_EVENT`):
 
-### 4. Cross-link al mapa
+- Resuelve coordenadas vía `markersRef.current.get(id)`. Si un id no está montado (culling), **fallback** a `locationsRef`/`getLocationById` para obtener lat/lng del store.
+- 0 puntos → no-op.
+- 1 punto → si `always` o fuera de viewport: `flyTo([lat,lng], max(zoom, clamp), 0.6)`. Si dentro: no-op.
+- N puntos → `bounds = L.latLngBounds(pts)`. 
+  - Modo `if-outside` (default): calcula `insideRatio`. Si `insideRatio < 0.4` (umbral 40%) → `flyToBounds(bounds, { padding:[60,60], maxZoom: CLAMP, duration: 0.6 })`. Si ≥40% dentro → no-op.
+  - Modo `always`: siempre `flyToBounds`.
+- **Clamp de zoom**: `CLAMP = ZOOM_THRESHOLDS.richMin` (≈ z12) para no saltar a z18 con dos puntos juntos.
+- **Cooldown de intención manual**: si el usuario hizo `pan`/`zoom`/`drag` en los últimos **4s**, abortar el fit (silencioso). Se mantiene un `lastUserInteractionAt` en `LocationMap` enganchando una vez a `map.on('movestart zoomstart dragstart', ...)` con guard `e.originalEvent != null` (ignora fits programáticos).
+- Animación: `flyTo` / `flyToBounds` (no `fitBounds` duro).
 
-En el subheader del header (paso 1) o como footer del panel, link textual:
-> ¿Solo quieres reparar unos pocos puntos? Cierra este panel y usa los chips de **Salud** en el mapa.
+## 2) Triggers cableados ahora
 
-Sin acción imperativa (no abre nada), solo educa al usuario.
+### A. Preview de reparación (`HealthRepairPreviewDialog`)
+- En `useEffect` con deps `[open, scope.ids.join('|')]`: si `open && scope.ids.length > 0` → `requestSubsetFit(scope.ids, { mode: 'if-outside', reason: 'repair-preview' })`.
+- El diálogo es modal pero no full-screen → el mapa detrás se reencuadra y el contexto queda visible al cerrar.
+- Sin clamp adicional ni segundo fit al confirmar.
 
-### 5. Consistencia de label en `GeographyScopeTree` y `AdminBrokenUsersList`
+### B. Selección 0 → N (modo Seleccionar de `FilterBar`)
+- Hook nuevo `useSelectionFitOnStart` (en `src/components/discovery/use-selection-fit-on-start.ts`): observa `selectedLocations.length`.
+  - Cuando pasa de `0` → `>0`: programa `setTimeout` 250ms (debounce). Si al disparar sigue habiendo selección, llama `requestSubsetFit(selectedIds, { mode: 'if-outside', reason: 'selection-start' })`.
+  - Cancela el timeout si baja a 0 o si cambia drásticamente antes de disparar.
+  - **No re-fit** en cambios incrementales (1→2, 2→3, etc.). El primer fit cubre la intención inicial; el resto respeta orientación.
+- Montado en `FilterBar.tsx` solo cuando `mode === 'select'` para evitar trabajo en otros modos.
 
-Pasan `MODE_META[mode].title` como prop (ya). Al renombrar, los chips/badges en esas columnas heredan el nuevo nombre automáticamente. **Verificar** que ningún string hardcoded (`"Reparar cadenas rotas"`) sobreviva en `AdminBrokenUsersList.tsx` ni en logs/toasts.
+## 3) Triggers explícitamente NO cableados
 
-## Archivos tocados
+- Filtros normales (Geo / Tipo / Tags / búsqueda): no mueven cámara.
+- `healthFilter` activo (modo Mantener): no mueve cámara automáticamente. Se difiere a un PR posterior la introducción de un CTA secundario "Ver subconjunto en mapa" en `HealthFilterActionCTA` (no entra ahora).
 
-- `src/components/admin/GeographyBackfillPanel.tsx` — strings `MODE_META`, subheader, banner masivo, footer cross-link.
-- `src/components/AdminPanel.tsx` — label del tab/dictionary (línea 372).
-- `src/components/UserMenu.tsx` — label del item de menú (línea 513).
-- `src/components/admin/AdminBrokenUsersList.tsx` — verificar uso de `modeTitle` prop, sin hardcodes.
+## 4) Cambios de archivos
 
-## Memoria
+**Nuevos**
+- `src/components/map/subset-fit.ts` — helper + tipo de evento.
+- `src/components/discovery/use-selection-fit-on-start.ts` — hook de debounce 0→N.
 
-- Actualizar `mem://logic/health/workflow-split` con la separación clara: **Mapa = puntual, Back Office = global/admin**.
-- Nueva entrada `mem://admin/geo-maintenance-panel` corta: rename, framing, regla de banner masivo, no duplicar taxonomía con Salud.
+**Editados**
+- `src/components/LocationMap.tsx`
+  - Listener de `SUBSET_FIT_BOUNDS_EVENT` (nuevo `useEffect`, simétrico al de colecciones).
+  - `lastUserInteractionAt` ref + handlers `movestart/zoomstart/dragstart` con guard de `originalEvent`.
+- `src/components/discovery/HealthRepairPreviewDialog.tsx`
+  - `useEffect` que dispara `requestSubsetFit` al abrir con `scope.ids`.
+- `src/components/FilterBar.tsx`
+  - Llamada a `useSelectionFitOnStart(selectedLocations)` dentro del bloque de `mode === 'select'` (o siempre con guard interno).
 
-## QA manual
+**Memoria**
+- Nueva `mem://logic/map/subset-fit-contract` con el contrato (helper, evento, umbrales, cooldown, clamp).
+- Update `mem://index.md` Core: línea breve recordando que cualquier consola que quiera "ver su subconjunto" debe usar `requestSubsetFit`, y que filtros NO mueven cámara.
 
-1. Abrir Back Office → tab muestra "Mantenimiento geográfico (Admin)".
-2. Header del panel muestra subheader + cross-link al mapa.
-3. Las 3 cards muestran nombres nuevos y descripción "masiva/global".
-4. `selectedIds=0` → banner ámbar "Operación masiva" arriba del botón.
-5. Marcar 5 nodos en árbol → banner pasa a neutro "Procesarás 5 puntos seleccionados".
-6. Lanzar un job pequeño → comportamiento del job idéntico al actual (sin regresión).
-7. Cross-user (admin sobre otro usuario) → labels actualizados en lista de usuarios y resumen.
+## 5) QA manual
 
-## NO se toca
+1. Abrir mapa en Galicia. Activar `healthFilter='partial'` → click "Rellenar huecos" → diálogo se abre y mapa hace fly suave a los 14 puntos europeos. Cerrar → el viewport queda en esa vista (correcto).
+2. Repetir con todos los puntos ya visibles en pantalla → el mapa NO se mueve (insideRatio ≥ 40%).
+3. Modo Seleccionar: seleccionar 5 puntos dispersos vía "Seleccionar N filtrados" → tras 250ms el mapa se reencuadra una vez. Añadir/quitar puntos uno a uno → el mapa NO se mueve.
+4. Mover el mapa manualmente, e inmediatamente abrir el preview de reparación → el fit se aborta por cooldown (4s). Esperar 5s y reintentar → fit se ejecuta.
+5. Aplicar filtro Geo "Portugal" → mapa NO se mueve.
+6. Toggle de colección → sigue funcionando con `requestCollectionFit` (sin regresión).
+7. Selección con 1 punto seleccionado fuera del viewport → flyTo a ese punto con clamp z12.
+8. Ver consola: no warnings, no doble fit en el mismo gesto.
 
-- RPC `enqueue_health_repair`, `enqueue_admin_repair_for_user`, `geocoding_jobs`.
-- Edge functions, store del job, ETA, realtime.
-- Filtro de salud en el mapa, modal preview, audit.
-- hardError masivo (aplazado).
-- Job console / histórico (PR-3D).
+## 6) Fuera de alcance (futuro)
 
-¿Aplico?
+- CTA "Ver subconjunto" en filtro de salud (modo Mantener).
+- Fit a subconjunto desde gallery / lista del Catálogo.
+- PR-4B (CatalogSummary, ContextBar).
+
+## Notas técnicas
+
+- Reutilizamos el patrón `dispatchEvent` ya validado por `requestCollectionFit` para mantener `LocationMap` como única autoridad sobre la cámara.
+- El cooldown de intención manual debe vivir en `LocationMap` (cerca de `mapRef`), no en el helper, porque el helper no sabe de mapa.
+- El guard `e.originalEvent != null` en `movestart`/`zoomstart` es imprescindible: sin él, el propio `flyTo` programático resetea el cooldown y bloquea fits posteriores legítimos.
+- El listener no necesita deps en `[]` aparte de leer markers/locations actuales vía refs (igual que `COLLECTION_FIT_BOUNDS_EVENT`).

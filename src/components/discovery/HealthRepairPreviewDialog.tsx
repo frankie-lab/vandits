@@ -30,6 +30,7 @@ import {
   scopeModeLabel,
 } from '@/domains/discovery/lib/health-filter-scope';
 import { getHierarchyBreadcrumb } from '@/shared/geography/hierarchy';
+import { requestSubsetFit } from '@/components/map/subset-fit';
 
 const FILTER_TITLES: Record<HealthFilter, string> = {
   partial:   'Rellenar huecos',
@@ -84,6 +85,16 @@ export function HealthRepairPreviewDialog({
   React.useEffect(() => {
     setExhausted(false);
   }, [filter, scope.mode, scope.total]);
+
+  // Auto-focus mapa al subconjunto del preview (PR-4A.1).
+  // Único trigger automático aprobado dentro del workflow de salud.
+  const idsKey = scope.ids.join('|');
+  React.useEffect(() => {
+    if (!open) return;
+    if (scope.ids.length === 0) return;
+    requestSubsetFit(scope.ids, { mode: 'if-outside', reason: 'repair-preview' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, idsKey]);
 
   const handleConfirm = React.useCallback(async () => {
     if (!REPAIRABLE.has(filter) || scope.ids.length === 0) return;

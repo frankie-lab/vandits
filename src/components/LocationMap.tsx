@@ -99,6 +99,7 @@ import {
   getTintForLocation,
   getTintForRoute,
 } from '@/domains/content/lib/collection-visibility';
+import { SUBSET_FIT_BOUNDS_EVENT, type SubsetFitDetail } from './map/subset-fit';
 
 
 // Fix for default marker icons
@@ -2050,6 +2051,87 @@ export function LocationMap() {
     };
     window.addEventListener(COLLECTION_FIT_BOUNDS_EVENT, handler);
     return () => window.removeEventListener(COLLECTION_FIT_BOUNDS_EVENT, handler);
+  }, []);
+
+  // ── Subset-fit canónico (PR-4A.1) ───────────────────────────────────────
+  // Cooldown de "intención manual del usuario": si ha movido/zoomeado/dragueado
+  // en los últimos 4s, abortamos el fit silenciosamente. El guard
+  // `e.originalEvent != null` distingue gestos reales de fits programáticos.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const COOLDOWN_MS = 4000;
+    const FIT_CLAMP_ZOOM = ZOOM_THRESHOLDS.richMin; // ~ z12
+    const INSIDE_RATIO_THRESHOLD = 0.4;
+    let lastUserInteractionAt = 0;
+
+    const onUserGesture = (e: any) => {
+      // Solo gestos reales: flyTo/flyToBounds programáticos no traen originalEvent.
+      if (e?.originalEvent != null) {
+        lastUserInteractionAt = Date.now();
+      }
+    };
+    map.on('movestart', onUserGesture);
+    map.on('zoomstart', onUserGesture);
+    map.on('dragstart', onUserGesture);
+
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<SubsetFitDetail>).detail;
+      if (!detail || !Array.isArray(detail.locationIds) || detail.locationIds.length === 0) return;
+      if (Date.now() - lastUserInteractionAt < COOLDOWN_MS) return;
+
+      const mode = detail.mode ?? 'if-outside';
+      const pts: [number, number][] = [];
+      for (const id of detail.locationIds) {
+        // 1) marker montado (rápido)
+        const marker = markersRef.current.get(id);
+        if (marker) {
+          const ll = marker.getLatLng();
+          pts.push([ll.lat, ll.lng]);
+          continue;
+        }
+        // 2) fallback: store de locations (puede no estar montado por culling)
+        const loc = locationsRef.current.get(id);
+        if (loc?.coordinates?.lat != null && loc.coordinates.lng != null) {
+          pts.push([loc.coordinates.lat, loc.coordinates.lng]);
+        }
+      }
+      if (pts.length === 0) return;
+
+      if (pts.length === 1) {
+        const [lat, lng] = pts[0];
+        const viewport = map.getBounds();
+        const inside = viewport.contains(L.latLng(lat, lng));
+        if (mode === 'always' || !inside) {
+          map.flyTo([lat, lng], Math.max(map.getZoom(), FIT_CLAMP_ZOOM), { duration: 0.6 });
+        }
+        return;
+      }
+
+      const bounds = L.latLngBounds(pts);
+      if (mode === 'always') {
+        map.flyToBounds(bounds, { padding: [60, 60], maxZoom: FIT_CLAMP_ZOOM, duration: 0.6 });
+        return;
+      }
+      // 'if-outside': mover si <40% de los puntos están dentro del viewport actual.
+      const viewport = map.getBounds();
+      const insideCount = pts.reduce(
+        (n, [lat, lng]) => n + (viewport.contains(L.latLng(lat, lng)) ? 1 : 0),
+        0,
+      );
+      const insideRatio = insideCount / pts.length;
+      if (insideRatio < INSIDE_RATIO_THRESHOLD) {
+        map.flyToBounds(bounds, { padding: [60, 60], maxZoom: FIT_CLAMP_ZOOM, duration: 0.6 });
+      }
+    };
+
+    window.addEventListener(SUBSET_FIT_BOUNDS_EVENT, handler);
+    return () => {
+      map.off('movestart', onUserGesture);
+      map.off('zoomstart', onUserGesture);
+      map.off('dragstart', onUserGesture);
+      window.removeEventListener(SUBSET_FIT_BOUNDS_EVENT, handler);
+    };
   }, []);
 
   // ── Single Arbiter: apply visibility via LayerGroups (O(1) per group) ──
