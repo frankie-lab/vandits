@@ -284,32 +284,37 @@ export function LocationMap() {
    const handleHideInsertPreview = () => {};
 
    // Preview markers for post-import review
-   const handleShowPreviewMarkers = (e: Event) => {
-     const { locations: previewLocations } = (e as CustomEvent).detail || {};
-     if (!mapRef.current || !Array.isArray(previewLocations) || previewLocations.length === 0) return;
-     if (!previewMarkersGroupRef.current) {
-       previewMarkersGroupRef.current = L.layerGroup().addTo(mapRef.current);
-     }
-     previewMarkersGroupRef.current.clearLayers();
+    const handleShowPreviewMarkers = (e: Event) => {
+      const { locations: previewLocations } = (e as CustomEvent).detail || {};
+      if (!mapRef.current || !Array.isArray(previewLocations) || previewLocations.length === 0) return;
+      if (!previewMarkersGroupRef.current) {
+        previewMarkersGroupRef.current = L.layerGroup().addTo(mapRef.current);
+      }
+      previewMarkersGroupRef.current.clearLayers();
 
-     const bounds: [number, number][] = [];
-     previewLocations.forEach((location: GeoLocation) => {
-       const isFocused = focusedLocationId === location.id;
-       const marker = L.marker([location.coordinates.lat, location.coordinates.lng], {
-         icon: createCustomIcon(false, isFocused, !!location.enrichedData, location, criteriaTimestamp, false, getTintForLocation(location.id)),
-       });
-       marker.bindTooltip(buildHoverTooltipHtml(location), { direction: 'top', offset: [0, -12], className: 'poi-hover-tooltip-wrap', opacity: 1 });
-       marker.on('click', () => setFocusedLocation(location.id));
-       previewMarkersGroupRef.current?.addLayer(marker);
-       bounds.push([location.coordinates.lat, location.coordinates.lng]);
-     });
+      // FIX TRANSVERSAL: sincronizar render mode con el zoom real ANTES de
+      // crear los iconos. Sin esto, los preview markers entraban con el
+      // singleton por defecto (`standard`) aunque el zoom real fuera global.
+      syncRenderModeFromMap(mapRef.current);
 
-     if (bounds.length > 1) {
-       mapRef.current.fitBounds(bounds, { padding: [80, 80], animate: true, maxZoom: 14 });
-     } else if (bounds.length === 1) {
-       mapRef.current.setView(bounds[0], Math.max(mapRef.current.getZoom(), 12), { animate: true });
-     }
-   };
+      const bounds: [number, number][] = [];
+      previewLocations.forEach((location: GeoLocation) => {
+        const isFocused = focusedLocationId === location.id;
+        const marker = L.marker([location.coordinates.lat, location.coordinates.lng], {
+          icon: createCustomIcon(false, isFocused, !!location.enrichedData, location, criteriaTimestamp, false, getTintForLocation(location.id)),
+        });
+        marker.bindTooltip(buildHoverTooltipHtml(location), { direction: 'top', offset: [0, -12], className: 'poi-hover-tooltip-wrap', opacity: 1 });
+        marker.on('click', () => setFocusedLocation(location.id));
+        previewMarkersGroupRef.current?.addLayer(marker);
+        bounds.push([location.coordinates.lat, location.coordinates.lng]);
+      });
+
+      if (bounds.length > 1) {
+        mapRef.current.fitBounds(bounds, { padding: [80, 80], animate: true, maxZoom: 14 });
+      } else if (bounds.length === 1) {
+        mapRef.current.setView(bounds[0], Math.max(mapRef.current.getZoom(), 12), { animate: true });
+      }
+    };
     const handleClearPreviewMarkers = () => {
       previewMarkersGroupRef.current?.clearLayers();
     };
