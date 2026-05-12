@@ -1443,15 +1443,17 @@ export function LocationMap() {
  locationsRef.current.clear();
     clearAllGroups();
 
-  if (locations.length === 0) return;
+  if (markerLocations.length === 0 && locations.length === 0) return;
 
-  // Compute micro-offsets for co-located markers
-  const colocatedOffsets = computeColocatedOffsets(locations);
+  // Viewport Culling v1: usamos `markerLocations` (subset visual) para
+  // construir markers Leaflet. `locations` (verdad lógica) se sigue
+  // empleando para fit-bounds inicial y priming de colecciones.
+  const colocatedOffsets = computeColocatedOffsets(markerLocations);
 
   const markersToAdd: L.Marker[] = [];
 
      // Add new markers
-  locations.forEach((location) => {
+  markerLocations.forEach((location) => {
   const isSelected = selectedLocations.has(location.id);
   const isFocused = focusedLocationId === location.id;
   const isEnriched = !!location.enrichedData;
