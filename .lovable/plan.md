@@ -1,130 +1,63 @@
-## Objetivo
+## Diagnóstico
 
-Suavizar la transición visual de tamaño entre la banda **micro** (hoy z≤9) y **compact** (z10–12) con una rampa progresiva por zoom, y añadir una **sombra de doble capa** a los markers a partir de **standard** (z≥13) para despegarlos del fondo del mapa.
+El culling **sigue cableado** en `viewport-culling.ts` y `LocationMap.tsx` (líneas 1419–1422, listeners `zoomend`/`moveend` 1224–1246, `keepIds` 1409–1414).
 
-Sin tocar lógica de negocio, paleta de colores ni anillos de salud — sólo tamaño y sombra.
+Lo que cambió: con `microMax=10` y la nueva rampa, **z11 y z12 ya son banda `compact`** (markers ~12 px, no microdots). Pero el helper sólo activa culling en **z≥13**:
 
----
-
-## A) Rampa progresiva de tamaño entre micro y compact
-
-### Estado actual
-
-| Zoom | Banda | Tamaño |
-|------|-------|--------|
-| ≤6   | micro | 2px |
-| 7    | micro | 3px |
-| 8    | micro | 4px |
-| 9    | micro | 5px |
-| 10   | compact | base × 0.9 (~13–14px) ← **salto brusco** |
-| 11–12| compact | base × 0.9 |
-| 13–15| standard | base × 1.0 |
-| ≥16  | rich    | base × 1.1 (polaroid) |
-
-El salto z9→z10 pasa de 5px plano a ~14px SVG con tint, gradiente y borde. Visualmente "explota".
-
-### Propuesta (corregida)
-
-**1. Extender la rampa micro hasta z10** (un paso más antes de cambiar de banda):
-
-| Zoom | Banda | Tamaño |
-|------|-------|--------|
-| ≤6   | micro | 2px |
-| 7    | micro | 3px |
-| 8    | micro | 4px |
-| 9    | micro | 5px |
-| 10   | micro | **6px** (último valor) |
-| 11   | compact | base × **0.85** |
-| 12   | compact | base × **0.95** |
-| 13   | standard | base × **1.00** |
-| 14   | standard | base × **1.05** |
-| 15   | standard | base × **1.10** |
-| ≥16  | rich    | base × **1.10–1.15** (sin cambios) |
-
-Para ello:
-- Mover `microMax` de `9` a `10` en `tokens/source/map.json`.
-- Ajustar la fórmula en `map-icons.ts`:
-
-```
-microSize = currentZoom <= 6 ? 2 : Math.min(6, currentZoom - 4)
-// z6→2, z7→3, z8→4, z9→5, z10→6
+```text
+z ≤ 12   → sin culling   ← agujero
+z 13–15  → pad 0.75
+z ≥ 16   → pad 0.5
 ```
 
-**2. Modular `modeScale` por zoom** (no sólo por banda) en compact y standard, con lookup tokenizado.
+Resultado en zonas densas (Madrid) a z11–12: se construyen todos los markers Leaflet del universo filtrado. Eso se percibe como "se ha perdido el filtrado por viewport". Antes del cambio de rampa, z11–12 caían en micro y la ausencia de culling no dolía.
 
-**3. Tokenizar la rampa** en `src/design-system/tokens/source/poi.json` bajo `poi.renderScale.byZoom` para que el cambio quede en el design system y no como números mágicos en el componente. La función `getRenderModeForZoom` no cambia; sólo se añade un helper `getModeScaleForZoom(zoom)` en `map-icons.ts` que reemplaza el ternario actual.
+## Cambio propuesto
 
-### Archivos tocados
+Extender el culling a la banda compact con pad generoso para panning fluido:
 
-- `src/design-system/tokens/source/map.json` → `microMax: 10` (era 9).
-- `src/design-system/tokens/source/poi.json` → añadir:
-  ```
-  poi.renderScale.byZoom = {
-    "11": 0.85, "12": 0.95,
-    "13": 1.00, "14": 1.05, "15": 1.10,
-    "16": 1.15
-  }
-  ```
-- `src/components/map/map-icons.ts`:
-  - Fórmula micro → `Math.min(6, currentZoom - 4)`.
-  - Sustituir el ternario `modeScale` por lookup en token `byZoom` con fallback a los valores actuales por banda.
-
----
-
-## B) Sombra más marcada en standard (z≥13)
-
-### Estado actual
-
-Sombra base en estado `normal`:
-```
-drop-shadow(0 2px 4px rgba(0,0,0,0.3))
-```
-Sutil; sobre tiles claros (Carto Positron / OSM beige) los puntos verdes pequeños se mimetizan, sobre todo en racimos.
-
-### Propuesta
-
-Sombra de dos capas, **sólo en banda standard y rich** (compact mantiene su sombra plana actual para no sobrecargar la vista intermedia, y micro sigue sin sombra):
-
-```
-drop-shadow(0 1px 1px rgba(0,0,0,0.35))
-drop-shadow(0 3px 6px rgba(0,0,0,0.22))
+```text
+z ≤ 10   → sin culling           (banda micro, microdots baratos)
+z 11–12  → culling activo, pad 1.0   ← NUEVO
+z 13–15  → culling activo, pad 0.75
+z ≥ 16   → culling estricto, pad 0.5
 ```
 
-- Capa 1 (1px nítida, 35%): contorno crisp que separa el dot del tile.
-- Capa 2 (6px difusa, 22%): halo suave que da profundidad sin ensuciar.
+`pad 1.0` = duplica el viewport en cada eje. Suficiente para pan corto sin huecos.
 
-Tokenizar como `poi.shadow` en `poi.json` para poder ajustar después sin tocar el componente:
+## Archivos a tocar
 
-```
-poi.shadow = {
-  "compact":  "drop-shadow(0 2px 4px rgba(0,0,0,0.3))",      // = actual
-  "standard": "drop-shadow(0 1px 1px rgba(0,0,0,0.35)) drop-shadow(0 3px 6px rgba(0,0,0,0.22))",
-  "rich":     "drop-shadow(0 1px 1px rgba(0,0,0,0.35)) drop-shadow(0 3px 6px rgba(0,0,0,0.22))"
+- `src/components/map/viewport-culling.ts`
+  - `shouldCullByViewport`: `zoom >= 11`.
+  - `getViewportPadForZoom`: añadir rama `if (zoom >= 11) return 1.0;`.
+  - Actualizar el comentario canónico al inicio del archivo.
+
+```ts
+export function shouldCullByViewport(zoom: number): boolean {
+  return zoom >= 11;
+}
+
+export function getViewportPadForZoom(zoom: number): number {
+  if (zoom >= 16) return 0.5;
+  if (zoom >= 13) return 0.75;
+  if (zoom >= 11) return 1.0;
+  return 0;
 }
 ```
 
-**Restricción explícita**: la sombra doble NO se aplica en `micro` ni en `compact`, para no ensuciar las vistas de densidad.
-
-### Archivos tocados
-
-- `src/design-system/tokens/source/poi.json` → nuevo bloque `poi.shadow`.
-- `src/components/map/map-icons.ts`: el branch `currentState === 'normal'` lee la sombra del token según `renderMode`. `getStateShadow` para focused/selected/recent **no cambia** (anima por estado, no por zoom).
-
----
+Nada más. `keepIds`, firma de subset, listeners y separación `filteredLocations` vs `markerLocations` quedan idénticos.
 
 ## Validación
 
-1. **Transición clave z9→z10→z11** (Madrid, captura aportada): el paso debe sentirse fluido. 5px → 6px (sigue micro, plano) → ~12px (compact con SVG, tint, sombra simple). Sin "explosión".
-2. **Continuidad z11→z15**: 0.85 → 0.95 → 1.00 → 1.05 → 1.10. Crecimiento monótono y suave, sin saltos perceptibles.
-3. **Sombra**: en z13–15 sobre Carto Positron, los puntos verdes individuales deben tener contorno visible incluso sobre tile beige claro. En z≤12 NO debe verse halo difuso adicional (vistas de densidad limpias).
-4. Health rings, collection tint, polaroid y focused/selected/recent siguen igual (paleta, posiciones y animaciones inalteradas).
-5. La banda micro sigue resolviendo el caso 5.000+ puntos sin SVG (sólo cambia el techo de px, de 5 a 6, y el techo de zoom, de 9 a 10).
+1. **z10 (micro)**: sin culling, microdots — comportamiento actual.
+2. **z11 — A/B coste con vs sin culling** (zona densa, p.ej. Madrid):
+   - Log DEV `[map-culling]` ya emite `filtered` y `rendered`. Comparar `rendered/filtered` ratio con la rama actual (1.0) y la nueva (debería bajar a ~0.3–0.5 según zoom y densidad).
+   - Confirmar que `rendered` con pad 1.0 < `filtered` total — si no, el culling no aporta y habría que revisar pad.
+   - Medir tiempo de reconstrucción del cluster (perf.now alrededor del effect 1442) en el mismo viewport antes/después.
+3. **z11–12 panning**: pan corto no muestra huecos; pan largo repuebla en `moveend`.
+4. **z13–15 / z≥16**: idéntico a hoy.
+5. **`keepIds`** (focused + popup abierto) sobreviven aunque caigan fuera.
 
----
+## Memoria
 
-## Memoria a actualizar
-
-- `mem://style/map/micro-marker-size` → nueva rampa `2/3/4/5/6 px` hasta z10, `microMax=10`.
-- `mem://style/map/zoom-driven-hero` → bandas actualizadas: micro z≤10 · compact z11–12 · standard z13–15 · rich z≥16. Añadir nota sobre `poi.shadow` (doble capa sólo standard/rich) y `poi.renderScale.byZoom`.
-
-Sin cambios en lógica de negocio, popups, filtros ni stores.
+Actualizar `mem://logic/map/viewport-culling-v1` con la nueva tabla (z≥11 pad 1.0) y nota: el cambio responde a `microMax=10`, que dejó z11–12 fuera del régimen barato de microdots.
