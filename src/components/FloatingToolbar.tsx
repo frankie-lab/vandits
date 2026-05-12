@@ -28,8 +28,9 @@ import {
  Trash2,
  AlertTriangle,
  Route,
-  Compass,
+   Compass,
   Camera,
+  LocateFixed,
 } from 'lucide-react';
 import SunCalc from 'suncalc';
 import { Input } from '@/components/ui/input';
@@ -121,6 +122,60 @@ interface EnrichmentJob {
  processed_count: number;
  error_count: number;
  current_location_name: string | null;
+}
+
+/**
+ * LocateMeButton — vive en FloatingToolbar pero delega 100% en LocationMap.
+ * Sigue el contrato canónico `centerOnUserLocation(source)` vía eventos:
+ *   - escucha 'map-locate-state' para reflejar { locating, isCenteredOnUser, hasUserLocation }
+ *   - dispara 'map-locate-toggle' al hacer click
+ * El mapa decide qué hacer (handleLocateMe vs zoomToBounds).
+ */
+function LocateMeButton() {
+  const [state, setState] = useState<{
+    locating: boolean;
+    isCenteredOnUser: boolean;
+    hasUserLocation: boolean;
+  }>({ locating: false, isCenteredOnUser: false, hasUserLocation: false });
+
+  useEffect(() => {
+    const onState = (e: Event) => {
+      const detail = (e as CustomEvent).detail || {};
+      setState({
+        locating: !!detail.locating,
+        isCenteredOnUser: !!detail.isCenteredOnUser,
+        hasUserLocation: !!detail.hasUserLocation,
+      });
+    };
+    window.addEventListener('map-locate-state', onState);
+    return () => window.removeEventListener('map-locate-state', onState);
+  }, []);
+
+  const label = state.isCenteredOnUser
+    ? 'Vista global'
+    : (state.hasUserLocation ? 'Centrar en mi ubicación' : 'Localizarme');
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`h-8 w-8 ${state.hasUserLocation && !state.isCenteredOnUser ? 'text-primary' : ''}`}
+          disabled={state.locating}
+          onClick={() => window.dispatchEvent(new CustomEvent('map-locate-toggle'))}
+          aria-label={label}
+        >
+          {state.locating
+            ? <Loader2 className="w-4 h-4 animate-spin" />
+            : state.isCenteredOnUser
+              ? <Globe2 className="w-4 h-4" />
+              : <LocateFixed className="w-4 h-4" />}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
+  );
 }
 
 export function FloatingToolbar({
@@ -736,6 +791,10 @@ export function FloatingToolbar({
      onOpenCategories={onOpenCategories}
   />
   </div>
+
+  {/* Locate-me — botón canónico (contrato centerOnUserLocation) */}
+  <div className="w-px h-6 bg-border/50 mx-1" />
+  <LocateMeButton />
 
   {/* Itinerarios — junto al avatar */}
   {onToggleRoutes && (

@@ -16,7 +16,7 @@ import { getBucketStats } from '@/domains/content/lib/location-bucket';
 import { resetAllFilters } from '@/domains/content/lib/filter-presets';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
-import { Maximize2, MapPin, Home, Upload, Compass, ArrowRight, LocateFixed, Loader2, Globe2 } from 'lucide-react';
+import { Maximize2, MapPin, Home, Upload, Compass, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
@@ -1087,6 +1087,31 @@ export function LocationMap() {
       map.off('moveend zoomend', recompute);
     };
   }, [userLocation]);
+
+  // Broadcast locate-me state so external UI (FloatingToolbar) can render the button.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('map-locate-state', {
+      detail: {
+        locating,
+        isCenteredOnUser,
+        hasUserLocation: !!userLocation,
+        mapTheme,
+      },
+    }));
+  }, [locating, isCenteredOnUser, userLocation, mapTheme]);
+
+  // Listen for external toggle requests from FloatingToolbar.
+  useEffect(() => {
+    const onToggle = () => {
+      if (isCenteredOnUser) {
+        zoomToBounds(false);
+      } else {
+        void handleLocateMe();
+      }
+    };
+    window.addEventListener('map-locate-toggle', onToggle);
+    return () => window.removeEventListener('map-locate-toggle', onToggle);
+  }, [isCenteredOnUser, handleLocateMe, zoomToBounds]);
 
   // Update home marker when config changes
  useEffect(() => {
@@ -2224,36 +2249,8 @@ export function LocationMap() {
  <MapScaleBar map={mapRef.current} units={measurementUnits} />
  
  {/* "Ver N ubicaciones" — integrado en la pill inferior derecha (ver bloque legend) */}
-  {/* Map theme toggle + locate-me — centered over the map */}
-  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[999] flex items-center gap-2 pointer-events-none [&>*]:pointer-events-auto">
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={isCenteredOnUser ? () => zoomToBounds(false) : handleLocateMe}
-          disabled={locating}
-          aria-label={isCenteredOnUser ? 'Vista global' : (userLocation ? 'Centrar en mi ubicación' : 'Localizarme')}
-          className={cn(
-            "h-9 w-9 inline-flex items-center justify-center rounded-full backdrop-blur-sm shadow-md transition-colors",
-            mapTheme === 'dark'
-              ? 'bg-gray-900/95 text-white hover:bg-gray-800'
-              : 'bg-white/95 text-foreground hover:bg-white',
-            userLocation && !isCenteredOnUser && 'text-primary'
-          )}
-        >
-          {locating
-            ? <Loader2 className="h-4 w-4 animate-spin" />
-            : isCenteredOnUser
-              ? <Globe2 className="h-4 w-4" />
-              : <LocateFixed className="h-4 w-4" />}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top">
-        {isCenteredOnUser ? 'Vista global' : (userLocation ? 'Centrar en mi ubicación' : 'Localizarme')}
-      </TooltipContent>
-    </Tooltip>
-  </div>
- 
+   {/* Locate-me button moved to FloatingToolbar (top bar). State broadcast via 'map-locate-state'. */}
+
  {/* Map Center Settings - now in UserProfileEditor */}
 
  {/* Legend and stats - single line bottom right */}
