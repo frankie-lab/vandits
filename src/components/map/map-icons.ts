@@ -75,6 +75,24 @@ export const setCurrentZoom = (zoom: number): void => {
   currentZoom = zoom;
 };
 
+/**
+ * Sincroniza `currentZoom` (y por tanto el render mode derivado) leyendo
+ * directamente del mapa. Llamar SIEMPRE desde cualquier call-site que cree
+ * markers fuera del effect principal de `LocationMap` (preview, photo,
+ * route, etc.) para evitar que entren con el default `standard` y rompan
+ * la regla canónica de bandas por zoom.
+ */
+export const syncRenderModeFromMap = (map: L.Map | null | undefined): void => {
+  if (!map) return;
+  try {
+    const z = map.getZoom();
+    if (typeof z === 'number' && Number.isFinite(z)) {
+      currentZoom = z;
+      currentRenderMode = getRenderModeForZoom(z);
+    }
+  } catch { /* noop */ }
+};
+
 export const getCurrentRenderMode = (): MarkerRenderMode => currentRenderMode;
 
 export const createCustomIcon = (
@@ -117,7 +135,17 @@ export const createCustomIcon = (
   // Excepción conservadora: `isFocused` (click directo, 1 punto) puede
   // escapar de su banda y entrar en `rich` para destacar. `isSelected` NO
   // escapa — selección masiva (filtros, ruta) no debe disparar polaroids.
-  const renderMode: MarkerRenderMode = isFocused ? 'rich' : currentRenderMode;
+  //
+  // FIX TRANSVERSAL: derivamos el modo desde `currentZoom` directamente, no
+  // desde el singleton `currentRenderMode`. Antes ambos singletons podían
+  // desincronizarse: si un call-site creaba un marker fuera del flujo
+  // principal antes del primer `zoomend`, `currentRenderMode` quedaba en su
+  // default (`standard`) y el marker entraba en la rama SVG aunque el zoom
+  // real fuera 8 (banda micro). Resultado: POIs grandes con tinte de
+  // colección mezclados con micro-dots correctos al mismo zoom. Single
+  // source of truth = `currentZoom` (actualizado en cada `zoomend` y por
+  // sync defensivo desde call-sites paralelos).
+  const renderMode: MarkerRenderMode = isFocused ? 'rich' : getRenderModeForZoom(currentZoom);
   if (renderMode === 'micro') {
     // Rampa progresiva por zoom (z6→2, z7→3, z8→4, z9→5). Evita el salto
     // brusco de 2px a compact. La pertenencia (`isOwn`) se diferencia solo
