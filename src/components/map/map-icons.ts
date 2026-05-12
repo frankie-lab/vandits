@@ -86,7 +86,7 @@ let currentZoom = 12;
 export const getRenderModeForZoom = (zoom: number): MarkerRenderMode => {
   // Fuente única: tokens/map.json (ZOOM_THRESHOLDS). NO hardcodear umbrales aquí.
   // Bandas: micro ≤ microMax · compact ≤ compactMax · standard ≤ standardMax · rich ≥ richMin.
-  // standard vuelve a existir como banda real (z13–15) — la polaroid solo entra en z≥16.
+  // standard existe como banda real (z12–14) — la polaroid solo entra en z≥15 (rich).
   const { microMax, compactMax, standardMax, richMin } = ZOOM_THRESHOLDS;
   if (zoom <= microMax) return 'micro';
   if (zoom <= compactMax) return 'compact';
