@@ -344,7 +344,10 @@ export type FilterCriteria = {
   // Estado de enriquecimiento (interno legacy)
  enrichmentStatus?: EnrichmentStatusFilter;
   // Eje "estado visual" canónico (verde/gris/naranja). Norma: filter axes.
- visualState?: VisualStateFilter;
+  visualState?: VisualStateFilter;
+  // Eje "Salud operativa" canónico (Health Rings v2). Single-select.
+  // Delega en `getPointHealthRings(loc)`; ver `mem://logic/discovery/health-filter-axis`.
+  healthFilter?: HealthFilter;
   // Filtro de propietario
  ownershipFilter?: OwnershipFilter;
   // Filtro de visita
