@@ -17,3 +17,6 @@ export type {
 } from '@/types/location';
 
 // Hooks (will be populated as we migrate)
+
+// Store
+export { useDiscoveryStore } from './store/discovery-store';
