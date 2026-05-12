@@ -117,7 +117,14 @@ export function LocationMap() {
   const homeMarkerRef = useRef<L.Marker | null>(null);
   const userLocationMarkerRef = useRef<L.Marker | null>(null);
   const userLocationCircleRef = useRef<L.Circle | null>(null);
-  const prevLocationsCountRef = useRef<number>(0);
+ const prevLocationsCountRef = useRef<number>(0);
+  // Último zoom entero usado para repintar markers. byZoom (poi.renderScale.byZoom)
+  // está indexado por zoom entero, así que disparamos `map-render-mode-changed`
+  // en cada cambio de zoom entero, no solo cuando cambia la banda. Sin esto,
+  // intra-banda (z12→z13→z14) los markers quedan congelados a la escala con la
+  // que entraron. useRef para sobrevivir re-renders. Mismo redondeo que
+  // `getModeScaleForZoom` (Math.round) en map-icons.ts.
+  const lastIntZoomRef = useRef<number | null>(null);
    const routeLayersRef = useRef<L.Layer[]>([]);
    const routeGroupRef = useRef<L.LayerGroup | null>(null);
     const advisorPreviewGroupRef = useRef<L.LayerGroup | null>(null);
