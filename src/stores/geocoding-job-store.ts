@@ -115,6 +115,9 @@ function applyRow(row: Record<string, any>) {
       label: row.label ?? undefined,
       mode: row.mode ?? 'fill',
       catalogOnly: row.catalog_only ?? false,
+      // PR-4A.3a: surface scope.source ('health_cta' for repair jobs spawned
+      // by the health filter) so GeocodingLane can adapt its title.
+      source: (row.scope && typeof row.scope === 'object' && (row.scope as Record<string, unknown>).source as string | undefined) ?? undefined,
     },
     startedAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
   });
