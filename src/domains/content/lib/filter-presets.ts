@@ -134,6 +134,7 @@ export function countActiveStateFilters(filters: FilterCriteria): number {
   if (filters.enrichmentStatus) count++;
   if (filters.visitedFilter && filters.visitedFilter !== 'all') count++;
   if (filters.semanticResultIds && filters.semanticResultIds.length > 0) count++;
+  if (filters.healthFilter) count++;
   return count;
 }
 
