@@ -1,36 +1,53 @@
-# Mover Localizarme + Tema al centro absoluto del mapa
+## Botón "Localizarme" contextual
 
-## Qué son
+El botón flotante central pasa a tener **dos modos** que se conmutan según el estado real del mapa.
 
-Dos botones flotantes definidos en `src/components/LocationMap.tsx:2175`:
+### Comportamiento
 
-- **Localizarme** (`LocateFixed`): centra el mapa en la ubicación del navegador. Cuando ya tiene tu ubicación, el icono se pone en color `text-primary` (azul) — eso es el "algo azul" que se asomaba detrás de la search bar.
-- **MapThemeToggle**: cambia el estilo del tile (claro/oscuro).
+- **Modo A — "Centrar en mi ubicación"** (por defecto)
+  - Icono: `LocateFixed`
+  - Acción: comportamiento actual (`handleLocateMe` → `getCurrentPosition` → `flyTo` a `userLocation`).
+  - Tooltip: "Centrar en mi ubicación".
 
-Hoy viven en `top-4 right-4 z-[999]`, justo donde está la search bar (`z-[1000]`), por eso quedaban tapados y sin clicks.
+- **Modo B — "Vista global"**
+  - Icono: `Globe2` (Lucide).
+  - Acción: `zoomToBounds(false)` (mismo helper que ya usa el botón `Maximize2` de la pill inferior derecha → fit a todos los puntos visibles/filtrados).
+  - Tooltip: "Vista global".
 
-## Cambio
+### Detección (proximidad real)
 
-Reposicionar el contenedor al **centro absoluto del mapa**, manteniéndolos juntos en una pill horizontal y respetando el sidebar-aware layout (sidebar izquierdo `200px` + panel derecho `340px`).
+Se calcula en cada `moveend`/`zoomend` del mapa, recordando el último valor en un `useState`:
 
-`src/components/LocationMap.tsx:2175`
-
-```diff
-- <div className="absolute top-4 right-4 z-[999] flex items-center gap-2">
-+ <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[999] flex items-center gap-2 pointer-events-none">
-+   {/* hijos con pointer-events-auto */}
+```text
+isCenteredOnUser =
+  userLocation != null
+  && distance(map.getCenter(), userLocation) < 150 m
+  && map.getZoom() >= 13
 ```
 
-Cada botón hijo lleva `pointer-events-auto` para que el wrapper no bloquee el drag/zoom del mapa por debajo.
+- Si `isCenteredOnUser` → render Modo B (Vista global).
+- En cuanto el usuario arrastra/zoom-out → vuelve a Modo A automáticamente.
+- Si aún no hay `userLocation` capturada → siempre Modo A (igual que hoy).
 
-## Notas
+### Detalles técnicos
 
-- z-index 999 sigue por debajo de popups y de la search bar; correcto.
-- No toca: search bar, FloatingToolbar central, leyenda inferior, controles de zoom Leaflet.
-- Tooltip "Localizarme" pasa a `side="top"` para no quedar fuera de pantalla en el centro.
+Cambio único en `src/components/LocationMap.tsx` (bloque líneas 2175-2204):
 
-## Verificación
+1. Añadir `const [isCenteredOnUser, setIsCenteredOnUser] = useState(false)`.
+2. `useEffect` que engancha `mapRef.current.on('moveend zoomend', recompute)` y limpia en cleanup. El recompute usa `map.distance(center, userLocation)` (Leaflet ya lo expone en metros) y `map.getZoom()`.
+3. En el JSX del botón:
+   - `onClick = isCenteredOnUser ? () => zoomToBounds(false) : handleLocateMe`
+   - `aria-label` y `<TooltipContent>` cambian con `isCenteredOnUser`.
+   - Icono: ternario `isCenteredOnUser ? <Globe2 /> : <LocateFixed />` (manteniendo `Loader2` cuando `locating`).
+4. Importar `Globe2` desde `lucide-react` en el bloque de imports existente.
 
-1. En `/`, los dos botones aparecen flotando en el centro del mapa.
-2. Click en cada uno funciona; el resto del mapa sigue siendo arrastrable alrededor.
-3. La esquina superior derecha queda limpia (solo search bar).
+Sin tocar:
+- Posición central del wrapper, estilos, `pointer-events`, ni el botón `Maximize2` de la pill inferior (que sigue siendo el atajo "ver todos").
+- `handleLocateMe` ni `zoomToBounds` (se reutilizan tal cual).
+
+### Verificación
+
+1. Estado inicial: botón muestra `LocateFixed`, tooltip "Centrar en mi ubicación".
+2. Click → mapa vuela a tu ubicación; al terminar el `moveend` el botón cambia a `Globe2` y tooltip "Vista global".
+3. Click de nuevo → fit a todos los puntos; el botón vuelve a `LocateFixed`.
+4. Arrastrar el mapa lejos de la ubicación o zoom-out por debajo de z13 → vuelve a modo A sin click.
