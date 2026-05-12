@@ -151,6 +151,32 @@ export function FilterBar() {
   // Check if filters are significantly reducing results
  const filterReductionWarning = stats.total > 0 && filteredCount < stats.total * 0.2 && filteredCount < 50;
 
+  // === PR-4A: Panel modes (Explorar / Mantener / Seleccionar) ===
+  // Persistencia ligera en sessionStorage; modo inicial inferido por contexto.
+  const STORAGE_KEY = 'vandits.panelMode';
+  const inferInitialMode = (): PanelMode => {
+    if (typeof window === 'undefined') return 'explore';
+    if (filters.healthFilter) return 'maintain';
+    if (selectedCount > 0) return 'select';
+    const stored = window.sessionStorage.getItem(STORAGE_KEY) as PanelMode | null;
+    if (stored === 'explore' || stored === 'maintain' || stored === 'select') return stored;
+    return 'explore';
+  };
+  const [panelMode, setPanelMode] = useState<PanelMode>(inferInitialMode);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem(STORAGE_KEY, panelMode);
+    }
+  }, [panelMode]);
+  // Auto-switch sólo cuando el contexto fuerza la intención (no sobreescribe elección manual repetida).
+  useEffect(() => {
+    if (filters.healthFilter && panelMode !== 'maintain') {
+      setPanelMode('maintain');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.healthFilter]);
+
+
   return (
   <div className="flex flex-col h-full min-h-0">
    <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1">
