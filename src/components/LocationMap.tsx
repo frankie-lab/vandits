@@ -1423,18 +1423,16 @@ export function LocationMap() {
     [markerLocations],
   );
 
-  if (import.meta.env.DEV) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    React.useEffect(() => {
-      // eslint-disable-next-line no-console
-      console.debug('[map-culling]', {
-        zoom: zoomState,
-        filtered: locations.length,
-        rendered: markerLocations.length,
-        kept: keepIds.size,
-      });
-    }, [locationIds, zoomState, locations.length, keepIds.size, markerLocations.length]);
-  }
+  React.useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    // eslint-disable-next-line no-console
+    console.debug('[map-culling]', {
+      zoom: zoomState,
+      filtered: locations.length,
+      rendered: markerLocations.length,
+      kept: keepIds.size,
+    });
+  }, [locationIds, zoomState, locations.length, keepIds.size, markerLocations.length]);
  
  useEffect(() => {
  if (!mapRef.current || !markerClusterRef.current) return;
