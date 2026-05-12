@@ -138,8 +138,10 @@ export const createCustomIcon = (
   // perceptible al usuario entre zoom medio (compact) y cercano (rich).
   // `micro` no llega aquí (vuelve antes con divIcon plano).
   // Progresión perceptible entre bands. Ver `mem://style/map/zoom-driven-hero`.
-  // compact ≈ tamaño base (claramente visible en vista regional), rich +35%.
-  const modeScale = renderMode === 'compact' ? 0.9 : renderMode === 'rich' ? 1.35 : 1;
+  // En `rich` el dot mantiene el mismo tamaño que `compact`: la polaroid
+  // (cuando hay foto) flota encima como decoración, pero el dot canónico
+  // tiene que seguir siendo claramente un dot, no una mancha aplastada.
+  const modeScale = renderMode === 'compact' ? 0.9 : renderMode === 'rich' ? 0.9 : 1;
   const baseSize = getBaseSize(entry, isRecentlyEnriched, isFocused, isSelected);
   const baseHover = getHoverSize(entry);
   const size = Math.max(6, Math.round(baseSize * modeScale));
@@ -197,47 +199,46 @@ export const createCustomIcon = (
     : '';
 
   // ── Rich (z≥11) — polaroid AÑADIDA encima del dot canónico ──────────────
-  // La polaroid NO sustituye al marker: es una capa decorativa flotando
-  // sobre el dot estándar. El dot canónico (color de estado + health rings
-  // + collection tint) sigue siendo la coordenada real y el área clicable.
+  // La polaroid SOLO se renderiza cuando hay foto Hero real. Sin foto → el
+  // POI queda como dot canónico puro (igual que `compact`). Cero placeholder
+  // de imagen, cero marco vacío. El dot sigue siendo la coordenada real, el
+  // área clicable y el host de health rings + collection tint.
   // Ver `mem://style/map/zoom-driven-hero`.
   let polaroidHtml = '';
   if (renderMode === 'rich') {
     const heroId = location?.id;
-    // Pasamos ownership = { isOwn } igual que `map-tooltip.ts` para que los
-    // POIs propios con `user_image_visibility='private'` (default) muestren
-    // su `user_image_url`. Single source of truth: `getPointHeroImage`.
+    // Single source of truth: `getPointHeroImage`. Pasamos `isOwn` igual que
+    // `map-tooltip.ts` para que los POIs propios con visibilidad privada
+    // muestren su `user_image_url`.
     const heroUrl = heroId && !heroFailedIds.has(heroId)
       ? getPointHeroImage(location, { isOwn })
       : null;
-    const cardSize = 50;
-    const pointerH = 6;
-    const polaroidW = cardSize;
-    const polaroidH = cardSize + pointerH;
-    const ownClass = isOwn ? ' is-own' : '';
-    const safeId = heroId ? String(heroId).replace(/"/g, '&quot;') : '';
-    const placeholderSvg = `
-      <svg class="poi-hero-marker__placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
-        <circle cx="9" cy="9" r="2"/>
-        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
-      </svg>`;
-    const placeholderHtml = `<div class="poi-hero-marker__placeholder">${placeholderSvg}</div>`;
-    // Renderiza UNO solo: imagen o placeholder. Si la imagen falla en
-    // runtime, marcamos el ID en `heroFailedIds` y sustituimos in-place.
-    const photoInner = heroUrl
-      ? `<img class="poi-hero-marker__img" src="${heroUrl.replace(/"/g, '&quot;')}" alt="" referrerpolicy="no-referrer" onerror="window.__markHeroFailed && window.__markHeroFailed('${safeId}'); var p=this.parentElement; if(p){ p.innerHTML='${placeholderHtml.replace(/'/g, "\\'").replace(/\n/g, '')}'; }" />`
-      : placeholderHtml;
-    polaroidHtml = `
-      <div class="poi-hero-marker poi-hero-marker--addon${ownClass}" style="position:absolute; left:50%; bottom:calc(100% + 4px); transform:translateX(-50%); width:${polaroidW}px; height:${polaroidH}px; pointer-events:none; --marker-state-color:${entry.fill_color};">
-        <div class="poi-hero-marker__card">
-          <div class="poi-hero-marker__photo">${photoInner}</div>
-        </div>
-        <svg class="poi-hero-marker__pointer" width="14" height="${pointerH + 1}" viewBox="0 0 14 7" aria-hidden="true">
-          <path d="M0 0 H14 L7 7 Z" fill="hsl(var(--background))" stroke="var(--marker-state-color)" stroke-width="1" stroke-linejoin="miter"/>
-          <path d="M1 0 H13" stroke="hsl(var(--background))" stroke-width="1.4"/>
-        </svg>
-      </div>`;
+    if (heroUrl) {
+      const cardSize = 50;
+      const pointerH = 6;
+      const polaroidW = cardSize;
+      const polaroidH = cardSize + pointerH;
+      const ownClass = isOwn ? ' is-own' : '';
+      const safeId = heroId ? String(heroId).replace(/"/g, '&quot;') : '';
+      const safeUrl = heroUrl.replace(/"/g, '&quot;');
+      // `onerror` solo marca el fallo y oculta el `<img>` — sin reinyectar
+      // HTML escapado en el atributo (la fuente del "código residual" visto
+      // detrás del marco). El siguiente repintado por zoom/render-mode
+      // saltará la rama y no habrá polaroid.
+      const onerror = `window.__markHeroFailed && window.__markHeroFailed('${safeId}'); this.style.display='none';`;
+      polaroidHtml = `
+        <div class="poi-hero-marker poi-hero-marker--addon${ownClass}" style="position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%); width:${polaroidW}px; height:${polaroidH}px; pointer-events:none; --marker-state-color:${entry.fill_color};">
+          <div class="poi-hero-marker__card">
+            <div class="poi-hero-marker__photo">
+              <img class="poi-hero-marker__img" src="${safeUrl}" alt="" referrerpolicy="no-referrer" onerror="${onerror}" />
+            </div>
+          </div>
+          <svg class="poi-hero-marker__pointer" width="14" height="${pointerH + 1}" viewBox="0 0 14 7" aria-hidden="true">
+            <path d="M0 0 H14 L7 7 Z" fill="hsl(var(--background))" stroke="var(--marker-state-color)" stroke-width="1" stroke-linejoin="miter"/>
+            <path d="M1 0 H13" stroke="hsl(var(--background))" stroke-width="1.4"/>
+          </svg>
+        </div>`;
+    }
   }
 
   // Pin (teardrop) shape — only when explicitly configured for this state
