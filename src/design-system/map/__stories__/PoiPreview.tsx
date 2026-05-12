@@ -76,6 +76,8 @@ export interface PoiPreviewProps {
   heroSrc?: string;
   /** Optional collection tint (inner ring, 2px gap to marker). HSL string or `hsl(...)` */
   collectionTint?: string | null;
+  /** Coherence glyph overlay — only painted in `rich` renderMode. */
+  glyph?: CoherenceGlyph | null;
   /** Label shown under the marker (for stories only). */
   label?: string;
 }
