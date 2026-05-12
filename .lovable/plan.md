@@ -1,115 +1,201 @@
-# Zoom bands v2 — progresión proporcional sin saltos
+# Map Viewport Culling v1 (final)
 
-Aplicamos tu propuesta con los dos ajustes finales.
+Aprobado con los tres ajustes finales: hash barato O(n·k) sin strings gigantes, variable `shouldRebuild` calculada antes del flush del ref, y QA obligatorio z14/z16 con popup y ruta.
 
-## Bandas finales
+## Bandas
 
 ```
-z ≤ 6       micro          2px
-z 7–9       micro-grown    3 / 4 / 5 px (progresivo por zoom)
-z 10–12     compact        SVG dot, collection-tint, sin health rings, modeScale 0.9
-z 13–15     standard       dot grande, health rings, collection-tint, SIN polaroid, modeScale 1.0
-z ≥ 16      rich           polaroid + hero/placeholder + dot pleno, modeScale 1.1
+z ≤ 12       sin culling
+z 13–15      culling activo, pad 0.75
+z ≥ 16       culling estricto, pad 0.5
 ```
 
-Excepción única: **`isFocused` (click directo)** puede escapar de su banda y renderizar `rich` antes. **`isSelected` NO escapa** — riesgo de bulk/filtro/ruta.
+## keep-always (6 fuentes explícitas, todas puntuales o acotadas)
 
-## Cambios concretos
+```
+focusedLocationId
+openPopupLocationId
+activeRouteWaypointIds
+activeSearchResultIds
+duplicatePanelLocationIds
+proximityContextLocationIds
+```
 
-### 1. Tokens (`src/design-system/tokens/source/map.json`)
+`selectedLocationId` queda **fuera** (riesgo bulk).
 
-```json
-"zoom": {
-  "microMax":    9,
-  "compactMax":  12,
-  "standardMax": 15,
-  "heroMin":     16,
-  "richMin":     16
+## Helper único — `src/components/map/viewport-culling.ts` (nuevo)
+
+```ts
+import type L from 'leaflet';
+import type { GeoLocation } from '@/types/location';
+
+export function shouldCullByViewport(zoom: number): boolean {
+  return zoom >= 13;
+}
+
+export function getViewportPadForZoom(zoom: number): number {
+  if (zoom >= 16) return 0.5;
+  if (zoom >= 13) return 0.75;
+  return 0;
+}
+
+export function applyViewportCulling(
+  locations: GeoLocation[],
+  bounds: L.LatLngBounds | null,
+  zoom: number,
+  keepIds: Set<string>,
+): GeoLocation[] {
+  if (!bounds || !shouldCullByViewport(zoom)) return locations;
+  const padded = bounds.pad(getViewportPadForZoom(zoom));
+  return locations.filter(
+    (loc) =>
+      keepIds.has(loc.id) ||
+      padded.contains([loc.latitude, loc.longitude]),
+  );
+}
+
+/**
+ * Firma barata del subset para evitar reconstrucciones innecesarias del cluster.
+ * O(n·k) sin allocaciones grandes (no genera strings con todos los IDs).
+ * Hash djb2-style sobre charCodes; combinado con length para discriminar tamaños.
+ * No es criptográfico: colisiones posibles pero extremadamente raras en este uso.
+ */
+export function getLocationSubsetSignature(locations: GeoLocation[]): string {
+  let hash = 0;
+  for (const loc of locations) {
+    const id = loc.id;
+    for (let i = 0; i < id.length; i++) {
+      hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
+    }
+  }
+  return `${locations.length}:${hash}`;
 }
 ```
 
-(Hoy `richMin=11`, `compactMax=13`. Restaura `standard` como banda real y mueve la polaroid a z≥16.)
+Opcional DEV-only: en `import.meta.env.DEV` calcular además un sort+join y comparar contra el hash para detectar colisiones. Si aparecen, se documenta y se sustituye por una firma más fuerte. **No** se incluye en producción.
 
-Tras editar, regenerar tokens: `node src/design-system/tokens/build-tokens.cjs`.
+## Cambios en `src/components/LocationMap.tsx`
 
-### 2. `getRenderModeForZoom` — sin cambios
-
-Ya lee `microMax`, `standardMax`, `richMin` desde `ZOOM_THRESHOLDS`. Con los nuevos tokens, las 4 bandas (`micro` / `compact` / `standard` / `rich`) vuelven a coexistir.
-
-### 3. `modeScale` corregido (`src/components/map/map-icons.ts`)
-
-Hoy:
+Estado nuevo:
 ```ts
-const modeScale = renderMode === 'compact' ? 0.9 : renderMode === 'rich' ? 0.9 : 1;
+const [viewportBounds, setViewportBounds] = useState<L.LatLngBounds | null>(null);
+const [zoomState, setZoomState] = useState<number>(() => mapRef.current?.getZoom() ?? 6);
+const [openPopupLocationId, setOpenPopupLocationId] = useState<string | null>(null);
 ```
 
-Cambio:
+Wiring (extender el handler `moveend`/`zoomend` ya existente y añadir `popupopen`/`popupclose`):
 ```ts
-const modeScale =
-  renderMode === 'compact' ? 0.9 :
-  renderMode === 'standard' ? 1.0 :
-  renderMode === 'rich' ? 1.1 :
-  1.0;
+const m = mapRef.current!;
+const onMoveOrZoom = () => {
+  setViewportBounds(m.getBounds());
+  setZoomState(m.getZoom());
+};
+m.on('moveend zoomend', onMoveOrZoom);
+
+m.on('popupopen', (e: L.LeafletEvent & { popup: L.Popup }) => {
+  const id = (e.popup.options as any)?.locationId ?? null;
+  setOpenPopupLocationId(id);
+});
+m.on('popupclose', () => setOpenPopupLocationId(null));
 ```
 
-Así el dot en `rich` gana presencia bajo la polaroid, en lugar de quedar reducido.
+(Cuando se construye el popup de un marker, marcar `popup.options.locationId = loc.id` para recuperarlo aquí. Si ya hay convención, reutilizarla.)
 
-### 4. Modo `micro` con crecimiento progresivo (z7–z9)
-
-Hoy `micro` devuelve un divIcon plano de **2px fijo**. Lo sustituimos por una rampa por zoom:
-
-```
-z ≤ 6 → 2px
-z = 7 → 3px
-z = 8 → 4px
-z = 9 → 5px
-```
-
-Implementación: añadir `currentZoom` paralelo a `currentRenderMode` en `map-icons.ts`, con `setCurrentZoom(z)` invocado desde el mismo handler de `zoomend` en `LocationMap` que ya llama a `setCurrentRenderMode`. En la rama `micro`:
-
+`keepIds`:
 ```ts
-const microSize = currentZoom <= 6 ? 2 : Math.min(5, currentZoom - 4);
+const keepIds = useMemo(() => {
+  const ids = new Set<string>();
+  if (focusedLocationId) ids.add(focusedLocationId);
+  if (openPopupLocationId) ids.add(openPopupLocationId);
+  for (const wp of activeRouteWaypointIds) ids.add(wp);
+  for (const sr of activeSearchResultIds) ids.add(sr);
+  for (const dp of duplicatePanelLocationIds) ids.add(dp);
+  for (const pc of proximityContextLocationIds) ids.add(pc);
+  return ids;
+}, [
+  focusedLocationId, openPopupLocationId,
+  activeRouteWaypointIds, activeSearchResultIds,
+  duplicatePanelLocationIds, proximityContextLocationIds,
+]);
 ```
 
-Sin cambios en halo/own/paleta: 3 colores (verde/gris/naranja) intactos.
-
-### 5. Modo `standard` (z13–z15) — restaurado
-
-`standard` lleva tiempo absorbido por `rich`. Verificamos que la rama "default circle" funcione sin polaroid:
-
-- `polaroidHtml` solo se construye cuando `effectiveMode === 'rich'` (ya es así).
-- `skipHealthRings` y `skipGradient` solo se activan en `compact` (ya es así → `standard` ve health rings + gradiente).
-- `modeScale` para `standard` = `1.0` (ver punto 3).
-- Resultado: en z13–z15 se ven dots completos con gradiente, health rings y collection-tint, **sin polaroid**.
-
-### 6. Excepción focused → rich (conservadora)
-
+Subset y diff:
 ```ts
-const effectiveMode = isFocused ? 'rich' : currentRenderMode;
+const markerLocations = useMemo(
+  () => applyViewportCulling(locations, viewportBounds, zoomState, keepIds),
+  [locations, viewportBounds, zoomState, keepIds],
+);
+
+const subsetSig = useMemo(
+  () => getLocationSubsetSignature(markerLocations),
+  [markerLocations],
+);
+
+const lastSubsetSigRef = useRef<string>('');
+
+useEffect(() => {
+  const shouldRebuild = subsetSig !== lastSubsetSigRef.current;
+
+  if (import.meta.env.DEV) {
+    console.debug('[map-culling]', {
+      zoom: zoomState,
+      filtered: locations.length,
+      rendered: markerLocations.length,
+      kept: keepIds.size,
+      shouldRebuild,
+    });
+  }
+
+  if (!shouldRebuild) return;
+  lastSubsetSigRef.current = subsetSig;
+  rebuildClusterLayers(markerLocations); // clearLayers + addLayers
+}, [subsetSig, markerLocations, zoomState, locations.length, keepIds.size]);
 ```
 
-Aplicar `effectiveMode` en lugar de `renderMode` para: decisión de polaroid, `modeScale`, `skipHealthRings`, `skipGradient`. No tocar `isSelected` — la selección masiva (filtros, ruta) no debe hacer aparecer polaroids en cascada.
+Reemplazar `locations` → `markerLocations` **solo** en el path que alimenta `clusterGroup.addLayers(...)`. Todo lo demás (store, contadores, FilterBar, FloatingToolbar, gallery, listas, exportación) sigue leyendo `locations`/`getFilteredLocations()`.
 
-### 7. Memoria
+## Documentación
 
-- Actualizar `mem://style/map/zoom-driven-hero` con las 5 bandas, `richMin=16`, `modeScale rich=1.1`, y la regla "polaroid solo z≥16 salvo `isFocused`".
-- Actualizar `mem://style/map/micro-marker-size` para reflejar la rampa 2→5px en z6–9.
-- Actualizar el Core de `mem://index.md` (entrada *Zoom-driven hero / polaroid*).
-
-### 8. Storybook
-
-`ZoomLevelMatrix.stories.tsx` ya muestra `z=4,8,11,14,16,18`. Tras regenerar tokens: z=8 cae en `micro-grown`, z=11/14 en `compact`/`standard`, z=16/18 en `rich`. Sirve como QA visual sin tocar la story.
+- Nueva memoria `mem://logic/map/viewport-culling-v1`: bandas, pad por zoom, helper único, las 6 fuentes keep-always, regla "no reconstruir si firma no cambió", separación `filteredLocations` (verdad lógica) vs `markerLocations` (subset visual), regla "todo panel nuevo que seleccione un POI debe registrarlo en `keepIds`".
+- Entrada Core en `mem://index.md`.
 
 ## Archivos a tocar
 
-- `src/design-system/tokens/source/map.json` — nuevos thresholds
-- `src/design-system/tokens/build-tokens.cjs` — re-run para emitir `tokens.ts`/`tokens.css`/`tailwind.tokens.cjs`
-- `src/components/map/map-icons.ts` — `currentZoom` + rampa micro + nuevo `modeScale` + `effectiveMode` (focused only)
-- `src/components/LocationMap.tsx` — `setCurrentZoom(map.getZoom())` en el handler `zoomend` que ya llama a `setCurrentRenderMode`
-- `mem://style/map/zoom-driven-hero`, `mem://style/map/micro-marker-size`, `mem://index.md` — actualizar reglas canónicas
+- `src/components/map/viewport-culling.ts` (nuevo)
+- `src/components/LocationMap.tsx` (estado + memo + diff + reemplazo en path de cluster + wiring `popupopen/popupclose` con `locationId` en `popup.options`)
+- `mem://logic/map/viewport-culling-v1`, `mem://index.md`
+
+## Fuera de alcance
+
+- Clustering (config y estrategia).
+- Iconos / zoom bands / palette / health rings.
+- Store de Content.
+- Contadores, filtros, búsqueda, gallery, exportación.
+- Backend.
+- `selectedLocationId` en keepIds.
+
+## QA obligatorio (cierre)
+
+- **z14, pan corto repetido**: `[map-culling]` muestra `shouldRebuild: false` la mayoría de moveends; sin flicker.
+- **z16, pan corto repetido**: ídem; polaroid no parpadea.
+- **z14, pan largo cruzando padded bounds**: `shouldRebuild: true`, repintado limpio.
+- **Popup abierto + pan que saca el marker del viewport ampliado**: marker permanece, popup sigue anclado.
+- **Ruta activa con waypoints distantes + pan a un solo waypoint**: todos los waypoints siguen visibles.
+- **Focused desde lista + pan lejos**: marker permanece y clicable.
+- **Semantic search activa**: resultados visibles.
+- **Sin regresión** en contadores, FilterBar, FloatingToolbar, listas, gallery, exportación.
 
 ## Riesgos
 
-- La polaroid desaparece en una franja amplia (z11–z15) donde hoy estaba. Es exactamente lo pedido. QA visual urbano z13–z15 antes de cerrar.
-- `modeScale` rich = 1.1 hace que el dot crezca un 10% sobre el tamaño base de la BD (`marker_size_config`). Si en QA resulta excesivo bajo la polaroid, ajustar a 1.0.
-- Sin cambios de paleta, health rings, collection-tint ni ownership.
+- **Hash colisión**: extremadamente raro; mitigación opcional comparación DEV con sort+join.
+- **`popup.options.locationId` no convencionado**: si no existe hoy, añadirlo en el sitio único donde se crean los popups del marker.
+- **Fuente keep-always olvidada**: cualquier panel futuro que seleccione un POI debe añadir su ID a `keepIds`. Documentado en la memoria.
+
+## Criterio de éxito
+
+- z8: `rendered ≈ filtered`.
+- z14 urbano con 5k filtrados: `rendered` típicamente <500.
+- z16: `rendered` solo viewport ampliado.
+- 6 fuentes keep-always siempre presentes.
+- Pan continuo sin popping ni reconstrucciones innecesarias.
+- Sin regresión en contadores, filtros, listas ni rutas.

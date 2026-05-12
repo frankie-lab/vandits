@@ -8,6 +8,10 @@ import 'leaflet.markercluster';
 import { useLocationsStore } from '@/domains/content';
 import { useLayerVisibility, LAYER_VISIBILITY_EVENT, type LayerType } from '@/hooks/use-layer-visibility';
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
+import {
+  applyViewportCulling,
+  getLocationSubsetSignature,
+} from '@/components/map/viewport-culling';
 import { getBucketStats } from '@/domains/content/lib/location-bucket';
 import { resetAllFilters } from '@/domains/content/lib/filter-presets';
 import { GeoLocation } from '@/types/location';
@@ -574,6 +578,15 @@ export function LocationMap() {
   } = useLocationsStore();
   
   const locations = useFilteredLocations();
+
+  // ── Viewport Culling v1 ────────────────────────────────────────────
+  // En z≥13 sólo construimos markers Leaflet para puntos dentro del
+  // viewport ampliado. `keepIds` garantiza que focused / popup-abierto
+  // sobreviven al culling. Ver `src/components/map/viewport-culling.ts`
+  // y `mem://logic/map/viewport-culling-v1`.
+  const [viewportBounds, setViewportBounds] = useState<L.LatLngBounds | null>(null);
+  const [zoomState, setZoomState] = useState<number>(6);
+  const [openPopupLocationId, setOpenPopupLocationId] = useState<string | null>(null);
   
    // Get current user ID for ownership detection
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -1200,11 +1213,16 @@ export function LocationMap() {
     setCurrentRenderMode(initialMode);
     applyZoomModeClass(initialMode);
     window.dispatchEvent(new CustomEvent('map-render-mode-changed'));
+    // Viewport Culling v1: snapshot inicial de bounds + zoom.
+    setZoomState(mapRef.current.getZoom());
+    setViewportBounds(mapRef.current.getBounds());
     mapRef.current.on('zoomend', () => {
       if (!mapRef.current) return;
       const zoom = mapRef.current.getZoom();
       applyRingWidth(zoom);
       setCurrentZoom(zoom);
+      setZoomState(zoom);
+      setViewportBounds(mapRef.current.getBounds());
       const mode = getRenderModeForZoom(zoom);
       const changed = setCurrentRenderMode(mode);
       applyZoomModeClass(mode);
@@ -1215,6 +1233,19 @@ export function LocationMap() {
         // tamaño aunque el modo no cambie. Forzamos repintado de markers.
         window.dispatchEvent(new CustomEvent('map-render-mode-changed'));
       }
+    });
+    // Viewport Culling v1: actualiza bounds tras pan (sin tocar zoom mode).
+    mapRef.current.on('moveend', () => {
+      if (!mapRef.current) return;
+      setViewportBounds(mapRef.current.getBounds());
+    });
+    // Viewport Culling v1: rastrea popup abierto a nivel de mapa para keepIds.
+    mapRef.current.on('popupopen', (e: L.PopupEvent) => {
+      const id = (e.popup.options as { locationId?: string })?.locationId ?? null;
+      setOpenPopupLocationId(id);
+    });
+    mapRef.current.on('popupclose', () => {
+      setOpenPopupLocationId(null);
     });
     const resizeObserver = new ResizeObserver(() => {
       const map = mapRef.current;
@@ -1366,8 +1397,42 @@ export function LocationMap() {
   // Track pending popup to open after marker updates
  const pendingPopupRef = useRef<string | null>(null);
 
-  // Only recreate markers when location list changes (add/remove), not on enrichment updates
- const locationIds = React.useMemo(() => locations.map(l => l.id).sort().join(','), [locations]);
+  // Viewport Culling v1 — keepIds: fuentes que sobreviven al culling aunque
+  // estén fuera del viewport ampliado. selectedLocations queda FUERA (riesgo
+  // bulk). Cualquier panel nuevo que seleccione un POI debe registrar su id
+  // aquí. Ver `mem://logic/map/viewport-culling-v1`.
+  const keepIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    if (focusedLocationId) ids.add(focusedLocationId);
+    if (openPopupLocationId) ids.add(openPopupLocationId);
+    return ids;
+  }, [focusedLocationId, openPopupLocationId]);
+
+  // Subset visual renderizable. `locations` (filteredLocations) sigue siendo
+  // verdad lógica para store, contadores, listas, exportación, fit-bounds
+  // inicial y priming de colecciones. SOLO el path de cluster usa este subset.
+  const markerLocations = React.useMemo(
+    () => applyViewportCulling(locations, viewportBounds, zoomState, keepIds),
+    [locations, viewportBounds, zoomState, keepIds],
+  );
+
+  // Firma barata del subset: evita reconstruir el cluster cuando un moveend no
+  // cambia el conjunto de IDs visibles. Sustituye al antiguo locationIds.
+  const locationIds = React.useMemo(
+    () => getLocationSubsetSignature(markerLocations),
+    [markerLocations],
+  );
+
+  React.useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    // eslint-disable-next-line no-console
+    console.debug('[map-culling]', {
+      zoom: zoomState,
+      filtered: locations.length,
+      rendered: markerLocations.length,
+      kept: keepIds.size,
+    });
+  }, [locationIds, zoomState, locations.length, keepIds.size, markerLocations.length]);
  
  useEffect(() => {
  if (!mapRef.current || !markerClusterRef.current) return;
@@ -1378,15 +1443,17 @@ export function LocationMap() {
  locationsRef.current.clear();
     clearAllGroups();
 
-  if (locations.length === 0) return;
+  if (markerLocations.length === 0 && locations.length === 0) return;
 
-  // Compute micro-offsets for co-located markers
-  const colocatedOffsets = computeColocatedOffsets(locations);
+  // Viewport Culling v1: usamos `markerLocations` (subset visual) para
+  // construir markers Leaflet. `locations` (verdad lógica) se sigue
+  // empleando para fit-bounds inicial y priming de colecciones.
+  const colocatedOffsets = computeColocatedOffsets(markerLocations);
 
   const markersToAdd: L.Marker[] = [];
 
      // Add new markers
-  locations.forEach((location) => {
+  markerLocations.forEach((location) => {
   const isSelected = selectedLocations.has(location.id);
   const isFocused = focusedLocationId === location.id;
   const isEnriched = !!location.enrichedData;
@@ -1427,7 +1494,10 @@ export function LocationMap() {
  closeButton: true,
  autoPan: true,
  autoPanPadding: L.point(50, 80),
- });
+ // Viewport Culling v1: identifica el POI dueño del popup en map-level
+ // popupopen/popupclose para mantenerlo en `keepIds`.
+ locationId: location.id,
+ } as L.PopupOptions & { locationId: string });
 
  marker.on('click', function (this: L.Marker) {
  this.openPopup();
