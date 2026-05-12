@@ -104,6 +104,11 @@ export function FilterBar() {
   // Internamente debounced 250ms y con guard "solo el primer fit".
   useSelectionFitOnStart(selectedLocations);
 
+  // PR-A — Auto-fit al activar / cambiar un chip del eje "Salud".
+  // Universo lógico = filteredLocations (NUNCA markerLocations / viewport).
+  // Geo / Tipo / Tags / búsqueda no disparan fit.
+  useHealthFilterFit(filters.healthFilter ?? null, filteredLocations as any);
+
   // Handle bulk delete of filtered locations
  const handleBulkDelete = useCallback(async () => {
  if (filteredLocations.length === 0) return;
