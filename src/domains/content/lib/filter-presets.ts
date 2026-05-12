@@ -155,7 +155,14 @@ export const countActiveExplorationFilters = countActiveStateFilters;
 // en removeFilterChip. Nada más se toca en la UI.
 // ============================================================================
 
-export type FilterAxis = 'geography' | 'placeType' | 'tag' | 'classification' | 'search';
+export type FilterAxis = 'geography' | 'placeType' | 'tag' | 'classification' | 'search' | 'health';
+
+const HEALTH_LABELS: Record<NonNullable<FilterCriteria['healthFilter']>, string> = {
+  partial: 'Rellenar huecos',
+  chain: 'Reparar cadena',
+  review: 'Revisar',
+  hardError: 'Reintentar',
+};
 
 export type ActiveFilterChip = {
   /** Eje al que pertenece (controla color/icono en la UI). */
