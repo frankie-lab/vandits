@@ -20,6 +20,36 @@ import {
 } from '@/domains/content/lib/point-health-rings';
 import { getPointHeroImage } from '@/domains/content/lib/point-hero-image';
 import { ZOOM_THRESHOLDS } from '@/design-system/map/rules/zoom-thresholds';
+import { tokens } from '@/design-system/tokens';
+
+/**
+ * Helper único: factor de escala por zoom (no solo por banda).
+ * Lee `poi.renderScale.byZoom.zNN` con fallback a la escala por banda.
+ * Garantiza una rampa continua z11→z16 sin saltos de >2× entre niveles.
+ */
+const getModeScaleForZoom = (zoom: number, mode: MarkerRenderMode): number => {
+  const byZoom = (tokens as any)?.poi?.renderScale?.byZoom;
+  const zKey = `z${Math.round(zoom)}`;
+  const v = byZoom?.[zKey];
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  // Fallback por banda (valores históricos).
+  if (mode === 'compact') return 0.9;
+  if (mode === 'standard') return 1.0;
+  if (mode === 'rich') return 1.1;
+  return 1.0;
+};
+
+/**
+ * Sombra base por modo. Doble capa SOLO en standard/rich; compact mantiene
+ * sombra simple para no ensuciar vistas de densidad. Tokenizado en
+ * `poi.shadow.{compact,standard,rich}`.
+ */
+const getShadowForMode = (mode: MarkerRenderMode): string => {
+  const shadowTokens = (tokens as any)?.poi?.shadow;
+  if (mode === 'rich') return shadowTokens?.rich ?? 'drop-shadow(0 1px 1px rgba(0,0,0,0.35)) drop-shadow(0 3px 6px rgba(0,0,0,0.22))';
+  if (mode === 'standard') return shadowTokens?.standard ?? 'drop-shadow(0 1px 1px rgba(0,0,0,0.35)) drop-shadow(0 3px 6px rgba(0,0,0,0.22))';
+  return shadowTokens?.compact ?? 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
+};
 
 /**
  * IDs cuya hero image ha fallado en runtime. Como un divIcon no puede
@@ -150,7 +180,10 @@ export const createCustomIcon = (
     // Rampa progresiva por zoom (z6→2, z7→3, z8→4, z9→5). Evita el salto
     // brusco de 2px a compact. La pertenencia (`isOwn`) se diferencia solo
     // por halo más marcado, nunca por diámetro.
-    const microSize = currentZoom <= 6 ? 2 : Math.min(5, currentZoom - 4);
+    // Rampa progresiva por zoom (z≤6→2, z7→3, z8→4, z9→5, z10→6).
+    // Extiende un paso más antes de pasar a compact (microMax=10) para
+    // suavizar la transición visual a SVG en z11.
+    const microSize = currentZoom <= 6 ? 2 : Math.min(6, currentZoom - 4);
     const dot = entry.fill_color;
     const haloStyle = isOwn ? '' : 'opacity:0.85;';
     return L.divIcon({
@@ -173,11 +206,11 @@ export const createCustomIcon = (
   // multiplica por un factor según modo para que el dot crezca de forma
   // perceptible al acercarse. `rich` > `standard` > `compact` para que la
   // polaroid (z≥16) descanse sobre un dot pleno, no aplastado.
-  const modeScale =
-    renderMode === 'compact' ? 0.9 :
-    renderMode === 'standard' ? 1.0 :
-    renderMode === 'rich' ? 1.1 :
-    1.0;
+  // Factor de escala por zoom (no solo por banda). Lookup tokenizado en
+  // `poi.renderScale.byZoom` con fallback a la escala por banda. Garantiza
+  // rampa continua z11→z16 (0.85 → 0.95 → 1.00 → 1.05 → 1.10 → 1.15) sin
+  // saltos perceptibles entre niveles consecutivos.
+  const modeScale = getModeScaleForZoom(currentZoom, renderMode);
   const baseSize = getBaseSize(entry, isRecentlyEnriched, isFocused, isSelected);
   const baseHover = getHoverSize(entry);
   const size = Math.max(6, Math.round(baseSize * modeScale));
@@ -211,7 +244,7 @@ export const createCustomIcon = (
     ? 'drop-shadow(0 0 0 1.5px rgba(255,255,255,0.95)) drop-shadow(0 1px 3px rgba(0,0,0,0.35))'
     : currentState !== 'normal'
       ? getStateShadow(currentState, '#000000', stateRules)
-      : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))') + ownHalo;
+      : getShadowForMode(renderMode)) + ownHalo;
   const baseBorderWidth = getStateBorderWidth(currentState, stateRules);
   const borderWidth = isMassSelect ? Math.max(2, baseBorderWidth) : baseBorderWidth;
 
