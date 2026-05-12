@@ -2,7 +2,8 @@
  * Map Viewport Culling v1 — helpers únicos.
  *
  * Regla canónica:
- *   - z ≤ 12   sin culling
+ *   - z ≤ 10   sin culling (banda micro: microdots baratos)
+ *   - z 11–12  culling activo, pad 1.0   (compact, viewport ×2 por eje)
  *   - z 13–15  culling activo, pad 0.75
  *   - z ≥ 16   culling estricto, pad 0.5
  *
@@ -20,12 +21,13 @@ import type L from 'leaflet';
 import type { GeoLocation } from '@/types/location';
 
 export function shouldCullByViewport(zoom: number): boolean {
-  return zoom >= 13;
+  return zoom >= 11;
 }
 
 export function getViewportPadForZoom(zoom: number): number {
   if (zoom >= 16) return 0.5;
   if (zoom >= 13) return 0.75;
+  if (zoom >= 11) return 1.0;
   return 0;
 }
 
