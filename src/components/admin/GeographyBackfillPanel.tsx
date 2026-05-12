@@ -23,7 +23,7 @@
 // procesando con permisos de service role como hasta ahora.
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Loader2, Play, Square, Wrench, RotateCcw, Plus } from 'lucide-react';
+import { Loader2, Play, Square, Wrench, RotateCcw, Plus, AlertTriangle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -78,20 +78,20 @@ interface ModeMeta {
 
 const MODE_META: Record<Mode, ModeMeta> = {
   repair: {
-    title: 'Reparar cadenas rotas',
-    desc: 'Solo puntos con jerarquía inconsistente o cuyo nombre no coincide con el catálogo.',
+    title: 'Reconciliar jerarquía (global)',
+    desc: 'Repara FKs y cadenas inconsistentes en el universo seleccionado. Operación masiva.',
     icon: Wrench,
     iconClass: 'text-destructive',
   },
   fill: {
-    title: 'Rellenar huecos',
-    desc: 'Solo puntos sin jerarquía completa. No toca nada existente.',
+    title: 'Rellenar huecos admin (global)',
+    desc: 'Rellena niveles administrativos faltantes en el universo seleccionado. Operación masiva.',
     icon: Plus,
     iconClass: 'text-amber-600',
   },
   review: {
-    title: 'Revisar normalizados',
-    desc: 'Recorre todos los puntos no vacíos y sobrescribe niveles que difieran de OSM.',
+    title: 'Re-normalizar admin contra OSM',
+    desc: 'Re-normaliza todos los puntos no vacíos contra OSM. Útil tras renombrar/fusionar áreas. Operación masiva.',
     icon: RotateCcw,
     iconClass: 'text-primary',
   },
@@ -362,6 +362,15 @@ export function GeographyBackfillPanel() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-4 p-4 overflow-hidden">
+      {/* Subheader: framing del panel como consola admin */}
+      <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 text-xs text-muted-foreground leading-relaxed">
+        <p>
+          Operaciones <strong className="text-foreground">globales y masivas</strong> sobre jerarquías administrativas.
+          {' '}Para reparaciones puntuales usa <strong className="text-foreground">Salud</strong> en el mapa
+          (chips bajo el filtro principal).
+        </p>
+      </div>
+
       {/* PASO 1 — Modo de normalización (3 tarjetas a ancho completo) */}
       <section className="rounded-lg border bg-muted/10">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3">
@@ -624,6 +633,27 @@ export function GeographyBackfillPanel() {
                     result={job.lastResult}
                     onClose={() => useGeocodingJobStore.getState().clearLastResult()}
                   />
+                )}
+                {selectedIds.size === 0 ? (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 flex gap-2 text-[11px] leading-snug text-amber-900 dark:text-amber-200">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                    <div className="space-y-1">
+                      <div className="font-semibold">Operación masiva</div>
+                      <p>
+                        Vas a procesar los <strong>{universeTotal.toLocaleString()}</strong> puntos del universo. Esto puede tardar y consume cuota.
+                      </p>
+                      <p className="opacity-80">
+                        Para reparar un subconjunto pequeño, usa el filtro <strong>Salud</strong> en el mapa.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-border bg-muted/30 p-2.5 flex gap-2 text-[11px] leading-snug text-muted-foreground">
+                    <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                    <p>
+                      Procesarás los <strong className="text-foreground">{selectedIds.size.toLocaleString()}</strong> puntos seleccionados en el árbol.
+                    </p>
+                  </div>
                 )}
                 <Button
                   onClick={handleStart}
