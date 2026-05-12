@@ -100,7 +100,7 @@ export function PoiPreview({
   const baseDiameter = isMicro ? DOT_PX : isRich ? HERO_PX : 28;
   const diameter = isMicro ? DOT_PX : Math.round(baseDiameter * scale);
 
-  const orderedHealth: PoiHealthState[] = (['error', 'chain', 'empty'] as const).filter(
+  const orderedHealth: PoiHealthState[] = (['hardError', 'review', 'chain', 'partial'] as const).filter(
     (h) => health.includes(h),
   );
 
