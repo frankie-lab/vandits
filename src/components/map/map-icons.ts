@@ -206,11 +206,11 @@ export const createCustomIcon = (
   // multiplica por un factor según modo para que el dot crezca de forma
   // perceptible al acercarse. `rich` > `standard` > `compact` para que la
   // polaroid (z≥16) descanse sobre un dot pleno, no aplastado.
-  const modeScale =
-    renderMode === 'compact' ? 0.9 :
-    renderMode === 'standard' ? 1.0 :
-    renderMode === 'rich' ? 1.1 :
-    1.0;
+  // Factor de escala por zoom (no solo por banda). Lookup tokenizado en
+  // `poi.renderScale.byZoom` con fallback a la escala por banda. Garantiza
+  // rampa continua z11→z16 (0.85 → 0.95 → 1.00 → 1.05 → 1.10 → 1.15) sin
+  // saltos perceptibles entre niveles consecutivos.
+  const modeScale = getModeScaleForZoom(currentZoom, renderMode);
   const baseSize = getBaseSize(entry, isRecentlyEnriched, isFocused, isSelected);
   const baseHover = getHoverSize(entry);
   const size = Math.max(6, Math.round(baseSize * modeScale));
