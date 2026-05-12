@@ -244,7 +244,7 @@ export const createCustomIcon = (
     ? 'drop-shadow(0 0 0 1.5px rgba(255,255,255,0.95)) drop-shadow(0 1px 3px rgba(0,0,0,0.35))'
     : currentState !== 'normal'
       ? getStateShadow(currentState, '#000000', stateRules)
-      : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))') + ownHalo;
+      : getShadowForMode(renderMode)) + ownHalo;
   const baseBorderWidth = getStateBorderWidth(currentState, stateRules);
   const borderWidth = isMassSelect ? Math.max(2, baseBorderWidth) : baseBorderWidth;
 
