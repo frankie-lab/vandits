@@ -951,6 +951,7 @@ export type Database = {
           location_count: number
           location_ids: string[]
           scope_mode: string
+          status: string
           triggered_from: string
           user_id: string
         }
@@ -962,6 +963,7 @@ export type Database = {
           location_count?: number
           location_ids?: string[]
           scope_mode: string
+          status?: string
           triggered_from?: string
           user_id: string
         }
@@ -973,6 +975,7 @@ export type Database = {
           location_count?: number
           location_ids?: string[]
           scope_mode?: string
+          status?: string
           triggered_from?: string
           user_id?: string
         }
