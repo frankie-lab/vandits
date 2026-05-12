@@ -1,16 +1,17 @@
 /**
- * HealthRepairPreviewDialog — Modal de previsualización SÓLO LECTURA.
+ * HealthRepairPreviewDialog — Modal de previsualización + confirmación.
  *
- * PR-3A: lista los 10 primeros puntos del subconjunto resuelto por
- * `getHealthFilterScopeIds`. NO escribe en BD. NO confirma. Footer único:
- * `Cerrar` (evitamos un confirm deshabilitado que confundiría).
- *
- * La acción real (encolar job / reintentar enrich / abrir queue de revisión)
- * llega en PR-3B.
+ * PR-3A: sólo lectura, footer con `Cerrar`.
+ * PR-3B: para `partial` y `chain` añade botón `Confirmar reparación` que
+ *   llama a `enqueue_health_repair` (RPC SECURITY DEFINER): valida ownership,
+ *   encola en `geocoding_jobs` (reusa job running o crea uno) y escribe en
+ *   `health_repair_actions` (audit log). `hardError` y `review` siguen
+ *   sin escritura (PR-3C / panel manual).
  *
  * Ver `mem://logic/discovery/health-filter-axis`.
  */
 import * as React from 'react';
+import { Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +22,8 @@ import {
 } from '@/design-system/primitives/dialog';
 import { Button } from '@/design-system/primitives/button';
 import { Badge } from '@/design-system/primitives/badge';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import type { HealthFilter } from '@/types/location';
 import {
   type HealthScopeResult,
@@ -43,13 +46,16 @@ const FILTER_CSS_VAR: Record<HealthFilter, string> = {
 };
 
 const FILTER_HELP: Record<HealthFilter, string> = {
-  partial:   'Estos puntos tienen niveles administrativos incompletos. Cuando se ejecute la reparación masiva, el job intentará rellenar los huecos vía geocoding.',
+  partial:   'Estos puntos tienen niveles administrativos incompletos. La reparación masiva intentará rellenar los huecos vía geocoding.',
   chain:     'Estos puntos tienen la cadena administrativa rota o desactualizada. La reparación masiva re-resolverá los FKs desde sus coordenadas.',
-  hardError: 'Estos puntos fallaron por error técnico (timeout, sin créditos, red). Cuando se ejecute, el reintento volverá a lanzar el enriquecimiento.',
+  hardError: 'Estos puntos fallaron por error técnico (timeout, sin créditos, red). La acción de reintento llegará en un próximo PR.',
   review:    'Estos puntos requieren revisión manual (incoherencia nombre/coords, sin verificar). Abre cada uno desde el mapa o desde la lista para resolverlo individualmente.',
 };
 
 const PREVIEW_LIMIT = 10;
+
+/** Sólo estos dos disparan escritura en BD en PR-3B. */
+const REPAIRABLE: ReadonlySet<HealthFilter> = new Set<HealthFilter>(['partial', 'chain']);
 
 export interface HealthRepairPreviewDialogProps {
   open: boolean;
@@ -70,6 +76,37 @@ export function HealthRepairPreviewDialog({
   );
   const remainder = Math.max(0, scope.total - sample.length);
 
+  const [submitting, setSubmitting] = React.useState(false);
+  const canConfirm = REPAIRABLE.has(filter) && scope.total > 0 && !submitting;
+
+  const handleConfirm = React.useCallback(async () => {
+    if (!REPAIRABLE.has(filter) || scope.ids.length === 0) return;
+    setSubmitting(true);
+    try {
+      const { data, error } = await supabase.rpc('enqueue_health_repair', {
+        _action: filter,
+        _scope_mode: scope.mode,
+        _location_ids: scope.ids,
+      });
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      const enq = row?.enqueued_count ?? 0;
+      toast.success(
+        enq > 0
+          ? `Encolados ${enq} ${enq === 1 ? 'punto' : 'puntos'} para reparación`
+          : 'Sin nuevos puntos a encolar (ya estaban en cola)',
+      );
+      onOpenChange(false);
+    } catch (err) {
+      console.error('[health-repair] enqueue failed', err);
+      toast.error('No se pudo encolar la reparación', {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [filter, scope.ids, scope.mode, onOpenChange]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
@@ -87,7 +124,9 @@ export function HealthRepairPreviewDialog({
               Modo: {scopeModeLabel(scope.mode)}
             </Badge>
             <span className="text-xs text-muted-foreground">
-              Previsualización · sin escritura en BD
+              {REPAIRABLE.has(filter)
+                ? 'Previsualización antes de encolar'
+                : 'Previsualización · sin escritura en BD'}
             </span>
           </DialogDescription>
         </DialogHeader>
@@ -134,9 +173,23 @@ export function HealthRepairPreviewDialog({
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={submitting}
+          >
             Cerrar
           </Button>
+          {REPAIRABLE.has(filter) && (
+            <Button
+              variant="default"
+              onClick={handleConfirm}
+              disabled={!canConfirm}
+            >
+              {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Confirmar reparación ({scope.total})
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

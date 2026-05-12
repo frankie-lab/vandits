@@ -942,6 +942,50 @@ export type Database = {
         }
         Relationships: []
       }
+      health_repair_actions: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          job_id: string | null
+          location_count: number
+          location_ids: string[]
+          scope_mode: string
+          triggered_from: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          location_count?: number
+          location_ids?: string[]
+          scope_mode: string
+          triggered_from?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          location_count?: number
+          location_ids?: string[]
+          scope_mode?: string
+          triggered_from?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_repair_actions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "geocoding_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       location_geo_provenance: {
         Row: {
           area_id: string | null
@@ -3508,6 +3552,14 @@ export type Database = {
       count_locations_with_broken_geo_chain: {
         Args: { _user_id: string }
         Returns: number
+      }
+      enqueue_health_repair: {
+        Args: { _action: string; _location_ids: string[]; _scope_mode: string }
+        Returns: {
+          audit_id: string
+          enqueued_count: number
+          job_id: string
+        }[]
       }
       get_my_home: {
         Args: never
