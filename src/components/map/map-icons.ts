@@ -181,10 +181,10 @@ export const createCustomIcon = (
     // en z8 antes de saltar a SVG compact en z9. La pertenencia (`isOwn`)
     // se diferencia solo por halo más marcado, nunca por diámetro.
     const microSize =
-      currentZoom <= 5 ? 2 :
-      currentZoom === 6 ? 3 :
-      currentZoom === 7 ? 4 :
-      6; // z8 — último escalón micro antes de compact
+      currentZoom <= 4 ? 2 :
+      currentZoom === 5 ? 3 :
+      currentZoom === 6 ? 4 :
+      6; // z7 — último escalón micro antes de compact
     const dot = entry.fill_color;
     const haloStyle = isOwn ? '' : 'opacity:0.85;';
     return L.divIcon({
