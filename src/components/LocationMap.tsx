@@ -2193,7 +2193,7 @@ export function LocationMap() {
            : <LocateFixed className="h-4 w-4" />}
        </button>
      </TooltipTrigger>
-     <TooltipContent side="left">
+     <TooltipContent side="top">
        {userLocation ? 'Centrar en mi ubicación' : 'Localizarme'}
      </TooltipContent>
    </Tooltip>
