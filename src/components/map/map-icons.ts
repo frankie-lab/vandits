@@ -365,7 +365,7 @@ export const createCustomIcon = (
   // para que el icono siga centrado y el popupAnchor sea correcto.
   // En modo `rich` se inyecta además la polaroid como capa flotante encima
   // del dot (pointer-events: none, no afecta al click ni al anchor).
-  const hasErrorRing = healthRings.includes('error');
+  const hasErrorRing = healthRings.includes('hardError') || healthRings.includes('review');
   const ringsHtml = healthRings
     .map((ring, idx) => {
       const innerInset = (ringCount - 1 - idx) * RING_GAP;
