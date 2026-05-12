@@ -42,7 +42,7 @@ const enrichedLoc = (overrides: Partial<GeoLocation> = {}): GeoLocation =>
     enrichedData: {
       descripcion:
         'Esta es una descripción IA suficientemente larga para superar el umbral mínimo de validación que aplica el helper hasRealEnrichment de la app, evitando que se considere unverifiable.',
-    } as any,
+    } as GeoLocation['enrichedData'],
     ...overrides,
   });
 
