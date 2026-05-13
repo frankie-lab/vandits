@@ -235,17 +235,19 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   // `lovable:owner-identity-updated` y LocationMap repinta los markers
   // afectados sin rebuild.
   if (currentUser?.id) {
-    // Orden determinista (PR-OWNER-IDENTITY-2.5): el allocator es
-    // incremental, así que el orden de procesamiento debe ser estable
-    // entre sesiones. Sin orden, los colores podrían rotar al recargar.
+    // Identidad cromática SOLO se asigna a seguidos aceptados (PR-OWNER-IDENTITY-2.6).
+    // Orden determinista por uid ASC para que el allocator incremental sea
+    // estable entre sesiones.
     const followedUids = usersWithStats
-      .filter(u => u.id !== currentUser.id)
+      .filter(u => u.id !== currentUser.id && u.followStatus === 'accepted')
       .map(u => u.id)
       .sort((a, b) => a.localeCompare(b));
     try {
       await loadOwnerIdentityAssignments(currentUser.id);
-      // No await: la asignación se escribe en background sin bloquear UI.
-      void ensureAssignmentsForFolloweds(currentUser.id, followedUids);
+      if (followedUids.length > 0) {
+        // No await: la asignación se escribe en background sin bloquear UI.
+        void ensureAssignmentsForFolloweds(currentUser.id, followedUids);
+      }
     } catch (e) {
       console.warn('[UsersSidebar] owner-identity load/ensure failed', e);
     }
@@ -709,13 +711,20 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   <div className="absolute -bottom-0.5 -right-0.5 bg-card rounded-full p-0.5 shadow-sm">
   {roleIcons[primaryRole] || <Users className="w-3 h-3 text-muted-foreground" />}
   </div>
-  {!isCurrentUser && (
-    <span
-      title="Color de identidad de este usuario en el mapa"
-      className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-sm border border-card shadow-sm"
-      style={{ background: getOwnerIdentityColor(user.id, getOwnerIdentityOklch(user.id)), clipPath: 'polygon(0 0,100% 0,50% 100%)' }}
-    />
-  )}
+   {!isCurrentUser && user.followStatus === 'accepted' && (() => {
+     // Solo mostramos el triángulo de identidad cuando hay color OKLCH
+     // persistido cargado. Evita enseñar un fallback "social" inventado
+     // antes de que llegue la asignación real desde la BD.
+     const oklch = getOwnerIdentityOklch(user.id);
+     if (!oklch) return null;
+     return (
+       <span
+         title="Color de identidad de este usuario en el mapa"
+         className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-sm border border-card shadow-sm"
+         style={{ background: getOwnerIdentityColor(user.id, oklch), clipPath: 'polygon(0 0,100% 0,50% 100%)' }}
+       />
+     );
+   })()}
   </button>
 
  {/* Info */}
