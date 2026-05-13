@@ -26,6 +26,31 @@ import { tokens } from '@/design-system/tokens';
 import { getOwnerStrokeColor } from './owner-stroke';
 import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
 
+// ── Followed POI debug helpers ──────────────────────────────────────────
+// Activos solo en DEV o si la URL incluye `?debug=poi-icon`. En producción
+// el HTML de los markers se mantiene limpio (sin data-* ni logs).
+// Ver mem://style/map/followed-poi-grammar.
+const _isFollowedDebugEnabled = (): boolean => {
+  try {
+    if ((import.meta as any)?.env?.DEV) return true;
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      return sp.get('debug') === 'poi-icon';
+    }
+  } catch { /* noop */ }
+  return false;
+};
+const FOLLOWED_DEBUG = _isFollowedDebugEnabled();
+const _followedLogged = new Set<string>();
+
+/** Stroke width del pennant por banda de zoom. Subida controlada: el color
+ *  del owner debe verse, pero no comerse el fill (estado curado). */
+const getFollowedStrokeWidth = (mode: MarkerRenderMode): number => {
+  if (mode === 'rich') return 3;
+  if (mode === 'standard') return 2.5;
+  return 2; // compact
+};
+
 /**
  * Helper único: factor de escala por zoom (no solo por banda).
  * Lee `poi.renderScale.byZoom.zNN` con fallback a la escala por banda.
@@ -201,6 +226,17 @@ export const createCustomIcon = (
   if (isFollowedPoi) {
     // Para seguidos, anular tint y currentUserId-driven rings: dominio privado del owner.
     collectionTint = null;
+    if (FOLLOWED_DEBUG && location?.id && !_followedLogged.has(location.id)) {
+      _followedLogged.add(location.id);
+      // eslint-disable-next-line no-console
+      console.debug('[followed-poi]', {
+        id: location.id,
+        ownerUid,
+        currentUserId,
+        isOwn,
+        strokeColor: getOwnerStrokeColor(ownerUid),
+      });
+    }
   }
   if (renderMode === 'micro') {
     // Rampa explícita por zoom (z≤3→2, z4→3, z5→4). Cap micro = 4px en
@@ -217,7 +253,7 @@ export const createCustomIcon = (
       const stroke = getOwnerStrokeColor(ownerUid);
       return L.divIcon({
         className: `custom-marker-micro is-followed`,
-        html: `<div style="width:${microSize + 2}px;height:${microSize + 2}px;background:${dot};clip-path:polygon(0 0,100% 0,50% 100%);border:0.5px solid ${stroke};opacity:0.9;"></div>`,
+        html: `<div style="width:${microSize + 2}px;height:${microSize + 2}px;background:${dot};clip-path:polygon(0 0,100% 0,50% 100%);border:1px solid ${stroke};opacity:0.9;"></div>`,
         iconSize: [microSize + 2, microSize + 2],
         iconAnchor: [(microSize + 2) / 2, (microSize + 2) / 2],
         popupAnchor: [0, -(microSize + 2) / 2],
@@ -427,7 +463,7 @@ export const createCustomIcon = (
       ${ringsHtml}
       <div style="position:absolute; left:${ringPad}px; top:${ringPad}px; width:${size}px; height:${size}px;">
         ${collectionTint ? `<div class="collection-tint-ring" style="--collection-tint:${collectionTint}"></div>` : ''}
-        <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="color:transparent">
           ${skipGradient ? '' : `<defs>
             <linearGradient id="dotGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" style="stop-color:${applyStateColor(baseColorLight)}" />
@@ -435,7 +471,12 @@ export const createCustomIcon = (
             </linearGradient>
           </defs>`}
           ${isFollowedPoi
-            ? `<polygon points="2,3 22,3 12,22" fill="${applyStateColor(baseColor)}" stroke="${getOwnerStrokeColor(ownerUid)}" stroke-width="1.5" stroke-linejoin="round"/>`
+            ? (() => {
+                const ownerStroke = getOwnerStrokeColor(ownerUid);
+                const sw = getFollowedStrokeWidth(renderMode);
+                const dbg = FOLLOWED_DEBUG ? ` data-owner-uid="${ownerUid ?? ''}" data-owner-stroke="${ownerStroke}" class="poi-followed-pennant"` : '';
+                return `<polygon points="2,3 22,3 12,22" fill="${applyStateColor(baseColor)}" stroke="${ownerStroke}" stroke-width="${sw}" stroke-linejoin="round" stroke-linecap="round"${dbg}/>`;
+              })()
             : `<circle cx="12" cy="12" r="11" fill="${skipGradient ? applyStateColor(baseColor) : `url(#dotGrad-${location?.id || 'default'})`}" stroke="white" stroke-width="${borderWidth}"/>`
           }
         </svg>
