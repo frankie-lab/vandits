@@ -20,7 +20,10 @@
  */
 
 import type { GeoLocation, HealthFilter } from '@/types/location';
-import { getPointHealthRings } from '@/domains/content/lib/point-health-rings';
+import {
+  getPointHealthRings,
+  isHealthRingRepairableByCaller,
+} from '@/domains/content/lib/point-health-rings';
 
 export type ScopeMode = 'filtered' | 'selection' | 'viewport';
 
@@ -30,17 +33,38 @@ export interface HealthScopeCtx {
   visibleLocationIds: Set<string>;
   healthFilter: HealthFilter | null | undefined;
   onlyVisible: boolean;
+  /**
+   * Caller actual. Necesario para distinguir "salud visible" (todos) de
+   * "reparable por mí" (sólo propios). Si es null/undefined, `repairableIds`
+   * sale vacío.
+   */
+  currentUserId?: string | null;
 }
 
 export interface HealthScopeResult {
+  /** Universo del subconjunto (incluye seguidos). "Salud visible". */
   ids: string[];
   total: number;
   mode: ScopeMode;
   /** Subconjunto materializado (mismo orden que filteredLocations). */
   locations: GeoLocation[];
+  /**
+   * Subconjunto realmente accionable por el caller (propios + ring partial/chain).
+   * Lo que se envía al RPC. Para `review`/`hardError` siempre es vacío
+   * (van por flujo per-POI).
+   */
+  repairableIds: string[];
+  repairableCount: number;
 }
 
-const EMPTY: HealthScopeResult = { ids: [], total: 0, mode: 'filtered', locations: [] };
+const EMPTY: HealthScopeResult = {
+  ids: [],
+  total: 0,
+  mode: 'filtered',
+  locations: [],
+  repairableIds: [],
+  repairableCount: 0,
+};
 
 export function getHealthFilterScopeIds(ctx: HealthScopeCtx): HealthScopeResult {
   const hf = ctx.healthFilter ?? null;
@@ -64,11 +88,19 @@ export function getHealthFilterScopeIds(ctx: HealthScopeCtx): HealthScopeResult 
     subset = matching.filter((l) => ctx.visibleLocationIds.has(l.id));
   }
 
+  // 3. Subconjunto reparable por el caller (propios + partial|chain).
+  const repairable =
+    hf === 'partial' || hf === 'chain'
+      ? subset.filter((l) => isHealthRingRepairableByCaller(l, ctx.currentUserId))
+      : [];
+
   return {
     ids: subset.map((l) => l.id),
     total: subset.length,
     mode,
     locations: subset,
+    repairableIds: repairable.map((l) => l.id),
+    repairableCount: repairable.length,
   };
 }
 
