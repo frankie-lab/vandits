@@ -1,46 +1,52 @@
 /**
- * owner-stroke — Helper único para resolver el color de stroke "identidad
- * relativa del owner seguido". Hash determinista del uid → índice en una
- * paleta cerrada SOLO de familias frías.
+ * owner-stroke — Helpers de color de identidad del owner para POIs de
+ * usuarios SEGUIDOS.
  *
- * Reglas (PR-OWNER-STROKE-PALETTE-GUARD):
- *  - Mismo uid → mismo color SIEMPRE (en mapa, popup, leyenda en sidebar).
- *  - La paleta SOLO usa familias frías para no confundirse con salud:
- *      teal · cyan · azure · indigo · violet frío · royal blue
- *  - **HUE PROHIBIDOS** (FORBIDDEN_HUE_RANGES) — bloqueados por test:
- *      ·   0–45  red / orange / amber  (colisiona con hardError, naranja estado)
- *      ·  45–75  yellow                 (colisiona con chain)
- *      ·  90–160 verde / lime           (colisiona con enriched)
- *      · 300–340 magenta / pink         (colisiona con review)
- *  - Lightness 45–55% para visibilidad sobre tile claro y oscuro.
+ * Reglas (PR-OWNER-IDENTITY-1):
+ *  - Identidad del seguido = **color persistido por viewer** en
+ *    `user_owner_color_assignments`. Estable y permanente; no cambia por
+ *    zoom, sesión, viewport ni nuevos seguidos.
+ *  - Cada viewer mantiene su propio mapeo `followedUid → colorIndex`.
+ *  - Fallback determinista cuando aún no hay asignación: hash(uid) % N.
+ *  - Paleta cerrada SOLO con familias frías hue 195–265 (lejos del verde
+ *    fill enriched y de los hues de salud). Versión: `OWNER_PALETTE_VERSION`.
  *
- * Health rings (DOMINIO RESERVADO, no usar):
+ * **HUE PROHIBIDOS** (FORBIDDEN_HUE_RANGES) — bloqueados por test:
+ *   ·   0–45  red / orange / amber  (hardError, naranja empty)
+ *   ·  45–75  yellow                 (chain)
+ *   ·  90–190 verde / lime / teal verdoso (enriched fill)
+ *   · 300–340 magenta / pink         (review)
+ *
+ * Health rings (DOMINIO RESERVADO):
  *   partial=amber  chain=yellow  review=magenta  hardError=red
- *
- * Estados POI (DOMINIO RESERVADO, no usar):
+ * Estados POI (DOMINIO RESERVADO):
  *   enriched=verde  imported=gris  empty=naranja
  *
  * Ver mem://style/map/followed-poi-grammar.
  */
 
-/** Familias frías (hue 180–270). Mínimo 180 para evitar teal verdoso que
- *  podría confundirse con el fill verde "enriched". */
+/** Versión de paleta — guardada en DB con cada asignación para permitir
+ *  migraciones futuras sin ambigüedad. Bump cuando cambie PALETTE. */
+export const OWNER_PALETTE_VERSION = 'owner-v1';
+
+/** Paleta cerrada: 8 colores fríos hue 195–265 (cyan → purple-blue).
+ *  Lightness 38–58% para visibilidad sobre tile claro y oscuro. */
 const PALETTE: ReadonlyArray<string> = [
-  'hsl(180, 65%, 38%)',  // dark teal
-  'hsl(190, 70%, 42%)',  // teal-cyan
-  'hsl(200, 75%, 45%)',  // cyan
-  'hsl(210, 70%, 48%)',  // sky blue
+  'hsl(195, 75%, 45%)',  // cyan
+  'hsl(205, 70%, 48%)',  // sky
+  'hsl(210, 70%, 48%)',  // blue
   'hsl(220, 70%, 55%)',  // azure
-  'hsl(235, 60%, 50%)',  // royal blue
-  'hsl(250, 65%, 58%)',  // indigo
-  'hsl(265, 55%, 55%)',  // violet frío
+  'hsl(230, 60%, 52%)',  // slate-blue
+  'hsl(235, 60%, 50%)',  // indigo dark
+  'hsl(255, 55%, 58%)',  // violet
+  'hsl(265, 55%, 55%)',  // purple-blue
 ];
 
 /** Rangos de hue prohibidos (colisionan con salud o estados POI). */
 export const FORBIDDEN_HUE_RANGES: ReadonlyArray<readonly [number, number]> = [
   [0, 45],     // red / orange / amber → hardError, naranja empty
   [45, 75],    // yellow → chain
-  [90, 180],   // green / lime / teal verdoso → enriched (mínimo 180 para owner)
+  [90, 190],   // green / lime / teal verdoso → enriched (mínimo 190 para owner)
   [300, 340],  // magenta / pink → review
 ];
 
@@ -54,15 +60,35 @@ function hashUid(uid: string): number {
 }
 
 /**
- * Devuelve el color de stroke para un owner. Si el uid es nulo/vacío
- * usa el primero de la paleta como fallback determinista.
+ * Fallback determinista (sin asignación persistida). Mismo uid → mismo
+ * color SIEMPRE. Se usa mientras el store carga o si el viewer aún no
+ * ha generado asignación para ese seguido.
  */
 export function getOwnerStrokeColor(ownerUid: string | null | undefined): string {
   if (!ownerUid) return PALETTE[0];
   return PALETTE[hashUid(ownerUid) % PALETTE.length];
 }
 
-/** Tamaño de la paleta — útil para tests. */
+/**
+ * Resuelve el color de identidad del owner para el viewer actual.
+ *  - Si hay `colorIndex` persistido → devuelve `PALETTE[index % N]` (módulo
+ *    para tolerar cambios de paleta sin romper).
+ *  - Si no → fallback hash determinista.
+ *
+ * El renderer DEBE consumir esta función (no `getOwnerStrokeColor`
+ * directamente) para respetar la asignación persistida del viewer.
+ */
+export function getOwnerIdentityColor(
+  ownerUid: string | null | undefined,
+  colorIndex: number | null | undefined,
+): string {
+  if (typeof colorIndex === 'number' && Number.isFinite(colorIndex) && colorIndex >= 0) {
+    return PALETTE[colorIndex % PALETTE.length];
+  }
+  return getOwnerStrokeColor(ownerUid);
+}
+
+/** Tamaño de la paleta — útil para tests y para el algoritmo de asignación. */
 export const OWNER_PALETTE_SIZE = PALETTE.length;
 
 /** Snapshot de la paleta — solo para tests / herramientas de QA. */
