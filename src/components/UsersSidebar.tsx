@@ -235,9 +235,13 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   // `lovable:owner-identity-updated` y LocationMap repinta los markers
   // afectados sin rebuild.
   if (currentUser?.id) {
+    // Orden determinista (PR-OWNER-IDENTITY-2.5): el allocator es
+    // incremental, así que el orden de procesamiento debe ser estable
+    // entre sesiones. Sin orden, los colores podrían rotar al recargar.
     const followedUids = usersWithStats
       .filter(u => u.id !== currentUser.id)
-      .map(u => u.id);
+      .map(u => u.id)
+      .sort((a, b) => a.localeCompare(b));
     try {
       await loadOwnerIdentityAssignments(currentUser.id);
       // No await: la asignación se escribe en background sin bloquear UI.
