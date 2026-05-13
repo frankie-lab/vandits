@@ -96,6 +96,17 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [processingFollow, setProcessingFollow] = useState<string | null>(null);
   const [relationFilter, setRelationFilter] = useState<RelationFilter>('all');
+  // Tick para forzar re-render cuando el store de identidad cromática
+  // emite cambios (las assignments se escriben en background — sin esto,
+  // el badge del sidebar se queda con el color stale aunque el mapa repinte).
+  const [, setIdentityTick] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = () => setIdentityTick((t) => t + 1);
+    window.addEventListener('lovable:owner-identity-updated', handler);
+    return () => window.removeEventListener('lovable:owner-identity-updated', handler);
+  }, []);
 
  useEffect(() => {
  if (isOpen) {

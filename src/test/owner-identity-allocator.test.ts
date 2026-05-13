@@ -11,17 +11,16 @@ import {
 import { deltaEOklab, contrastRatio } from '@/lib/color/oklch';
 
 describe('identity-allocator — version', () => {
-  it('palette version is owner-v2.1-oklch (post-PR-2.2 reset)', () => {
-    expect(OWNER_PALETTE_VERSION).toBe('owner-v2.1-oklch');
+  it('palette version is owner-v2.2-oklch (post-PR-2.3 scoring fix)', () => {
+    expect(OWNER_PALETTE_VERSION).toBe('owner-v2.2-oklch');
   });
 });
 
-describe('identity-allocator — maximin from first followed', () => {
+describe('identity-allocator — maximin against assigned ∪ anchors', () => {
   it('first pick (assigned=[]) is deterministic', () => {
     const a = pickNextIdentityColor([]);
     const b = pickNextIdentityColor([]);
     expect(a.color).toEqual(b.color);
-    expect(a.degraded).toBe(false);
   });
 
   it('first pick is far from every forbidden anchor', () => {
@@ -31,13 +30,40 @@ describe('identity-allocator — maximin from first followed', () => {
     }
   });
 
-  it('first pick maximizes min ΔE to anchors over V', () => {
+  it('first pick maximizes min ΔE against FORBIDDEN_ANCHORS over V', () => {
     const r = pickNextIdentityColor([]);
     const V = getCandidateSpace();
     const myMin = Math.min(...FORBIDDEN_ANCHORS.map((a) => deltaEOklab(r.color, a)));
     for (const c of V) {
       const m = Math.min(...FORBIDDEN_ANCHORS.map((a) => deltaEOklab(c, a)));
       expect(myMin).toBeGreaterThanOrEqual(m - 1e-6);
+    }
+  });
+
+  it('every subsequent pick maximizes min ΔE against assigned ∪ anchors', () => {
+    let assigned: any[] = [];
+    for (let step = 0; step < 5; step++) {
+      const r = pickNextIdentityColor(assigned);
+      const S = [...assigned, ...FORBIDDEN_ANCHORS];
+      const myMin = Math.min(...S.map((a) => deltaEOklab(r.color, a)));
+      const V = getCandidateSpace();
+      for (const c of V) {
+        if (assigned.some((a) => Math.abs(a.L - c.L) < 1e-3 && Math.abs(a.C - c.C) < 1e-3 && Math.abs(a.h - c.h) < 1e-3)) continue;
+        const m = Math.min(...S.map((a) => deltaEOklab(c, a)));
+        expect(myMin).toBeGreaterThanOrEqual(m - 1e-6);
+      }
+      assigned = [...assigned, r.color];
+    }
+  });
+
+  it('every assigned color stays clear of all forbidden anchors', () => {
+    let assigned: any[] = [];
+    for (let i = 0; i < 8; i++) {
+      const r = pickNextIdentityColor(assigned);
+      for (const a of FORBIDDEN_ANCHORS) {
+        expect(deltaEOklab(r.color, a)).toBeGreaterThanOrEqual(ANCHOR_MIN_DELTA_E);
+      }
+      assigned = [...assigned, r.color];
     }
   });
 
@@ -79,23 +105,6 @@ describe('identity-allocator — determinism + immutability', () => {
         expect(r.color).not.toEqual(a);
       }
       assigned = [...assigned, r.color];
-    }
-  });
-});
-
-describe('identity-allocator — maximin (multi-followed)', () => {
-  it('beyond first, picks color that maximizes min ΔE to assigned', () => {
-    let assigned: any[] = [];
-    for (let i = 0; i < 5; i++) {
-      assigned = [...assigned, pickNextIdentityColor(assigned).color];
-    }
-    const r = pickNextIdentityColor(assigned);
-    const V = getCandidateSpace();
-    const myMin = Math.min(...assigned.map((a) => deltaEOklab(r.color, a)));
-    for (const c of V) {
-      if (assigned.some((a) => Math.abs(a.L - c.L) < 1e-3 && Math.abs(a.C - c.C) < 1e-3 && Math.abs(a.h - c.h) < 1e-3)) continue;
-      const m = Math.min(...assigned.map((a) => deltaEOklab(c, a)));
-      expect(myMin).toBeGreaterThanOrEqual(m - 1e-6);
     }
   });
 });
