@@ -529,21 +529,27 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   className="flex-1 min-w-0 text-left overflow-hidden"
   >
   <div className="flex items-center gap-1.5 max-w-full">
-  <span className="font-medium text-sm text-foreground truncate max-w-[120px]">
-  {currentUserData.display_name || currentUserData.username}
+  <span className="font-medium text-sm text-foreground truncate">
+   {currentUserData.display_name || currentUserData.username}
   </span>
-  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 shrink-0">
-  Tú
-  </Badge>
+  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 shrink-0">Tú</Badge>
   </div>
-  <div className="flex items-center gap-2 text-[10px] text-muted-foreground max-w-full flex-wrap">
-   <span className="shrink-0" title="POIs visibles para tus seguidores">
-     <span className="font-semibold text-foreground">{currentUserData.sharedPois}</span> compartidos
-     {currentUserData.totalPois != null && (
-       <> · <span className="font-semibold text-foreground">{currentUserData.totalPois}</span> totales</>
-     )}
+  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground"
+   title={[
+     `${currentUserData.sharedPois} compartidos visibles para tus seguidores`,
+     currentUserData.totalPois != null ? `${currentUserData.totalPois} totales en tu catálogo` : null,
+   ].filter(Boolean).join(' · ')}>
+   <span className="inline-flex items-center gap-1 shrink-0 tabular-nums">
+    <Share2 className="w-3 h-3" />
+    <span className="font-semibold text-foreground">{currentUserData.sharedPois}</span>
    </span>
-   </div>
+   {currentUserData.totalPois != null && (
+    <span className="inline-flex items-center gap-1 shrink-0 tabular-nums">
+     <Lock className="w-3 h-3" />
+     <span className="font-semibold text-foreground">{currentUserData.totalPois}</span>
+    </span>
+   )}
+  </div>
   </button>
   </div>
   )}
