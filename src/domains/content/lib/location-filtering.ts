@@ -2,6 +2,7 @@ import type { FilterCriteria, GeoLocation } from '@/types/location';
 import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
 import { getLocationHierarchy, isPlaceholderValue } from '@/shared/geography/hierarchy';
 import { getPointHealthRings } from '@/domains/content/lib/point-health-rings';
+import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
 
 /**
  * Matcher ÚNICO para filtros de exploración/navegación sobre un punto.
@@ -87,6 +88,14 @@ export function matchesLocationFilters(
   // NORMA TRANSVERSAL: los ejes de estado (visitedFilter, visualState,
   // enrichmentStatus, onlyEnriched, verified) han sido eliminados de la UI
   // y NO se aplican como filtro. "Todos" = universo completo de puntos.
+
+  // Eje "user" (identidad). SIEMPRE aplicado, no detrás de includeX. Usa el
+  // resolver canónico de owner (ver `mem://logic/content/location-owner-resolver`).
+  if (filters.filterByUserId) {
+    if (getLocationOwnerUserId(loc as { ownerUserId?: string | null; _docUserId?: string | null }) !== filters.filterByUserId) {
+      return false;
+    }
+  }
 
   if (includeExploration) {
     if (includePlaceType && placeType && getEffectivePlaceType(loc) !== placeType) return false;
