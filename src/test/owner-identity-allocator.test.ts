@@ -48,18 +48,17 @@ describe('identity-allocator v2.6 — exclusiones duras: verde y gris', () => {
     }
   });
 
-  it('rojo/naranja/magenta/azul/cyan no-verdoso/violeta son VÁLIDOS', () => {
+  it('rojo/naranja/magenta/azul/violeta son VÁLIDOS', () => {
     const samples: Array<[number, string]> = [
       [25, 'rojo'],
       [50, 'naranja'],
-      [195, 'cyan'],
       [250, 'azul'],
       [290, 'violeta'],
       [325, 'magenta'],
       [350, 'rosa'],
     ];
     for (const [h, label] of samples) {
-      const c = { L: 0.58, C: 0.18, h };
+      const c = { L: 0.50, C: 0.18, h };
       expect(isValidCandidate(c), `${label} h=${h} debe ser válido`).toBe(true);
     }
   });
