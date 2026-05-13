@@ -24,6 +24,7 @@ import { getPointHeroImage } from '@/domains/content/lib/point-hero-image';
 import { ZOOM_THRESHOLDS } from '@/design-system/map/rules/zoom-thresholds';
 import { tokens } from '@/design-system/tokens';
 import { getOwnerStrokeColor } from './owner-stroke';
+import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
 
 /**
  * Helper único: factor de escala por zoom (no solo por banda).
@@ -192,7 +193,10 @@ export const createCustomIcon = (
   //                 POIs de seguidos = triángulo invertido (sin rings,
   //                 sin tint, stroke fino = identidad del owner).
   // Helper único: getOwnerStrokeColor(uid). Ver mem://style/map/followed-poi-grammar.
-  const ownerUid = (location as any)?.userId ?? null;
+  // Owner canónico vía helper único (ownerUserId ?? _docUserId).
+  // Antes leíamos `location.userId` (no existe en GeoLocation) → isFollowedPoi
+  // siempre era false y los POIs de seguidos se renderizaban como círculos.
+  const ownerUid = getLocationOwnerUserId(location as { ownerUserId?: string | null; _docUserId?: string | null });
   const isFollowedPoi = !isOwn && !!currentUserId && !!ownerUid && ownerUid !== currentUserId;
   if (isFollowedPoi) {
     // Para seguidos, anular tint y currentUserId-driven rings: dominio privado del owner.
