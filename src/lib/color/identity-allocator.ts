@@ -130,36 +130,39 @@ export type AllocationResult = { color: OklchColor; degraded: boolean };
 /**
  * Pick the next identity color given the viewer's already-assigned colors.
  *
- * - First N (= SEED_PALETTE.length) followeds get seed colors in order.
- * - After that, maximin over V \ assigned.
- * - Degradation is flagged when the best ΔE drops below DEGRADED_THRESHOLD.
+ * Pure maximin over `V \ assigned` — applies from the very first followed
+ * (PR-OWNER-IDENTITY-2.1). With `assigned = []` the allocator picks the
+ * candidate that maximizes `min ΔE` against `FORBIDDEN_ANCHORS` (encoded
+ * via the V filter `passesAnchors`); with `assigned.length > 0` it
+ * additionally maximizes distance to every previously-assigned color.
  *
- * Deterministic: same `assigned` → same result.
- * Immutable: never re-orders or mutates `assigned`.
+ * Deterministic: same `assigned` → same result (tiebreak by hue → L → C).
+ * Immutable: never re-orders or mutates `assigned`. Existing viewer×followed
+ * assignments persisted in DB are never recomputed by callers.
  */
 export function pickNextIdentityColor(
   assigned: ReadonlyArray<OklchColor>,
 ): AllocationResult {
-  // Seed phase
-  for (const seed of SEED_PALETTE) {
-    if (!alreadyAssigned(seed, assigned)) {
-      return { color: seed, degraded: false };
-    }
-  }
-  // Maximin phase
   const V = getCandidateSpace();
   let best: OklchColor | null = null;
   let bestScore = -Infinity;
   for (const c of V) {
     if (alreadyAssigned(c, assigned)) continue;
+    // Score: when `assigned` is empty, fall back to distance from anchors
+    // so the first pick is the candidate furthest from health/state colors.
     let minD = Infinity;
-    for (const a of assigned) {
-      const d = deltaEOklab(c, a);
-      if (d < minD) minD = d;
-      if (d < bestScore) break; // early prune: cannot beat current best
+    if (assigned.length === 0) {
+      for (const a of FORBIDDEN_ANCHORS) {
+        const d = deltaEOklab(c, a);
+        if (d < minD) minD = d;
+      }
+    } else {
+      for (const a of assigned) {
+        const d = deltaEOklab(c, a);
+        if (d < minD) minD = d;
+      }
     }
     if (minD > bestScore) {
-      // Tiebreak: lower h, then lower L, then lower C (deterministic).
       bestScore = minD;
       best = c;
     } else if (minD === bestScore && best) {
@@ -170,9 +173,11 @@ export function pickNextIdentityColor(
     }
   }
   if (!best) {
-    // Total exhaustion (shouldn't happen with 432-cell space): hash fallback.
+    // Total exhaustion (shouldn't happen with the V cell space): hash fallback.
     const fallback = SEED_PALETTE[assigned.length % SEED_PALETTE.length];
     return { color: fallback, degraded: true };
   }
-  return { color: best, degraded: bestScore < DEGRADED_THRESHOLD };
+  // Degradation only meaningful once we're maximizing distance to peers.
+  const degraded = assigned.length > 0 && bestScore < DEGRADED_THRESHOLD;
+  return { color: best, degraded };
 }
