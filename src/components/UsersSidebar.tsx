@@ -217,6 +217,24 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   usersWithStats.sort((a, b) => b.sharedPois - a.sharedPois);
 
  setUsers(usersWithStats);
+
+  // Owner identity colors (PR-OWNER-IDENTITY-1): asegurar asignación
+  // persistida para cada seguido visible. El renderer del mapa solo lee;
+  // los writes se disparan aquí. Tras cada cambio, el store emite
+  // `lovable:owner-identity-updated` y LocationMap repinta los markers
+  // afectados sin rebuild.
+  if (currentUser?.id) {
+    const followedUids = usersWithStats
+      .filter(u => u.id !== currentUser.id)
+      .map(u => u.id);
+    try {
+      await loadOwnerIdentityAssignments(currentUser.id);
+      // No await: la asignación se escribe en background sin bloquear UI.
+      void ensureAssignmentsForFolloweds(currentUser.id, followedUids);
+    } catch (e) {
+      console.warn('[UsersSidebar] owner-identity load/ensure failed', e);
+    }
+  }
  } catch (error) {
  console.error('Error fetching users:', error);
  } finally {
