@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
- Users, X, Search, MapPin, Shield, Crown, Edit3, Eye, EyeOff, UserCheck, 
- ChevronRight, UserPlus, UserMinus, Loader2, Clock, Filter, Heart, Link2, 
- type LucideIcon
+import {
+  Users, X, Search, Shield, Crown, Edit3, Eye, EyeOff, UserCheck,
+  UserPlus, UserMinus, Loader2, Clock, Filter, HelpCircle,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
@@ -17,38 +16,28 @@ import { useLocationsStore } from '@/domains/content';
 import { usePermissions } from '@/domains/identity';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { toast } from 'sonner';
+import { formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface UserWithStats {
- id: string;
- username: string;
- display_name: string | null;
- avatar_url: string | null;
- roles: string[];
- locationCount: number;
- followersCount: number;
- followingCount: number;
- commonPointsCount: number;
- is_private: boolean;
- followStatus: 'none' | 'pending' | 'accepted' | 'rejected';
- followId?: string;
- followsMe: boolean;
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  roles: string[];
+  sharedPois: number;
+  totalPois: number | null;
+  lastContributionAt: string | null;
+  contributions7d: number | null;
+  followersCount: number;
+  followingCount: number;
+  is_private: boolean;
+  followStatus: 'none' | 'pending' | 'accepted' | 'rejected';
+  followId?: string;
+  followsMe: boolean;
 }
 
 type RelationFilter = 'all' | 'following' | 'followers';
-
-// Haversine formula to calculate distance between two points in meters
-function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
- const R = 6371000;
- const dLat = (lat2 - lat1) * Math.PI / 180;
- const dLon = (lon2 - lon1) * Math.PI / 180;
- const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
- Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
- Math.sin(dLon / 2) * Math.sin(dLon / 2);
- const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
- return R * c;
-}
-
-const COMMON_POINT_THRESHOLD_METERS = 500;
 
 interface UsersSidebarProps {
  isOpen: boolean;
