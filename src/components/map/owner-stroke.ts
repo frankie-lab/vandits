@@ -40,7 +40,7 @@ const PALETTE: ReadonlyArray<string> = [
 export const FORBIDDEN_HUE_RANGES: ReadonlyArray<readonly [number, number]> = [
   [0, 45],     // red / orange / amber → hardError, naranja empty
   [45, 75],    // yellow → chain
-  [90, 160],   // green / lime → enriched
+  [90, 180],   // green / lime / teal verdoso → enriched (mínimo 180 para owner)
   [300, 340],  // magenta / pink → review
 ];
 
