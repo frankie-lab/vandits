@@ -1,31 +1,46 @@
 /**
  * owner-stroke — Helper único para resolver el color de stroke "identidad
  * relativa del owner seguido". Hash determinista del uid → índice en una
- * paleta cerrada (~10 colores HSL).
+ * paleta cerrada SOLO de familias frías.
  *
- * Reglas:
+ * Reglas (PR-OWNER-STROKE-PALETTE-GUARD):
  *  - Mismo uid → mismo color SIEMPRE (en mapa, popup, leyenda en sidebar).
- *  - La paleta NO colisiona con:
- *      · Health rings: amber (~38°), yellow (~52°), magenta (~320°), red (~0°)
- *      · Propios:      verde (~142°), azul (~207°), naranja (~24°)
- *  - Banda de matices usados: 170°, 195°, 220°, 250°, 270°, 290°, 305°, 335°,
- *    plus dos azulados extra. Saturación moderada, lightness 50% para ser
- *    visible sobre fondo claro y oscuro.
+ *  - La paleta SOLO usa familias frías para no confundirse con salud:
+ *      teal · cyan · azure · indigo · violet frío · royal blue
+ *  - **HUE PROHIBIDOS** (FORBIDDEN_HUE_RANGES) — bloqueados por test:
+ *      ·   0–45  red / orange / amber  (colisiona con hardError, naranja estado)
+ *      ·  45–75  yellow                 (colisiona con chain)
+ *      ·  90–160 verde / lime           (colisiona con enriched)
+ *      · 300–340 magenta / pink         (colisiona con review)
+ *  - Lightness 45–55% para visibilidad sobre tile claro y oscuro.
+ *
+ * Health rings (DOMINIO RESERVADO, no usar):
+ *   partial=amber  chain=yellow  review=magenta  hardError=red
+ *
+ * Estados POI (DOMINIO RESERVADO, no usar):
+ *   enriched=verde  imported=gris  empty=naranja
  *
  * Ver mem://style/map/followed-poi-grammar.
  */
 
+/** Familias frías (hue 165–270). Cualquier nuevo color DEBE caer aquí. */
 const PALETTE: ReadonlyArray<string> = [
   'hsl(170, 70%, 42%)',  // teal
-  'hsl(195, 75%, 45%)',  // cyan
-  'hsl(220, 70%, 55%)',  // azure
-  'hsl(250, 65%, 58%)',  // indigo
-  'hsl(270, 60%, 55%)',  // violet
-  'hsl(290, 60%, 50%)',  // magenta-soft (no colisiona con review 320)
-  'hsl(305, 55%, 48%)',  // purple-pink
-  'hsl(335, 60%, 50%)',  // rose (no colisiona con red 0)
   'hsl(180, 65%, 38%)',  // dark teal
+  'hsl(195, 75%, 45%)',  // cyan
+  'hsl(205, 70%, 48%)',  // sky blue
+  'hsl(220, 70%, 55%)',  // azure
   'hsl(235, 60%, 50%)',  // royal blue
+  'hsl(250, 65%, 58%)',  // indigo
+  'hsl(265, 55%, 55%)',  // violet frío
+];
+
+/** Rangos de hue prohibidos (colisionan con salud o estados POI). */
+export const FORBIDDEN_HUE_RANGES: ReadonlyArray<readonly [number, number]> = [
+  [0, 45],     // red / orange / amber → hardError, naranja empty
+  [45, 75],    // yellow → chain
+  [90, 160],   // green / lime → enriched
+  [300, 340],  // magenta / pink → review
 ];
 
 /** Hash determinista uid → índice paleta. djb2 simplificado. */
@@ -48,3 +63,15 @@ export function getOwnerStrokeColor(ownerUid: string | null | undefined): string
 
 /** Tamaño de la paleta — útil para tests. */
 export const OWNER_PALETTE_SIZE = PALETTE.length;
+
+/** Snapshot de la paleta — solo para tests / herramientas de QA. */
+export const _OWNER_PALETTE_FOR_TEST: ReadonlyArray<string> = PALETTE;
+
+/** Extrae el hue de un string `hsl(H, S%, L%)`. Devuelve null si no parsea. */
+export function parseHslHue(hsl: string): number | null {
+  const m = hsl.match(/hsl\(\s*(-?\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  const h = parseFloat(m[1]);
+  if (!Number.isFinite(h)) return null;
+  return ((h % 360) + 360) % 360;
+}
