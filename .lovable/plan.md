@@ -1,97 +1,56 @@
-
-# PR-SOCIAL-1.1 — Fila de seguidos: contención horizontal
-
 ## Diagnóstico
 
-Panel = `w-[340px]`. Row = `p-3 + gap-3` → contenido útil ≈ 316 px.
-Costes fijos por fila:
+Al pulsar el botón "Filter" de un seguido en el sidebar:
 
-```text
-avatar 40 + gap 12 + [info FLEX] + gap 12 + mute 28 + filter 28 + follow 28
-                                                = 148 px de cromo
-```
+1. Se setea `filters.filterByUserId = user.id` y aparece el chip + banner.
+2. `getFilteredLocations` SÍ restringe correctamente (Sandbox Agent → ~295 puntos visibles).
+3. Pero la cámara no se mueve. En zoom mundial los ~295 puntos colapsan en un único cluster diminuto en Galicia, así que el usuario percibe "no veo nada".
 
-Quedan ~168 px para el metadato. Frases del tipo
-`329 compartidos · 336 totales · hace 18 minutos · +14 (7d)` (≈ 60 chars)
-no caben con `truncate` sin perder información útil, y con tres botones a la
-derecha la línea acaba empujando el redondeo derecho del panel — lo que ves en
-la captura.
+El contrato canónico (`mem://logic/map/subset-fit-contract`) cubre exactamente este caso: cualquier consola que quiera "ver su subconjunto" debe delegar en `requestSubsetFit(ids, { mode, reason })`. El filtro por usuario es una **acción explícita de foco**, no un filtro descriptivo Geo/Tipo/Tags — debe mover cámara.
 
 ## Cambios
 
-### 1. Metadato compacto + dos líneas
+Un único fichero, sin tocar pipeline ni RPC.
 
-Sustituir la línea verbosa por iconos + números + segunda línea opcional. Sigue
-siendo legible sin tooltip, pero el tooltip da el detalle largo.
+### `src/components/UsersSidebar.tsx` — handler `handleFilterByUser`
 
-```text
-[Avatar]  Sandbox Agent                              [Mute] [Filter] [Follow]
-          ⇗ 329 · 🔒 336 · ⏱ 18m · ↗ +14
-          [Sigues] [Te sigue]
+Tras `setFilters({ filterByUserId, filterByUserName })`, esperar un tick para que el store reprocese y disparar fit con el resultado real de `getFilteredLocations()` (ya restringido por el filtro recién aplicado, sin volver a filtrar por `_docUserId`):
+
+```ts
+import { requestSubsetFit } from "@/components/map/subset-fit";
+import { useLocationsStore } from "@/domains/content/store/locations-store";
+
+// dentro del handler, después de setFilters({...})
+setTimeout(() => {
+  const ids = useLocationsStore.getState()
+    .getFilteredLocations()
+    .map(l => l.id);
+
+  if (ids.length > 0) {
+    requestSubsetFit(ids, { mode: "always", reason: "user-filter" });
+  }
+}, 50);
 ```
 
-Iconos Lucide (no emojis):
+Notas:
+- **No re-filtrar por `_docUserId`**: el subset ya es el universo del usuario filtrado, e incluye toda la lógica de visibility/curated/hidden.
+- `mode: "always"`: el usuario activó explícitamente el foco y espera feedback visual aunque ya estuviera "dentro".
+- Cooldown manual 4s y clamp z12 del listener canónico siguen activos.
+- **No-op si `ids.length === 0`** (seguido sin puntos visibles tras curated boundary).
+- **Quitar filtro NO dispara fit** — la cámara se queda donde esté para no marear.
 
-| Métrica | Icono | Aria |
-|---|---|---|
-| `sharedPois` | `Share2` (12 px) | "POIs visibles para ti (curados)" |
-| `totalPois` (si != null) | `Lock` (12 px) | "Total de su catálogo" |
-| `lastContributionAt` | `Clock` (12 px) | "Último POI" — `formatDistanceToNowStrict` con `addSuffix: false` (devuelve `18 m`, `2 h`, `3 d`, no "hace 18 minutos") |
-| `contributions7d` (>0) | `TrendingUp` (12 px) | "Contribuciones últimos 7 días" |
+### Sin cambios
 
-Cada chip métrica = `inline-flex items-center gap-1 shrink-0 tabular-nums`.
-Línea con `flex flex-wrap gap-x-2 gap-y-0.5` para que si no caben las 4 saltan
-a una segunda línea sin romper el panel.
+- `locations-store.ts`, RPC, privacidad, banner, chip, counters del top-bar.
 
-Tooltip largo se mantiene en el contenedor:
-`329 visibles para ti · 336 totales en su catálogo · hace 18 min · +14 (7d)`.
+## Memoria
 
-### 2. Reducir cromo del row
+Actualizar `mem://logic/map/subset-fit-contract` añadiendo a la lista de triggers cableados: **filtro por usuario en `UsersSidebar`** (mode `always`, reason `user-filter`).
 
-- `p-3` → `p-2.5` (ahorra 4 px laterales, más aire entre elementos densos).
-- `gap-3` → `gap-2`.
-- Botones de acción `p-1.5` → `p-1`, icono `w-4 h-4` → `w-3.5 h-3.5`. Sigue
-  siendo área tactil suficiente (28→24 px) y dispara los chips de estado a la
-  zona segura.
-- Truncado del nombre `max-w-[160px]` → `max-w-full` con `truncate` heredado:
-  el nombre es lo que más merece la línea completa.
+## QA manual
 
-### 3. Colapsar acciones cuando no aplican
-
-Hoy se renderizan siempre los 3 huecos. Reglas finales:
-
-| Caso | Mute | Filter | Follow |
-|---|---|---|---|
-| `isCurrentUser` | — | sí | — |
-| `followStatus==='accepted'` | sí | sí | Unfollow |
-| `pending` | — | — | Cancel |
-| `none` | — | — | Follow |
-
-Para no-followed (`none`/`pending`) no se reservan slots vacíos — la línea de
-metadato gana ~60 px.
-
-### 4. Tarjeta del usuario actual (header)
-
-Misma operación: iconos compactos + tooltip largo, `p-3 → p-2.5`.
-
-## Anti-regresión
-
-- La fila NO debe poder ensanchar el panel: añadir `min-w-0` al `motion.div`
-  raíz del row y `overflow-hidden` al `ScrollArea` viewport ya existente.
-- `formatDistanceToNowStrict({ unit: undefined })` (auto picks largest) +
-  reemplazo en cliente del label largo (`minute→m`, `hour→h`, `day→d`,
-  `month→mo`, `year→y`) — sin `date-fns/locale/es` para "hace…", para
-  evitar regresar a 14 caracteres.
-
-## Archivos tocados
-
-- `src/components/UsersSidebar.tsx` (solo este archivo; sin cambios de RPC,
-  store o memoria).
-
-## No se toca
-
-- RPC `get_followed_user_stats`.
-- Privacidad de `total_pois`.
-- Helper `isShareablePoi`.
-- Memoria `mem://ui/social/users-sidebar-spec` (solo se añadirá una nota:
-  "metadato de fila se compacta con iconos Lucide + segunda línea wrap").
+1. Desde z2-3, filtrar Sandbox Agent → cámara encuadra Galicia con sus puntos visibles.
+2. Quitar filtro → cámara se queda donde esté.
+3. Filtrar a un seguido sin puntos compartidos visibles → no-op, sin errores.
+4. Filtrar a uno mismo (`isCurrentUser`) → fit a mi universo entero.
+5. Re-filtrar a otro seguido en menos de 4s → respeta cooldown manual del listener (no spam).

@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/domains/identity';
 import { useLocationsStore } from '@/domains/content';
+import { requestSubsetFit } from '@/components/map/subset-fit';
 import { usePermissions } from '@/domains/identity';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { toast } from 'sonner';
@@ -294,32 +295,48 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  }
  };
 
- const handleFilterByUser = (user: UserWithStats) => {
- if (user.id === currentUser?.id || user.followStatus === 'accepted') {
- setFilters({
- ...filters,
- filterByUserId: user.id,
- filterByUserName: user.display_name || user.username,
- ownershipFilter: undefined,
- });
- onClose();
- toast.success(`Mostrando puntos de ${user.display_name || user.username}`, {
- icon: <Filter className="w-4 h-4" />,
- action: {
- label: 'Quitar filtro',
- onClick: () => {
- setFilters({
- ...filters,
- filterByUserId: undefined,
- filterByUserName: undefined,
- });
- }
- }
- });
- } else {
- toast.error('Solo puedes ver puntos de usuarios que sigues');
- }
- };
+  const handleFilterByUser = (user: UserWithStats) => {
+    if (user.id === currentUser?.id || user.followStatus === 'accepted') {
+      setFilters({
+        ...filters,
+        filterByUserId: user.id,
+        filterByUserName: user.display_name || user.username,
+        ownershipFilter: undefined,
+      });
+      onClose();
+
+      // Subset-fit canónico: el filtro por usuario es una acción explícita de
+      // foco (no un filtro descriptivo Geo/Tipo/Tags). Ver
+      // mem://logic/map/subset-fit-contract.
+      // Defer: dejamos que el store reprocese con el filterByUserId recién
+      // aplicado y luego pedimos fit con el resultado real (sin re-filtrar
+      // por _docUserId).
+      setTimeout(() => {
+        const ids = useLocationsStore.getState()
+          .getFilteredLocations()
+          .map(l => l.id);
+        if (ids.length > 0) {
+          requestSubsetFit(ids, { mode: 'always', reason: 'user-filter' });
+        }
+      }, 50);
+
+      toast.success(`Mostrando puntos de ${user.display_name || user.username}`, {
+        icon: <Filter className="w-4 h-4" />,
+        action: {
+          label: 'Quitar filtro',
+          onClick: () => {
+            setFilters({
+              ...filters,
+              filterByUserId: undefined,
+              filterByUserName: undefined,
+            });
+          }
+        }
+      });
+    } else {
+      toast.error('Solo puedes ver puntos de usuarios que sigues');
+    }
+  };
 
  const currentUserData = React.useMemo(() => 
  users.find(u => u.id === currentUser?.id), 
