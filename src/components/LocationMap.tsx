@@ -100,6 +100,7 @@ import {
   getTintForRoute,
 } from '@/domains/content/lib/collection-visibility';
 import { SUBSET_FIT_BOUNDS_EVENT, type SubsetFitDetail } from './map/subset-fit';
+import { pickDominantRegion, shouldUseDominantRegion } from './map/dominant-region';
 
 
 // Fix for default marker icons
@@ -2217,7 +2218,16 @@ export function LocationMap() {
         return;
       }
 
-      const bounds = L.latLngBounds(pts);
+      // user-filter dispersión multi-regional → acotar a la región dominante
+      // para no aterrizar en mar abierto. Resto de razones usan bounds completos.
+      // Ver mem://logic/map/subset-fit-contract.
+      let fitPts = pts;
+      if (detail.reason === 'user-filter' && shouldUseDominantRegion(pts)) {
+        const region = pickDominantRegion(pts);
+        if (region.points.length >= 2) fitPts = region.points;
+      }
+
+      const bounds = L.latLngBounds(fitPts);
       const padding: L.PointTuple = [60, 60];
       const fitOpts: L.FitBoundsOptions = { padding, maxZoom: FIT_CLAMP_ZOOM };
 
