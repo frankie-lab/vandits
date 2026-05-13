@@ -6,13 +6,20 @@
  *
  * Cada punto cae en exactamente uno de estos 4 buckets, en función de
  * 1) si pertenece al usuario actual y 2) su flag isApproved.
+ *
+ * PR-1 curated sharing (2026-05-13): el bucket antes llamado
+ * `followedWorkspace` se renombra a `followedShared`. Tras la curated-only
+ * boundary, los seguidos solo entran al pipeline si pasan `isShareablePoi`,
+ * por lo que "workspace ajeno" ya no es un dominio que el follower vea —
+ * es contenido publicado/curado del owner. Ver
+ * `mem://logic/sharing/curated-only-rule`.
  */
 
 export type LocationBucket =
   | 'myCatalog'
   | 'myWorkspace'
   | 'followedCatalog'
-  | 'followedWorkspace';
+  | 'followedShared';
 
 export interface BucketableLocation {
   isApproved?: boolean;
@@ -24,14 +31,14 @@ export interface BucketStats {
   myCatalog: number;
   myWorkspace: number;
   followedCatalog: number;
-  followedWorkspace: number;
+  followedShared: number;
   /** myCatalog + followedCatalog */
   catalogTotal: number;
-  /** myWorkspace + followedWorkspace */
+  /** myWorkspace + followedShared */
   workspaceTotal: number;
   /** myCatalog + myWorkspace */
   myTotal: number;
-  /** followedCatalog + followedWorkspace */
+  /** followedCatalog + followedShared */
   followedTotal: number;
   total: number;
 }
@@ -54,7 +61,7 @@ export function getLocationBucket(
   const own = isOwnLocation(loc, currentUserId);
   const approved = !!loc.isApproved;
   if (own) return approved ? 'myCatalog' : 'myWorkspace';
-  return approved ? 'followedCatalog' : 'followedWorkspace';
+  return approved ? 'followedCatalog' : 'followedShared';
 }
 
 export function getBucketStats(
@@ -65,15 +72,15 @@ export function getBucketStats(
     myCatalog: 0,
     myWorkspace: 0,
     followedCatalog: 0,
-    followedWorkspace: 0,
+    followedShared: 0,
   };
   for (const loc of locations) {
     stats[getLocationBucket(loc, currentUserId)] += 1;
   }
   const catalogTotal = stats.myCatalog + stats.followedCatalog;
-  const workspaceTotal = stats.myWorkspace + stats.followedWorkspace;
+  const workspaceTotal = stats.myWorkspace + stats.followedShared;
   const myTotal = stats.myCatalog + stats.myWorkspace;
-  const followedTotal = stats.followedCatalog + stats.followedWorkspace;
+  const followedTotal = stats.followedCatalog + stats.followedShared;
   return {
     ...stats,
     catalogTotal,

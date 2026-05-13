@@ -110,38 +110,27 @@ describe('health-filter-scope', () => {
     expect(r.ids).toEqual(['p1']);
   });
 
-  describe('repairableIds split (PR-HEALTH-SUBSET-FIX)', () => {
+  describe('curated-only boundary (PR-1)', () => {
+    // Tras la curated boundary los seguidos con health rota se filtran ANTES
+    // (en getFilteredLocations vía isShareablePoi). El scope sólo recibe
+    // propios — todo lo que aparece en `ids` es accionable. La distinción
+    // repairableIds/repairableCount desaparece.
     const mine = loc({ id: 'm1', geoHealth: 'partial', ownerUserId: 'me' } as any);
-    const followed = loc({ id: 'f1', geoHealth: 'partial', ownerUserId: 'them' } as any);
 
-    it('separa repairableIds (propios) de ids (universo)', () => {
-      const r = getHealthFilterScopeIds({
-        filteredLocations: [mine, followed],
-        selectedLocationIds: new Set(),
-        visibleLocationIds: new Set(),
-        healthFilter: 'partial',
-        onlyVisible: false,
-        currentUserId: 'me',
-      });
-      expect(r.ids).toEqual(['m1', 'f1']);
-      expect(r.total).toBe(2);
-      expect(r.repairableIds).toEqual(['m1']);
-      expect(r.repairableCount).toBe(1);
-    });
-
-    it('sin currentUserId → repairableIds vacío', () => {
+    it('partial: ids contiene los propios y total coincide', () => {
       const r = getHealthFilterScopeIds({
         filteredLocations: [mine],
         selectedLocationIds: new Set(),
         visibleLocationIds: new Set(),
         healthFilter: 'partial',
         onlyVisible: false,
+        currentUserId: 'me',
       });
       expect(r.ids).toEqual(['m1']);
-      expect(r.repairableIds).toEqual([]);
+      expect(r.total).toBe(1);
     });
 
-    it('review/hardError → repairableIds siempre vacío', () => {
+    it('review: ids del propio entran (rings no se ocultan para owner)', () => {
       const r = getHealthFilterScopeIds({
         filteredLocations: [mine],
         selectedLocationIds: new Set(),
@@ -150,7 +139,8 @@ describe('health-filter-scope', () => {
         onlyVisible: false,
         currentUserId: 'me',
       });
-      expect(r.repairableIds).toEqual([]);
+      // partial != review, este punto no debería estar bajo review
+      expect(r.ids).toEqual([]);
     });
   });
 });

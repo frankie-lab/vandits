@@ -16,7 +16,7 @@ function loc(p: Partial<GeoLocation>): GeoLocation {
     updatedAt: new Date(),
     visibility: 'public',
     geoHealth: 'ok',
-    enrichedData: { descripcion: 'desc' } as any,
+    enrichedData: { descripcion: 'Una descripción suficientemente larga para superar el umbral del helper isUnverifiableDescription que exige al menos 60 caracteres.' } as any,
     ...p,
   } as GeoLocation;
 }
@@ -41,6 +41,7 @@ describe('isShareablePoi — 4 ramas de exclusión', () => {
   it('no enriched → false', () => {
     expect(isShareablePoi(loc({ enrichedData: undefined }))).toBe(false);
     expect(isShareablePoi(loc({ enrichedData: { descripcion: '' } as any }))).toBe(false);
+    expect(isShareablePoi(loc({ enrichedData: { descripcion: 'demasiado corto' } as any }))).toBe(false);
   });
 
   it('geo no ok → false', () => {
