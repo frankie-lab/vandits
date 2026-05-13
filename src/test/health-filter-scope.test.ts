@@ -144,4 +144,3 @@ describe('health-filter-scope', () => {
     });
   });
 });
-});
