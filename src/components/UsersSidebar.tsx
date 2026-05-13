@@ -612,66 +612,77 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  </button>
 
  {/* Info */}
- <button
- onClick={() => handleFilterByUser(user)}
- className="flex-1 min-w-0 text-left overflow-hidden"
- >
- <div className="flex items-center gap-1.5 max-w-full">
- <span className="font-medium text-sm text-foreground truncate max-w-[120px]">
- {user.display_name || user.username}
- </span>
- {isCurrentUser && (
- <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 shrink-0">
- Tú
- </Badge>
+ <div className="flex-1 min-w-0 overflow-hidden">
+  <div className="flex items-center gap-1.5 max-w-full">
+   <span className="font-medium text-sm text-foreground truncate max-w-[160px]">
+    {user.display_name || user.username}
+   </span>
+   {isCurrentUser && (
+    <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 shrink-0">Tú</Badge>
+   )}
+  </div>
+  <div className="text-xs text-muted-foreground truncate" title={
+    user.totalPois != null
+      ? `${user.sharedPois} visibles para ti · ${user.totalPois} totales en su catálogo (privados o sin curar)`
+      : `${user.sharedPois} POIs visibles para ti (curados)`
+  }>
+   <span className="font-semibold text-foreground">{user.sharedPois}</span> compartidos
+   {user.totalPois != null && (
+    <> · <span className="font-semibold text-foreground">{user.totalPois}</span> totales</>
+   )}
+   {user.lastContributionAt && (
+    <> · hace {formatDistanceToNow(new Date(user.lastContributionAt), { locale: es })}</>
+   )}
+   {user.contributions7d != null && user.contributions7d > 0 && (
+    <> · +{user.contributions7d} (7d)</>
+   )}
+  </div>
+  {(user.followStatus === 'accepted' || user.followsMe) && (
+   <div className="flex items-center gap-1 mt-0.5 text-[10px]">
+    {user.followStatus === 'accepted' && (
+     <span className="px-1.5 py-0 rounded bg-primary/10 text-primary">Sigues</span>
+    )}
+    {user.followsMe && (
+     <span className="px-1.5 py-0 rounded bg-muted text-muted-foreground">Te sigue</span>
+    )}
+   </div>
+  )}
+ </div>
+
+ {/* Mute toggle (only for followed) */}
+ {user.followStatus === 'accepted' && (
+  <button
+   onClick={(e) => {
+    e.stopPropagation();
+    toggleUserVisibility(user.id);
+   }}
+   className={cn(
+    'p-1.5 rounded-full transition-colors shrink-0',
+    isUserHiddenFlag
+     ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
+     : 'text-primary hover:bg-primary/10'
+   )}
+   title={isUserHiddenFlag ? 'Mostrar sus puntos en el mapa' : 'Ocultar sus puntos del mapa (no afecta el follow)'}
+  >
+   {isUserHiddenFlag ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+  </button>
  )}
- </div>
- <div className="flex items-center gap-2.5 text-xs text-muted-foreground max-w-full flex-wrap">
- <span className="flex items-center gap-0.5 shrink-0" title="Puntos">
- <MapPin className="w-3 h-3" />
- <span className="font-bold">{user.locationCount}</span>
- </span>
- <span className="flex items-center gap-0.5 shrink-0" title="Seguidores">
- <Users className="w-3 h-3" />
- <span className="font-bold">{user.followersCount}</span>
- </span>
- <span className="flex items-center gap-0.5 shrink-0" title="Siguiendo">
- <Heart className="w-3 h-3" />
- <span className="font-bold">{user.followingCount}</span>
- </span>
- <span className="flex items-center gap-0.5 shrink-0 text-amber-500" title="Puntos en común">
- <Link2 className="w-3 h-3" />
- <span className="font-bold">{user.commonPointsCount}</span>
- </span>
- </div>
- </button>
 
-                {/* Visibility toggle for followed users */}
-                {user.followStatus === 'accepted' && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleUserVisibility(user.id);
-                    }}
-                    className={`p-1.5 rounded-full transition-colors shrink-0 ${
-                      isUserHiddenFlag
-                        ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                        : 'text-primary hover:bg-primary/10'
-                    }`}
-                    title={isUserHiddenFlag ? 'Mostrar puntos' : 'Ocultar puntos'}
-                  >
-                    {isUserHiddenFlag ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                )}
+ {/* Focus owner */}
+ {(user.followStatus === 'accepted' || isCurrentUser) && (
+  <button
+   onClick={(e) => { e.stopPropagation(); handleFilterByUser(user); }}
+   className="p-1.5 rounded-full shrink-0 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+   title="Ver solo sus puntos en el mapa"
+  >
+   <Filter className="w-4 h-4" />
+  </button>
+ )}
 
-                {/* Follow button */}
-                <div className="shrink-0">
-                  {getFollowButton(user)}
-                </div>
+ {/* Follow button */}
+ <div className="shrink-0">
+  {getFollowButton(user)}
+ </div>
  </motion.div>
  );
  })
