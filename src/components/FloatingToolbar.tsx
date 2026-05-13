@@ -407,14 +407,18 @@ export function FloatingToolbar({
   // documents.status NO afecta. Helper único: getBucketStats.
   //   VERDE = mis puntos en Catálogo (myCatalog)
   //   AZUL  = catálogo total accesible (myCatalog + followedCatalog)
+  // Si hay `filterByUserId` activo, los buckets se calculan sobre el subset
+  // filtrado para que el contador refleje el filtro de usuario
+  // (ver `mem://logic/content/location-bucket-matrix`).
   const catalogStats = React.useMemo(() => {
-    const stats = getBucketStats(allLocations as any, user?.id);
+    const source = filters.filterByUserId ? filteredLocations : allLocations;
+    const stats = getBucketStats(source as any, user?.id);
     return {
       myCatalogCount: stats.myCatalog,
       followedCatalogCount: stats.followedCatalog,
       totalCatalogCount: stats.catalogTotal,
     };
-  }, [allLocations, user?.id]);
+  }, [allLocations, filteredLocations, filters.filterByUserId, user?.id]);
 
  const isProcessActive = activeJob && ['pending', 'running', 'paused'].includes(activeJob.status);
  const progress = activeJob ? (activeJob.processed_count / activeJob.total_count) * 100 : 0;
