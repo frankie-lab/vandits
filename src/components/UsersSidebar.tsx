@@ -15,7 +15,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/domains/identity';
 import { useLocationsStore } from '@/domains/content';
 import { requestSubsetFit } from '@/components/map/subset-fit';
-import { getOwnerStrokeColor } from '@/components/map/owner-stroke';
+import { getOwnerIdentityColor } from '@/components/map/owner-stroke';
+import {
+  loadOwnerIdentityAssignments,
+  ensureAssignmentsForFolloweds,
+  getOwnerColorIndex,
+} from '@/stores/owner-identity-store';
 import { usePermissions } from '@/domains/identity';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { toast } from 'sonner';
