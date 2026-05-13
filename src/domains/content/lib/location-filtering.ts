@@ -89,6 +89,14 @@ export function matchesLocationFilters(
   // enrichmentStatus, onlyEnriched, verified) han sido eliminados de la UI
   // y NO se aplican como filtro. "Todos" = universo completo de puntos.
 
+  // Eje "user" (identidad). SIEMPRE aplicado, no detrás de includeX. Usa el
+  // resolver canónico de owner (ver `mem://logic/content/location-owner-resolver`).
+  if (filters.filterByUserId) {
+    if (getLocationOwnerUserId(loc as { ownerUserId?: string | null; _docUserId?: string | null }) !== filters.filterByUserId) {
+      return false;
+    }
+  }
+
   if (includeExploration) {
     if (includePlaceType && placeType && getEffectivePlaceType(loc) !== placeType) return false;
     if (includeTags) {
