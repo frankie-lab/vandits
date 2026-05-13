@@ -473,7 +473,7 @@ export const createCustomIcon = (
           </defs>`}
           ${isFollowedPoi
             ? (() => {
-                const ownerStroke = getOwnerStrokeColor(ownerUid);
+                const ownerStroke = getOwnerIdentityColor(ownerUid, getOwnerColorIndex(ownerUid));
                 const sw = getFollowedStrokeWidth(renderMode);
                 const dbg = FOLLOWED_DEBUG ? ` data-owner-uid="${ownerUid ?? ''}" data-owner-stroke="${ownerStroke}" class="poi-followed-pennant"` : '';
                 return `<polygon points="2,3 22,3 12,22" fill="${applyStateColor(baseColor)}" stroke="${ownerStroke}" stroke-width="${sw}" stroke-linejoin="round" stroke-linecap="round"${dbg}/>`;
