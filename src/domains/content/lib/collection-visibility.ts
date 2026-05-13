@@ -395,8 +395,23 @@ export function clearAllCollectionVisibility() {
   broadcast();
 }
 
-/** Color del anillo para un punto, o null. */
-export function getTintForLocation(locationId: string): string | null {
+/**
+ * Color del anillo para un punto, o null.
+ *
+ * Ownership guard (PR-1 curated sharing boundary): si se pasa `isOwn=false`
+ * el helper devuelve null. La colección es organización PRIVADA del owner
+ * — los seguidores no deben heredar el tinte de otro usuario (compite
+ * visualmente con ownership/estado y filtra semántica privada). Ver
+ * `mem://logic/sharing/curated-only-rule` y
+ * `mem://logic/collections/visibility-and-styling`.
+ *
+ * Sin segundo arg, comportamiento legacy (devuelve color real).
+ */
+export function getTintForLocation(
+  locationId: string,
+  isOwn?: boolean,
+): string | null {
+  if (isOwn === false) return null;
   for (const c of Object.values(state.visible)) {
     if (c.locationIds.includes(locationId)) return c.color;
   }

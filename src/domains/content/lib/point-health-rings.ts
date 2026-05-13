@@ -101,9 +101,26 @@ export function hasEmptyContent(loc: GeoLocation | null | undefined): boolean {
 /**
  * Returns the health rings that apply to this point, ordered from INNER
  * to OUTER. Empty array if the point is fully healthy.
+ *
+ * Ownership guard (PR-1 curated sharing boundary): cuando se pasa
+ * `currentUserId` y el POI no pertenece al caller, se devuelve `[]`.
+ * Health/tint son dominio privado del owner — un seguidor no debería ver
+ * el estado operativo de mantenimiento de otro usuario. Ver
+ * `mem://logic/sharing/curated-only-rule`.
+ *
+ * Sin `currentUserId` el helper mantiene comportamiento legacy (devuelve
+ * los rings reales). Esto preserva tests/usos defensivos sin pasar arg.
  */
-export function getPointHealthRings(loc: GeoLocation | null | undefined): HealthRing[] {
+export function getPointHealthRings(
+  loc: GeoLocation | null | undefined,
+  currentUserId?: string | null,
+): HealthRing[] {
   if (!loc) return [];
+  // Ownership guard — explícito vía argumento, sin singleton global.
+  if (currentUserId) {
+    const owner = (loc as { ownerUserId?: string | null }).ownerUserId;
+    if (owner && owner !== currentUserId) return [];
+  }
   const rings: HealthRing[] = [];
   if (hasPartialGeo(loc)) rings.push('partial');
   if (hasBrokenGeoChain(loc)) rings.push('chain');

@@ -11,6 +11,7 @@ import { isLocationVisibleInGlobalMap } from '@/domains/content/lib/document-vis
 import { compareLocationsHierarchical } from '@/shared/geography/hierarchy';
 import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
+import { isShareablePoi } from '@/domains/content/lib/is-shareable-poi';
 import { applyCatalogSnapshotPure, type ApplySnapshotOpts } from './catalog-snapshot';
 
 function getPersistentFilters(filters: FilterCriteria): FilterCriteria {
@@ -441,6 +442,20 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     if (hiddenDocumentIds && hiddenDocumentIds.length > 0) {
       const hiddenSet = new Set(hiddenDocumentIds);
       source = source.filter(loc => !loc._docId || !hiddenSet.has(loc._docId));
+    }
+
+    // --- Curated sharing boundary (PR-1) ---
+    // Followed POIs only enter the universe if they are shareable
+    // (enriched + geo_health=ok + visibility ≠ private + not deleted).
+    // Applied BEFORE viewport culling / clustering so counts and clusters
+    // never include non-shareable followed content. Own POIs always pass.
+    // Ver `mem://logic/sharing/curated-only-rule`.
+    if (currentUserId) {
+      source = source.filter(loc => {
+        const isOwn = loc._docUserId === currentUserId
+          || (loc as { ownerUserId?: string | null }).ownerUserId === currentUserId;
+        return isOwn || isShareablePoi(loc);
+      });
     }
 
     // --- Early document-level pruning ---
