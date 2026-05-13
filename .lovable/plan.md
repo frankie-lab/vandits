@@ -1,72 +1,57 @@
-## PR-OWNER-IDENTITY-2.1 — Maximin estricto desde el primer seguido
 
-### Problema
+## PR-OWNER-IDENTITY-2.2 — Reset histórico + bump de versión
 
-La regla pactada dice:
+### Diagnóstico confirmado
 
-> El color de cada nuevo seguido se calcula por maximin perceptual frente a los colores ya asignados (`S`) y a los anchors prohibidos. El primero debe ser el más alejado de los anchors (especialmente verde enriched).
+El renderer y el repintado por evento están bien cableados:
+- `LocationMap.tsx:1972-1999` escucha `lovable:owner-identity-updated` y hace `setIcon` sólo de los markers afectados.
+- `map-icons.ts:475` usa `getOwnerIdentityColor(ownerUid, getOwnerIdentityOklch(ownerUid))` como `fill` del triángulo.
+- `UsersSidebar.tsx:231-233` carga `loadOwnerIdentityAssignments` y dispara `ensureAssignmentsForFolloweds`.
+- El allocator (`identity-allocator.ts`) ya es maximin puro desde el primer seguido.
 
-La implementación actual (`identity-allocator.ts`, líneas 131–139) hace lo contrario para los 8 primeros seguidos:
+El fallo es **dato heredado**, no runtime. Las 5 filas existentes en `user_owner_color_assignments` con `palette_version='owner-v2-oklch'` son el backfill v1→v2 — todas hue 227–270 (cluster azul-índigo). Como son inmutables por contrato, el nuevo allocator nunca las recalcula y por eso visualmente todos los seguidos parecen iguales.
 
-```ts
-for (const seed of SEED_PALETTE) {
-  if (!alreadyAssigned(seed, assigned)) {
-    return { color: seed, degraded: false }; // ← orden fijo, no maximin
-  }
-}
+### Decisión
+
+Reset único justificado: las identidades actuales nunca cumplieron la regla matemática pactada (fueron `SEED_PALETTE` en orden, no maximin). Borrar las filas heredadas y dejar que el allocator maximin las recalcule en orden de aparición. A partir de aquí, inmutabilidad absoluta.
+
+### Cambios
+
+**1. Migración (data-only delete + bump)**
+
+```sql
+-- Borrar todas las asignaciones v2 (provienen del backfill v1, no del maximin pactado).
+DELETE FROM public.user_owner_color_assignments
+WHERE palette_version IN ('owner-v1', 'owner-v2-oklch');
 ```
 
-Resultado: el primer seguido siempre recibe `SEED_PALETTE[0]` (cyan `L 0.65 C 0.12 h 227`), no el color con mayor `min ΔE` frente a `FORBIDDEN_ANCHORS`.
+No se altera schema, RLS, ni constraints. La tabla queda vacía y se repuebla en cuanto cualquier viewer abre `UsersSidebar`.
 
-### Solución (híbrida — preserva inmutabilidad histórica)
+**2. `src/lib/color/identity-allocator.ts`**
 
-1. **Asignaciones existentes en DB**: intactas. La inmutabilidad sigue siendo absoluta — nunca se recolorea.
-2. **Backfill v1**: la migración existente ya escribió las 8 cool en orden para usuarios v1. No se toca.
-3. **Nuevas asignaciones (incluyendo el primer seguido de un viewer nuevo)**: siempre maximin sobre `V`, con `S` = colores ya persistidos en DB para ese viewer.
-4. **Seed cool-8 deja de ser tier preferente**: pasa a ser parte de `V` (vía sus coordenadas OKLCH ya presentes en el sampling) o se conserva sólo como constante de backfill v1, sin influir en el allocator runtime.
+- Bump `OWNER_PALETTE_VERSION` de `'owner-v2-oklch'` a `'owner-v2.1-oklch'`. Las nuevas filas quedan etiquetadas con la nueva versión para auditoría: cualquier fila futura `owner-v2.1-oklch` proviene del maximin puro; cualquier `owner-v2-oklch` que reaparezca sería bug.
+- `SEED_PALETTE` se queda como está (deprecated, sólo fallback determinista de `owner-stroke.ts` cuando aún no hay asignación cargada en memoria).
+- Sin cambios al algoritmo: el maximin puro de PR-OWNER-IDENTITY-2.1 es correcto.
 
-### Cambios técnicos
+**3. `src/test/owner-identity-allocator.test.ts`**
 
-**`src/lib/color/identity-allocator.ts`**
+Actualizar la única assertion sobre `OWNER_PALETTE_VERSION` si existe; añadir test que verifique que dos uids distintos producen colores con `ΔE > DEGRADED_THRESHOLD` cuando se piden secuencialmente (smoke del contrato).
 
-- Eliminar el bucle "seed phase" (líneas 134–139). El allocator pasa a ser maximin puro desde la primera llamada.
-- Renombrar `SEED_PALETTE` → `V1_BACKFILL_PALETTE` y marcarla `@deprecated for new allocations — kept only for v1→v2 backfill reference`. Mantener export para que la migración SQL y los tests de backfill sigan funcionando.
-- Asegurar que las 8 coordenadas v1 estén dentro de `getCandidateSpace()` (o cerca, vía sampling). Comprobar: para `S = []`, el maximin elige el candidato con mayor `min ΔE` frente a los 6 anchors. Documentar el resultado esperado (probablemente un azul/púrpura frío profundo, lejos de verde/amber/red/magenta).
-- Mantener `DEGRADED_THRESHOLD`, `ANCHOR_MIN_DELTA_E`, `isValidCandidate`, `getCandidateSpace` sin cambios.
-- Tiebreak determinista (hue → L → C) ya existe — sirve para que `S = []` produzca siempre el mismo primer color.
+**4. Memoria**
 
-**`src/test/owner-identity-allocator.test.ts`**
-
-- Sustituir cualquier test que asuma `pickNextIdentityColor([]).color === SEED_PALETTE[0]`.
-- Añadir tests:
-  - `S = []` → resultado determinista, `min ΔE` frente a anchors > `DEGRADED_THRESHOLD`.
-  - `S = [primer resultado]` → segundo seguido maximin frente a ese único color y los anchors; `ΔE > umbral` razonable.
-  - Inmutabilidad: dado un `S` arbitrario con 1, 2, 5 colores, el resultado nunca coincide con ninguno de `S`.
-  - Anchors: ningún resultado tiene `ΔE < ANCHOR_MIN_DELTA_E` frente a verde, amber, yellow, magenta, red, orange.
-  - Determinismo: 100 ejecuciones con el mismo `S` devuelven el mismo color.
-
-**Migración / DB**
-
-- **Ninguna**. Las asignaciones existentes (`palette_version='owner-v2-oklch'`) son inmutables. Solo las nuevas filas usan el allocator actualizado.
-- La migración v1→v2 ya ejecutada se conserva como histórico.
-
-**Memoria**
-
-- Actualizar `mem://logic/identity/owner-color-allocator`:
-  - Quitar "SEED 8 cool consumido en orden los primeros 8 followeds".
-  - Añadir: "Maximin puro desde el primer seguido. Backfill v1 conserva las 8 cool como histórico inmutable. Nuevas asignaciones siempre vía `argmax min ΔE` sobre `V`."
-- Actualizar la línea Core de `mem://index.md` (sección PR-OWNER-IDENTITY-2): cambiar "SEED 8 cool (=v1 backfill exacto) + candidate space V" por "Maximin puro sobre V (~200) desde el primer seguido; backfill v1 (8 cool) preservado como histórico inmutable".
+Actualizar `mem://logic/identity/owner-color-allocator` y la entrada Core en `mem://index.md` para reflejar:
+- `palette_version='owner-v2.1-oklch'` como versión activa.
+- Nota histórica: `owner-v2-oklch` fue purgada el 2026-05-13 por incumplir el contrato maximin (era backfill v1 disfrazado).
 
 ### Fuera de alcance
 
-- Re-balancear o reasignar colores existentes (rompe inmutabilidad — explícitamente prohibido).
-- Avatar/iniciales en marker o popup (deferido).
-- UI manual para cambiar color de un seguido (deferido).
-- ΔE2000 (deferido).
+- Tocar el renderer, el store o el listener de `LocationMap` (todos verificados OK).
+- Tocar `SEED_PALETTE` o el candidate space `V`.
+- Cambios en `UsersSidebar.tsx` (la chip de identidad ya lee del store).
 
-### QA
+### Verificación post-deploy
 
-1. Crear viewer nuevo, seguir 1 usuario → marcador triangular con color frío lejos de verde. Verificar persistencia tras reload.
-2. Seguir un 2º usuario → color visiblemente distinto del 1º y de los anchors.
-3. Viewer v1 con seguidos antiguos → colores idénticos a antes (inmutabilidad).
-4. Tests unitarios pasan (10+ casos).
+1. Refresh + abrir `UsersSidebar` con `currentUser.id`.
+2. Confirmar en DB: 5 nuevas filas con `palette_version='owner-v2.1-oklch'` y hues distribuidos (no cluster azul).
+3. Visual: las 5 chips del sidebar y los triángulos del mapa deben mostrar 5 colores perceptualmente distintos.
+4. Test unitario passing.
