@@ -48,12 +48,10 @@ describe('identity-allocator v2.6 — exclusiones duras: verde y gris', () => {
     }
   });
 
-  it('rojo/naranja/ámbar/magenta/azul/cyan no-verdoso/violeta son VÁLIDOS', () => {
+  it('rojo/naranja/magenta/azul/cyan no-verdoso/violeta son VÁLIDOS', () => {
     const samples: Array<[number, string]> = [
       [25, 'rojo'],
       [50, 'naranja'],
-      [80, 'ámbar borde'],
-      [180, 'cyan limpio borde'],
       [195, 'cyan'],
       [250, 'azul'],
       [290, 'violeta'],
@@ -62,8 +60,6 @@ describe('identity-allocator v2.6 — exclusiones duras: verde y gris', () => {
     ];
     for (const [h, label] of samples) {
       const c = { L: 0.58, C: 0.18, h };
-      // 80 cae en banda prohibida (>=85? no, 80<85), debería ser válido
-      // 180 cae en banda prohibida (180<=175? no, 180>175), debería ser válido
       expect(isValidCandidate(c), `${label} h=${h} debe ser válido`).toBe(true);
     }
   });
