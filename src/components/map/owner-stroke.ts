@@ -23,12 +23,13 @@
  * Ver mem://style/map/followed-poi-grammar.
  */
 
-/** Familias frías (hue 165–270). Cualquier nuevo color DEBE caer aquí. */
+/** Familias frías (hue 180–270). Mínimo 180 para evitar teal verdoso que
+ *  podría confundirse con el fill verde "enriched". */
 const PALETTE: ReadonlyArray<string> = [
-  'hsl(170, 70%, 42%)',  // teal
   'hsl(180, 65%, 38%)',  // dark teal
-  'hsl(195, 75%, 45%)',  // cyan
-  'hsl(205, 70%, 48%)',  // sky blue
+  'hsl(190, 70%, 42%)',  // teal-cyan
+  'hsl(200, 75%, 45%)',  // cyan
+  'hsl(210, 70%, 48%)',  // sky blue
   'hsl(220, 70%, 55%)',  // azure
   'hsl(235, 60%, 50%)',  // royal blue
   'hsl(250, 65%, 58%)',  // indigo
@@ -39,7 +40,7 @@ const PALETTE: ReadonlyArray<string> = [
 export const FORBIDDEN_HUE_RANGES: ReadonlyArray<readonly [number, number]> = [
   [0, 45],     // red / orange / amber → hardError, naranja empty
   [45, 75],    // yellow → chain
-  [90, 160],   // green / lime → enriched
+  [90, 180],   // green / lime / teal verdoso → enriched (mínimo 180 para owner)
   [300, 340],  // magenta / pink → review
 ];
 
