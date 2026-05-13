@@ -129,92 +129,68 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
     followersData?.forEach(f => followsMeSet.add(f.follower_id));
   }
 
+  // Sharing-aware stats (PR-SOCIAL-1).
+  // - shared_pois follows isShareablePoi server-side
+  // - total_pois/last/contributions hidden unless mutual or admin
+  const { data: followedStats } = await supabase.rpc('get_followed_user_stats');
+  const followedMap: Record<string, {
+    shared: number;
+    total: number | null;
+    last: string | null;
+    recent: number | null;
+    followers: number;
+    following: number;
+  }> = {};
+  (followedStats as any[] | null)?.forEach((s) => {
+    followedMap[s.user_id] = {
+      shared: Number(s.shared_pois ?? 0),
+      total: s.total_pois == null ? null : Number(s.total_pois),
+      last: s.last_contribution_at ?? null,
+      recent: s.contributions_7d == null ? null : Number(s.contributions_7d),
+      followers: Number(s.followers_count ?? 0),
+      following: Number(s.following_count ?? 0),
+    };
+  });
+
+  // Fallback for non-related profiles (followers/following counts only).
   const { data: publicStats } = await supabase.rpc('get_public_profile_stats');
+  const publicMap: Record<string, { followers: number; following: number }> = {};
+  (publicStats as any[] | null)?.forEach((stat) => {
+    publicMap[stat.user_id] = {
+      followers: Number(stat.followers_count ?? 0),
+      following: Number(stat.following_count ?? 0),
+    };
+  });
 
- const statsMap: Record<string, { locations: number; followers: number; following: number }> = {};
- publicStats?.forEach((stat: { user_id: string; public_locations_count: number; followers_count: number; following_count: number }) => {
- statsMap[stat.user_id] = {
- locations: stat.public_locations_count,
- followers: stat.followers_count,
- following: stat.following_count,
- };
- });
+  const rolesMap: Record<string, string[]> = {};
+  rolesData?.forEach(r => {
+    if (!rolesMap[r.user_id]) rolesMap[r.user_id] = [];
+    rolesMap[r.user_id].push(r.role);
+  });
 
- const rolesMap: Record<string, string[]> = {};
- rolesData?.forEach(r => {
- if (!rolesMap[r.user_id]) rolesMap[r.user_id] = [];
- rolesMap[r.user_id].push(r.role);
- });
+  const usersWithStats: UserWithStats[] = (profiles || []).map(profile => {
+    const f = followedMap[profile.id];
+    const p = publicMap[profile.id];
+    return {
+      id: profile.id,
+      username: profile.username,
+      display_name: profile.display_name,
+      avatar_url: profile.avatar_url,
+      is_private: profile.is_private,
+      roles: rolesMap[profile.id] || ['user'],
+      sharedPois: f?.shared ?? 0,
+      totalPois: f?.total ?? null,
+      lastContributionAt: f?.last ?? null,
+      contributions7d: f?.recent ?? null,
+      followersCount: f?.followers ?? p?.followers ?? 0,
+      followingCount: f?.following ?? p?.following ?? 0,
+      followStatus: (followsMap[profile.id]?.status as 'pending' | 'accepted' | 'rejected') || 'none',
+      followId: followsMap[profile.id]?.id,
+      followsMe: followsMeSet.has(profile.id),
+    };
+  });
 
- let commonPointsMap: Record<string, number> = {};
- if (currentUser?.id) {
- const { data: allLocations } = await supabase
- .from('locations')
- .select('id, latitude, longitude, document_id, visibility')
- .neq('visibility', 'private');
-
- const { data: allDocs } = await supabase
- .from('documents')
- .select('id, user_id');
-
- if (allLocations && allDocs) {
- const docToUser: Record<string, string> = {};
- allDocs.forEach(d => {
- if (d.user_id) docToUser[d.id] = d.user_id;
- });
-
- const locationsByUser: Record<string, Array<{ lat: number; lon: number }>> = {};
- allLocations.forEach(loc => {
- if (loc.document_id) {
- const userId = docToUser[loc.document_id];
- if (userId) {
- if (!locationsByUser[userId]) locationsByUser[userId] = [];
- locationsByUser[userId].push({ lat: loc.latitude, lon: loc.longitude });
- }
- }
- });
-
- const myLocations = locationsByUser[currentUser.id] || [];
- 
- Object.entries(locationsByUser).forEach(([userId, userLocs]) => {
- if (userId === currentUser.id) return;
- 
- let commonCount = 0;
- const matchedMyPoints = new Set<number>();
- 
- userLocs.forEach(userLoc => {
- myLocations.forEach((myLoc, myIdx) => {
- if (matchedMyPoints.has(myIdx)) return;
- const dist = getDistanceMeters(myLoc.lat, myLoc.lon, userLoc.lat, userLoc.lon);
- if (dist <= COMMON_POINT_THRESHOLD_METERS) {
- commonCount++;
- matchedMyPoints.add(myIdx);
- }
- });
- });
- 
- commonPointsMap[userId] = commonCount;
- });
- }
- }
-
- const usersWithStats: UserWithStats[] = (profiles || []).map(profile => ({
- id: profile.id,
- username: profile.username,
- display_name: profile.display_name,
- avatar_url: profile.avatar_url,
- is_private: profile.is_private,
- roles: rolesMap[profile.id] || ['user'],
- locationCount: statsMap[profile.id]?.locations || 0,
- followersCount: statsMap[profile.id]?.followers || 0,
- followingCount: statsMap[profile.id]?.following || 0,
- commonPointsCount: commonPointsMap[profile.id] || 0,
- followStatus: (followsMap[profile.id]?.status as 'pending' | 'accepted' | 'rejected') || 'none',
- followId: followsMap[profile.id]?.id,
- followsMe: followsMeSet.has(profile.id),
- }));
-
- usersWithStats.sort((a, b) => b.locationCount - a.locationCount);
+  usersWithStats.sort((a, b) => b.sharedPois - a.sharedPois);
 
  setUsers(usersWithStats);
  } catch (error) {
