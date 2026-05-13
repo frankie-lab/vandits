@@ -226,6 +226,17 @@ export const createCustomIcon = (
   if (isFollowedPoi) {
     // Para seguidos, anular tint y currentUserId-driven rings: dominio privado del owner.
     collectionTint = null;
+    if (FOLLOWED_DEBUG && location?.id && !_followedLogged.has(location.id)) {
+      _followedLogged.add(location.id);
+      // eslint-disable-next-line no-console
+      console.debug('[followed-poi]', {
+        id: location.id,
+        ownerUid,
+        currentUserId,
+        isOwn,
+        strokeColor: getOwnerStrokeColor(ownerUid),
+      });
+    }
   }
   if (renderMode === 'micro') {
     // Rampa explícita por zoom (z≤3→2, z4→3, z5→4). Cap micro = 4px en
