@@ -444,6 +444,20 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       source = source.filter(loc => !loc._docId || !hiddenSet.has(loc._docId));
     }
 
+    // --- Curated sharing boundary (PR-1) ---
+    // Followed POIs only enter the universe if they are shareable
+    // (enriched + geo_health=ok + visibility ≠ private + not deleted).
+    // Applied BEFORE viewport culling / clustering so counts and clusters
+    // never include non-shareable followed content. Own POIs always pass.
+    // Ver `mem://logic/sharing/curated-only-rule`.
+    if (currentUserId) {
+      source = source.filter(loc => {
+        const isOwn = loc._docUserId === currentUserId
+          || (loc as { ownerUserId?: string | null }).ownerUserId === currentUserId;
+        return isOwn || isShareablePoi(loc);
+      });
+    }
+
     // --- Early document-level pruning ---
     // When only showing own points, skip all non-own documents entirely
     if (!filterByUserId && ownershipFilter === 'mine' && currentUserId) {
