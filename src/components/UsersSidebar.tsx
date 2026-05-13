@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Users, X, Search, Shield, Crown, Edit3, Eye, EyeOff, UserCheck,
   UserPlus, UserMinus, Loader2, Clock, Filter, HelpCircle,
+  Share2, Lock, TrendingUp,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
@@ -16,8 +17,24 @@ import { useLocationsStore } from '@/domains/content';
 import { usePermissions } from '@/domains/identity';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { toast } from 'sonner';
-import { formatDistanceToNow } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { formatDistanceToNowStrict } from 'date-fns';
+
+/** "18m" / "2h" / "3d" / "5mo" / "1y". Avoids verbose "hace 18 minutos". */
+function formatActivityShort(iso: string): string {
+  try {
+    const raw = formatDistanceToNowStrict(new Date(iso), { addSuffix: false });
+    // raw e.g. "18 minutes", "2 hours", "3 days", "5 months", "1 year"
+    return raw
+      .replace(/\s+seconds?$/, 's')
+      .replace(/\s+minutes?$/, 'm')
+      .replace(/\s+hours?$/, 'h')
+      .replace(/\s+days?$/, 'd')
+      .replace(/\s+months?$/, 'mo')
+      .replace(/\s+years?$/, 'y');
+  } catch {
+    return '';
+  }
+}
 
 interface UserWithStats {
   id: string;
