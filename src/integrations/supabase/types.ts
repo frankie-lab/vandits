@@ -2749,22 +2749,34 @@ export type Database = {
       user_owner_color_assignments: {
         Row: {
           assigned_at: string
-          color_index: number
+          color_index: number | null
+          degraded: boolean
           followed_user_id: string
+          oklch_c: number | null
+          oklch_h: number | null
+          oklch_l: number | null
           palette_version: string
           viewer_user_id: string
         }
         Insert: {
           assigned_at?: string
-          color_index: number
+          color_index?: number | null
+          degraded?: boolean
           followed_user_id: string
+          oklch_c?: number | null
+          oklch_h?: number | null
+          oklch_l?: number | null
           palette_version?: string
           viewer_user_id: string
         }
         Update: {
           assigned_at?: string
-          color_index?: number
+          color_index?: number | null
+          degraded?: boolean
           followed_user_id?: string
+          oklch_c?: number | null
+          oklch_h?: number | null
+          oklch_l?: number | null
           palette_version?: string
           viewer_user_id?: string
         }
