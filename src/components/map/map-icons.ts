@@ -231,7 +231,7 @@ export const createCustomIcon = (
         ownerUid,
         currentUserId,
         isOwn,
-        strokeColor: getOwnerIdentityColor(ownerUid, getOwnerColorIndex(ownerUid)),
+        identityFill: getOwnerIdentityColor(ownerUid, getOwnerIdentityOklch(ownerUid)),
       });
     }
   }
@@ -245,12 +245,12 @@ export const createCustomIcon = (
       4; // z5 — último escalón micro antes de compact
     const dot = entry.fill_color;
     const haloStyle = isOwn ? '' : 'opacity:0.85;';
-    // Followed micro: triángulo invertido CSS (clip-path) en lugar de círculo.
+    // Followed micro: triángulo invertido CSS, fill = identidad (sin borde).
     if (isFollowedPoi) {
-      const stroke = getOwnerIdentityColor(ownerUid, getOwnerColorIndex(ownerUid));
+      const fill = getOwnerIdentityColor(ownerUid, getOwnerIdentityOklch(ownerUid));
       return L.divIcon({
         className: `custom-marker-micro is-followed`,
-        html: `<div style="width:${microSize + 2}px;height:${microSize + 2}px;background:${dot};clip-path:polygon(0 0,100% 0,50% 100%);border:1px solid ${stroke};opacity:0.9;"></div>`,
+        html: `<div style="width:${microSize + 2}px;height:${microSize + 2}px;background:${fill};clip-path:polygon(0 0,100% 0,50% 100%);opacity:0.95;"></div>`,
         iconSize: [microSize + 2, microSize + 2],
         iconAnchor: [(microSize + 2) / 2, (microSize + 2) / 2],
         popupAnchor: [0, -(microSize + 2) / 2],
@@ -469,10 +469,12 @@ export const createCustomIcon = (
           </defs>`}
           ${isFollowedPoi
             ? (() => {
-                const ownerStroke = getOwnerIdentityColor(ownerUid, getOwnerColorIndex(ownerUid));
-                const sw = getFollowedStrokeWidth(renderMode);
-                const dbg = FOLLOWED_DEBUG ? ` data-owner-uid="${ownerUid ?? ''}" data-owner-stroke="${ownerStroke}" class="poi-followed-pennant"` : '';
-                return `<polygon points="2,3 22,3 12,22" fill="${applyStateColor(baseColor)}" stroke="${ownerStroke}" stroke-width="${sw}" stroke-linejoin="round" stroke-linecap="round"${dbg}/>`;
+                // PR-OWNER-IDENTITY-2: fill = identity OKLCH, NO stroke.
+                // The state palette (enriched/imported/empty) is reserved
+                // for OWN POIs; followed POIs are pure identity.
+                const fill = getOwnerIdentityColor(ownerUid, getOwnerIdentityOklch(ownerUid));
+                const dbg = FOLLOWED_DEBUG ? ` data-owner-uid="${ownerUid ?? ''}" data-owner-fill="${fill}" class="poi-followed-pennant"` : '';
+                return `<polygon points="2,3 22,3 12,22" fill="${fill}" stroke-linejoin="round" stroke-linecap="round"${dbg}/>`;
               })()
             : `<circle cx="12" cy="12" r="11" fill="${skipGradient ? applyStateColor(baseColor) : `url(#dotGrad-${location?.id || 'default'})`}" stroke="white" stroke-width="${borderWidth}"/>`
           }
