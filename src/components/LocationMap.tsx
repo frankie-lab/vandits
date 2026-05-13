@@ -1964,6 +1964,40 @@ export function LocationMap() {
     return () => window.removeEventListener('location-realtime-update', handler);
   }, [getLocationOwnership, currentUserId, criteriaTimestamp, canEnrichLocations, selectedLocations, focusedLocationId, recentlyEnrichedIds]);
 
+  // Owner identity color updated (PR-OWNER-IDENTITY-1): repinta SOLO los
+  // markers de los owners afectados (sin rebuild). Cuando el viewer
+  // entra/asigna color a un seguido, el store emite este evento con la
+  // lista de uids; aquí buscamos los markers cuyo ownerUid coincide y
+  // los regeneramos in-place vía setIcon.
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { affectedUids?: string[] } | undefined;
+      const uids = new Set((detail?.affectedUids ?? []).filter(Boolean));
+      if (uids.size === 0) return;
+      markersRef.current.forEach((marker, locationId) => {
+        const location = locationsRef.current.get(locationId);
+        if (!location) return;
+        const ownerUid = (location as any).ownerUserId ?? (location as any)._docUserId ?? null;
+        if (!ownerUid || !uids.has(ownerUid)) return;
+        if (currentUserId && ownerUid === currentUserId) return; // propios no usan stroke owner
+        const isSelected = selectedLocations.has(locationId);
+        const isFocused = focusedLocationId === locationId;
+        const isEnriched = !!location.enrichedData;
+        const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
+        const isOwn = getLocationOwnership(locationId, currentUserId).isOwn;
+        marker.setIcon(
+          createCustomIcon(
+            isSelected, isFocused, isEnriched, location, criteriaTimestamp,
+            isRecentlyEnriched, getTintForLocation(locationId, isOwn), isOwn, currentUserId,
+          ),
+        );
+      });
+    };
+    window.addEventListener('lovable:owner-identity-updated', handler);
+    return () => window.removeEventListener('lovable:owner-identity-updated', handler);
+  }, [getLocationOwnership, currentUserId, criteriaTimestamp, selectedLocations, focusedLocationId, recentlyEnrichedIds]);
+
 
   // Update marker icons when selection or focus changes
  useEffect(() => {
