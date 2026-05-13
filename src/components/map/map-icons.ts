@@ -235,7 +235,7 @@ export const createCustomIcon = (
         ownerUid,
         currentUserId,
         isOwn,
-        strokeColor: getOwnerStrokeColor(ownerUid),
+        strokeColor: getOwnerIdentityColor(ownerUid, getOwnerColorIndex(ownerUid)),
       });
     }
   }
