@@ -453,8 +453,8 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     // Ver `mem://logic/sharing/curated-only-rule`.
     if (currentUserId) {
       source = source.filter(loc => {
-        const isOwn = loc._docUserId === currentUserId
-          || (loc as { ownerUserId?: string | null }).ownerUserId === currentUserId;
+        const ownerId = getLocationOwnerUserId(loc);
+        const isOwn = ownerId === currentUserId;
         return isOwn || isShareablePoi(loc);
       });
     }
@@ -462,7 +462,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     // --- Early document-level pruning ---
     // When only showing own points, skip all non-own documents entirely
     if (!filterByUserId && ownershipFilter === 'mine' && currentUserId) {
-      source = source.filter(loc => loc._docUserId === currentUserId);
+      source = source.filter(loc => getLocationOwnerUserId(loc) === currentUserId);
     }
 
     const filtered = source.filter(loc => {
@@ -475,24 +475,25 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         visitedFilter,
       } = state.filters;
 
-      // --- Step 1: Determine point ownership ---
-      const isOwnPoint = currentUserId ? loc._docUserId === currentUserId : false;
-      const isFollowedPoint = !isOwnPoint && !!loc._docUserId;
+      // --- Step 1: Determine point ownership (canonical resolver) ---
+      const ownerId = getLocationOwnerUserId(loc);
+      const isOwnPoint = currentUserId ? ownerId === currentUserId : false;
+      const isFollowedPoint = !isOwnPoint && !!ownerId;
 
       // --- Step 2: Explicit user filter (overrides everything) ---
       if (filterByUserId) {
-        if (loc._docUserId !== filterByUserId) return false;
+        if (ownerId !== filterByUserId) return false;
       } else {
         // --- Step 3: Visibility toggles (only when no explicit filter) ---
 
         // Hide followed users' points (never hides own points)
         if (hiddenFollowedUserIds && hiddenFollowedUserIds.length > 0 && isFollowedPoint) {
-          if (hiddenFollowedUserIds.includes(loc._docUserId!)) return false;
+          if (hiddenFollowedUserIds.includes(ownerId!)) return false;
         }
 
         // Hide followed users' points (never hides own points)
         if (hiddenFollowedUserIds && hiddenFollowedUserIds.length > 0 && isFollowedPoint) {
-          if (hiddenFollowedUserIds.includes(loc._docUserId!)) return false;
+          if (hiddenFollowedUserIds.includes(ownerId!)) return false;
         }
 
         // Ownership filter (mine/followed/all)
