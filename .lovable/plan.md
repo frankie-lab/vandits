@@ -1,159 +1,72 @@
+## PR-OWNER-IDENTITY-2.1 — Maximin estricto desde el primer seguido
 
-# PR-OWNER-IDENTITY-2 — Persistent Perceptual Identity Allocation (OKLCH maximin)
+### Problema
 
-Sustituye `hash(uid) % palette` por un **sistema de asignación de identidades cromáticas** persistente, inmutable y perceptualmente óptimo. Además elimina el stroke del marker de seguidos: la identidad pasa al **fill**.
+La regla pactada dice:
 
----
+> El color de cada nuevo seguido se calcula por maximin perceptual frente a los colores ya asignados (`S`) y a los anchors prohibidos. El primero debe ser el más alejado de los anchors (especialmente verde enriched).
 
-## Principios (no negociables)
+La implementación actual (`identity-allocator.ts`, líneas 131–139) hace lo contrario para los 8 primeros seguidos:
 
-1. **Persistencia inmutable**: una vez asignado `(viewer, followed) → color`, ese color no cambia jamás. Nuevos seguidos no recolorean a los existentes.
-2. **Distancia perceptual máxima**: `C_{n+1} = argmax_{x∈V}( min_{Ci∈S} ΔE(x, Ci) )`.
-3. **Restricciones operativas WCAG + semánticas**: contraste mínimo contra fondo claro y oscuro; exclusión perceptual (ΔE) de hues reservados a salud/estado.
-4. **Degradación progresiva**: cuando `V` se agota, sigue eligiendo el mejor disponible y marca `degraded=true` para QA.
-5. **Espacio de color perceptual**: OKLCH para representación, ΔE en OKLab para distancia. (HSL queda solo para legacy v1.)
-
----
-
-## 1. Cambio visual del marker de seguido
-
-Hoy: triángulo invertido + **stroke** = identidad.
-Nuevo: triángulo invertido **sin borde**; **fill = identidad OKLCH**. El estado curado (enriched/imported) se representa por icono interior / opacidad, no por fill.
-
-Archivos:
-- `src/components/map/map-icons.ts` rama `followed`: quitar `stroke` y `stroke-width`, aplicar `fill = ownerIdentityColor(uid)`. Eliminar la variación de stroke por `renderMode`.
-- `mem://style/map/followed-poi-grammar` reescrito: "fill = identidad", "sin stroke".
-- `mem://index.md` Core: actualizar la línea PR-OWNER-IDENTITY-1.
-
----
-
-## 2. Motor de asignación (tiers)
-
-### Tier 1 — Seed palette (8–12 colores ultra-distantes)
-Constantes `SEED_PALETTE` en OKLCH, calculadas offline para máxima ΔE mutua dentro de las restricciones operativas. Se consumen primero, en orden, para los primeros N seguidos del viewer.
-
-### Tier 2 — Generación incremental constrained (`V` candidate space)
-Generado deterministamente:
-- `L ∈ [0.55, 0.75]` (legible sobre tile claro y oscuro).
-- `C ∈ [0.12, 0.20]` (saturación mínima para no parecer gris).
-- `h` muestreado cada 5° → 72 hues × 3 (L,C) ≈ ~216 candidatos.
-- Filtros (`isValidCandidate`):
-  - Contraste WCAG ≥ 3:1 contra fondo claro `#f8fafc` y oscuro `#0b1220`.
-  - Contraste ≥ 4.5:1 contra texto/icono interior blanco.
-  - **Exclusión perceptual** (ΔE > 25 en OKLab) frente a anchors reservados:
-    - verde enriched, gris imported, naranja empty
-    - amber (partial), yellow (chain), magenta (review), red (hardError)
-  - Sin rangos de hue HSL — todo por ΔE.
-
-### Tier 3 — Degradación controlada
-Si el mejor candidato queda a ΔE < 8 frente al conjunto asignado: se acepta igualmente, pero se persiste `degraded=true` para diagnóstico/QA.
-
-### Algoritmo `pickNextIdentityColor(assigned)`
-```
-si assigned.length < SEED_PALETTE.length:
-  devolver SEED_PALETTE[assigned.length]
-sino:
-  para cada c en V \ assigned:
-    score(c) = min over Ci in assigned: ΔE(c, Ci)
-  devolver argmax(score)
-  desempate: hue index estable, luego L, luego C
-```
-Determinista: dado `assigned`, devuelve siempre lo mismo. Inmutable: nunca toca asignaciones previas.
-
----
-
-## 3. Persistencia (DB)
-
-La tabla `user_owner_color_assignments` ya existe (v1, `color_index`). Migración v2:
-
-```sql
-ALTER TABLE public.user_owner_color_assignments
-  ADD COLUMN oklch_l double precision,
-  ADD COLUMN oklch_c double precision,
-  ADD COLUMN oklch_h double precision,
-  ADD COLUMN degraded boolean NOT NULL DEFAULT false;
-
--- color_index queda NULLABLE legacy
--- palette_version pasa a 'owner-v2-oklch'
+```ts
+for (const seed of SEED_PALETTE) {
+  if (!alreadyAssigned(seed, assigned)) {
+    return { color: seed, degraded: false }; // ← orden fijo, no maximin
+  }
+}
 ```
 
-**Backfill (preserva inmutabilidad)**: para cada row v1, convertir el HSL paleta v1 a OKLCH y guardar en `oklch_*` con `palette_version='owner-v2-oklch'`. **No se reasigna ningún color**: los seguidos antiguos conservan exactamente su color visual.
+Resultado: el primer seguido siempre recibe `SEED_PALETTE[0]` (cyan `L 0.65 C 0.12 h 227`), no el color con mayor `min ΔE` frente a `FORBIDDEN_ANCHORS`.
 
-RLS y `(viewer_user_id, followed_user_id)` PK sin cambios.
+### Solución (híbrida — preserva inmutabilidad histórica)
 
----
+1. **Asignaciones existentes en DB**: intactas. La inmutabilidad sigue siendo absoluta — nunca se recolorea.
+2. **Backfill v1**: la migración existente ya escribió las 8 cool en orden para usuarios v1. No se toca.
+3. **Nuevas asignaciones (incluyendo el primer seguido de un viewer nuevo)**: siempre maximin sobre `V`, con `S` = colores ya persistidos en DB para ese viewer.
+4. **Seed cool-8 deja de ser tier preferente**: pasa a ser parte de `V` (vía sus coordenadas OKLCH ya presentes en el sampling) o se conserva sólo como constante de backfill v1, sin influir en el allocator runtime.
 
-## 4. Servicio + store
+### Cambios técnicos
 
-`ensureAssignment(viewer, followed)`:
-1. Si row existe → devolver `oklch_*` (inmutable).
-2. Si no → cargar todos los OKLCH del viewer → `pickNextIdentityColor(assigned)` → `INSERT`.
-3. Conflicto `23505` (otra pestaña insertó) → re-leer y devolver el persistido.
+**`src/lib/color/identity-allocator.ts`**
 
-Concurrencia por viewer: serializar con `_inflight: Map<followedUid, Promise>` (ya existe).
+- Eliminar el bucle "seed phase" (líneas 134–139). El allocator pasa a ser maximin puro desde la primera llamada.
+- Renombrar `SEED_PALETTE` → `V1_BACKFILL_PALETTE` y marcarla `@deprecated for new allocations — kept only for v1→v2 backfill reference`. Mantener export para que la migración SQL y los tests de backfill sigan funcionando.
+- Asegurar que las 8 coordenadas v1 estén dentro de `getCandidateSpace()` (o cerca, vía sampling). Comprobar: para `S = []`, el maximin elige el candidato con mayor `min ΔE` frente a los 6 anchors. Documentar el resultado esperado (probablemente un azul/púrpura frío profundo, lejos de verde/amber/red/magenta).
+- Mantener `DEGRADED_THRESHOLD`, `ANCHOR_MIN_DELTA_E`, `isValidCandidate`, `getCandidateSpace` sin cambios.
+- Tiebreak determinista (hue → L → C) ya existe — sirve para que `S = []` produzca siempre el mismo primer color.
 
-Archivos:
-- `src/lib/color/oklch.ts` (nuevo): sRGB ↔ OKLCH ↔ OKLab, ΔE OKLab, contraste WCAG.
-- `src/lib/color/identity-allocator.ts` (nuevo): `SEED_PALETTE`, `CANDIDATE_SPACE`, `FORBIDDEN_ANCHORS`, `pickNextIdentityColor`, `isValidCandidate`.
-- `src/repositories/owner-color-assignments.repository.ts` (nuevo): CRUD tipado.
-- `src/services/owner-identity.service.ts` (nuevo): `loadAssignments`, `ensureAssignment`.
-- `src/components/map/owner-stroke.ts` → renombrar a `src/components/map/owner-identity.ts`. API pública: `getOwnerIdentityColor(uid, oklch?) → string CSS` (`oklch(L C h)`).
-- `src/stores/owner-identity-store.ts`: store guarda `Map<followedUid, OklchColor>` (no índices).
-- `src/components/map/map-icons.ts`: rama followed sin stroke, `fill = identidad`.
-- `src/components/UsersSidebar.tsx`: chip lee OKLCH del store; sigue ensure-on-mount.
-- `src/components/LocationMap.tsx`: listener `lovable:owner-identity-updated` ya existente, sin cambios estructurales.
+**`src/test/owner-identity-allocator.test.ts`**
 
----
+- Sustituir cualquier test que asuma `pickNextIdentityColor([]).color === SEED_PALETTE[0]`.
+- Añadir tests:
+  - `S = []` → resultado determinista, `min ΔE` frente a anchors > `DEGRADED_THRESHOLD`.
+  - `S = [primer resultado]` → segundo seguido maximin frente a ese único color y los anchors; `ΔE > umbral` razonable.
+  - Inmutabilidad: dado un `S` arbitrario con 1, 2, 5 colores, el resultado nunca coincide con ninguno de `S`.
+  - Anchors: ningún resultado tiene `ΔE < ANCHOR_MIN_DELTA_E` frente a verde, amber, yellow, magenta, red, orange.
+  - Determinismo: 100 ejecuciones con el mismo `S` devuelven el mismo color.
 
-## 5. Tests (`src/test/`)
+**Migración / DB**
 
-- `owner-identity-allocator.test.ts`:
-  - Determinismo: mismo `assigned` → mismo siguiente.
-  - Inmutabilidad: añadir el N+1 no muta los N anteriores.
-  - Maximin: el segundo color es el más lejano del primero (ΔE máximo).
-  - Anchors prohibidos: ningún candidato sale a ΔE < umbral de verde/amber/yellow/magenta/red.
-  - Degradación: con `assigned` saturado marca `degraded=true`.
-- `owner-identity-contrast.test.ts`: todos los SEED y muestras de V cumplen WCAG sobre `#f8fafc` y `#0b1220`.
-- Eliminar `owner-stroke.test.ts` (paleta v1 obsoleta).
+- **Ninguna**. Las asignaciones existentes (`palette_version='owner-v2-oklch'`) son inmutables. Solo las nuevas filas usan el allocator actualizado.
+- La migración v1→v2 ya ejecutada se conserva como histórico.
 
----
+**Memoria**
 
-## 6. Migración v1 → v2 (sin recoloreado visible)
+- Actualizar `mem://logic/identity/owner-color-allocator`:
+  - Quitar "SEED 8 cool consumido en orden los primeros 8 followeds".
+  - Añadir: "Maximin puro desde el primer seguido. Backfill v1 conserva las 8 cool como histórico inmutable. Nuevas asignaciones siempre vía `argmax min ΔE` sobre `V`."
+- Actualizar la línea Core de `mem://index.md` (sección PR-OWNER-IDENTITY-2): cambiar "SEED 8 cool (=v1 backfill exacto) + candidate space V" por "Maximin puro sobre V (~200) desde el primer seguido; backfill v1 (8 cool) preservado como histórico inmutable".
 
-Backfill SQL en la misma migración de schema:
-```sql
--- Para cada row v1: convertir HSL v1 → OKLCH y persistir.
-UPDATE public.user_owner_color_assignments
-SET oklch_l = ..., oklch_c = ..., oklch_h = ...,
-    palette_version = 'owner-v2-oklch'
-WHERE palette_version = 'owner-v1';
-```
-(Conversión vía función PL/pgSQL `_hsl_to_oklch_v1(idx int)` con los 8 valores fijos de la paleta v1.) Resultado: el viewer no nota ningún cambio de color en seguidos antiguos. Nuevos seguidos usan el allocator.
+### Fuera de alcance
 
----
+- Re-balancear o reasignar colores existentes (rompe inmutabilidad — explícitamente prohibido).
+- Avatar/iniciales en marker o popup (deferido).
+- UI manual para cambiar color de un seguido (deferido).
+- ΔE2000 (deferido).
 
-## 7. Memoria
+### QA
 
-- Reescribir `mem://style/map/followed-poi-grammar`: fill = identidad, sin stroke, OKLCH maximin.
-- Crear `mem://logic/identity/owner-color-allocator`: contrato del allocator (tiers, ΔE, anchors prohibidos, inmutabilidad, degradación).
-- Actualizar `mem://index.md` Core (PR-OWNER-IDENTITY-1 → PR-OWNER-IDENTITY-2): "fill OKLCH = identidad persistida; sin stroke".
-
----
-
-## QA visual final
-
-- Sandbox y Alpha tienen colores **muy distintos** (ΔE > 25), sin borde.
-- Añadir un tercer seguido NO cambia el color de los dos primeros.
-- Tras refresh, mismos colores (persistencia DB).
-- Ningún color asignado se confunde con verde enriched, amber, yellow, magenta, red.
-- Sidebar y mapa muestran color idéntico para un mismo seguido.
-- Tests pasan: determinismo, maximin, inmutabilidad, contraste WCAG, anchors prohibidos.
-
----
-
-## Fuera de alcance (PR futuros)
-
-- ΔE2000 real (ahora ΔE OKLab simple — más que suficiente para identidad).
-- Avatar/iniciales en marker rich → `PR-OWNER-IDENTITY-3`.
-- UI manual para que el viewer reasigne color de un seguido concreto.
-- Re-balance global opt-in (rompe inmutabilidad — solo bajo acción explícita).
+1. Crear viewer nuevo, seguir 1 usuario → marcador triangular con color frío lejos de verde. Verificar persistencia tras reload.
+2. Seguir un 2º usuario → color visiblemente distinto del 1º y de los anchors.
+3. Viewer v1 con seguidos antiguos → colores idénticos a antes (inmutabilidad).
+4. Tests unitarios pasan (10+ casos).
