@@ -26,10 +26,19 @@ import { OklchColor, contrastRatio, deltaEOklab } from './oklch';
 
 export const OWNER_PALETTE_VERSION = 'owner-v2-oklch';
 
-// ── Tier 1: Seed palette ───────────────────────────────────────────────
+// ── v1 backfill palette ────────────────────────────────────────────────
 // 8 cool, mutually-distant identities. These are the SAME 8 colors used
 // in v1, expressed in OKLCH so the v1→v2 backfill preserves every existing
-// viewer's visual identity exactly. Consumed first in order.
+// viewer's visual identity exactly.
+//
+// IMPORTANT (PR-OWNER-IDENTITY-2.1): this palette is NO LONGER consumed in
+// order by the allocator. New assignments — including the very first
+// followed of any viewer — go through the maximin pass over V. The seed
+// is kept exported only as:
+//   1. the source of truth for the v1→v2 SQL backfill (already executed),
+//   2. a deterministic last-resort fallback when no persisted color exists
+//      yet (see owner-stroke.ts).
+// @deprecated for new allocations — do not consume in order.
 export const SEED_PALETTE: ReadonlyArray<OklchColor> = [
   { L: 0.6531, C: 0.1203, h: 227.19 }, // cyan
   { L: 0.6081, C: 0.1395, h: 245.38 }, // sky
