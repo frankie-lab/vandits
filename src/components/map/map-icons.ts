@@ -137,7 +137,8 @@ export const createCustomIcon = (
   /**
    * Color del anillo de colección. Si se pasa, el anillo se renderiza dentro
    * del divIcon — sobrevive a cluster, realtime y force-update.
-   * Fuente única: `getTintForLocation` (collection-visibility).
+   * Fuente única: `getTintForLocation` (collection-visibility). Los call-sites
+   * deben pasar `null` si el POI no es del caller (PR-1 curated sharing).
    */
   collectionTint: string | null = null,
   /**
@@ -146,6 +147,12 @@ export const createCustomIcon = (
    * `compact`/`standard`/`rich`. No altera la paleta de los 3 estados.
    */
   isOwn: boolean = false,
+  /**
+   * Caller actual (PR-1 curated sharing boundary). Cuando se pasa, los
+   * health rings se omiten para POIs ajenos (helper único `getPointHealthRings`).
+   * Sin singleton — argumento explícito para mantener trazabilidad.
+   */
+  currentUserId: string | null = null,
 ) => {
   const sizeConfig = getMarkerSizeConfig();
   const stateRules = getMarkerStateRules();
