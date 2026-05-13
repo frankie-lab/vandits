@@ -463,7 +463,7 @@ export const createCustomIcon = (
       ${ringsHtml}
       <div style="position:absolute; left:${ringPad}px; top:${ringPad}px; width:${size}px; height:${size}px;">
         ${collectionTint ? `<div class="collection-tint-ring" style="--collection-tint:${collectionTint}"></div>` : ''}
-        <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="color:transparent">
           ${skipGradient ? '' : `<defs>
             <linearGradient id="dotGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" style="stop-color:${applyStateColor(baseColorLight)}" />
@@ -471,7 +471,12 @@ export const createCustomIcon = (
             </linearGradient>
           </defs>`}
           ${isFollowedPoi
-            ? `<polygon points="2,3 22,3 12,22" fill="${applyStateColor(baseColor)}" stroke="${getOwnerStrokeColor(ownerUid)}" stroke-width="1.5" stroke-linejoin="round"/>`
+            ? (() => {
+                const ownerStroke = getOwnerStrokeColor(ownerUid);
+                const sw = getFollowedStrokeWidth(renderMode);
+                const dbg = FOLLOWED_DEBUG ? ` data-owner-uid="${ownerUid ?? ''}" data-owner-stroke="${ownerStroke}" class="poi-followed-pennant"` : '';
+                return `<polygon points="2,3 22,3 12,22" fill="${applyStateColor(baseColor)}" stroke="${ownerStroke}" stroke-width="${sw}" stroke-linejoin="round" stroke-linecap="round"${dbg}/>`;
+              })()
             : `<circle cx="12" cy="12" r="11" fill="${skipGradient ? applyStateColor(baseColor) : `url(#dotGrad-${location?.id || 'default'})`}" stroke="white" stroke-width="${borderWidth}"/>`
           }
         </svg>
