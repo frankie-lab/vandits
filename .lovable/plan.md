@@ -1,56 +1,76 @@
-## Diagnóstico
 
-Al pulsar el botón "Filter" de un seguido en el sidebar:
+## Regla canónica fijada
 
-1. Se setea `filters.filterByUserId = user.id` y aparece el chip + banner.
-2. `getFilteredLocations` SÍ restringe correctamente (Sandbox Agent → ~295 puntos visibles).
-3. Pero la cámara no se mueve. En zoom mundial los ~295 puntos colapsan en un único cluster diminuto en Galicia, así que el usuario percibe "no veo nada".
+| Origen | Forma | Variables permitidas |
+|---|---|---|
+| **Propio** | **Círculo** | fill (estado: enriched/imported/empty) · health rings · collection tint · halo/check/star/warning |
+| **Seguido** | **Triángulo invertido** | fill (estado curado) · stroke fino = identidad del owner (paleta cerrada) · halo si seleccionado. **Sin** rings, **sin** tint, **sin** warning |
 
-El contrato canónico (`mem://logic/map/subset-fit-contract`) cubre exactamente este caso: cualquier consola que quiera "ver su subconjunto" debe delegar en `requestSubsetFit(ids, { mode, reason })`. El filtro por usuario es una **acción explícita de foco**, no un filtro descriptivo Geo/Tipo/Tags — debe mover cámara.
+Hoy ambos se renderizan como círculos con paleta de propios. Hay que separarlos.
 
-## Cambios
+---
 
-Un único fichero, sin tocar pipeline ni RPC.
+## PR-SOCIAL-2A — Forma + identidad de owner para seguidos
 
-### `src/components/UsersSidebar.tsx` — handler `handleFilterByUser`
+1. **Añadir `inverted-triangle` al tipo `MarkerShape`** (`src/domains/v2/marker-types.ts`).
 
-Tras `setFilters({ filterByUserId, filterByUserName })`, esperar un tick para que el store reprocese y disparar fit con el resultado real de `getFilteredLocations()` (ya restringido por el filtro recién aplicado, sin volver a filtrar por `_docUserId`):
+2. **Resolver shape en la grammar** (`src/domains/v2/marker-grammar.ts`):
+   - Si `feature.ownershipSource !== 'own'` → `shape = 'inverted-triangle'` (independiente de enriched/promoted).
+   - Sin rings, sin tint, sin warning para no propios (resolveDecorations ya filtra; añadir guard explícito).
 
-```ts
-import { requestSubsetFit } from "@/components/map/subset-fit";
-import { useLocationsStore } from "@/domains/content/store/locations-store";
+3. **Helper único `getOwnerStrokeColor(ownerUid)`** (nuevo: `src/domains/v2/owner-stroke.ts`):
+   - Hash determinista uid → índice en paleta cerrada (~10 colores) que NO colisione con health (amber/yellow/magenta/red) ni propios (verde/azul/naranja).
+   - Mismo color del mismo owner en todas las vistas.
 
-// dentro del handler, después de setFilters({...})
-setTimeout(() => {
-  const ids = useLocationsStore.getState()
-    .getFilteredLocations()
-    .map(l => l.id);
+4. **Renderer único `createCustomIcon`**:
+   - Detectar `ownershipSource !== 'own'` → renderizar SVG triángulo invertido con stroke 1.5px = `getOwnerStrokeColor(ownerUid)`.
+   - Saltar rings (`getPointHealthRings`) y tint (collection chip) para no propios.
 
-  if (ids.length > 0) {
-    requestSubsetFit(ids, { mode: "always", reason: "user-filter" });
-  }
-}, 50);
+5. **Pipeline de composición**:
+   - Donde hoy se llama `getPointVisualState` para todos: distinguir owner. Si no es propio + pasa `isShareablePoi` → ruta grammar V2 con `ownershipSource: 'followed'` y `ownerUid`. Propios siguen igual.
+
+6. **Leyenda en `UsersSidebar`**: chip con `getOwnerStrokeColor(uid)` junto a cada usuario seguido.
+
+7. **Memoria nueva** `mem://style/map/followed-poi-grammar`: forma triángulo invertido, stroke owner por hash, sin rings/tint/warning, helper único.
+   Actualizar Core del index con la regla "Propio=círculo / Seguido=triángulo invertido".
+
+---
+
+## PR-SOCIAL-2B — Subset-fit aterriza en región densa
+
+1. **Helper `pickDominantRegion(points)`** (`src/components/map/dominant-region.ts`): grid-bucket por grados, devuelve cluster mayor + sus bounds.
+
+2. **Listener `SUBSET_FIT_BOUNDS_EVENT` en `LocationMap.tsx`**:
+   - Si `reason === 'user-filter'` y bounds globales > umbral (≈40° lat ó 60° lng): usar bounds del cluster dominante en lugar de bounds globales.
+   - Resto de triggers sin cambios. Mantener `minZoom: 7`, clamp z12, cooldown 4s.
+
+3. **Actualizar** `mem://logic/map/subset-fit-contract`: cláusula "user-filter multi-regional → fit a dominant region".
+
+---
+
+## Archivos
+
+```
+src/domains/v2/marker-types.ts            (+ 'inverted-triangle')
+src/domains/v2/marker-grammar.ts          (shape forzado por ownership)
+src/domains/v2/owner-stroke.ts            (NUEVO)
+src/components/.../createCustomIcon.tsx   (rama followed: triángulo + stroke owner, sin rings/tint)
+src/hooks/use-resolved-map-features.ts    (pasar ownerUid + ownershipSource)
+src/components/map/dominant-region.ts     (NUEVO)
+src/components/LocationMap.tsx            (rama user-filter del listener)
+src/components/UsersSidebar.tsx           (chip color owner)
+mem://style/map/followed-poi-grammar      (NUEVO)
+mem://logic/map/subset-fit-contract       (update)
+mem://index.md                            (Core: regla forma propios/seguidos)
 ```
 
-Notas:
-- **No re-filtrar por `_docUserId`**: el subset ya es el universo del usuario filtrado, e incluye toda la lógica de visibility/curated/hidden.
-- `mode: "always"`: el usuario activó explícitamente el foco y espera feedback visual aunque ya estuviera "dentro".
-- Cooldown manual 4s y clamp z12 del listener canónico siguen activos.
-- **No-op si `ids.length === 0`** (seguido sin puntos visibles tras curated boundary).
-- **Quitar filtro NO dispara fit** — la cámara se queda donde esté para no marear.
+## QA
 
-### Sin cambios
+- Filtrar por Sandbox desde z2 → cámara aterriza en Iberia (cluster dominante 151/295), no en Sierra Leona.
+- POIs Sandbox visibles como **triángulos invertidos** con stroke de color estable, sin rings ni tint.
+- POIs propios siguen como círculos con su paleta + rings + tint completos.
+- En `UsersSidebar` cada usuario muestra el mismo color que su stroke en mapa.
 
-- `locations-store.ts`, RPC, privacidad, banner, chip, counters del top-bar.
-
-## Memoria
-
-Actualizar `mem://logic/map/subset-fit-contract` añadiendo a la lista de triggers cableados: **filtro por usuario en `UsersSidebar`** (mode `always`, reason `user-filter`).
-
-## QA manual
-
-1. Desde z2-3, filtrar Sandbox Agent → cámara encuadra Galicia con sus puntos visibles.
-2. Quitar filtro → cámara se queda donde esté.
-3. Filtrar a un seguido sin puntos compartidos visibles → no-op, sin errores.
-4. Filtrar a uno mismo (`isCurrentUser`) → fit a mi universo entero.
-5. Re-filtrar a otro seguido en menos de 4s → respeta cooldown manual del listener (no spam).
+## Fuera de alcance
+- Chips de regiones secundarias para navegar entre clusters → futuro PR-SOCIAL-2C.
+- Avatar mini en marker → descartado.
