@@ -2367,14 +2367,19 @@ export function LocationMap() {
 
   // Catálogo stats — Single Source of Truth: location.isApproved.
   // documents.status no afecta. Ver src/domains/content/lib/location-bucket.ts
+  // Si hay `filterByUserId` activo, los buckets reflejan el subset filtrado.
+  const filterByUserIdForStats = useLocationsStore(s => s.filters.filterByUserId);
   const catalogStats = React.useMemo(() => {
-    const allLocs = useLocationsStore.getState().getAllLocations();
-    const stats = getBucketStats(allLocs as any, currentUserId);
+    const state = useLocationsStore.getState();
+    const source = state.filters.filterByUserId
+      ? state.getFilteredLocations()
+      : state.getAllLocations();
+    const stats = getBucketStats(source as any, currentUserId);
     return {
       myCatalogCount: stats.myCatalog,
       totalCatalogCount: stats.catalogTotal,
     };
-  }, [allLocationsCount, currentUserId]);
+  }, [allLocationsCount, currentUserId, filterByUserIdForStats]);
   const documentsCount = documents.length;
 
   // Stats sociales (seguidos / seguidores)
