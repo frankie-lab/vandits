@@ -114,6 +114,28 @@ export function getPointHealthRings(loc: GeoLocation | null | undefined): Health
   return rings.sort((a, b) => RING_ORDER.indexOf(a) - RING_ORDER.indexOf(b));
 }
 
+/**
+ * ¿Puede el caller ejecutar la acción de reparación masiva sobre este punto?
+ *
+ * Reglas (alineadas con `enqueue_health_repair`):
+ *  - Sólo `partial` y `chain` son reparables masivamente desde el mapa.
+ *    `review` y `hardError` van por flujo per-POI (`UnenrichedRecoveryBlock`).
+ *  - Sólo POIs cuyo `ownerUserId === currentUserId`. Los seguidos siguen
+ *    pintando rings (estado operativo) pero no son accionables por el caller.
+ *
+ * El RPC filtra defensivamente igual; este helper sólo evita enviar IDs
+ * que sabemos van a caer en `partial_skip` por ownership.
+ */
+export function isHealthRingRepairableByCaller(
+  loc: GeoLocation | null | undefined,
+  currentUserId: string | null | undefined,
+): boolean {
+  if (!loc || !currentUserId) return false;
+  const owner = (loc as { ownerUserId?: string | null }).ownerUserId;
+  if (owner !== currentUserId) return false;
+  return hasPartialGeo(loc) || hasBrokenGeoChain(loc);
+}
+
 // ── Coherence glyph overlay (rich mode only) ───────────────────────────
 
 export type CoherenceGlyph = 'coordinate' | 'name';
