@@ -2073,10 +2073,12 @@ export function LocationMap() {
         const isFocused = focusedLocationId === locationId;
         const isEnriched = !!location.enrichedData;
         const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
+        const isOwn = getLocationOwnership(locationId, currentUserId).isOwn;
         marker.setIcon(createCustomIcon(
           isSelected, isFocused, isEnriched, location, criteriaTimestamp,
-          isRecentlyEnriched, getTintForLocation(locationId),
-          getLocationOwnership(locationId, currentUserId).isOwn,
+          isRecentlyEnriched, getTintForLocation(locationId, isOwn),
+          isOwn,
+          currentUserId,
         ));
       });
 
