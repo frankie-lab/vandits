@@ -321,7 +321,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
    return true;
  });
 
- return filtered.sort((a, b) => b.locationCount - a.locationCount);
+ return filtered.sort((a, b) => b.sharedPois - a.sharedPois);
  }, [users, searchTerm, currentUser?.id, relationFilter]);
 
  const getPrimaryRole = (roles: string[]): string => {
@@ -502,19 +502,13 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   </Badge>
   </div>
   <div className="flex items-center gap-2 text-[10px] text-muted-foreground max-w-full flex-wrap">
-  <span className="flex items-center gap-0.5 shrink-0" title="Puntos">
-  <MapPin className="w-3 h-3" />
-  {currentUserData.locationCount}
-  </span>
-  <span className="flex items-center gap-0.5 shrink-0" title="Seguidores">
-  <Users className="w-3 h-3" />
-  {currentUserData.followersCount}
-  </span>
-  <span className="flex items-center gap-0.5 shrink-0" title="Siguiendo">
-  <Heart className="w-3 h-3" />
-  {currentUserData.followingCount}
-  </span>
-  </div>
+   <span className="shrink-0" title="POIs visibles para tus seguidores">
+     <span className="font-semibold text-foreground">{currentUserData.sharedPois}</span> compartidos
+     {currentUserData.totalPois != null && (
+       <> · <span className="font-semibold text-foreground">{currentUserData.totalPois}</span> totales</>
+     )}
+   </span>
+   </div>
   </button>
   </div>
   )}
