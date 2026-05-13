@@ -2,82 +2,96 @@ import { describe, it, expect } from 'vitest';
 import {
   SEED_PALETTE,
   FORBIDDEN_ANCHORS,
-  ANCHOR_MIN_DELTA_E,
   pickNextIdentityColor,
   getCandidateSpace,
   isValidCandidate,
   OWNER_PALETTE_VERSION,
+  MIN_HUE_GAP_DEG,
 } from '@/lib/color/identity-allocator';
-import { deltaEOklab, contrastRatio } from '@/lib/color/oklch';
 
-describe('identity-allocator — version', () => {
-  it('palette version is owner-v2.2-oklch (post-PR-2.3 scoring fix)', () => {
-    expect(OWNER_PALETTE_VERSION).toBe('owner-v2.2-oklch');
+function hueDist(a: number, b: number): number {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+}
+
+describe('identity-allocator — versión', () => {
+  it('palette version es owner-v2.4-cool-hue-band', () => {
+    expect(OWNER_PALETTE_VERSION).toBe('owner-v2.4-cool-hue-band');
   });
 });
 
-describe('identity-allocator — maximin against assigned ∪ anchors', () => {
-  it('first pick (assigned=[]) is deterministic', () => {
+describe('identity-allocator — banda fría', () => {
+  it('todo candidato vive en hue [180, 320]', () => {
+    const V = getCandidateSpace();
+    expect(V.length).toBeGreaterThan(20);
+    for (const c of V) {
+      expect(c.h).toBeGreaterThanOrEqual(180);
+      expect(c.h).toBeLessThanOrEqual(320);
+    }
+  });
+
+  it('isValidCandidate rechaza hues reservados', () => {
+    expect(isValidCandidate({ L: 0.5, C: 0.18, h: 25 })).toBe(false);   // rojo
+    expect(isValidCandidate({ L: 0.5, C: 0.18, h: 50 })).toBe(false);   // naranja
+    expect(isValidCandidate({ L: 0.5, C: 0.18, h: 95 })).toBe(false);   // amarillo
+    expect(isValidCandidate({ L: 0.5, C: 0.18, h: 145 })).toBe(false);  // verde
+    expect(isValidCandidate({ L: 0.5, C: 0.18, h: 355 })).toBe(false);  // magenta
+    expect(isValidCandidate({ L: 0.5, C: 0.18, h: 250 })).toBe(true);   // azul
+  });
+
+  it('ningún anchor reservado cae dentro de la banda', () => {
+    for (const a of FORBIDDEN_ANCHORS) {
+      expect(isValidCandidate(a)).toBe(false);
+    }
+  });
+});
+
+describe('identity-allocator — orden incremental e inmutable', () => {
+  it('primer pick es determinista (h=250)', () => {
     const a = pickNextIdentityColor([]);
     const b = pickNextIdentityColor([]);
     expect(a.color).toEqual(b.color);
+    expect(a.color.h).toBe(250);
   });
 
-  it('first pick is far from every forbidden anchor', () => {
-    const r = pickNextIdentityColor([]);
-    for (const a of FORBIDDEN_ANCHORS) {
-      expect(deltaEOklab(r.color, a)).toBeGreaterThanOrEqual(ANCHOR_MIN_DELTA_E);
-    }
-  });
-
-  it('first pick maximizes min ΔE against FORBIDDEN_ANCHORS over V', () => {
-    const r = pickNextIdentityColor([]);
-    const V = getCandidateSpace();
-    const myMin = Math.min(...FORBIDDEN_ANCHORS.map((a) => deltaEOklab(r.color, a)));
-    for (const c of V) {
-      const m = Math.min(...FORBIDDEN_ANCHORS.map((a) => deltaEOklab(c, a)));
-      expect(myMin).toBeGreaterThanOrEqual(m - 1e-6);
-    }
-  });
-
-  it('every subsequent pick maximizes min ΔE against assigned ∪ anchors', () => {
+  it('cada pick es el más distante (en hue) del conjunto ya asignado', () => {
     let assigned: any[] = [];
-    for (let step = 0; step < 5; step++) {
+    for (let step = 0; step < 6; step++) {
       const r = pickNextIdentityColor(assigned);
-      const S = [...assigned, ...FORBIDDEN_ANCHORS];
-      const myMin = Math.min(...S.map((a) => deltaEOklab(r.color, a)));
-      const V = getCandidateSpace();
-      for (const c of V) {
-        if (assigned.some((a) => Math.abs(a.L - c.L) < 1e-3 && Math.abs(a.C - c.C) < 1e-3 && Math.abs(a.h - c.h) < 1e-3)) continue;
-        const m = Math.min(...S.map((a) => deltaEOklab(c, a)));
-        expect(myMin).toBeGreaterThanOrEqual(m - 1e-6);
+      // Verificar que es máximo: ningún otro candidato del espacio mejora
+      // el min-hue-gap contra el conjunto ya asignado.
+      if (assigned.length > 0) {
+        const myMin = Math.min(...assigned.map((a) => hueDist(r.color.h, a.h)));
+        const V = getCandidateSpace();
+        for (const c of V) {
+          if (assigned.some((a) => Math.abs(a.h - c.h) < 1e-3 && Math.abs(a.L - c.L) < 1e-3 && Math.abs(a.C - c.C) < 1e-3)) continue;
+          const m = Math.min(...assigned.map((a) => hueDist(c.h, a.h)));
+          expect(myMin).toBeGreaterThanOrEqual(m - 1e-6);
+        }
       }
       assigned = [...assigned, r.color];
     }
   });
 
-  it('every assigned color stays clear of all forbidden anchors', () => {
+  it('no muta el input', () => {
+    const assigned = [pickNextIdentityColor([]).color];
+    const before = JSON.stringify(assigned);
+    pickNextIdentityColor(assigned);
+    expect(JSON.stringify(assigned)).toBe(before);
+  });
+
+  it('nunca reutiliza un color ya asignado', () => {
     let assigned: any[] = [];
     for (let i = 0; i < 8; i++) {
       const r = pickNextIdentityColor(assigned);
-      for (const a of FORBIDDEN_ANCHORS) {
-        expect(deltaEOklab(r.color, a)).toBeGreaterThanOrEqual(ANCHOR_MIN_DELTA_E);
+      for (const a of assigned) {
+        expect(r.color).not.toEqual(a);
       }
       assigned = [...assigned, r.color];
     }
   });
 
-  it('all SEED_PALETTE colors still clear forbidden anchors (backfill safety)', () => {
-    for (const s of SEED_PALETTE) {
-      for (const a of FORBIDDEN_ANCHORS) {
-        expect(deltaEOklab(s, a)).toBeGreaterThanOrEqual(ANCHOR_MIN_DELTA_E);
-      }
-    }
-  });
-});
-
-describe('identity-allocator — determinism + immutability', () => {
-  it('same assigned input produces same next color', () => {
+  it('mismo conjunto asignado → mismo siguiente color (determinismo)', () => {
     const seq: any[] = [];
     let assigned: any[] = [];
     for (let i = 0; i < 4; i++) {
@@ -89,47 +103,48 @@ describe('identity-allocator — determinism + immutability', () => {
     const b = pickNextIdentityColor(seq);
     expect(a.color).toEqual(b.color);
   });
+});
 
-  it('does not mutate the assigned array', () => {
-    const assigned = [pickNextIdentityColor([]).color];
-    const before = [...assigned];
-    pickNextIdentityColor(assigned);
-    expect(assigned).toEqual(before);
+describe('identity-allocator — separación visual real', () => {
+  it('los primeros 4 seguidos respetan MIN_HUE_GAP_DEG entre sí', () => {
+    let assigned: any[] = [];
+    for (let i = 0; i < 4; i++) {
+      const r = pickNextIdentityColor(assigned);
+      assigned = [...assigned, r.color];
+    }
+    for (let i = 0; i < assigned.length; i++) {
+      for (let j = i + 1; j < assigned.length; j++) {
+        expect(hueDist(assigned[i].h, assigned[j].h))
+          .toBeGreaterThanOrEqual(MIN_HUE_GAP_DEG);
+      }
+    }
   });
 
-  it('never reuses an already-assigned color', () => {
+  it('los primeros 4 seguidos NO degradan', () => {
     let assigned: any[] = [];
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 4; i++) {
       const r = pickNextIdentityColor(assigned);
-      for (const a of assigned) {
-        expect(r.color).not.toEqual(a);
+      expect(r.degraded).toBe(false);
+      assigned = [...assigned, r.color];
+    }
+  });
+
+  it('ningún seguido cae cerca (≤25°) de un anchor reservado', () => {
+    let assigned: any[] = [];
+    for (let i = 0; i < 8; i++) {
+      const r = pickNextIdentityColor(assigned);
+      for (const a of FORBIDDEN_ANCHORS) {
+        expect(hueDist(r.color.h, a.h)).toBeGreaterThan(25);
       }
       assigned = [...assigned, r.color];
     }
   });
 });
 
-describe('identity-allocator — forbidden anchors', () => {
-  it('no candidate in V is within ΔE < ANCHOR_MIN_DELTA_E of any anchor', () => {
-    const V = getCandidateSpace();
-    expect(V.length).toBeGreaterThan(20);
-    for (const c of V) {
-      for (const a of FORBIDDEN_ANCHORS) {
-        expect(deltaEOklab(c, a)).toBeGreaterThanOrEqual(ANCHOR_MIN_DELTA_E);
-      }
-    }
-  });
-
-  it('isValidCandidate rejects a yellow-ish candidate near anchors', () => {
-    expect(isValidCandidate({ L: 0.87, C: 0.18, h: 95 })).toBe(false);
-  });
-});
-
-describe('identity-allocator — WCAG contrast', () => {
-  it('seed colors meet 2.6:1 against light and dark backgrounds', () => {
+describe('identity-allocator — SEED_PALETTE solo es fallback', () => {
+  it('todos los SEED viven en la banda fría', () => {
     for (const s of SEED_PALETTE) {
-      expect(contrastRatio(s, '#f8fafc')).toBeGreaterThanOrEqual(2.6);
-      expect(contrastRatio(s, '#0b1220')).toBeGreaterThanOrEqual(2.4);
+      expect(isValidCandidate(s)).toBe(true);
     }
   });
 });

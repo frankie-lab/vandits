@@ -1,54 +1,64 @@
-## Problema detectado
-Sí: el problema es real y está en dos capas distintas.
+# Entendido
 
-1. **La persistencia sí funciona**
-   En base de datos ya existen 5 asignaciones `owner-v2.1-oklch` distintas para Frankie GMZ. O sea, no estamos ante “todos guardados igual” ni ante un fallo de escritura general.
+Sí: pides que aplique tu norma exacta, sin volver a reinterpretarla y sin más preguntas.
 
-2. **La matemática del allocator sigue rompiendo la regla pactada**
-   Ahora mismo `pickNextIdentityColor()` hace esto:
-   - primer seguido: maximiza distancia contra `FORBIDDEN_ANCHORS`
-   - siguientes seguidos: maximiza distancia **solo contra los colores ya asignados**
+La corrección se hará con este contrato:
 
-   Eso **no cumple** tu norma operativa real, que es:
-   ```text
-   S = colores ya asignados + anchors reservados
-   ```
-   
-   Por eso ya hay colores persistidos demasiado cerca de anchors reservados:
-   - Explorador Alpha: cerca de naranja/verde/ámbar
-   - frankie: cerca de magenta
-   - Aventurera Beta: cerca de verde
+- las asignaciones históricas actuales se pueden borrar
+- tras ese borrado, se recalculan desde cero con la nueva norma
+- a partir de ese nuevo estado, cada color queda fijo e inmutable
+- cada nuevo seguido recibe el color más distante del conjunto ya asignado en ese momento
+- no se reutilizan colores ya asignados
+- no se admiten colores que entren en conflicto con la gramática reservada del sistema
 
-   Es decir: aunque sean distintos entre sí, el allocator no está respetando la exclusión continua frente a la gramática del sistema.
+# Plan de ejecución
 
-3. **El sidebar probablemente muestra color stale aunque el store ya cambió**
-   `UsersSidebar` lee `getOwnerIdentityOklch(user.id)` directamente, pero **no está suscrito** al store externo. Las asignaciones nuevas se escriben en background y el mapa sí repinta porque escucha `lovable:owner-identity-updated`; el sidebar no. Eso explica perfectamente que en Social sigas viendo todos “iguales” o sin actualizar aunque la base ya tenga otros valores.
+## 1. Reescribir la regla central del allocator
+Actualizar `src/lib/color/identity-allocator.ts` para que la selección deje de depender de la lógica actual y pase a obedecer estrictamente esta norma:
 
-## Plan
-1. **Corregir el allocator**
-   Reescribir la función de scoring para que cada nuevo color maximice su distancia mínima frente a:
-   - colores ya asignados
-   - `FORBIDDEN_ANCHORS`
+- conjunto base = colores ya asignados válidos tras el reset
+- cada nuevo seguido elige el color más distante de ese conjunto
+- el conjunto crece de forma incremental
+- los colores ya asignados no se recalculan ni se recolorean después
+- exclusión dura de familias reservadas del sistema
 
-   Así el primer seguido y todos los siguientes obedecen la misma regla incremental e inmutable.
+## 2. Regenerar los datos históricos
+Eliminar las asignaciones actuales defectuosas de `user_owner_color_assignments` como operación de datos y dejar que se regeneren con la nueva norma.
 
-2. **Purgar las asignaciones `owner-v2.1-oklch` ya generadas con la matemática defectuosa**
-   Como esas 5 filas actuales ya nacieron con una regla incorrecta, hay que borrarlas y regenerarlas con la versión corregida. Mantendría trazabilidad subiendo la versión de paleta.
+Esto se hará como **dato**, no como cambio de esquema.
 
-3. **Hacer reactivo el sidebar**
-   Añadir suscripción del `UsersSidebar` al store de identidad usando el patrón React correcto para store externo (`useSyncExternalStore` o equivalente centralizado del proyecto), para que los badges de color se actualicen cuando entren los assignments nuevos.
+## 3. Versionar la nueva paleta
+Bump de versión en runtime para separar claramente:
 
-4. **Validación**
-   - tests del allocator: cada nuevo pick debe optimizar contra `assigned + anchors`
-   - test/regresión del sidebar/store: al emitirse `lovable:owner-identity-updated`, el color visible cambia sin recargar
-   - comprobación en preview: Social y mapa deben mostrar identidades claramente distintas y no cercanas al verde curado ni al resto de anchors reservados
+- asignaciones antiguas inválidas
+- asignaciones nuevas nacidas con la regla correcta
 
-## Detalles técnicos
-- Archivos probables:
-  - `src/lib/color/identity-allocator.ts`
-  - `src/stores/owner-identity-store.ts`
-  - `src/components/UsersSidebar.tsx`
-  - `src/test/owner-identity-allocator.test.ts`
-  - nueva migración SQL para purga de filas generadas con la lógica defectuosa
-- Mantendré el contrato de inmutabilidad para lo correcto; solo se purgan las filas creadas por una versión matemáticamente inválida.
-- No tocaré renderer de mapa salvo que la validación muestre un segundo bug independiente.
+## 4. Endurecer tests según tu norma real
+Actualizar `src/test/owner-identity-allocator.test.ts` para validar:
+
+- reinicio limpio y regeneración coherente
+- orden incremental
+- inmutabilidad después del nuevo cálculo
+- no reutilización
+- exclusión de colores reservados
+- separación perceptiva suficiente entre todos los seguidos ya asignados
+
+## 5. Verificación final sobre el caso real
+Comprobar el resultado regenerado con tus seguidos actuales para asegurar que:
+
+- desaparecen los colores semánticamente prohibidos
+- no quedan dos usuarios con colores visualmente casi iguales
+- la secuencia de asignación sigue la lógica incremental pactada
+
+# Archivos implicados
+
+- `src/lib/color/identity-allocator.ts`
+- `src/test/owner-identity-allocator.test.ts`
+- `src/components/map/owner-stroke.ts` solo si el fallback necesita endurecerse
+- operación de datos sobre `user_owner_color_assignments`
+- memoria del contrato, si procede actualizarla
+
+# Resultado esperado
+
+No se va a “maquillar” el resultado actual.
+Se va a sustituir la regla equivocada por la tuya, borrar las asignaciones malas y regenerarlas correctamente desde cero.
