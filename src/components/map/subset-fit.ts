@@ -57,6 +57,7 @@ export function requestSubsetFit(
     locationIds: [...locationIds],
     mode: opts.mode ?? 'if-outside',
     reason: opts.reason,
+    minZoom: opts.minZoom ?? null,
   };
 
   window.dispatchEvent(
