@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/domains/identity';
 import { useLocationsStore } from '@/domains/content';
+import { requestSubsetFit } from '@/components/map/subset-fit';
 import { usePermissions } from '@/domains/identity';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { toast } from 'sonner';
