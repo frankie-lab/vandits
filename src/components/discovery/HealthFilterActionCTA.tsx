@@ -24,13 +24,11 @@ import {
 import { HealthRepairPreviewDialog } from './HealthRepairPreviewDialog';
 
 const ACTION_LABEL: Record<HealthFilter, string> = {
-  partial:   'Rellenar mis huecos',
-  chain:     'Reparar mis cadenas',
+  partial:   'Reparar',
+  chain:     'Reparar',
   hardError: 'Reintentar',
   review:    'Abrir revisión',
 };
-
-const REPAIRABLE_FILTERS: ReadonlySet<HealthFilter> = new Set<HealthFilter>(['partial', 'chain']);
 
 export interface HealthFilterActionCTAProps {
   healthFilter: HealthFilter | null | undefined;
@@ -69,16 +67,12 @@ export function HealthFilterActionCTA({
 
   if (!healthFilter) return null;
 
-  const isRepairable = REPAIRABLE_FILTERS.has(healthFilter);
-  // Para partial/chain el CTA habla de reparables propios.
-  // Para review/hardError el contador sigue siendo el universo (preview).
-  const ctaCount = isRepairable ? scope.repairableCount : scope.total;
+  // PR-1 curated sharing: tras la boundary, todo el subset es propio y
+  // accionable. Sin distinción reparable vs solo lectura.
+  const ctaCount = scope.total;
   const disabled = ctaCount === 0;
   const label = ACTION_LABEL[healthFilter];
-
-  const tooltip = isRepairable && scope.total > 0 && scope.repairableCount === 0
-    ? 'Estos puntos son de usuarios que sigues; no puedes repararlos'
-    : `Modo: ${scopeModeLabel(scope.mode)}`;
+  const tooltip = `Modo: ${scopeModeLabel(scope.mode)}`;
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap">

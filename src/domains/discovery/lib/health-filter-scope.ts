@@ -2,14 +2,22 @@
  * health-filter-scope — Helper único para resolver el subconjunto sobre el
  * que actuará el CTA contextual del eje "Salud" en FilterBar.
  *
- * PR-3A: sólo lectura. El subconjunto se usa para previsualizar (lista de
- * los 10 primeros + total). NUNCA escribe en BD.
+ * Sólo lectura: el subconjunto se usa para previsualizar (lista + total).
+ * NUNCA escribe en BD.
  *
  * Reglas (precedencia):
  *   1. selectedLocations no vacío  → mode='selection', ids = sel ∩ filtered
  *   2. onlyVisible === true        → mode='viewport',  ids = vis ∩ filtered
  *   3. default                     → mode='filtered',  ids = filtered (que pasen healthFilter)
  *   4. healthFilter null           → ids vacío (CTA oculto)
+ *
+ * PR-1 curated sharing (2026-05-13): la noción de "repairableIds" desaparece.
+ * Tras la curated boundary, los seguidos sólo entran al pipeline si pasan
+ * `isShareablePoi` (incluye `geo_health = 'ok'`), por lo que NUNCA pueden
+ * tener rings `partial`/`chain`. Para `review`/`hardError`, el helper
+ * `getPointHealthRings(loc, currentUserId)` ya excluye seguidos. Resultado:
+ * todo lo que aparezca en `ids` es propio y reparable. Ver
+ * `mem://logic/sharing/curated-only-rule`.
  *
  * Garantías estructurales:
  *   - Scope NUNCA cae en `markerLocations` salvo opt-in explícito vía toggle.
@@ -20,10 +28,7 @@
  */
 
 import type { GeoLocation, HealthFilter } from '@/types/location';
-import {
-  getPointHealthRings,
-  isHealthRingRepairableByCaller,
-} from '@/domains/content/lib/point-health-rings';
+import { getPointHealthRings } from '@/domains/content/lib/point-health-rings';
 
 export type ScopeMode = 'filtered' | 'selection' | 'viewport';
 
@@ -34,27 +39,20 @@ export interface HealthScopeCtx {
   healthFilter: HealthFilter | null | undefined;
   onlyVisible: boolean;
   /**
-   * Caller actual. Necesario para distinguir "salud visible" (todos) de
-   * "reparable por mí" (sólo propios). Si es null/undefined, `repairableIds`
-   * sale vacío.
+   * Caller actual. Se propaga a `getPointHealthRings` para que los rings
+   * de seguidos no aparezcan (curated-only boundary). No se usa para
+   * distinguir reparable vs no — esa distinción ya no existe.
    */
   currentUserId?: string | null;
 }
 
 export interface HealthScopeResult {
-  /** Universo del subconjunto (incluye seguidos). "Salud visible". */
+  /** Universo del subconjunto. Tras curated boundary = todo es propio. */
   ids: string[];
   total: number;
   mode: ScopeMode;
   /** Subconjunto materializado (mismo orden que filteredLocations). */
   locations: GeoLocation[];
-  /**
-   * Subconjunto realmente accionable por el caller (propios + ring partial/chain).
-   * Lo que se envía al RPC. Para `review`/`hardError` siempre es vacío
-   * (van por flujo per-POI).
-   */
-  repairableIds: string[];
-  repairableCount: number;
 }
 
 const EMPTY: HealthScopeResult = {
@@ -62,21 +60,19 @@ const EMPTY: HealthScopeResult = {
   total: 0,
   mode: 'filtered',
   locations: [],
-  repairableIds: [],
-  repairableCount: 0,
 };
 
 export function getHealthFilterScopeIds(ctx: HealthScopeCtx): HealthScopeResult {
   const hf = ctx.healthFilter ?? null;
   if (!hf) return EMPTY;
 
-  // 1. Universo lógico: filteredLocations cuyo health rings incluya hf.
-  //    Verde se excluye automáticamente de review/hardError vía helper.
+  // Universo lógico: filteredLocations cuyo health rings (con guard de
+  // ownership) incluya hf. Verde se excluye automáticamente vía helper.
   const matching = ctx.filteredLocations.filter((loc) =>
-    getPointHealthRings(loc).includes(hf),
+    getPointHealthRings(loc, ctx.currentUserId).includes(hf),
   );
 
-  // 2. Resolución de modo (precedencia: selection > viewport > filtered).
+  // Resolución de modo (precedencia: selection > viewport > filtered).
   let mode: ScopeMode = 'filtered';
   let subset = matching;
 
@@ -88,19 +84,11 @@ export function getHealthFilterScopeIds(ctx: HealthScopeCtx): HealthScopeResult 
     subset = matching.filter((l) => ctx.visibleLocationIds.has(l.id));
   }
 
-  // 3. Subconjunto reparable por el caller (propios + partial|chain).
-  const repairable =
-    hf === 'partial' || hf === 'chain'
-      ? subset.filter((l) => isHealthRingRepairableByCaller(l, ctx.currentUserId))
-      : [];
-
   return {
     ids: subset.map((l) => l.id),
     total: subset.length,
     mode,
     locations: subset,
-    repairableIds: repairable.map((l) => l.id),
-    repairableCount: repairable.length,
   };
 }
 
