@@ -109,4 +109,48 @@ describe('health-filter-scope', () => {
     expect(r.mode).toBe('viewport');
     expect(r.ids).toEqual(['p1']);
   });
+
+  describe('repairableIds split (PR-HEALTH-SUBSET-FIX)', () => {
+    const mine = loc({ id: 'm1', geoHealth: 'partial', ownerUserId: 'me' } as any);
+    const followed = loc({ id: 'f1', geoHealth: 'partial', ownerUserId: 'them' } as any);
+
+    it('separa repairableIds (propios) de ids (universo)', () => {
+      const r = getHealthFilterScopeIds({
+        filteredLocations: [mine, followed],
+        selectedLocationIds: new Set(),
+        visibleLocationIds: new Set(),
+        healthFilter: 'partial',
+        onlyVisible: false,
+        currentUserId: 'me',
+      });
+      expect(r.ids).toEqual(['m1', 'f1']);
+      expect(r.total).toBe(2);
+      expect(r.repairableIds).toEqual(['m1']);
+      expect(r.repairableCount).toBe(1);
+    });
+
+    it('sin currentUserId → repairableIds vacío', () => {
+      const r = getHealthFilterScopeIds({
+        filteredLocations: [mine],
+        selectedLocationIds: new Set(),
+        visibleLocationIds: new Set(),
+        healthFilter: 'partial',
+        onlyVisible: false,
+      });
+      expect(r.ids).toEqual(['m1']);
+      expect(r.repairableIds).toEqual([]);
+    });
+
+    it('review/hardError → repairableIds siempre vacío', () => {
+      const r = getHealthFilterScopeIds({
+        filteredLocations: [mine],
+        selectedLocationIds: new Set(),
+        visibleLocationIds: new Set(),
+        healthFilter: 'review',
+        onlyVisible: false,
+        currentUserId: 'me',
+      });
+      expect(r.repairableIds).toEqual([]);
+    });
+  });
 });
