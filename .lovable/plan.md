@@ -1,76 +1,159 @@
 
-## Regla canónica fijada
+# PR-OWNER-IDENTITY-2 — Persistent Perceptual Identity Allocation (OKLCH maximin)
 
-| Origen | Forma | Variables permitidas |
-|---|---|---|
-| **Propio** | **Círculo** | fill (estado: enriched/imported/empty) · health rings · collection tint · halo/check/star/warning |
-| **Seguido** | **Triángulo invertido** | fill (estado curado) · stroke fino = identidad del owner (paleta cerrada) · halo si seleccionado. **Sin** rings, **sin** tint, **sin** warning |
-
-Hoy ambos se renderizan como círculos con paleta de propios. Hay que separarlos.
+Sustituye `hash(uid) % palette` por un **sistema de asignación de identidades cromáticas** persistente, inmutable y perceptualmente óptimo. Además elimina el stroke del marker de seguidos: la identidad pasa al **fill**.
 
 ---
 
-## PR-SOCIAL-2A — Forma + identidad de owner para seguidos
+## Principios (no negociables)
 
-1. **Añadir `inverted-triangle` al tipo `MarkerShape`** (`src/domains/v2/marker-types.ts`).
-
-2. **Resolver shape en la grammar** (`src/domains/v2/marker-grammar.ts`):
-   - Si `feature.ownershipSource !== 'own'` → `shape = 'inverted-triangle'` (independiente de enriched/promoted).
-   - Sin rings, sin tint, sin warning para no propios (resolveDecorations ya filtra; añadir guard explícito).
-
-3. **Helper único `getOwnerStrokeColor(ownerUid)`** (nuevo: `src/domains/v2/owner-stroke.ts`):
-   - Hash determinista uid → índice en paleta cerrada (~10 colores) que NO colisione con health (amber/yellow/magenta/red) ni propios (verde/azul/naranja).
-   - Mismo color del mismo owner en todas las vistas.
-
-4. **Renderer único `createCustomIcon`**:
-   - Detectar `ownershipSource !== 'own'` → renderizar SVG triángulo invertido con stroke 1.5px = `getOwnerStrokeColor(ownerUid)`.
-   - Saltar rings (`getPointHealthRings`) y tint (collection chip) para no propios.
-
-5. **Pipeline de composición**:
-   - Donde hoy se llama `getPointVisualState` para todos: distinguir owner. Si no es propio + pasa `isShareablePoi` → ruta grammar V2 con `ownershipSource: 'followed'` y `ownerUid`. Propios siguen igual.
-
-6. **Leyenda en `UsersSidebar`**: chip con `getOwnerStrokeColor(uid)` junto a cada usuario seguido.
-
-7. **Memoria nueva** `mem://style/map/followed-poi-grammar`: forma triángulo invertido, stroke owner por hash, sin rings/tint/warning, helper único.
-   Actualizar Core del index con la regla "Propio=círculo / Seguido=triángulo invertido".
+1. **Persistencia inmutable**: una vez asignado `(viewer, followed) → color`, ese color no cambia jamás. Nuevos seguidos no recolorean a los existentes.
+2. **Distancia perceptual máxima**: `C_{n+1} = argmax_{x∈V}( min_{Ci∈S} ΔE(x, Ci) )`.
+3. **Restricciones operativas WCAG + semánticas**: contraste mínimo contra fondo claro y oscuro; exclusión perceptual (ΔE) de hues reservados a salud/estado.
+4. **Degradación progresiva**: cuando `V` se agota, sigue eligiendo el mejor disponible y marca `degraded=true` para QA.
+5. **Espacio de color perceptual**: OKLCH para representación, ΔE en OKLab para distancia. (HSL queda solo para legacy v1.)
 
 ---
 
-## PR-SOCIAL-2B — Subset-fit aterriza en región densa
+## 1. Cambio visual del marker de seguido
 
-1. **Helper `pickDominantRegion(points)`** (`src/components/map/dominant-region.ts`): grid-bucket por grados, devuelve cluster mayor + sus bounds.
+Hoy: triángulo invertido + **stroke** = identidad.
+Nuevo: triángulo invertido **sin borde**; **fill = identidad OKLCH**. El estado curado (enriched/imported) se representa por icono interior / opacidad, no por fill.
 
-2. **Listener `SUBSET_FIT_BOUNDS_EVENT` en `LocationMap.tsx`**:
-   - Si `reason === 'user-filter'` y bounds globales > umbral (≈40° lat ó 60° lng): usar bounds del cluster dominante en lugar de bounds globales.
-   - Resto de triggers sin cambios. Mantener `minZoom: 7`, clamp z12, cooldown 4s.
-
-3. **Actualizar** `mem://logic/map/subset-fit-contract`: cláusula "user-filter multi-regional → fit a dominant region".
+Archivos:
+- `src/components/map/map-icons.ts` rama `followed`: quitar `stroke` y `stroke-width`, aplicar `fill = ownerIdentityColor(uid)`. Eliminar la variación de stroke por `renderMode`.
+- `mem://style/map/followed-poi-grammar` reescrito: "fill = identidad", "sin stroke".
+- `mem://index.md` Core: actualizar la línea PR-OWNER-IDENTITY-1.
 
 ---
 
-## Archivos
+## 2. Motor de asignación (tiers)
 
+### Tier 1 — Seed palette (8–12 colores ultra-distantes)
+Constantes `SEED_PALETTE` en OKLCH, calculadas offline para máxima ΔE mutua dentro de las restricciones operativas. Se consumen primero, en orden, para los primeros N seguidos del viewer.
+
+### Tier 2 — Generación incremental constrained (`V` candidate space)
+Generado deterministamente:
+- `L ∈ [0.55, 0.75]` (legible sobre tile claro y oscuro).
+- `C ∈ [0.12, 0.20]` (saturación mínima para no parecer gris).
+- `h` muestreado cada 5° → 72 hues × 3 (L,C) ≈ ~216 candidatos.
+- Filtros (`isValidCandidate`):
+  - Contraste WCAG ≥ 3:1 contra fondo claro `#f8fafc` y oscuro `#0b1220`.
+  - Contraste ≥ 4.5:1 contra texto/icono interior blanco.
+  - **Exclusión perceptual** (ΔE > 25 en OKLab) frente a anchors reservados:
+    - verde enriched, gris imported, naranja empty
+    - amber (partial), yellow (chain), magenta (review), red (hardError)
+  - Sin rangos de hue HSL — todo por ΔE.
+
+### Tier 3 — Degradación controlada
+Si el mejor candidato queda a ΔE < 8 frente al conjunto asignado: se acepta igualmente, pero se persiste `degraded=true` para diagnóstico/QA.
+
+### Algoritmo `pickNextIdentityColor(assigned)`
 ```
-src/domains/v2/marker-types.ts            (+ 'inverted-triangle')
-src/domains/v2/marker-grammar.ts          (shape forzado por ownership)
-src/domains/v2/owner-stroke.ts            (NUEVO)
-src/components/.../createCustomIcon.tsx   (rama followed: triángulo + stroke owner, sin rings/tint)
-src/hooks/use-resolved-map-features.ts    (pasar ownerUid + ownershipSource)
-src/components/map/dominant-region.ts     (NUEVO)
-src/components/LocationMap.tsx            (rama user-filter del listener)
-src/components/UsersSidebar.tsx           (chip color owner)
-mem://style/map/followed-poi-grammar      (NUEVO)
-mem://logic/map/subset-fit-contract       (update)
-mem://index.md                            (Core: regla forma propios/seguidos)
+si assigned.length < SEED_PALETTE.length:
+  devolver SEED_PALETTE[assigned.length]
+sino:
+  para cada c en V \ assigned:
+    score(c) = min over Ci in assigned: ΔE(c, Ci)
+  devolver argmax(score)
+  desempate: hue index estable, luego L, luego C
+```
+Determinista: dado `assigned`, devuelve siempre lo mismo. Inmutable: nunca toca asignaciones previas.
+
+---
+
+## 3. Persistencia (DB)
+
+La tabla `user_owner_color_assignments` ya existe (v1, `color_index`). Migración v2:
+
+```sql
+ALTER TABLE public.user_owner_color_assignments
+  ADD COLUMN oklch_l double precision,
+  ADD COLUMN oklch_c double precision,
+  ADD COLUMN oklch_h double precision,
+  ADD COLUMN degraded boolean NOT NULL DEFAULT false;
+
+-- color_index queda NULLABLE legacy
+-- palette_version pasa a 'owner-v2-oklch'
 ```
 
-## QA
+**Backfill (preserva inmutabilidad)**: para cada row v1, convertir el HSL paleta v1 a OKLCH y guardar en `oklch_*` con `palette_version='owner-v2-oklch'`. **No se reasigna ningún color**: los seguidos antiguos conservan exactamente su color visual.
 
-- Filtrar por Sandbox desde z2 → cámara aterriza en Iberia (cluster dominante 151/295), no en Sierra Leona.
-- POIs Sandbox visibles como **triángulos invertidos** con stroke de color estable, sin rings ni tint.
-- POIs propios siguen como círculos con su paleta + rings + tint completos.
-- En `UsersSidebar` cada usuario muestra el mismo color que su stroke en mapa.
+RLS y `(viewer_user_id, followed_user_id)` PK sin cambios.
 
-## Fuera de alcance
-- Chips de regiones secundarias para navegar entre clusters → futuro PR-SOCIAL-2C.
-- Avatar mini en marker → descartado.
+---
+
+## 4. Servicio + store
+
+`ensureAssignment(viewer, followed)`:
+1. Si row existe → devolver `oklch_*` (inmutable).
+2. Si no → cargar todos los OKLCH del viewer → `pickNextIdentityColor(assigned)` → `INSERT`.
+3. Conflicto `23505` (otra pestaña insertó) → re-leer y devolver el persistido.
+
+Concurrencia por viewer: serializar con `_inflight: Map<followedUid, Promise>` (ya existe).
+
+Archivos:
+- `src/lib/color/oklch.ts` (nuevo): sRGB ↔ OKLCH ↔ OKLab, ΔE OKLab, contraste WCAG.
+- `src/lib/color/identity-allocator.ts` (nuevo): `SEED_PALETTE`, `CANDIDATE_SPACE`, `FORBIDDEN_ANCHORS`, `pickNextIdentityColor`, `isValidCandidate`.
+- `src/repositories/owner-color-assignments.repository.ts` (nuevo): CRUD tipado.
+- `src/services/owner-identity.service.ts` (nuevo): `loadAssignments`, `ensureAssignment`.
+- `src/components/map/owner-stroke.ts` → renombrar a `src/components/map/owner-identity.ts`. API pública: `getOwnerIdentityColor(uid, oklch?) → string CSS` (`oklch(L C h)`).
+- `src/stores/owner-identity-store.ts`: store guarda `Map<followedUid, OklchColor>` (no índices).
+- `src/components/map/map-icons.ts`: rama followed sin stroke, `fill = identidad`.
+- `src/components/UsersSidebar.tsx`: chip lee OKLCH del store; sigue ensure-on-mount.
+- `src/components/LocationMap.tsx`: listener `lovable:owner-identity-updated` ya existente, sin cambios estructurales.
+
+---
+
+## 5. Tests (`src/test/`)
+
+- `owner-identity-allocator.test.ts`:
+  - Determinismo: mismo `assigned` → mismo siguiente.
+  - Inmutabilidad: añadir el N+1 no muta los N anteriores.
+  - Maximin: el segundo color es el más lejano del primero (ΔE máximo).
+  - Anchors prohibidos: ningún candidato sale a ΔE < umbral de verde/amber/yellow/magenta/red.
+  - Degradación: con `assigned` saturado marca `degraded=true`.
+- `owner-identity-contrast.test.ts`: todos los SEED y muestras de V cumplen WCAG sobre `#f8fafc` y `#0b1220`.
+- Eliminar `owner-stroke.test.ts` (paleta v1 obsoleta).
+
+---
+
+## 6. Migración v1 → v2 (sin recoloreado visible)
+
+Backfill SQL en la misma migración de schema:
+```sql
+-- Para cada row v1: convertir HSL v1 → OKLCH y persistir.
+UPDATE public.user_owner_color_assignments
+SET oklch_l = ..., oklch_c = ..., oklch_h = ...,
+    palette_version = 'owner-v2-oklch'
+WHERE palette_version = 'owner-v1';
+```
+(Conversión vía función PL/pgSQL `_hsl_to_oklch_v1(idx int)` con los 8 valores fijos de la paleta v1.) Resultado: el viewer no nota ningún cambio de color en seguidos antiguos. Nuevos seguidos usan el allocator.
+
+---
+
+## 7. Memoria
+
+- Reescribir `mem://style/map/followed-poi-grammar`: fill = identidad, sin stroke, OKLCH maximin.
+- Crear `mem://logic/identity/owner-color-allocator`: contrato del allocator (tiers, ΔE, anchors prohibidos, inmutabilidad, degradación).
+- Actualizar `mem://index.md` Core (PR-OWNER-IDENTITY-1 → PR-OWNER-IDENTITY-2): "fill OKLCH = identidad persistida; sin stroke".
+
+---
+
+## QA visual final
+
+- Sandbox y Alpha tienen colores **muy distintos** (ΔE > 25), sin borde.
+- Añadir un tercer seguido NO cambia el color de los dos primeros.
+- Tras refresh, mismos colores (persistencia DB).
+- Ningún color asignado se confunde con verde enriched, amber, yellow, magenta, red.
+- Sidebar y mapa muestran color idéntico para un mismo seguido.
+- Tests pasan: determinismo, maximin, inmutabilidad, contraste WCAG, anchors prohibidos.
+
+---
+
+## Fuera de alcance (PR futuros)
+
+- ΔE2000 real (ahora ΔE OKLab simple — más que suficiente para identidad).
+- Avatar/iniciales en marker rich → `PR-OWNER-IDENTITY-3`.
+- UI manual para que el viewer reasigne color de un seguido concreto.
+- Re-balance global opt-in (rompe inmutabilidad — solo bajo acción explícita).
