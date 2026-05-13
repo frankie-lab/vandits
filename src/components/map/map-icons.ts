@@ -26,6 +26,31 @@ import { tokens } from '@/design-system/tokens';
 import { getOwnerStrokeColor } from './owner-stroke';
 import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
 
+// ── Followed POI debug helpers ──────────────────────────────────────────
+// Activos solo en DEV o si la URL incluye `?debug=poi-icon`. En producción
+// el HTML de los markers se mantiene limpio (sin data-* ni logs).
+// Ver mem://style/map/followed-poi-grammar.
+const _isFollowedDebugEnabled = (): boolean => {
+  try {
+    if ((import.meta as any)?.env?.DEV) return true;
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      return sp.get('debug') === 'poi-icon';
+    }
+  } catch { /* noop */ }
+  return false;
+};
+const FOLLOWED_DEBUG = _isFollowedDebugEnabled();
+const _followedLogged = new Set<string>();
+
+/** Stroke width del pennant por banda de zoom. Subida controlada: el color
+ *  del owner debe verse, pero no comerse el fill (estado curado). */
+const getFollowedStrokeWidth = (mode: MarkerRenderMode): number => {
+  if (mode === 'rich') return 3;
+  if (mode === 'standard') return 2.5;
+  return 2; // compact
+};
+
 /**
  * Helper único: factor de escala por zoom (no solo por banda).
  * Lee `poi.renderScale.byZoom.zNN` con fallback a la escala por banda.
