@@ -430,7 +430,10 @@ export const createCustomIcon = (
               <stop offset="100%" style="stop-color:${applyStateColor(baseColor)}" />
             </linearGradient>
           </defs>`}
-          <circle cx="12" cy="12" r="11" fill="${skipGradient ? applyStateColor(baseColor) : `url(#dotGrad-${location?.id || 'default'})`}" stroke="white" stroke-width="${borderWidth}"/>
+          ${isFollowedPoi
+            ? `<polygon points="2,3 22,3 12,22" fill="${applyStateColor(baseColor)}" stroke="${getOwnerStrokeColor(ownerUid)}" stroke-width="1.5" stroke-linejoin="round"/>`
+            : `<circle cx="12" cy="12" r="11" fill="${skipGradient ? applyStateColor(baseColor) : `url(#dotGrad-${location?.id || 'default'})`}" stroke="white" stroke-width="${borderWidth}"/>`
+          }
         </svg>
       </div>
 
