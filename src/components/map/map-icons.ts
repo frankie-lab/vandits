@@ -24,6 +24,7 @@ import { getPointHeroImage } from '@/domains/content/lib/point-hero-image';
 import { ZOOM_THRESHOLDS } from '@/design-system/map/rules/zoom-thresholds';
 import { tokens } from '@/design-system/tokens';
 import { getOwnerStrokeColor } from './owner-stroke';
+import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
 
 /**
  * Helper único: factor de escala por zoom (no solo por banda).
