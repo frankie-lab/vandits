@@ -186,6 +186,18 @@ export const createCustomIcon = (
   // source of truth = `currentZoom` (actualizado en cada `zoomend` y por
   // sync defensivo desde call-sites paralelos).
   const renderMode: MarkerRenderMode = isFocused ? 'rich' : getRenderModeForZoom(currentZoom);
+
+  // ── Followed-user gate (PR-SOCIAL-2A) ──────────────────────────────────
+  // Norma canónica: POIs propios = círculo (con todas sus variables).
+  //                 POIs de seguidos = triángulo invertido (sin rings,
+  //                 sin tint, stroke fino = identidad del owner).
+  // Helper único: getOwnerStrokeColor(uid). Ver mem://style/map/followed-poi-grammar.
+  const ownerUid = (location as any)?.userId ?? null;
+  const isFollowedPoi = !isOwn && !!currentUserId && !!ownerUid && ownerUid !== currentUserId;
+  if (isFollowedPoi) {
+    // Para seguidos, anular tint y currentUserId-driven rings: dominio privado del owner.
+    collectionTint = null;
+  }
   if (renderMode === 'micro') {
     // Rampa explícita por zoom (z≤3→2, z4→3, z5→4). Cap micro = 4px en
     // z5 antes de saltar a SVG compact en z6. La pertenencia (`isOwn`)
@@ -196,6 +208,17 @@ export const createCustomIcon = (
       4; // z5 — último escalón micro antes de compact
     const dot = entry.fill_color;
     const haloStyle = isOwn ? '' : 'opacity:0.85;';
+    // Followed micro: triángulo invertido CSS (clip-path) en lugar de círculo.
+    if (isFollowedPoi) {
+      const stroke = getOwnerStrokeColor(ownerUid);
+      return L.divIcon({
+        className: `custom-marker-micro is-followed`,
+        html: `<div style="width:${microSize + 2}px;height:${microSize + 2}px;background:${dot};clip-path:polygon(0 0,100% 0,50% 100%);border:0.5px solid ${stroke};opacity:0.9;"></div>`,
+        iconSize: [microSize + 2, microSize + 2],
+        iconAnchor: [(microSize + 2) / 2, (microSize + 2) / 2],
+        popupAnchor: [0, -(microSize + 2) / 2],
+      });
+    }
     return L.divIcon({
       className: `custom-marker-micro${isOwn ? ' is-own' : ''}`,
       html: `<div style="width:${microSize}px;height:${microSize}px;border-radius:50%;background:${dot};${haloStyle}"></div>`,
@@ -210,8 +233,9 @@ export const createCustomIcon = (
   // sigue sin rings porque ya retornó arriba con dots de 2–4px).
   // En `standard` (z9–11) vuelven gradiente + doble sombra.
   // En `rich` (z≥12) se añade polaroid hero.
-  const skipHealthRings = false;
-  const skipGradient = renderMode === 'compact';
+  // Followed: NUNCA muestra rings ni tint (curated-only sharing boundary).
+  const skipHealthRings = isFollowedPoi;
+  const skipGradient = renderMode === 'compact' || isFollowedPoi;
 
 
   // Factor de escala por render mode (Ola 1 — arquitectura visual por zoom).
