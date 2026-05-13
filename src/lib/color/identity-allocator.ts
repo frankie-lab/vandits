@@ -45,7 +45,7 @@ const C_SAMPLES = [0.14, 0.18];
 // Hue-gap mínimo (grados) que cualquier par de seguidos asignados debe
 // respetar. Con 71 hues útiles (320-180)/2, soporta cómodamente 4 colores
 // muy separados (~35° entre sí). A partir del 5º se degrada el gap.
-export const MIN_HUE_GAP_DEG = 35;
+export const MIN_HUE_GAP_DEG = 30;
 export const DEGRADED_HUE_GAP_DEG = 18;
 
 // ── Anchors reservados (solo informativos para tests / contrato) ───────
