@@ -11,8 +11,8 @@ import {
 import { deltaEOklab, contrastRatio } from '@/lib/color/oklch';
 
 describe('identity-allocator — version', () => {
-  it('palette version is owner-v2-oklch', () => {
-    expect(OWNER_PALETTE_VERSION).toBe('owner-v2-oklch');
+  it('palette version is owner-v2.1-oklch (post-PR-2.2 reset)', () => {
+    expect(OWNER_PALETTE_VERSION).toBe('owner-v2.1-oklch');
   });
 });
 
