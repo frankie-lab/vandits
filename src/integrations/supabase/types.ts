@@ -3564,6 +3564,18 @@ export type Database = {
           job_id: string
         }[]
       }
+      get_followed_user_stats: {
+        Args: never
+        Returns: {
+          contributions_7d: number
+          followers_count: number
+          following_count: number
+          last_contribution_at: string
+          shared_pois: number
+          total_pois: number
+          user_id: string
+        }[]
+      }
       get_my_home: {
         Args: never
         Returns: {
