@@ -616,7 +616,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  animate={{ opacity: 1, y: 0 }}
  transition={{ delay: index * 0.03 }}
  className={cn(
-  'flex items-center gap-3 p-3 rounded-xl',
+  'flex items-center gap-2 p-2.5 rounded-xl min-w-0',
   'hover:bg-accent/50 transition-all',
   isCurrentUser && 'bg-primary/5 ring-1 ring-primary/20',
   !isLast && 'border-b border-border/30',
@@ -649,31 +649,49 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  {/* Info */}
  <div className="flex-1 min-w-0 overflow-hidden">
   <div className="flex items-center gap-1.5 max-w-full">
-   <span className="font-medium text-sm text-foreground truncate max-w-[160px]">
+   <span className="font-medium text-sm text-foreground truncate">
     {user.display_name || user.username}
    </span>
    {isCurrentUser && (
     <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 shrink-0">Tú</Badge>
    )}
   </div>
-  <div className="text-xs text-muted-foreground truncate" title={
-    user.totalPois != null
-      ? `${user.sharedPois} visibles para ti · ${user.totalPois} totales en su catálogo (privados o sin curar)`
-      : `${user.sharedPois} POIs visibles para ti (curados)`
-  }>
-   <span className="font-semibold text-foreground">{user.sharedPois}</span> compartidos
+  <div
+   className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground"
+   title={[
+     `${user.sharedPois} compartidos visibles para ti`,
+     user.totalPois != null ? `${user.totalPois} totales en su catálogo` : null,
+     user.lastContributionAt ? `último POI hace ${formatActivityShort(user.lastContributionAt)}` : null,
+     user.contributions7d != null && user.contributions7d > 0
+       ? `+${user.contributions7d} en los últimos 7 días`
+       : null,
+   ].filter(Boolean).join(' · ')}
+  >
+   <span className="inline-flex items-center gap-1 shrink-0 tabular-nums">
+    <Share2 className="w-3 h-3" />
+    <span className="font-semibold text-foreground">{user.sharedPois}</span>
+   </span>
    {user.totalPois != null && (
-    <> · <span className="font-semibold text-foreground">{user.totalPois}</span> totales</>
+    <span className="inline-flex items-center gap-1 shrink-0 tabular-nums">
+     <Lock className="w-3 h-3" />
+     <span className="font-semibold text-foreground">{user.totalPois}</span>
+    </span>
    )}
    {user.lastContributionAt && (
-    <> · hace {formatDistanceToNow(new Date(user.lastContributionAt), { locale: es })}</>
+    <span className="inline-flex items-center gap-1 shrink-0 tabular-nums">
+     <Clock className="w-3 h-3" />
+     {formatActivityShort(user.lastContributionAt)}
+    </span>
    )}
    {user.contributions7d != null && user.contributions7d > 0 && (
-    <> · +{user.contributions7d} (7d)</>
+    <span className="inline-flex items-center gap-1 shrink-0 tabular-nums">
+     <TrendingUp className="w-3 h-3" />
+     +{user.contributions7d}
+    </span>
    )}
   </div>
   {(user.followStatus === 'accepted' || user.followsMe) && (
-   <div className="flex items-center gap-1 mt-0.5 text-[10px]">
+   <div className="flex flex-wrap items-center gap-1 mt-0.5 text-[10px]">
     {user.followStatus === 'accepted' && (
      <span className="px-1.5 py-0 rounded bg-primary/10 text-primary">Sigues</span>
     )}
@@ -692,14 +710,14 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
     toggleUserVisibility(user.id);
    }}
    className={cn(
-    'p-1.5 rounded-full transition-colors shrink-0',
+    'p-1 rounded-full transition-colors shrink-0',
     isUserHiddenFlag
      ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
      : 'text-primary hover:bg-primary/10'
    )}
    title={isUserHiddenFlag ? 'Mostrar sus puntos en el mapa' : 'Ocultar sus puntos del mapa (no afecta el follow)'}
   >
-   {isUserHiddenFlag ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+   {isUserHiddenFlag ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
   </button>
  )}
 
@@ -707,10 +725,10 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  {(user.followStatus === 'accepted' || isCurrentUser) && (
   <button
    onClick={(e) => { e.stopPropagation(); handleFilterByUser(user); }}
-   className="p-1.5 rounded-full shrink-0 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+   className="p-1 rounded-full shrink-0 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
    title="Ver solo sus puntos en el mapa"
   >
-   <Filter className="w-4 h-4" />
+   <Filter className="w-3.5 h-3.5" />
   </button>
  )}
 
