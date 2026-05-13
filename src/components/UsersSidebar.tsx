@@ -448,12 +448,30 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
         </div>
         <div>
           <h2 className="font-semibold text-foreground">Social</h2>
-          <p className="text-xs text-muted-foreground">{users.length} registrados</p>
+          <p className="text-xs text-muted-foreground">
+            {users.filter(u => u.followStatus === 'accepted').length} seguidos · {users.filter(u => u.followsMe).length} te siguen
+          </p>
         </div>
       </div>
-      <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full">
-        <X className="w-4 h-4" />
-      </Button>
+      <div className="flex items-center gap-1">
+        <button
+          className="h-8 w-8 rounded-full inline-flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+          title={
+            'Glosario:\n' +
+            '• N compartidos → POIs suyos visibles para ti (curados)\n' +
+            '• N totales → tamaño total de su catálogo (si es público)\n' +
+            '• hace Xh → último POI añadido\n' +
+            '• +N (7d) → contribuciones últimos 7 días\n' +
+            '• Mute → oculta sus puntos del mapa (sigue siguiéndolo)\n' +
+            '• Filtro → ver solo sus puntos en el mapa'
+          }
+        >
+          <HelpCircle className="w-4 h-4" />
+        </button>
+        <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full">
+          <X className="w-4 h-4" />
+        </Button>
+      </div>
     </div>
   </div>
 
