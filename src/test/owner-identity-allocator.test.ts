@@ -16,18 +16,32 @@ describe('identity-allocator — version', () => {
   });
 });
 
-describe('identity-allocator — seed phase', () => {
-  it('first N picks consume seed in order', () => {
-    let assigned: any[] = [];
-    for (const seed of SEED_PALETTE) {
-      const r = pickNextIdentityColor(assigned);
-      expect(r.color).toEqual(seed);
-      expect(r.degraded).toBe(false);
-      assigned = [...assigned, r.color];
+describe('identity-allocator — maximin from first followed', () => {
+  it('first pick (assigned=[]) is deterministic', () => {
+    const a = pickNextIdentityColor([]);
+    const b = pickNextIdentityColor([]);
+    expect(a.color).toEqual(b.color);
+    expect(a.degraded).toBe(false);
+  });
+
+  it('first pick is far from every forbidden anchor', () => {
+    const r = pickNextIdentityColor([]);
+    for (const a of FORBIDDEN_ANCHORS) {
+      expect(deltaEOklab(r.color, a)).toBeGreaterThanOrEqual(ANCHOR_MIN_DELTA_E);
     }
   });
 
-  it('all seed colors clear forbidden anchors', () => {
+  it('first pick maximizes min ΔE to anchors over V', () => {
+    const r = pickNextIdentityColor([]);
+    const V = getCandidateSpace();
+    const myMin = Math.min(...FORBIDDEN_ANCHORS.map((a) => deltaEOklab(r.color, a)));
+    for (const c of V) {
+      const m = Math.min(...FORBIDDEN_ANCHORS.map((a) => deltaEOklab(c, a)));
+      expect(myMin).toBeGreaterThanOrEqual(m - 1e-6);
+    }
+  });
+
+  it('all SEED_PALETTE colors still clear forbidden anchors (backfill safety)', () => {
     for (const s of SEED_PALETTE) {
       for (const a of FORBIDDEN_ANCHORS) {
         expect(deltaEOklab(s, a)).toBeGreaterThanOrEqual(ANCHOR_MIN_DELTA_E);
@@ -38,47 +52,48 @@ describe('identity-allocator — seed phase', () => {
 
 describe('identity-allocator — determinism + immutability', () => {
   it('same assigned input produces same next color', () => {
-    const assigned = SEED_PALETTE.slice(0, 3);
-    const a = pickNextIdentityColor(assigned);
-    const b = pickNextIdentityColor(assigned);
+    const seq: any[] = [];
+    let assigned: any[] = [];
+    for (let i = 0; i < 4; i++) {
+      const r = pickNextIdentityColor(assigned);
+      seq.push(r.color);
+      assigned = [...assigned, r.color];
+    }
+    const a = pickNextIdentityColor(seq);
+    const b = pickNextIdentityColor(seq);
     expect(a.color).toEqual(b.color);
   });
 
   it('does not mutate the assigned array', () => {
-    const assigned = SEED_PALETTE.slice(0, 4);
+    const assigned = [pickNextIdentityColor([]).color];
     const before = [...assigned];
     pickNextIdentityColor(assigned);
     expect(assigned).toEqual(before);
   });
 
-  it('adding the N+1 color does not change the previous N', () => {
-    const seq = [];
+  it('never reuses an already-assigned color', () => {
     let assigned: any[] = [];
-    for (let i = 0; i < SEED_PALETTE.length + 3; i++) {
+    for (let i = 0; i < 12; i++) {
       const r = pickNextIdentityColor(assigned);
-      seq.push(r.color);
+      for (const a of assigned) {
+        expect(r.color).not.toEqual(a);
+      }
       assigned = [...assigned, r.color];
-    }
-    // Colors at index <i> are stable: nothing in the assignment loop
-    // recomputes earlier choices.
-    for (let i = 0; i < seq.length - 1; i++) {
-      const partial = seq.slice(0, i);
-      const next = pickNextIdentityColor(partial).color;
-      expect(next).toEqual(seq[i]);
     }
   });
 });
 
-describe('identity-allocator — maximin (post-seed)', () => {
-  it('beyond seed, picks color that maximizes min ΔE to assigned', () => {
-    // Saturate seed.
-    let assigned: any[] = [...SEED_PALETTE];
+describe('identity-allocator — maximin (multi-followed)', () => {
+  it('beyond first, picks color that maximizes min ΔE to assigned', () => {
+    let assigned: any[] = [];
+    for (let i = 0; i < 5; i++) {
+      assigned = [...assigned, pickNextIdentityColor(assigned).color];
+    }
     const r = pickNextIdentityColor(assigned);
-    // The chosen color's min-distance to assigned must be >= every
-    // other valid candidate's min-distance.
     const V = getCandidateSpace();
     const myMin = Math.min(...assigned.map((a) => deltaEOklab(r.color, a)));
     for (const c of V) {
+      if (assigned.some((a) => Math.abs(a.L - c.L) < 1e-3 && Math.abs(a.C - c.C) < 1e-3 && Math.abs(a.h - c.h) < 1e-3)) continue;
       const m = Math.min(...assigned.map((a) => deltaEOklab(c, a)));
       expect(myMin).toBeGreaterThanOrEqual(m - 1e-6);
     }
