@@ -15,7 +15,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/domains/identity';
 import { useLocationsStore } from '@/domains/content';
 import { requestSubsetFit } from '@/components/map/subset-fit';
-import { getOwnerStrokeColor } from '@/components/map/owner-stroke';
+import { getOwnerIdentityColor } from '@/components/map/owner-stroke';
+import {
+  loadOwnerIdentityAssignments,
+  ensureAssignmentsForFolloweds,
+  getOwnerColorIndex,
+} from '@/stores/owner-identity-store';
 import { usePermissions } from '@/domains/identity';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { toast } from 'sonner';
@@ -212,6 +217,24 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   usersWithStats.sort((a, b) => b.sharedPois - a.sharedPois);
 
  setUsers(usersWithStats);
+
+  // Owner identity colors (PR-OWNER-IDENTITY-1): asegurar asignación
+  // persistida para cada seguido visible. El renderer del mapa solo lee;
+  // los writes se disparan aquí. Tras cada cambio, el store emite
+  // `lovable:owner-identity-updated` y LocationMap repinta los markers
+  // afectados sin rebuild.
+  if (currentUser?.id) {
+    const followedUids = usersWithStats
+      .filter(u => u.id !== currentUser.id)
+      .map(u => u.id);
+    try {
+      await loadOwnerIdentityAssignments(currentUser.id);
+      // No await: la asignación se escribe en background sin bloquear UI.
+      void ensureAssignmentsForFolloweds(currentUser.id, followedUids);
+    } catch (e) {
+      console.warn('[UsersSidebar] owner-identity load/ensure failed', e);
+    }
+  }
  } catch (error) {
  console.error('Error fetching users:', error);
  } finally {
@@ -675,7 +698,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
     <span
       title="Color de identidad de este usuario en el mapa"
       className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-sm border border-card shadow-sm"
-      style={{ background: getOwnerStrokeColor(user.id), clipPath: 'polygon(0 0,100% 0,50% 100%)' }}
+      style={{ background: getOwnerIdentityColor(user.id, getOwnerColorIndex(user.id)), clipPath: 'polygon(0 0,100% 0,50% 100%)' }}
     />
   )}
   </button>

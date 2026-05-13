@@ -2746,6 +2746,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_owner_color_assignments: {
+        Row: {
+          assigned_at: string
+          color_index: number
+          followed_user_id: string
+          palette_version: string
+          viewer_user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          color_index: number
+          followed_user_id: string
+          palette_version?: string
+          viewer_user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          color_index?: number
+          followed_user_id?: string
+          palette_version?: string
+          viewer_user_id?: string
+        }
+        Relationships: []
+      }
       user_places: {
         Row: {
           created_at: string

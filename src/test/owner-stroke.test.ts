@@ -1,13 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import {
   getOwnerStrokeColor,
+  getOwnerIdentityColor,
   OWNER_PALETTE_SIZE,
+  OWNER_PALETTE_VERSION,
   _OWNER_PALETTE_FOR_TEST,
   FORBIDDEN_HUE_RANGES,
   parseHslHue,
 } from '@/components/map/owner-stroke';
 
-// Sandbox uid (canónico) + uids de prueba.
 const SANDBOX_UID = 'f04b3b95-7308-4b74-b3c7-7e819767c5fb';
 const ALPHA_UID = 'alpha-test-uid-0000-0000-0000-000000000001';
 const BETA_UID  = 'beta-test-uid--0000-0000-0000-000000000002';
@@ -22,30 +23,30 @@ describe('owner-stroke palette guard', () => {
         expect(
           inRange,
           `Color ${color} (hue=${hue}) cae en rango prohibido [${lo}, ${hi}). ` +
-          `Estos hues colisionan con health rings (amber/yellow/magenta/red) ` +
-          `o estados POI (verde/naranja).`,
+          `Bloqueado: red/amber/yellow/verde/teal verdoso/magenta.`,
         ).toBe(false);
       }
     }
   });
 
-  it('mismo uid → mismo color (estable entre llamadas)', () => {
-    const a = getOwnerStrokeColor(SANDBOX_UID);
-    const b = getOwnerStrokeColor(SANDBOX_UID);
-    expect(a).toBe(b);
-  });
-
-  it('uids distintos pueden compartir color (paleta cerrada) pero hash es deterministico', () => {
-    // No exigimos colores distintos para cualquier 2 uids — la paleta es de
-    // 8 elementos y hay millones de uids. Sí exigimos que el resultado sea
-    // estable y siempre del set permitido.
-    const colors = [SANDBOX_UID, ALPHA_UID, BETA_UID].map(getOwnerStrokeColor);
-    for (const c of colors) {
-      expect(_OWNER_PALETTE_FOR_TEST).toContain(c);
+  it('todos los colores tienen hue >= 190 (lejos del verde fill)', () => {
+    for (const color of _OWNER_PALETTE_FOR_TEST) {
+      const hue = parseHslHue(color)!;
+      expect(hue, `hue mínimo en ${color}`).toBeGreaterThanOrEqual(190);
+      expect(hue, `hue máximo en ${color}`).toBeLessThanOrEqual(290);
     }
   });
 
-  it('null/undefined/empty → fallback determinista al primer color', () => {
+  it('mismo uid -> mismo color (estable entre llamadas, fallback hash)', () => {
+    expect(getOwnerStrokeColor(SANDBOX_UID)).toBe(getOwnerStrokeColor(SANDBOX_UID));
+  });
+
+  it('uids distintos pueden compartir color en fallback hash, todos del set permitido', () => {
+    const colors = [SANDBOX_UID, ALPHA_UID, BETA_UID].map(getOwnerStrokeColor);
+    for (const c of colors) expect(_OWNER_PALETTE_FOR_TEST).toContain(c);
+  });
+
+  it('null/undefined/empty -> fallback determinista al primer color', () => {
     const fallback = _OWNER_PALETTE_FOR_TEST[0];
     expect(getOwnerStrokeColor(null)).toBe(fallback);
     expect(getOwnerStrokeColor(undefined)).toBe(fallback);
@@ -55,5 +56,30 @@ describe('owner-stroke palette guard', () => {
   it('paleta no esta vacia y OWNER_PALETTE_SIZE coincide', () => {
     expect(OWNER_PALETTE_SIZE).toBeGreaterThan(0);
     expect(_OWNER_PALETTE_FOR_TEST.length).toBe(OWNER_PALETTE_SIZE);
+  });
+
+  it('OWNER_PALETTE_VERSION es owner-v1', () => {
+    expect(OWNER_PALETTE_VERSION).toBe('owner-v1');
+  });
+});
+
+describe('getOwnerIdentityColor', () => {
+  it('usa colorIndex persistido cuando existe', () => {
+    expect(getOwnerIdentityColor(SANDBOX_UID, 0)).toBe(_OWNER_PALETTE_FOR_TEST[0]);
+    expect(getOwnerIdentityColor(SANDBOX_UID, 3)).toBe(_OWNER_PALETTE_FOR_TEST[3]);
+  });
+
+  it('normaliza con módulo si index >= paleta (tolerancia a cambios de paleta)', () => {
+    const expected = _OWNER_PALETTE_FOR_TEST[5 % OWNER_PALETTE_SIZE];
+    expect(getOwnerIdentityColor(SANDBOX_UID, OWNER_PALETTE_SIZE + 5)).toBe(expected);
+  });
+
+  it('cae al fallback hash si no hay colorIndex', () => {
+    expect(getOwnerIdentityColor(SANDBOX_UID, undefined)).toBe(getOwnerStrokeColor(SANDBOX_UID));
+    expect(getOwnerIdentityColor(SANDBOX_UID, null)).toBe(getOwnerStrokeColor(SANDBOX_UID));
+  });
+
+  it('rechaza colorIndex negativo y cae al fallback', () => {
+    expect(getOwnerIdentityColor(SANDBOX_UID, -1)).toBe(getOwnerStrokeColor(SANDBOX_UID));
   });
 });
