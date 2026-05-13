@@ -251,7 +251,7 @@ export const createCustomIcon = (
     const haloStyle = isOwn ? '' : 'opacity:0.85;';
     // Followed micro: triángulo invertido CSS (clip-path) en lugar de círculo.
     if (isFollowedPoi) {
-      const stroke = getOwnerStrokeColor(ownerUid);
+      const stroke = getOwnerIdentityColor(ownerUid, getOwnerColorIndex(ownerUid));
       return L.divIcon({
         className: `custom-marker-micro is-followed`,
         html: `<div style="width:${microSize + 2}px;height:${microSize + 2}px;background:${dot};clip-path:polygon(0 0,100% 0,50% 100%);border:1px solid ${stroke};opacity:0.9;"></div>`,
