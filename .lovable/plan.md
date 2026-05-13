@@ -1,143 +1,150 @@
 
-# Test Matrix PR-1 — dataset controlado para validar curated-only sharing (v4 final)
+# PR-SOCIAL-1 — Panel de seguidos: stats sharing-aware + claridad de fila
 
-## Reglas duras
+Versión contenida. Cache + realtime se difieren a PR-SOCIAL-2.
 
-1. **Cero cambios en Frankie GMZ** (`b977aa23-…`): no insertar/modificar/borrar POIs, follows ni colecciones. Frankie solo viewer/master.
-2. **Job sintético de failures con `user_id = Beta`** (no nullable, no opcional). `prewarmFromRecentJobs` filtra por `user_id = auth.uid()`, así que sin esto los rings review/hardError no aparecen al loguearse como Beta.
-3. **`geo_health` nunca se setea explícito**. El trigger `locations_set_geo_health` lo reescribe siempre vía `_compute_location_geo_health_lookup(...)` a partir de coords + FKs + strings. Para cada estado se construye el input que produce el bucket deseado, y se **verifica con SELECT post-insert** que el valor real coincide. Si no coincide, se ajusta el fixture antes de seguir.
+## Diagnóstico (referencia)
 
-## Schema verificado (BD real, 2026-05-13)
+Panel actual `src/components/UsersSidebar.tsx` muestra 4 métricas con iconos engañosos y data flow caro:
 
-- `locations.geo_health` text, sin enum/CHECK. Reescrito por trigger en cada INSERT/UPDATE.
-- `_compute_location_geo_health` devuelve uno de: `empty | broken | partial | stale_name | ok`.
-- `locations.visibility` CHECK = `{public, followers, private}`.
-- No hay tabla `enrichment_failure_store`. Failures viven en `enrichment_jobs.error_messages` (jsonb keyed by `location_id`).
-- `enrichment_jobs.user_id` requerido para que `prewarmFromRecentJobs` lo recupere.
-- `EnrichmentErrorKind`: review = `{coherence, llm_unverifiable, no_match}`, hardError = `{rate_limit, no_credits, timeout, network, unknown}`.
-
-## Receta de fixtures por estado (compatible con trigger)
-
-Para cada caso, `latitude/longitude` siempre presentes; lo que varía son strings y FKs:
-
-| Estado lógico | `enriched_data.descripcion` | Cómo forzar el bucket en BD |
-|---------------|-----------------------------|------------------------------|
-| `ok` enriched | non-empty | strings y FKs coherentes resueltos vía `resolve-admin-area` (helper `resolveAllFks` ya disponible) → trigger devuelve `ok`. |
-| `partial`     | non-empty | `country` (string) presente, `country_id = NULL` → primer branch de partial. |
-| `broken` (chain) | non-empty | `country_id` y `region_id` presentes pero `region.parent_id ≠ country_id` (usar dos admin_areas reales sin relación padre/hijo) → branch broken. |
-| `review`      | empty     | mismas FKs coherentes que `ok` (queda `ok`) + entrada en `enrichment_jobs.error_messages` con `kind='coherence'`. Ring lo aporta el failure store. |
-| `hardError`   | empty     | igual que review pero `kind='timeout'`. |
-| `no-enriched` | empty     | FKs coherentes, sin entrada en error_messages. |
-
-Tras cada bloque de inserts, ejecutar:
-
-```sql
-SELECT id, name, geo_health, enriched_data->>'descripcion' IS NOT NULL AS has_desc
-FROM locations
-WHERE enriched_data->>'_test_matrix' = 'pr1-2026-05-13' AND owner_user_id = '<uid>';
-```
-
-y comparar contra la matriz esperada. Si una fila salió con `geo_health` distinto, **corregir el fixture** (ajustar FKs/strings) antes de validar PR-1.
-
-## Dataset (solo Sandbox / Beta / Alpha)
-
-Todos los POIs llevan `enriched_data->>'_test_matrix' = 'pr1-2026-05-13'` para limpieza.
-
-### 1. Sandbox Agent — visibility/deleted (10)
-
-Tag `#test-sandbox`, Galicia, `is_approved=true`, todos `ok` enriched.
-
-| visibility / estado | n | Frankie ve |
+| Icono actual | Significa hoy | Problema |
 |---|---|---|
-| `followers` ok enriched | 5 | Sí |
-| `public` ok enriched | 2 | Sí |
-| `private` ok enriched | 2 | No |
-| `followers` ok enriched + `deleted_at=now()` | 1 | No |
+| `MapPin` | `public_locations_count` (RPC) | NO refleja curated-only; ignora `followers` |
+| `Users` | seguidores | OK |
+| `Heart` | siguiendo | Icono sugiere "favoritos" — engañoso |
+| `Link2` | `commonPointsCount` (cliente, escaneo full-table) | Caro, ambiguo, no ayuda a decidir |
 
-### 2. Aventurera Beta — curated-only (10)
+Mute por usuario YA existe vía `useLayerVisibility.toggleUserVisibility` con persistencia en `localStorage.vandits_hidden_followed_users`. Pipeline ya lo respeta. Falta visibilidad en UI.
 
-Todos `visibility=followers`, `is_approved=true`, tag `#test-beta`, A Coruña. Frankie no debe ver ninguno.
+## Cambios PR-SOCIAL-1
 
-| Estado | descripcion | failure kind | n |
-|---|---|---|---|
-| partial | non-empty | — | 3 |
-| broken (chain) | non-empty | — | 2 |
-| review | empty | `coherence` | 1 |
-| hardError | empty | `timeout` | 1 |
-| no-enriched | empty | — | 3 |
+### 1. RPC `get_followed_user_stats` (privacy-aware)
 
-### 3. Explorador Alpha — realtime (8)
+Nueva función SQL `STABLE SECURITY DEFINER`. Devuelve por user_id, **solo para perfiles con relación follow aceptada en cualquier dirección + el propio**:
 
-Tag `#test-alpha`, Andalucía + Marruecos, `is_approved=true`, todos `ok` enriched.
-
-| visibility | n |
+| Campo | Definición |
 |---|---|
-| `followers` | 5 |
-| `public` | 2 |
-| `private` | 1 |
+| `user_id` | uuid |
+| `shared_pois` | `COUNT(*)` de POIs del owner que pasan `isShareablePoi` server-side |
+| `total_pois` | `COUNT(*)` de POIs del owner no borrados — **solo si caller==owner OR follow mutuo OR caller es admin/master**; en otro caso `NULL` |
+| `last_contribution_at` | `MAX(created_at)` sobre POIs no borrados, mismas reglas de privacidad que `total_pois` |
+| `contributions_7d` | `COUNT(*)` últimos 7 días con misma regla de privacidad |
+| `followers_count` | igual que hoy |
+| `following_count` | igual que hoy |
 
-### 4. Job sintético de failures (Beta)
-
-Un único INSERT en `enrichment_jobs`:
-
-- `user_id = '<Beta uid>'` (obligatorio).
-- `document_id = NULL`.
-- `status = 'completed'`, `total_count = 2`.
-- `error_ids = [reviewLocId, hardErrorLocId]`.
-- `error_messages = { "<reviewLocId>": { "kind": "coherence" }, "<hardErrorLocId>": { "kind": "timeout" } }`.
-- `created_at = now()` para que entre en los 20 más recientes que lee `prewarmFromRecentJobs`.
-
-## Validaciones
-
-### Como Beta (logueado)
-- Eje Salud: 7 POIs propios rotos (3 partial + 2 chain + 1 review + 1 hardError).
-- Rings amber/yellow/magenta/red en la cantidad esperada.
-- Repair CTA partial/chain encola via `enqueue_health_repair`.
-- POIs ajenos NO entran en su eje Salud.
-
-### Como Frankie (logueado)
-
-Visibility matrix:
-
-| Filtro | Esperado |
-|---|---|
-| `#test-sandbox` followers ok | 5 |
-| `#test-sandbox` public ok | 2 |
-| `#test-sandbox` private | 0 |
-| `#test-sandbox` deleted | 0 |
-| `#test-beta` (cualquier) | 0 |
-| `#test-alpha` followers ok | 5 |
-| `#test-alpha` public ok | 2 |
-| `#test-alpha` private | 0 |
-
-Health domain privado: rings y eje Salud solo sobre POIs propios reales.
-
-Realtime (Alpha → Frankie, sin reload):
-1. Cambiar un POI followers ok a `partial` ⇒ desaparece.
-2. Vaciar `enriched_data.descripcion` de otro ⇒ desaparece.
-3. `visibility='private'` en otro ⇒ desaparece.
-4. Revertir #1 a estado `ok` enriched ⇒ reaparece.
-
-Counts: `myCatalog` Frankie igual; `catalogTotal` += 7 (Sandbox) + 7 (Alpha).
-
-## Limpieza
+**Definición server-side de `shared_pois`** (replica `isShareablePoi` del frontend):
 
 ```sql
-DELETE FROM enrichment_jobs WHERE error_messages::text LIKE '%pr1-2026-05-13%';
-DELETE FROM locations WHERE enriched_data->>'_test_matrix' = 'pr1-2026-05-13';
+WHERE l.deleted_at IS NULL
+  AND l.visibility IN ('public', 'followers')
+  AND COALESCE(l.enriched_data->>'descripcion', '') <> ''
+  AND l.geo_health = 'ok'
+  AND l.owner_user_id = u.id
 ```
 
-Ningún DELETE toca filas de Frankie.
+Comentario cruzado obligatorio en `src/domains/sharing/lib/is-shareable-poi.ts` y en la migración SQL: cualquier evolución de la regla debe sincronizarse en ambos lados.
 
-## Orden global
+**Privacidad `total_pois`**: alineada con la decisión de producto sugerida. Mutual = ambos sentidos `accepted` en `follows`. Admin/master vía `_is_admin_or_master(auth.uid())`. Si `NULL`, frontend muestra solo `shared_pois`.
 
-1. Sembrar Sandbox + Beta + Alpha + job sintético.
-2. SELECT de verificación; ajustar fixtures hasta que `geo_health` real == matriz.
-3. Validar PR-1 (matriz Frankie + health propio Beta + realtime).
-4. PR-3 — RLS server-side.
-5. PR-2 — pennant visual.
+Implementación: una query con CTE (`shared`, `total`, `last`, `recent`, `followers`, `following`) joinada al universo de `profiles` que el caller puede ver.
 
-## Riesgos abiertos
+### 2. Frontend — fila rediseñada
 
-- Si una receta no produce el `geo_health` esperado por desfase de admin_areas, ajustar referencias antes de validar — no continuar con datos divergentes.
-- Si el trigger `locations_auto_enqueue_geo_repair` mete los POIs rotos de Beta en un job auto-repair, está bien: el job sintético sigue presente para los kinds review/hardError (lo importante es que `prewarmFromRecentJobs` lo lea, lo cual depende de `user_id`).
+`src/components/UsersSidebar.tsx`. Sustituir el bloque de 4 métricas por:
+
+```text
+┌──────────────────────────────────────────────┐
+│ [👁/👁‍🗨] [Avatar] Sandbox Agent      [Filter] │
+│         12 compartidos · 76 totales          │
+│         · hace 2h · +14 (7d)                 │
+│         Sigues  ·  Te sigue                  │
+└──────────────────────────────────────────────┘
+```
+
+Reglas de render:
+
+- **Toggle mute** (`Eye` / `EyeOff`) elevado a la izquierda del avatar. Estados: visible (tinta `primary`) ↔ muted (`opacity-50`). Tooltip: "Ocultar sus puntos del mapa (no afecta el follow)".
+- **Compartidos / totales**: `12 compartidos` siempre; `· N totales` solo si la RPC devolvió `total_pois ≠ null`. Tooltip detalla: "12 visibles para ti · 76 totales en su catálogo (privados o sin curar)".
+- **Actividad**: `· hace 2h` (`formatDistanceToNow`) si `last_contribution_at`. `· +N (7d)` solo si `contributions_7d > 0`.
+- **Relación social** como chips compactos `Sigues` y/o `Te sigue` en lugar de números crípticos de following/followers.
+- **"Ver solo sus puntos"**: botón `Filter` explícito a la derecha. Reusa `handleFilterByUser` existente. El click sobre avatar/nombre **deja** de filtrar (causa más fricción de la que aporta) y pasa a abrir perfil en futuras iteraciones — por ahora simplemente no dispara filtro.
+
+Eliminado:
+- `commonPointsCount` y todo su escaneo (`allLocations`/`allDocs` en `fetchUsers`). Ahorro: dos selects full-table por apertura.
+- Icono `Heart` con número de "siguiendo" en la fila.
+- Métrica "100% sano" (sería tautología sobre shared_pois — no aporta).
+
+### 3. Header / footer del panel
+
+- Header subtítulo cambia a `N seguidos · M te siguen`.
+- Footer "Siguiendo" se mantiene (ya útil).
+- Mini glosario tooltip en el header (icono `HelpCircle`) con:
+  ```
+  12 compartidos → POIs suyos visibles para ti (curados)
+  76 totales → tamaño total de su catálogo (si es público)
+  hace 2h → último POI añadido
+  +14 (7d) → contribuciones últimos 7 días
+  Mute → oculta sus puntos del mapa (sigue siguiéndolo)
+  ```
+
+### 4. Wiring de `fetchUsers`
+
+- Reemplazar la mezcla `get_public_profile_stats` + escaneos por **una sola** llamada a `get_followed_user_stats`.
+- Para perfiles no relacionados (tab "Buscar" futuro), seguir usando `get_public_profile_stats` solo con `followers_count`/`following_count`. En PR-SOCIAL-1 el panel sigue listando todos los perfiles (sin cambios de tabs); las nuevas métricas se renderizan vacías para no-seguidos: `0 compartidos`.
+
+### 5. Naming alineado con curated-only canon
+
+- En tooltips/labels: `Compartidos` / `Totales`. **No** usar `workspace`, `catálogo público`, `followers-only`.
+- Bucket en código sigue como `followedShared` (ya migrado).
+
+## Diagrama
+
+```text
+DB (RPC)
+  get_followed_user_stats(_caller=auth.uid())
+   ├── shared_pois        (= isShareablePoi server-side)
+   ├── total_pois         (NULL si privacidad lo prohíbe)
+   ├── last_contribution_at (mismas reglas)
+   ├── contributions_7d   (mismas reglas)
+   ├── followers_count
+   └── following_count
+        │
+        ▼
+ fetchUsers (sin cache, sin realtime — fetch en open)
+        │
+        ▼
+ UsersSidebar row
+   [👁 mute] [Avatar] Nombre              [Filter focus]
+   12 compartidos · 76 totales
+   hace 2h · +14 (7d)
+   Sigues · Te sigue
+```
+
+## Archivos tocados
+
+- `supabase/migrations/<ts>_get_followed_user_stats.sql` (nueva)
+- `src/components/UsersSidebar.tsx` (rediseño de fila + uso nueva RPC + drop commonPoints)
+- `src/domains/sharing/lib/is-shareable-poi.ts` (comentario cruzado a la SQL — no cambia lógica)
+- Memoria nueva `mem://ui/social/users-sidebar-spec` con contrato fila-a-fila + privacidad de `total_pois`
+
+## Diferido a PR-SOCIAL-2
+
+- Store singleton `followed-stats-store` con TTL.
+- Realtime postgres_changes filtrado por owners seguidos.
+- Tabs `Sigues` / `Te sigue` / `Buscar más` con default `Sigues`.
+- "Solo en búsqueda" como tercer estado de mute.
+
+## Riesgos & mitigaciones
+
+- **Sincronía SQL ↔ TS de `isShareablePoi`**: comentarios cruzados + futuro test PR-1 que cuente ambos lados sobre la matriz seedeada.
+- **Coste de la RPC** sin cache: una sola query con índices `(owner_user_id, deleted_at, geo_health, visibility)` ya existentes; un fetch al abrir el panel. Aceptable.
+- **Privacidad `total_pois`**: ocultar por defecto a no-mutuos; la decisión de producto puede revisarse sin tocar RPC (ya devuelve NULL controlado).
+
+## Orden de ejecución
+
+1. Migración: `get_followed_user_stats`.
+2. Edit `UsersSidebar.tsx` (RPC + fila + drop commonPoints).
+3. Comentario cruzado en `is-shareable-poi.ts`.
+4. Memoria `mem://ui/social/users-sidebar-spec`.
+5. Verificar manualmente con la matriz PR-1 ya seedeada (Sandbox 5+2 shared, Beta 0 shared, Alpha 5 shared).
+

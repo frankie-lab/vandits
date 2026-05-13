@@ -28,6 +28,10 @@
  * ANTES de cualquier paso de viewport culling, clustering o markerLocations.
  *
  * Ver `mem://logic/sharing/curated-only-rule`.
+ *
+ * SYNC SQL: la RPC `public.get_followed_user_stats` (migration
+ * 20260513_get_followed_user_stats) replica este criterio para `shared_pois`.
+ * Cualquier cambio aquí requiere actualizar también esa función.
  */
 
 import type { GeoLocation } from '@/types/location';

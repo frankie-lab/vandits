@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
- Users, X, Search, MapPin, Shield, Crown, Edit3, Eye, EyeOff, UserCheck, 
- ChevronRight, UserPlus, UserMinus, Loader2, Clock, Filter, Heart, Link2, 
- type LucideIcon
+import {
+  Users, X, Search, Shield, Crown, Edit3, Eye, EyeOff, UserCheck,
+  UserPlus, UserMinus, Loader2, Clock, Filter, HelpCircle,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
@@ -17,38 +16,28 @@ import { useLocationsStore } from '@/domains/content';
 import { usePermissions } from '@/domains/identity';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { toast } from 'sonner';
+import { formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface UserWithStats {
- id: string;
- username: string;
- display_name: string | null;
- avatar_url: string | null;
- roles: string[];
- locationCount: number;
- followersCount: number;
- followingCount: number;
- commonPointsCount: number;
- is_private: boolean;
- followStatus: 'none' | 'pending' | 'accepted' | 'rejected';
- followId?: string;
- followsMe: boolean;
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  roles: string[];
+  sharedPois: number;
+  totalPois: number | null;
+  lastContributionAt: string | null;
+  contributions7d: number | null;
+  followersCount: number;
+  followingCount: number;
+  is_private: boolean;
+  followStatus: 'none' | 'pending' | 'accepted' | 'rejected';
+  followId?: string;
+  followsMe: boolean;
 }
 
 type RelationFilter = 'all' | 'following' | 'followers';
-
-// Haversine formula to calculate distance between two points in meters
-function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
- const R = 6371000;
- const dLat = (lat2 - lat1) * Math.PI / 180;
- const dLon = (lon2 - lon1) * Math.PI / 180;
- const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
- Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
- Math.sin(dLon / 2) * Math.sin(dLon / 2);
- const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
- return R * c;
-}
-
-const COMMON_POINT_THRESHOLD_METERS = 500;
 
 interface UsersSidebarProps {
  isOpen: boolean;
@@ -140,92 +129,68 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
     followersData?.forEach(f => followsMeSet.add(f.follower_id));
   }
 
+  // Sharing-aware stats (PR-SOCIAL-1).
+  // - shared_pois follows isShareablePoi server-side
+  // - total_pois/last/contributions hidden unless mutual or admin
+  const { data: followedStats } = await supabase.rpc('get_followed_user_stats');
+  const followedMap: Record<string, {
+    shared: number;
+    total: number | null;
+    last: string | null;
+    recent: number | null;
+    followers: number;
+    following: number;
+  }> = {};
+  (followedStats as any[] | null)?.forEach((s) => {
+    followedMap[s.user_id] = {
+      shared: Number(s.shared_pois ?? 0),
+      total: s.total_pois == null ? null : Number(s.total_pois),
+      last: s.last_contribution_at ?? null,
+      recent: s.contributions_7d == null ? null : Number(s.contributions_7d),
+      followers: Number(s.followers_count ?? 0),
+      following: Number(s.following_count ?? 0),
+    };
+  });
+
+  // Fallback for non-related profiles (followers/following counts only).
   const { data: publicStats } = await supabase.rpc('get_public_profile_stats');
+  const publicMap: Record<string, { followers: number; following: number }> = {};
+  (publicStats as any[] | null)?.forEach((stat) => {
+    publicMap[stat.user_id] = {
+      followers: Number(stat.followers_count ?? 0),
+      following: Number(stat.following_count ?? 0),
+    };
+  });
 
- const statsMap: Record<string, { locations: number; followers: number; following: number }> = {};
- publicStats?.forEach((stat: { user_id: string; public_locations_count: number; followers_count: number; following_count: number }) => {
- statsMap[stat.user_id] = {
- locations: stat.public_locations_count,
- followers: stat.followers_count,
- following: stat.following_count,
- };
- });
+  const rolesMap: Record<string, string[]> = {};
+  rolesData?.forEach(r => {
+    if (!rolesMap[r.user_id]) rolesMap[r.user_id] = [];
+    rolesMap[r.user_id].push(r.role);
+  });
 
- const rolesMap: Record<string, string[]> = {};
- rolesData?.forEach(r => {
- if (!rolesMap[r.user_id]) rolesMap[r.user_id] = [];
- rolesMap[r.user_id].push(r.role);
- });
+  const usersWithStats: UserWithStats[] = (profiles || []).map(profile => {
+    const f = followedMap[profile.id];
+    const p = publicMap[profile.id];
+    return {
+      id: profile.id,
+      username: profile.username,
+      display_name: profile.display_name,
+      avatar_url: profile.avatar_url,
+      is_private: profile.is_private,
+      roles: rolesMap[profile.id] || ['user'],
+      sharedPois: f?.shared ?? 0,
+      totalPois: f?.total ?? null,
+      lastContributionAt: f?.last ?? null,
+      contributions7d: f?.recent ?? null,
+      followersCount: f?.followers ?? p?.followers ?? 0,
+      followingCount: f?.following ?? p?.following ?? 0,
+      followStatus: (followsMap[profile.id]?.status as 'pending' | 'accepted' | 'rejected') || 'none',
+      followId: followsMap[profile.id]?.id,
+      followsMe: followsMeSet.has(profile.id),
+    };
+  });
 
- let commonPointsMap: Record<string, number> = {};
- if (currentUser?.id) {
- const { data: allLocations } = await supabase
- .from('locations')
- .select('id, latitude, longitude, document_id, visibility')
- .neq('visibility', 'private');
-
- const { data: allDocs } = await supabase
- .from('documents')
- .select('id, user_id');
-
- if (allLocations && allDocs) {
- const docToUser: Record<string, string> = {};
- allDocs.forEach(d => {
- if (d.user_id) docToUser[d.id] = d.user_id;
- });
-
- const locationsByUser: Record<string, Array<{ lat: number; lon: number }>> = {};
- allLocations.forEach(loc => {
- if (loc.document_id) {
- const userId = docToUser[loc.document_id];
- if (userId) {
- if (!locationsByUser[userId]) locationsByUser[userId] = [];
- locationsByUser[userId].push({ lat: loc.latitude, lon: loc.longitude });
- }
- }
- });
-
- const myLocations = locationsByUser[currentUser.id] || [];
- 
- Object.entries(locationsByUser).forEach(([userId, userLocs]) => {
- if (userId === currentUser.id) return;
- 
- let commonCount = 0;
- const matchedMyPoints = new Set<number>();
- 
- userLocs.forEach(userLoc => {
- myLocations.forEach((myLoc, myIdx) => {
- if (matchedMyPoints.has(myIdx)) return;
- const dist = getDistanceMeters(myLoc.lat, myLoc.lon, userLoc.lat, userLoc.lon);
- if (dist <= COMMON_POINT_THRESHOLD_METERS) {
- commonCount++;
- matchedMyPoints.add(myIdx);
- }
- });
- });
- 
- commonPointsMap[userId] = commonCount;
- });
- }
- }
-
- const usersWithStats: UserWithStats[] = (profiles || []).map(profile => ({
- id: profile.id,
- username: profile.username,
- display_name: profile.display_name,
- avatar_url: profile.avatar_url,
- is_private: profile.is_private,
- roles: rolesMap[profile.id] || ['user'],
- locationCount: statsMap[profile.id]?.locations || 0,
- followersCount: statsMap[profile.id]?.followers || 0,
- followingCount: statsMap[profile.id]?.following || 0,
- commonPointsCount: commonPointsMap[profile.id] || 0,
- followStatus: (followsMap[profile.id]?.status as 'pending' | 'accepted' | 'rejected') || 'none',
- followId: followsMap[profile.id]?.id,
- followsMe: followsMeSet.has(profile.id),
- }));
-
- usersWithStats.sort((a, b) => b.locationCount - a.locationCount);
+  usersWithStats.sort((a, b) => b.sharedPois - a.sharedPois);
 
  setUsers(usersWithStats);
  } catch (error) {
@@ -356,7 +321,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
    return true;
  });
 
- return filtered.sort((a, b) => b.locationCount - a.locationCount);
+ return filtered.sort((a, b) => b.sharedPois - a.sharedPois);
  }, [users, searchTerm, currentUser?.id, relationFilter]);
 
  const getPrimaryRole = (roles: string[]): string => {
@@ -483,12 +448,30 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
         </div>
         <div>
           <h2 className="font-semibold text-foreground">Social</h2>
-          <p className="text-xs text-muted-foreground">{users.length} registrados</p>
+          <p className="text-xs text-muted-foreground">
+            {users.filter(u => u.followStatus === 'accepted').length} seguidos · {users.filter(u => u.followsMe).length} te siguen
+          </p>
         </div>
       </div>
-      <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full">
-        <X className="w-4 h-4" />
-      </Button>
+      <div className="flex items-center gap-1">
+        <button
+          className="h-8 w-8 rounded-full inline-flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+          title={
+            'Glosario:\n' +
+            '• N compartidos → POIs suyos visibles para ti (curados)\n' +
+            '• N totales → tamaño total de su catálogo (si es público)\n' +
+            '• hace Xh → último POI añadido\n' +
+            '• +N (7d) → contribuciones últimos 7 días\n' +
+            '• Mute → oculta sus puntos del mapa (sigue siguiéndolo)\n' +
+            '• Filtro → ver solo sus puntos en el mapa'
+          }
+        >
+          <HelpCircle className="w-4 h-4" />
+        </button>
+        <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full">
+          <X className="w-4 h-4" />
+        </Button>
+      </div>
     </div>
   </div>
 
@@ -537,19 +520,13 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   </Badge>
   </div>
   <div className="flex items-center gap-2 text-[10px] text-muted-foreground max-w-full flex-wrap">
-  <span className="flex items-center gap-0.5 shrink-0" title="Puntos">
-  <MapPin className="w-3 h-3" />
-  {currentUserData.locationCount}
-  </span>
-  <span className="flex items-center gap-0.5 shrink-0" title="Seguidores">
-  <Users className="w-3 h-3" />
-  {currentUserData.followersCount}
-  </span>
-  <span className="flex items-center gap-0.5 shrink-0" title="Siguiendo">
-  <Heart className="w-3 h-3" />
-  {currentUserData.followingCount}
-  </span>
-  </div>
+   <span className="shrink-0" title="POIs visibles para tus seguidores">
+     <span className="font-semibold text-foreground">{currentUserData.sharedPois}</span> compartidos
+     {currentUserData.totalPois != null && (
+       <> · <span className="font-semibold text-foreground">{currentUserData.totalPois}</span> totales</>
+     )}
+   </span>
+   </div>
   </button>
   </div>
   )}
@@ -653,66 +630,77 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  </button>
 
  {/* Info */}
- <button
- onClick={() => handleFilterByUser(user)}
- className="flex-1 min-w-0 text-left overflow-hidden"
- >
- <div className="flex items-center gap-1.5 max-w-full">
- <span className="font-medium text-sm text-foreground truncate max-w-[120px]">
- {user.display_name || user.username}
- </span>
- {isCurrentUser && (
- <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 shrink-0">
- Tú
- </Badge>
+ <div className="flex-1 min-w-0 overflow-hidden">
+  <div className="flex items-center gap-1.5 max-w-full">
+   <span className="font-medium text-sm text-foreground truncate max-w-[160px]">
+    {user.display_name || user.username}
+   </span>
+   {isCurrentUser && (
+    <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 shrink-0">Tú</Badge>
+   )}
+  </div>
+  <div className="text-xs text-muted-foreground truncate" title={
+    user.totalPois != null
+      ? `${user.sharedPois} visibles para ti · ${user.totalPois} totales en su catálogo (privados o sin curar)`
+      : `${user.sharedPois} POIs visibles para ti (curados)`
+  }>
+   <span className="font-semibold text-foreground">{user.sharedPois}</span> compartidos
+   {user.totalPois != null && (
+    <> · <span className="font-semibold text-foreground">{user.totalPois}</span> totales</>
+   )}
+   {user.lastContributionAt && (
+    <> · hace {formatDistanceToNow(new Date(user.lastContributionAt), { locale: es })}</>
+   )}
+   {user.contributions7d != null && user.contributions7d > 0 && (
+    <> · +{user.contributions7d} (7d)</>
+   )}
+  </div>
+  {(user.followStatus === 'accepted' || user.followsMe) && (
+   <div className="flex items-center gap-1 mt-0.5 text-[10px]">
+    {user.followStatus === 'accepted' && (
+     <span className="px-1.5 py-0 rounded bg-primary/10 text-primary">Sigues</span>
+    )}
+    {user.followsMe && (
+     <span className="px-1.5 py-0 rounded bg-muted text-muted-foreground">Te sigue</span>
+    )}
+   </div>
+  )}
+ </div>
+
+ {/* Mute toggle (only for followed) */}
+ {user.followStatus === 'accepted' && (
+  <button
+   onClick={(e) => {
+    e.stopPropagation();
+    toggleUserVisibility(user.id);
+   }}
+   className={cn(
+    'p-1.5 rounded-full transition-colors shrink-0',
+    isUserHiddenFlag
+     ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
+     : 'text-primary hover:bg-primary/10'
+   )}
+   title={isUserHiddenFlag ? 'Mostrar sus puntos en el mapa' : 'Ocultar sus puntos del mapa (no afecta el follow)'}
+  >
+   {isUserHiddenFlag ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+  </button>
  )}
- </div>
- <div className="flex items-center gap-2.5 text-xs text-muted-foreground max-w-full flex-wrap">
- <span className="flex items-center gap-0.5 shrink-0" title="Puntos">
- <MapPin className="w-3 h-3" />
- <span className="font-bold">{user.locationCount}</span>
- </span>
- <span className="flex items-center gap-0.5 shrink-0" title="Seguidores">
- <Users className="w-3 h-3" />
- <span className="font-bold">{user.followersCount}</span>
- </span>
- <span className="flex items-center gap-0.5 shrink-0" title="Siguiendo">
- <Heart className="w-3 h-3" />
- <span className="font-bold">{user.followingCount}</span>
- </span>
- <span className="flex items-center gap-0.5 shrink-0 text-amber-500" title="Puntos en común">
- <Link2 className="w-3 h-3" />
- <span className="font-bold">{user.commonPointsCount}</span>
- </span>
- </div>
- </button>
 
-                {/* Visibility toggle for followed users */}
-                {user.followStatus === 'accepted' && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleUserVisibility(user.id);
-                    }}
-                    className={`p-1.5 rounded-full transition-colors shrink-0 ${
-                      isUserHiddenFlag
-                        ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                        : 'text-primary hover:bg-primary/10'
-                    }`}
-                    title={isUserHiddenFlag ? 'Mostrar puntos' : 'Ocultar puntos'}
-                  >
-                    {isUserHiddenFlag ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                )}
+ {/* Focus owner */}
+ {(user.followStatus === 'accepted' || isCurrentUser) && (
+  <button
+   onClick={(e) => { e.stopPropagation(); handleFilterByUser(user); }}
+   className="p-1.5 rounded-full shrink-0 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+   title="Ver solo sus puntos en el mapa"
+  >
+   <Filter className="w-4 h-4" />
+  </button>
+ )}
 
-                {/* Follow button */}
-                <div className="shrink-0">
-                  {getFollowButton(user)}
-                </div>
+ {/* Follow button */}
+ <div className="shrink-0">
+  {getFollowButton(user)}
+ </div>
  </motion.div>
  );
  })
