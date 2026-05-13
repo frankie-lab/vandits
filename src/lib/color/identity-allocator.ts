@@ -45,6 +45,11 @@ export const SEED_PALETTE: ReadonlyArray<OklchColor> = [
 // Health/state colors. Any candidate whose ΔE to ANY anchor is below
 // `ANCHOR_MIN_DELTA_E` is excluded from V. Approximated in OKLCH from
 // canonical HSL tokens used elsewhere in the app.
+//
+// NOTE: grey "imported" is NOT in this list. Grey (C=0) sits in the
+// middle of OKLab and would dominate distance for every mid-lightness
+// hue. We instead enforce a minimum chroma in V so identity colors are
+// never desaturated enough to read as grey.
 export const FORBIDDEN_ANCHORS: ReadonlyArray<OklchColor> = [
   { L: 0.700, C: 0.180, h: 145 }, // green enriched
   { L: 0.700, C: 0.190, h: 50 },  // orange empty
@@ -52,23 +57,25 @@ export const FORBIDDEN_ANCHORS: ReadonlyArray<OklchColor> = [
   { L: 0.870, C: 0.180, h: 95 },  // yellow chain
   { L: 0.660, C: 0.260, h: 355 }, // magenta review
   { L: 0.580, C: 0.220, h: 25 },  // red hardError
-  { L: 0.700, C: 0.000, h: 0 },   // grey imported
 ];
 
-export const ANCHOR_MIN_DELTA_E = 22;
+export const ANCHOR_MIN_DELTA_E = 18;
 export const DEGRADED_THRESHOLD = 8; // ΔE below this counts as degraded
 
 // ── Tier 2: Candidate space V ──────────────────────────────────────────
 // Sampled deterministically. Three lightness × two chroma × 72 hues = 432
 // candidates; filtered down by WCAG + anchor exclusion to a stable subset.
 
-const L_SAMPLES = [0.58, 0.66, 0.74];
-const C_SAMPLES = [0.13, 0.18];
+const L_SAMPLES = [0.50, 0.58, 0.66];
+const C_SAMPLES = [0.14, 0.18];
 const H_STEP = 5;
 
 const LIGHT_BG = '#f8fafc';
 const DARK_BG = '#0b1220';
-const MIN_BG_CONTRAST = 3.0; // WCAG non-text UI
+// Followed-POI fill sits on a bordered marker with shadow. WCAG 3:1 is
+// the non-text UI floor; we relax slightly to preserve the v1 seed
+// (immutability of pre-existing identities).
+const MIN_BG_CONTRAST = 2.6;
 
 function passesAnchors(c: OklchColor): boolean {
   for (const a of FORBIDDEN_ANCHORS) {
