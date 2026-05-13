@@ -680,7 +680,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
     <span
       title="Color de identidad de este usuario en el mapa"
       className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-sm border border-card shadow-sm"
-      style={{ background: getOwnerStrokeColor(user.id), clipPath: 'polygon(0 0,100% 0,50% 100%)' }}
+      style={{ background: getOwnerIdentityColor(user.id, getOwnerColorIndex(user.id)), clipPath: 'polygon(0 0,100% 0,50% 100%)' }}
     />
   )}
   </button>
