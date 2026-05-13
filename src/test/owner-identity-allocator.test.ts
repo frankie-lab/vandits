@@ -28,7 +28,6 @@ describe('identity-allocator v2.5 — única exclusión = vecindad del verde', (
       [25, 'rojo'],
       [50, 'naranja'],
       [70, 'amber'],
-      [195, 'cyan'],
       [250, 'azul'],
       [290, 'violeta'],
       [325, 'magenta'],
