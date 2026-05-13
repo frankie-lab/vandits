@@ -28,7 +28,13 @@ import { OklchColor, contrastRatio, deltaEOklab } from './oklch';
 // that masqueraded as v2 (cluster azul-índigo). Cualquier fila futura
 // `owner-v2.1-oklch` proviene del maximin puro; reaparición de
 // `owner-v2-oklch` indicaría regresión de la regla.
-export const OWNER_PALETTE_VERSION = 'owner-v2.1-oklch';
+// PR-OWNER-IDENTITY-2.3 — bumped to v2.2 after fixing the allocator scoring.
+// v2.1 maximizaba distancia SOLO contra peers ya asignados (los anchors solo
+// filtraban V por umbral mínimo). La regla operativa real es:
+//   S = colores ya asignados ∪ FORBIDDEN_ANCHORS
+// y el score de cada candidato es min ΔE contra TODO S. Las filas v2.1 ya
+// persistidas se purgan porque nacieron con scoring incorrecto.
+export const OWNER_PALETTE_VERSION = 'owner-v2.2-oklch';
 
 // ── v1 backfill palette ────────────────────────────────────────────────
 // 8 cool, mutually-distant identities. These are the SAME 8 colors used
@@ -148,23 +154,20 @@ export function pickNextIdentityColor(
   assigned: ReadonlyArray<OklchColor>,
 ): AllocationResult {
   const V = getCandidateSpace();
+  // Norma operativa (PR-OWNER-IDENTITY-2.3): el conjunto de exclusión
+  // perceptual es S = assigned ∪ FORBIDDEN_ANCHORS. Aplica desde el primer
+  // seguido y de forma idéntica para todos los siguientes — sin ramas
+  // especiales por `assigned.length`. Así la regla incremental e inmutable
+  // se cumple frente a la gramática completa del sistema.
+  const S: ReadonlyArray<OklchColor> = [...assigned, ...FORBIDDEN_ANCHORS];
   let best: OklchColor | null = null;
   let bestScore = -Infinity;
   for (const c of V) {
     if (alreadyAssigned(c, assigned)) continue;
-    // Score: when `assigned` is empty, fall back to distance from anchors
-    // so the first pick is the candidate furthest from health/state colors.
     let minD = Infinity;
-    if (assigned.length === 0) {
-      for (const a of FORBIDDEN_ANCHORS) {
-        const d = deltaEOklab(c, a);
-        if (d < minD) minD = d;
-      }
-    } else {
-      for (const a of assigned) {
-        const d = deltaEOklab(c, a);
-        if (d < minD) minD = d;
-      }
+    for (const a of S) {
+      const d = deltaEOklab(c, a);
+      if (d < minD) minD = d;
     }
     if (minD > bestScore) {
       bestScore = minD;
@@ -181,7 +184,6 @@ export function pickNextIdentityColor(
     const fallback = SEED_PALETTE[assigned.length % SEED_PALETTE.length];
     return { color: fallback, degraded: true };
   }
-  // Degradation only meaningful once we're maximizing distance to peers.
-  const degraded = assigned.length > 0 && bestScore < DEGRADED_THRESHOLD;
+  const degraded = bestScore < DEGRADED_THRESHOLD;
   return { color: best, degraded };
 }
