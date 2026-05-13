@@ -253,7 +253,7 @@ export const createCustomIcon = (
       const stroke = getOwnerStrokeColor(ownerUid);
       return L.divIcon({
         className: `custom-marker-micro is-followed`,
-        html: `<div style="width:${microSize + 2}px;height:${microSize + 2}px;background:${dot};clip-path:polygon(0 0,100% 0,50% 100%);border:0.5px solid ${stroke};opacity:0.9;"></div>`,
+        html: `<div style="width:${microSize + 2}px;height:${microSize + 2}px;background:${dot};clip-path:polygon(0 0,100% 0,50% 100%);border:1px solid ${stroke};opacity:0.9;"></div>`,
         iconSize: [microSize + 2, microSize + 2],
         iconAnchor: [(microSize + 2) / 2, (microSize + 2) / 2],
         popupAnchor: [0, -(microSize + 2) / 2],
