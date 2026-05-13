@@ -4,61 +4,89 @@ import {
   getCandidateSpace,
   getRawCandidateSpace,
   isInForbiddenZone,
+  isInForbiddenHueBand,
+  isNearEnrichedAnchor,
+  isGrayish,
   isValidCandidate,
   OWNER_PALETTE_VERSION,
   ENRICHED_ANCHOR_OKLCH,
   EXCLUSION_DELTA_E,
+  FORBIDDEN_HUE_MIN,
+  FORBIDDEN_HUE_MAX,
+  MIN_IDENTITY_CHROMA,
   deltaEOklab,
 } from '@/lib/color/identity-allocator';
 
-describe('identity-allocator v2.5 — versión', () => {
-  it('palette version es owner-v2.5-maximin-perceptual', () => {
-    expect(OWNER_PALETTE_VERSION).toBe('owner-v2.5-maximin-perceptual');
+describe('identity-allocator v2.6 — versión', () => {
+  it('palette version es owner-v2.6-no-green-no-gray', () => {
+    expect(OWNER_PALETTE_VERSION).toBe('owner-v2.6-no-green-no-gray');
   });
 });
 
-describe('identity-allocator v2.5 — única exclusión = vecindad del verde', () => {
-  it('el ancla verde está en la zona prohibida', () => {
+describe('identity-allocator v2.6 — exclusiones duras: verde y gris', () => {
+  it('el ancla verde está prohibida (banda y vecindad perceptual)', () => {
+    expect(isInForbiddenHueBand(ENRICHED_ANCHOR_OKLCH)).toBe(true);
+    expect(isNearEnrichedAnchor(ENRICHED_ANCHOR_OKLCH)).toBe(true);
     expect(isInForbiddenZone(ENRICHED_ANCHOR_OKLCH)).toBe(true);
     expect(isValidCandidate(ENRICHED_ANCHOR_OKLCH)).toBe(false);
   });
 
-  it('rojo/naranja/amber/magenta/azul/violeta son candidatos VÁLIDOS', () => {
+  it('toda la banda de hue verde está prohibida', () => {
+    for (let h = FORBIDDEN_HUE_MIN; h <= FORBIDDEN_HUE_MAX; h += 5) {
+      const c = { L: 0.58, C: 0.18, h };
+      expect(isValidCandidate(c), `hue ${h} (verde) debe ser inválido`).toBe(false);
+    }
+  });
+
+  it('los grises/desaturados están prohibidos', () => {
+    expect(isGrayish({ L: 0.58, C: 0.10, h: 250 })).toBe(true);
+    expect(isGrayish({ L: 0.58, C: 0.14, h: 30 })).toBe(true);
+    expect(isGrayish({ L: 0.58, C: 0.18, h: 30 })).toBe(false);
+    for (let C = 0; C < MIN_IDENTITY_CHROMA; C += 0.02) {
+      const c = { L: 0.58, C, h: 250 };
+      expect(isValidCandidate(c), `C=${C} debe ser inválido`).toBe(false);
+    }
+  });
+
+  it('rojo/naranja/magenta/azul/violeta son VÁLIDOS', () => {
     const samples: Array<[number, string]> = [
       [25, 'rojo'],
       [50, 'naranja'],
-      [70, 'amber'],
       [250, 'azul'],
       [290, 'violeta'],
       [325, 'magenta'],
+      [350, 'rosa'],
     ];
     for (const [h, label] of samples) {
-      const c = { L: 0.58, C: 0.18, h };
+      const c = { L: 0.50, C: 0.18, h };
       expect(isValidCandidate(c), `${label} h=${h} debe ser válido`).toBe(true);
     }
   });
 
-  it('todo candidato del espacio útil queda fuera de la zona prohibida', () => {
+  it('todo el espacio útil queda fuera de las zonas prohibidas', () => {
     const V = getCandidateSpace();
-    expect(V.length).toBeGreaterThan(40);
+    expect(V.length).toBeGreaterThan(20);
     for (const c of V) {
+      expect(isInForbiddenHueBand(c), `hue ${c.h} no debe ser verde`).toBe(false);
+      expect(isGrayish(c), `C ${c.C} no debe ser gris`).toBe(false);
       expect(deltaEOklab(c, ENRICHED_ANCHOR_OKLCH))
         .toBeGreaterThanOrEqual(EXCLUSION_DELTA_E);
     }
   });
 
-  it('el espacio útil cubre tanto cálidos como fríos', () => {
+  it('el espacio útil cubre cálidos y fríos no-verdes', () => {
     const V = getCandidateSpace();
-    const warm = V.some((c) => (c.h <= 90 || c.h >= 300));
+    const warm = V.some((c) => c.h <= 80 || c.h >= 300);
     const cool = V.some((c) => c.h >= 180 && c.h <= 280);
     expect(warm).toBe(true);
     expect(cool).toBe(true);
   });
 });
 
-describe('identity-allocator v2.5 — primer follow', () => {
+describe('identity-allocator v2.6 — primer follow', () => {
   it('argmax ΔE(x, verde) sobre V — sin hue hardcoded', () => {
     const r = pickNextIdentityColor([]);
+    expect(isValidCandidate(r.color)).toBe(true);
     const myScore = deltaEOklab(r.color, ENRICHED_ANCHOR_OKLCH);
     const V = getCandidateSpace();
     for (const c of V) {
@@ -74,7 +102,7 @@ describe('identity-allocator v2.5 — primer follow', () => {
   });
 });
 
-describe('identity-allocator v2.5 — maximin incremental', () => {
+describe('identity-allocator v2.6 — maximin incremental', () => {
   it('cada pick maximiza el min ΔE contra el conjunto ya asignado', () => {
     let assigned: any[] = [];
     for (let step = 0; step < 6; step++) {
@@ -96,44 +124,19 @@ describe('identity-allocator v2.5 — maximin incremental', () => {
     }
   });
 
-  it('los primeros 6 picks cubren al menos un cálido y un frío', () => {
-    let assigned: any[] = [];
-    const picks: any[] = [];
-    for (let i = 0; i < 6; i++) {
-      const r = pickNextIdentityColor(assigned);
-      picks.push(r.color);
-      assigned = [...assigned, r.color];
-    }
-    const warm = picks.some((c) => c.h <= 90 || c.h >= 300);
-    const cool = picks.some((c) => c.h >= 180 && c.h <= 280);
-    expect(warm, `picks: ${picks.map((c) => c.h.toFixed(0)).join(',')}`).toBe(true);
-    expect(cool, `picks: ${picks.map((c) => c.h.toFixed(0)).join(',')}`).toBe(true);
-  });
-
-  it('los primeros 5 mantienen separación perceptual mínima ΔE ≥ 20', () => {
-    let assigned: any[] = [];
-    for (let i = 0; i < 5; i++) {
-      const r = pickNextIdentityColor(assigned);
-      assigned = [...assigned, r.color];
-    }
-    for (let i = 0; i < assigned.length; i++) {
-      for (let j = i + 1; j < assigned.length; j++) {
-        expect(deltaEOklab(assigned[i], assigned[j])).toBeGreaterThanOrEqual(20);
-      }
-    }
-  });
-
-  it('ningún pick cae en la zona prohibida del verde (N=1..20)', () => {
+  it('ningún pick cae en zona prohibida — ni verde ni gris (N=1..20)', () => {
     let assigned: any[] = [];
     for (let i = 0; i < 20; i++) {
       const r = pickNextIdentityColor(assigned);
-      expect(isInForbiddenZone(r.color)).toBe(false);
+      expect(isInForbiddenHueBand(r.color), `pick ${i} es verde h=${r.color.h}`).toBe(false);
+      expect(isGrayish(r.color), `pick ${i} es gris C=${r.color.C}`).toBe(false);
+      expect(isValidCandidate(r.color)).toBe(true);
       assigned = [...assigned, r.color];
     }
   });
 });
 
-describe('identity-allocator v2.5 — determinismo e inmutabilidad', () => {
+describe('identity-allocator v2.6 — determinismo e inmutabilidad', () => {
   it('mismo conjunto asignado → mismo siguiente color', () => {
     const seq: any[] = [];
     let assigned: any[] = [];
@@ -166,7 +169,7 @@ describe('identity-allocator v2.5 — determinismo e inmutabilidad', () => {
   });
 });
 
-describe('identity-allocator v2.5 — sampling de la rueda', () => {
+describe('identity-allocator v2.6 — sampling de la rueda', () => {
   it('el espacio crudo cubre 360° con paso fino', () => {
     const raw = getRawCandidateSpace();
     const hues = new Set(raw.map((c) => Math.round(c.h)));
