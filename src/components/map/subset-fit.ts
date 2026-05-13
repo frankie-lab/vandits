@@ -26,12 +26,20 @@ export interface SubsetFitDetail {
   locationIds: string[];
   mode: SubsetFitMode;
   reason: string;
+  /**
+   * Piso de zoom opcional. Si tras calcular el bounds el zoom resultante
+   * es menor, el listener fuerza este valor manteniendo el centro.
+   * Default `null` = sin piso (retrocompatible).
+   */
+  minZoom?: number | null;
 }
 
 export interface SubsetFitOptions {
   mode?: SubsetFitMode;
   /** Etiqueta de telemetría/debug. p.ej. 'repair-preview', 'selection-start'. */
   reason: string;
+  /** Piso de zoom opcional. Ver SubsetFitDetail.minZoom. */
+  minZoom?: number | null;
 }
 
 /**
