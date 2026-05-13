@@ -2177,19 +2177,39 @@ export function LocationMap() {
       }
       if (pts.length === 0) return;
 
+      const minZoomFloor =
+        typeof detail.minZoom === 'number' && Number.isFinite(detail.minZoom)
+          ? detail.minZoom
+          : null;
+
+      const applyMinZoomFloor = () => {
+        if (minZoomFloor == null) return;
+        if (map.getZoom() < minZoomFloor) {
+          map.setZoom(minZoomFloor);
+        }
+      };
+
       if (pts.length === 1) {
         const [lat, lng] = pts[0];
         const viewport = map.getBounds();
         const inside = viewport.contains(L.latLng(lat, lng));
         if (mode === 'always' || !inside) {
-          map.flyTo([lat, lng], Math.max(map.getZoom(), FIT_CLAMP_ZOOM), { duration: 0.6 });
+          const target = Math.max(map.getZoom(), FIT_CLAMP_ZOOM, minZoomFloor ?? 0);
+          map.flyTo([lat, lng], target, { duration: 0.6 });
+        } else {
+          applyMinZoomFloor();
         }
         return;
       }
 
       const bounds = L.latLngBounds(pts);
+      const fitOpts: L.FitBoundsOptions = { padding: [60, 60], maxZoom: FIT_CLAMP_ZOOM };
       if (mode === 'always') {
-        map.flyToBounds(bounds, { padding: [60, 60], maxZoom: FIT_CLAMP_ZOOM, duration: 0.6 });
+        map.flyToBounds(bounds, { ...fitOpts, duration: 0.6 });
+        if (minZoomFloor != null) {
+          // Tras la animación, asegurar piso de zoom.
+          map.once('moveend', applyMinZoomFloor);
+        }
         return;
       }
       // 'if-outside': mover si <40% de los puntos están dentro del viewport actual.
@@ -2200,7 +2220,12 @@ export function LocationMap() {
       );
       const insideRatio = insideCount / pts.length;
       if (insideRatio < INSIDE_RATIO_THRESHOLD) {
-        map.flyToBounds(bounds, { padding: [60, 60], maxZoom: FIT_CLAMP_ZOOM, duration: 0.6 });
+        map.flyToBounds(bounds, { ...fitOpts, duration: 0.6 });
+        if (minZoomFloor != null) {
+          map.once('moveend', applyMinZoomFloor);
+        }
+      } else {
+        applyMinZoomFloor();
       }
     };
 

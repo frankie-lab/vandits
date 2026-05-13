@@ -69,6 +69,10 @@ export function useHealthFilterFit(
     requestSubsetFit(ids, {
       mode: 'if-outside',
       reason: `health-filter:${next}`,
+      // Piso z7: primer escalón compact donde los aros amber/yellow son
+      // visibles. Sin esto, 19 puntos dispersos por España aterrizan en
+      // z≈5 (banda micro, sin rings).
+      minZoom: 7,
     });
   }, [healthFilter]);
 }
