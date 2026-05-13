@@ -24,7 +24,11 @@
 
 import { OklchColor, contrastRatio, deltaEOklab } from './oklch';
 
-export const OWNER_PALETTE_VERSION = 'owner-v2-oklch';
+// PR-OWNER-IDENTITY-2.2 — bumped to v2.1 after purging the v1 backfill rows
+// that masqueraded as v2 (cluster azul-índigo). Cualquier fila futura
+// `owner-v2.1-oklch` proviene del maximin puro; reaparición de
+// `owner-v2-oklch` indicaría regresión de la regla.
+export const OWNER_PALETTE_VERSION = 'owner-v2.1-oklch';
 
 // ── v1 backfill palette ────────────────────────────────────────────────
 // 8 cool, mutually-distant identities. These are the SAME 8 colors used
