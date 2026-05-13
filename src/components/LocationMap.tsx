@@ -1623,7 +1623,7 @@ export function LocationMap() {
   const markerLng = offset ? offset.lng : location.coordinates.lng;
 
   const marker = L.marker([markerLat, markerLng], {
-  icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, getTintForLocation(location.id), ownership.isOwn),
+  icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, getTintForLocation(location.id, ownership.isOwn), ownership.isOwn, currentUserId),
   pane: ownership.isOwn ? 'mine-pane' : 'others-pane',
   });
 
@@ -1730,8 +1730,9 @@ export function LocationMap() {
             preservedLocation,
             criteriaTimestamp,
             false,
-            getTintForLocation(preservedLocation.id),
+            getTintForLocation(preservedLocation.id, ownership.isOwn),
             ownership.isOwn,
+            currentUserId,
           ),
         );
       } catch { /* noop */ }
@@ -1777,8 +1778,9 @@ export function LocationMap() {
               location,
               criteriaTimestamp,
               isRecentlyEnriched,
-              getTintForLocation(id),
+              getTintForLocation(id, ownership.isOwn),
               ownership.isOwn,
+              currentUserId,
             ),
           );
         } catch { /* noop */ }
@@ -1820,7 +1822,10 @@ export function LocationMap() {
  const isFocused = focusedLocationId === location.id;
  const isEnriched = !!location.enrichedData;
  const isRecentlyEnriched = recentlyEnrichedIds.has(location.id);
- marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, getTintForLocation(location.id), getLocationOwnership(location.id, currentUserId).isOwn));
+ {
+   const isOwn = getLocationOwnership(location.id, currentUserId).isOwn;
+   marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, getTintForLocation(location.id, isOwn), isOwn, currentUserId));
+ }
  });
  
    // Open pending popup if any
@@ -1881,8 +1886,9 @@ export function LocationMap() {
           location,
           criteriaTimestamp,
           isRecentlyEnriched,
-          getTintForLocation(id),
+          getTintForLocation(id, ownership2.isOwn),
           ownership2.isOwn,
+          currentUserId,
         ),
       );
       // Rebuild hover tooltip so the Hero <img> reflects post-enrichment state.
@@ -1942,8 +1948,9 @@ export function LocationMap() {
           location,
           criteriaTimestamp,
           isRecentlyEnriched,
-          getTintForLocation(id),
+          getTintForLocation(id, ownership3.isOwn),
           ownership3.isOwn,
+          currentUserId,
         ),
       );
       marker.unbindTooltip();
@@ -1965,9 +1972,12 @@ export function LocationMap() {
  const isFocused = focusedLocationId === locationId;
  const isEnriched = !!location?.enrichedData;
  const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
- marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, getTintForLocation(locationId), getLocationOwnership(locationId, currentUserId).isOwn));
+ {
+   const isOwn = getLocationOwnership(locationId, currentUserId).isOwn;
+   marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, getTintForLocation(locationId, isOwn), isOwn, currentUserId));
+ }
  });
-  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds]);
+   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, currentUserId]);
 
   useEffect(() => {
     const unsub = onMarkerSizeConfigChange(() => {
@@ -1977,11 +1987,12 @@ export function LocationMap() {
         const isFocused = focusedLocationId === locationId;
         const isEnriched = !!location?.enrichedData;
         const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
-        marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, getTintForLocation(locationId), getLocationOwnership(locationId, currentUserId).isOwn));
+        const isOwn = getLocationOwnership(locationId, currentUserId).isOwn;
+        marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, getTintForLocation(locationId, isOwn), isOwn, currentUserId));
       });
     });
     return unsub;
-  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds]);
+  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, currentUserId]);
 
   // Render-mode change (Ola 1): cuando zoomend cambia el modo en map-icons,
   // repintamos todos los markers con el estado React actual (selección/focus/
@@ -1997,8 +2008,9 @@ export function LocationMap() {
         const ownership = getLocationOwnership(locationId, currentUserId);
         marker.setIcon(createCustomIcon(
           isSelected, isFocused, isEnriched, location, criteriaTimestamp,
-          isRecentlyEnriched, getTintForLocation(locationId),
+          isRecentlyEnriched, getTintForLocation(locationId, ownership.isOwn),
           ownership.isOwn,
+          currentUserId,
         ));
         // Rebuild tooltip so the Hero <img> appears as soon as the marker
         // enters standard/rich, even if the location was enriched after the
@@ -2035,13 +2047,14 @@ export function LocationMap() {
         const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
         marker.setIcon(createCustomIcon(
           isSelected, isFocused, isEnriched, location, criteriaTimestamp,
-          isRecentlyEnriched, getTintForLocation(locationId),
+          isRecentlyEnriched, getTintForLocation(locationId, getLocationOwnership(locationId, currentUserId).isOwn),
           getLocationOwnership(locationId, currentUserId).isOwn,
+          currentUserId,
         ));
       });
     });
     return unsub;
-  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds]);
+  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, currentUserId]);
 
 
   // ── Collection visibility tint ──────────────────────────────────────────
