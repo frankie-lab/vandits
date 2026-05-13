@@ -316,7 +316,10 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
           .getFilteredLocations()
           .map(l => l.id);
         if (ids.length > 0) {
-          requestSubsetFit(ids, { mode: 'always', reason: 'user-filter' });
+          // minZoom: 7 → entra en banda `compact`, garantiza markers + rings
+          // visibles incluso si el subset del usuario está muy disperso
+          // (Galicia + Andalucía + Marruecos colapsaría a z3 sin piso).
+          requestSubsetFit(ids, { mode: 'always', reason: 'user-filter', minZoom: 7 });
         }
       }, 50);
 

@@ -2218,13 +2218,21 @@ export function LocationMap() {
       }
 
       const bounds = L.latLngBounds(pts);
-      const fitOpts: L.FitBoundsOptions = { padding: [60, 60], maxZoom: FIT_CLAMP_ZOOM };
+      const padding: L.PointTuple = [60, 60];
+      const fitOpts: L.FitBoundsOptions = { padding, maxZoom: FIT_CLAMP_ZOOM };
+
+      // Cálculo upfront del zoom objetivo: evita el doble salto que produciría
+      // leer `map.getZoom()` justo después de `flyToBounds` (animado).
+      const flyToWithFloor = () => {
+        const naturalZoom = map.getBoundsZoom(bounds, false, L.point(padding[0], padding[1]));
+        const clamped = Math.min(naturalZoom, FIT_CLAMP_ZOOM);
+        const finalZoom = minZoomFloor != null ? Math.max(clamped, minZoomFloor) : clamped;
+        const center = bounds.getCenter();
+        map.flyTo(center, finalZoom, { duration: 0.6 });
+      };
+
       if (mode === 'always') {
-        map.flyToBounds(bounds, { ...fitOpts, duration: 0.6 });
-        if (minZoomFloor != null) {
-          // Tras la animación, asegurar piso de zoom.
-          map.once('moveend', applyMinZoomFloor);
-        }
+        flyToWithFloor();
         return;
       }
       // 'if-outside': mover si <40% de los puntos están dentro del viewport actual.
@@ -2235,10 +2243,7 @@ export function LocationMap() {
       );
       const insideRatio = insideCount / pts.length;
       if (insideRatio < INSIDE_RATIO_THRESHOLD) {
-        map.flyToBounds(bounds, { ...fitOpts, duration: 0.6 });
-        if (minZoomFloor != null) {
-          map.once('moveend', applyMinZoomFloor);
-        }
+        flyToWithFloor();
       } else {
         applyMinZoomFloor();
       }
