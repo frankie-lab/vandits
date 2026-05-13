@@ -24,7 +24,7 @@ import { getPointHeroImage } from '@/domains/content/lib/point-hero-image';
 import { ZOOM_THRESHOLDS } from '@/design-system/map/rules/zoom-thresholds';
 import { tokens } from '@/design-system/tokens';
 import { getOwnerIdentityColor } from './owner-stroke';
-import { getOwnerColorIndex } from '@/stores/owner-identity-store';
+import { getOwnerIdentityOklch } from '@/stores/owner-identity-store';
 import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
 
 // ── Followed POI debug helpers ──────────────────────────────────────────
@@ -44,13 +44,9 @@ const _isFollowedDebugEnabled = (): boolean => {
 const FOLLOWED_DEBUG = _isFollowedDebugEnabled();
 const _followedLogged = new Set<string>();
 
-/** Stroke width del pennant por banda de zoom. Subida controlada: el color
- *  del owner debe verse, pero no comerse el fill (estado curado). */
-const getFollowedStrokeWidth = (mode: MarkerRenderMode): number => {
-  if (mode === 'rich') return 3;
-  if (mode === 'standard') return 2.5;
-  return 2; // compact
-};
+// PR-OWNER-IDENTITY-2: stroke removed from followed POIs. Identity now
+// lives in the FILL of the inverted triangle. The state palette
+// (enriched/imported/empty) is reserved for OWN POIs only.
 
 /**
  * Helper único: factor de escala por zoom (no solo por banda).
