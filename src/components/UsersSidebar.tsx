@@ -498,7 +498,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   {currentUserData && (
   <div 
   className={cn(
-  'flex items-center gap-3 p-3 rounded-xl mb-3',
+  'flex items-center gap-2 p-2.5 rounded-xl mb-3 min-w-0',
   'bg-primary/5 ring-1 ring-primary/20'
   )}
   >
