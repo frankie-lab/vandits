@@ -11,6 +11,7 @@ import { isLocationVisibleInGlobalMap } from '@/domains/content/lib/document-vis
 import { compareLocationsHierarchical } from '@/shared/geography/hierarchy';
 import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
+import { isShareablePoi } from '@/domains/content/lib/is-shareable-poi';
 import { applyCatalogSnapshotPure, type ApplySnapshotOpts } from './catalog-snapshot';
 
 function getPersistentFilters(filters: FilterCriteria): FilterCriteria {
