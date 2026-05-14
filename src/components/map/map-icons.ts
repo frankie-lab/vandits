@@ -221,30 +221,36 @@ export const createCustomIcon = (
   // sync defensivo desde call-sites paralelos).
   const renderMode: MarkerRenderMode = isFocused ? 'rich' : getRenderModeForZoom(currentZoom);
 
-  // ── Followed-user gate (PR-SOCIAL-2A) ──────────────────────────────────
-  // Norma canónica: POIs propios = círculo (con todas sus variables).
-  //                 POIs de seguidos = triángulo invertido (sin rings,
-  //                 sin tint, stroke fino = identidad del owner).
-  // Helper único: getOwnerStrokeColor(uid). Ver mem://style/map/followed-poi-grammar.
-  // Owner canónico vía helper único (ownerUserId ?? _docUserId).
-  // Antes leíamos `location.userId` (no existe en GeoLocation) → isFollowedPoi
-  // siempre era false y los POIs de seguidos se renderizaban como círculos.
-  const ownerUid = getLocationOwnerUserId(location as { ownerUserId?: string | null; _docUserId?: string | null });
-  const isFollowedPoi = !isOwn && !!currentUserId && !!ownerUid && ownerUid !== currentUserId;
-  if (isFollowedPoi) {
-    // Para seguidos, anular tint y currentUserId-driven rings: dominio privado del owner.
+  // ── Pipeline canónico (PR-POI-SOURCE-5) ────────────────────────────────
+  // Single source of truth para FORMA + DECORACIONES = `resolveMarkerGrammar`.
+  // El renderer NO decide forma por heurística (owner === viewer); lee la
+  // gramática resuelta y la pinta. Mantiene comportamiento legacy para
+  // own/followed; añade diamond (app) y hexagon (source).
+  const ownerUid = location
+    ? getLocationOwnerUserId(location as { ownerUserId?: string | null; _docUserId?: string | null })
+    : null;
+  const grammar = location
+    ? resolveMarkerGrammar(currentUserId, location)
+    : null;
+  const grammarShape = grammar?.shape ?? 'circle';
+  const isFollowedPoi = grammarShape === 'inverted-triangle';
+  const isAppPoi = grammarShape === 'diamond';
+  const isSourcePoi = grammarShape === 'hexagon';
+  const isNonOwnShape = isFollowedPoi || isAppPoi || isSourcePoi;
+
+  if (grammar && !grammar.allowCollectionTint) {
     collectionTint = null;
-    if (FOLLOWED_DEBUG && location?.id && !_followedLogged.has(location.id)) {
-      _followedLogged.add(location.id);
-      // eslint-disable-next-line no-console
-      console.debug('[followed-poi]', {
-        id: location.id,
-        ownerUid,
-        currentUserId,
-        isOwn,
-        identityFill: getOwnerIdentityColor(ownerUid, getOwnerIdentityOklch(ownerUid)),
-      });
-    }
+  }
+  if (isFollowedPoi && FOLLOWED_DEBUG && location?.id && !_followedLogged.has(location.id)) {
+    _followedLogged.add(location.id);
+    // eslint-disable-next-line no-console
+    console.debug('[followed-poi]', {
+      id: location.id,
+      ownerUid,
+      currentUserId,
+      isOwn,
+      identityFill: getOwnerIdentityColor(ownerUid, getOwnerIdentityOklch(ownerUid)),
+    });
   }
   if (renderMode === 'micro') {
     // Rampa explícita por zoom (z≤3→2, z4→3, z5→4). Cap micro = 4px en
