@@ -115,6 +115,19 @@ L.Icon.Default.mergeOptions({
 const calculateVisitRelevanceInline = calculateVisitRelevance;
 const formatTimeAgoInline = formatTimeAgo;
 
+function safeRefreshMarkerClusters(cluster: L.MarkerClusterGroup | null | undefined) {
+  if (!cluster) return;
+  const internal = cluster as L.MarkerClusterGroup & { _topClusterLevel?: { getAllChildMarkers?: () => unknown[] } };
+  if (!internal._topClusterLevel || typeof internal._topClusterLevel.getAllChildMarkers !== 'function') {
+    return;
+  }
+  try {
+    cluster.refreshClusters();
+  } catch (error) {
+    console.warn('[safeRefreshMarkerClusters] skipped cluster refresh during rebuild', error);
+  }
+}
+
 // Norma transversal (2026-04-19): el color/forma de cada punto se resuelve
 // dentro de `createCustomIcon` mediante `getPointVisualState` (3 estados:
 // enriched/imported/empty). Ya no existe la noción "catálogo = azul cielo".
@@ -2061,8 +2074,8 @@ export function LocationMap() {
         }
       });
       // Refresh cluster icons so markers emerging from spiderfy inherit
-      // the current band's icon.
-      markerClusterRef.current?.refreshClusters();
+      // the current band's icon, pero sin romper durante rebuild/zoom.
+      safeRefreshMarkerClusters(markerClusterRef.current);
     };
     window.addEventListener('map-render-mode-changed', handler);
     return () => window.removeEventListener('map-render-mode-changed', handler);
