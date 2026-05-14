@@ -132,6 +132,7 @@ interface LocationsState {
     isOwn: boolean; ownerName?: string; ownerId?: string;
     docStatus?: string;
     viewerUid?: string | null;
+    usernameLookup?: (uid: string) => string | null | undefined;
   };
   selectedDocument: KMLDocument | null;
 }
