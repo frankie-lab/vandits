@@ -3,6 +3,7 @@ import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-typ
 import { getLocationHierarchy, isPlaceholderValue } from '@/shared/geography/hierarchy';
 import { getPointHealthRings } from '@/domains/content/lib/point-health-rings';
 import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
+import { resolvePoiSource } from '@/domains/content/lib/poi-source';
 
 /**
  * Matcher ÚNICO para filtros de exploración/navegación sobre un punto.
