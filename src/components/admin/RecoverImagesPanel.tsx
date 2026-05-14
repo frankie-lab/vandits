@@ -618,7 +618,7 @@ export function RecoverImagesPanel() {
         </section>
 
         {/* ────── Filas inferiores: Usuarios · Árbol · Lanzar ───────── */}
-        <div className={`grid grid-cols-1 ${gridCols} gap-4`}>
+        <div className={`flex-1 min-h-0 grid grid-cols-1 ${gridCols} gap-4 overflow-hidden`}>
           {/* COL 1 — Usuarios */}
           {isAdmin && (
             <ImageRecoveryUsersList
