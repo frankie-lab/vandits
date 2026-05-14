@@ -121,6 +121,7 @@ export const useImageRecoveryJobStore = create<ImageRecoveryState>((set, get) =>
           {
             body: {
               scope: config.scope,
+              mode: config.mode ?? 'missing',
               userId: config.scope === 'user' ? config.userId : undefined,
               locationIds: config.scope === 'ids' ? config.locationIds : undefined,
               batchSize: config.batchSize,
@@ -128,6 +129,7 @@ export const useImageRecoveryJobStore = create<ImageRecoveryState>((set, get) =>
               force: config.force,
               retryStaleDays: config.retryStaleDays,
               cursor: cursor ?? undefined,
+              continent: config.continent || undefined,
               country: config.country || undefined,
               region: config.region || undefined,
               zone: config.zone || undefined,
