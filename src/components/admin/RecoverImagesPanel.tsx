@@ -474,7 +474,7 @@ export function RecoverImagesPanel() {
     !!geoFilter.continent || !!geoFilter.country || !!geoFilter.zone || isCrossUser;
 
   return (
-    <section className="border rounded-lg bg-card flex flex-col min-h-0 overflow-hidden">
+    <section className="border rounded-lg bg-card flex flex-col min-h-0 h-full flex-1 overflow-hidden">
       {running && (
         <header className="flex items-center gap-2 p-3 border-b shrink-0">
           <Badge variant="outline" className="text-xs ml-auto">
