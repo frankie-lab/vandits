@@ -2384,7 +2384,11 @@ export function LocationMap() {
       if (!map) return;
       const zoom = map.getZoom();
       const layers = getLayersRef.current();
-      applyLayerVisibility(layers, zoom);
+      // Cuando hay foco explícito sobre un owner (`filterByUserId`),
+      // omitimos los zoom gates por sourceType para que sus puntos se
+      // vean a cualquier zoom (el bounds del subset puede caer en z<7).
+      const bypassZoomGates = !!useLocationsStore.getState().filters.filterByUserId;
+      applyLayerVisibility(layers, zoom, undefined, { bypassZoomGates });
     };
 
     // Apply now
@@ -2393,10 +2397,16 @@ export function LocationMap() {
     // Re-evaluate on zoom (for minVisibilityZoom) and layer changes
     map.on('zoomend', applyGroupVisibility);
     window.addEventListener(LAYER_VISIBILITY_EVENT, applyGroupVisibility);
+    // Re-evaluate cuando cambia el filtro por usuario (toggle del bypass).
+    const unsubFilter = useLocationsStore.subscribe(
+      (s) => s.filters.filterByUserId,
+      () => applyGroupVisibility(),
+    );
 
     return () => {
       map.off('zoomend', applyGroupVisibility);
       window.removeEventListener(LAYER_VISIBILITY_EVENT, applyGroupVisibility);
+      unsubFilter();
     };
   }, [locationIds, getLocationOwnership, currentUserId]);
 
