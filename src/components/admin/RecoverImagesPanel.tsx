@@ -356,14 +356,84 @@ export function RecoverImagesPanel() {
           </p>
         </div>
 
-        {/* PASO 1 — Tarjetas de modo */}
+        {/* PASO 0 — Universo del panel (desglose por fuente de imagen) */}
+        <section className="rounded-lg border bg-background">
+          <header className="px-4 py-2.5 border-b flex items-center gap-2">
+            <ImageIcon className="w-3.5 h-3.5 text-muted-foreground" />
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Universo del panel
+            </h4>
+            <span className="ml-auto text-[11px] text-muted-foreground">
+              de dónde sale el conteo de candidatos
+            </span>
+          </header>
+          {breakdown == null ? (
+            <div className="px-4 py-6 text-xs text-muted-foreground">Cargando desglose…</div>
+          ) : (
+            <ul className="px-4 py-3 text-xs space-y-1.5 font-mono">
+              <li className="flex items-baseline">
+                <span className="text-foreground">Total POIs activos</span>
+                <span className="flex-1 mx-2 border-b border-dotted border-border/60" />
+                <span className="tabular-nums font-semibold text-foreground">{breakdown.total_active.toLocaleString()}</span>
+              </li>
+              <li className="flex items-baseline pl-3">
+                <span className="text-muted-foreground">└ Enriquecidos</span>
+                <span className="flex-1 mx-2 border-b border-dotted border-border/60" />
+                <span className="tabular-nums text-foreground">{breakdown.enriched.toLocaleString()}</span>
+              </li>
+              <li className="flex items-baseline pl-8">
+                <span className="text-muted-foreground">├ Con foto (cualquier fuente)</span>
+                <span className="flex-1 mx-2 border-b border-dotted border-border/60" />
+                <span className="tabular-nums text-foreground">{breakdown.with_image_any.toLocaleString()}</span>
+              </li>
+              <li className="flex items-baseline pl-12 text-[11px] text-muted-foreground/80">
+                <span>· IA / scraping (enriched_data.imagen)</span>
+                <span className="flex-1 mx-2" />
+                <span className="tabular-nums">{breakdown.image_from_enriched.toLocaleString()}</span>
+              </li>
+              <li className="flex items-baseline pl-12 text-[11px] text-muted-foreground/80">
+                <span>· Subida por el usuario (user_image_url)</span>
+                <span className="flex-1 mx-2" />
+                <span className="tabular-nums">{breakdown.image_from_user_url.toLocaleString()}</span>
+              </li>
+              <li className="flex items-baseline pl-12 text-[11px] text-muted-foreground/80">
+                <span>· Galería (location_photos)</span>
+                <span className="flex-1 mx-2" />
+                <span className="tabular-nums">{breakdown.image_from_photos_table.toLocaleString()}</span>
+              </li>
+              <li className="flex items-baseline pl-8">
+                <span className="text-amber-700 dark:text-amber-400 font-semibold">└ Sin foto · candidatos</span>
+                <span className="flex-1 mx-2 border-b border-dotted border-border/60" />
+                <span className="tabular-nums font-bold text-amber-700 dark:text-amber-400">
+                  {breakdown.enriched_without_image.toLocaleString()}
+                </span>
+              </li>
+              <li className="flex items-baseline pl-3">
+                <span className="text-muted-foreground/70">└ No enriquecidos</span>
+                <span className="flex-1 mx-2 border-b border-dotted border-border/60" />
+                <span className="tabular-nums text-muted-foreground">
+                  {breakdown.not_enriched.toLocaleString()}
+                  <span className="ml-1 text-[10px]">(no aplican)</span>
+                </span>
+              </li>
+            </ul>
+          )}
+        </section>
+
+        {/* PASO 1 — Tarjetas de modo (acciones sobre el subconjunto "sin foto") */}
         <section className="rounded-lg border bg-muted/10">
+          <div className="px-3 pt-2.5 text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
+            Acción sobre los <strong className="text-foreground normal-case">{(breakdown?.enriched_without_image ?? 0).toLocaleString()} POIs sin foto</strong>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3">
             {(Object.keys(MODE_META) as Mode[]).map((m) => {
               const mm = MODE_META[m];
               const Icon = mm.icon;
               const count = globalCounts[m];
               const isActive = mode === m;
+              const subtitle = m === 'pending'
+                ? `Nunca intentados o último intento > ${retryStaleDays}d`
+                : `Incluye ${(breakdown?.in_cooldown ?? 0).toLocaleString()} ya intentados en cooldown`;
               return (
                 <button
                   key={m}
@@ -394,7 +464,7 @@ export function RecoverImagesPanel() {
                     </span>
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-2 leading-snug">
-                    {mm.desc}
+                    {subtitle}
                   </div>
                 </button>
               );
