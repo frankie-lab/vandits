@@ -147,19 +147,18 @@ serve(async (req) => {
     });
   }
 
-  // --- candidate query: cursor by id, JSON null-safe filter ---
-  // NOTE: we filter cover_url IS NULL at SQL level (covers the bulk).
-  // Then in JS we re-check enriched_data.media for backwards compat AND
-  // apply the retryStaleDays logic.
+  // --- candidate query: cursor by id, JSON-only filter ---
+  // Canonical image field in this schema is `enriched_data.imagen` (string URL).
+  // There is NO `cover_url` column. We over-fetch and re-filter in JS to apply
+  // the retryStaleDays logic + media fallback paths.
   let q = admin
     .from("locations")
-    .select("id, name, latitude, longitude, country, region, place_type, enriched_data, deleted_at, owner_user_id, cover_url")
+    .select("id, name, latitude, longitude, country, region, place_type, enriched_data, deleted_at, owner_user_id")
     .is("deleted_at", null)
     .not("enriched_data", "is", null)
-    .is("cover_url", null)
+    .or("enriched_data->>imagen.is.null,enriched_data->>imagen.eq.")
     .gt("id", cursor)
     .order("id", { ascending: true })
-    // Over-fetch — many rows still have media.images set despite cover_url null.
     .limit(batchSize * 3);
 
   if (scope === "user") {
