@@ -471,7 +471,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
         )}
         title={`Seguir a ${displayName}`}
       >
-        {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserPlus className="w-3.5 h-3.5" />}
+        {isProcessing && <Loader2 className="w-3 h-3 animate-spin" />}
         <span>{label}</span>
       </Button>
     );
