@@ -26,6 +26,17 @@ import { tokens } from '@/design-system/tokens';
 import { getOwnerIdentityColor } from './owner-stroke';
 import { getOwnerIdentityOklch } from '@/stores/owner-identity-store';
 import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
+import { resolveMarkerGrammar } from '@/domains/content/lib/poi-marker-grammar';
+
+// ── Neutral palettes for non-owner / non-followed shapes ───────────────
+// PR-POI-SOURCE-5: app POIs (diamond) y source POIs (hexagon) usan paletas
+// neutras — la paleta de estado (verde/gris/naranja) está reservada a
+// `own`. Tokens preliminares hasta exponer `--poi-app-*` y `--poi-source-*`
+// en `design-system/tokens/source/poi.json`.
+const APP_NEUTRAL_FILL = 'hsl(220 13% 46%)';
+const APP_NEUTRAL_STROKE = 'hsl(220 13% 88%)';
+const SOURCE_NEUTRAL_FILL = 'hsl(220 9% 38%)';
+const SOURCE_NEUTRAL_STROKE = 'hsl(220 9% 86%)';
 
 // ── Followed POI debug helpers ──────────────────────────────────────────
 // Activos solo en DEV o si la URL incluye `?debug=poi-icon`. En producción
@@ -210,30 +221,36 @@ export const createCustomIcon = (
   // sync defensivo desde call-sites paralelos).
   const renderMode: MarkerRenderMode = isFocused ? 'rich' : getRenderModeForZoom(currentZoom);
 
-  // ── Followed-user gate (PR-SOCIAL-2A) ──────────────────────────────────
-  // Norma canónica: POIs propios = círculo (con todas sus variables).
-  //                 POIs de seguidos = triángulo invertido (sin rings,
-  //                 sin tint, stroke fino = identidad del owner).
-  // Helper único: getOwnerStrokeColor(uid). Ver mem://style/map/followed-poi-grammar.
-  // Owner canónico vía helper único (ownerUserId ?? _docUserId).
-  // Antes leíamos `location.userId` (no existe en GeoLocation) → isFollowedPoi
-  // siempre era false y los POIs de seguidos se renderizaban como círculos.
-  const ownerUid = getLocationOwnerUserId(location as { ownerUserId?: string | null; _docUserId?: string | null });
-  const isFollowedPoi = !isOwn && !!currentUserId && !!ownerUid && ownerUid !== currentUserId;
-  if (isFollowedPoi) {
-    // Para seguidos, anular tint y currentUserId-driven rings: dominio privado del owner.
+  // ── Pipeline canónico (PR-POI-SOURCE-5) ────────────────────────────────
+  // Single source of truth para FORMA + DECORACIONES = `resolveMarkerGrammar`.
+  // El renderer NO decide forma por heurística (owner === viewer); lee la
+  // gramática resuelta y la pinta. Mantiene comportamiento legacy para
+  // own/followed; añade diamond (app) y hexagon (source).
+  const ownerUid = location
+    ? getLocationOwnerUserId(location as { ownerUserId?: string | null; _docUserId?: string | null })
+    : null;
+  const grammar = location
+    ? resolveMarkerGrammar(currentUserId, location)
+    : null;
+  const grammarShape = grammar?.shape ?? 'circle';
+  const isFollowedPoi = grammarShape === 'inverted-triangle';
+  const isAppPoi = grammarShape === 'diamond';
+  const isSourcePoi = grammarShape === 'hexagon';
+  const isNonOwnShape = isFollowedPoi || isAppPoi || isSourcePoi;
+
+  if (grammar && !grammar.allowCollectionTint) {
     collectionTint = null;
-    if (FOLLOWED_DEBUG && location?.id && !_followedLogged.has(location.id)) {
-      _followedLogged.add(location.id);
-      // eslint-disable-next-line no-console
-      console.debug('[followed-poi]', {
-        id: location.id,
-        ownerUid,
-        currentUserId,
-        isOwn,
-        identityFill: getOwnerIdentityColor(ownerUid, getOwnerIdentityOklch(ownerUid)),
-      });
-    }
+  }
+  if (isFollowedPoi && FOLLOWED_DEBUG && location?.id && !_followedLogged.has(location.id)) {
+    _followedLogged.add(location.id);
+    // eslint-disable-next-line no-console
+    console.debug('[followed-poi]', {
+      id: location.id,
+      ownerUid,
+      currentUserId,
+      isOwn,
+      identityFill: getOwnerIdentityColor(ownerUid, getOwnerIdentityOklch(ownerUid)),
+    });
   }
   if (renderMode === 'micro') {
     // Rampa explícita por zoom (z≤3→2, z4→3, z5→4). Cap micro = 4px en
@@ -256,6 +273,28 @@ export const createCustomIcon = (
         popupAnchor: [0, -(microSize + 2) / 2],
       });
     }
+    // App micro: rombo CSS, paleta neutra app.
+    if (isAppPoi) {
+      const s = microSize + 2;
+      return L.divIcon({
+        className: `custom-marker-micro is-app`,
+        html: `<div style="width:${s}px;height:${s}px;background:${APP_NEUTRAL_FILL};clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);opacity:0.95;"></div>`,
+        iconSize: [s, s],
+        iconAnchor: [s / 2, s / 2],
+        popupAnchor: [0, -s / 2],
+      });
+    }
+    // Source micro: hexágono CSS, paleta neutra fuente externa.
+    if (isSourcePoi) {
+      const s = microSize + 2;
+      return L.divIcon({
+        className: `custom-marker-micro is-source`,
+        html: `<div style="width:${s}px;height:${s}px;background:${SOURCE_NEUTRAL_FILL};clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);opacity:0.95;"></div>`,
+        iconSize: [s, s],
+        iconAnchor: [s / 2, s / 2],
+        popupAnchor: [0, -s / 2],
+      });
+    }
     return L.divIcon({
       className: `custom-marker-micro${isOwn ? ' is-own' : ''}`,
       html: `<div style="width:${microSize}px;height:${microSize}px;border-radius:50%;background:${dot};${haloStyle}"></div>`,
@@ -270,9 +309,9 @@ export const createCustomIcon = (
   // sigue sin rings porque ya retornó arriba con dots de 2–4px).
   // En `standard` (z9–11) vuelven gradiente + doble sombra.
   // En `rich` (z≥12) se añade polaroid hero.
-  // Followed: NUNCA muestra rings ni tint (curated-only sharing boundary).
-  const skipHealthRings = isFollowedPoi;
-  const skipGradient = renderMode === 'compact' || isFollowedPoi;
+  // Followed/app/source: NUNCA muestran rings ni tint (curated-only sharing).
+  const skipHealthRings = grammar ? !grammar.allowHealthRings : isFollowedPoi;
+  const skipGradient = renderMode === 'compact' || isNonOwnShape;
 
 
   // Factor de escala por render mode (Ola 1 — arquitectura visual por zoom).
@@ -476,7 +515,11 @@ export const createCustomIcon = (
                 const dbg = FOLLOWED_DEBUG ? ` data-owner-uid="${ownerUid ?? ''}" data-owner-fill="${fill}" class="poi-followed-pennant"` : '';
                 return `<polygon points="2,3 22,3 12,22" fill="${fill}" stroke-linejoin="round" stroke-linecap="round"${dbg}/>`;
               })()
-            : `<circle cx="12" cy="12" r="11" fill="${skipGradient ? applyStateColor(baseColor) : `url(#dotGrad-${location?.id || 'default'})`}" stroke="white" stroke-width="${borderWidth}"/>`
+            : isAppPoi
+              ? `<polygon points="12,1 23,12 12,23 1,12" fill="${APP_NEUTRAL_FILL}" stroke="${APP_NEUTRAL_STROKE}" stroke-width="${borderWidth}" stroke-linejoin="round"/>`
+              : isSourcePoi
+                ? `<polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="${SOURCE_NEUTRAL_FILL}" stroke="${SOURCE_NEUTRAL_STROKE}" stroke-width="${borderWidth}" stroke-linejoin="round"/>`
+                : `<circle cx="12" cy="12" r="11" fill="${skipGradient ? applyStateColor(baseColor) : `url(#dotGrad-${location?.id || 'default'})`}" stroke="white" stroke-width="${borderWidth}"/>`
           }
         </svg>
       </div>
