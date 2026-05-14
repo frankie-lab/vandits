@@ -12,7 +12,7 @@ import type { OwnershipFilter } from '@/types/location';
 import '@/domains/discovery/preferences';
 
 // ── Types ────────────────────────────────────────────────────
-export type LayerType = 'catalog' | 'workspace' | 'own' | 'followed' | 'routes' | 'points';
+export type LayerType = 'catalog' | 'workspace' | 'own' | 'followed' | 'routes' | 'points' | 'app' | 'source';
 
 export interface LayerState {
   visible: boolean;
@@ -25,6 +25,10 @@ export interface LayerVisibilityState {
   catalog: LayerState;
   workspace: LayerState;
   followed: LayerState;
+  /** Capa padre `#vandits-app`. `entityHidden` = groupId[] (e.g. 'playas'). */
+  app: LayerState;
+  /** Capa padre fuentes externas. `entityHidden` = sourceId[]. */
+  source: LayerState;
   [key: string]: LayerState;
 }
 
@@ -43,6 +47,8 @@ interface PersistedState {
   followed: { visible: boolean; entityHidden: string[] };
   routes?: { visible: boolean };
   points?: { visible: boolean };
+  app?: { visible: boolean; entityHidden: string[] };
+  source?: { visible: boolean; entityHidden: string[] };
 }
 
 function loadPersisted(): PersistedState {
@@ -67,6 +73,8 @@ function migrateLegacy(): PersistedState {
     followed: { visible: true, entityHidden: [] },
     routes: { visible: true },
     points: { visible: true },
+    app: { visible: true, entityHidden: [] },
+    source: { visible: true, entityHidden: [] },
   };
 
   try {
