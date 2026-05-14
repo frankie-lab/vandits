@@ -69,17 +69,32 @@ serve(async (req) => {
     });
   }
 
-  // 2. Take the lock (best-effort optimistic — last_tick_at filter).
-  const { data: locked, error: lockErr } = await admin
+  // 2. Take the lock. We re-read the row with the stale-lock condition to
+  //    avoid two ticks fighting over the same job. Using `.maybeSingle()`
+  //    instead of `.single()` so an empty result is not treated as an error.
+  const { data: claim, error: claimErr } = await admin
     .from("image_recovery_jobs")
-    .update({ last_tick_at: new Date().toISOString() })
+    .select("id,last_tick_at")
     .eq("id", job.id)
     .or(`last_tick_at.is.null,last_tick_at.lt.${lockCutoff}`)
-    .select("id")
-    .single();
-  if (lockErr || !locked) {
-    return new Response(JSON.stringify({ ok: true, picked: job.id, locked: false }), {
+    .maybeSingle();
+  if (claimErr) {
+    return new Response(JSON.stringify({ error: `claim: ${claimErr.message}` }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  if (!claim) {
+    return new Response(JSON.stringify({ ok: true, picked: job.id, locked: false, reason: "already-locked" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const { error: lockErr } = await admin
+    .from("image_recovery_jobs")
+    .update({ last_tick_at: new Date().toISOString() })
+    .eq("id", job.id);
+  if (lockErr) {
+    return new Response(JSON.stringify({ error: `lock: ${lockErr.message}` }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
