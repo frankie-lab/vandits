@@ -2398,10 +2398,14 @@ export function LocationMap() {
     map.on('zoomend', applyGroupVisibility);
     window.addEventListener(LAYER_VISIBILITY_EVENT, applyGroupVisibility);
     // Re-evaluate cuando cambia el filtro por usuario (toggle del bypass).
-    const unsubFilter = useLocationsStore.subscribe(
-      (s) => s.filters.filterByUserId,
-      () => applyGroupVisibility(),
-    );
+    let lastFilterUid = useLocationsStore.getState().filters.filterByUserId;
+    const unsubFilter = useLocationsStore.subscribe((state) => {
+      const cur = state.filters.filterByUserId;
+      if (cur !== lastFilterUid) {
+        lastFilterUid = cur;
+        applyGroupVisibility();
+      }
+    });
 
     return () => {
       map.off('zoomend', applyGroupVisibility);
