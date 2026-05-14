@@ -617,6 +617,7 @@ export function RecoverImagesPanel() {
             </div>
           )}
         </section>
+        </div>
 
         {/* ────── Filas inferiores: Usuarios · Árbol · Lanzar ───────── */}
         <div className={`flex-1 min-h-0 grid grid-cols-1 ${gridCols} gap-4 overflow-hidden`}>
