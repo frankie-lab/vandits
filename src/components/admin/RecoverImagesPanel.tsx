@@ -955,7 +955,7 @@ function SummaryRow({ label, value, sub }: { label: string; value: string | numb
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: number; tone?: 'success' | 'warn' }) {
+function Stat({ label, value, tone }: { label: string; value: number | string; tone?: 'success' | 'warn' }) {
   const color =
     tone === 'success' ? 'text-emerald-600 dark:text-emerald-400'
     : tone === 'warn' ? 'text-amber-600 dark:text-amber-400'
