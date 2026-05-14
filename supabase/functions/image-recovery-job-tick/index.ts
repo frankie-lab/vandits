@@ -27,6 +27,7 @@ const LOCK_TIMEOUT_MS = 90_000; // a tick is considered stale after 90s
 interface BatchResp {
   scanned: number;
   updated: number;
+  noImage: number;
   skippedAlreadyAttempted: number;
   failedTransient: number;
   nextCursor: string | null;
