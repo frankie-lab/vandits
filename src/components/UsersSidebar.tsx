@@ -354,22 +354,23 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
       onClose();
 
       // Subset-fit canónico: el filtro por usuario es una acción explícita de
-      // foco (no un filtro descriptivo Geo/Tipo/Tags). Ver
-      // mem://logic/map/subset-fit-contract.
-      // Defer: dejamos que el store reprocese con el filterByUserId recién
-      // aplicado y luego pedimos fit con el resultado real (sin re-filtrar
-      // por _docUserId).
-      setTimeout(() => {
-        const ids = useLocationsStore.getState()
-          .getFilteredLocations()
-          .map(l => l.id);
-        if (ids.length > 0) {
-          // Sin minZoom: queremos TODOS los puntos del usuario encajados en
-          // el viewport. Forzar un piso de zoom haría close-up sobre el
-          // centro geométrico cuando el subset es disperso (multi-país).
-          requestSubsetFit(ids, { mode: 'always', reason: 'user-filter' });
-        }
-      }, 50);
+      // foco. Calculamos los ids de forma DETERMINISTA leyendo el universo
+      // completo (`getAllLocations`) y filtrando por owner directamente, sin
+      // depender de `getFilteredLocations()` (que aplicaría además otros
+      // filtros activos: Geo/Tipo/Tags/Salud) ni del ciclo de render de
+      // Zustand. Ver mem://logic/map/subset-fit-contract.
+      const allLocs = useLocationsStore.getState().getAllLocations();
+      const ids = allLocs
+        .filter(l => getLocationOwnerUserId(l as { ownerUserId?: string | null; _docUserId?: string | null }) === user.id)
+        .map(l => l.id);
+      if (ids.length > 0) {
+        // Sin minZoom: queremos TODOS los puntos del usuario encajados en
+        // el viewport. Forzar un piso de zoom haría close-up sobre el
+        // centro geométrico cuando el subset es disperso (multi-país).
+        requestSubsetFit(ids, { mode: 'always', reason: 'user-filter' });
+      } else {
+        toast.info(`Sin puntos visibles para ${user.display_name || user.username}`);
+      }
 
       toast.success(`Mostrando puntos de ${user.display_name || user.username}`, {
         icon: <Filter className="w-4 h-4" />,
