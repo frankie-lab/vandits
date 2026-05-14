@@ -3404,6 +3404,10 @@ export type Database = {
         Args: { _location_id: string; _user_id: string }
         Returns: undefined
       }
+      _image_recovery_candidate_predicate: {
+        Args: { _enriched: Json; _force: boolean; _retry_stale_days: number }
+        Returns: boolean
+      }
       _is_admin_or_master: { Args: { _uid: string }; Returns: boolean }
       _merge_admin_area: {
         Args: { _canonical: string; _orphan: string }
@@ -3468,6 +3472,39 @@ export type Database = {
           with_country: number
           with_postal: number
           with_timezone: number
+        }[]
+      }
+      admin_image_recovery_locations: {
+        Args: {
+          _force?: boolean
+          _limit?: number
+          _offset?: number
+          _retry_stale_days?: number
+          _user_id: string
+        }
+        Returns: {
+          admin_level_3: string
+          continent: string
+          country: string
+          id: string
+          latitude: number
+          locality: string
+          longitude: number
+          name: string
+          place_type: string
+          region: string
+          sublocality: string
+          zone: string
+        }[]
+      }
+      admin_image_recovery_users: {
+        Args: { _force?: boolean; _retry_stale_days?: number }
+        Returns: {
+          display_name: string
+          total_locations: number
+          universe_count: number
+          user_id: string
+          username: string
         }[]
       }
       admin_user_geo_locations: {
