@@ -529,9 +529,8 @@ export function RecoverImagesPanel() {
             <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
             Opciones avanzadas
             <span className="ml-auto text-[11px] text-muted-foreground font-normal">
-              lote {batchSize} · cooldown {meta.honorsCooldown ? `${retryStaleDays}d` : 'n/a'} · {dryRun ? 'dry-run' : 'escribe en BD'}
+              cooldown {meta.honorsCooldown ? `${retryStaleDays}d` : 'n/a'} · {dryRun ? 'dry-run' : 'escribe en BD'}
               {force ? ' · force' : ''}
-              {maxTotalText && ` · tope ${maxTotalText}`}
             </span>
           </button>
           {advancedOpen && (
