@@ -650,30 +650,12 @@ export function RecoverImagesPanel() {
                 </div>
               )}
 
-              {/* Confirmación explícita para escritura masiva (>200 POIs). */}
-              {!dryRun && isMassive && (
-                <label className="flex items-start gap-2 text-xs cursor-pointer select-none px-1">
-                  <input
-                    type="checkbox"
-                    checked={confirmMassiveWrite}
-                    onChange={(e) => setConfirmMassiveWrite(e.target.checked)}
-                    className="mt-0.5 h-3.5 w-3.5 cursor-pointer accent-amber-600"
-                  />
-                  <span className="text-foreground">
-                    Confirmo escritura masiva en BD ({(scopeCount ?? 0).toLocaleString()} POIs).
-                  </span>
-                </label>
-              )}
-
               {!running ? (
                 <Button
                   onClick={start}
                   className="w-full gap-2"
                   variant={dryRun ? 'secondary' : 'default'}
-                  disabled={
-                    ((scopeCount ?? 0) === 0 && selectedIds.size === 0) ||
-                    (!dryRun && isMassive && !confirmMassiveWrite)
-                  }
+                  disabled={(scopeCount ?? 0) === 0 && selectedIds.size === 0}
                 >
                   <Play className="w-4 h-4" />
                   {launchLabel}
