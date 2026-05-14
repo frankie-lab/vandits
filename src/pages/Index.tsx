@@ -121,7 +121,7 @@ const Index = () => {
       open('profileEditor', { tab });
     };
     const onOpenGeography = () => open('adminPanel', { tab: 'geography' });
-    const onOpenDataSources = () => open('adminPanel', { tab: 'sources' });
+    const onOpenDataSources = () => open('adminPanel', { tab: 'image-recovery' });
     window.addEventListener('vandits:open-upload', onOpenUpload);
     window.addEventListener('vandits:open-profile', onOpenProfile as EventListener);
     window.addEventListener('admin:open-geography', onOpenGeography);

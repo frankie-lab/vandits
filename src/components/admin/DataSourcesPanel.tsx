@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { RecoverImagesPanel } from './RecoverImagesPanel';
+// RecoverImagesPanel se ha movido a su propia entrada de Back Office (tab 'image-recovery').
 
 type Kind = 'search' | 'enrichment' | 'scraper';
 
@@ -124,7 +124,6 @@ export function DataSourcesPanel() {
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 pb-8 space-y-6">
-      <RecoverImagesPanel />
       {(Object.keys(GROUP_META) as Kind[]).map((kind) => {
         const meta = GROUP_META[kind];
         const Icon = meta.icon;

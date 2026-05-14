@@ -68,6 +68,7 @@ import {
        Cloud,
        Layers,
        Database,
+       ImageIcon,
    type LucideIcon,
 } from 'lucide-react';
 
@@ -516,6 +517,11 @@ export function UserMenu({
                <DropdownMenuItem onClick={() => onOpenAdmin?.('sources')} className="cursor-pointer">
                <Database className="w-4 h-4 mr-2 text-cyan-500" />
                Fuentes de datos
+               </DropdownMenuItem>
+
+               <DropdownMenuItem onClick={() => onOpenAdmin?.('image-recovery')} className="cursor-pointer">
+               <ImageIcon className="w-4 h-4 mr-2 text-amber-500" />
+               Recuperar imágenes faltantes
                </DropdownMenuItem>
 
                <DropdownMenuItem onClick={() => onOpenAdmin?.('design-system')} className="cursor-pointer">
