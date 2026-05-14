@@ -450,7 +450,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
           className={cn(baseClass, 'bg-amber-500/10 text-amber-600 hover:bg-destructive/15 hover:text-destructive')}
           title={`Cancelar solicitud a ${displayName}`}
         >
-          {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock className="w-3.5 h-3.5" />}
+          {isProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Clock className="w-3 h-3" />}
           <span>Solicitado</span>
         </Button>
       );
