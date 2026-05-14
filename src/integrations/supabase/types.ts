@@ -3405,7 +3405,11 @@ export type Database = {
         Returns: undefined
       }
       _image_recovery_candidate_predicate: {
-        Args: { _enriched: Json; _force: boolean; _retry_stale_days: number }
+        Args: {
+          _force: boolean
+          _loc: Database["public"]["Tables"]["locations"]["Row"]
+          _retry_stale_days: number
+        }
         Returns: boolean
       }
       _is_admin_or_master: { Args: { _uid: string }; Returns: boolean }
@@ -3472,6 +3476,21 @@ export type Database = {
           with_country: number
           with_postal: number
           with_timezone: number
+        }[]
+      }
+      admin_image_recovery_breakdown: {
+        Args: { _retry_stale_days?: number }
+        Returns: {
+          enriched: number
+          enriched_without_image: number
+          image_from_enriched: number
+          image_from_photos_table: number
+          image_from_user_url: number
+          in_cooldown: number
+          not_enriched: number
+          pending_candidates: number
+          total_active: number
+          with_image_any: number
         }[]
       }
       admin_image_recovery_locations: {

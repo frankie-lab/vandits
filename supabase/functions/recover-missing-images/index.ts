@@ -158,12 +158,24 @@ serve(async (req) => {
   // Canonical image field in this schema is `enriched_data.imagen` (string URL).
   // There is NO `cover_url` column. We over-fetch and re-filter in JS to apply
   // the retryStaleDays logic + media fallback paths.
+  // Pre-fetch location ids that already have a row in `location_photos`
+  // (gallery uploads). Excluded from candidates so we don't try to recover
+  // images for POIs that already have a user photo via that channel.
+  const { data: photoRows } = await admin
+    .from("location_photos")
+    .select("location_id");
+  const locationIdsWithPhotos = new Set<string>(
+    (photoRows ?? []).map((r: any) => r.location_id),
+  );
+
   let q = admin
     .from("locations")
-    .select("id, name, latitude, longitude, country, region, zone, place_type, enriched_data, deleted_at, owner_user_id, created_at")
+    .select("id, name, latitude, longitude, country, region, zone, place_type, enriched_data, deleted_at, owner_user_id, user_image_url, created_at")
     .is("deleted_at", null)
     .not("enriched_data", "is", null)
     .or("enriched_data->>imagen.is.null,enriched_data->>imagen.eq.")
+    // Exclude POIs with a user-uploaded image URL (no image recovery needed).
+    .or("user_image_url.is.null,user_image_url.eq.")
     .gt("id", cursor)
     .order("id", { ascending: true })
     .limit(batchSize * 3);
@@ -206,6 +218,8 @@ serve(async (req) => {
 
   for (const r of rows ?? []) {
     if (getMediaImageUrl(r.enriched_data)) continue; // already has image somewhere
+    if (r.user_image_url && String(r.user_image_url).length > 0) continue; // user uploaded URL
+    if (locationIdsWithPhotos.has(r.id)) continue; // gallery photo exists
     if (!force) {
       const attempted = getRecoveryAttemptedAt(r.enriched_data);
       if (attempted) {
