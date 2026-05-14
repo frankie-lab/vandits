@@ -32,6 +32,15 @@ export interface ImageRecoveryStartConfig {
   dryRun: boolean;
   force: boolean;
   retryStaleDays: number;
+  // Tope total client-side: cuando `scanned >= maxTotal`, el loop sale.
+  maxTotal?: number | null;
+  // Franjas geográficas (text match contra locations.country/region/zone)
+  country?: string | null;
+  region?: string | null;
+  zone?: string | null;
+  // Franjas por antigüedad (ISO date strings; se traducen a created_at < / >)
+  createdBefore?: string | null;
+  createdAfter?: string | null;
 }
 
 interface BatchResponse {
