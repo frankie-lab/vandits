@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { registerUsername } from '@/domains/identity/lib/username-registry';
 
 export interface UserProfile {
  id: string;
