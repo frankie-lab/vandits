@@ -118,7 +118,7 @@ describe('locations-store', () => {
         visibility: 'public',
         geoHealth: 'ok',
         isApproved: true,
-        enrichedData: { descripcion: 'POI curado' } as any,
+        enrichedData: { descripcion: 'Una descripción suficientemente larga y verificable para que este POI entre en la frontera canónica de compartición.' } as any,
         createdAt: new Date(),
         updatedAt: new Date(),
       },
