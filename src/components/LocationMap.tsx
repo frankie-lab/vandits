@@ -90,6 +90,8 @@ import { useEnrichmentTracker } from './map/useEnrichmentTracker';
 import { useCoalescedRealtimeTick } from './map/use-coalesced-realtime-tick';
 import { initPhotoLayer } from './map/map-photo-layer';
 import { initLayerGroups, destroyLayerGroups, getOrCreateGroup, clearAllGroups, clearAllGroupsExcept, applyLayerVisibility } from './map/map-layer-groups';
+import { resolvePoiSource } from '@/domains/content/lib/poi-source';
+import { resolveLayerGroupKey } from '@/domains/content/lib/poi-layer';
 import { useV2MapBridge } from '@/hooks/use-v2-map-bridge';
 import { renderV2Features, clearV2Features, refreshV2Icons } from './map/map-v2-renderer';
 import {
@@ -1702,13 +1704,26 @@ export function LocationMap() {
  markersRef.current.set(location.id, marker);
  locationsRef.current.set(location.id, location);
  
-      // Determine layer type and add marker to the correct LayerGroup
-      // Single Source of Truth: location.isApproved decide Catálogo vs Mesa.
-      // documents.status NO afecta a la asignación de capa.
+      // Determine layer type and add marker to the correct LayerGroup.
+      // Pipeline canónico (PR-POI-SOURCE-7):
+      //   1. Si el POI tiene marcadores explícitos sourceKind=app|external,
+      //      `resolveLayerGroupKey` lo enruta a `app:<groupId>` o `source:<sourceId>`.
+      //   2. En cualquier otro caso, conserva la clasificación legacy
+      //      (catalog/workspace por isApproved, followed:<uid> por owner).
+      // Esto mantiene la lógica de aprobación existente para POIs propios.
       const locLayerType = (location as any)?._layerType as import('@/hooks/use-layer-visibility').LayerType | undefined;
+      const viewerUid = currentUserIdRef.current ?? null;
+      const poiSource = resolvePoiSource(viewerUid, location);
       let layerType: import('@/hooks/use-layer-visibility').LayerType;
       let entityId: string | undefined;
-      if (locLayerType) {
+
+      if (poiSource.type === 'app' || poiSource.type === 'source') {
+        // Nuevo pipeline: enrutado físico por sourceType.
+        const groupKey = resolveLayerGroupKey(poiSource);
+        const colonIdx = groupKey.indexOf(':');
+        layerType = groupKey.substring(0, colonIdx) as import('@/hooks/use-layer-visibility').LayerType;
+        entityId = groupKey.substring(colonIdx + 1);
+      } else if (locLayerType) {
         layerType = locLayerType;
       } else if (ownership.isOwn) {
         layerType = location.isApproved ? 'catalog' : 'workspace';
