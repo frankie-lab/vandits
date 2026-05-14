@@ -1,41 +1,55 @@
+## Objetivo
 
-## Diagnóstico
+Al pulsar "Ver puntos de X" en `UsersSidebar` (sea sandbox o cualquier otro), el mapa debe mostrar **solo** los POIs de ese usuario y ajustar el zoom para que **todos** quepan en el viewport.
 
-`v_locations_resolved` está creada con `security_invoker=on`. PostgREST aplica `.range(from, to)` sobre la vista **antes** de que RLS filtre filas. Una página de 1000 puede devolver 97 si el viewer no tiene permiso sobre las otras 903.
+## Estado actual (ya hecho)
 
-`fetchAllLocationsPaginated` (`src/domains/content/lib/db-transformers.ts`) usa la heurística `returned < page_size → fin del dataset`. Esa heurística es inválida con vistas `security_invoker`: el bucle termina prematuramente y se pierden filas posteriores al primer corte.
+- `UsersSidebar.handleFilterByUser` aplica `filters.filterByUserId = user.id` y dispara `requestSubsetFit(ids, { mode: 'always', reason: 'user-filter' })`.
+- El listener en `LocationMap.tsx` ya hace fit a **bounds completos** (sin recortar a "región dominante"), con clamp `FIT_CLAMP_ZOOM` y padding.
+- El matcher (`location-filtering.ts`) recorta por `getLocationOwnerUserId(loc) === filterByUserId`.
+- Paginador (`db-transformers.ts`) fix recién aplicado: ya carga las páginas parciales que antes truncaban los POIs de Alpha.
 
-Por eso los 337 puntos de sandbox-agent (clonados en bloque, IDs en las primeras páginas) entran enteros, y los 8 de Alpha (UUIDs dispersos, varios caen tras la primera página recortada) no llegan al cliente. No es nada del sandbox, es el paginador.
+## Por qué aún puede fallar
 
-## Cambio (único archivo)
+1. **Timing del `setTimeout(50ms)`** en `UsersSidebar` línea 361: `getFilteredLocations()` se lee antes de que el store haya aplicado el nuevo filtro en el render de Zustand. Con sandbox cuela porque sus 337 POIs ya estaban montados; con un usuario con pocos POIs (Alpha = 8) el array puede llegar vacío y `requestSubsetFit` hace early-return (`locationIds.length === 0`).
+2. **Dependencia indirecta de otros filtros**: `getFilteredLocations()` aplica TODOS los filtros activos (geo, tags, salud…). Si quedaba algún chip activo de una sesión anterior, los ids del subset pueden no representar "todos los POIs del usuario".
+3. **Culling por viewport**: ids no montados se resuelven por fallback contra `locationsRef`. Si la primera carga aún no hidrató `locationsRef`, el listener no encuentra coords.
 
-`src/domains/content/lib/db-transformers.ts`, función `fetchAllLocationsPaginated`.
+## Cambios propuestos
 
-1. **Mantener `.order('id', { ascending: true })`** sobre `v_locations_resolved`. Paginar sin orden estable es incorrecto y reintroduciría duplicados/huecos a futuro. Se queda.
+### 1. `src/components/UsersSidebar.tsx` — calcular ids de forma determinista
 
-2. **Cambiar la condición de salida del bucle**:
-   - Hoy: `if (returned < PAGE_SIZE) break`.
-   - Nuevo: seguir paginando hasta que **una página devuelva 0 filas** (`returned === 0`). Las páginas parciales son legítimas con `security_invoker`.
+Reemplazar el bloque `setTimeout` (líneas 361–371) por:
 
-3. **Cap estricto de seguridad** (defensa contra loop infinito si algo va mal):
-   - `MAX_PAGES = 50` (≈ 50 000 filas con page_size 1000).
-   - `MAX_ROWS  = 50_000`.
-   - Si se alcanza cualquiera de los dos: `console.warn('[paginator] CAP reached', { pages, total, lastFrom, lastTo })` y romper el bucle. **No silenciar** — el warning es la señal de que hay que subir el cap o repaginar por owner.
+- Leer `useLocationsStore.getState().getAllLocations()` (universo completo, sin pasar por otros filtros).
+- Filtrar por `getLocationOwnerUserId(loc) === user.id` directamente.
+- Llamar a `requestSubsetFit(ids, { mode: 'always', reason: 'user-filter' })` **sin** `setTimeout`.
+- Si `ids.length === 0`, mostrar toast informativo ("Sin puntos visibles para este usuario") y no mover cámara.
 
-4. **Conservar la instrumentación reciente**: `[paginator] page=N from=A to=B returned=K`, `TRACK_IDS` con los IDs de Alpha (y permitir extender el tracker a Beta vía constante en el módulo), `[paginator] DONE total=… tracker hits=X/Y`.
+Esto desacopla el subset-fit de:
+- el ciclo de render de Zustand,
+- otros filtros activos (Geo/Tipo/Tags/Salud),
+- el momento exacto en que se montan los markers.
 
-## Validación post-fix (criterio de éxito)
+### 2. `src/components/LocationMap.tsx` — endurecer fallback de coords
 
-No basta con "se ven más puntos". Hay que confirmar con el tracker:
+En el handler del listener (líneas 2214–2227), si tras recorrer ids quedan ≥1 sin coords resueltas, **diferir** una segunda pasada con `requestAnimationFrame` (máx 1 reintento) leyendo `locationsRef.current` ya hidratado. Hoy si `pts.length === 0` se hace early-return silencioso.
 
-- `[paginator] DONE` cubre todas las páginas hasta `returned=0` (o hasta CAP con warning explícito).
-- **Alpha: `tracker hits = 8/8`**.
-- **Beta: `tracker hits = 10/10`** (los que pasen RLS para el viewer; si alguno es `private` de Beta y el viewer no es owner ni follower aceptado, ese ID legítimamente no debería aparecer — anotar en consola cuáles entran y cuáles no, sin marcarlo como fallo).
-- `[user-filter funnel]` para Alpha: `dbLocs_in_uid_docs ≥ 8`.
-- Sandbox conserva sus 337 sin regresión.
-- Ningún warning `[paginator] CAP reached` en flujo normal.
+Log de telemetría: `console.warn('[subset-fit] missing coords', { reason, total, missing })` cuando alguno se pierda.
 
-## Fuera de alcance (queda registrado, no bloquea)
+### 3. Validación
 
-- **`documents_of_uid: 0` para Alpha** (documento existe en BD pero el store no lo carga → bug en `use-database-sync.ts`). Los markers pueden renderizar por `ownerUserId` aunque el documento no esté en el store, así que el fix del paginador no depende de esto. Se aborda en una segunda iteración para arreglar agrupación por documento y filtros que dependan de `documents`.
-- Errores no relacionados ya descartados: `batch-enrich ERR_HTTP_PROTOCOL_ERROR`, `getAllChildMarkers undefined`, warnings `[V2 Flags]`.
+Tras los cambios, en preview:
+- Filtrar por **sandbox-agent** → 337 POIs visibles, mapa encuadra todos.
+- Filtrar por **Explorador Alpha** → 8 POIs visibles, mapa encuadra los 8 (con clamp z12 si quedan muy juntos).
+- Quitar filtro → vuelve al universo global sin mover cámara.
+
+Logs esperados:
+- `[paginator] DONE … alphaHits: '8/8'` (validación del fix previo).
+- Sin `[subset-fit] missing coords` en flujo normal.
+
+## Fuera de alcance
+
+- `documents_of_uid: 0` para Alpha (bug separado en `use-database-sync.ts`).
+- Cualquier cambio al matcher, RLS o vista `v_locations_resolved`.
+- Cambios al contrato de subset-fit para otros `reason` distintos de `user-filter`.
