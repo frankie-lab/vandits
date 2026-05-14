@@ -40,6 +40,32 @@ interface BatchResp {
   }>;
 }
 
+function normalizeExplicitLocationIds(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return [...new Set(input.filter((value): value is string => typeof value === "string"))].sort();
+}
+
+function getExplicitIdsPage(allIds: string[], cursor: string | null, limit: number) {
+  if (allIds.length === 0 || limit <= 0) {
+    return { ids: [] as string[], nextCursor: cursor, done: true };
+  }
+
+  const startIndex = cursor
+    ? allIds.findIndex((id) => id > cursor)
+    : 0;
+
+  if (startIndex === -1) {
+    return { ids: [] as string[], nextCursor: cursor, done: true };
+  }
+
+  const ids = allIds.slice(startIndex, startIndex + limit);
+  return {
+    ids,
+    nextCursor: ids.length > 0 ? ids[ids.length - 1] : cursor,
+    done: startIndex + ids.length >= allIds.length,
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -114,6 +140,9 @@ serve(async (req) => {
     Array.isArray(scope.locationIds) && scope.locationIds.length > 0
       ? "ids"
       : (scope.userId ? "user" : "all");
+  const explicitLocationIds = scopeKind === "ids"
+    ? normalizeExplicitLocationIds(scope.locationIds)
+    : [];
 
   // 4. Process batches until time budget or terminal condition.
   let cursor: string | null = job.cursor ?? null;
@@ -147,6 +176,22 @@ serve(async (req) => {
       });
     }
 
+    const batchLimit = job.max_total != null && job.max_total > 0
+      ? Math.max(0, Math.min(job.page_size ?? 50, job.max_total - scanned))
+      : (job.page_size ?? 50);
+    if (batchLimit <= 0) {
+      terminal = "done";
+      break;
+    }
+
+    const explicitPage = scopeKind === "ids"
+      ? getExplicitIdsPage(explicitLocationIds, cursor, batchLimit)
+      : null;
+    if (scopeKind === "ids" && (!explicitPage || explicitPage.ids.length === 0)) {
+      terminal = "done";
+      break;
+    }
+
     let resp: Response;
     try {
       resp = await fetch(`${SUPABASE_URL}/functions/v1/recover-missing-images`, {
@@ -161,12 +206,12 @@ serve(async (req) => {
           scope: scopeKind,
           mode: job.mode ?? "missing",
           userId: scopeKind === "user" ? scope.userId : undefined,
-          locationIds: scopeKind === "ids" ? scope.locationIds : undefined,
-          batchSize: job.page_size ?? 50,
+          locationIds: scopeKind === "ids" ? explicitPage?.ids : undefined,
+          batchSize: batchLimit,
           dryRun: !!job.dry_run,
           force: !!job.force,
           retryStaleDays: job.retry_stale_days ?? 30,
-          cursor: cursor ?? undefined,
+          cursor: scopeKind === "ids" ? undefined : (cursor ?? undefined),
           continent: scope.continent || undefined,
           country: scope.country || undefined,
           region: scope.region || undefined,
@@ -187,12 +232,16 @@ serve(async (req) => {
 
     const data = (await resp.json()) as BatchResp;
     waves += 1;
-    scanned += data.scanned;
+    scanned += scopeKind === "ids"
+      ? (explicitPage?.ids.length ?? 0)
+      : data.scanned;
     updated += data.updated;
     skipped += data.skippedAlreadyAttempted;
     failed += data.failedTransient;
     recent = [...data.items, ...recent].slice(0, 30);
-    cursor = data.nextCursor;
+    cursor = scopeKind === "ids"
+      ? (explicitPage?.nextCursor ?? cursor)
+      : data.nextCursor;
 
     // Persist incremental progress so the UI sees movement during the tick.
     await admin
@@ -200,6 +249,7 @@ serve(async (req) => {
       .update({
         cursor, scanned, updated, skipped, failed, waves,
         recent_items: recent,
+        remaining: job.total_in_scope != null ? Math.max(0, job.total_in_scope - scanned) : null,
         last_tick_at: new Date().toISOString(),
       })
       .eq("id", job.id);
@@ -209,7 +259,11 @@ serve(async (req) => {
       terminal = "done";
       break;
     }
-    if (!data.nextCursor) {
+    if (scopeKind === "ids" && explicitPage?.done) {
+      terminal = "done";
+      break;
+    }
+    if (scopeKind !== "ids" && !data.nextCursor) {
       terminal = "done";
       break;
     }
