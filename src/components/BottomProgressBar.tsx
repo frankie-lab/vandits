@@ -19,14 +19,16 @@ import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { EnrichmentLane } from '@/shared/progress/EnrichmentLane';
 import { GeocodingLane } from '@/shared/progress/GeocodingLane';
+import { ImageRecoveryLane } from '@/shared/progress/ImageRecoveryLane';
 import { clearBottomSafeInset, setBottomSafeInset } from '@/shared/layout/overlay-safe-area';
 
 export function BottomProgressBar() {
   const [enrichmentActive, setEnrichmentActive] = useState(false);
   const [geocodingActive, setGeocodingActive] = useState(false);
+  const [imageRecoveryActive, setImageRecoveryActive] = useState(false);
   const barRef = useRef<HTMLDivElement | null>(null);
 
-  const anyActive = enrichmentActive || geocodingActive;
+  const anyActive = enrichmentActive || geocodingActive || imageRecoveryActive;
 
   useEffect(() => {
     if (!anyActive) {
@@ -64,6 +66,7 @@ export function BottomProgressBar() {
         <div className="max-w-screen-2xl mx-auto divide-y divide-border/60">
           <EnrichmentLane onActiveChange={setEnrichmentActive} />
           <GeocodingLane onActiveChange={setGeocodingActive} />
+          <ImageRecoveryLane onActiveChange={setImageRecoveryActive} />
         </div>
       </div>
     </motion.div>

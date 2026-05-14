@@ -1,159 +1,87 @@
 ## Objetivo
 
-Recuperar imágenes para los ~3.648 POIs enriquecidos sin imagen y blindar el primer enriquecimiento. Entregado en 4 PRs independientes.
+Mover el progreso de **Recuperar imágenes faltantes** al `BottomProgressBar` global (mismo carril visual que `EnrichmentLane` y `GeocodingLane`), en lugar de vivir dentro del propio `RecoverImagesPanel`. Así el admin puede cerrar el panel / cambiar de pantalla sin perder visibilidad del job, igual que pasa con los otros dos jobs de fondo.
 
----
+## Por qué
 
-## PR-IMG-1 — Image search shared helpers (base)
+Hoy `RecoverImagesPanel` corre el bucle `while` en su propio componente con `useState` locales:
+- Si cierras el panel admin, el bucle muere (el componente se desmonta) y el job se pierde.
+- El feedback de progreso solo es visible en esa tarjeta — incoherente con la norma transversal (toda tarea de fondo larga vive en `BottomProgressBar`).
+- No hay forma de detenerlo desde el resto de la app.
 
-**El cambio más crítico.** Sin esta base sólida, la recuperación retroactiva reutilizaría una búsqueda frágil.
+## Arquitectura propuesta
 
-### Archivos nuevos
-- `supabase/functions/_shared/external-fetch.ts`
-  - Renombrado desde `wikiFetch` → **`externalFetch(url, init?)`** (no es Wikimedia-specific; cubre Commons/Wikidata/Openverse/OSM/etc).
-  - Headers por defecto: `User-Agent: Vandits/1.0 (+https://vandits.lovable.app; contact@vandits.app)` + `Accept: application/json`.
-  - **`Accept` es overridable** vía `init.headers` (algunas sources devuelven imagen binaria, XML o text/html).
-  - `withRetry(fn, { attempts: 3, baseMs: 500, factor: 3, jitterMs: 200 })`.
-  - 429/503/network → retry; 404/400 → no retry; 200 → ok.
-- `supabase/functions/_shared/image-search.ts`
-  - `searchImageFromSources(input, opts)` con sources en **`Promise.allSettled` paralelo** y elección por prioridad: Wikipedia > Commons > Wikidata > Openverse > **OSM (último, opt-in, máx 1 intento, sin retry)**.
-  - Por source: `withRetry` + `externalFetch`.
-  - Output enriquecido:
-    ```ts
-    {
-      url: string,
-      source: 'wikipedia'|'commons'|'wikidata'|'openverse'|'osm',
-      license?: string,
-      author?: string,
-      attribution?: string,
-      fetched_at: string  // ISO
-    }
-    ```
-  - Telemetría devuelta: `{ sourcesTried[], sourcesSucceeded[], finalSource, durationMs }`.
+Misma forma que `geocoding-job-store` + `GeocodingLane`:
 
-### Sin cambios todavía en `enrich-location` ni `batch-enrich`
-- Helper en paralelo. Validación: tests Deno básicos sobre `external-fetch` (UA presente, retry en 503, override de Accept) y mock de `image-search` (allSettled, prioridad correcta).
+```text
+src/stores/image-recovery-job-store.ts       (Zustand singleton + bucle)
+src/shared/progress/ImageRecoveryLane.tsx    (LaneRow visual, lee del store)
+src/components/BottomProgressBar.tsx         (monta el nuevo lane)
+src/components/admin/RecoverImagesPanel.tsx  (sólo configura + lanza/detiene)
+```
 
----
+### 1. `image-recovery-job-store.ts` (Zustand)
 
-## PR-IMG-2 — Adoptar helpers en enrich-location y batch-enrich
+Estado:
+- `running: boolean`, `stopping: boolean`
+- `dryRun: boolean`, `scope`, `force`, `retryStaleDays`, `batchSize`
+- Acumuladores: `waves`, `scanned`, `updated`, `skippedAlreadyAttempted`, `failedTransient`
+- `recentItems: ItemLog[]` (últimos 30, igual que ahora)
+- `startedAt: number | null`, `cursor: string | null`
 
-### `enrich-location/index.ts`
-- Reemplazar implementaciones inline por import de `_shared/image-search.ts`.
-- Persistir en `enriched_data.media`:
-  ```jsonc
-  {
-    "media": {
-      "images": [{ url, source, license, author, attribution, fetched_at }],
-      "cover_url": "<url>",
-      "image_recovery": {
-        "source_telemetry": {
-          "sourcesTried": ["wikipedia","commons","wikidata"],
-          "sourcesSucceeded": ["commons"],
-          "finalSource": "commons",
-          "durationMs": 1234
-        }
-      }
-    }
-  }
-  ```
-- Columna `cover_url` se mantiene = primera imagen, por compat con queries actuales.
+Acciones:
+- `start(config)`: setea estado, lanza loop interno encadenando `nextCursor` con `supabase.functions.invoke('recover-missing-images', …)`. Idempotente si `running === true`.
+- `stop()`: marca `stopping=true`; el loop sale después del lote en curso.
+- `reset()`: limpia acumuladores cuando no está corriendo.
 
-### `batch-enrich/index.ts`
-- `CONCURRENCY: 8 → 4`.
-- Jitter 100–400ms entre tareas dentro de la misma ola.
+El bucle vive en el store (no en un componente), por lo que el job sobrevive a desmontajes del panel admin y a cambios de ruta.
 
-### Verificación
-- Enriquecer 5 POIs nuevos vía UI:
-  - 4–5 con imagen (vs ~1 antes)
-  - logs muestran telemetría
-  - `image_recovery.source_telemetry` persistido.
+### 2. `ImageRecoveryLane.tsx`
 
----
+Mismo patrón que `GeocodingLane`:
+- `onActiveChange(running)` para que el shell aparezca/desaparezca.
+- `LaneRow`:
+  - `iconNode`: `ImageIcon` (o `Loader2` si `stopping`), `iconTone="violet"` para distinguirlo de amber/orange (geocoding) y del enrichment.
+  - `title`: `dryRun ? 'Recuperando imágenes (dry-run)' : 'Recuperando imágenes faltantes'`
+  - `subtitle`: lote actual + tasa de éxito `updated/scanned`.
+  - `progressPct` indeterminado (no conocemos el total real upfront): segmento estilo "indeterminate" como en `GlobalLoadingBar`, o usar `scanned` vs un objetivo estimado solo si está disponible.
+  - `metrics`: Encontradas (verde), Saltados (gris), Errores transitorios (amber).
+  - `controls`: botón **Detener tras lote actual** (mismo patrón que `GeocodingLane`).
+- `onClick` en la fila → `window.dispatchEvent(new CustomEvent('admin:open-data-sources'))` para abrir el panel donde está la tarjeta (cablear el listener en el componente que monta el panel admin de Fuentes de datos).
 
-## PR-IMG-3 — Edge function `recover-missing-images`
+### 3. `BottomProgressBar.tsx`
 
-### `supabase/functions/recover-missing-images/index.ts`
-- Input:
-  ```ts
-  {
-    scope: 'all' | 'user' | 'ids',
-    userId?: string,
-    locationIds?: string[],
-    batchSize?: number = 50,
-    dryRun?: boolean = false,
-    force?: boolean = false,        // ignora image_recovery_attempted_at
-    retryStaleDays?: number = 30,
-    cursor?: string                 // UUID, no offset
-  }
-  ```
-- **Cursor estable por `id`** (no offset — el set candidato cambia a medida que se actualizan filas):
-  ```sql
-  WHERE id > :cursor
-    AND enriched_data IS NOT NULL
-    AND deleted_at IS NULL
-    AND cover_url IS NULL
-    AND COALESCE(enriched_data #>> '{media,images,0,url}', '') = ''
-    AND (
-      :force
-      OR enriched_data #>> '{media,image_recovery_attempted_at}' IS NULL
-      OR (enriched_data #>> '{media,image_recovery_attempted_at}')::timestamptz < now() - (:retryStaleDays || ' days')::interval
-    )
-  ORDER BY id ASC
-  LIMIT :batchSize
-  ```
-  Devuelve `nextCursor = lastProcessedId` para continuación.
-- Procesa en olas de **3 en paralelo**, jitter 200–500ms.
-- Reusa helper de PR-IMG-1.
-- Si encuentra: actualiza `cover_url` + `enriched_data.media.images` + telemetría.
-- **Solo marca `image_recovery_attempted_at` cuando TODAS las sources han respondido (success o 4xx definitivo)**. Si hubo errores transitorios (timeout, 5xx en todas), NO marcar — permite reintento futuro.
-- Output: `{ scanned, updated, skippedAlreadyAttempted, failedTransient, nextCursor }`.
+Añadir un tercer lane con su propio `useState` de actividad:
 
-### Sin UI todavía
-- Probar via `curl_edge_functions` con `dryRun=true` y `scope='ids'` sobre 5 POIs concretos.
+```tsx
+const [imageRecoveryActive, setImageRecoveryActive] = useState(false);
+const anyActive = enrichmentActive || geocodingActive || imageRecoveryActive;
+…
+<EnrichmentLane … />
+<GeocodingLane … />
+<ImageRecoveryLane onActiveChange={setImageRecoveryActive} />
+```
 
----
+Sin tocar el shell, divisores `divide-y` ya separan los lanes.
 
-## PR-IMG-4 — Admin UI recovery
+### 4. `RecoverImagesPanel.tsx`
 
-### `src/components/admin/RecoverImagesPanel.tsx`
-- Integrar en panel admin "Data sources" existente.
-- Controles:
-  - Selector scope: Todos / Un usuario (autocomplete) / IDs pegados (textarea)
-  - Toggle `dryRun` **on por defecto** — el flujo recomendado es ver primero qué se va a tocar
-  - Toggle `force`
-  - Slider `retryStaleDays` (default 30)
-  - **Botón primary** (no destructivo): **"Recuperar imágenes faltantes"** — variante primaria del design system, no rojo.
-- Progreso:
-  - Reusar `BottomProgressMultiLane`
-  - Lane "Recovery imágenes" con `processed/total/found/failed`
-  - Maneja `nextCursor` para iteraciones encadenadas hasta vaciar el set.
-- Log en vivo: últimos 20 POIs procesados con `name`, `result` (found/none/error), `source`.
+Se vuelve un **panel de configuración + disparador**:
+- Mantiene controles (Alcance, Batch, Dry-run, Force, Retry stale).
+- Botón principal pasa a llamar `useImageRecoveryStore.getState().start({...config})` y desaparece el bloque de stats locales.
+- Lee `running` del store para deshabilitar inputs y mostrar “Job en marcha — ver barra inferior”.
+- (Opcional) sección colapsable “Resultado del último lote” leyendo `recentItems` del store, para inspección sin tener que mirar la barra.
 
----
+## Detalles técnicos
 
-## Notas y riesgos
+- **Persistencia ligera**: `recentItems` y `totals` viven en memoria del store. Recargar la página sigue cortando el bucle (igual que el comportamiento actual de Enrichment/Geocoding salvo que un job server-side esté en marcha — aquí el control vive en cliente, se documenta en JSDoc).
+- **Tono visual**: usar `iconTone="violet"` (o crear `iconTone="indigo"` en `LaneRow` si no existe) para no chocar con amber (geo) ni con el verde de enrichment.
+- **Listener `admin:open-data-sources`**: cablear en el wrapper que ya escucha `admin:open-geography` (para que el clic en la fila abra el panel correcto).
+- **Sin cambios en el edge function** `recover-missing-images` ni en su contrato.
+- **Compatibilidad con la regla transversal de Memory** (`mem://`): todo job de fondo largo se reporta vía `BottomProgressBar` lanes; este cambio alinea Image Recovery con esa norma.
 
-### Atribución legal
-- Wikimedia/Commons/Openverse **requieren atribución**. Guardar `author` + `license` + `attribution` no es opcional. Mostrar en popup/galería en pasos posteriores (fuera de scope).
+## Fuera de alcance
 
-### Métricas — sin promesas
-- Tasa de recuperación: **objetivo medible tras dry-run sobre muestra de 200 POIs**. POIs locales tendrán tasa muy inferior. No prometer % hasta medir.
-
-### OSM/Nominatim
-- Última source, opt-in via `opts.includeOsm`, **un solo intento sin retry**, respeta política Nominatim (1 req/s, UA identificable). En la práctica casi nunca devolverá imagen útil.
-
-### Sin migración de schema
-- Solo se añaden keys opcionales en `enriched_data.media`. No requiere DDL.
-
-### Coste
-- Cero llamadas a modelos de IA. Solo HTTP a APIs públicas gratuitas.
-
----
-
-## Orden de ejecución
-
-1. **PR-IMG-1** (helpers compartidos + tests) — base obligatoria
-2. **PR-IMG-2** (adopción + concurrencia 4 + telemetría persistida) — corta la sangría
-3. **PR-IMG-3** (edge function recovery con cursor por id) — backend recovery masivo
-4. **PR-IMG-4** (UI admin con dry-run on por defecto) — botón primary
+- No tocar el edge function ni el flujo de escritura `enriched_data.imagen` (eso queda como pendiente del loop anterior).
+- No cambiar la lógica de búsqueda multi-fuente.
+- No añadir realtime/server-side persistence del job (sigue siendo un loop cliente, igual que hoy, solo que centralizado).
