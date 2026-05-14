@@ -142,7 +142,12 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  .select('id, username, display_name, avatar_url, is_private')
  .order('created_at', { ascending: false });
 
- if (profilesError) throw profilesError;
+  if (profilesError) throw profilesError;
+
+  // PR-POI-SOURCE-6: alimentar el username registry para que los hashtags
+  // de origen (`#frankie`, `#sandbox-agent`, ...) se rendericen con
+  // username humano en lugar de prefijo de uid.
+  registerUsernames(profiles ?? []);
 
  const { data: rolesData, error: rolesError } = await supabase
  .from('user_roles')
