@@ -124,6 +124,11 @@ export const useImageRecoveryJobStore = create<ImageRecoveryState>((set, get) =>
               force: config.force,
               retryStaleDays: config.retryStaleDays,
               cursor: cursor ?? undefined,
+              country: config.country || undefined,
+              region: config.region || undefined,
+              zone: config.zone || undefined,
+              createdBefore: config.createdBefore || undefined,
+              createdAfter: config.createdAfter || undefined,
             },
           },
         );
@@ -142,6 +147,12 @@ export const useImageRecoveryJobStore = create<ImageRecoveryState>((set, get) =>
           recentItems: [...data.items, ...s.recentItems].slice(0, 30),
           cursor: data.nextCursor,
         }));
+
+        // Tope total client-side
+        if (config.maxTotal != null && config.maxTotal > 0 && get().scanned >= config.maxTotal) {
+          toast.success(`Tope alcanzado (${config.maxTotal} POIs)`);
+          break;
+        }
 
         if (!data.nextCursor) {
           toast.success(config.dryRun ? 'Dry-run completado' : 'Recuperación completada');
