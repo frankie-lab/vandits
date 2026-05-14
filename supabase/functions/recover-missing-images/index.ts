@@ -53,6 +53,13 @@ interface Body {
   force?: boolean;
   retryStaleDays?: number;
   cursor?: string;
+  // Franjas geográficas (text equality contra columnas locations.country/region/zone)
+  country?: string;
+  region?: string;
+  zone?: string;
+  // Franjas por antigüedad (ISO timestamps contra locations.created_at)
+  createdBefore?: string;
+  createdAfter?: string;
 }
 
 const PARALLEL = 3;
@@ -153,7 +160,7 @@ serve(async (req) => {
   // the retryStaleDays logic + media fallback paths.
   let q = admin
     .from("locations")
-    .select("id, name, latitude, longitude, country, region, place_type, enriched_data, deleted_at, owner_user_id")
+    .select("id, name, latitude, longitude, country, region, zone, place_type, enriched_data, deleted_at, owner_user_id, created_at")
     .is("deleted_at", null)
     .not("enriched_data", "is", null)
     .or("enriched_data->>imagen.is.null,enriched_data->>imagen.eq.")
@@ -176,6 +183,14 @@ serve(async (req) => {
     }
     q = q.in("id", body.locationIds);
   }
+
+  // Franjas geográficas (text equality, case-insensitive via ilike)
+  if (body.country && body.country.trim()) q = q.ilike("country", body.country.trim());
+  if (body.region && body.region.trim()) q = q.ilike("region", body.region.trim());
+  if (body.zone && body.zone.trim()) q = q.ilike("zone", body.zone.trim());
+  // Franjas por antigüedad
+  if (body.createdBefore) q = q.lt("created_at", body.createdBefore);
+  if (body.createdAfter) q = q.gt("created_at", body.createdAfter);
 
   const { data: rows, error: qErr } = await q;
   if (qErr) {
