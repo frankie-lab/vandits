@@ -555,40 +555,6 @@ export function RecoverImagesPanel() {
 
         {/* Filtros geo: ya no se duplican aquí. Se eligen desde el árbol "Subconjunto" más abajo. */}
 
-        {/* Opciones avanzadas */}
-        <section className="rounded-lg border bg-background">
-          <button
-            type="button"
-            onClick={() => setAdvancedOpen((v) => !v)}
-            className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-semibold hover:bg-muted/30"
-          >
-            <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
-            Opciones avanzadas
-            <span className="ml-auto text-[11px] text-muted-foreground font-normal">
-              cooldown {meta.honorsCooldown ? `${retryStaleDays}d` : 'n/a'} · escribe en BD · force
-            </span>
-          </button>
-          {advancedOpen && (
-            <div className="px-4 pb-4 pt-1 space-y-4 border-t">
-              <div className="space-y-1.5">
-                <Label className="text-xs">
-                  Reintentar tras: <span className="font-mono">{retryStaleDays}</span> días
-                </Label>
-                <Slider
-                  value={[retryStaleDays]}
-                  onValueChange={(v) => setRetryStaleDays(v[0])}
-                  min={0} max={180} step={1}
-                  disabled={running || !meta.honorsCooldown || force}
-                />
-                {!meta.honorsCooldown && (
-                  <p className="text-[11px] text-muted-foreground">
-                    El modo "{meta.title}" no usa cooldown.
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-        </section>
         </div>
 
         {/* ────── Filas inferiores: Usuarios · Árbol · Lanzar ───────── */}
