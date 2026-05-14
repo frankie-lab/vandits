@@ -414,8 +414,8 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       const docsTotal = state.documents.length;
       const docsOfUid = state.documents.filter(d => d.userId === uid).length;
       const annTotal = source.length;
-      const annViaOwner = source.filter(l => l.ownerUserId === uid).length;
-      const annViaDoc = source.filter(l => !l.ownerUserId && l._docUserId === uid).length;
+      const annViaOwner = source.filter(l => (l as any).ownerUserId === uid).length;
+      const annViaDoc = source.filter(l => !(l as any).ownerUserId && l._docUserId === uid).length;
       const ofUid = source.filter(l => getLocationOwnerUserId(l) === uid);
       const passVis = ofUid.filter(l => isLocationVisibleInGlobalMap(l)).length;
       const passShare = ofUid.filter(l => {
