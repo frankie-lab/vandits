@@ -515,7 +515,11 @@ export const createCustomIcon = (
                 const dbg = FOLLOWED_DEBUG ? ` data-owner-uid="${ownerUid ?? ''}" data-owner-fill="${fill}" class="poi-followed-pennant"` : '';
                 return `<polygon points="2,3 22,3 12,22" fill="${fill}" stroke-linejoin="round" stroke-linecap="round"${dbg}/>`;
               })()
-            : `<circle cx="12" cy="12" r="11" fill="${skipGradient ? applyStateColor(baseColor) : `url(#dotGrad-${location?.id || 'default'})`}" stroke="white" stroke-width="${borderWidth}"/>`
+            : isAppPoi
+              ? `<polygon points="12,1 23,12 12,23 1,12" fill="${APP_NEUTRAL_FILL}" stroke="${APP_NEUTRAL_STROKE}" stroke-width="${borderWidth}" stroke-linejoin="round"/>`
+              : isSourcePoi
+                ? `<polygon points="6,2 18,2 23,12 18,22 6,22 1,12" fill="${SOURCE_NEUTRAL_FILL}" stroke="${SOURCE_NEUTRAL_STROKE}" stroke-width="${borderWidth}" stroke-linejoin="round"/>`
+                : `<circle cx="12" cy="12" r="11" fill="${skipGradient ? applyStateColor(baseColor) : `url(#dotGrad-${location?.id || 'default'})`}" stroke="white" stroke-width="${borderWidth}"/>`
           }
         </svg>
       </div>
