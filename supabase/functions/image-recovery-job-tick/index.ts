@@ -250,6 +250,7 @@ serve(async (req) => {
         cursor, scanned, updated, skipped, failed, waves,
         recent_items: recent,
         remaining: job.total_in_scope != null ? Math.max(0, job.total_in_scope - scanned) : null,
+        last_error: null,
         last_tick_at: new Date().toISOString(),
       })
       .eq("id", job.id);
@@ -277,6 +278,7 @@ serve(async (req) => {
         cursor, scanned, updated, skipped, failed, waves,
         recent_items: recent,
         remaining: 0,
+        last_error: null,
       })
       .eq("id", job.id);
   } else if (lastError) {
