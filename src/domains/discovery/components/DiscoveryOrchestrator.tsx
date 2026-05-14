@@ -187,6 +187,11 @@ export function DiscoveryOrchestrator({ onControlsReady, criteriaVersion }: Disc
         onClose={() => close('unresolved')}
         onLocationClick={() => {}}
       />
+
+      {/* Global "Contexto cercano" host — escucha el evento `open-nearby-context`
+          emitido desde popups del mapa y abre NearbyPanel en un Sheet lateral.
+          Se auto-inhibe si DocumentFocusView está montado. */}
+      <GlobalNearbyContextHost />
     </>
   );
 }
