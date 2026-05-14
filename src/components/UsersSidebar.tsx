@@ -774,8 +774,9 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
      </span>
     )}
   </div>
+  </div>
 
-  {/* Follow button (primary action) */}
+
   <div className="shrink-0">
    {getFollowButton(user)}
   </div>
