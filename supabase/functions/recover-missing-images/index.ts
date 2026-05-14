@@ -257,7 +257,7 @@ serve(async (req) => {
             };
             const { error: uErr } = await admin
               .from("locations")
-              .update({ enriched_data: newEnriched, cover_url: hit.url })
+              .update({ enriched_data: newEnriched })
               .eq("id", loc.id);
             if (!uErr) updated++;
             else console.error("update failed", loc.id, uErr.message);
