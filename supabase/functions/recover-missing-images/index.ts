@@ -103,7 +103,7 @@ serve(async (req) => {
     });
   }
 
-  // --- auth: require admin/master via the user's JWT ---
+  // --- auth: admin/master via JWT, OR trusted internal caller (service role) ---
   const authHeader = req.headers.get("Authorization") ?? "";
   if (!authHeader.startsWith("Bearer ")) {
     return new Response(JSON.stringify({ error: "auth required" }), {
@@ -111,31 +111,35 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: userRes, error: userErr } = await userClient.auth.getUser();
-  if (userErr || !userRes.user) {
-    return new Response(JSON.stringify({ error: "invalid token" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-  const callerId = userRes.user.id;
+  const bearer = authHeader.slice("Bearer ".length).trim();
 
   // Service role for actual DB work + role check.
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
-  const { data: roles } = await admin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", callerId);
-  const isAdmin = !!roles?.some((r: any) => r.role === "admin" || r.role === "master");
-  if (!isAdmin) {
-    return new Response(JSON.stringify({ error: "forbidden" }), {
-      status: 403,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+  const isInternalCall = bearer === SERVICE_ROLE;
+  if (!isInternalCall) {
+    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
     });
+    const { data: userRes, error: userErr } = await userClient.auth.getUser();
+    if (userErr || !userRes.user) {
+      return new Response(JSON.stringify({ error: "invalid token" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const callerId = userRes.user.id;
+    const { data: roles } = await admin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", callerId);
+    const isAdmin = !!roles?.some((r: any) => r.role === "admin" || r.role === "master");
+    if (!isAdmin) {
+      return new Response(JSON.stringify({ error: "forbidden" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
   }
 
   let body: Body;
