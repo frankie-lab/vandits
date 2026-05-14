@@ -2643,13 +2643,7 @@ export function LocationMap() {
  </svg>
  <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Final</span>
  </div>
- <div className="flex items-center gap-1.5">
- <svg width="10" height="14" viewBox="0 0 24 36" className="drop-shadow-sm">
- <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="#3b82f6" stroke="white" strokeWidth="2"/>
- <circle cx="12" cy="12" r="4" fill="white" fillOpacity="0.9"/>
- </svg>
- <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Pendiente</span>
- </div>
+  {/* "Pendiente" azul eliminado: contradice la regla canónica de 3 estados (verde/gris/naranja). */}
  <div className="flex items-center gap-1.5">
  <svg width="10" height="14" viewBox="0 0 24 36" className="drop-shadow-sm">
  <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="#9ca3af" stroke="white" strokeWidth="2"/>
