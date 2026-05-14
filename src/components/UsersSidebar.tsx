@@ -792,7 +792,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+            className="h-7 w-6 shrink-0 text-muted-foreground hover:text-foreground -mr-1"
             onClick={(e) => e.stopPropagation()}
             title="Más acciones"
           >
