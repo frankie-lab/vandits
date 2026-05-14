@@ -22,12 +22,19 @@ function getPersistentFilters(filters: FilterCriteria): FilterCriteria {
   };
 }
 
+function dedupeLocationsById(locations: GeoLocation[]): GeoLocation[] {
+  if (locations.length <= 1) return locations;
+  const byId = new Map<string, GeoLocation>();
+  locations.forEach((loc) => byId.set(loc.id, loc));
+  return Array.from(byId.values());
+}
+
 // Re-export for consumers that import from the store file
 export { getLocationEnrichmentStatus } from './enrichment-helpers';
 
 /** A location annotated with its document-level ownership metadata */
 export interface AnnotatedLocation extends GeoLocation {
-  _docId: string;
+  _docId?: string;
   _docUserId?: string;
   /** Explicit layer assignment — set when filterByDocumentId is active */
   _layerType?: import('@/hooks/use-layer-visibility').LayerType;
@@ -35,6 +42,7 @@ export interface AnnotatedLocation extends GeoLocation {
 
 interface LocationsState {
   documents: KMLDocument[];
+  detachedVisibleLocations: GeoLocation[];
   selectedLocations: Set<string>;
   focusedLocationId: string | null;
   filters: FilterCriteria;
@@ -57,6 +65,7 @@ interface LocationsState {
 
   // Actions
   addDocument: (doc: KMLDocument) => void;
+  setDetachedVisibleLocations: (locations: GeoLocation[]) => void;
   /** Delta-merge a fresh catalog snapshot. Preserva referencias de objetos no
    *  cambiados y solo toca documentos dentro del `ownerScope`. Sustituye al
    *  patrón destructivo `_resetStoreState()` + `addDocument(...)` en bucle. */
@@ -127,6 +136,7 @@ interface LocationsState {
 
 export const useLocationsStore = create<LocationsState>((set, get) => ({
   documents: [],
+  detachedVisibleLocations: [],
   selectedLocations: new Set(),
   focusedLocationId: null,
   filters: {},
