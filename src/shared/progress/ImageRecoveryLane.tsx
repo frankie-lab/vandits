@@ -34,12 +34,14 @@ export function ImageRecoveryLane({ onActiveChange }: ImageRecoveryLaneProps) {
   const updated = job.updated;
   const skipped = job.skippedAlreadyAttempted;
   const failed = job.failedTransient;
+  const total = job.totalTarget;
 
-  // Total real desconocido (cursor-paginated). Mostramos un avance
-  // indeterminado relativo: % = updated/max(scanned,1) escalado
-  // simbólicamente. El subtitle expone la tasa real.
+  // Si conocemos el total objetivo (selección o maxTotal): % real = scanned/total.
+  // Si no (scope=user/all sin tope): seguimos con avance simbólico tope 95%.
   const successRate = scanned > 0 ? (updated / scanned) * 100 : 0;
-  const donePct = Math.min(95, successRate);
+  const donePct = total && total > 0
+    ? Math.min(100, (scanned / total) * 100)
+    : Math.min(95, successRate);
 
   const segments: LaneSegment[] = [
     {
