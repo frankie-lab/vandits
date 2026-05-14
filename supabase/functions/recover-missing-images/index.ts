@@ -192,15 +192,18 @@ serve(async (req) => {
     .order("id", { ascending: true })
     .limit(batchSize * 3);
 
-  // Mode-specific base filters
+  // Mode-specific base filters. Canonical "enriched" = enriched_data->>'descripcion' not empty.
   if (mode === "missing") {
     q = q
-      .not("enriched_data", "is", null)
+      .not("enriched_data->>descripcion", "is", null)
+      .neq("enriched_data->>descripcion", "")
       .or("enriched_data->>imagen.is.null,enriched_data->>imagen.eq.")
       .or("user_image_url.is.null,user_image_url.eq.");
   } else if (mode === "refresh") {
     // Todos los enriquecidos (con o sin foto). El cooldown se aplica abajo.
-    q = q.not("enriched_data", "is", null);
+    q = q
+      .not("enriched_data->>descripcion", "is", null)
+      .neq("enriched_data->>descripcion", "");
   }
   // mode === 'full' → no extra filter
 
