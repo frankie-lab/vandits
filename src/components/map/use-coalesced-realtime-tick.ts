@@ -82,16 +82,32 @@ export function useCoalescedRealtimeTick(
       schedule();
     };
 
+    // `location:enriched` es el contrato canónico de refresco tras enrich
+    // success. Lo enrutamos al mismo flush para que el popup HTML + icon del
+    // marker afectado se regeneren in-place sin depender de focusAfter.
+    // Ver mem://logic/content/enrichment-trigger-unified.
+    const handleEnriched = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { id?: string } | undefined;
+      if (detail?.id) {
+        pendingIds.add(detail.id);
+      } else {
+        invalidateAll = true;
+      }
+      schedule();
+    };
+
     const handleStore = () => {
       invalidateAll = true;
       schedule();
     };
 
     window.addEventListener('location-realtime-update', handleRealtime);
+    window.addEventListener('location:enriched', handleEnriched);
     if (listenStoreUpdated) window.addEventListener('store-updated', handleStore);
 
     return () => {
       window.removeEventListener('location-realtime-update', handleRealtime);
+      window.removeEventListener('location:enriched', handleEnriched);
       if (listenStoreUpdated) window.removeEventListener('store-updated', handleStore);
       if (timer != null) window.clearTimeout(timer);
       const cic = (window as any).cancelIdleCallback as ((h: number) => void) | undefined;

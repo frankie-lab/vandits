@@ -565,21 +565,12 @@ Re-enriquecer
 </button>
 </div>
 ` : `
-<!-- Not enriched: single enrich button -->
-<button 
-class="popup-action-btn" 
-data-action="enrich" 
-data-location-id="${location.id}"
-style="flex: 2; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 10px; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; border: none; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s;"
-onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(139, 92, 246, 0.4)'"
-onmouseout="this.style.transform='none';this.style.boxShadow='none'"
-title="Generar ficha completa con IA"
->
-<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-<path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/>
-</svg>
-Enriquecer
-</button>
+<!-- Not enriched: NO duplicate enrich button here.
+     The single CTA "Enriquecer" lives in <UnenrichedRecoveryBlock>, mounted in
+     [data-recovery-root] by popup-recovery-mount.ts. Avoiding the duplicate
+     keeps the contract single-source-of-truth and prevents divergent UX
+     (different focusAfter, different refresh behavior). See
+     mem://logic/content/enrichment-trigger-unified. -->
 `}
 ` : ''}
 `}
