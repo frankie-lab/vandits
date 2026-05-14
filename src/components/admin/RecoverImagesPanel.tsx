@@ -450,7 +450,7 @@ export function RecoverImagesPanel() {
         )}
       </header>
 
-      <div className="flex-1 min-h-0 flex flex-col gap-4 p-4 overflow-auto">
+      <div className="flex-1 min-h-0 flex flex-col gap-4 p-4 overflow-hidden">
         <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 text-xs text-muted-foreground leading-relaxed">
           <p>
             Reintenta búsqueda multi-fuente (Wikipedia, Commons, Wikidata, Openverse) sobre el universo elegido.
