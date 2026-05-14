@@ -421,7 +421,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
 
     const isProcessing = processingFollow === user.id;
     const displayName = user.display_name || user.username;
-    const baseClass = 'h-7 px-2.5 text-[11px] font-medium gap-1 shrink-0';
+    const baseClass = 'h-7 px-2 text-[11px] font-medium gap-1 shrink-0 whitespace-nowrap';
 
     if (user.followStatus === 'accepted') {
       const label = user.followsMe ? 'Os seguís' : 'Siguiendo';
@@ -434,7 +434,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
           className={cn(baseClass, 'bg-primary/10 text-primary hover:bg-destructive/15 hover:text-destructive')}
           title={`Dejar de seguir a ${displayName}`}
         >
-          {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserCheck className="w-3.5 h-3.5" />}
+          {isProcessing && <Loader2 className="w-3 h-3 animate-spin" />}
           <span>{label}</span>
         </Button>
       );
@@ -450,7 +450,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
           className={cn(baseClass, 'bg-amber-500/10 text-amber-600 hover:bg-destructive/15 hover:text-destructive')}
           title={`Cancelar solicitud a ${displayName}`}
         >
-          {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock className="w-3.5 h-3.5" />}
+          {isProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Clock className="w-3 h-3" />}
           <span>Solicitado</span>
         </Button>
       );
@@ -471,7 +471,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
         )}
         title={`Seguir a ${displayName}`}
       >
-        {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserPlus className="w-3.5 h-3.5" />}
+        {isProcessing && <Loader2 className="w-3 h-3 animate-spin" />}
         <span>{label}</span>
       </Button>
     );
@@ -689,7 +689,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  animate={{ opacity: 1, y: 0 }}
  transition={{ delay: index * 0.03 }}
  className={cn(
-  'flex items-center gap-2 p-2.5 rounded-xl min-w-0',
+  'flex items-center gap-1.5 p-2 rounded-xl min-w-0 w-full overflow-hidden',
   'hover:bg-accent/50 transition-all',
   isCurrentUser && 'bg-primary/5 ring-1 ring-primary/20',
   !isLast && 'border-b border-border/30',
@@ -792,7 +792,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+            className="h-7 w-6 shrink-0 text-muted-foreground hover:text-foreground -mr-1"
             onClick={(e) => e.stopPropagation()}
             title="Más acciones"
           >
