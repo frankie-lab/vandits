@@ -404,7 +404,13 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         })
         .eq('id', jobId);
 
-      const waveResults = await Promise.allSettled(wave.map(processSingleLocation));
+      // Stagger workers within a wave to spread external HTTP load.
+      const waveResults = await Promise.allSettled(
+        wave.map(async (id) => {
+          await new Promise((r) => setTimeout(r, WAVE_JITTER_MS()));
+          return processSingleLocation(id);
+        }),
+      );
       const hitNoCredits = waveResults.some(
         (r) => r.status === 'fulfilled' && r.value === NO_CREDITS,
       );
