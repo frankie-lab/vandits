@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export type ImageRecoveryScope = 'all' | 'user' | 'ids';
+export type ImageRecoveryMode = 'missing' | 'refresh' | 'full';
 
 export interface ImageRecoveryItemLog {
   id: string;
@@ -26,6 +27,8 @@ export interface ImageRecoveryItemLog {
 
 export interface ImageRecoveryStartConfig {
   scope: ImageRecoveryScope;
+  // Universo base de la operación. Default 'missing' por compat.
+  mode?: ImageRecoveryMode;
   userId?: string;
   locationIds?: string[];
   batchSize: number;
@@ -34,7 +37,8 @@ export interface ImageRecoveryStartConfig {
   retryStaleDays: number;
   // Tope total client-side: cuando `scanned >= maxTotal`, el loop sale.
   maxTotal?: number | null;
-  // Franjas geográficas (text match contra locations.country/region/zone)
+  // Franjas geográficas (text match contra locations.continent/country/region/zone)
+  continent?: string | null;
   country?: string | null;
   region?: string | null;
   zone?: string | null;
@@ -117,6 +121,7 @@ export const useImageRecoveryJobStore = create<ImageRecoveryState>((set, get) =>
           {
             body: {
               scope: config.scope,
+              mode: config.mode ?? 'missing',
               userId: config.scope === 'user' ? config.userId : undefined,
               locationIds: config.scope === 'ids' ? config.locationIds : undefined,
               batchSize: config.batchSize,
@@ -124,6 +129,7 @@ export const useImageRecoveryJobStore = create<ImageRecoveryState>((set, get) =>
               force: config.force,
               retryStaleDays: config.retryStaleDays,
               cursor: cursor ?? undefined,
+              continent: config.continent || undefined,
               country: config.country || undefined,
               region: config.region || undefined,
               zone: config.zone || undefined,

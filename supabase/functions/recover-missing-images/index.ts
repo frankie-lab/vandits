@@ -44,8 +44,15 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
+type RecoveryMode = "missing" | "refresh" | "full";
+
 interface Body {
   scope: "all" | "user" | "ids";
+  // Operation universe selector. Default 'missing' for backward compat.
+  //   missing → enriquecidos sin foto en ninguna fuente (predicado clásico)
+  //   refresh → todos los enriquecidos (con o sin foto)
+  //   full    → todos los POIs activos
+  mode?: RecoveryMode;
   userId?: string;
   locationIds?: string[];
   batchSize?: number;
@@ -53,7 +60,8 @@ interface Body {
   force?: boolean;
   retryStaleDays?: number;
   cursor?: string;
-  // Franjas geográficas (text equality contra columnas locations.country/region/zone)
+  // Franjas geográficas (text equality contra columnas locations.continent/country/zone)
+  continent?: string;
   country?: string;
   region?: string;
   zone?: string;
@@ -147,6 +155,14 @@ serve(async (req) => {
   const retryStaleDays = Math.max(body.retryStaleDays ?? 30, 0);
   const cursor = body.cursor ?? "00000000-0000-0000-0000-000000000000";
 
+  const mode: RecoveryMode = (body.mode ?? "missing");
+  if (!["missing", "refresh", "full"].includes(mode)) {
+    return new Response(JSON.stringify({ error: "invalid mode" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   if (!["all", "user", "ids"].includes(scope)) {
     return new Response(JSON.stringify({ error: "invalid scope" }), {
       status: 400,
@@ -154,31 +170,39 @@ serve(async (req) => {
     });
   }
 
-  // --- candidate query: cursor by id, JSON-only filter ---
-  // Canonical image field in this schema is `enriched_data.imagen` (string URL).
-  // There is NO `cover_url` column. We over-fetch and re-filter in JS to apply
-  // the retryStaleDays logic + media fallback paths.
+  // --- candidate query: cursor by id, base predicates depend on `mode` ---
   // Pre-fetch location ids that already have a row in `location_photos`
-  // (gallery uploads). Excluded from candidates so we don't try to recover
-  // images for POIs that already have a user photo via that channel.
-  const { data: photoRows } = await admin
-    .from("location_photos")
-    .select("location_id");
-  const locationIdsWithPhotos = new Set<string>(
-    (photoRows ?? []).map((r: any) => r.location_id),
-  );
+  // (gallery uploads). Used by 'missing' mode to exclude POIs that already
+  // have a user photo via that channel.
+  let locationIdsWithPhotos = new Set<string>();
+  if (mode === "missing") {
+    const { data: photoRows } = await admin
+      .from("location_photos")
+      .select("location_id");
+    locationIdsWithPhotos = new Set<string>(
+      (photoRows ?? []).map((r: any) => r.location_id),
+    );
+  }
 
   let q = admin
     .from("locations")
-    .select("id, name, latitude, longitude, country, region, zone, place_type, enriched_data, deleted_at, owner_user_id, user_image_url, created_at")
+    .select("id, name, latitude, longitude, continent, country, region, zone, place_type, enriched_data, deleted_at, owner_user_id, user_image_url, created_at")
     .is("deleted_at", null)
-    .not("enriched_data", "is", null)
-    .or("enriched_data->>imagen.is.null,enriched_data->>imagen.eq.")
-    // Exclude POIs with a user-uploaded image URL (no image recovery needed).
-    .or("user_image_url.is.null,user_image_url.eq.")
     .gt("id", cursor)
     .order("id", { ascending: true })
     .limit(batchSize * 3);
+
+  // Mode-specific base filters
+  if (mode === "missing") {
+    q = q
+      .not("enriched_data", "is", null)
+      .or("enriched_data->>imagen.is.null,enriched_data->>imagen.eq.")
+      .or("user_image_url.is.null,user_image_url.eq.");
+  } else if (mode === "refresh") {
+    // Todos los enriquecidos (con o sin foto). El cooldown se aplica abajo.
+    q = q.not("enriched_data", "is", null);
+  }
+  // mode === 'full' → no extra filter
 
   if (scope === "user") {
     if (!body.userId) {
@@ -197,6 +221,7 @@ serve(async (req) => {
   }
 
   // Franjas geográficas (text equality, case-insensitive via ilike)
+  if (body.continent && body.continent.trim()) q = q.ilike("continent", body.continent.trim());
   if (body.country && body.country.trim()) q = q.ilike("country", body.country.trim());
   if (body.region && body.region.trim()) q = q.ilike("region", body.region.trim());
   if (body.zone && body.zone.trim()) q = q.ilike("zone", body.zone.trim());
@@ -217,9 +242,12 @@ serve(async (req) => {
   let skippedAlreadyAttempted = 0;
 
   for (const r of rows ?? []) {
-    if (getMediaImageUrl(r.enriched_data)) continue; // already has image somewhere
-    if (r.user_image_url && String(r.user_image_url).length > 0) continue; // user uploaded URL
-    if (locationIdsWithPhotos.has(r.id)) continue; // gallery photo exists
+    // 'missing' is the only mode that requires there be NO existing image.
+    if (mode === "missing") {
+      if (getMediaImageUrl(r.enriched_data)) continue; // already has image somewhere
+      if (r.user_image_url && String(r.user_image_url).length > 0) continue; // user uploaded URL
+      if (locationIdsWithPhotos.has(r.id)) continue; // gallery photo exists
+    }
     if (!force) {
       const attempted = getRecoveryAttemptedAt(r.enriched_data);
       if (attempted) {

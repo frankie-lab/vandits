@@ -1,102 +1,147 @@
-## Bug: el predicado de "sin imagen" ignora fotos del usuario
 
-El predicado SQL `_image_recovery_candidate_predicate` solo considera dos campos dentro de `enriched_data`:
+## Objetivo
 
-- `enriched_data.imagen`
-- `enriched_data.media.cover_url` (campo muerto: 0 registros lo usan)
+Reestructurar el panel "Recuperar imágenes faltantes" (y su edge function) para separar claramente **Universo total** del **Subconjunto operativo actual**, e introducir **3 modos de operación** con queries base distintas.
 
-Pero en el sistema real una foto puede venir de **3 fuentes**:
+---
 
-| Fuente | Dónde vive | POIs con foto (BD actual) |
-|---|---|---|
-| IA / scraping | `enriched_data.imagen` | 423 |
-| Foto subida por el user | `locations.user_image_url` | (mayoría del delta) |
-| Galería OneDrive / upload | tabla `location_photos` | 13 |
-| **Total con foto (cualquier fuente)** | | **1995** |
-
-Como el predicado no mira `user_image_url` ni `location_photos`, **1572 POIs que ya tienen foto se están contando como candidatos**. Por eso ves "5020" inflado.
-
-Candidato real correcto: `5443 enriquecidos − 1995 con foto = 3448`.
-
-## Plan: arreglar el predicado + visibilizar el desglose
-
-### 1. Migración: predicado correcto
-
-Reescribir `_image_recovery_candidate_predicate` para que reciba la fila completa (no solo `enriched_data`) y considere las 3 fuentes:
-
-```sql
-create or replace function public._image_recovery_candidate_predicate(
-  _loc public.locations,
-  _force boolean,
-  _retry_stale_days integer
-) returns boolean
-language sql stable
-as $$
-  select
-    _loc.deleted_at is null
-    and _loc.enriched_data is not null
-    -- sin imagen en NINGUNA de las 3 fuentes:
-    and coalesce(nullif(_loc.enriched_data->>'imagen',''), null) is null
-    and coalesce(nullif(_loc.user_image_url,''), null) is null
-    and not exists (
-      select 1 from public.location_photos lp where lp.location_id = _loc.id
-    )
-    -- cooldown:
-    and (
-      _force
-      or coalesce(nullif(_loc.enriched_data->'media'->>'image_recovery_attempted_at',''), null) is null
-      or (_loc.enriched_data->'media'->>'image_recovery_attempted_at')::timestamptz
-         < (now() - make_interval(days => greatest(_retry_stale_days, 0)))
-    );
-$$;
-```
-
-Actualizar `admin_image_recovery_users` y `admin_image_recovery_locations` para llamar al predicado con la fila completa (`l.*` en vez de `l.enriched_data`).
-
-Mantener firma antigua del predicado deprecada o eliminarla en la misma migración (no la usa nadie más; lo verifico antes de migrar).
-
-### 2. Edge function `recover-missing-images`
-
-Aplicar el mismo filtro al cargar candidatos:
-- En el SELECT, `LEFT JOIN location_photos` y excluir `user_image_url IS NOT NULL`.
-- Antes de procesar cada POI, doble-check (defensa en profundidad) por si la foto se subió mientras el job estaba en cola.
-
-### 3. UI: tarjeta "Universo del panel" arriba de los modos
-
-Reemplazar el "5020" sin contexto por una pirámide clara:
+## 1. Modelo conceptual nuevo
 
 ```
-Universo del panel
-─────────────────────────────────────
-Total POIs activos              5443
-  Enriquecidos                  5443
-    Con foto (cualquier fuente) 1995
-      · IA/scraping                423
-      · Subida por el usuario    1559
-      · Galería (OneDrive)         13
-    Sin foto                    3448  ← candidatos
-  No enriquecidos                  0  (no aplican)
+[UNIVERSO TOTAL]
+Total POIs
+├─ Enriquecidos
+│   ├─ Con foto (cualquier fuente: enriched.imagen, user_image_url, location_photos)
+│   └─ Sin foto
+└─ No enriquecidos
+
+         ↓ se elige modo
+
+[UNIVERSO BASE DEL MODO]
+ (•) missing   → enriquecidos sin foto
+ ( ) refresh   → TODOS los enriquecidos
+ ( ) full      → TODOS los POIs
+
+         ↓ se aplican filtros
+
+[SUBCONJUNTO OPERATIVO]
+ Filtros: usuario · continente · país · zona · (fuente · fecha en avanzadas)
+ → N POIs reales que se procesarán
 ```
 
-Cada cifra con `AppTooltip` explicando el predicado en lenguaje claro. Se actualiza con una nueva RPC `admin_image_recovery_breakdown(_retry_stale_days int)` que devuelve todo en una sola fila (más barata que las dos llamadas actuales a `admin_image_recovery_users`).
+El panel debe mostrar SIEMPRE estos 3 niveles de forma visualmente jerárquica y separada.
 
-### 4. Cards de modo
+---
 
-Subtítulos revisados sobre el subconjunto correcto:
+## 2. Cambios de base de datos
 
-- **Pendientes (recomendado)** · `3448 POIs` · `"Nunca intentados o último intento > 30d"`
-- **Reintentar todos** · `3448 POIs` · `"Incluye los ya intentados en cooldown (hoy: 0)"`
+### 2.1 Nueva RPC `admin_image_recovery_breakdown_v2`
+Devuelve los conteos del universo total (sin filtros, una sola fila):
+- `total`, `enriched`, `not_enriched`
+- `enriched_with_image`, `enriched_without_image`
+- `image_from_enriched`, `image_from_user_url`, `image_from_photos_table`
+- `attempted_recent`, `pending_missing`
 
-Cuando empiecen a haber intentos, las cifras divergirán naturalmente.
+(Renombrado conceptual sobre la actual `admin_image_recovery_breakdown` para claridad; mantenemos la antigua hasta retirar consumidores.)
 
-### Archivos afectados
+### 2.2 Nueva RPC `admin_image_recovery_scope(_mode, _user_id?, _continent?, _country?, _zone?, _force, _retry_stale_days)`
+Devuelve `(scope_count bigint)` — el subconjunto operativo según modo + filtros.
 
-- **Migración**: nuevo `_image_recovery_candidate_predicate(locations, boolean, int)`, nueva RPC `admin_image_recovery_breakdown`, actualización de `admin_image_recovery_users` y `admin_image_recovery_locations`.
-- **Edge function** `supabase/functions/recover-missing-images/index.ts`: filtro coherente en el SELECT.
-- **Edit** `src/components/admin/RecoverImagesPanel.tsx`: nueva sección "Universo", cards usan la nueva RPC, copy revisado.
+`_mode` ∈ `('missing','refresh','full')`:
+- `missing` → predicado actual `_image_recovery_candidate_predicate`
+- `refresh` → `enriched_data IS NOT NULL` (ignora si tiene o no foto, ignora cooldown salvo `_force=false` y `_retry_stale_days`)
+- `full` → `deleted_at IS NULL` (todos)
 
-### Lo que NO cambia
+Filtros adicionales aplicados a cualquier modo (todos opcionales):
+- `owner_user_id = _user_id`
+- `continent ILIKE _continent` (o `continent_id` si llega uuid; mejor por nombre, alineado con `v_location_geo_health`)
+- `country`, `zone` análogos
 
-- Lógica de selección por árbol geográfico.
-- Store del job ni `BottomProgressBar`.
-- Permisos / RLS.
+### 2.3 Refactor `admin_image_recovery_locations` → aceptar `_mode` y filtros geo
+Misma firma extendida con `_mode text default 'missing'`, `_continent`, `_country`, `_zone`. La paginación devuelve los IDs/POIs del subconjunto operativo (lo que la edge function va a procesar).
+
+### 2.4 `admin_image_recovery_users` → aceptar `_mode`
+Para que la lista de usuarios y sus contadores cambie según el modo elegido (en `refresh` un usuario muestra "todos sus enriquecidos", en `full` "todos sus POIs").
+
+---
+
+## 3. Cambios edge function
+
+`supabase/functions/recover-missing-images/index.ts`:
+
+- Aceptar nuevo parámetro `mode: 'missing' | 'refresh' | 'full'` (default `'missing'` por compatibilidad).
+- Aceptar filtros geo opcionales: `continent`, `country`, `zone`.
+- Construir el SELECT base según `mode`:
+  - `missing`: query actual (sin foto en ninguna fuente + cooldown)
+  - `refresh`: `enriched_data IS NOT NULL` (sin filtrar por foto). Cooldown opcional.
+  - `full`: sin filtro de enriquecimiento ni foto.
+- Aplicar filtros geo si llegan.
+- Mantener dry-run y batching como hoy.
+- Etiquetar el job/lane con el modo para que la barra inferior muestre "Refrescar imágenes" vs "Recuperar faltantes" vs "Reprocesar todos".
+
+---
+
+## 4. UI — `RecoverImagesPanel.tsx`
+
+Reorganizar en 4 bloques visualmente separados:
+
+### Bloque 1 · Universo total (siempre visible, neutro)
+Pirámide compacta con tooltips:
+```
+Total POIs              5 443
+├─ Enriquecidos         5 443
+│  ├─ Con foto          1 995  (enriched 423 · user 1 559 · galería 13)
+│  └─ Sin foto          3 448
+└─ No enriquecidos          0
+```
+
+### Bloque 2 · Tipo de operación (radio cards, 3 opciones)
+- **Recuperar faltantes** — universo base = enriquecidos sin foto (`3 448`)
+- **Refrescar imágenes existentes** — universo base = todos los enriquecidos (`5 443`)
+- **Reprocesar universo completo** — universo base = todos los POIs (`5 443`)
+
+Cada tarjeta muestra el contador del universo base correspondiente y una descripción corta del objetivo (rellenar huecos / mejorar atribución / reprocesar todo).
+
+### Bloque 3 · Filtros (sobre el universo base)
+- Usuario (lista actual, columna izquierda) — contador refleja modo activo
+- Continente / País / Zona (selects encadenados, datos de `v_location_geo_health` o de los POIs ya cargados)
+- Avanzadas (cooldown, lote, dry-run, fuentes) — colapsable como ya está
+
+### Bloque 4 · Resultado y lanzar
+Card con el resumen final estilo:
+```
+Universo base   Todos los enriquecidos    5 443
+Filtros         Frankie · Kenia              -75
+─────────────────────────────────────────────
+Subconjunto operativo                        75
+```
+Botón principal: `Dry-run sobre subconjunto (75)` / `Procesar subconjunto (75)`. La etiqueta del botón cambia con el modo.
+
+### Store
+Añadir al store local:
+- `mode: 'missing' | 'refresh' | 'full'`
+- `geoFilter: { continent?, country?, zone? }`
+- Recalcular `scopeCount` vía la nueva RPC `admin_image_recovery_scope` con debounce cada vez que cambia modo, usuario o filtros geo.
+
+---
+
+## 5. Archivos afectados
+
+- **Nueva migración**: 
+  - `admin_image_recovery_breakdown_v2`
+  - `admin_image_recovery_scope`
+  - extender `admin_image_recovery_locations` y `admin_image_recovery_users` con `_mode` + filtros geo
+- **Edge function**: `supabase/functions/recover-missing-images/index.ts` (parámetro `mode` + filtros + queries base)
+- **UI**: `src/components/admin/RecoverImagesPanel.tsx` (reorg en 4 bloques + selects geo + nuevo store interno)
+- **Tipos**: `src/integrations/supabase/types.ts` se regenera tras migración
+
+Sin cambios en RLS, BottomProgressBar (solo se le pasa un `label` distinto según modo), ni en otros paneles.
+
+---
+
+## 6. Compatibilidad
+
+- La RPC y edge function antiguas siguen vivas durante la migración.
+- Default `mode='missing'` mantiene el comportamiento actual si algún consumidor no pasa el parámetro.
+
+¿Apruebas el plan?

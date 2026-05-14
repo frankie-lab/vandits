@@ -3412,6 +3412,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      _image_recovery_predicate_by_mode: {
+        Args: {
+          _force: boolean
+          _loc: Database["public"]["Tables"]["locations"]["Row"]
+          _mode: string
+          _retry_stale_days: number
+        }
+        Returns: boolean
+      }
       _is_admin_or_master: { Args: { _uid: string }; Returns: boolean }
       _merge_admin_area: {
         Args: { _canonical: string; _orphan: string }
@@ -3495,11 +3504,15 @@ export type Database = {
       }
       admin_image_recovery_locations: {
         Args: {
+          _continent?: string
+          _country?: string
           _force?: boolean
           _limit?: number
+          _mode?: string
           _offset?: number
           _retry_stale_days?: number
           _user_id: string
+          _zone?: string
         }
         Returns: {
           admin_level_3: string
@@ -3516,8 +3529,27 @@ export type Database = {
           zone: string
         }[]
       }
+      admin_image_recovery_scope: {
+        Args: {
+          _continent?: string
+          _country?: string
+          _force?: boolean
+          _mode?: string
+          _retry_stale_days?: number
+          _user_id?: string
+          _zone?: string
+        }
+        Returns: number
+      }
       admin_image_recovery_users: {
-        Args: { _force?: boolean; _retry_stale_days?: number }
+        Args: {
+          _continent?: string
+          _country?: string
+          _force?: boolean
+          _mode?: string
+          _retry_stale_days?: number
+          _zone?: string
+        }
         Returns: {
           display_name: string
           total_locations: number
