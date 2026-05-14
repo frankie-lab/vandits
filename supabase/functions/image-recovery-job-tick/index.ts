@@ -203,6 +203,9 @@ serve(async (req) => {
           "x-internal-key": SERVICE_ROLE,
         },
         body: JSON.stringify({
+          // Stream per-POI progress directly into image_recovery_jobs so the
+          // bottom progress bar moves smoothly per item instead of per batch.
+          jobId: job.id,
           scope: scopeKind,
           mode: job.mode ?? "missing",
           userId: scopeKind === "user" ? scope.userId : undefined,
@@ -232,24 +235,32 @@ serve(async (req) => {
 
     const data = (await resp.json()) as BatchResp;
     waves += 1;
-    scanned += scopeKind === "ids"
-      ? (explicitPage?.ids.length ?? 0)
-      : data.scanned;
-    updated += data.updated;
-    skipped += data.skippedAlreadyAttempted;
-    failed += data.failedTransient;
-    recent = [...data.items, ...recent].slice(0, 30);
+    // NOTE: scanned/updated/skipped/failed/recent_items are now persisted
+    // per-POI by recover-missing-images via increment_image_recovery_progress.
+    // We re-read the row to keep our local accumulators in sync (used for
+    // the max_total terminal check) and to avoid clobbering streamed values.
     cursor = scopeKind === "ids"
       ? (explicitPage?.nextCursor ?? cursor)
       : data.nextCursor;
 
-    // Persist incremental progress so the UI sees movement during the tick.
+    const { data: refreshed } = await admin
+      .from("image_recovery_jobs")
+      .select("scanned, updated, skipped, failed, recent_items")
+      .eq("id", job.id)
+      .single();
+    if (refreshed) {
+      scanned = refreshed.scanned ?? scanned;
+      updated = refreshed.updated ?? updated;
+      skipped = refreshed.skipped ?? skipped;
+      failed = refreshed.failed ?? failed;
+      recent = Array.isArray(refreshed.recent_items) ? refreshed.recent_items : recent;
+    }
+
+    // Only update fields not owned by the streaming RPC.
     await admin
       .from("image_recovery_jobs")
       .update({
-        cursor, scanned, updated, skipped, failed, waves,
-        recent_items: recent,
-        remaining: job.total_in_scope != null ? Math.max(0, job.total_in_scope - scanned) : null,
+        cursor, waves,
         last_error: null,
         last_tick_at: new Date().toISOString(),
       })
