@@ -106,13 +106,19 @@ export const useImageRecoveryJobStore = create<ImageRecoveryState>((set, get) =>
     set({ stopping: true });
   },
 
-  start: async (config) => {
+  start: async (config, totalTarget = null) => {
     if (get().running) return;
+    // Inferir total objetivo: selección explícita > maxTotal > desconocido.
+    const inferredTotal =
+      totalTarget ??
+      (config.scope === 'ids' ? config.locationIds?.length ?? null : null) ??
+      (config.maxTotal && config.maxTotal > 0 ? config.maxTotal : null);
     set({
       ...INITIAL,
       running: true,
       stopping: false,
       config,
+      totalTarget: inferredTotal,
       startedAt: Date.now(),
     });
 
