@@ -2,8 +2,14 @@ import React, { useState, useEffect } from 'react';
 import {
   Users, X, Search, Shield, Crown, Edit3, Eye, EyeOff, UserCheck,
   UserPlus, UserMinus, Loader2, Clock, Filter, HelpCircle,
-  Share2, Lock,
+  Share2, Lock, MoreVertical,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -410,66 +416,66 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  return 'user';
  };
 
- const getFollowButton = (user: UserWithStats) => {
- if (user.id === currentUser?.id) return null;
+  const getFollowButton = (user: UserWithStats) => {
+    if (user.id === currentUser?.id) return null;
 
- const isProcessing = processingFollow === user.id;
+    const isProcessing = processingFollow === user.id;
+    const displayName = user.display_name || user.username;
+    const baseClass = 'h-7 px-2.5 text-[11px] font-medium gap-1 shrink-0';
 
- if (user.followStatus === 'accepted') {
- return (
- <Button
- variant="ghost"
- size="icon"
- onClick={(e) => handleUnfollow(user.id, user.followId!, e)}
- disabled={isProcessing}
- className="h-7 w-7 bg-primary/10 hover:bg-destructive/20 hover:text-destructive text-primary"
- title="Dejar de seguir"
- >
- {isProcessing ? (
- <Loader2 className="w-4 h-4 animate-spin" />
- ) : (
- <UserMinus className="w-4 h-4" />
- )}
- </Button>
- );
- }
+    if (user.followStatus === 'accepted') {
+      const label = user.followsMe ? 'Os seguís' : 'Siguiendo';
+      return (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={(e) => handleUnfollow(user.id, user.followId!, e)}
+          disabled={isProcessing}
+          className={cn(baseClass, 'bg-primary/10 text-primary hover:bg-destructive/15 hover:text-destructive')}
+          title={`Dejar de seguir a ${displayName}`}
+        >
+          {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserCheck className="w-3.5 h-3.5" />}
+          <span>{label}</span>
+        </Button>
+      );
+    }
 
- if (user.followStatus === 'pending') {
- return (
- <Button
- variant="ghost"
- size="icon"
- onClick={(e) => handleUnfollow(user.id, user.followId!, e)}
- disabled={isProcessing}
- className="h-7 w-7 bg-amber-500/10 text-amber-500 hover:bg-destructive/20 hover:text-destructive"
- title="Cancelar solicitud"
- >
- {isProcessing ? (
- <Loader2 className="w-4 h-4 animate-spin" />
- ) : (
- <Clock className="w-4 h-4" />
- )}
- </Button>
- );
- }
+    if (user.followStatus === 'pending') {
+      return (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={(e) => handleUnfollow(user.id, user.followId!, e)}
+          disabled={isProcessing}
+          className={cn(baseClass, 'bg-amber-500/10 text-amber-600 hover:bg-destructive/15 hover:text-destructive')}
+          title={`Cancelar solicitud a ${displayName}`}
+        >
+          {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock className="w-3.5 h-3.5" />}
+          <span>Solicitado</span>
+        </Button>
+      );
+    }
 
- return (
- <Button
- variant="ghost"
- size="icon"
- onClick={(e) => handleFollow(user.id, e)}
- disabled={isProcessing}
- className="h-7 w-7 hover:bg-primary/20 hover:text-primary"
- title="Seguir"
- >
- {isProcessing ? (
- <Loader2 className="w-4 h-4 animate-spin" />
- ) : (
- <UserPlus className="w-4 h-4" />
- )}
- </Button>
- );
- };
+    const label = user.followsMe ? 'Seguir también' : 'Seguir';
+    return (
+      <Button
+        variant={user.followsMe ? 'default' : 'outline'}
+        size="sm"
+        onClick={(e) => handleFollow(user.id, e)}
+        disabled={isProcessing}
+        className={cn(
+          baseClass,
+          user.followsMe
+            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+            : 'border-primary/30 text-primary hover:bg-primary/10',
+        )}
+        title={`Seguir a ${displayName}`}
+      >
+        {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserPlus className="w-3.5 h-3.5" />}
+        <span>{label}</span>
+      </Button>
+    );
+  };
 
  return (
  <>
@@ -768,52 +774,55 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
      </span>
     )}
   </div>
-  {(user.followStatus === 'accepted' || user.followsMe) && (
-   <div className="flex flex-wrap items-center gap-1 mt-0.5 text-[10px]">
-    {user.followStatus === 'accepted' && (
-     <span className="px-1.5 py-0 rounded bg-primary/10 text-primary">Sigues</span>
-    )}
-    {user.followsMe && (
-     <span className="px-1.5 py-0 rounded bg-muted text-muted-foreground">Te sigue</span>
-    )}
-   </div>
-  )}
- </div>
+  </div>
 
- {/* Mute toggle (only for followed) */}
- {user.followStatus === 'accepted' && (
-  <button
-   onClick={(e) => {
-    e.stopPropagation();
-    toggleUserVisibility(user.id);
-   }}
-   className={cn(
-    'p-1 rounded-full transition-colors shrink-0',
-    isUserHiddenFlag
-     ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
-     : 'text-primary hover:bg-primary/10'
-   )}
-   title={isUserHiddenFlag ? 'Mostrar sus puntos en el mapa' : 'Ocultar sus puntos del mapa (no afecta el follow)'}
-  >
-   {isUserHiddenFlag ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-  </button>
- )}
 
- {/* Focus owner */}
- {(user.followStatus === 'accepted' || isCurrentUser) && (
-  <button
-   onClick={(e) => { e.stopPropagation(); handleFilterByUser(user); }}
-   className="p-1 rounded-full shrink-0 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-   title="Ver solo sus puntos en el mapa"
-  >
-   <Filter className="w-3.5 h-3.5" />
-  </button>
- )}
+  <div className="shrink-0">
+   {getFollowButton(user)}
+  </div>
 
- {/* Follow button */}
- <div className="shrink-0">
-  {getFollowButton(user)}
- </div>
+  {/* Secondary actions menu */}
+  {(() => {
+    const canFilter = user.followStatus === 'accepted' || isCurrentUser;
+    const canMute = user.followStatus === 'accepted';
+    if (!canFilter && !canMute) return null;
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={(e) => e.stopPropagation()}
+            title="Más acciones"
+          >
+            <MoreVertical className="w-4 h-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          {canFilter && (
+            <DropdownMenuItem
+              onClick={(e) => { e.stopPropagation(); handleFilterByUser(user); }}
+            >
+              <Filter className="w-4 h-4 mr-2" />
+              Ver solo sus puntos en el mapa
+            </DropdownMenuItem>
+          )}
+          {canMute && (
+            <DropdownMenuItem
+              onClick={(e) => { e.stopPropagation(); toggleUserVisibility(user.id); }}
+            >
+              {isUserHiddenFlag ? (
+                <><Eye className="w-4 h-4 mr-2" />Mostrar sus puntos en el mapa</>
+              ) : (
+                <><EyeOff className="w-4 h-4 mr-2" />Ocultar sus puntos del mapa</>
+              )}
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  })()}
  </motion.div>
  );
  })
