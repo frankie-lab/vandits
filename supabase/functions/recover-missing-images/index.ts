@@ -176,7 +176,7 @@ serve(async (req) => {
 
   // Stream per-item progress into image_recovery_jobs (best-effort, never throws).
   const bumpJob = async (deltas: {
-    scanned?: number; updated?: number; skipped?: number; failed?: number;
+    scanned?: number; updated?: number; noImage?: number; skipped?: number; failed?: number;
     item?: ItemLog | null;
   }) => {
     if (!jobId) return;
@@ -185,6 +185,7 @@ serve(async (req) => {
         _job_id: jobId,
         _scanned_delta: deltas.scanned ?? 0,
         _updated_delta: deltas.updated ?? 0,
+        _no_image_delta: deltas.noImage ?? 0,
         _skipped_delta: deltas.skipped ?? 0,
         _failed_delta: deltas.failed ?? 0,
         _item: deltas.item ?? null,
@@ -306,6 +307,7 @@ serve(async (req) => {
 
   const items: ItemLog[] = [];
   let updated = 0;
+  let noImage = 0;
   let failedTransient = 0;
   let lastId = cursor;
 
@@ -317,6 +319,7 @@ serve(async (req) => {
       const t0 = Date.now();
       let item: ItemLog | null = null;
       let updatedDelta = 0;
+      let noImageDelta = 0;
       let failedDelta = 0;
       try {
         const coords = (loc.latitude != null && loc.longitude != null)
@@ -368,13 +371,17 @@ serve(async (req) => {
           }
         } else if (!complete) {
           // All failures were transient — DO NOT mark attempted. Will retry.
+          // Counted as technical failure (failed), NOT as "no image found".
           failedTransient++; failedDelta = 1;
           item = {
             id: loc.id, name: loc.name, result: "transient",
             source: null, durationMs: telemetry.durationMs,
           };
         } else {
-          // Definitive miss — mark attempted to skip until retryStaleDays.
+          // Definitive miss — every source replied without an image. This is
+          // a clean technical outcome, not a failure. Mark attempted so we
+          // skip the POI until retryStaleDays.
+          noImage++; noImageDelta = 1;
           item = {
             id: loc.id, name: loc.name, result: "none",
             source: null, durationMs: telemetry.durationMs,
@@ -412,6 +419,7 @@ serve(async (req) => {
         await bumpJob({
           scanned: 1,
           updated: updatedDelta,
+          noImage: noImageDelta,
           failed: failedDelta,
           item: item ?? null,
         });
@@ -426,6 +434,7 @@ serve(async (req) => {
   return new Response(JSON.stringify({
     scanned: candidates.length,
     updated,
+    noImage,
     skippedAlreadyAttempted,
     failedTransient,
     nextCursor,

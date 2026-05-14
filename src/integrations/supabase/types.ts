@@ -1004,6 +1004,7 @@ export type Database = {
           last_tick_at: string | null
           max_total: number | null
           mode: string
+          no_image: number
           page_size: number
           recent_items: Json
           remaining: number | null
@@ -1032,6 +1033,7 @@ export type Database = {
           last_tick_at?: string | null
           max_total?: number | null
           mode?: string
+          no_image?: number
           page_size?: number
           recent_items?: Json
           remaining?: number | null
@@ -1060,6 +1062,7 @@ export type Database = {
           last_tick_at?: string | null
           max_total?: number | null
           mode?: string
+          no_image?: number
           page_size?: number
           recent_items?: Json
           remaining?: number | null
@@ -3847,6 +3850,7 @@ export type Database = {
           _failed_delta: number
           _item: Json
           _job_id: string
+          _no_image_delta: number
           _scanned_delta: number
           _skipped_delta: number
           _updated_delta: number

@@ -2,17 +2,21 @@
  * ImageRecoveryLane — visualises the `recover-missing-images` retroactive
  * job inside the unified BottomProgressBar.
  *
- * Mirrors GeocodingLane / EnrichmentLane: reads from a global Zustand store
- * (`useImageRecoveryJobStore`) so the lane stays alive even when the admin
- * panel that triggered the job is closed.
+ * Reads from a global Zustand store (`useImageRecoveryJobStore`) so the lane
+ * stays alive even when the admin panel that triggered the job is closed.
  *
- * Click on the lane → opens the Data Sources admin panel via
- * `admin:open-data-sources` window event (handler lives in Index.tsx).
+ * METRICS CONTRACT — see `src/stores/image-recovery-job-metrics.ts`.
+ *   - Visual bar     = job advance (scanned / totalTarget)
+ *   - Highlighted %  = update rate (updated / scanned)
+ *   - Subtitle       = absolute outcome counters
+ * Both this lane and `RecoverImagesPanel` MUST show identical numbers — they
+ * read from the same `getImageRecoveryMetrics(...)` helper.
  */
 import { useEffect } from 'react';
 import { Image as ImageIcon, Loader2, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useImageRecoveryJobStore } from '@/stores/image-recovery-job-store';
+import { getImageRecoveryMetrics, formatPct } from '@/stores/image-recovery-job-metrics';
 import { LaneRow, type LaneSegment, type LaneMetric } from './LaneRow';
 
 interface ImageRecoveryLaneProps {
@@ -35,32 +39,42 @@ export function ImageRecoveryLane({ onActiveChange }: ImageRecoveryLaneProps) {
   if (!visible) return null;
 
   const dryRun = job.config?.dryRun ?? false;
-  const scanned = job.scanned;
-  const updated = job.updated;
-  const skipped = job.skippedAlreadyAttempted;
-  const failed = job.failedTransient;
-  const total = job.totalTarget;
+  const m = getImageRecoveryMetrics(job);
 
-  // Si conocemos el total objetivo (selección o maxTotal): % real = scanned/total.
-  // Si no (scope=user/all sin tope): seguimos con avance simbólico tope 95%.
-  const successRate = scanned > 0 ? (updated / scanned) * 100 : 0;
-  const donePct = total && total > 0
-    ? Math.min(100, (scanned / total) * 100)
-    : Math.min(95, successRate);
+  // Visual bar = advance (NOT success rate). When totalTarget is unknown we
+  // leave the bar at a symbolic value so it doesn't fake progress.
+  const barPct = m.progressPct ?? Math.min(95, m.updateRatePct ?? 0);
 
   const segments: LaneSegment[] = [
     {
-      pct: donePct,
+      pct: barPct,
       className: dryRun
         ? 'bg-gradient-to-r from-violet-400 to-indigo-500'
         : 'bg-gradient-to-r from-violet-500 to-indigo-600',
     },
   ];
 
+  // Subtitle = absolute outcomes, in the same order as the admin panel.
+  const subtitle =
+    m.scanned > 0
+      ? [
+          `${m.updated} actualizados`,
+          `${m.noImage} sin imagen`,
+          `${m.failed} fallos téc.`,
+          `${m.skipped} saltados`,
+          `lote ${job.waves}`,
+        ].join(' · ')
+      : `Lote ${job.waves} · iniciando…`;
+
+  // Title = update rate (the honest "how many POIs were really updated").
+  const title = dryRun
+    ? `Dry-run · Encontradas ${formatPct(m.updateRatePct)} (${m.updateLabel})`
+    : `Actualizadas ${formatPct(m.updateRatePct)} (${m.updateLabel})`;
+
   const metrics: LaneMetric[] = [
-    { dotClassName: 'bg-emerald-500', label: dryRun ? 'Encontrarían' : 'Actualizadas', count: updated },
-    { dotClassName: 'bg-foreground/40', label: 'Saltadas', count: skipped },
-    { dotClassName: 'bg-amber-500', label: 'Errores transitorios', count: failed },
+    { dotClassName: 'bg-emerald-500', label: dryRun ? 'Encontrarían' : 'Actualizadas', count: m.updated },
+    { dotClassName: 'bg-foreground/40', label: 'Sin imagen', count: m.noImage },
+    { dotClassName: 'bg-amber-500', label: 'Fallos técnicos', count: m.failed },
   ];
 
   const openPanel = () =>
@@ -107,18 +121,12 @@ export function ImageRecoveryLane({ onActiveChange }: ImageRecoveryLaneProps) {
           )
         }
         iconTone="primary"
-        title={dryRun ? 'Recuperando imágenes (dry-run)' : 'Recuperando imágenes faltantes'}
-        subtitle={
-          scanned > 0
-            ? total && total > 0
-              ? `${scanned}/${total} escaneados · tasa ${successRate.toFixed(1)}% · lote ${job.waves}`
-              : `${scanned} escaneados · tasa ${successRate.toFixed(1)}% · lote ${job.waves}`
-            : `Lote ${job.waves} · iniciando…`
-        }
-        progressPct={donePct}
+        title={title}
+        subtitle={subtitle}
+        progressPct={barPct}
         segments={segments}
         metrics={metrics}
-        counter={total && total > 0 ? { done: scanned, total } : { done: updated, total: scanned }}
+        counter={{ done: m.scanned, total: m.totalTarget ?? m.scanned }}
         eta={null}
         controls={controls}
         running={!job.stopping}

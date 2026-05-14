@@ -27,6 +27,7 @@ const LOCK_TIMEOUT_MS = 90_000; // a tick is considered stale after 90s
 interface BatchResp {
   scanned: number;
   updated: number;
+  noImage: number;
   skippedAlreadyAttempted: number;
   failedTransient: number;
   nextCursor: string | null;
@@ -148,6 +149,7 @@ serve(async (req) => {
   let cursor: string | null = job.cursor ?? null;
   let scanned = job.scanned ?? 0;
   let updated = job.updated ?? 0;
+  let noImage = job.no_image ?? 0;
   let skipped = job.skipped ?? 0;
   let failed = job.failed ?? 0;
   let waves = job.waves ?? 0;
@@ -167,7 +169,7 @@ serve(async (req) => {
         .from("image_recovery_jobs")
         .update({
           status: "canceled",
-          cursor, scanned, updated, skipped, failed, waves,
+          cursor, scanned, updated, no_image: noImage, skipped, failed, waves,
           recent_items: recent,
         })
         .eq("id", job.id);
@@ -235,22 +237,24 @@ serve(async (req) => {
 
     const data = (await resp.json()) as BatchResp;
     waves += 1;
-    // NOTE: scanned/updated/skipped/failed/recent_items are now persisted
-    // per-POI by recover-missing-images via increment_image_recovery_progress.
-    // We re-read the row to keep our local accumulators in sync (used for
-    // the max_total terminal check) and to avoid clobbering streamed values.
+    // NOTE: scanned/updated/no_image/skipped/failed/recent_items are now
+    // persisted per-POI by recover-missing-images via
+    // increment_image_recovery_progress. We re-read the row to keep our local
+    // accumulators in sync (used for the max_total terminal check) and to
+    // avoid clobbering streamed values.
     cursor = scopeKind === "ids"
       ? (explicitPage?.nextCursor ?? cursor)
       : data.nextCursor;
 
     const { data: refreshed } = await admin
       .from("image_recovery_jobs")
-      .select("scanned, updated, skipped, failed, recent_items")
+      .select("scanned, updated, no_image, skipped, failed, recent_items")
       .eq("id", job.id)
       .single();
     if (refreshed) {
       scanned = refreshed.scanned ?? scanned;
       updated = refreshed.updated ?? updated;
+      noImage = refreshed.no_image ?? noImage;
       skipped = refreshed.skipped ?? skipped;
       failed = refreshed.failed ?? failed;
       recent = Array.isArray(refreshed.recent_items) ? refreshed.recent_items : recent;
@@ -286,7 +290,7 @@ serve(async (req) => {
       .from("image_recovery_jobs")
       .update({
         status: "done",
-        cursor, scanned, updated, skipped, failed, waves,
+        cursor, scanned, updated, no_image: noImage, skipped, failed, waves,
         recent_items: recent,
         remaining: 0,
         last_error: null,
@@ -297,7 +301,7 @@ serve(async (req) => {
       .from("image_recovery_jobs")
       .update({
         last_error: lastError,
-        cursor, scanned, updated, skipped, failed, waves,
+        cursor, scanned, updated, no_image: noImage, skipped, failed, waves,
         recent_items: recent,
       })
       .eq("id", job.id);
@@ -308,7 +312,7 @@ serve(async (req) => {
     picked: job.id,
     terminal,
     error: lastError,
-    scanned, updated, failed, waves,
+    scanned, updated, noImage, failed, waves,
   }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });

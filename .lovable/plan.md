@@ -1,88 +1,117 @@
-## Objetivo
+## Contrato de medición — Image Recovery Job
 
-Convertir "Recuperar imágenes faltantes" en un job server-side persistente y reanudable (igual que `geocoding_jobs`), que sobreviva a F5, cierre de pestaña y cambios de dispositivo.
+### Unidad de trabajo
 
-## Arquitectura propuesta
+**1 POI evaluado = 1 escaneo.** Cada POI procesado por el job termina en **exactamente uno** de estos estados terminales:
 
-```text
-┌─────────────────────┐       ┌─────────────────────────┐
-│ RecoverImagesPanel  │──────▶│ image_recovery_jobs (BD)│
-│ (start / cancel)    │  RPC  │ status, scope, cursor,  │
-└─────────────────────┘       │ counters, totals        │
-         ▲                    └────────────┬────────────┘
-         │ realtime/poll                   │ tick (cada 1 min)
-         │                                 ▼
-┌─────────────────────┐       ┌─────────────────────────┐
-│ ImageRecoveryLane   │◀──────│ image-recovery-job-tick │
-│ (barra inferior)    │       │ (edge fn + pg_cron)     │
-└─────────────────────┘       └─────────────────────────┘
+| Estado     | Significado                                                      |
+|------------|------------------------------------------------------------------|
+| `updated`  | Imagen encontrada y guardada en `enriched_data.imagen`           |
+| `no_image` | Procesado correctamente, ninguna fuente devolvió imagen válida   |
+| `failed`   | Error técnico (timeout, 5xx, fuente caída, excepción)            |
+| `skipped`  | No procesado por regla / cooldown / dry-run / ya intentado       |
+
+Invariante duro:
+
+```
+scanned == updated + no_image + failed + skipped
 ```
 
-Misma forma que el motor de geocoding: una fila en BD por job activo, un edge function `*-job-tick` que pg_cron invoca cada minuto, y la UI sólo lee/escribe estado.
+`scanned` y `totalTarget` son los únicos contadores de proceso. Todo lo demás se deriva.
 
-## Cambios
+### Métricas derivadas (todas en un único helper)
 
-### 1. BD — nueva tabla `image_recovery_jobs`
+```
+Avance del job        = scanned / totalTarget
+Tasa de actualización = updated / scanned
+Tasa sin imagen       = no_image / scanned
+Tasa de fallo técnico = failed / scanned
+Éxito técnico         = (updated + no_image) / scanned
+```
 
-Espejo de `geocoding_jobs` adaptado:
-- `id, user_id, created_by, status` (`running|canceling|done|canceled|failed`)
-- `mode` (`missing|refresh|full`), `scope` jsonb (continent/country/region/zone/createdBefore/createdAfter/userId/locationIds)
-- `dry_run`, `force`, `retry_stale_days`
-- `cursor` text (id offset del recover-missing-images), `page_size`, `cooldown_ms`
-- `total_in_scope`, `processed`, `updated`, `skipped`, `failed`, `remaining`
-- `last_tick_at`, `last_error`, `recent_items` jsonb (últimos 30)
-- `created_at`, `updated_at`
-- Índices: `(status, last_tick_at) WHERE status IN ('running','canceling')`, único activo por usuario.
-- RLS: usuario ve/cancela los suyos; admin/master ven todo.
-- Trigger `updated_at`.
-- RPC `cancel_image_recovery_job(_job_id uuid)` igual que `cancel_geocoding_job`.
+Reglas:
 
-### 2. Edge function nueva: `image-recovery-job-tick`
+- Denominador 0 ⇒ métrica = `null` (no se renderiza %).
+- `totalTarget` desconocido ⇒ `Avance = null`.
+- `skipped` se cuenta y se reporta, pero **no entra** en éxito técnico ni en tasa de actualización; representa POIs no atendidos por el job, no resultados.
 
-- Sin auth, invocada por cron (anon key).
-- Loop interno: toma 1 job `running` con `last_tick_at` viejo, hace `SELECT … FOR UPDATE SKIP LOCKED`.
-- Si `status='canceling'` → marca `canceled` y termina.
-- Llama internamente a la lógica existente de `recover-missing-images` (extraer a helper compartido o invoke interno) con el `cursor` actual y el batch_size del job.
-- Acumula contadores en BD; actualiza `cursor`, `recent_items` (mantener 30 últimos), `last_tick_at`.
-- Si no hay `nextCursor` o `processed >= total_in_scope` → `status='done'`.
-- En error → escribe `last_error` y deja `running` para reintentar (con backoff por `last_tick_at`).
+### Backend
 
-### 3. `recover-missing-images` (existente)
+`image_recovery_jobs` ya tiene `scanned`, `updated`, `failed`, `skipped`. Falta `no_image` como contador propio: hoy ese caso se cuenta como `scanned` sin incrementar `updated`, lo que mezcla "sin imagen" con "fallo".
 
-- Sigue siendo el motor de UN lote: recibe scope+cursor+batchSize y devuelve resultados + nextCursor. Sin cambios de contrato. El tick lo invoca con service-role.
+Cambios mínimos:
 
-### 4. Cron (pg_cron + pg_net)
+1. Migración: añadir columna `no_image int not null default 0` a `image_recovery_jobs`.
+2. RPC `increment_image_recovery_progress`: aceptar delta `no_image` y mantener el invariante.
+3. Edge function `recover-missing-images`: cuando una iteración termine sin imagen y sin error técnico, emitir `no_image: 1` en vez de dejarlo implícito como "no updated".
+4. Edge function `image-recovery-job-tick`: re-leer `no_image` igual que el resto.
+5. Tipos cliente: `image-recovery-job-store` expone `noImage`.
 
-`SELECT cron.schedule('image-recovery-tick','* * * * *', $$ net.http_post(url:='…/image-recovery-job-tick', headers:='…apikey…') $$)`.
+### Helper único — `src/stores/image-recovery-job-metrics.ts`
 
-### 5. Cliente — `image-recovery-job-store` (Zustand)
+```ts
+export interface ImageRecoveryMetrics {
+  // Conteos crudos
+  scanned: number;
+  updated: number;
+  noImage: number;
+  failed: number;
+  skipped: number;
+  totalTarget: number | null;
 
-Reemplaza el bucle client-driven por:
-- `start(config)` → INSERT en `image_recovery_jobs` (status=`running`). Si ya hay activo del usuario, lo reusa.
-- `stop()` → RPC `cancel_image_recovery_job`.
-- Suscripción Realtime al row del job: actualiza `scanned/updated/totalTarget/cursor/items` desde BD.
-- En mount: `SELECT … WHERE status IN ('running','canceling') AND user_id=auth.uid()` para auto-reanudar UI.
+  // Métricas derivadas (null si denominador 0)
+  progressPct: number | null;          // scanned / totalTarget
+  updateRatePct: number | null;        // updated / scanned
+  noImageRatePct: number | null;       // no_image / scanned
+  technicalFailRatePct: number | null; // failed / scanned
+  technicalSuccessRatePct: number | null; // (updated + no_image) / scanned
 
-### 6. UI
+  // Etiquetas listas para UI (sin lógica de formato fuera del helper)
+  progressLabel: string;        // "800/1031" o "800"
+  updateLabel: string;          // "797 / 800"
+}
 
-- `RecoverImagesPanel`: misma UX. Botón pasa a "Lanzar / Detener job persistente". Indicador `En marcha · ver barra inferior` ya existe.
-- `ImageRecoveryLane`: lee del store que ahora se alimenta desde Realtime → barra muestra `processed/total_in_scope` aunque cierres y vuelvas a entrar.
+export function getImageRecoveryMetrics(job): ImageRecoveryMetrics
+```
 
-## Detalles técnicos
+Ambas vistas leen de aquí. Cero cálculos en componentes.
 
-- **Concurrency**: índice único parcial `WHERE status IN ('running','canceling')` por `user_id` evita 2 jobs activos.
-- **Total in scope**: en `start`, si scope=`ids` usar `array_length(location_ids)`; si scope=`user`/filtros, hacer un COUNT(*) inicial server-side (puede ir en el primer tick si es caro).
-- **Cooldown entre lotes**: configurable en columna `cooldown_ms`; el tick respeta ritmo de 1/min de pg_cron, y dentro del tick procesa N lotes hasta llegar a un budget de tiempo (~25s para no exceder timeout).
-- **Recent items**: jsonb truncado a 30 últimos para que el panel siga mostrando log reciente.
-- **Backwards-compat**: el actual store cliente queda obsoleto pero se mantiene su API pública (`start/stop/totalTarget`) ahora respaldada por BD.
+### UI — contrato de presentación
 
-## Orden de implementación
+Las dos superficies muestran exactamente los mismos números, en el mismo orden, con las mismas etiquetas.
 
-1. Migración `image_recovery_jobs` + RLS + RPC cancel + trigger updated_at.
-2. Edge fn `image-recovery-job-tick` + extraer worker reutilizable (o invocar `recover-missing-images` con service role).
-3. pg_cron schedule (con `supabase--insert`, no migración).
-4. Refactor `image-recovery-job-store` → Realtime + RPC.
-5. Ajuste mínimo `RecoverImagesPanel` y `ImageRecoveryLane` para leer nuevos campos.
-6. QA: lanzar job → F5 → barra reaparece con progreso correcto.
+#### Barra inferior (`ImageRecoveryLane`)
 
-¿Lo apruebas y empiezo por la migración?
+- **Barra visual = Avance** (`progressPct`). Si `null`, avance simbólico.
+- **Número destacado = Tasa de actualización** (`updateRatePct`) con su fracción `updated / scanned`.
+- **Subtitle**: `actualizados · sin imagen · fallos técnicos · saltados · lote N` con los valores absolutos.
+
+#### Panel admin (`RecoverImagesPanel`)
+
+Bloque de stats (sustituye al actual):
+
+- `Avance        800/1031 (77.6%)`
+- `Actualizados  797 / 800 (99.6%)`
+- `Sin imagen    2 / 800 (0.3%)`
+- `Fallos téc.   1 / 800 (0.1%)`
+- `Saltados      0`
+- `Éxito técnico 99.9%`
+- `Lote          16`
+
+### QA
+
+- Forzar 800 escaneados con 797 updated, 2 no_image, 1 failed:
+  - Panel y barra muestran `Actualizados 99.6%`, `Avance 77.6%`, `Éxito técnico 99.9%`.
+- Forzar 100% no_image (fuentes vacías): `Actualización 0%`, `Éxito técnico 100%`, `Fallos 0%`.
+- Forzar 100% failed: `Éxito técnico 0%`, `Fallos 100%`.
+- `totalTarget = null`: barra no engaña, no se muestra %, sólo `scanned` absoluto.
+- Test unitario del helper para los 5 casos anteriores.
+
+### Memoria a guardar tras implementar
+
+- `mem://logic/image-recovery/measurement-contract`: define unidad de trabajo, estados terminales, invariante `scanned == updated + no_image + failed + skipped`, métricas derivadas y helper único `getImageRecoveryMetrics`. Regla — barra = avance, número destacado = tasa de actualización, "sin imagen" ≠ "fallo técnico".
+
+### Fuera de alcance
+
+- No se cambia el comportamiento del job ni la lógica de búsqueda multi-fuente.
+- No se tocan otras lanes (geocoding, enrichment) — pero este contrato queda como referencia para alinearlas en otra PR.

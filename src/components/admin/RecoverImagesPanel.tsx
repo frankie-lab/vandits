@@ -49,6 +49,7 @@ import {
   type ImageRecoveryItemLog,
   type ImageRecoveryMode,
 } from '@/stores/image-recovery-job-store';
+import { getImageRecoveryMetrics, formatPct } from '@/stores/image-recovery-job-metrics';
 import { cn } from '@/lib/utils';
 import type { GeoLocation } from '@/types/location';
 
@@ -694,34 +695,32 @@ export function RecoverImagesPanel() {
                     : 'Procesa TODOS los POIs activos. Solo afecta al campo de imagen.'}
               </p>
 
-              {(job.scanned > 0 || running) && (
-                <div className="border rounded p-2.5 bg-muted/30 space-y-1.5">
-                  <div className="grid grid-cols-2 gap-2 text-[11px]">
-                    <Stat label="Lotes" value={job.waves} />
-                    <Stat label="Escaneados" value={job.scanned} />
-                    <Stat
-                      label={(job.config?.dryRun ?? dryRun) ? 'Encontrarían' : 'Actualizados'}
-                      value={job.updated} tone="success"
-                    />
-                    <Stat label="Saltados" value={job.skippedAlreadyAttempted} />
+              {(job.scanned > 0 || running) && (() => {
+                const m = getImageRecoveryMetrics(job);
+                const updatedLabel = (job.config?.dryRun ?? dryRun) ? 'Encontrarían' : 'Actualizados';
+                return (
+                  <div className="border rounded p-2.5 bg-muted/30 space-y-1.5">
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <Stat label="Avance" value={`${m.progressLabel}${m.progressPct != null ? ` (${formatPct(m.progressPct)})` : ''}`} />
+                      <Stat label="Lote" value={job.waves} />
+                      <Stat label={updatedLabel} value={`${m.updateLabel} (${formatPct(m.updateRatePct)})`} tone="success" />
+                      <Stat label="Sin imagen" value={`${m.noImageLabel} (${formatPct(m.noImageRatePct)})`} />
+                      <Stat label="Fallos téc." value={`${m.failedLabel} (${formatPct(m.technicalFailRatePct)})`} />
+                      <Stat label="Saltados" value={m.skippedLabel} />
+                    </div>
+                    {m.scanned > 0 && (
+                      <p className="text-[11px] text-muted-foreground">
+                        Éxito técnico: {formatPct(m.technicalSuccessRatePct)} · (actualizados + sin imagen) / escaneados
+                      </p>
+                    )}
+                    <Button variant="ghost" size="sm"
+                      onClick={() => useImageRecoveryJobStore.getState().reset()}
+                      disabled={running} className="w-full h-7 text-xs">
+                      Limpiar resultados
+                    </Button>
                   </div>
-                  {job.failedTransient > 0 && (
-                    <p className="text-[11px] text-amber-600">
-                      Errores transitorios: {job.failedTransient}
-                    </p>
-                  )}
-                  {job.scanned > 0 && (
-                    <p className="text-[11px] text-muted-foreground">
-                      Tasa éxito: {((job.updated / job.scanned) * 100).toFixed(1)}%
-                    </p>
-                  )}
-                  <Button variant="ghost" size="sm"
-                    onClick={() => useImageRecoveryJobStore.getState().reset()}
-                    disabled={running} className="w-full h-7 text-xs">
-                    Limpiar resultados
-                  </Button>
-                </div>
-              )}
+                );
+              })()}
 
               {job.recentItems.length > 0 && (
                 <div className="border rounded">
@@ -957,7 +956,7 @@ function SummaryRow({ label, value, sub }: { label: string; value: string | numb
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: number; tone?: 'success' | 'warn' }) {
+function Stat({ label, value, tone }: { label: string; value: number | string; tone?: 'success' | 'warn' }) {
   const color =
     tone === 'success' ? 'text-emerald-600 dark:text-emerald-400'
     : tone === 'warn' ? 'text-amber-600 dark:text-amber-400'
