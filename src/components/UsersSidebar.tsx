@@ -383,7 +383,11 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
       const ids = subset.map(l => l.id);
       const coords = subset.map(l => [l.coordinates!.lat, l.coordinates!.lng] as [number, number]);
       if (ids.length > 0) {
-        requestSubsetFit(ids, { mode: 'always', reason: 'user-filter', coords, minZoom: 7 });
+        // Sin minZoom floor: queremos ver TODOS los puntos del owner aunque
+        // el bounds requiera z<7. El bypass de zoom-gate en
+        // applyLayerVisibility (activado por filterByUserId) garantiza que
+        // los markers `followed` permanezcan visibles a cualquier zoom.
+        requestSubsetFit(ids, { mode: 'always', reason: 'user-filter', coords });
       } else {
         toast.info(`Sin puntos visibles para ${user.display_name || user.username}`);
       }
