@@ -69,7 +69,8 @@ interface PointContextActionsProps {
 
 export interface NearbyPanelProps {
   location: LocationRow;
-  docId: string;
+  /** Optional: en mapa global el POI puede no pertenecer a ningún documento. */
+  docId: string | null;
   userId: string;
   /** Set when the panel was opened due to a name↔coordinate mismatch detected
    *  during enrichment. Drives the "move coordinates" CTA. */
