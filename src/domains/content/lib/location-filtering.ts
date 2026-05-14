@@ -3,6 +3,7 @@ import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-typ
 import { getLocationHierarchy, isPlaceholderValue } from '@/shared/geography/hierarchy';
 import { getPointHealthRings } from '@/domains/content/lib/point-health-rings';
 import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
+import { resolvePoiSource } from '@/domains/content/lib/poi-source';
 
 /**
  * Matcher ÚNICO para filtros de exploración/navegación sobre un punto.
@@ -37,6 +38,44 @@ function matchesTags(loc: GeoLocation, tags: string[]): boolean {
   return tags.every((filterTag) =>
     locTags.some((locTag) => locTag === filterTag.toLowerCase().replace('#', '')),
   );
+}
+
+/**
+ * Match canónico para `filters.filterBySource`. Lee marcadores intrínsecos
+ * del POI (no requiere viewer). Para own/followed compara ownerUid; para
+ * app/source compara sourceKind + (sourceId | groupId).
+ */
+function matchesSourceFilter(
+  loc: GeoLocation,
+  f: NonNullable<FilterCriteria['filterBySource']>,
+): boolean {
+  const a = loc as GeoLocation & {
+    sourceKind?: string | null;
+    source_kind?: string | null;
+    sourceId?: string | null;
+    source_id?: string | null;
+    groupId?: string | null;
+    group_id?: string | null;
+  };
+  const sourceKind = a.sourceKind ?? a.source_kind ?? null;
+  const sourceId = a.sourceId ?? a.source_id ?? null;
+  const groupId = a.groupId ?? a.group_id ?? null;
+
+  if (f.type === 'own' || f.type === 'followed') {
+    // app/source no son ownership
+    if (sourceKind === 'app' || sourceKind === 'external') return false;
+    return getLocationOwnerUserId(loc as { ownerUserId?: string | null; _docUserId?: string | null }) === f.id;
+  }
+  if (f.type === 'app') {
+    if (sourceKind !== 'app') return false;
+    // id puede ser sourceId (e.g. 'vandits-app') o groupId (e.g. 'playas')
+    return sourceId === f.id || groupId === f.id;
+  }
+  if (f.type === 'source') {
+    if (sourceKind !== 'external') return false;
+    return sourceId === f.id;
+  }
+  return false;
 }
 
 export function matchesLocationFilters(
@@ -89,10 +128,16 @@ export function matchesLocationFilters(
   // enrichmentStatus, onlyEnriched, verified) han sido eliminados de la UI
   // y NO se aplican como filtro. "Todos" = universo completo de puntos.
 
-  // Eje "user" (identidad). SIEMPRE aplicado, no detrás de includeX. Usa el
-  // resolver canónico de owner (ver `mem://logic/content/location-owner-resolver`).
-  if (filters.filterByUserId) {
-    if (getLocationOwnerUserId(loc as { ownerUserId?: string | null; _docUserId?: string | null }) !== filters.filterByUserId) {
+  // Eje "origen" (PR-POI-SOURCE-3). SIEMPRE aplicado. `filterBySource` es el
+  // canónico; `filterByUserId` queda como alias legacy y se ignora si el
+  // canónico está presente.
+  if (filters.filterBySource) {
+    if (!matchesSourceFilter(loc, filters.filterBySource)) return false;
+  } else if (filters.filterByUserId) {
+    if (
+      getLocationOwnerUserId(loc as { ownerUserId?: string | null; _docUserId?: string | null }) !==
+      filters.filterByUserId
+    ) {
       return false;
     }
   }
