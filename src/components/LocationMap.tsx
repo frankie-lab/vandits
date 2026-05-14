@@ -5,7 +5,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
 
-import { useLocationsStore } from '@/domains/content';
+import { useLocationsStore } from '@/domains/content/store/locations-store';
 import { useLayerVisibility, LAYER_VISIBILITY_EVENT, type LayerType } from '@/hooks/use-layer-visibility';
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
 import {
