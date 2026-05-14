@@ -33,6 +33,7 @@ import { isPointEnriched } from '@/domains/content/lib/point-visual-state';
 import { getCollectionsForLocation } from '@/domains/content/store/location-collections-store';
 import { getCollectionChipColors } from '@/shared/lib/collection-chip-color';
 import { filterPersonalTags } from '@/domains/content/lib/personal-tags-filter';
+import { resolvePoiSource } from '@/domains/content/lib/poi-source';
 
 // ─── Card Config Cache ──────────────────────────────────────────────────────
 // Source of truth: `app_settings.enrichment_card_config` always normalized
@@ -210,6 +211,37 @@ export interface PopupOwnership {
   curatorIcon?: string;
   curatorColor?: string;
   curatorAvatar?: string;
+  /** UID del viewer actual (PR-POI-SOURCE-6) — usado para resolver source hashtags. */
+  viewerUid?: string | null;
+  /** Mapa uid -> username opcional para etiquetas legibles en hashtags. */
+  usernameLookup?: (uid: string) => string | null | undefined;
+}
+
+// ─── Source Hashtags (PR-POI-SOURCE-6) ─────────────────────────────────
+// Helper único: emite los hashtags de origen del POI como chips clicables
+// dentro del popup HTML. El click es delegado por `SourceFilterBridge` vía
+// document-level listener sobre `.source-filter-chip`. Mismo contrato que
+// `<SourceHashtag />` (fichas React) — fuente única `resolvePoiSource`.
+export function buildSourceHashtagsBlock(
+  location: GeoLocation,
+  ownership?: PopupOwnership,
+): string {
+  const viewerUid = ownership?.viewerUid ?? null;
+  const source = resolvePoiSource(viewerUid, location, { usernameLookup: ownership?.usernameLookup });
+  if (!source.hashtags.length) return '';
+  const chips = source.hashtags.map((tag, idx) => {
+    const isPrimary = idx === 0;
+    const filterId = isPrimary
+      ? source.type === 'own' || source.type === 'followed'
+        ? source.ownerUid ?? tag
+        : source.sourceId ?? tag
+      : tag;
+    if (!filterId) return '';
+    const safeTag = String(tag).replace(/"/g, '&quot;');
+    const safeId = String(filterId).replace(/"/g, '&quot;');
+    return `<span class="source-filter-chip" data-source-type="${source.type}" data-source-id="${safeId}" data-source-label="${safeTag}" title="Filtrar por #${safeTag}" style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 500; cursor: pointer; background: hsl(var(--secondary)); color: hsl(var(--secondary-foreground)); transition: background 0.15s;">#${safeTag}</span>`;
+  }).join('');
+  return `<div data-source-hashtags-root="${location.id}" style="clear: both; display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; margin: 0 0 ${CARD.sectionGap}px 0;">${chips}</div>`;
 }
 
 // ─── Image Section ───────────────────────────────────────────────────────────
@@ -740,6 +772,7 @@ title="Quitar valoración"
 </div>
 </div>
 
+${buildSourceHashtagsBlock(location, ownership)}
 ${buildCollectionChipsPlaceholder(location)}
 ${buildPersonalTagsBlock(location)}
 
@@ -1067,6 +1100,7 @@ ${location.description}
 </div>
 ` : ''}
 
+${buildSourceHashtagsBlock(location, ownership)}
 ${buildCollectionChipsPlaceholder(location)}
 ${buildPersonalTagsBlock(location)}
 
