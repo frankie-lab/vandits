@@ -74,8 +74,23 @@ function getInitialCandidates(parsed: ParsedEnrichmentError): CoherenceCandidate
 }
 
 export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
-  const isEnriched = getPointVisualState(location) === 'enriched';
+  // Read the FRESH location from the store so this block reacts to in-place
+  // updates (triggerEnrichLocation calls useLocationsStore.updateLocation on
+  // success). Using props.location alone would freeze on the stale version
+  // captured at popup-mount time. Ver mem://logic/content/enrichment-trigger-unified.
+  const fresh = useLocationsStore((s) => {
+    for (const d of s.documents) {
+      const found = d.locations.find((l) => l.id === location.id);
+      if (found) return found;
+    }
+    return location;
+  });
+  const isEnriched = getPointVisualState(fresh) === 'enriched';
+  // Auto-unmount visualmente cuando el POI pasa a enriquecido. El popup HTML
+  // se regenera por el contrato `location:enriched` (LocationMap listener), no
+  // por efecto colateral del foco.
   const { parsed, loading } = useEnrichmentFailure(location.id, !isEnriched);
+  if (isEnriched) return null;
 
   const [busy, setBusy] = React.useState(false);
   const [editingAll, setEditingAll] = React.useState(false);

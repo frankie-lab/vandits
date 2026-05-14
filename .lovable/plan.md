@@ -1,159 +1,87 @@
-# Plan canónico aprobado — Servicio de POIs por origen
+# PR-ENRICH-PARITY-1 — Unificar el botón Enriquecer en POIs sin enriquecer
 
-## 1. Principio
+## Diagnóstico
 
-Cada POI atraviesa el pipeline en un orden estricto. **Cada capa decide UNA cosa y nada más.**
+En las dos capturas hay **dos botones "Enriquecer" distintos** sobre el mismo POI:
 
-```text
-raw POI
-  → resolvePoiSource          (qué es)
-  → resolveShareability       (puede verlo este viewer)
-  → apply filterBySource      (filtro activo del usuario)
-  → resolveLayerVisibility    (capa activa + mute + zoom gate → opacity/pointer-events)
-  → resolveMarkerGrammar      (shape + color + decorations + zIndex)
-  → render
-```
+- **Naranja** — vive en `<UnenrichedRecoveryBlock>` (React, montado dentro del popup vía `popup-recovery-mount.ts`). Llama `triggerEnrichLocation(id, { focusAfter: false })`.
+- **Púrpura** — vive en el HTML estático del popup (`map-popups.ts`, `data-action="enrich"`). Llama `triggerEnrichLocation(id, { regenerate: false })` con `focusAfter` por defecto = `true`.
 
-**Blindajes:**
-- `resolveLayerVisibility` **NO** decide shareability — solo capa activa, entity mute y zoom gate.
-- `resolveMarkerGrammar` **NO** decide visibilidad — solo apariencia.
-- `resolveShareability` **NO** decide forma ni color.
+### Por qué se comportan distinto
 
-## 2. sourceType
+1. El **púrpura** tiene `focusAfter: true` → dispara `setFocusedLocation(id)` → un efecto de `LocationMap` regenera el `setPopupContent(...)`. El popup se redibuja con `isEnriched=true`. **Refresco por efecto colateral del foco**, no por contrato.
+2. El **naranja** tiene `focusAfter: false` → no dispara ningún efecto que regenere el HTML del popup. La DB se actualiza, pero el popup sigue con el HTML viejo y el bloque React no se entera porque su `location` viene capturada por closure.
 
-```ts
-type PoiSourceType = 'own' | 'followed' | 'app' | 'source';
-```
+Resultado: la toast dice "Ficha enriquecida" pero el popup sigue exactamente igual → el usuario percibe que "no persiste".
 
-| sourceType | identificación                        | shape               | hashtags                          |
-|------------|---------------------------------------|---------------------|-----------------------------------|
-| own        | `ownerUid === viewerUid`              | círculo             | `#<username>`                     |
-| followed   | owner es uid seguido aceptado         | triángulo invertido | `#<username>`                     |
-| app        | flag explícito `sourceKind='app'` + `sourceId='vandits-app'` + `groupId` | rombo | `#vandits-app` + `#<grupo>` |
-| source     | `sourceKind='external'` + `sourceId`  | forma de fuente     | `#<fuente>`                       |
+### Causa raíz
 
-**Importante:** `app` se identifica por marcadores explícitos del POI (`sourceKind`, `sourceId`, `groupId`), **nunca** por owner especial. Mezclar identidad de usuario con fuente de sistema es la fuente de bugs que estamos quitando.
+1. **Doble fuente de verdad para el mismo CTA** (un naranja React + un púrpura HTML duplicado).
+2. **Refresco del popup acoplado al cambio de foco** en lugar de ser una consecuencia directa del éxito de enriquecimiento.
 
-## 3. Reglas por origen
+## Cambios
 
-### own — círculo, workspace operativo
-- Todos los estados visibles para el owner
-- Health rings + collection tint
-- Reparable/enriquecible/editable
-- Compartibles solo si curados
+### 1. `src/components/map/map-popups.ts` — eliminar el botón púrpura duplicado
 
-### followed — triángulo invertido, social curado
-- Solo curado/shareable
-- Sin rings, sin tint, sin estados internos
-- No editable
-- Color = identidad social OKLCH (allocator v2.6)
-- Mute por usuario; filtro `filterBySource={type:'followed', id:uid}`
-- Zoom gate
+En la rama `!isEnriched && canEditLocation`, **quitar** el `<button data-action="enrich">` púrpura. Su función la cubre `<UnenrichedRecoveryBlock>` (naranja), ya montado en el host `[data-recovery-root]` del popup.
 
-### app — rombo, oficial curado
-- Solo curado
-- Sin salud privada, sin tint de usuario
-- Pertenece a grupo (`groupId`)
-- Toggle por grupo
-- Filtro `filterBySource={type:'app', id:'vandits-app'}` o `{type:'app', id:groupId}`
-- Zoom gate
+Conservar el púrpura **solo** en la rama `isEnriched` (label "Re-enriquecer", `regenerate=true` — otra acción, no es duplicado).
 
-### source — forma de fuente, externo curado
-- Solo curado/publicable
-- Toggle y filtro por fuente
-- Zoom gate propio
+### 2. `src/domains/content/components/UnenrichedRecoveryBlock.tsx` — leer del store
 
-## 4. Hashtags clicables
-
-En toda ficha/popup. Click aplica `filterBySource` y dispara `requestSubsetFit({ reason: 'source-filter' })`.
-
-| POI       | Hashtags                  |
-|-----------|---------------------------|
-| propio    | `#frankie`                |
-| seguido   | `#sandbox-agent`          |
-| app       | `#vandits-app` + `#playas`|
-| fuente    | `#osm`                    |
-
-## 5. Filtro unificado
+Sustituir el uso directo de `props.location` por una suscripción al store:
 
 ```ts
-filters.filterBySource?: {
-  type: 'own' | 'followed' | 'app' | 'source';
-  id: string;
-};
+const fresh = useLocationsStore(s => {
+  for (const d of s.documents) {
+    const l = d.locations.find(l => l.id === location.id);
+    if (l) return l;
+  }
+  return location;
+});
+const isEnriched = getPointVisualState(fresh) === 'enriched';
+if (isEnriched) return null; // auto-desmontaje al éxito
 ```
 
-- `filterByUserId` queda como **alias legacy temporal** (deprecated)
-- Si ambos existen → **gana `filterBySource`**
-- Migrar todos los call-sites en PR-3, eliminar el alias en una limpieza posterior
+Garantiza que cuando `triggerEnrichLocation` actualiza el store, el bloque se desmonta solo. Sin tocar foco, sin tocar mapa.
 
-## 6. Gramática visual
+### 3. `src/components/LocationMap.tsx` — contrato de refresco del popup
 
-| sourceType | shape              | color/fill                     | rings | tint | estados |
-|------------|--------------------|--------------------------------|-------|------|---------|
-| own        | círculo            | enriched/imported/empty        | sí    | sí   | todos   |
-| followed   | triángulo invertido | identidad social OKLCH owner   | no    | no   | curado  |
-| app        | rombo              | color APP / color grupo OKLCH  | no    | no   | curado  |
-| source     | forma de fuente    | color de fuente OKLCH          | no    | no   | curado  |
+**Esta es la regla canónica:**
 
-`createCustomIcon` se vuelve declarativo puro — solo lee la grammar resuelta.
+```
+enrich success
+  → updateLocation(store)
+  → emit 'location:enriched'
+  → LocationMap listener: si hay popup abierto para ese id, regenerar HTML
+```
 
-## 7. PRs (orden de QA)
+Implementación: añadir un `useEffect` que escuche `window.addEventListener('location:enriched', ...)`. Para cada evento:
 
-### PR-POI-SOURCE-1 — Resolver de origen
-- `src/domains/content/lib/poi-source.ts`
-- `resolvePoiSource(viewerUid, poi) → { type, ownerUid?, sourceId?, groupId?, hashtags[] }`
-- Detección por marcadores explícitos (sin heurísticas por owner)
-- Cache `WeakMap` invalidada por `_docVersion`
-- Tests: matriz viewer × poi por sourceType
+- Buscar el `marker` en `markersRef.current.get(detail.id)`.
+- Si el marker tiene popup abierto (`marker.isPopupOpen()`), recalcular el contenido con `buildPopupContent(freshLocation, ...)` y llamar `marker.setPopupContent(nuevoHtml)`.
+- También refrescar el icon del marker (ya hay un patrón equivalente en el listener de `subscribeFailureChange`).
 
-### PR-POI-SOURCE-2 — Shareability
-- `src/domains/content/lib/poi-shareability.ts`
-- `resolveShareability(viewer, poi, source) → { allowed, reason }`
-- own=todo; followed/app/source=`isShareablePoi`
-- Absorbe la curated-only boundary
+**Sin tocar `setFocusedLocation`.** El refresco depende solo del evento, no del foco.
 
-### PR-POI-SOURCE-3 — Filtro unificado + hashtags clicables
-- Añadir `filters.filterBySource` al matcher
-- Migrar `filterByUserId` a alias legacy
-- `src/components/poi/SourceHashtag.tsx` clicable
-- Render en popup + ficha
-- **Beneficio QA:** valida funcionalmente que el source resolver es correcto **antes** de tocar render del marker
+### 4. `src/domains/content/lib/enrich-location.ts` — desacoplar refresco de foco
 
-### PR-POI-SOURCE-4 — Gramática visual app/source
-- Extender `point-visual-state.ts` con `resolveMarkerGrammar(poi, source)`
-- own (canon actual) + followed (canon actual) intactos
-- **Nuevo:** rombo para `app`, forma propia para `source`
-- `getAppGroupColor(groupId)` y `getSourceColor(sourceId)` con misma firma OKLCH del allocator (sin verdes/grises)
-- `createCustomIcon` solo lee
+- Cambiar el default de `focusAfter` a `false`.
+- El evento `location:enriched` ya se emite (línea 279) — es el único contrato de refresco para popups abiertos.
+- `focusAfter: true` queda **opt-in** para callers que realmente necesiten centrar el mapa (lista general, panel de documento), no para forzar refresco visual.
 
-### PR-POI-SOURCE-5 — Layer visibility + zoom gates + panel App & Sources
-- `resolveLayerVisibility(layers, poi, zoom) → { opacity, pointerEvents }`
-- Ejes: capa activa, mute por entity (user/grupo/fuente), zoom gate por sourceType
-- **Prohibido** decidir nada de shareability aquí
-- `UsersSidebar` + bloque "App & Sources" (grupos APP, fuentes externas) con toggles
-- Zoom gates configurables en `app_settings`:
-  - own: sin gate
-  - followed: z ≥ 7
-  - app: z ≥ 6 (configurable por grupo)
-  - source: z ≥ 8
+## Verificación
 
-## 8. Detalles técnicos
+1. POI sin enriquecer → solo **un** botón "Enriquecer" (naranja, del bloque de recuperación).
+2. Pulsarlo → toast "Ficha enriquecida" → bloque "Aún sin enriquecer" desaparece, popup pasa a "Enriquecido <fecha>" + "Re-enriquecer" púrpura. **Sin reposicionar el mapa, sin cerrar/reabrir popup.**
+3. "Re-enriquecer" sobre un POI ya enriquecido sigue funcionando idéntico.
+4. Si se llama `triggerEnrichLocation` con popup cerrado, el icono se actualiza vía pipeline existente (sin nada que refrescar en el popup — no panic).
+5. `bunx vitest run` verde.
+6. QA visual en `/`.
 
-- **Tipos canónicos** en `src/domains/content/types/poi-pipeline.ts`. Re-export **solo de tipos** desde el barrel para evitar ciclos (LocationMap/FloatingToolbar ya tuvieron crashes por esto).
-- **Identidad cromática**: `getOwnerIdentityColor` v2.6 sin cambios. Nuevos `getAppGroupColor` y `getSourceColor` con mismas exclusiones (sin verdes, sin grises).
-- **Tests** por PR; suite completa `poi-pipeline.test.ts` al cierre.
+## Memorias a actualizar
 
-## 9. Lo que NO se toca
-
-- Allocator de identidad cromática v2.6
-- RLS y backend de sharing
-- Pipeline de enrichment, geocoding, health
-- Routing/itinerarios
-
-## 10. Memorias al cerrar PR-5
-
-- Nueva: `mem://logic/poi/source-pipeline-canonical`
-- Nueva regla Core: "POI pipeline pasa SIEMPRE por source → shareability → filterBySource → layer-visibility → grammar; cada capa decide UNA cosa; renderer solo lee"
-- Marcar superseded: partes absorbidas de `location-owner-resolver`, `curated-only-rule`, `followed-poi-grammar`, `marker-classification-v3`, `visibility-rule-approval-gated`
-- Documentar que `filterByUserId` es alias legacy y planificar su eliminación
+- `mem://logic/content/enrichment-trigger-unified` — añadir nota:
+  - "Único CTA visible para POIs sin enriquecer = `<UnenrichedRecoveryBlock>`. El popup HTML solo pinta `Re-enriquecer` (púrpura) cuando el POI ya tiene `enrichedData`."
+  - "Contrato de refresco canónico: `enrich success → updateLocation → emit location:enriched → LocationMap regenera popup si está abierto`. Prohibido usar `focusAfter` como mecanismo de refresco."
+- `mem://logic/content/in-place-enrichment-update` — reflejar el contrato anterior.

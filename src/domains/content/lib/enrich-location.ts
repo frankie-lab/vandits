@@ -21,7 +21,14 @@ import { parseEnrichmentError } from '@/domains/content/lib/enrichment-error-kin
 export interface TriggerEnrichOptions {
   /** When true, force re-generation (semantically the popup's `regenerate`). */
   regenerate?: boolean;
-  /** When true, focus the location after enrichment succeeds. Default true. */
+  /**
+   * When true, focus the location after enrichment succeeds.
+   * Default: `false` — el refresco visual del popup NO depende del foco; lo
+   * gestiona el contrato `location:enriched` que `LocationMap` escucha vía
+   * `useCoalescedRealtimeTick`. Solo callers que realmente necesiten centrar
+   * el mapa (lista general, panel de documento) deben pedir `focusAfter:true`.
+   * Ver mem://logic/content/enrichment-trigger-unified.
+   */
   focusAfter?: boolean;
   /** When true, bypass server-side name↔coordinate coherence validation. */
   skipValidation?: boolean;
@@ -31,7 +38,7 @@ export async function triggerEnrichLocation(
   locationId: string,
   opts: TriggerEnrichOptions = {},
 ): Promise<{ success: boolean; error?: string }> {
-  const { focusAfter = true, regenerate = false, skipValidation = false } = opts;
+  const { focusAfter = false, regenerate = false, skipValidation = false } = opts;
 
   // 1. Resolve the location from the store.
   const documents = useLocationsStore.getState().documents;
