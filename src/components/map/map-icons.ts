@@ -273,6 +273,28 @@ export const createCustomIcon = (
         popupAnchor: [0, -(microSize + 2) / 2],
       });
     }
+    // App micro: rombo CSS, paleta neutra app.
+    if (isAppPoi) {
+      const s = microSize + 2;
+      return L.divIcon({
+        className: `custom-marker-micro is-app`,
+        html: `<div style="width:${s}px;height:${s}px;background:${APP_NEUTRAL_FILL};clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);opacity:0.95;"></div>`,
+        iconSize: [s, s],
+        iconAnchor: [s / 2, s / 2],
+        popupAnchor: [0, -s / 2],
+      });
+    }
+    // Source micro: hexágono CSS, paleta neutra fuente externa.
+    if (isSourcePoi) {
+      const s = microSize + 2;
+      return L.divIcon({
+        className: `custom-marker-micro is-source`,
+        html: `<div style="width:${s}px;height:${s}px;background:${SOURCE_NEUTRAL_FILL};clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);opacity:0.95;"></div>`,
+        iconSize: [s, s],
+        iconAnchor: [s / 2, s / 2],
+        popupAnchor: [0, -s / 2],
+      });
+    }
     return L.divIcon({
       className: `custom-marker-micro${isOwn ? ' is-own' : ''}`,
       html: `<div style="width:${microSize}px;height:${microSize}px;border-radius:50%;background:${dot};${haloStyle}"></div>`,
@@ -287,9 +309,9 @@ export const createCustomIcon = (
   // sigue sin rings porque ya retornó arriba con dots de 2–4px).
   // En `standard` (z9–11) vuelven gradiente + doble sombra.
   // En `rich` (z≥12) se añade polaroid hero.
-  // Followed: NUNCA muestra rings ni tint (curated-only sharing boundary).
-  const skipHealthRings = isFollowedPoi;
-  const skipGradient = renderMode === 'compact' || isFollowedPoi;
+  // Followed/app/source: NUNCA muestran rings ni tint (curated-only sharing).
+  const skipHealthRings = grammar ? !grammar.allowHealthRings : isFollowedPoi;
+  const skipGradient = renderMode === 'compact' || isNonOwnShape;
 
 
   // Factor de escala por render mode (Ola 1 — arquitectura visual por zoom).
