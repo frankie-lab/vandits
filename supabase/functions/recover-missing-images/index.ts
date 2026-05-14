@@ -176,7 +176,7 @@ serve(async (req) => {
 
   // Stream per-item progress into image_recovery_jobs (best-effort, never throws).
   const bumpJob = async (deltas: {
-    scanned?: number; updated?: number; skipped?: number; failed?: number;
+    scanned?: number; updated?: number; noImage?: number; skipped?: number; failed?: number;
     item?: ItemLog | null;
   }) => {
     if (!jobId) return;
@@ -185,6 +185,7 @@ serve(async (req) => {
         _job_id: jobId,
         _scanned_delta: deltas.scanned ?? 0,
         _updated_delta: deltas.updated ?? 0,
+        _no_image_delta: deltas.noImage ?? 0,
         _skipped_delta: deltas.skipped ?? 0,
         _failed_delta: deltas.failed ?? 0,
         _item: deltas.item ?? null,
