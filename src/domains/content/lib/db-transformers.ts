@@ -4,6 +4,7 @@ import { GeoLocation, EnrichedLocationData } from '@/types/location';
 
 const PAGE_SIZE = 1000;
 const MAX_LOCATIONS = 50000;
+const MAX_PAGES = 50;
 
 export function dbLocationToGeoLocation(loc: any): GeoLocation {
   const baseCustomData = (loc.custom_data as Record<string, string>) || {};
