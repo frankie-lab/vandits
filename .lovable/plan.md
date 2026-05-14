@@ -1,87 +1,67 @@
-# PR-ENRICH-PARITY-1 — Unificar el botón Enriquecer en POIs sin enriquecer
+## PR-POI-SOURCE-FIX-1A — Reactivar gates en zoom + minZoom en user-filter
 
-## Diagnóstico
+Dos fixes acotados, ambos en helpers únicos. BUG-1 (polaroid) queda diferido a auditoría aparte (PR-MAP-ZOOM-POLAROID-AUDIT).
 
-En las dos capturas hay **dos botones "Enriquecer" distintos** sobre el mismo POI:
+---
 
-- **Naranja** — vive en `<UnenrichedRecoveryBlock>` (React, montado dentro del popup vía `popup-recovery-mount.ts`). Llama `triggerEnrichLocation(id, { focusAfter: false })`.
-- **Púrpura** — vive en el HTML estático del popup (`map-popups.ts`, `data-action="enrich"`). Llama `triggerEnrichLocation(id, { regenerate: false })` con `focusAfter` por defecto = `true`.
+### Fix 1 · `applyLayerVisibility` se re-ejecuta en `zoomend`
 
-### Por qué se comportan distinto
+**Causa raíz**: `applyLayerVisibility(layers, zoom, gates)` se invoca cuando cambia `layers` o al `init`, pero NO cuando el usuario hace zoom. Resultado: cruzar z=7 (followed), z=6 (app) o z=8 (source) no recalcula visibilidad, y los grupos siguen como estaban en el último cambio de capas (típicamente ocultos al abrir el mapa en z≈3).
 
-1. El **púrpura** tiene `focusAfter: true` → dispara `setFocusedLocation(id)` → un efecto de `LocationMap` regenera el `setPopupContent(...)`. El popup se redibuja con `isEnriched=true`. **Refresco por efecto colateral del foco**, no por contrato.
-2. El **naranja** tiene `focusAfter: false` → no dispara ningún efecto que regenere el HTML del popup. La DB se actualiza, pero el popup sigue con el HTML viejo y el bloque React no se entera porque su `location` viene capturada por closure.
-
-Resultado: la toast dice "Ficha enriquecida" pero el popup sigue exactamente igual → el usuario percibe que "no persiste".
-
-### Causa raíz
-
-1. **Doble fuente de verdad para el mismo CTA** (un naranja React + un púrpura HTML duplicado).
-2. **Refresco del popup acoplado al cambio de foco** en lugar de ser una consecuencia directa del éxito de enriquecimiento.
-
-## Cambios
-
-### 1. `src/components/map/map-popups.ts` — eliminar el botón púrpura duplicado
-
-En la rama `!isEnriched && canEditLocation`, **quitar** el `<button data-action="enrich">` púrpura. Su función la cubre `<UnenrichedRecoveryBlock>` (naranja), ya montado en el host `[data-recovery-root]` del popup.
-
-Conservar el púrpura **solo** en la rama `isEnriched` (label "Re-enriquecer", `regenerate=true` — otra acción, no es duplicado).
-
-### 2. `src/domains/content/components/UnenrichedRecoveryBlock.tsx` — leer del store
-
-Sustituir el uso directo de `props.location` por una suscripción al store:
+**Cambio único**: en `src/components/LocationMap.tsx`, dentro del `useEffect` que ya monta el mapa Leaflet (donde se llama `initLayerGroups(map)`), añadir:
 
 ```ts
-const fresh = useLocationsStore(s => {
-  for (const d of s.documents) {
-    const l = d.locations.find(l => l.id === location.id);
-    if (l) return l;
-  }
-  return location;
-});
-const isEnriched = getPointVisualState(fresh) === 'enriched';
-if (isEnriched) return null; // auto-desmontaje al éxito
+const handleZoomEnd = () => {
+  applyLayerVisibility(layersRef.current, map.getZoom(), zoomGatesRef.current);
+};
+map.on('zoomend', handleZoomEnd);
+// cleanup:
+map.off('zoomend', handleZoomEnd);
 ```
 
-Garantiza que cuando `triggerEnrichLocation` actualiza el store, el bloque se desmonta solo. Sin tocar foco, sin tocar mapa.
+`layersRef` y `zoomGatesRef` ya existen (o se crean trivialmente con `useRef` espejo del estado actual de capas/gates). Sin cambios en el helper `applyLayerVisibility`.
 
-### 3. `src/components/LocationMap.tsx` — contrato de refresco del popup
+---
 
-**Esta es la regla canónica:**
+### Fix 2 · "Ver solo sus puntos" pasa `minZoom: 7`
 
+**Causa raíz**: `src/components/UsersSidebar.tsx:386` llama:
+```ts
+requestSubsetFit(ids, { mode: 'always', reason: 'user-filter', coords });
 ```
-enrich success
-  → updateLocation(store)
-  → emit 'location:enriched'
-  → LocationMap listener: si hay popup abierto para ese id, regenerar HTML
+sin `minZoom`. La memoria `subset-fit-contract` ya documenta `minZoom 7` para `user-filter`, pero el código no lo pasa. Para usuarios con POIs dispersos el fit calcula z<7 → quedan bajo el gate `followed` → 0 markers tras filtrar.
+
+**Cambio único**: una línea en `UsersSidebar.tsx:386`:
+```ts
+requestSubsetFit(ids, { mode: 'always', reason: 'user-filter', coords, minZoom: 7 });
 ```
+El listener de `subset-fit.ts` ya soporta `minZoom`.
 
-Implementación: añadir un `useEffect` que escuche `window.addEventListener('location:enriched', ...)`. Para cada evento:
+---
 
-- Buscar el `marker` en `markersRef.current.get(detail.id)`.
-- Si el marker tiene popup abierto (`marker.isPopupOpen()`), recalcular el contenido con `buildPopupContent(freshLocation, ...)` y llamar `marker.setPopupContent(nuevoHtml)`.
-- También refrescar el icon del marker (ya hay un patrón equivalente en el listener de `subscribeFailureChange`).
+### Fuera de alcance
 
-**Sin tocar `setFocusedLocation`.** El refresco depende solo del evento, no del foco.
+- BUG-1 polaroid: diferido a `PR-MAP-ZOOM-POLAROID-AUDIT` (confirmar canon `richMin` vs `heroMin` y decidir si polaroid entra en z≥12 o z≥15).
+- No se tocan `DEFAULT_ZOOM_GATES` ni el matcher `filterBySource`.
+- No se tocan `applyViewportCulling`, `subset-fit listener`, ni `UnenrichedRecoveryBlock`.
 
-### 4. `src/domains/content/lib/enrich-location.ts` — desacoplar refresco de foco
+---
 
-- Cambiar el default de `focusAfter` a `false`.
-- El evento `location:enriched` ya se emite (línea 279) — es el único contrato de refresco para popups abiertos.
-- `focusAfter: true` queda **opt-in** para callers que realmente necesiten centrar el mapa (lista general, panel de documento), no para forzar refresco visual.
+### Verificación
 
-## Verificación
+Manual en `/`:
+1. Home a z≈3 → solo propios visibles, followed/app/source ocultos.
+2. Zoom-in cruzando z=7 → triángulos invertidos de followed aparecen.
+3. Zoom-out por debajo de z=7 → followed desaparecen.
+4. Click "Ver solo sus puntos" sobre Sandbox → cámara hace fit y se queda en z≥7 → triángulos del usuario visibles.
+5. Propios siempre visibles, sin cambios respecto al estado actual.
 
-1. POI sin enriquecer → solo **un** botón "Enriquecer" (naranja, del bloque de recuperación).
-2. Pulsarlo → toast "Ficha enriquecida" → bloque "Aún sin enriquecer" desaparece, popup pasa a "Enriquecido <fecha>" + "Re-enriquecer" púrpura. **Sin reposicionar el mapa, sin cerrar/reabrir popup.**
-3. "Re-enriquecer" sobre un POI ya enriquecido sigue funcionando idéntico.
-4. Si se llama `triggerEnrichLocation` con popup cerrado, el icono se actualiza vía pipeline existente (sin nada que refrescar en el popup — no panic).
-5. `bunx vitest run` verde.
-6. QA visual en `/`.
+Automatizado:
+- `bunx vitest run src/test/poi-layer.test.ts` (sigue verde, sin tocar el helper).
 
-## Memorias a actualizar
+---
 
-- `mem://logic/content/enrichment-trigger-unified` — añadir nota:
-  - "Único CTA visible para POIs sin enriquecer = `<UnenrichedRecoveryBlock>`. El popup HTML solo pinta `Re-enriquecer` (púrpura) cuando el POI ya tiene `enrichedData`."
-  - "Contrato de refresco canónico: `enrich success → updateLocation → emit location:enriched → LocationMap regenera popup si está abierto`. Prohibido usar `focusAfter` como mecanismo de refresco."
-- `mem://logic/content/in-place-enrichment-update` — reflejar el contrato anterior.
+### Memoria a actualizar
+
+- `mem://logic/poi/source-pipeline-canonical`: añadir nota "el caller (LocationMap) DEBE re-invocar `applyLayerVisibility` en `zoomend`; los gates no reaccionan solos".
+- `mem://logic/map/subset-fit-contract`: confirmar/reforzar "el caller debe pasar `minZoom` cuando un gate posterior podría ocultar el subset (ej: `user-filter` → `minZoom: 7`)".
