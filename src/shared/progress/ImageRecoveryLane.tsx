@@ -23,6 +23,11 @@ export function ImageRecoveryLane({ onActiveChange }: ImageRecoveryLaneProps) {
   const job = useImageRecoveryJobStore();
   const visible = job.running;
 
+  // Hydrate once on mount so a running job is picked up after F5 / device change.
+  useEffect(() => {
+    void useImageRecoveryJobStore.getState().hydrate();
+  }, []);
+
   useEffect(() => {
     onActiveChange?.(visible);
   }, [visible, onActiveChange]);
