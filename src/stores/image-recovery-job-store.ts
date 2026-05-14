@@ -63,6 +63,8 @@ interface ImageRecoveryState {
   config: ImageRecoveryStartConfig | null;
   startedAt: number | null;
   cursor: string | null;
+  // Total objetivo conocido (selección explícita o maxTotal). null = desconocido.
+  totalTarget: number | null;
   // Accumulators
   waves: number;
   scanned: number;
@@ -71,7 +73,7 @@ interface ImageRecoveryState {
   failedTransient: number;
   recentItems: ImageRecoveryItemLog[];
   // Actions
-  start: (config: ImageRecoveryStartConfig) => Promise<void>;
+  start: (config: ImageRecoveryStartConfig, totalTarget?: number | null) => Promise<void>;
   stop: () => void;
   reset: () => void;
 }
@@ -82,6 +84,7 @@ const INITIAL = {
   config: null as ImageRecoveryStartConfig | null,
   startedAt: null as number | null,
   cursor: null as string | null,
+  totalTarget: null as number | null,
   waves: 0,
   scanned: 0,
   updated: 0,
