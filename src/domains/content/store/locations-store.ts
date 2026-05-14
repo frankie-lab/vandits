@@ -130,6 +130,7 @@ interface LocationsState {
   getLocationOwnership: (locationId: string, currentUserId?: string | null) => {
     isOwn: boolean; ownerName?: string; ownerId?: string;
     docStatus?: string;
+    viewerUid?: string | null;
   };
   selectedDocument: KMLDocument | null;
 }
