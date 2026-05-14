@@ -2252,14 +2252,12 @@ export function LocationMap() {
         return;
       }
 
-      // user-filter dispersión multi-regional → acotar a la región dominante
-      // para no aterrizar en mar abierto. Resto de razones usan bounds completos.
+      // Subset-fit canónico: SIEMPRE bounds completos del subset, sin
+      // recortar a "región dominante". El usuario quiere ver TODOS los
+      // puntos del filtro encajados en el viewport, aunque el centro caiga
+      // en mar (Atlántico/Mediterráneo) cuando hay clusters multi-país.
       // Ver mem://logic/map/subset-fit-contract.
-      let fitPts = pts;
-      if (detail.reason === 'user-filter' && shouldUseDominantRegion(pts)) {
-        const region = pickDominantRegion(pts);
-        if (region.points.length >= 2) fitPts = region.points;
-      }
+      const fitPts = pts;
 
       const bounds = L.latLngBounds(fitPts);
       const padding: L.PointTuple = [60, 60];
