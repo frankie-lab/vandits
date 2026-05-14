@@ -53,6 +53,7 @@ async function fetchPageWithRetry(from: number, to: number): Promise<any[] | nul
       .from('v_locations_resolved' as any)
       .select('*')
       .is('deleted_at', null)
+      .order('id', { ascending: true })
       .range(from, to);
 
     if (!error) return (data as any[]) ?? [];
