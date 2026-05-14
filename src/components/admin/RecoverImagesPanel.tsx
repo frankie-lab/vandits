@@ -410,7 +410,7 @@ export function RecoverImagesPanel() {
       zone: geoFilter.zone,
       createdBefore: createdBefore ? `${createdBefore}T00:00:00Z` : null,
       createdAfter: createdAfter ? `${createdAfter}T00:00:00Z` : null,
-    });
+    }, total);
   };
 
   const stop = () => useImageRecoveryJobStore.getState().stop();
