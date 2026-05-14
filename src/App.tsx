@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/domains/identity";
 import { IconLibraryProvider } from "@/contexts/IconLibraryContext";
 import { resumeIfPending } from "@/stores/geocoding-job-store";
+import { prefetchAllUsernames } from "@/domains/identity/lib/username-registry";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -24,7 +25,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
  const { user, loading } = useAuth();
 
  useEffect(() => {
-   if (user) void resumeIfPending();
+   if (user) {
+     void resumeIfPending();
+     // PR-POI-SOURCE-7: prefetch eager de profiles para que los hashtags
+     // de origen muestren username (`#sandbox-agent`) sin necesidad de
+     // abrir UsersSidebar.
+     void prefetchAllUsernames();
+   }
  }, [user]);
 
  
