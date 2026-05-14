@@ -688,8 +688,8 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  initial={{ opacity: 0, y: 10 }}
  animate={{ opacity: 1, y: 0 }}
  transition={{ delay: index * 0.03 }}
- className={cn(
-  'flex items-center gap-1.5 p-2 rounded-xl min-w-0 w-full overflow-hidden',
+  className={cn(
+   'flex items-center gap-1.5 p-2 rounded-xl min-w-0 w-full',
   'hover:bg-accent/50 transition-all',
   isCurrentUser && 'bg-primary/5 ring-1 ring-primary/20',
   !isLast && 'border-b border-border/30',
@@ -799,7 +799,13 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
             <MoreVertical className="w-4 h-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuContent
+          side="right"
+          align="start"
+          sideOffset={8}
+          collisionPadding={16}
+          className="z-[2105] w-56"
+        >
           {canFilter && (
             <DropdownMenuItem
               onClick={(e) => { e.stopPropagation(); handleFilterByUser(user); }}
