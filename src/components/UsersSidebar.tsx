@@ -732,13 +732,6 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
         <div className="absolute -bottom-0.5 -right-0.5 bg-card rounded-full p-0.5 shadow-sm">
           {roleIcons[primaryRole] || <Users className="w-3 h-3 text-muted-foreground" />}
         </div>
-        {identityColor && (
-          <span
-            title="Color de identidad de este usuario en el mapa"
-            className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-sm border border-card shadow-sm"
-            style={{ background: identityColor, clipPath: 'polygon(0 0,100% 0,50% 100%)' }}
-          />
-        )}
       </button>
     );
   })()}
