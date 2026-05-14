@@ -774,52 +774,54 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
      </span>
     )}
   </div>
-  {(user.followStatus === 'accepted' || user.followsMe) && (
-   <div className="flex flex-wrap items-center gap-1 mt-0.5 text-[10px]">
-    {user.followStatus === 'accepted' && (
-     <span className="px-1.5 py-0 rounded bg-primary/10 text-primary">Sigues</span>
-    )}
-    {user.followsMe && (
-     <span className="px-1.5 py-0 rounded bg-muted text-muted-foreground">Te sigue</span>
-    )}
-   </div>
-  )}
- </div>
 
- {/* Mute toggle (only for followed) */}
- {user.followStatus === 'accepted' && (
-  <button
-   onClick={(e) => {
-    e.stopPropagation();
-    toggleUserVisibility(user.id);
-   }}
-   className={cn(
-    'p-1 rounded-full transition-colors shrink-0',
-    isUserHiddenFlag
-     ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
-     : 'text-primary hover:bg-primary/10'
-   )}
-   title={isUserHiddenFlag ? 'Mostrar sus puntos en el mapa' : 'Ocultar sus puntos del mapa (no afecta el follow)'}
-  >
-   {isUserHiddenFlag ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-  </button>
- )}
+  {/* Follow button (primary action) */}
+  <div className="shrink-0">
+   {getFollowButton(user)}
+  </div>
 
- {/* Focus owner */}
- {(user.followStatus === 'accepted' || isCurrentUser) && (
-  <button
-   onClick={(e) => { e.stopPropagation(); handleFilterByUser(user); }}
-   className="p-1 rounded-full shrink-0 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-   title="Ver solo sus puntos en el mapa"
-  >
-   <Filter className="w-3.5 h-3.5" />
-  </button>
- )}
-
- {/* Follow button */}
- <div className="shrink-0">
-  {getFollowButton(user)}
- </div>
+  {/* Secondary actions menu */}
+  {(() => {
+    const canFilter = user.followStatus === 'accepted' || isCurrentUser;
+    const canMute = user.followStatus === 'accepted';
+    if (!canFilter && !canMute) return null;
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={(e) => e.stopPropagation()}
+            title="Más acciones"
+          >
+            <MoreVertical className="w-4 h-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          {canFilter && (
+            <DropdownMenuItem
+              onClick={(e) => { e.stopPropagation(); handleFilterByUser(user); }}
+            >
+              <Filter className="w-4 h-4 mr-2" />
+              Ver solo sus puntos en el mapa
+            </DropdownMenuItem>
+          )}
+          {canMute && (
+            <DropdownMenuItem
+              onClick={(e) => { e.stopPropagation(); toggleUserVisibility(user.id); }}
+            >
+              {isUserHiddenFlag ? (
+                <><Eye className="w-4 h-4 mr-2" />Mostrar sus puntos en el mapa</>
+              ) : (
+                <><EyeOff className="w-4 h-4 mr-2" />Ocultar sus puntos del mapa</>
+              )}
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  })()}
  </motion.div>
  );
  })
