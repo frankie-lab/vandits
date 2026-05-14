@@ -44,8 +44,15 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
+type RecoveryMode = "missing" | "refresh" | "full";
+
 interface Body {
   scope: "all" | "user" | "ids";
+  // Operation universe selector. Default 'missing' for backward compat.
+  //   missing → enriquecidos sin foto en ninguna fuente (predicado clásico)
+  //   refresh → todos los enriquecidos (con o sin foto)
+  //   full    → todos los POIs activos
+  mode?: RecoveryMode;
   userId?: string;
   locationIds?: string[];
   batchSize?: number;
@@ -53,7 +60,8 @@ interface Body {
   force?: boolean;
   retryStaleDays?: number;
   cursor?: string;
-  // Franjas geográficas (text equality contra columnas locations.country/region/zone)
+  // Franjas geográficas (text equality contra columnas locations.continent/country/zone)
+  continent?: string;
   country?: string;
   region?: string;
   zone?: string;
