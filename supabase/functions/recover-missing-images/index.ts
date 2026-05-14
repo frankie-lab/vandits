@@ -48,6 +48,10 @@ type RecoveryMode = "missing" | "refresh" | "full";
 
 interface Body {
   scope: "all" | "user" | "ids";
+  // Optional: when set, the function streams per-item progress into
+  // `image_recovery_jobs` via the `increment_image_recovery_progress` RPC so
+  // the bottom progress bar moves smoothly per POI instead of per batch.
+  jobId?: string;
   // Operation universe selector. Default 'missing' for backward compat.
   //   missing → enriquecidos sin foto en ninguna fuente (predicado clásico)
   //   refresh → todos los enriquecidos (con o sin foto)
@@ -168,6 +172,27 @@ serve(async (req) => {
   const force = !!body.force;
   const retryStaleDays = Math.max(body.retryStaleDays ?? 30, 0);
   const cursor = body.cursor ?? "00000000-0000-0000-0000-000000000000";
+  const jobId = typeof body.jobId === "string" && body.jobId.length > 0 ? body.jobId : null;
+
+  // Stream per-item progress into image_recovery_jobs (best-effort, never throws).
+  const bumpJob = async (deltas: {
+    scanned?: number; updated?: number; skipped?: number; failed?: number;
+    item?: ItemLog | null;
+  }) => {
+    if (!jobId) return;
+    try {
+      await admin.rpc("increment_image_recovery_progress", {
+        _job_id: jobId,
+        _scanned_delta: deltas.scanned ?? 0,
+        _updated_delta: deltas.updated ?? 0,
+        _skipped_delta: deltas.skipped ?? 0,
+        _failed_delta: deltas.failed ?? 0,
+        _item: deltas.item ?? null,
+      });
+    } catch (e) {
+      console.warn("[recover-missing-images] bumpJob failed", (e as Error).message);
+    }
+  };
 
   const mode: RecoveryMode = (body.mode ?? "missing");
   if (!["missing", "refresh", "full"].includes(mode)) {
@@ -290,6 +315,9 @@ serve(async (req) => {
     await Promise.all(wave.map(async (loc: any) => {
       await new Promise((r) => setTimeout(r, PER_POI_JITTER_MS()));
       const t0 = Date.now();
+      let item: ItemLog | null = null;
+      let updatedDelta = 0;
+      let failedDelta = 0;
       try {
         const coords = (loc.latitude != null && loc.longitude != null)
           ? { lat: loc.latitude as number, lng: loc.longitude as number }
@@ -309,10 +337,10 @@ serve(async (req) => {
         const complete = isAttemptComplete(telemetry);
 
         if (hit) {
-          items.push({
+          item = {
             id: loc.id, name: loc.name, result: "found",
             source: telemetry.finalSource, durationMs: telemetry.durationMs,
-          });
+          };
           if (!dryRun) {
             const newEnriched = {
               ...(loc.enriched_data ?? {}),
@@ -333,25 +361,24 @@ serve(async (req) => {
               .from("locations")
               .update({ enriched_data: newEnriched })
               .eq("id", loc.id);
-            if (!uErr) updated++;
+            if (!uErr) { updated++; updatedDelta = 1; }
             else console.error("update failed", loc.id, uErr.message);
           } else {
-            updated++; // count as "would-update"
+            updated++; updatedDelta = 1; // count as "would-update"
           }
         } else if (!complete) {
-          // All failures were transient — DO NOT mark attempted. Will retry
-          // on a future run.
-          failedTransient++;
-          items.push({
+          // All failures were transient — DO NOT mark attempted. Will retry.
+          failedTransient++; failedDelta = 1;
+          item = {
             id: loc.id, name: loc.name, result: "transient",
             source: null, durationMs: telemetry.durationMs,
-          });
+          };
         } else {
           // Definitive miss — mark attempted to skip until retryStaleDays.
-          items.push({
+          item = {
             id: loc.id, name: loc.name, result: "none",
             source: null, durationMs: telemetry.durationMs,
-          });
+          };
           if (!dryRun) {
             const newEnriched = {
               ...(loc.enriched_data ?? {}),
@@ -371,14 +398,23 @@ serve(async (req) => {
           }
         }
       } catch (err) {
-        failedTransient++;
-        items.push({
+        failedTransient++; failedDelta = 1;
+        item = {
           id: loc.id, name: loc.name, result: "transient",
           source: null, durationMs: Date.now() - t0,
-        });
+        };
         console.error("recover error", loc.id, err);
       } finally {
+        if (item) items.push(item);
         if (loc.id > lastId) lastId = loc.id;
+        // Stream per-POI progress to image_recovery_jobs so the UI advances
+        // smoothly. scanned bumps once per processed candidate.
+        await bumpJob({
+          scanned: 1,
+          updated: updatedDelta,
+          failed: failedDelta,
+          item: item ?? null,
+        });
       }
     }));
   }

@@ -3842,6 +3842,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_image_recovery_progress: {
+        Args: {
+          _failed_delta: number
+          _item: Json
+          _job_id: string
+          _scanned_delta: number
+          _skipped_delta: number
+          _updated_delta: number
+        }
+        Returns: undefined
+      }
       is_curator: { Args: { _user_id: string }; Returns: boolean }
       locations_with_broken_geo_chain: {
         Args: { _limit?: number; _offset?: number; _user_id: string }
