@@ -434,7 +434,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
           className={cn(baseClass, 'bg-primary/10 text-primary hover:bg-destructive/15 hover:text-destructive')}
           title={`Dejar de seguir a ${displayName}`}
         >
-          {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserCheck className="w-3.5 h-3.5" />}
+          {isProcessing && <Loader2 className="w-3 h-3 animate-spin" />}
           <span>{label}</span>
         </Button>
       );
