@@ -166,6 +166,10 @@ export function RecoverImagesPanel() {
   const [createdBefore, setCreatedBefore] = useState('');
   const [createdAfter, setCreatedAfter] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  // Confirmación explícita para escritura masiva (>200 POIs en modo escritura).
+  // Se resetea cuando cambia dryRun, scope o subset, para evitar arrastrar
+  // un consentimiento de una operación anterior.
+  const [confirmMassiveWrite, setConfirmMassiveWrite] = useState(false);
 
   const meta = MODE_META[mode];
   const activeUserId = isAdmin && targetUser ? targetUser.user_id : selfUserId;
@@ -235,6 +239,34 @@ export function RecoverImagesPanel() {
     if (!isAdmin) return;
     void refreshGlobalCounts(retryStaleDays);
   }, [isAdmin, retryStaleDays, refreshGlobalCounts]);
+
+  // Hot-refresh del breakdown cuando un job real actualiza POIs en BD o
+  // cuando llega un postgres_changes UPDATE de locations. Debounced 500ms
+  // para no martillear la RPC mientras avanza un lote.
+  useEffect(() => {
+    if (!isAdmin) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const schedule = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        void refreshGlobalCounts(retryStaleDays);
+        setRefreshUsersKey((k) => k + 1);
+      }, 500);
+    };
+    window.addEventListener('lovable:image-recovery-job-tick', schedule);
+    window.addEventListener('location-realtime-update', schedule);
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener('lovable:image-recovery-job-tick', schedule);
+      window.removeEventListener('location-realtime-update', schedule);
+    };
+  }, [isAdmin, retryStaleDays, refreshGlobalCounts]);
+
+  // Resetear confirmación de escritura masiva cuando cambian condiciones
+  // que invalidan el consentimiento previo.
+  useEffect(() => {
+    setConfirmMassiveWrite(false);
+  }, [dryRun, mode, scopeCount, selectedIds]);
 
   // Universe POIs loader ----------------------------------------------------
   const refreshUniverse = useCallback(
@@ -417,9 +449,10 @@ export function RecoverImagesPanel() {
   const stop = () => useImageRecoveryJobStore.getState().stop();
 
   const launchLabel = (() => {
-    const verb = dryRun ? 'Dry-run' : (mode === 'missing' ? 'Recuperar' : mode === 'refresh' ? 'Refrescar' : 'Reprocesar');
-    if (selectedIds.size > 0) return `${verb} selección (${selectedIds.size})`;
-    return `${verb} subconjunto (${scopeCount ?? '…'})`;
+    const target = selectedIds.size > 0 ? selectedIds.size : (scopeCount ?? null);
+    const targetText = target == null ? '…' : target.toLocaleString();
+    if (dryRun) return `Simular recuperación (${targetText})`;
+    return `Recuperar y guardar imágenes (${targetText})`;
   })();
 
   const gridCols = isAdmin
@@ -664,6 +697,28 @@ export function RecoverImagesPanel() {
                 )}
               </div>
 
+              {/* Banner inequívoco: ¿simulación o escritura real? Aparece SIEMPRE,
+                  no solo en operaciones masivas, para que el usuario nunca confunda
+                  los contadores de "tasa de éxito" con escrituras efectivas. */}
+              {dryRun ? (
+                <div className="rounded-md border border-sky-500/40 bg-sky-50 dark:bg-sky-500/10 px-3 py-2 text-xs text-sky-900 dark:text-sky-200 leading-snug">
+                  <div className="flex items-center gap-1.5 font-semibold mb-0.5">
+                    <ImageIcon className="w-3.5 h-3.5" /> Modo simulación activo
+                  </div>
+                  No se guardará ninguna imagen en la BD. Los contadores reales de
+                  "Puntos enriquecidos sin foto" no cambiarán. Desactiva "Dry-run"
+                  en opciones avanzadas para escribir de verdad.
+                </div>
+              ) : (
+                <div className="rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200 leading-snug">
+                  <div className="flex items-center gap-1.5 font-semibold mb-0.5">
+                    <AlertTriangle className="w-3.5 h-3.5" /> Modo escritura activo
+                  </div>
+                  Cada imagen encontrada se guardará en la ficha del POI y bajará el
+                  contador de "Puntos enriquecidos sin foto" en vivo.
+                </div>
+              )}
+
               {isMassive && (
                 <div className="rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200 leading-snug">
                   <div className="flex items-center gap-1.5 font-semibold mb-0.5">
@@ -674,9 +729,31 @@ export function RecoverImagesPanel() {
                 </div>
               )}
 
+              {/* Confirmación explícita para escritura masiva (>200 POIs). */}
+              {!dryRun && isMassive && (
+                <label className="flex items-start gap-2 text-xs cursor-pointer select-none px-1">
+                  <input
+                    type="checkbox"
+                    checked={confirmMassiveWrite}
+                    onChange={(e) => setConfirmMassiveWrite(e.target.checked)}
+                    className="mt-0.5 h-3.5 w-3.5 cursor-pointer accent-amber-600"
+                  />
+                  <span className="text-foreground">
+                    Confirmo escritura masiva en BD ({(scopeCount ?? 0).toLocaleString()} POIs).
+                  </span>
+                </label>
+              )}
+
               {!running ? (
-                <Button onClick={start} className="w-full gap-2"
-                  disabled={(scopeCount ?? 0) === 0 && selectedIds.size === 0}>
+                <Button
+                  onClick={start}
+                  className="w-full gap-2"
+                  variant={dryRun ? 'secondary' : 'default'}
+                  disabled={
+                    ((scopeCount ?? 0) === 0 && selectedIds.size === 0) ||
+                    (!dryRun && isMassive && !confirmMassiveWrite)
+                  }
+                >
                   <Play className="w-4 h-4" />
                   {launchLabel}
                 </Button>

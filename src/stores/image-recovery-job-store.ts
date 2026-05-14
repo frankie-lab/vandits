@@ -125,7 +125,7 @@ function rowToState(row: any) {
 let channel: RealtimeChannel | null = null;
 let hydratePromise: Promise<void> | null = null;
 
-function subscribeToJob(jobId: string, set: (s: Partial<ImageRecoveryState>) => void) {
+function subscribeToJob(jobId: string, set: (s: Partial<ImageRecoveryState>) => void, get: () => ImageRecoveryState) {
   if (channel) {
     try { supabase.removeChannel(channel); } catch { /* noop */ }
     channel = null;
@@ -138,8 +138,19 @@ function subscribeToJob(jobId: string, set: (s: Partial<ImageRecoveryState>) => 
       (payload) => {
         const row = (payload.new ?? payload.old) as any;
         if (!row) return;
+        const prevUpdated = get().updated;
         const next = rowToState(row);
         set(next);
+        // Emit a "tick" event when the count of really-updated POIs grows.
+        // Listeners (admin panel, counters) can use it to refresh in-place
+        // without polling. Only emitted in write mode (dry_run=false) since
+        // dry-run never persists to BD.
+        const updatedDelta = (next.updated ?? 0) - (prevUpdated ?? 0);
+        if (!row.dry_run && updatedDelta > 0 && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('lovable:image-recovery-job-tick', {
+            detail: { jobId, delta: updatedDelta, total: next.updated },
+          }));
+        }
         if (row.status === 'done') {
           toast.success(row.dry_run ? 'Dry-run completado' : 'Recuperación completada');
         } else if (row.status === 'canceled') {
@@ -185,7 +196,7 @@ export const useImageRecoveryJobStore = create<ImageRecoveryState>((set, get) =>
       const row = rows?.[0];
       if (row) {
         set({ ...rowToState(row), hydrated: true });
-        subscribeToJob(row.id, set);
+        subscribeToJob(row.id, set, get);
       } else {
         set({ hydrated: true });
       }
@@ -250,7 +261,7 @@ export const useImageRecoveryJobStore = create<ImageRecoveryState>((set, get) =>
     }
 
     set({ ...rowToState(data) });
-    subscribeToJob(data.id, set);
+    subscribeToJob(data.id, set, get);
     toast.success(config.dryRun ? 'Dry-run en marcha' : 'Recuperación iniciada');
   },
 
