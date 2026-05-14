@@ -63,14 +63,26 @@ export function getGroup(layerType: LayerType, entityId?: string): L.LayerGroup 
 
 // ── Visibility control ───────────────────────────────────────
 
+export interface ApplyLayerVisibilityOptions {
+  /**
+   * Si true, omite los zoom gates por sourceType (followed/app/source).
+   * Caso de uso: el usuario ha enfocado explícitamente a un único owner
+   * vía `filterByUserId`; queremos ver TODOS sus puntos a cualquier zoom,
+   * aunque el bounds calculado caiga por debajo del gate (z<7).
+   */
+  bypassZoomGates?: boolean;
+}
+
 export function applyLayerVisibility(
   layers: LayerVisibilityState,
   zoom: number,
   zoomGates: ZoomGates = DEFAULT_ZOOM_GATES,
+  options: ApplyLayerVisibilityOptions = {},
 ) {
   if (!mapInstance) return;
 
   const pointsVisible = layers.points?.visible !== false;
+  const { bypassZoomGates = false } = options;
 
   layerGroups.forEach((group, key) => {
     const { layerType, entityId } = parseKey(key);
@@ -80,7 +92,8 @@ export function applyLayerVisibility(
     let shouldBeVisible = layer.visible && pointsVisible;
 
     // Global zoom gate per sourceType (PR-7): followed/app/source hidden below threshold.
-    if (shouldBeVisible) {
+    // Bypass cuando el usuario filtra por owner explícito (foco intencional).
+    if (shouldBeVisible && !bypassZoomGates) {
       const gate = zoomGates[layerType as keyof ZoomGates];
       if (typeof gate === 'number' && zoom < gate) {
         shouldBeVisible = false;
