@@ -2,8 +2,14 @@ import React, { useState, useEffect } from 'react';
 import {
   Users, X, Search, Shield, Crown, Edit3, Eye, EyeOff, UserCheck,
   UserPlus, UserMinus, Loader2, Clock, Filter, HelpCircle,
-  Share2, Lock,
+  Share2, Lock, MoreVertical,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
