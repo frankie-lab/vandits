@@ -124,6 +124,8 @@ function getSharedLayers(): LayerVisibilityState {
       followed: { visible: persisted.followed.visible, entityHidden: persisted.followed.entityHidden, minVisibilityZooms: new Map() },
       routes: { visible: persisted.routes?.visible ?? true, entityHidden: [], minVisibilityZooms: new Map() },
       points: { visible: persisted.points?.visible ?? true, entityHidden: [], minVisibilityZooms: new Map() },
+      app: { visible: persisted.app?.visible ?? true, entityHidden: persisted.app?.entityHidden ?? [], minVisibilityZooms: new Map() },
+      source: { visible: persisted.source?.visible ?? true, entityHidden: persisted.source?.entityHidden ?? [], minVisibilityZooms: new Map() },
     };
   }
   return sharedLayers;
