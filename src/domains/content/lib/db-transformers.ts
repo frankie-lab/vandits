@@ -36,6 +36,7 @@ export function dbLocationToGeoLocation(loc: any): GeoLocation {
     geoHealth: (loc.geo_health as GeoLocation['geoHealth']) || undefined,
     visibility: (loc.visibility as GeoLocation['visibility']) || 'followers',
     documentId: loc.document_id || undefined,
+    ownerUserId: loc.owner_user_id ?? null,
     isApproved: loc.is_approved ?? false,
     createdAt: new Date(loc.created_at),
     updatedAt: new Date(loc.updated_at),
