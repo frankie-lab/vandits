@@ -417,9 +417,10 @@ export function RecoverImagesPanel() {
   const stop = () => useImageRecoveryJobStore.getState().stop();
 
   const launchLabel = (() => {
-    const verb = dryRun ? 'Dry-run' : (mode === 'missing' ? 'Recuperar' : mode === 'refresh' ? 'Refrescar' : 'Reprocesar');
-    if (selectedIds.size > 0) return `${verb} selección (${selectedIds.size})`;
-    return `${verb} subconjunto (${scopeCount ?? '…'})`;
+    const target = selectedIds.size > 0 ? selectedIds.size : (scopeCount ?? null);
+    const targetText = target == null ? '…' : target.toLocaleString();
+    if (dryRun) return `Simular recuperación (${targetText})`;
+    return `Recuperar y guardar imágenes (${targetText})`;
   })();
 
   const gridCols = isAdmin
