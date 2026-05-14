@@ -269,10 +269,16 @@ export interface GeoLocation {
   * `mem://style/map/health-rings-rule`.
   */
  geoHealth?: 'ok' | 'broken' | 'partial' | 'stale_name' | 'empty' | null;
- /** ID del documento de origen */
- documentId?: string;
- /** Whether this location is approved for the general map */
- isApproved?: boolean;
+  /** ID del documento de origen */
+  documentId?: string;
+  /**
+   * Owner user id canónico (columna `locations.owner_user_id`).
+   * Fuente preferida del resolver `getLocationOwnerUserId`. Ver
+   * `mem://logic/content/location-owner-resolver`.
+   */
+  ownerUserId?: string | null;
+  /** Whether this location is approved for the general map */
+  isApproved?: boolean;
  createdAt: Date;
  updatedAt: Date;
 }

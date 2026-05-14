@@ -412,23 +412,51 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     if (filterByUserId) {
       const uid = filterByUserId;
       const docsTotal = state.documents.length;
-      const docsOfUid = state.documents.filter(d => d.userId === uid).length;
+      const docsOfUid = state.documents.filter(d => d.userId === uid);
+      const docsOfUidIds = new Set(docsOfUid.map(d => d.id));
       const annTotal = source.length;
-      const annViaOwner = source.filter(l => (l as any).ownerUserId === uid).length;
-      const annViaDoc = source.filter(l => !(l as any).ownerUserId && l._docUserId === uid).length;
+      const annViaOwner = source.filter(l => l.ownerUserId === uid).length;
+      const annViaDoc = source.filter(l => !l.ownerUserId && l._docUserId === uid).length;
+      const annInUidDocs = source.filter(l => docsOfUidIds.has(l._docId)).length;
+      const annDocumentIdHit = source.filter(l => l.documentId && docsOfUidIds.has(l.documentId)).length;
       const ofUid = source.filter(l => getLocationOwnerUserId(l) === uid);
       const passVis = ofUid.filter(l => isLocationVisibleInGlobalMap(l)).length;
       const passShare = ofUid.filter(l => {
         const isOwn = getLocationOwnerUserId(l) === currentUserId;
         return isOwn || isShareablePoi(l);
       }).length;
+
+      // Pre-grouping snapshot from useDatabaseSync (transversal: any uid)
+      const snap = (typeof window !== 'undefined' ? (window as any).__dbSyncSnapshot__ : null) as
+        | { docs: Array<{ id: string; user_id: string | null }>; locs: Array<{ id: string; document_id: string | null; owner_user_id: string | null }> }
+        | null;
+      let dbLocs_total = -1, dbLocs_owner_uid = -1, dbLocs_in_uid_docs = -1, dbDocs_of_uid = -1;
+      let uidDocIdsFromSnap = new Set<string>();
+      if (snap) {
+        uidDocIdsFromSnap = new Set(snap.docs.filter(d => d.user_id === uid).map(d => d.id));
+        dbDocs_of_uid = uidDocIdsFromSnap.size;
+        dbLocs_total = snap.locs.length;
+        dbLocs_owner_uid = snap.locs.filter(l => l.owner_user_id === uid).length;
+        dbLocs_in_uid_docs = snap.locs.filter(l => l.document_id && uidDocIdsFromSnap.has(l.document_id)).length;
+      }
+
       // eslint-disable-next-line no-console
       console.groupCollapsed(`[user-filter funnel] uid=${uid.slice(0,8)}…`);
       // eslint-disable-next-line no-console
       console.table({
+        // BD → cliente (antes de agrupar por documento)
+        dbLocs_total,
+        dbDocs_of_uid,
+        dbLocs_owner_uid,
+        dbLocs_in_uid_docs,
+        // Store (después de buildDoc + applyCatalogSnapshot)
         documents_total: docsTotal,
-        documents_of_uid: docsOfUid,
+        documents_of_uid: docsOfUid.length,
+        documents_of_uid_locs: docsOfUid.reduce((acc, d) => acc + d.locations.length, 0),
+        // Annotated (lo que ve el matcher)
         annotated_total: annTotal,
+        annotated_in_uid_docs: annInUidDocs,
+        annotated_documentId_hit: annDocumentIdHit,
         annotated_of_uid_via_owner: annViaOwner,
         annotated_of_uid_via_doc: annViaDoc,
         annotated_of_uid_total: ofUid.length,
@@ -436,17 +464,26 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         passed_shareable_boundary: passShare,
         currentUserId,
       });
+      if (docsOfUid.length > 0) {
+        // eslint-disable-next-line no-console
+        console.log('[user-filter funnel] uid docs in store:', docsOfUid.map(d => ({
+          id: d.id, name: d.name, locations_length: d.locations.length,
+        })));
+      }
+      if (snap && dbLocs_in_uid_docs > 0) {
+        const sampleIds = snap.locs
+          .filter(l => l.document_id && uidDocIdsFromSnap.has(l.document_id))
+          .slice(0, 5)
+          .map(l => l.id);
+        // eslint-disable-next-line no-console
+        console.log('[user-filter funnel] sample db loc ids in uid docs:', sampleIds);
+      }
       if (ofUid.length > 0) {
         // eslint-disable-next-line no-console
-        console.log('[user-filter funnel] sample of uid POIs:', ofUid.slice(0, 5).map(l => ({
-          id: l.id,
-          name: l.name,
-          ownerUserId: (l as any).ownerUserId,
-          _docUserId: l._docUserId,
-          visibility: l.visibility,
-          isApproved: l.isApproved,
-          geoHealth: (l as any).geoHealth,
-          hasDesc: !!l.enrichedData?.descripcion,
+        console.log('[user-filter funnel] sample uid POIs in annotated:', ofUid.slice(0, 5).map(l => ({
+          id: l.id, name: l.name, ownerUserId: l.ownerUserId,
+          _docId: l._docId, _docUserId: l._docUserId,
+          visibility: l.visibility, isApproved: l.isApproved, geoHealth: l.geoHealth,
         })));
       }
       // eslint-disable-next-line no-console
