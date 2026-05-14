@@ -2210,20 +2210,55 @@ export function LocationMap() {
       if (Date.now() - lastUserInteractionAt < COOLDOWN_MS) return;
 
       const mode = detail.mode ?? 'if-outside';
-      const pts: [number, number][] = [];
-      for (const id of detail.locationIds) {
-        // 1) marker montado (rápido)
-        const marker = markersRef.current.get(id);
-        if (marker) {
-          const ll = marker.getLatLng();
-          pts.push([ll.lat, ll.lng]);
-          continue;
+
+      const collectPts = (): { pts: [number, number][]; missing: number } => {
+        const out: [number, number][] = [];
+        let missing = 0;
+        for (const id of detail.locationIds) {
+          const marker = markersRef.current.get(id);
+          if (marker) {
+            const ll = marker.getLatLng();
+            out.push([ll.lat, ll.lng]);
+            continue;
+          }
+          const loc = locationsRef.current.get(id);
+          if (loc?.coordinates?.lat != null && loc.coordinates.lng != null) {
+            out.push([loc.coordinates.lat, loc.coordinates.lng]);
+          } else {
+            missing++;
+          }
         }
-        // 2) fallback: store de locations (puede no estar montado por culling)
-        const loc = locationsRef.current.get(id);
-        if (loc?.coordinates?.lat != null && loc.coordinates.lng != null) {
-          pts.push([loc.coordinates.lat, loc.coordinates.lng]);
-        }
+        return { pts: out, missing };
+      };
+
+      let { pts, missing } = collectPts();
+
+      // Si quedan ids sin coords (locationsRef aún no hidratado o markers no
+      // montados por culling), reintentar UNA vez en el siguiente frame.
+      if (missing > 0 && pts.length === 0) {
+        requestAnimationFrame(() => {
+          const retry = collectPts();
+          if (retry.missing > 0) {
+            // eslint-disable-next-line no-console
+            console.warn('[subset-fit] missing coords', {
+              reason: detail.reason,
+              total: detail.locationIds.length,
+              missing: retry.missing,
+            });
+          }
+          if (retry.pts.length > 0) {
+            window.dispatchEvent(new CustomEvent<SubsetFitDetail>(SUBSET_FIT_BOUNDS_EVENT, { detail }));
+          }
+        });
+        return;
+      }
+      if (missing > 0) {
+        // eslint-disable-next-line no-console
+        console.warn('[subset-fit] missing coords', {
+          reason: detail.reason,
+          total: detail.locationIds.length,
+          missing,
+        });
       }
       if (pts.length === 0) return;
 
