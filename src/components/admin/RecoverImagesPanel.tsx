@@ -511,57 +511,7 @@ export function RecoverImagesPanel() {
           </div>
         </section>
 
-        {/* ────── 3 · FILTROS sobre el universo base ─────────────────── */}
-        <section className="rounded-lg border bg-background">
-          <header className="px-4 py-2.5 border-b flex items-center gap-2">
-            <FilterIcon className="w-3.5 h-3.5 text-muted-foreground" />
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              3 · Filtros sobre el universo
-            </h4>
-            {filtersActive && (
-              <button
-                type="button"
-                className="ml-auto text-[11px] text-primary hover:underline"
-                onClick={() => {
-                  setGeoFilter({ continent: null, country: null, zone: null });
-                  if (isAdmin && selfUserId) {
-                    setTargetUser({
-                      user_id: selfUserId,
-                      username: null,
-                      display_name: 'Yo',
-                      broken_count: 0,
-                      total_locations: 0,
-                    });
-                  }
-                }}
-              >
-                Limpiar
-              </button>
-            )}
-          </header>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3">
-            <GeoSelect
-              label="Continente"
-              value={geoFilter.continent}
-              options={geoOptions.continents}
-              onChange={(v) =>
-                setGeoFilter({ continent: v, country: null, zone: null })
-              }
-            />
-            <GeoSelect
-              label="País"
-              value={geoFilter.country}
-              options={geoOptions.countries}
-              onChange={(v) => setGeoFilter((g) => ({ ...g, country: v, zone: null }))}
-            />
-            <GeoSelect
-              label="Zona / región"
-              value={geoFilter.zone}
-              options={geoOptions.zones}
-              onChange={(v) => setGeoFilter((g) => ({ ...g, zone: v }))}
-            />
-          </div>
-        </section>
+        {/* Filtros geo: ya no se duplican aquí. Se eligen desde el árbol "Subconjunto" más abajo. */}
 
         {/* Opciones avanzadas */}
         <section className="rounded-lg border bg-background">
