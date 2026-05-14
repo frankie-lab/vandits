@@ -172,6 +172,27 @@ serve(async (req) => {
   const force = !!body.force;
   const retryStaleDays = Math.max(body.retryStaleDays ?? 30, 0);
   const cursor = body.cursor ?? "00000000-0000-0000-0000-000000000000";
+  const jobId = typeof body.jobId === "string" && body.jobId.length > 0 ? body.jobId : null;
+
+  // Stream per-item progress into image_recovery_jobs (best-effort, never throws).
+  const bumpJob = async (deltas: {
+    scanned?: number; updated?: number; skipped?: number; failed?: number;
+    item?: ItemLog | null;
+  }) => {
+    if (!jobId) return;
+    try {
+      await admin.rpc("increment_image_recovery_progress", {
+        _job_id: jobId,
+        _scanned_delta: deltas.scanned ?? 0,
+        _updated_delta: deltas.updated ?? 0,
+        _skipped_delta: deltas.skipped ?? 0,
+        _failed_delta: deltas.failed ?? 0,
+        _item: deltas.item ?? null,
+      });
+    } catch (e) {
+      console.warn("[recover-missing-images] bumpJob failed", (e as Error).message);
+    }
+  };
 
   const mode: RecoveryMode = (body.mode ?? "missing");
   if (!["missing", "refresh", "full"].includes(mode)) {
