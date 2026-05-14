@@ -2635,30 +2635,20 @@ export function LocationMap() {
  )}
  </div>
  
- {/* Legend items */}
- <div className="flex items-center gap-1.5">
- <svg width="10" height="14" viewBox="0 0 24 36" className="drop-shadow-sm">
- <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="#22c55e" stroke="white" strokeWidth="2"/>
- <circle cx="12" cy="12" r="4" fill="white" fillOpacity="0.9"/>
- </svg>
- <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Final</span>
- </div>
-  {/* "Pendiente" azul eliminado: contradice la regla canónica de 3 estados (verde/gris/naranja). */}
- <div className="flex items-center gap-1.5">
- <svg width="10" height="14" viewBox="0 0 24 36" className="drop-shadow-sm">
- <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="#9ca3af" stroke="white" strokeWidth="2"/>
- <circle cx="12" cy="12" r="4" fill="white" fillOpacity="0.9"/>
- </svg>
- <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Importado</span>
- </div>
- <div className="flex items-center gap-1.5">
- <svg width="10" height="14" viewBox="0 0 24 36" className="drop-shadow-sm">
- <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="#f97316" stroke="white" strokeWidth="2"/>
- <circle cx="12" cy="12" r="4" fill="white" fillOpacity="0.9"/>
- </svg>
- <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Vacío</span>
- </div>
- </div>
+  {/* Legend items — círculos (forma canónica de POI propio: regla "Forma POI por origen"). */}
+  <div className="flex items-center gap-1.5">
+  <span className="inline-block w-2.5 h-2.5 rounded-full ring-1 ring-white/80 shadow-sm" style={{ backgroundColor: '#22c55e' }} />
+  <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Final</span>
+  </div>
+  <div className="flex items-center gap-1.5">
+  <span className="inline-block w-2.5 h-2.5 rounded-full ring-1 ring-white/80 shadow-sm" style={{ backgroundColor: '#9ca3af' }} />
+  <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Importado</span>
+  </div>
+  <div className="flex items-center gap-1.5">
+  <span className="inline-block w-2.5 h-2.5 rounded-full ring-1 ring-white/80 shadow-sm" style={{ backgroundColor: '#f97316' }} />
+  <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Vacío</span>
+  </div>
+  </div>
  </div>
 
       {/* Catalog loading card — replaces welcome popup while initial sync is in flight */}
