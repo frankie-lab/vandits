@@ -2211,7 +2211,19 @@ export function LocationMap() {
 
       const mode = detail.mode ?? 'if-outside';
 
+      // Si el caller pasó coords pre-resueltas, usarlas directamente y
+      // saltar la resolución vía markersRef/locationsRef. Imprescindible
+      // cuando el fit se dispara antes de que el store/markers hayan
+      // re-renderizado (caso típico: filtro por usuario).
+      const preCoords = Array.isArray(detail.coords) ? detail.coords : null;
+
       const collectPts = (): { pts: [number, number][]; missing: number } => {
+        if (preCoords && preCoords.length > 0) {
+          const valid = preCoords.filter(
+            ([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng),
+          );
+          return { pts: valid, missing: preCoords.length - valid.length };
+        }
         const out: [number, number][] = [];
         let missing = 0;
         for (const id of detail.locationIds) {
@@ -2235,7 +2247,7 @@ export function LocationMap() {
 
       // Si quedan ids sin coords (locationsRef aún no hidratado o markers no
       // montados por culling), reintentar UNA vez en el siguiente frame.
-      if (missing > 0 && pts.length === 0) {
+      if (missing > 0 && pts.length === 0 && !preCoords) {
         requestAnimationFrame(() => {
           const retry = collectPts();
           if (retry.missing > 0) {
