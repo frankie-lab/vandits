@@ -179,6 +179,8 @@ export function applyVisibilityFromPanel(patch: Partial<Record<LayerType, boolea
     followed: { visible: layers.followed.visible, entityHidden: layers.followed.entityHidden },
     routes: { visible: layers.routes.visible },
     points: { visible: layers.points.visible },
+    app: { visible: layers.app.visible, entityHidden: layers.app.entityHidden },
+    source: { visible: layers.source.visible, entityHidden: layers.source.entityHidden },
   });
   emitChange();
 }
@@ -229,6 +231,8 @@ export function useLayerVisibility() {
       followed: { visible: l.followed.visible, entityHidden: l.followed.entityHidden },
       routes: { visible: l.routes.visible },
       points: { visible: l.points.visible },
+      app: { visible: l.app.visible, entityHidden: l.app.entityHidden },
+      source: { visible: l.source.visible, entityHidden: l.source.entityHidden },
     });
   }, []);
 
