@@ -697,6 +697,28 @@ export function RecoverImagesPanel() {
                 )}
               </div>
 
+              {/* Banner inequívoco: ¿simulación o escritura real? Aparece SIEMPRE,
+                  no solo en operaciones masivas, para que el usuario nunca confunda
+                  los contadores de "tasa de éxito" con escrituras efectivas. */}
+              {dryRun ? (
+                <div className="rounded-md border border-sky-500/40 bg-sky-50 dark:bg-sky-500/10 px-3 py-2 text-xs text-sky-900 dark:text-sky-200 leading-snug">
+                  <div className="flex items-center gap-1.5 font-semibold mb-0.5">
+                    <ImageIcon className="w-3.5 h-3.5" /> Modo simulación activo
+                  </div>
+                  No se guardará ninguna imagen en la BD. Los contadores reales de
+                  "Puntos enriquecidos sin foto" no cambiarán. Desactiva "Dry-run"
+                  en opciones avanzadas para escribir de verdad.
+                </div>
+              ) : (
+                <div className="rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200 leading-snug">
+                  <div className="flex items-center gap-1.5 font-semibold mb-0.5">
+                    <AlertTriangle className="w-3.5 h-3.5" /> Modo escritura activo
+                  </div>
+                  Cada imagen encontrada se guardará en la ficha del POI y bajará el
+                  contador de "Puntos enriquecidos sin foto" en vivo.
+                </div>
+              )}
+
               {isMassive && (
                 <div className="rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200 leading-snug">
                   <div className="flex items-center gap-1.5 font-semibold mb-0.5">
@@ -707,9 +729,31 @@ export function RecoverImagesPanel() {
                 </div>
               )}
 
+              {/* Confirmación explícita para escritura masiva (>200 POIs). */}
+              {!dryRun && isMassive && (
+                <label className="flex items-start gap-2 text-xs cursor-pointer select-none px-1">
+                  <input
+                    type="checkbox"
+                    checked={confirmMassiveWrite}
+                    onChange={(e) => setConfirmMassiveWrite(e.target.checked)}
+                    className="mt-0.5 h-3.5 w-3.5 cursor-pointer accent-amber-600"
+                  />
+                  <span className="text-foreground">
+                    Confirmo escritura masiva en BD ({(scopeCount ?? 0).toLocaleString()} POIs).
+                  </span>
+                </label>
+              )}
+
               {!running ? (
-                <Button onClick={start} className="w-full gap-2"
-                  disabled={(scopeCount ?? 0) === 0 && selectedIds.size === 0}>
+                <Button
+                  onClick={start}
+                  className="w-full gap-2"
+                  variant={dryRun ? 'secondary' : 'default'}
+                  disabled={
+                    ((scopeCount ?? 0) === 0 && selectedIds.size === 0) ||
+                    (!dryRun && isMassive && !confirmMassiveWrite)
+                  }
+                >
                   <Play className="w-4 h-4" />
                   {launchLabel}
                 </Button>
