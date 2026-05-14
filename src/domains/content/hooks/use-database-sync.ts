@@ -79,6 +79,21 @@ export function useDatabaseSync(userId?: string | null) {
       });
       console.log('[useDatabaseSync] Locations fetched:', dbLocations.length);
 
+      // [TEMP DEBUG] expose a lite snapshot for the user-filter funnel.
+      // Transversal (no hardcodes): array of { id, document_id, owner_user_id }.
+      // Removed once the user-filter pipeline is verified.
+      try {
+        (window as any).__dbSyncSnapshot__ = {
+          ts: Date.now(),
+          docs: dbDocs.map(d => ({ id: d.id, user_id: d.user_id })),
+          locs: dbLocations.map((l: any) => ({
+            id: l.id,
+            document_id: l.document_id ?? null,
+            owner_user_id: l.owner_user_id ?? null,
+          })),
+        };
+      } catch { /* ignore */ }
+
       const adoptedFromIds = new Set<string>();
       const userDocIds = new Set(ownDocs.map(d => d.id));
 
