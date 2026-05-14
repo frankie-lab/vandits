@@ -471,7 +471,7 @@ export function RecoverImagesPanel() {
             <div className="relative text-left rounded-lg border border-dashed border-border bg-muted/20 p-4">
               <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
                 <Layers className="w-4 h-4 shrink-0" />
-                <span className="truncate">Universo</span>
+                <span className="truncate">Total puntos</span>
               </div>
               <div className="mt-2 flex items-baseline gap-1.5">
                 <span className="text-3xl font-bold tabular-nums leading-none tracking-tight text-foreground">
