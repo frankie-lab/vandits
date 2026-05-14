@@ -16,7 +16,7 @@ import { useEffect } from 'react';
 import { Image as ImageIcon, Loader2, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useImageRecoveryJobStore } from '@/stores/image-recovery-job-store';
-import { getImageRecoveryMetrics, formatPct } from '@/stores/image-recovery-job-metrics';
+import { getImageRecoveryMetrics } from '@/stores/image-recovery-job-metrics';
 import { LaneRow, type LaneSegment, type LaneMetric } from './LaneRow';
 
 interface ImageRecoveryLaneProps {
