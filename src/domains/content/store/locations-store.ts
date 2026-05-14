@@ -177,6 +177,11 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     return { documents, _docVersion: state._docVersion + 1 };
   }),
 
+  setDetachedVisibleLocations: (locations) => set((state) => ({
+    detachedVisibleLocations: dedupeLocationsById(locations),
+    _docVersion: state._docVersion + 1,
+  })),
+
   applyCatalogSnapshot: (docs, opts) => set((state) => {
     const { documents, mutated, removedLocationIds } = applyCatalogSnapshotPure(
       state.documents,
@@ -229,6 +234,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
   _resetStoreState: () => set((state) => ({
     documents: [],
+    detachedVisibleLocations: [],
     selectedLocations: new Set(),
     focusedLocationId: null,
     filters: getPersistentFilters(state.filters),
@@ -240,6 +246,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     if (!success) return;
     set((state) => ({
       documents: [],
+      detachedVisibleLocations: [],
       selectedLocations: new Set(),
       focusedLocationId: null,
       filters: getPersistentFilters(state.filters),
@@ -257,6 +264,11 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
           : loc
       ),
     })),
+    detachedVisibleLocations: state.detachedVisibleLocations.map((loc) =>
+      loc.id === locationId
+        ? { ...loc, ...updates, updatedAt: new Date() }
+        : loc
+    ),
     _docVersion: state._docVersion + 1,
   })),
 
