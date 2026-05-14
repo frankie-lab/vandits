@@ -715,6 +715,9 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   getLocationOwnership: (locationId, currentUserId) => {
     const state = get();
     const viewerUid = currentUserId ?? state.currentUserId ?? null;
+    // PR-POI-SOURCE-6: lookup centralizado de username (registro alimentado
+    // por useAuth + UsersSidebar). Helper único — no duplicar.
+    const usernameLookup = (uid: string) => lookupUsername(uid);
     for (const doc of state.documents) {
       if (doc.locations.some(loc => loc.id === locationId)) {
         const isOwn = !!(viewerUid && doc.userId === viewerUid);
@@ -724,10 +727,11 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
           ownerId: doc.userId,
           docStatus: doc.status,
           viewerUid,
+          usernameLookup,
         };
       }
     }
-    return { isOwn: true, viewerUid };
+    return { isOwn: true, viewerUid, usernameLookup };
   },
 
 }));
