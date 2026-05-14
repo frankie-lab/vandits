@@ -26,6 +26,17 @@ import { tokens } from '@/design-system/tokens';
 import { getOwnerIdentityColor } from './owner-stroke';
 import { getOwnerIdentityOklch } from '@/stores/owner-identity-store';
 import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
+import { resolveMarkerGrammar } from '@/domains/content/lib/poi-marker-grammar';
+
+// ── Neutral palettes for non-owner / non-followed shapes ───────────────
+// PR-POI-SOURCE-5: app POIs (diamond) y source POIs (hexagon) usan paletas
+// neutras — la paleta de estado (verde/gris/naranja) está reservada a
+// `own`. Tokens preliminares hasta exponer `--poi-app-*` y `--poi-source-*`
+// en `design-system/tokens/source/poi.json`.
+const APP_NEUTRAL_FILL = 'hsl(220 13% 46%)';
+const APP_NEUTRAL_STROKE = 'hsl(220 13% 88%)';
+const SOURCE_NEUTRAL_FILL = 'hsl(220 9% 38%)';
+const SOURCE_NEUTRAL_STROKE = 'hsl(220 9% 86%)';
 
 // ── Followed POI debug helpers ──────────────────────────────────────────
 // Activos solo en DEV o si la URL incluye `?debug=poi-icon`. En producción
