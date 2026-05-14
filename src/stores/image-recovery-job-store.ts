@@ -196,7 +196,7 @@ export const useImageRecoveryJobStore = create<ImageRecoveryState>((set, get) =>
       const row = rows?.[0];
       if (row) {
         set({ ...rowToState(row), hydrated: true });
-        subscribeToJob(row.id, set);
+        subscribeToJob(row.id, set, get);
       } else {
         set({ hydrated: true });
       }
@@ -261,7 +261,7 @@ export const useImageRecoveryJobStore = create<ImageRecoveryState>((set, get) =>
     }
 
     set({ ...rowToState(data) });
-    subscribeToJob(data.id, set);
+    subscribeToJob(data.id, set, get);
     toast.success(config.dryRun ? 'Dry-run en marcha' : 'Recuperación iniciada');
   },
 
