@@ -772,6 +772,7 @@ title="Quitar valoración"
 </div>
 </div>
 
+${buildSourceHashtagsBlock(location, ownership)}
 ${buildCollectionChipsPlaceholder(location)}
 ${buildPersonalTagsBlock(location)}
 
@@ -1099,6 +1100,7 @@ ${location.description}
 </div>
 ` : ''}
 
+${buildSourceHashtagsBlock(location, ownership)}
 ${buildCollectionChipsPlaceholder(location)}
 ${buildPersonalTagsBlock(location)}
 
