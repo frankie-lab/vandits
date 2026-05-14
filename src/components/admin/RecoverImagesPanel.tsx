@@ -49,6 +49,7 @@ import {
   type ImageRecoveryItemLog,
   type ImageRecoveryMode,
 } from '@/stores/image-recovery-job-store';
+import { getImageRecoveryMetrics, formatPct } from '@/stores/image-recovery-job-metrics';
 import { cn } from '@/lib/utils';
 import type { GeoLocation } from '@/types/location';
 
