@@ -56,13 +56,15 @@ function applySourceFilter(detail: SourceFilterEventDetail): void {
   // los IDs y coords del subconjunto pasando el filtro recién aplicado por el
   // matcher transversal. `reason='source-filter'` para telemetría/cooldown.
   if (!isActive) {
-    const all = useLocationsStore.getState().locations;
+    const docs = useLocationsStore.getState().documents;
     const ids: string[] = [];
     const coords: Array<[number, number]> = [];
-    for (const loc of all) {
-      if (matchesLocationFilters(loc, nextFilters, { collectionsForLocation: () => [] })) {
-        ids.push(loc.id);
-        if (loc.coordinates) coords.push([loc.coordinates.lat, loc.coordinates.lng]);
+    for (const doc of docs) {
+      for (const loc of doc.locations) {
+        if (matchesLocationFilters(loc, nextFilters)) {
+          ids.push(loc.id);
+          if (loc.coordinates) coords.push([loc.coordinates.lat, loc.coordinates.lng]);
+        }
       }
     }
     if (ids.length > 0) {
