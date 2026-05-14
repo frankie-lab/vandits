@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.fetch-remote-kml]
 verify_jwt = false
+
+[functions.recover-missing-images]
+verify_jwt = false
+
+[functions.image-recovery-job-tick]
+verify_jwt = false
