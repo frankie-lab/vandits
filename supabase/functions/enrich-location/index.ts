@@ -10,6 +10,10 @@ import { extractCulturalContext } from "../_shared/cultural-context.ts";
 import { isUnverifiableLLMOutput } from "../_shared/llm-unverifiable.ts";
 import { compareCountries } from "../_shared/country-iso.ts";
 import { getEnabledSourceCodes, isSourceEnabled } from "../_shared/data-sources.ts";
+import {
+  searchImageFromSources as sharedImageSearch,
+  type ImageSourceCode,
+} from "../_shared/image-search.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -2650,22 +2654,42 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
       try {
         console.log('Searching real image for:', enrichedData.nombre_lugar, 'using sources:', activeExternalImageSources);
 
-        const imageResult = await searchImageFromSources(
-          enrichedData.nombre_lugar,
-          enrichedData.datos_clave?.tipo || 'lugar',
-          location.country,
-          location.region,
-          location.coordinates,
-          activeExternalImageSources,
+        const { hit, telemetry } = await sharedImageSearch(
+          {
+            placeName: enrichedData.nombre_lugar,
+            placeType: enrichedData.datos_clave?.tipo || 'lugar',
+            country: location.country,
+            region: location.region,
+            coordinates: location.coordinates,
+          },
+          {
+            sources: activeExternalImageSources as ImageSourceCode[],
+            includeOsm: activeExternalImageSources.includes('osm'),
+          },
         );
 
-        if (imageResult) {
-          enrichedData.imagen = imageResult.url;
-          enrichedData.imagen_fuente = imageResult.source;
+        console.log(
+          `[image-search] ${enrichedData.nombre_lugar} → tried=${telemetry.sourcesTried.join(',')} ` +
+          `ok=${telemetry.sourcesSucceeded.join(',')} transient=${telemetry.sourcesTransientFail.join(',')} ` +
+          `final=${telemetry.finalSource ?? 'none'} (${telemetry.durationMs}ms)`
+        );
+
+        // Persist telemetry regardless of hit (debug-only).
+        enrichedData.media = enrichedData.media || {};
+        enrichedData.media.image_recovery = {
+          source_telemetry: telemetry,
+        };
+
+        if (hit) {
+          enrichedData.imagen = hit.url;
+          enrichedData.imagen_fuente = `${hit.source}: ${hit.title ?? ''}`.trim();
+          enrichedData.media.images = [hit];
+          enrichedData.media.cover_url = hit.url;
           if (enrichedData._fuentes_consultadas) {
-            enrichedData._fuentes_consultadas.wikimedia_commons = imageResult.source.startsWith('Wikimedia Commons');
-            enrichedData._fuentes_consultadas.wikipedia = imageResult.source.startsWith('Wikipedia')
-              ? { titulo: enrichedData.nombre_lugar, url: imageResult.url }
+            enrichedData._fuentes_consultadas.wikimedia_commons =
+              hit.source === 'wikimedia_commons' || hit.source === 'wikimedia_geosearch';
+            enrichedData._fuentes_consultadas.wikipedia = hit.source === 'wikipedia'
+              ? { titulo: enrichedData.nombre_lugar, url: hit.url }
               : enrichedData._fuentes_consultadas.wikipedia;
           }
           console.log('Found relevant image for:', location.name);

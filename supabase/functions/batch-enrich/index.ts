@@ -146,7 +146,12 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
     // marker-by-marker as workers finish. Job-progress writes are
     // coalesced once per wave to avoid hammering enrichment_jobs.
     // ============================================================
-    const CONCURRENCY = 8;
+    // Lowered from 8 → 4 (PR-IMG-2): 8 parallel calls hammered Wikimedia /
+    // Commons / Openverse from the same Edge Function IP and got rate-limited
+    // (90% of POIs ended up enriched but without image). 4 + jitter respects
+    // upstream policies and keeps image-recovery rate high.
+    const CONCURRENCY = 4;
+    const WAVE_JITTER_MS = () => 100 + Math.floor(Math.random() * 300);
 
     // Sentinel returned by a worker when the AI Gateway is out of credits (402).
     // The wave loop uses it to pause the whole job instead of marking the POI as error.
