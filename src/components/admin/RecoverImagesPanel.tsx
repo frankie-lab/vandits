@@ -88,11 +88,24 @@ export function RecoverImagesPanel() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [universeCount, setUniverseCount] = useState<number | null>(null);
 
-  // Per-user counts for the mode cards (driven by users RPC)
-  const [globalCounts, setGlobalCounts] = useState<Record<Mode, number | null>>({
-    pending: null,
-    force: null,
-  });
+  // Global breakdown for the "Universe" card + mode counts
+  type Breakdown = {
+    total_active: number;
+    enriched: number;
+    not_enriched: number;
+    with_image_any: number;
+    image_from_enriched: number;
+    image_from_user_url: number;
+    image_from_photos_table: number;
+    enriched_without_image: number;
+    pending_candidates: number;
+    in_cooldown: number;
+  };
+  const [breakdown, setBreakdown] = useState<Breakdown | null>(null);
+  const globalCounts: Record<Mode, number | null> = {
+    pending: breakdown?.pending_candidates ?? null,
+    force: breakdown == null ? null : breakdown.pending_candidates + breakdown.in_cooldown,
+  };
 
   // Advanced options
   const [retryStaleDays, setRetryStaleDays] = useState(30);
@@ -144,32 +157,34 @@ export function RecoverImagesPanel() {
     };
   }, []);
 
-  // Global candidate counts per mode (for the mode cards) -------------------
+  // Global breakdown (drives Universe card + mode card counts) ---------------
   const refreshGlobalCounts = useCallback(
     async (currentRetry: number) => {
       try {
-        const [pending, all] = await Promise.all([
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (supabase as any).rpc('admin_image_recovery_users', {
-            _force: false,
-            _retry_stale_days: currentRetry,
-          }),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (supabase as any).rpc('admin_image_recovery_users', {
-            _force: true,
-            _retry_stale_days: currentRetry,
-          }),
-        ]);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const sum = (rows: any) =>
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ((rows ?? []) as any[]).reduce((a, r) => a + Number(r.universe_count ?? 0), 0);
-        setGlobalCounts({
-          pending: pending.error ? 0 : sum(pending.data),
-          force: all.error ? 0 : sum(all.data),
+        const { data, error } = await (supabase as any).rpc('admin_image_recovery_breakdown', {
+          _retry_stale_days: currentRetry,
+        });
+        if (error) {
+          console.error('[image-recovery-breakdown]', error);
+          return;
+        }
+        const row = Array.isArray(data) ? data[0] : data;
+        if (!row) return;
+        setBreakdown({
+          total_active: Number(row.total_active ?? 0),
+          enriched: Number(row.enriched ?? 0),
+          not_enriched: Number(row.not_enriched ?? 0),
+          with_image_any: Number(row.with_image_any ?? 0),
+          image_from_enriched: Number(row.image_from_enriched ?? 0),
+          image_from_user_url: Number(row.image_from_user_url ?? 0),
+          image_from_photos_table: Number(row.image_from_photos_table ?? 0),
+          enriched_without_image: Number(row.enriched_without_image ?? 0),
+          pending_candidates: Number(row.pending_candidates ?? 0),
+          in_cooldown: Number(row.in_cooldown ?? 0),
         });
       } catch (err) {
-        console.error('[image-recovery-counts]', err);
+        console.error('[image-recovery-breakdown]', err);
       }
     },
     [],
