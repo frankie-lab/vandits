@@ -745,37 +745,28 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   </div>
   <div
    className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground"
-   title={[
-     `${user.sharedPois} compartidos visibles para ti`,
-     user.totalPois != null ? `${user.totalPois} totales en su catálogo` : null,
-     user.lastContributionAt ? `último POI hace ${formatActivityShort(user.lastContributionAt)}` : null,
-     user.contributions7d != null && user.contributions7d > 0
-       ? `+${user.contributions7d} en los últimos 7 días`
-       : null,
-   ].filter(Boolean).join(' · ')}
-  >
-   <span className="inline-flex items-center gap-1 shrink-0 tabular-nums">
-    <Share2 className="w-3 h-3" />
-    <span className="font-semibold text-foreground">{user.sharedPois}</span>
-   </span>
-   {user.totalPois != null && (
+    title={[
+      `${user.sharedPois} compartidos visibles para ti`,
+      user.totalPois != null ? `${user.totalPois} totales en su catálogo` : null,
+      user.lastContributionAt ? `último POI hace ${formatActivityShort(user.lastContributionAt)}` : null,
+    ].filter(Boolean).join(' · ')}
+   >
     <span className="inline-flex items-center gap-1 shrink-0 tabular-nums">
-     <Lock className="w-3 h-3" />
-     <span className="font-semibold text-foreground">{user.totalPois}</span>
+     <Share2 className="w-3 h-3" />
+     <span className="font-semibold text-foreground">{user.sharedPois}</span>
     </span>
-   )}
-   {user.lastContributionAt && (
-    <span className="inline-flex items-center gap-1 shrink-0 tabular-nums">
-     <Clock className="w-3 h-3" />
-     {formatActivityShort(user.lastContributionAt)}
-    </span>
-   )}
-   {user.contributions7d != null && user.contributions7d > 0 && (
-    <span className="inline-flex items-center gap-1 shrink-0 tabular-nums">
-     <TrendingUp className="w-3 h-3" />
-     +{user.contributions7d}
-    </span>
-   )}
+    {user.totalPois != null && (
+     <span className="inline-flex items-center gap-1 shrink-0 tabular-nums">
+      <Lock className="w-3 h-3" />
+      <span className="font-semibold text-foreground">{user.totalPois}</span>
+     </span>
+    )}
+    {user.lastContributionAt && (
+     <span className="inline-flex items-center gap-1 shrink-0 tabular-nums">
+      <Clock className="w-3 h-3" />
+      {formatActivityShort(user.lastContributionAt)}
+     </span>
+    )}
   </div>
   {(user.followStatus === 'accepted' || user.followsMe) && (
    <div className="flex flex-wrap items-center gap-1 mt-0.5 text-[10px]">
