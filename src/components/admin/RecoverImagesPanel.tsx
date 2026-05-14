@@ -653,6 +653,11 @@ interface UsersListProps {
   badgeTone: 'amber' | 'destructive';
 }
 
+const TONE_CLASSES: Record<'amber' | 'destructive', string> = {
+  amber: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+  destructive: 'bg-destructive/15 text-destructive',
+};
+
 function ImageRecoveryUsersList({
   selectedUserId,
   onSelect,
@@ -697,26 +702,84 @@ function ImageRecoveryUsersList({
     load();
   }, [load, refreshKey]);
 
-  // Re-use AdminBrokenUsersList visual via inline implementation to keep tone control
+  const toneClass = TONE_CLASSES[badgeTone];
+
   return (
-    <AdminBrokenUsersList
-      selectedUserId={selectedUserId}
-      onSelect={onSelect}
-      refreshKey={refreshUsersKey + (loading ? 0 : 0)}
-      // The shared component re-fetches its own data using healthFilter; since we
-      // need a different RPC, we proxy by passing a custom override via a shim:
-      // simpler: render our own list when shared doesn't fit. Below we replace
-      // it entirely with a local render to avoid dual fetches.
-      healthFilter={[]}
-      modeTitle={modeTitle}
-      badgeTone={badgeTone}
-      // @ts-expect-error — usersOverride is read by a wrapper we can't add; instead render local
-      __unused
-    />
+    <section className="rounded-lg border flex flex-col min-h-0 overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/20">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold shrink-0">
+            1
+          </span>
+          <h3 className="text-sm font-semibold truncate" title={modeTitle}>
+            Usuarios · {modeTitle}
+          </h3>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={load}
+          disabled={loading}
+        >
+          {loading ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="w-3.5 h-3.5" />
+          )}
+        </Button>
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        {error ? (
+          <div className="p-3 text-xs text-destructive">{error}</div>
+        ) : loading && users.length === 0 ? (
+          <div className="p-3 text-xs text-muted-foreground">Cargando…</div>
+        ) : users.length === 0 ? (
+          <div className="p-3 text-xs text-muted-foreground">
+            Ningún usuario con candidatos en este modo.
+          </div>
+        ) : (
+          <ul className="divide-y">
+            {users.map((u) => {
+              const isSelected = u.user_id === selectedUserId;
+              const label = u.display_name || u.username || u.user_id.slice(0, 8);
+              const sub = u.username ? `@${u.username}` : u.user_id.slice(0, 8);
+              return (
+                <li key={u.user_id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(u)}
+                    className={cn(
+                      'w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-muted/40 transition-colors',
+                      isSelected && 'bg-primary/10',
+                    )}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium truncate">{label}</div>
+                      <div className="text-[11px] text-muted-foreground truncate">{sub}</div>
+                    </div>
+                    <div className="flex flex-col items-end shrink-0">
+                      <span
+                        className={cn(
+                          'inline-flex items-center justify-center min-w-[28px] h-5 px-1.5 rounded-full text-[11px] font-semibold tabular-nums',
+                          toneClass,
+                        )}
+                      >
+                        {u.broken_count.toLocaleString()}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground tabular-nums mt-0.5">
+                        de {u.total_locations.toLocaleString()}
+                      </span>
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </section>
   );
-  // NOTE: AdminBrokenUsersList fetches its own data via admin_users_geo_universe.
-  // It would issue an unrelated query. We need a dedicated list — see render below.
-  void users; void error;
 }
 
 function SummaryRow({ label, value }: { label: string; value: string | number }) {
