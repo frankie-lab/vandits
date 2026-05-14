@@ -689,7 +689,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  animate={{ opacity: 1, y: 0 }}
  transition={{ delay: index * 0.03 }}
  className={cn(
-  'flex items-center gap-2 p-2.5 rounded-xl min-w-0',
+  'flex items-center gap-1.5 p-2 rounded-xl min-w-0 w-full overflow-hidden',
   'hover:bg-accent/50 transition-all',
   isCurrentUser && 'bg-primary/5 ring-1 ring-primary/20',
   !isLast && 'border-b border-border/30',
