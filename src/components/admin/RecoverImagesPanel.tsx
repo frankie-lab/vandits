@@ -71,7 +71,7 @@ interface ModeMeta {
 
 const MODE_META: Record<ImageRecoveryMode, ModeMeta> = {
   missing: {
-    title: 'Recuperar faltantes',
+    title: 'Puntos enriquecidos sin foto',
     short: 'faltantes',
     desc: 'POIs enriquecidos sin foto en ninguna fuente. Rellena huecos.',
     icon: ImageOff,
