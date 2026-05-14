@@ -240,6 +240,34 @@ export function RecoverImagesPanel() {
     void refreshGlobalCounts(retryStaleDays);
   }, [isAdmin, retryStaleDays, refreshGlobalCounts]);
 
+  // Hot-refresh del breakdown cuando un job real actualiza POIs en BD o
+  // cuando llega un postgres_changes UPDATE de locations. Debounced 500ms
+  // para no martillear la RPC mientras avanza un lote.
+  useEffect(() => {
+    if (!isAdmin) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const schedule = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        void refreshGlobalCounts(retryStaleDays);
+        setRefreshUsersKey((k) => k + 1);
+      }, 500);
+    };
+    window.addEventListener('lovable:image-recovery-job-tick', schedule);
+    window.addEventListener('location-realtime-update', schedule);
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener('lovable:image-recovery-job-tick', schedule);
+      window.removeEventListener('location-realtime-update', schedule);
+    };
+  }, [isAdmin, retryStaleDays, refreshGlobalCounts]);
+
+  // Resetear confirmación de escritura masiva cuando cambian condiciones
+  // que invalidan el consentimiento previo.
+  useEffect(() => {
+    setConfirmMassiveWrite(false);
+  }, [dryRun, mode, scopeCount, selectedIds]);
+
   // Universe POIs loader ----------------------------------------------------
   const refreshUniverse = useCallback(
     async (
