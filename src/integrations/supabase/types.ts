@@ -989,6 +989,93 @@ export type Database = {
           },
         ]
       }
+      image_recovery_jobs: {
+        Row: {
+          cooldown_ms: number
+          created_at: string
+          created_by: string | null
+          cursor: string | null
+          dry_run: boolean
+          failed: number
+          force: boolean
+          id: string
+          label: string | null
+          last_error: string | null
+          last_tick_at: string | null
+          max_total: number | null
+          mode: string
+          page_size: number
+          recent_items: Json
+          remaining: number | null
+          retry_stale_days: number
+          scanned: number
+          scope: Json
+          skipped: number
+          status: Database["public"]["Enums"]["image_recovery_job_status"]
+          total_in_scope: number | null
+          updated: number
+          updated_at: string
+          user_id: string
+          waves: number
+        }
+        Insert: {
+          cooldown_ms?: number
+          created_at?: string
+          created_by?: string | null
+          cursor?: string | null
+          dry_run?: boolean
+          failed?: number
+          force?: boolean
+          id?: string
+          label?: string | null
+          last_error?: string | null
+          last_tick_at?: string | null
+          max_total?: number | null
+          mode?: string
+          page_size?: number
+          recent_items?: Json
+          remaining?: number | null
+          retry_stale_days?: number
+          scanned?: number
+          scope?: Json
+          skipped?: number
+          status?: Database["public"]["Enums"]["image_recovery_job_status"]
+          total_in_scope?: number | null
+          updated?: number
+          updated_at?: string
+          user_id: string
+          waves?: number
+        }
+        Update: {
+          cooldown_ms?: number
+          created_at?: string
+          created_by?: string | null
+          cursor?: string | null
+          dry_run?: boolean
+          failed?: number
+          force?: boolean
+          id?: string
+          label?: string | null
+          last_error?: string | null
+          last_tick_at?: string | null
+          max_total?: number | null
+          mode?: string
+          page_size?: number
+          recent_items?: Json
+          remaining?: number | null
+          retry_stale_days?: number
+          scanned?: number
+          scope?: Json
+          skipped?: number
+          status?: Database["public"]["Enums"]["image_recovery_job_status"]
+          total_in_scope?: number | null
+          updated?: number
+          updated_at?: string
+          user_id?: string
+          waves?: number
+        }
+        Relationships: []
+      }
       location_geo_provenance: {
         Row: {
           area_id: string | null
@@ -3675,6 +3762,13 @@ export type Database = {
           updated_count: number
         }[]
       }
+      cancel_image_recovery_job: {
+        Args: { _job_id: string }
+        Returns: {
+          new_status: string
+          updated_count: number
+        }[]
+      }
       cleanup_old_deleted_locations: { Args: never; Returns: number }
       count_locations_with_broken_geo_chain: {
         Args: { _user_id: string }
@@ -3833,6 +3927,12 @@ export type Database = {
         | "canceling"
         | "canceled"
         | "completed"
+        | "failed"
+      image_recovery_job_status:
+        | "running"
+        | "canceling"
+        | "done"
+        | "canceled"
         | "failed"
       map_context_type: "personal" | "document" | "social"
       route_status: "draft" | "completed"
@@ -4036,6 +4136,13 @@ export const Constants = {
         "canceling",
         "canceled",
         "completed",
+        "failed",
+      ],
+      image_recovery_job_status: [
+        "running",
+        "canceling",
+        "done",
+        "canceled",
         "failed",
       ],
       map_context_type: ["personal", "document", "social"],
