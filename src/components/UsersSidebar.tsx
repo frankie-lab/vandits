@@ -354,20 +354,29 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
       onClose();
 
       // Subset-fit canónico: el filtro por usuario es una acción explícita de
-      // foco. Calculamos los ids de forma DETERMINISTA leyendo el universo
-      // completo (`getAllLocations`) y filtrando por owner directamente, sin
-      // depender de `getFilteredLocations()` (que aplicaría además otros
-      // filtros activos: Geo/Tipo/Tags/Salud) ni del ciclo de render de
-      // Zustand. Ver mem://logic/map/subset-fit-contract.
+      // foco. Calculamos los ids + coords de forma DETERMINISTA leyendo el
+      // universo completo (`getAllLocations`) y filtrando por owner +
+      // shareable boundary (mismo criterio que el matcher). Pasamos las
+      // coords pre-resueltas en el detail para que el listener del mapa NO
+      // dependa de markers montados ni de que `locationsRef` se haya
+      // re-hidratado tras el cambio de filtro. Ver
+      // mem://logic/map/subset-fit-contract y mem://logic/sharing/curated-only-rule.
       const allLocs = useLocationsStore.getState().getAllLocations();
-      const ids = allLocs
-        .filter(l => getLocationOwnerUserId(l as { ownerUserId?: string | null; _docUserId?: string | null }) === user.id)
-        .map(l => l.id);
+      const myUid = currentUser?.id;
+      const subset = allLocs.filter(l => {
+        const ownerId = getLocationOwnerUserId(l as { ownerUserId?: string | null; _docUserId?: string | null });
+        if (ownerId !== user.id) return false;
+        // Coords válidas (sin esto el fit ignora el POI igualmente).
+        if (l.coordinates?.lat == null || l.coordinates?.lng == null) return false;
+        // Mismo gating que getFilteredLocations: own siempre pasa, ajenos
+        // requieren shareable.
+        const isOwn = myUid != null && ownerId === myUid;
+        return isOwn || isShareablePoi(l);
+      });
+      const ids = subset.map(l => l.id);
+      const coords = subset.map(l => [l.coordinates!.lat, l.coordinates!.lng] as [number, number]);
       if (ids.length > 0) {
-        // Sin minZoom: queremos TODOS los puntos del usuario encajados en
-        // el viewport. Forzar un piso de zoom haría close-up sobre el
-        // centro geométrico cuando el subset es disperso (multi-país).
-        requestSubsetFit(ids, { mode: 'always', reason: 'user-filter' });
+        requestSubsetFit(ids, { mode: 'always', reason: 'user-filter', coords });
       } else {
         toast.info(`Sin puntos visibles para ${user.display_name || user.username}`);
       }
