@@ -154,6 +154,8 @@ serve(async (req) => {
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${SERVICE_ROLE}`,
+          "apikey": SERVICE_ROLE,
+          "x-internal-key": SERVICE_ROLE,
         },
         body: JSON.stringify({
           scope: scopeKind,
