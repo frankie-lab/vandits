@@ -16,7 +16,7 @@ import { useEffect } from 'react';
 import { Image as ImageIcon, Loader2, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useImageRecoveryJobStore } from '@/stores/image-recovery-job-store';
-import { getImageRecoveryMetrics, formatPct } from '@/stores/image-recovery-job-metrics';
+import { getImageRecoveryMetrics } from '@/stores/image-recovery-job-metrics';
 import { LaneRow, type LaneSegment, type LaneMetric } from './LaneRow';
 
 interface ImageRecoveryLaneProps {
@@ -41,41 +41,61 @@ export function ImageRecoveryLane({ onActiveChange }: ImageRecoveryLaneProps) {
   const dryRun = job.config?.dryRun ?? false;
   const m = getImageRecoveryMetrics(job);
 
-  // Visual bar = advance (NOT success rate). When totalTarget is unknown we
-  // leave the bar at a symbolic value so it doesn't fake progress.
-  const barPct = m.progressPct ?? Math.min(95, m.updateRatePct ?? 0);
+  // Barra segmentada sobre el total a procesar:
+  //   verde  = updated  / totalTarget
+  //   rojo   = (noImage + failed) / totalTarget
+  //   resto  = pendiente
+  // Si totalTarget es desconocido, fallback a un único segmento de avance.
+  const failedTotal = m.noImage + m.failed;
+  const hasTotal = m.totalTarget != null && m.totalTarget > 0;
+  const successPct = hasTotal ? (m.updated / (m.totalTarget as number)) * 100 : 0;
+  const failPct = hasTotal ? (failedTotal / (m.totalTarget as number)) * 100 : 0;
+  const barPct = hasTotal
+    ? Math.min(100, successPct + failPct)
+    : (m.progressPct ?? Math.min(95, m.updateRatePct ?? 0));
 
-  const segments: LaneSegment[] = [
-    {
-      pct: barPct,
-      className: dryRun
-        ? 'bg-gradient-to-r from-violet-400 to-indigo-500'
-        : 'bg-gradient-to-r from-violet-500 to-indigo-600',
-    },
+  const segments: LaneSegment[] = hasTotal
+    ? [
+        {
+          pct: successPct,
+          className: dryRun
+            ? 'bg-gradient-to-r from-emerald-400 to-emerald-500'
+            : 'bg-gradient-to-r from-emerald-500 to-emerald-600',
+        },
+        {
+          pct: failPct,
+          className: 'bg-gradient-to-r from-destructive/80 to-destructive',
+        },
+      ]
+    : [
+        {
+          pct: barPct,
+          className: dryRun
+            ? 'bg-gradient-to-r from-violet-400 to-indigo-500'
+            : 'bg-gradient-to-r from-violet-500 to-indigo-600',
+        },
+      ];
+
+  // Subtítulo: éxito · fallidos · lote (saltados solo si > 0).
+  const subtitleParts = [
+    `${m.updated} éxito`,
+    `${failedTotal} fallidos`,
   ];
-
-  // Subtitle = absolute outcomes, in the same order as the admin panel.
+  if (m.skipped > 0) subtitleParts.push(`${m.skipped} saltados`);
+  subtitleParts.push(`lote ${job.waves}`);
   const subtitle =
-    m.scanned > 0
-      ? [
-          `${m.updated} actualizados`,
-          `${m.noImage} sin imagen`,
-          `${m.failed} fallos téc.`,
-          `${m.skipped} saltados`,
-          `lote ${job.waves}`,
-        ].join(' · ')
-      : `Lote ${job.waves} · iniciando…`;
+    m.scanned > 0 ? subtitleParts.join(' · ') : `Lote ${job.waves} · iniciando…`;
 
-  // Title = update rate (the honest "how many POIs were really updated").
+  // Título: avance honesto (procesados / total).
   const title = dryRun
-    ? `Dry-run · Encontradas ${formatPct(m.updateRatePct)} (${m.updateLabel})`
-    : `Actualizadas ${formatPct(m.updateRatePct)} (${m.updateLabel})`;
+    ? `Dry-run · ${m.progressLabel} procesados`
+    : `Recuperación · ${m.progressLabel} procesados`;
 
   const metrics: LaneMetric[] = [
-    { dotClassName: 'bg-emerald-500', label: dryRun ? 'Encontrarían' : 'Actualizadas', count: m.updated },
-    { dotClassName: 'bg-foreground/40', label: 'Sin imagen', count: m.noImage },
-    { dotClassName: 'bg-amber-500', label: 'Fallos técnicos', count: m.failed },
+    { dotClassName: 'bg-emerald-500', label: dryRun ? 'Encontrarían' : 'Éxito', count: m.updated },
+    { dotClassName: 'bg-destructive', label: 'Fallidos', count: failedTotal },
   ];
+
 
   const openPanel = () =>
     window.dispatchEvent(new CustomEvent('admin:open-data-sources'));
