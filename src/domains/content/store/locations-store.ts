@@ -13,6 +13,7 @@ import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-typ
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
 import { isShareablePoi } from '@/domains/content/lib/is-shareable-poi';
 import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
+import { lookupUsername } from '@/domains/identity/lib/username-registry';
 import { applyCatalogSnapshotPure, type ApplySnapshotOpts } from './catalog-snapshot';
 
 function getPersistentFilters(filters: FilterCriteria): FilterCriteria {
