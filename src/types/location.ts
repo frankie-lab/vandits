@@ -358,7 +358,22 @@ export type FilterCriteria = {
  ownershipFilter?: OwnershipFilter;
   // Filtro de visita
  visitedFilter?: VisitedFilter;
-  // Filtro por usuario específico (para ver puntos de un usuario seguido)
+  /**
+   * Filtro canónico por origen (PR-POI-SOURCE-3). Combina los tipos del
+   * pipeline POI: own/followed/app/source. Si está activo, gana sobre
+   * `filterByUserId` (alias legacy).
+   */
+  filterBySource?: {
+    type: 'own' | 'followed' | 'app' | 'source';
+    /** uid (own/followed) o sourceId (app/source) o groupId (app subgroup). */
+    id: string;
+    /** Etiqueta para UI. */
+    label?: string;
+  };
+  /**
+   * @deprecated Alias legacy de `filterBySource={type:'followed'|'own', id:uid}`.
+   * Si `filterBySource` está presente, este campo se ignora.
+   */
  filterByUserId?: string;
  filterByUserName?: string; // Nombre para mostrar en UI
    // Filtro por documento importado
