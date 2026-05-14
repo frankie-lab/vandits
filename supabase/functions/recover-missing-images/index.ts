@@ -48,6 +48,10 @@ type RecoveryMode = "missing" | "refresh" | "full";
 
 interface Body {
   scope: "all" | "user" | "ids";
+  // Optional: when set, the function streams per-item progress into
+  // `image_recovery_jobs` via the `increment_image_recovery_progress` RPC so
+  // the bottom progress bar moves smoothly per POI instead of per batch.
+  jobId?: string;
   // Operation universe selector. Default 'missing' for backward compat.
   //   missing → enriquecidos sin foto en ninguna fuente (predicado clásico)
   //   refresh → todos los enriquecidos (con o sin foto)
