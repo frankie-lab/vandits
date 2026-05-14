@@ -33,6 +33,7 @@ import { isPointEnriched } from '@/domains/content/lib/point-visual-state';
 import { getCollectionsForLocation } from '@/domains/content/store/location-collections-store';
 import { getCollectionChipColors } from '@/shared/lib/collection-chip-color';
 import { filterPersonalTags } from '@/domains/content/lib/personal-tags-filter';
+import { resolvePoiSource } from '@/domains/content/lib/poi-source';
 
 // ─── Card Config Cache ──────────────────────────────────────────────────────
 // Source of truth: `app_settings.enrichment_card_config` always normalized
@@ -225,10 +226,6 @@ export function buildSourceHashtagsBlock(
   location: GeoLocation,
   ownership?: PopupOwnership,
 ): string {
-  // Import dinámico para evitar ciclos de import en el barrel del popup.
-  // `resolvePoiSource` es síncrono y no toca DOM.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { resolvePoiSource } = require('@/domains/content/lib/poi-source') as typeof import('@/domains/content/lib/poi-source');
   const viewerUid = ownership?.viewerUid ?? null;
   const source = resolvePoiSource(viewerUid, location, { usernameLookup: ownership?.usernameLookup });
   if (!source.hashtags.length) return '';
