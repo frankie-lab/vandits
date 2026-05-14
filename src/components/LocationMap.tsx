@@ -1712,7 +1712,7 @@ export function LocationMap() {
       //      (catalog/workspace por isApproved, followed:<uid> por owner).
       // Esto mantiene la lógica de aprobación existente para POIs propios.
       const locLayerType = (location as any)?._layerType as import('@/hooks/use-layer-visibility').LayerType | undefined;
-      const viewerUid = currentUserIdRef.current ?? null;
+      const viewerUid = currentUserId ?? null;
       const poiSource = resolvePoiSource(viewerUid, location);
       let layerType: import('@/hooks/use-layer-visibility').LayerType;
       let entityId: string | undefined;
