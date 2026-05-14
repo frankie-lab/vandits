@@ -441,7 +441,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         console.log('[user-filter funnel] sample of uid POIs:', ofUid.slice(0, 5).map(l => ({
           id: l.id,
           name: l.name,
-          ownerUserId: l.ownerUserId,
+          ownerUserId: (l as any).ownerUserId,
           _docUserId: l._docUserId,
           visibility: l.visibility,
           isApproved: l.isApproved,
