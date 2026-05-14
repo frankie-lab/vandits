@@ -690,42 +690,58 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   isUserHiddenFlag && 'opacity-50'
   )}
  >
- {/* Avatar */}
- <button
- onClick={() => handleFilterByUser(user)}
- className="relative shrink-0 group"
- >
- {user.avatar_url ? (
- <img
- src={user.avatar_url}
- alt={user.username}
- className="w-10 h-10 rounded-full object-cover ring-2 ring-border/50 group-hover:ring-primary/50 transition-all"
- />
- ) : (
- <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center ring-2 ring-border/50 group-hover:ring-primary/50 transition-all">
- <span className="text-sm font-semibold text-primary">
- {(user.display_name || user.username).charAt(0).toUpperCase()}
- </span>
- </div>
- )}
-  <div className="absolute -bottom-0.5 -right-0.5 bg-card rounded-full p-0.5 shadow-sm">
-  {roleIcons[primaryRole] || <Users className="w-3 h-3 text-muted-foreground" />}
-  </div>
-   {!isCurrentUser && user.followStatus === 'accepted' && (() => {
-     // Solo mostramos el triángulo de identidad cuando hay color OKLCH
-     // persistido cargado. Evita enseñar un fallback "social" inventado
-     // antes de que llegue la asignación real desde la BD.
-     const oklch = getOwnerIdentityOklch(user.id);
-     if (!oklch) return null;
-     return (
-       <span
-         title="Color de identidad de este usuario en el mapa"
-         className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-sm border border-card shadow-sm"
-         style={{ background: getOwnerIdentityColor(user.id, oklch), clipPath: 'polygon(0 0,100% 0,50% 100%)' }}
-       />
-     );
-   })()}
-  </button>
+  {/* Avatar */}
+  {(() => {
+    const identityOklch = !isCurrentUser && user.followStatus === 'accepted'
+      ? getOwnerIdentityOklch(user.id)
+      : undefined;
+    const identityColor = identityOklch
+      ? getOwnerIdentityColor(user.id, identityOklch)
+      : null;
+    const ringStyle = identityColor
+      ? { boxShadow: `0 0 0 2px ${identityColor}` }
+      : undefined;
+    const ringClass = identityColor
+      ? 'group-hover:opacity-90 transition-all'
+      : 'ring-2 ring-border/50 group-hover:ring-primary/50 transition-all';
+    return (
+      <button
+        onClick={() => handleFilterByUser(user)}
+        className="relative shrink-0 group"
+      >
+        {user.avatar_url ? (
+          <img
+            src={user.avatar_url}
+            alt={user.username}
+            className={cn('w-10 h-10 rounded-full object-cover', ringClass)}
+            style={ringStyle}
+          />
+        ) : (
+          <div
+            className={cn(
+              'w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center',
+              ringClass,
+            )}
+            style={ringStyle}
+          >
+            <span className="text-sm font-semibold text-primary">
+              {(user.display_name || user.username).charAt(0).toUpperCase()}
+            </span>
+          </div>
+        )}
+        <div className="absolute -bottom-0.5 -right-0.5 bg-card rounded-full p-0.5 shadow-sm">
+          {roleIcons[primaryRole] || <Users className="w-3 h-3 text-muted-foreground" />}
+        </div>
+        {identityColor && (
+          <span
+            title="Color de identidad de este usuario en el mapa"
+            className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-sm border border-card shadow-sm"
+            style={{ background: identityColor, clipPath: 'polygon(0 0,100% 0,50% 100%)' }}
+          />
+        )}
+      </button>
+    );
+  })()}
 
  {/* Info */}
  <div className="flex-1 min-w-0 overflow-hidden">
