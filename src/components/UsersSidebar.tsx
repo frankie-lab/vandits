@@ -416,66 +416,66 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  return 'user';
  };
 
- const getFollowButton = (user: UserWithStats) => {
- if (user.id === currentUser?.id) return null;
+  const getFollowButton = (user: UserWithStats) => {
+    if (user.id === currentUser?.id) return null;
 
- const isProcessing = processingFollow === user.id;
+    const isProcessing = processingFollow === user.id;
+    const displayName = user.display_name || user.username;
+    const baseClass = 'h-7 px-2.5 text-[11px] font-medium gap-1 shrink-0';
 
- if (user.followStatus === 'accepted') {
- return (
- <Button
- variant="ghost"
- size="icon"
- onClick={(e) => handleUnfollow(user.id, user.followId!, e)}
- disabled={isProcessing}
- className="h-7 w-7 bg-primary/10 hover:bg-destructive/20 hover:text-destructive text-primary"
- title="Dejar de seguir"
- >
- {isProcessing ? (
- <Loader2 className="w-4 h-4 animate-spin" />
- ) : (
- <UserMinus className="w-4 h-4" />
- )}
- </Button>
- );
- }
+    if (user.followStatus === 'accepted') {
+      const label = user.followsMe ? 'Os seguís' : 'Siguiendo';
+      return (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={(e) => handleUnfollow(user.id, user.followId!, e)}
+          disabled={isProcessing}
+          className={cn(baseClass, 'bg-primary/10 text-primary hover:bg-destructive/15 hover:text-destructive')}
+          title={`Dejar de seguir a ${displayName}`}
+        >
+          {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserCheck className="w-3.5 h-3.5" />}
+          <span>{label}</span>
+        </Button>
+      );
+    }
 
- if (user.followStatus === 'pending') {
- return (
- <Button
- variant="ghost"
- size="icon"
- onClick={(e) => handleUnfollow(user.id, user.followId!, e)}
- disabled={isProcessing}
- className="h-7 w-7 bg-amber-500/10 text-amber-500 hover:bg-destructive/20 hover:text-destructive"
- title="Cancelar solicitud"
- >
- {isProcessing ? (
- <Loader2 className="w-4 h-4 animate-spin" />
- ) : (
- <Clock className="w-4 h-4" />
- )}
- </Button>
- );
- }
+    if (user.followStatus === 'pending') {
+      return (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={(e) => handleUnfollow(user.id, user.followId!, e)}
+          disabled={isProcessing}
+          className={cn(baseClass, 'bg-amber-500/10 text-amber-600 hover:bg-destructive/15 hover:text-destructive')}
+          title={`Cancelar solicitud a ${displayName}`}
+        >
+          {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock className="w-3.5 h-3.5" />}
+          <span>Solicitado</span>
+        </Button>
+      );
+    }
 
- return (
- <Button
- variant="ghost"
- size="icon"
- onClick={(e) => handleFollow(user.id, e)}
- disabled={isProcessing}
- className="h-7 w-7 hover:bg-primary/20 hover:text-primary"
- title="Seguir"
- >
- {isProcessing ? (
- <Loader2 className="w-4 h-4 animate-spin" />
- ) : (
- <UserPlus className="w-4 h-4" />
- )}
- </Button>
- );
- };
+    const label = user.followsMe ? 'Seguir también' : 'Seguir';
+    return (
+      <Button
+        variant={user.followsMe ? 'default' : 'outline'}
+        size="sm"
+        onClick={(e) => handleFollow(user.id, e)}
+        disabled={isProcessing}
+        className={cn(
+          baseClass,
+          user.followsMe
+            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+            : 'border-primary/30 text-primary hover:bg-primary/10',
+        )}
+        title={`Seguir a ${displayName}`}
+      >
+        {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserPlus className="w-3.5 h-3.5" />}
+        <span>{label}</span>
+      </Button>
+    );
+  };
 
  return (
  <>
