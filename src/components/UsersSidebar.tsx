@@ -22,6 +22,7 @@ import { useAuth } from '@/domains/identity';
 import { useLocationsStore } from '@/domains/content';
 import { requestSubsetFit } from '@/components/map/subset-fit';
 import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
+import { isShareablePoi } from '@/domains/content/lib/is-shareable-poi';
 import { getOwnerIdentityColor } from '@/components/map/owner-stroke';
 import {
   loadOwnerIdentityAssignments,
