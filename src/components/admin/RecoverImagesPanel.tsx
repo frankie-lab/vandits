@@ -37,6 +37,13 @@ export function RecoverImagesPanel() {
   const [force, setForce] = useState(false);
   const [retryStaleDays, setRetryStaleDays] = useState(30);
   const [batchSize, setBatchSize] = useState(50);
+  // Franjas / tope
+  const [maxTotalText, setMaxTotalText] = useState('');
+  const [country, setCountry] = useState('');
+  const [region, setRegion] = useState('');
+  const [zone, setZone] = useState('');
+  const [createdBefore, setCreatedBefore] = useState(''); // YYYY-MM-DD
+  const [createdAfter, setCreatedAfter] = useState('');
 
   const job = useImageRecoveryJobStore();
   const running = job.running;
@@ -59,6 +66,8 @@ export function RecoverImagesPanel() {
       }
     }
 
+    const maxTotalNum = maxTotalText.trim() ? Math.max(1, Number(maxTotalText)) : null;
+
     void useImageRecoveryJobStore.getState().start({
       scope,
       userId: scope === 'user' ? userId.trim() : undefined,
@@ -67,6 +76,12 @@ export function RecoverImagesPanel() {
       dryRun,
       force,
       retryStaleDays,
+      maxTotal: Number.isFinite(maxTotalNum as number) ? maxTotalNum : null,
+      country: country.trim() || null,
+      region: region.trim() || null,
+      zone: zone.trim() || null,
+      createdBefore: createdBefore ? `${createdBefore}T00:00:00Z` : null,
+      createdAfter: createdAfter ? `${createdAfter}T00:00:00Z` : null,
     });
   };
 
@@ -173,6 +188,89 @@ export function RecoverImagesPanel() {
             disabled={running || force}
           />
         </div>
+
+        {/* Franjas — opcionales. Reducen el universo a procesar. */}
+        <details className="border rounded-md bg-muted/20" open={!!(country || region || zone || createdBefore || createdAfter || maxTotalText)}>
+          <summary className="text-xs font-semibold px-3 py-2 cursor-pointer select-none">
+            Franjas (opcional) · acotar el universo
+          </summary>
+          <div className="p-3 space-y-3 border-t">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tope total (parar tras N escaneados)</Label>
+              <Input
+                type="number"
+                value={maxTotalText}
+                onChange={(e) => setMaxTotalText(e.target.value)}
+                placeholder="vacío = sin tope"
+                min={1}
+                disabled={running}
+                className="h-8 text-sm"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">País</Label>
+                <Input
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  placeholder="ej. España"
+                  disabled={running}
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Región</Label>
+                <Input
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value)}
+                  placeholder="ej. Galicia"
+                  disabled={running}
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Zona / provincia</Label>
+                <Input
+                  value={zone}
+                  onChange={(e) => setZone(e.target.value)}
+                  placeholder="ej. A Coruña"
+                  disabled={running}
+                  className="h-8 text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Creados antes de</Label>
+                <Input
+                  type="date"
+                  value={createdBefore}
+                  onChange={(e) => setCreatedBefore(e.target.value)}
+                  disabled={running}
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Creados después de</Label>
+                <Input
+                  type="date"
+                  value={createdAfter}
+                  onChange={(e) => setCreatedAfter(e.target.value)}
+                  disabled={running}
+                  className="h-8 text-sm"
+                />
+              </div>
+            </div>
+
+            <p className="text-[11px] text-muted-foreground">
+              Las franjas geográficas usan coincidencia case-insensitive contra los campos
+              de texto del POI (country / region / zone). Las franjas por antigüedad filtran
+              por <code>created_at</code>.
+            </p>
+          </div>
+        </details>
 
         <div className="flex items-center gap-2">
           {!running ? (

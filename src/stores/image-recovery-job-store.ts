@@ -32,6 +32,15 @@ export interface ImageRecoveryStartConfig {
   dryRun: boolean;
   force: boolean;
   retryStaleDays: number;
+  // Tope total client-side: cuando `scanned >= maxTotal`, el loop sale.
+  maxTotal?: number | null;
+  // Franjas geográficas (text match contra locations.country/region/zone)
+  country?: string | null;
+  region?: string | null;
+  zone?: string | null;
+  // Franjas por antigüedad (ISO date strings; se traducen a created_at < / >)
+  createdBefore?: string | null;
+  createdAfter?: string | null;
 }
 
 interface BatchResponse {
@@ -115,6 +124,11 @@ export const useImageRecoveryJobStore = create<ImageRecoveryState>((set, get) =>
               force: config.force,
               retryStaleDays: config.retryStaleDays,
               cursor: cursor ?? undefined,
+              country: config.country || undefined,
+              region: config.region || undefined,
+              zone: config.zone || undefined,
+              createdBefore: config.createdBefore || undefined,
+              createdAfter: config.createdAfter || undefined,
             },
           },
         );
@@ -133,6 +147,12 @@ export const useImageRecoveryJobStore = create<ImageRecoveryState>((set, get) =>
           recentItems: [...data.items, ...s.recentItems].slice(0, 30),
           cursor: data.nextCursor,
         }));
+
+        // Tope total client-side
+        if (config.maxTotal != null && config.maxTotal > 0 && get().scanned >= config.maxTotal) {
+          toast.success(`Tope alcanzado (${config.maxTotal} POIs)`);
+          break;
+        }
 
         if (!data.nextCursor) {
           toast.success(config.dryRun ? 'Dry-run completado' : 'Recuperación completada');
