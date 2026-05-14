@@ -3,6 +3,7 @@
  */
 import L from 'leaflet';
 import type { LayerType, LayerVisibilityState } from '@/hooks/use-layer-visibility';
+import { DEFAULT_ZOOM_GATES, type ZoomGates } from '@/domains/content/lib/poi-layer';
 
 // ── Registry ─────────────────────────────────────────────────
 
