@@ -160,8 +160,10 @@ export function RecoverImagesPanel() {
   // Advanced options
   const [retryStaleDays, setRetryStaleDays] = useState(30);
   const [batchSize, setBatchSize] = useState(50);
-  const [dryRun, setDryRun] = useState(true);
-  const [force, setForce] = useState(false);
+  // Dry-run eliminado: el panel SIEMPRE escribe en BD.
+  // Force siempre activo: ignora cooldown e intentos previos.
+  const dryRun = false;
+  const force = true;
   const [maxTotalText, setMaxTotalText] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
   // Confirmación explícita para escritura masiva (>200 POIs en modo escritura).
@@ -563,8 +565,7 @@ export function RecoverImagesPanel() {
             <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
             Opciones avanzadas
             <span className="ml-auto text-[11px] text-muted-foreground font-normal">
-              cooldown {meta.honorsCooldown ? `${retryStaleDays}d` : 'n/a'} · {dryRun ? 'dry-run' : 'escribe en BD'}
-              {force ? ' · force' : ''}
+              cooldown {meta.honorsCooldown ? `${retryStaleDays}d` : 'n/a'} · escribe en BD · force
             </span>
           </button>
           {advancedOpen && (
@@ -584,22 +585,6 @@ export function RecoverImagesPanel() {
                     El modo "{meta.title}" no usa cooldown.
                   </p>
                 )}
-              </div>
-
-
-              <div className="flex items-center gap-2 pt-1">
-                <Switch checked={force} onCheckedChange={setForce} disabled={running} id="force" />
-                <Label htmlFor="force" className="text-sm cursor-pointer">
-                  Force (ignora cooldown e intentos previos)
-                </Label>
-              </div>
-
-              <div className="flex items-center gap-2 pt-1">
-                <Switch checked={dryRun} onCheckedChange={setDryRun} disabled={running} id="dryrun" />
-                <Label htmlFor="dryrun" className="text-sm cursor-pointer">
-                  Dry-run (no escribe en BD)
-                </Label>
-                {!dryRun && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
               </div>
             </div>
           )}
@@ -681,27 +666,13 @@ export function RecoverImagesPanel() {
                 )}
               </div>
 
-              {/* Banner inequívoco: ¿simulación o escritura real? Aparece SIEMPRE,
-                  no solo en operaciones masivas, para que el usuario nunca confunda
-                  los contadores de "tasa de éxito" con escrituras efectivas. */}
-              {dryRun ? (
-                <div className="rounded-md border border-sky-500/40 bg-sky-50 dark:bg-sky-500/10 px-3 py-2 text-xs text-sky-900 dark:text-sky-200 leading-snug">
-                  <div className="flex items-center gap-1.5 font-semibold mb-0.5">
-                    <ImageIcon className="w-3.5 h-3.5" /> Modo simulación activo
-                  </div>
-                  No se guardará ninguna imagen en la BD. Los contadores reales de
-                  "Puntos enriquecidos sin foto" no cambiarán. Desactiva "Dry-run"
-                  en opciones avanzadas para escribir de verdad.
+              <div className="rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200 leading-snug">
+                <div className="flex items-center gap-1.5 font-semibold mb-0.5">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Modo escritura activo
                 </div>
-              ) : (
-                <div className="rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200 leading-snug">
-                  <div className="flex items-center gap-1.5 font-semibold mb-0.5">
-                    <AlertTriangle className="w-3.5 h-3.5" /> Modo escritura activo
-                  </div>
-                  Cada imagen encontrada se guardará en la ficha del POI y bajará el
-                  contador de "Puntos enriquecidos sin foto" en vivo.
-                </div>
-              )}
+                Cada imagen encontrada se guardará en la ficha del POI y bajará el
+                contador de "Puntos enriquecidos sin foto" en vivo.
+              </div>
 
               {isMassive && (
                 <div className="rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200 leading-snug">
