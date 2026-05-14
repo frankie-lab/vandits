@@ -52,7 +52,6 @@ async function fetchPageWithRetry(from: number, to: number): Promise<any[] | nul
       .from('v_locations_resolved' as any)
       .select('*')
       .is('deleted_at', null)
-      .order('id', { ascending: true })
       .range(from, to);
 
     if (!error) return (data as any[]) ?? [];
@@ -97,6 +96,19 @@ export async function fetchAllLocationsPaginated(
   let page = 0;
   let hasMore = true;
 
+  // [TEMP DEBUG] tracker IDs (Alpha doc) — quitar tras diagnosticar
+  const TRACK_IDS = new Set<string>([
+    '0f99a8d9-61b5-4376-a463-9aecd9ab7fe5',
+    '2e002681-bac2-4c8c-a555-114f69b0da98',
+    '7801ba70-d410-4ecc-9617-ceb8f29a7c1a',
+    '951370e0-134e-4c2b-b5ae-4f3c9fd0fd83',
+    'adf6945d-6f42-475a-a005-7c518904bd95',
+    'c6c2c58d-601e-4fab-9005-dabc8e466a60',
+    'd397b327-2b0b-4d58-9829-204865e773de',
+    'fd4ef112-ca9f-47e8-937f-ad9e73dee00d',
+  ]);
+  const trackHits: Array<{ page: number; id: string }> = [];
+
   const total = withCount ? await fetchExactCount() : null;
   if (onPage) onPage(0, total);
 
@@ -105,6 +117,14 @@ export async function fetchAllLocationsPaginated(
     const to = from + PAGE_SIZE - 1;
 
     const data = await fetchPageWithRetry(from, to);
+    const returned = data?.length ?? 0;
+    // [TEMP DEBUG] paginator log
+    console.log(`[paginator] page=${page} from=${from} to=${to} returned=${returned}`);
+    if (data) {
+      for (const r of data) {
+        if (r?.id && TRACK_IDS.has(r.id)) trackHits.push({ page, id: r.id });
+      }
+    }
 
     if (data && data.length > 0) {
       allLocations.push(...data);
@@ -115,6 +135,9 @@ export async function fetchAllLocationsPaginated(
       hasMore = false;
     }
   }
+
+  // [TEMP DEBUG] resumen tracker Alpha
+  console.log('[paginator] DONE total=', allLocations.length, 'tracker hits=', trackHits.length, trackHits);
 
   return allLocations;
 }
