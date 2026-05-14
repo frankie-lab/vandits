@@ -2074,8 +2074,8 @@ export function LocationMap() {
         }
       });
       // Refresh cluster icons so markers emerging from spiderfy inherit
-      // the current band's icon.
-      markerClusterRef.current?.refreshClusters();
+      // the current band's icon, pero sin romper durante rebuild/zoom.
+      safeRefreshMarkerClusters(markerClusterRef.current);
     };
     window.addEventListener('map-render-mode-changed', handler);
     return () => window.removeEventListener('map-render-mode-changed', handler);
