@@ -163,8 +163,6 @@ export function RecoverImagesPanel() {
   const [dryRun, setDryRun] = useState(true);
   const [force, setForce] = useState(false);
   const [maxTotalText, setMaxTotalText] = useState('');
-  const [createdBefore, setCreatedBefore] = useState('');
-  const [createdAfter, setCreatedAfter] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
   // Confirmación explícita para escritura masiva (>200 POIs en modo escritura).
   // Se resetea cuando cambia dryRun, scope o subset, para evitar arrastrar
