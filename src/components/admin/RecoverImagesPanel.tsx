@@ -1,12 +1,14 @@
 /**
- * RecoverImagesPanel — retroactively search for images for already-enriched
- * POIs that ended up without `cover_url`. Calls the
- * `recover-missing-images` edge function in batches and chains nextCursor
- * automatically. Dry-run is the recommended first flow.
+ * RecoverImagesPanel — configures + triggers the retroactive
+ * `recover-missing-images` job. The actual loop, progress and stop
+ * controls live in the global `image-recovery-job-store` and are
+ * surfaced by `ImageRecoveryLane` inside the BottomProgressBar.
+ *
+ * This panel is now stateless w.r.t. progress: it can be closed at any
+ * time without aborting the job.
  */
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { ImageIcon, Loader2, Play, Pause, AlertTriangle } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -21,29 +23,14 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-
-type Scope = 'all' | 'user' | 'ids';
-
-interface ItemLog {
-  id: string;
-  name: string | null;
-  result: 'found' | 'none' | 'skipped' | 'transient';
-  source: string | null;
-  durationMs: number;
-}
-
-interface BatchResponse {
-  scanned: number;
-  updated: number;
-  skippedAlreadyAttempted: number;
-  failedTransient: number;
-  nextCursor: string | null;
-  dryRun: boolean;
-  items: ItemLog[];
-}
+import {
+  useImageRecoveryJobStore,
+  type ImageRecoveryScope,
+  type ImageRecoveryItemLog,
+} from '@/stores/image-recovery-job-store';
 
 export function RecoverImagesPanel() {
-  const [scope, setScope] = useState<Scope>('all');
+  const [scope, setScope] = useState<ImageRecoveryScope>('all');
   const [userId, setUserId] = useState('');
   const [idsText, setIdsText] = useState('');
   const [dryRun, setDryRun] = useState(true);
@@ -51,24 +38,10 @@ export function RecoverImagesPanel() {
   const [retryStaleDays, setRetryStaleDays] = useState(30);
   const [batchSize, setBatchSize] = useState(50);
 
-  const [running, setRunning] = useState(false);
-  const stopRef = useRef(false);
+  const job = useImageRecoveryJobStore();
+  const running = job.running;
 
-  const [totals, setTotals] = useState({
-    scanned: 0,
-    updated: 0,
-    skippedAlreadyAttempted: 0,
-    failedTransient: 0,
-    waves: 0,
-  });
-  const [recentItems, setRecentItems] = useState<ItemLog[]>([]);
-
-  const reset = () => {
-    setTotals({ scanned: 0, updated: 0, skippedAlreadyAttempted: 0, failedTransient: 0, waves: 0 });
-    setRecentItems([]);
-  };
-
-  const start = async () => {
+  const start = () => {
     if (running) return;
     if (scope === 'user' && !userId.trim()) {
       toast.error('Indica un userId para scope=user');
@@ -86,58 +59,18 @@ export function RecoverImagesPanel() {
       }
     }
 
-    reset();
-    setRunning(true);
-    stopRef.current = false;
-
-    let cursor: string | null = null;
-    try {
-      while (!stopRef.current) {
-        const { data, error } = await supabase.functions.invoke<BatchResponse>(
-          'recover-missing-images',
-          {
-            body: {
-              scope,
-              userId: scope === 'user' ? userId.trim() : undefined,
-              locationIds,
-              batchSize,
-              dryRun,
-              force,
-              retryStaleDays,
-              cursor: cursor ?? undefined,
-            },
-          },
-        );
-
-        if (error || !data) {
-          toast.error('Error en lote', { description: error?.message ?? 'sin respuesta' });
-          break;
-        }
-
-        setTotals((t) => ({
-          scanned: t.scanned + data.scanned,
-          updated: t.updated + data.updated,
-          skippedAlreadyAttempted: t.skippedAlreadyAttempted + data.skippedAlreadyAttempted,
-          failedTransient: t.failedTransient + data.failedTransient,
-          waves: t.waves + 1,
-        }));
-        setRecentItems((prev) => [...data.items, ...prev].slice(0, 30));
-
-        if (!data.nextCursor) {
-          toast.success(dryRun ? 'Dry-run completado' : 'Recuperación completada');
-          break;
-        }
-        cursor = data.nextCursor;
-      }
-    } finally {
-      setRunning(false);
-      stopRef.current = false;
-    }
+    void useImageRecoveryJobStore.getState().start({
+      scope,
+      userId: scope === 'user' ? userId.trim() : undefined,
+      locationIds,
+      batchSize,
+      dryRun,
+      force,
+      retryStaleDays,
+    });
   };
 
-  const stop = () => {
-    stopRef.current = true;
-  };
+  const stop = () => useImageRecoveryJobStore.getState().stop();
 
   return (
     <section className="border rounded-lg bg-card">
@@ -145,18 +78,24 @@ export function RecoverImagesPanel() {
         <ImageIcon className="w-4 h-4 text-muted-foreground" />
         <h3 className="text-sm font-semibold">Recuperar imágenes faltantes</h3>
         <Badge variant="secondary" className="text-xs">retroactivo</Badge>
+        {running && (
+          <Badge variant="outline" className="text-xs ml-auto">
+            En marcha · ver barra inferior
+          </Badge>
+        )}
       </header>
 
       <div className="p-4 space-y-4">
         <p className="text-xs text-muted-foreground">
           Reintenta búsqueda multi-fuente (Wikipedia, Commons, Wikidata, Openverse) para POIs
-          ya enriquecidos sin cover_url. Empieza siempre con dry-run para medir cobertura.
+          ya enriquecidos sin imagen. Empieza siempre con dry-run para medir cobertura.
+          El progreso aparece en la barra inferior y sobrevive al cierre de este panel.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Alcance</Label>
-            <Select value={scope} onValueChange={(v) => setScope(v as Scope)} disabled={running}>
+            <Select value={scope} onValueChange={(v) => setScope(v as ImageRecoveryScope)} disabled={running}>
               <SelectTrigger className="h-8 text-sm">
                 <SelectValue />
               </SelectTrigger>
@@ -242,38 +181,56 @@ export function RecoverImagesPanel() {
               {dryRun ? 'Ejecutar dry-run' : 'Recuperar imágenes'}
             </Button>
           ) : (
-            <Button onClick={stop} variant="secondary" className="gap-2">
-              <Pause className="w-4 h-4" />
+            <Button onClick={stop} variant="secondary" className="gap-2" disabled={job.stopping}>
+              {job.stopping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pause className="w-4 h-4" />}
               Detener tras lote actual
             </Button>
           )}
-          {running && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+          {(job.scanned > 0 || running) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => useImageRecoveryJobStore.getState().reset()}
+              disabled={running}
+              className="ml-auto"
+            >
+              Limpiar
+            </Button>
+          )}
         </div>
 
-        {(totals.scanned > 0 || running) && (
+        {(job.scanned > 0 || running) && (
           <div className="border rounded p-3 bg-muted/30 space-y-2">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
-              <Stat label="Lotes" value={totals.waves} />
-              <Stat label="Escaneados" value={totals.scanned} />
-              <Stat label={dryRun ? 'Encontrarían' : 'Actualizados'} value={totals.updated} tone="success" />
-              <Stat label="Saltados" value={totals.skippedAlreadyAttempted} />
-              <Stat label="Errores transitorios" value={totals.failedTransient} tone={totals.failedTransient ? 'warn' : undefined} />
+              <Stat label="Lotes" value={job.waves} />
+              <Stat label="Escaneados" value={job.scanned} />
+              <Stat
+                label={(job.config?.dryRun ?? dryRun) ? 'Encontrarían' : 'Actualizados'}
+                value={job.updated}
+                tone="success"
+              />
+              <Stat label="Saltados" value={job.skippedAlreadyAttempted} />
+              <Stat
+                label="Errores transitorios"
+                value={job.failedTransient}
+                tone={job.failedTransient ? 'warn' : undefined}
+              />
             </div>
-            {totals.scanned > 0 && (
+            {job.scanned > 0 && (
               <p className="text-[11px] text-muted-foreground">
-                Tasa éxito: {((totals.updated / totals.scanned) * 100).toFixed(1)}% del escaneado
+                Tasa éxito: {((job.updated / job.scanned) * 100).toFixed(1)}% del escaneado
               </p>
             )}
           </div>
         )}
 
-        {recentItems.length > 0 && (
+        {job.recentItems.length > 0 && (
           <div className="border rounded">
             <div className="text-xs font-semibold px-3 py-2 border-b bg-muted/30">
-              Últimos {recentItems.length} POIs
+              Últimos {job.recentItems.length} POIs
             </div>
             <ul className="max-h-64 overflow-y-auto divide-y text-xs">
-              {recentItems.map((it, i) => (
+              {job.recentItems.map((it, i) => (
                 <li key={`${it.id}-${i}`} className="px-3 py-1.5 flex items-center gap-2">
                   <ResultBadge result={it.result} />
                   <span className="flex-1 truncate">{it.name ?? it.id}</span>
@@ -302,8 +259,8 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: 'su
   );
 }
 
-function ResultBadge({ result }: { result: ItemLog['result'] }) {
-  const map: Record<ItemLog['result'], { label: string; cls: string }> = {
+function ResultBadge({ result }: { result: ImageRecoveryItemLog['result'] }) {
+  const map: Record<ImageRecoveryItemLog['result'], { label: string; cls: string }> = {
     found: { label: 'OK', cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' },
     none: { label: '—', cls: 'bg-muted text-muted-foreground' },
     skipped: { label: 'SKIP', cls: 'bg-muted text-muted-foreground' },
