@@ -363,10 +363,10 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
           .getFilteredLocations()
           .map(l => l.id);
         if (ids.length > 0) {
-          // minZoom: 7 → entra en banda `compact`, garantiza markers + rings
-          // visibles incluso si el subset del usuario está muy disperso
-          // (Galicia + Andalucía + Marruecos colapsaría a z3 sin piso).
-          requestSubsetFit(ids, { mode: 'always', reason: 'user-filter', minZoom: 7 });
+          // Sin minZoom: queremos TODOS los puntos del usuario encajados en
+          // el viewport. Forzar un piso de zoom haría close-up sobre el
+          // centro geométrico cuando el subset es disperso (multi-país).
+          requestSubsetFit(ids, { mode: 'always', reason: 'user-filter' });
         }
       }, 50);
 
