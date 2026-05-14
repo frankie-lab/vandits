@@ -1,50 +1,56 @@
-## Objetivo
+## Contexto
 
-Compactar las acciones a la derecha de cada fila en `UsersSidebar`. Solo cambia presentación en `src/components/UsersSidebar.tsx`.
+Al filtrar por **Explorador Alpha** desde `UsersSidebar`, el mapa muestra 0 marcadores aunque la BD confirma que tiene **7 POIs publicables** (5 `followers` + 2 `public`, todos en Sevilla `~37.39,-5.98`, enriquecidos, geo `ok`, `is_approved=true`). Las RLS (`can_view_location`, `can_view_user_documents`) permiten al seguidor leer tanto el documento como las locations. Por tanto el cuello de botella no está en BD ni RLS, está en el cliente, y necesitamos saber **en qué paso del pipeline se quedan**.
 
-## Layout final por fila
+Como tú no quieres pegar snippets en consola, propongo que sea Lovable quien añada una traza temporal y autoexplicativa que se imprima sola al activar el filtro. Tú solo abres la consola del preview y me lees una línea.
+
+## Cambio propuesto
+
+**`src/domains/content/store/locations-store.ts` — `getFilteredLocations`**
+
+Cuando `filters.filterByUserId` esté activo, imprimir UNA sola línea agrupada (`console.groupCollapsed`) con el embudo:
 
 ```
-[avatar] Nombre                                  [Siguiendo] [⋮]
-         🔗329  🔒336  🕐22h
+[user-filter funnel] uid=ec870c6b… (Explorador Alpha)
+  documents_total: N
+  documents_of_uid: N        ← ¿llega su documento?
+  annotated_total: N
+  annotated_of_uid_via_owner: N      ← match por loc.ownerUserId
+  annotated_of_uid_via_doc: N        ← match por _docUserId (fallback legacy)
+  passed_visibility_global: N        ← isLocationVisibleInGlobalMap
+  passed_shareable_boundary: N       ← isShareablePoi (gate seguidos)
+  final_filtered: N                  ← lo que pinta el mapa
 ```
 
-Orden: **acción principal (botón follow) primero, menú "⋮" después**. Se eliminan los badges "Sigues" / "Te sigue" bajo el nombre (su info pasa al texto del botón).
+La traza:
+- Se ejecuta solo si `filterByUserId !== null` (no contamina log normal).
+- No cambia ningún comportamiento, solo lee las mismas estructuras que ya usa el matcher.
+- Es **temporal**: pensada para esta sesión de debugging; la quitaremos cuando confirmemos la causa.
 
-## Botón de follow (texto contextual)
+## Cómo lo usarás
 
-Estado a partir de `user.followStatus` + `user.followsMe`:
+1. Aplica el cambio.
+2. En el preview, abre la consola (F12 → Consola).
+3. Aplica el filtro por Explorador Alpha en la sidebar de usuarios.
+4. Verás una línea "[user-filter funnel]…" — pégamela aquí.
 
-| Estado | Texto | Acción | Estilo |
-|---|---|---|---|
-| `none`, no te sigue | `Seguir` | follow | primary outline |
-| `none`, `followsMe = true` | `Seguir también` | follow | primary (acento, reciprocidad) |
-| `pending` | `Solicitado` (icono `Clock`) | cancelar solicitud | amber sutil |
-| `accepted`, no te sigue | `Siguiendo` | unfollow (hover → "Dejar de seguir") | primary suave |
-| `accepted`, `followsMe = true` | `Os seguís` (icono `UserCheck`) | unfollow (hover → "Dejar de seguir") | primary suave |
-| `isCurrentUser` | (nada) | — | — |
+Con esos números sabré inmediatamente si el problema es:
+- **A.** Su documento no se descarga (`documents_of_uid: 0`) → bug de RLS o realtime.
+- **B.** El doc llega pero sin POIs (`annotated_of_uid_via_*: 0`) → mismatch entre `loc.document_id` y `doc.id`, o `doc.userId` mal mapeado.
+- **C.** Llegan pero se caen en visibilidad (`passed_visibility_global` baja a 0) → `isLocationVisibleInGlobalMap` los descarta (típicamente `is_approved=false`, pero en BD están `true`).
+- **D.** Llegan pero se caen en `isShareablePoi` (`passed_shareable_boundary: 0`) → bug en el mapeo de `enrichedData.descripcion`, `geoHealth` o `visibility` desde `dbLocationToGeoLocation`.
+- **E.** Pasan todo pero `final_filtered: 0` → bug en el step `filterByUserId` del matcher (resolver de owner roto).
 
-Notas:
-- Compacto: `h-7`, `px-2.5`, `text-[11px] font-medium`.
-- Tooltip mantiene la acción literal por usuario (p. ej. "Dejar de seguir a frankie").
-- "Mutuo" como variante móvil queda fuera de scope ahora; este sidebar es desktop. Si más adelante hay que comprimir en breakpoints estrechos, se introduce el fallback en una iteración aparte.
+## Por qué este enfoque y no otro
 
-## Menú "⋮" (acciones secundarias)
-
-- Componente: `DropdownMenu` de `@/components/ui/dropdown-menu` (ya en uso en el proyecto).
-- Trigger: icono `MoreVertical` (lucide), `h-7 w-7`, ghost.
-- Items (mismo gating que hoy):
-  - **Ver solo sus puntos en el mapa** (`Filter`) → `handleFilterByUser(user)`. Visible si `followStatus === 'accepted'` o `isCurrentUser`.
-  - **Ocultar / Mostrar sus puntos del mapa** (`EyeOff` / `Eye`) → `toggleUserVisibility(user.id)`. Visible solo si `followStatus === 'accepted'`.
-- Si no aplica ningún item, el "⋮" no se renderiza.
-- "Bloquear" no se añade (no existe esa acción todavía).
+- **No tocamos lógica de filtrado** — solo añadimos lectura/log. Cero riesgo de regresión.
+- **No requiere que tú pegues nada** — solo leer una línea.
+- **Es transversal** — funciona para cualquier usuario que filtres, no solo Alpha.
+- Una vez identificada la causa exacta, la siguiente iteración será un fix quirúrgico al paso concreto que falle (probablemente B o D — son los más frecuentes en este tipo de pipeline).
 
 ## Detalles técnicos
 
-Archivo único: `src/components/UsersSidebar.tsx`.
-
-1. Reescribir `getFollowButton` (líneas 413-472): devolver botón con icono + texto según matriz de estados.
-2. Sustituir el bloque de iconos sueltos (líneas 783-816) por: `[ getFollowButton(user) ] [ DropdownMenu con MoreVertical ]`, en ese orden.
-3. Eliminar el bloque de badges "Sigues"/"Te sigue" (líneas 771-780).
-4. Imports: añadir `MoreVertical` de lucide y los 4 símbolos de `@/components/ui/dropdown-menu`. Mantener `Filter`, `Eye`, `EyeOff`, `UserCheck`, `Clock` (se siguen usando dentro del menú o del botón).
-5. Sin cambios en lógica de datos, hooks, store, RLS, `subset-fit`, ni en otras vistas.
+- Archivo único modificado: `src/domains/content/store/locations-store.ts`.
+- Inserción ~10 líneas dentro de `getFilteredLocations`, justo al inicio cuando `filterByUserId` está set, usando los arrays intermedios ya existentes (`source` antes y después de cada filter).
+- Sin nuevas dependencias, sin migraciones, sin cambios en UI.
+- Sin memoria a actualizar (es debugging puntual, no una norma del producto).

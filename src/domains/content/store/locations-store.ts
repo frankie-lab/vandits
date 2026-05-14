@@ -408,6 +408,51 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     // Use cached annotated array (rebuilt only when docs change)
     let source = (state as any)._getAnnotated() as AnnotatedLocation[];
 
+    // [TEMP DEBUG] user-filter funnel — quitar tras diagnosticar
+    if (filterByUserId) {
+      const uid = filterByUserId;
+      const docsTotal = state.documents.length;
+      const docsOfUid = state.documents.filter(d => d.userId === uid).length;
+      const annTotal = source.length;
+      const annViaOwner = source.filter(l => (l as any).ownerUserId === uid).length;
+      const annViaDoc = source.filter(l => !(l as any).ownerUserId && l._docUserId === uid).length;
+      const ofUid = source.filter(l => getLocationOwnerUserId(l) === uid);
+      const passVis = ofUid.filter(l => isLocationVisibleInGlobalMap(l)).length;
+      const passShare = ofUid.filter(l => {
+        const isOwn = getLocationOwnerUserId(l) === currentUserId;
+        return isOwn || isShareablePoi(l);
+      }).length;
+      // eslint-disable-next-line no-console
+      console.groupCollapsed(`[user-filter funnel] uid=${uid.slice(0,8)}…`);
+      // eslint-disable-next-line no-console
+      console.table({
+        documents_total: docsTotal,
+        documents_of_uid: docsOfUid,
+        annotated_total: annTotal,
+        annotated_of_uid_via_owner: annViaOwner,
+        annotated_of_uid_via_doc: annViaDoc,
+        annotated_of_uid_total: ofUid.length,
+        passed_visibility_global: passVis,
+        passed_shareable_boundary: passShare,
+        currentUserId,
+      });
+      if (ofUid.length > 0) {
+        // eslint-disable-next-line no-console
+        console.log('[user-filter funnel] sample of uid POIs:', ofUid.slice(0, 5).map(l => ({
+          id: l.id,
+          name: l.name,
+          ownerUserId: (l as any).ownerUserId,
+          _docUserId: l._docUserId,
+          visibility: l.visibility,
+          isApproved: l.isApproved,
+          geoHealth: (l as any).geoHealth,
+          hasDesc: !!l.enrichedData?.descripcion,
+        })));
+      }
+      // eslint-disable-next-line no-console
+      console.groupEnd();
+    }
+
 
     // --- Document-level source: one document (including unapproved) + optional catalog matches ---
     // Importante: NO hacemos early return aquí. La vista de documento debe
