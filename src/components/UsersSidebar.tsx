@@ -421,7 +421,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
 
     const isProcessing = processingFollow === user.id;
     const displayName = user.display_name || user.username;
-    const baseClass = 'h-7 px-2.5 text-[11px] font-medium gap-1 shrink-0';
+    const baseClass = 'h-7 px-2 text-[11px] font-medium gap-1 shrink-0 whitespace-nowrap';
 
     if (user.followStatus === 'accepted') {
       const label = user.followsMe ? 'Os seguís' : 'Siguiendo';
