@@ -1,22 +1,9 @@
 // Domain: Content — memoized filtered locations hook
 // Avoids recalculating getFilteredLocations on every render
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useLocationsStore } from '@/domains/content/store/locations-store';
 import { GeoLocation } from '@/types/location';
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
-import { subscribeCollectionVisibility } from '@/domains/content/lib/collection-visibility';
-
-function useCollectionVisibilityTick(): number {
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    return subscribeCollectionVisibility(() => {
-      setTick((value) => value + 1);
-    });
-  }, []);
-
-  return tick;
-}
 
 /**
  * Returns memoized filtered locations. Only recalculates when
@@ -27,12 +14,11 @@ export function useFilteredLocations(): GeoLocation[] {
   const filters = useLocationsStore(s => s.filters);
   const currentUserId = useLocationsStore(s => s.currentUserId);
   const selectedLocations = useLocationsStore(s => s.selectedLocations);
-  const collectionVisibilityTick = useCollectionVisibilityTick();
 
   return useMemo(() => {
     return useLocationsStore.getState().getFilteredLocations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [docVersion, filters, currentUserId, selectedLocations, collectionVisibilityTick]);
+  }, [docVersion, filters, currentUserId, selectedLocations]);
 }
 
 /**
@@ -49,7 +35,6 @@ export function useFilteredLocationsIgnoringHealth(): GeoLocation[] {
   const filters = useLocationsStore(s => s.filters);
   const currentUserId = useLocationsStore(s => s.currentUserId);
   const selectedLocations = useLocationsStore(s => s.selectedLocations);
-  const collectionVisibilityTick = useCollectionVisibilityTick();
 
   return useMemo(() => {
     if (!filters.healthFilter) return filtered;
@@ -65,7 +50,7 @@ export function useFilteredLocationsIgnoringHealth(): GeoLocation[] {
       }),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtered, docVersion, filters, currentUserId, selectedLocations, collectionVisibilityTick]);
+  }, [filtered, docVersion, filters, currentUserId, selectedLocations]);
 }
 
 /**
