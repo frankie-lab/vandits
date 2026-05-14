@@ -53,6 +53,7 @@ interface ImageRecoveryState {
   waves: number;
   scanned: number;
   updated: number;
+  noImage: number;
   skippedAlreadyAttempted: number;
   failedTransient: number;
   recentItems: ImageRecoveryItemLog[];
@@ -74,6 +75,7 @@ const INITIAL = {
   waves: 0,
   scanned: 0,
   updated: 0,
+  noImage: 0,
   skippedAlreadyAttempted: 0,
   failedTransient: 0,
   recentItems: [] as ImageRecoveryItemLog[],
@@ -113,6 +115,7 @@ function rowToState(row: any) {
     waves: row.waves ?? 0,
     scanned: row.scanned ?? 0,
     updated: row.updated ?? 0,
+    noImage: row.no_image ?? 0,
     skippedAlreadyAttempted: row.skipped ?? 0,
     failedTransient: row.failed ?? 0,
     recentItems: Array.isArray(row.recent_items) ? row.recent_items : [],
