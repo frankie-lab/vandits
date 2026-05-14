@@ -32,6 +32,14 @@ export interface SubsetFitDetail {
    * Default `null` = sin piso (retrocompatible).
    */
   minZoom?: number | null;
+  /**
+   * Coords pre-resueltas opcionales (paralelas a `locationIds`). Si se
+   * proporcionan, el listener las usa directamente y NO consulta
+   * `markersRef`/`locationsRef`. Útil cuando el caller dispara el fit
+   * antes de que el store haya re-renderizado y los markers no están
+   * todavía montados (p.ej. filtro por usuario en `UsersSidebar`).
+   */
+  coords?: Array<[number, number]>;
 }
 
 export interface SubsetFitOptions {
@@ -40,6 +48,8 @@ export interface SubsetFitOptions {
   reason: string;
   /** Piso de zoom opcional. Ver SubsetFitDetail.minZoom. */
   minZoom?: number | null;
+  /** Coords pre-resueltas opcionales. Ver SubsetFitDetail.coords. */
+  coords?: Array<[number, number]>;
 }
 
 /**
@@ -58,6 +68,7 @@ export function requestSubsetFit(
     mode: opts.mode ?? 'if-outside',
     reason: opts.reason,
     minZoom: opts.minZoom ?? null,
+    coords: opts.coords,
   };
 
   window.dispatchEvent(
