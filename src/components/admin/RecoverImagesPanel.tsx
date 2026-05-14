@@ -461,18 +461,28 @@ export function RecoverImagesPanel() {
 
         {/* ────── TIPO DE OPERACIÓN ──────────────────────────────────── */}
         <section className="rounded-lg border bg-muted/10">
-          <div className="px-3 pt-2.5 pb-1.5 flex items-baseline justify-between gap-3">
+          <div className="px-3 pt-2.5 pb-1.5">
             <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
-              Tipo de operación <span className="normal-case text-muted-foreground/70">(elige el universo base)</span>
-            </div>
-            <div className="text-[11px] text-muted-foreground tabular-nums">
-              Universo: <span className="font-semibold text-foreground">{breakdown ? breakdown.total_active.toLocaleString() : '…'}</span> POIs activos
-              {breakdown && (
-                <span className="text-muted-foreground/70"> · {breakdown.not_enriched.toLocaleString()} sin enriquecer (excluidos)</span>
-              )}
+              Tipo de operación <span className="normal-case text-muted-foreground/70">· elige el universo base</span>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3">
+            {/* UNIVERSO — solo informativa */}
+            <div className="relative text-left rounded-lg border border-dashed border-border bg-muted/20 p-4">
+              <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                <Layers className="w-4 h-4 shrink-0" />
+                <span className="truncate">Universo</span>
+              </div>
+              <div className="mt-2 flex items-baseline gap-1.5">
+                <span className="text-3xl font-bold tabular-nums leading-none tracking-tight text-foreground">
+                  {breakdown ? breakdown.total_active.toLocaleString() : '…'}
+                </span>
+                <span className="text-[11px] text-muted-foreground font-medium">POIs</span>
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-2 leading-snug">
+                Total de alcance de puntos en la APP.
+              </div>
+            </div>
             {(['refresh', 'missing'] as ImageRecoveryMode[]).map((m) => {
               const mm = MODE_META[m];
               const Icon = mm.icon;
