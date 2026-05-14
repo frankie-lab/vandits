@@ -713,18 +713,20 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
   getLocationOwnership: (locationId, currentUserId) => {
     const state = get();
+    const viewerUid = currentUserId ?? state.currentUserId ?? null;
     for (const doc of state.documents) {
       if (doc.locations.some(loc => loc.id === locationId)) {
-        const isOwn = !!(currentUserId && doc.userId === currentUserId);
+        const isOwn = !!(viewerUid && doc.userId === viewerUid);
         return {
           isOwn,
           ownerName: isOwn ? undefined : doc.ownerName,
           ownerId: doc.userId,
           docStatus: doc.status,
+          viewerUid,
         };
       }
     }
-    return { isOwn: true };
+    return { isOwn: true, viewerUid };
   },
 
 }));
