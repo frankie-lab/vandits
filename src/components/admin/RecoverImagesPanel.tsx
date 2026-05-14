@@ -459,8 +459,7 @@ export function RecoverImagesPanel() {
           </p>
         </div>
 
-        {/* ────── 1 · UNIVERSO TOTAL ─────────────────────────────────── */}
-        <UniversePyramid breakdown={breakdown} />
+        {/* Universo total eliminado del panel — los conteos relevantes se ven por modo y por usuario abajo. */}
 
         {/* ────── 2 · TIPO DE OPERACIÓN ──────────────────────────────── */}
         <section className="rounded-lg border bg-muted/10">
