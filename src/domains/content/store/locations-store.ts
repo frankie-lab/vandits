@@ -391,7 +391,10 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   getVisibleUniverseLocations: () => {
     const state = get();
     const annotated = (state as any)._getAnnotated() as AnnotatedLocation[];
-    return annotated.filter(loc => isLocationVisibleInGlobalMap(loc));
+    return dedupeLocationsById([
+      ...annotated.filter(loc => isLocationVisibleInGlobalMap(loc)),
+      ...state.detachedVisibleLocations,
+    ]);
   },
 
   /** Lazily rebuild the annotated flat array only when _docVersion changes */
@@ -427,8 +430,18 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       filterByDocumentId, hiddenDocumentIds,
     } = state.filters;
 
-    // Use cached annotated array (rebuilt only when docs change)
-    let source = (state as any)._getAnnotated() as AnnotatedLocation[];
+    // Universo global: locations anotadas por documento + locations visibles
+    // desacopladas cuyo documento no está en el store (p. ej. social vía RLS).
+    const annotated = (state as any)._getAnnotated() as AnnotatedLocation[];
+    const detachedAnnotated = state.detachedVisibleLocations.map((loc) => ({
+      ...(loc as AnnotatedLocation),
+      _docId: undefined,
+      _docUserId: undefined,
+    }));
+    let source = dedupeLocationsById([
+      ...annotated,
+      ...detachedAnnotated,
+    ]) as AnnotatedLocation[];
 
     // [TEMP DEBUG] user-filter funnel — quitar tras diagnosticar
     if (filterByUserId) {
@@ -439,7 +452,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       const annTotal = source.length;
       const annViaOwner = source.filter(l => l.ownerUserId === uid).length;
       const annViaDoc = source.filter(l => !l.ownerUserId && l._docUserId === uid).length;
-      const annInUidDocs = source.filter(l => docsOfUidIds.has(l._docId)).length;
+      const annInUidDocs = source.filter(l => l._docId ? docsOfUidIds.has(l._docId) : false).length;
       const annDocumentIdHit = source.filter(l => l.documentId && docsOfUidIds.has(l.documentId)).length;
       const ofUid = source.filter(l => getLocationOwnerUserId(l) === uid);
       const passVis = ofUid.filter(l => isLocationVisibleInGlobalMap(l)).length;
@@ -471,6 +484,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         dbDocs_of_uid,
         dbLocs_owner_uid,
         dbLocs_in_uid_docs,
+        detached_visible_total: state.detachedVisibleLocations.length,
         // Store (después de buildDoc + applyCatalogSnapshot)
         documents_total: docsTotal,
         documents_of_uid: docsOfUid.length,
@@ -546,7 +560,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
     if (hiddenDocumentIds && hiddenDocumentIds.length > 0) {
       const hiddenSet = new Set(hiddenDocumentIds);
-      source = source.filter(loc => !loc._docId || !hiddenSet.has(loc._docId));
+        source = source.filter(loc => !loc._docId || !hiddenSet.has(loc._docId));
     }
 
     // --- Curated sharing boundary (PR-1) ---
