@@ -671,7 +671,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  </div>
  ) : (
  sortedAndFilteredUsers.map((user, index) => {
-  const primaryRole = getPrimaryRole(user.roles);
+  
   const isCurrentUser = user.id === currentUser?.id;
   const isLast = index === sortedAndFilteredUsers.length - 1;
   const isUserHiddenFlag = isUserHidden(user.id);
@@ -729,9 +729,6 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
             </span>
           </div>
         )}
-        <div className="absolute -bottom-0.5 -right-0.5 bg-card rounded-full p-0.5 shadow-sm">
-          {roleIcons[primaryRole] || <Users className="w-3 h-3 text-muted-foreground" />}
-        </div>
       </button>
     );
   })()}
