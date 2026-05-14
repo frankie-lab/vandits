@@ -169,7 +169,7 @@ export function RecoverImagesPanel() {
   // Confirmación explícita para escritura masiva (>200 POIs en modo escritura).
   // Se resetea cuando cambia dryRun, scope o subset, para evitar arrastrar
   // un consentimiento de una operación anterior.
-  const [confirmMassiveWrite, setConfirmMassiveWrite] = useState(false);
+  
 
   const meta = MODE_META[mode];
   const activeUserId = isAdmin && targetUser ? targetUser.user_id : selfUserId;
