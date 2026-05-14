@@ -14,6 +14,7 @@ import DuplicatePolicy from "./pages/DuplicatePolicy";
 import { GlobalLoadingBar } from "@/shared/loading";
 import { DesignSystemThemeProvider } from "@/design-system/runtime/theme-provider";
 import { EditModeBar } from "@/components/admin/design-system/EditModeBar";
+import { SourceFilterBridge } from "@/components/poi/SourceFilterBridge";
 
 
 const queryClient = new QueryClient();
@@ -49,7 +50,8 @@ const App = () => (
  <TooltipProvider>
     <Toaster />
      <GlobalLoadingBar />
-     <EditModeBar />
+      <EditModeBar />
+      <SourceFilterBridge />
  <BrowserRouter>
  <Routes>
  <Route path="/auth" element={<Auth />} />
