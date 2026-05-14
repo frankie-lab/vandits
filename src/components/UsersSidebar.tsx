@@ -21,6 +21,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/domains/identity';
 import { useLocationsStore } from '@/domains/content';
 import { requestSubsetFit } from '@/components/map/subset-fit';
+import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
 import { getOwnerIdentityColor } from '@/components/map/owner-stroke';
 import {
   loadOwnerIdentityAssignments,
