@@ -529,35 +529,12 @@ export function RecoverImagesPanel() {
             <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
             Opciones avanzadas
             <span className="ml-auto text-[11px] text-muted-foreground font-normal">
-              lote {batchSize} · cooldown {meta.honorsCooldown ? `${retryStaleDays}d` : 'n/a'} · {dryRun ? 'dry-run' : 'escribe en BD'}
+              cooldown {meta.honorsCooldown ? `${retryStaleDays}d` : 'n/a'} · {dryRun ? 'dry-run' : 'escribe en BD'}
               {force ? ' · force' : ''}
-              {maxTotalText && ` · tope ${maxTotalText}`}
             </span>
           </button>
           {advancedOpen && (
             <div className="px-4 pb-4 pt-1 space-y-4 border-t">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Tamaño de lote</Label>
-                  <Input
-                    type="number" value={batchSize} min={1} max={200}
-                    onChange={(e) =>
-                      setBatchSize(Math.min(200, Math.max(1, Number(e.target.value) || 50)))
-                    }
-                    disabled={running} className="h-8 text-sm"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Tope total (parar tras N escaneados)</Label>
-                  <Input
-                    type="number" value={maxTotalText}
-                    onChange={(e) => setMaxTotalText(e.target.value)}
-                    placeholder="vacío = sin tope" min={1}
-                    disabled={running} className="h-8 text-sm"
-                  />
-                </div>
-              </div>
-
               <div className="space-y-1.5">
                 <Label className="text-xs">
                   Reintentar tras: <span className="font-mono">{retryStaleDays}</span> días
