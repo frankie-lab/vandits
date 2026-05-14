@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/domains/identity";
 import { IconLibraryProvider } from "@/contexts/IconLibraryContext";
 import { resumeIfPending } from "@/stores/geocoding-job-store";
+import { prefetchAllUsernames } from "@/domains/identity/lib/username-registry";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
