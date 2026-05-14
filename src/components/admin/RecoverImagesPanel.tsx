@@ -262,12 +262,6 @@ export function RecoverImagesPanel() {
     };
   }, [isAdmin, retryStaleDays, refreshGlobalCounts]);
 
-  // Resetear confirmación de escritura masiva cuando cambian condiciones
-  // que invalidan el consentimiento previo.
-  useEffect(() => {
-    setConfirmMassiveWrite(false);
-  }, [dryRun, mode, scopeCount, selectedIds]);
-
   // Universe POIs loader ----------------------------------------------------
   const refreshUniverse = useCallback(
     async (
