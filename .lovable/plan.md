@@ -1,13 +1,13 @@
 ## Objetivo
-Eliminar el badge de rol en la esquina inferior-derecha de los avatares en `UsersSidebar` para limpiar la vista social.
+Eliminar el indicador "TrendingUp + N" (contribuciones de 7 días) de las filas de usuarios en `UsersSidebar`.
 
 ## Cambios
 
 **`src/components/UsersSidebar.tsx`**
-- Eliminar el `<div className="absolute -bottom-0.5 -right-0.5ed bg-card rounded-full p-0.5 shadow-sm">…</div>` que renderiza `roleIcons[primaryRole]`.
-- Eliminar la línea `const primaryRole = getPrimaryRole(user.roles);` si no se usa en otro lugar de la fila.
-- Si los imports `roleIcons`, `getPrimaryRole` y el icono fallback `Users` quedan sin uso tras la limpieza, eliminarlos también.
+- Eliminar el bloque `{user.contributions7d != null && user.contributions7d > 0 && (<span>...<TrendingUp/>+N</span>)}` (líneas ~773-778).
+- Quitar la entrada `+N en los últimos 7 días` del array que arma el `title` del contenedor de stats (líneas ~746-749) para que el tooltip no mencione algo que ya no se muestra.
+- Si `TrendingUp` no se usa en ningún otro sitio del archivo, eliminar su import.
 
 ## Fuera de alcance
-- No tocar lógica de roles ni la fuente de datos `user.roles`.
-- No alterar el contorno de color del avatar (identidad OKLCH) ni el resto de la fila.
+- No tocar la fuente de datos `contributions7d` ni el feed que la calcula — el campo sigue disponible por si se reutiliza más adelante.
+- No alterar el resto de stats (compartidos, total, última contribución) ni los badges Sigues/Te sigue.
