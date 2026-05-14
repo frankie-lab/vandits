@@ -63,7 +63,11 @@ export function getGroup(layerType: LayerType, entityId?: string): L.LayerGroup 
 
 // ── Visibility control ───────────────────────────────────────
 
-export function applyLayerVisibility(layers: LayerVisibilityState, zoom: number) {
+export function applyLayerVisibility(
+  layers: LayerVisibilityState,
+  zoom: number,
+  zoomGates: ZoomGates = DEFAULT_ZOOM_GATES,
+) {
   if (!mapInstance) return;
 
   const pointsVisible = layers.points?.visible !== false;
@@ -74,6 +78,14 @@ export function applyLayerVisibility(layers: LayerVisibilityState, zoom: number)
     if (!layer) return;
 
     let shouldBeVisible = layer.visible && pointsVisible;
+
+    // Global zoom gate per sourceType (PR-7): followed/app/source hidden below threshold.
+    if (shouldBeVisible) {
+      const gate = zoomGates[layerType as keyof ZoomGates];
+      if (typeof gate === 'number' && zoom < gate) {
+        shouldBeVisible = false;
+      }
+    }
 
     if (shouldBeVisible && entityId && layer.entityHidden.includes(entityId)) {
       shouldBeVisible = false;
