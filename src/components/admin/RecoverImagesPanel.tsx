@@ -439,26 +439,16 @@ export function RecoverImagesPanel() {
 
   return (
     <section className="border rounded-lg bg-card flex flex-col min-h-0 overflow-hidden">
-      <header className="flex items-center gap-2 p-3 border-b shrink-0">
-        <ImageIcon className="w-4 h-4 text-muted-foreground" />
-        <h3 className="text-sm font-semibold">Recuperar / refrescar imágenes</h3>
-        <Badge variant="secondary" className="text-xs">{meta.short}</Badge>
-        {running && (
+      {running && (
+        <header className="flex items-center gap-2 p-3 border-b shrink-0">
           <Badge variant="outline" className="text-xs ml-auto">
             En marcha · ver barra inferior
           </Badge>
-        )}
-      </header>
+        </header>
+      )}
 
       <div className="flex-1 min-h-0 flex flex-col gap-4 p-4 overflow-hidden">
         <div className="shrink-0 flex flex-col gap-4 max-h-[55%] overflow-y-auto pr-1">
-        <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 text-xs text-muted-foreground leading-relaxed">
-          <p>
-            Reintenta búsqueda multi-fuente (Wikipedia, Commons, Wikidata, Openverse) sobre el universo elegido.
-            Empieza siempre con <strong className="text-foreground">dry-run</strong> para medir cobertura. El progreso
-            aparece en la barra inferior y sobrevive al cierre de este panel.
-          </p>
-        </div>
 
         {/* ────── TIPO DE OPERACIÓN ──────────────────────────────────── */}
         <section className="rounded-lg border bg-muted/10">
