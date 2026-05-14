@@ -163,8 +163,6 @@ export function RecoverImagesPanel() {
   const [dryRun, setDryRun] = useState(true);
   const [force, setForce] = useState(false);
   const [maxTotalText, setMaxTotalText] = useState('');
-  const [createdBefore, setCreatedBefore] = useState('');
-  const [createdAfter, setCreatedAfter] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
   // Confirmación explícita para escritura masiva (>200 POIs en modo escritura).
   // Se resetea cuando cambia dryRun, scope o subset, para evitar arrastrar
@@ -441,8 +439,8 @@ export function RecoverImagesPanel() {
       continent: geoFilter.continent,
       country: geoFilter.country,
       zone: geoFilter.zone,
-      createdBefore: createdBefore ? `${createdBefore}T00:00:00Z` : null,
-      createdAfter: createdAfter ? `${createdAfter}T00:00:00Z` : null,
+      createdBefore: null,
+      createdAfter: null,
     }, total);
   };
 
@@ -588,20 +586,6 @@ export function RecoverImagesPanel() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Creados antes de</Label>
-                  <Input type="date" value={createdBefore}
-                    onChange={(e) => setCreatedBefore(e.target.value)}
-                    disabled={running} className="h-8 text-sm" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Creados después de</Label>
-                  <Input type="date" value={createdAfter}
-                    onChange={(e) => setCreatedAfter(e.target.value)}
-                    disabled={running} className="h-8 text-sm" />
-                </div>
-              </div>
 
               <div className="flex items-center gap-2 pt-1">
                 <Switch checked={force} onCheckedChange={setForce} disabled={running} id="force" />
