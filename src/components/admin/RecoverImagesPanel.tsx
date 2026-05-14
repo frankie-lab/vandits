@@ -395,6 +395,8 @@ export function RecoverImagesPanel() {
 
     void useImageRecoveryJobStore.getState().start({
       scope: useExplicit ? 'ids' : 'user',
+      // explicit total so progress bar reflects subconjunto operativo, not batch
+      // (passed below as 2nd arg)
       mode,
       userId: useExplicit ? undefined : activeUserId,
       locationIds: useExplicit ? Array.from(selectedIds) : undefined,
