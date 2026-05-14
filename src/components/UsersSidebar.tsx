@@ -671,7 +671,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  </div>
  ) : (
  sortedAndFilteredUsers.map((user, index) => {
-  const primaryRole = getPrimaryRole(user.roles);
+  
   const isCurrentUser = user.id === currentUser?.id;
   const isLast = index === sortedAndFilteredUsers.length - 1;
   const isUserHiddenFlag = isUserHidden(user.id);
