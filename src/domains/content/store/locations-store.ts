@@ -22,12 +22,19 @@ function getPersistentFilters(filters: FilterCriteria): FilterCriteria {
   };
 }
 
+function dedupeLocationsById(locations: GeoLocation[]): GeoLocation[] {
+  if (locations.length <= 1) return locations;
+  const byId = new Map<string, GeoLocation>();
+  locations.forEach((loc) => byId.set(loc.id, loc));
+  return Array.from(byId.values());
+}
+
 // Re-export for consumers that import from the store file
 export { getLocationEnrichmentStatus } from './enrichment-helpers';
 
 /** A location annotated with its document-level ownership metadata */
 export interface AnnotatedLocation extends GeoLocation {
-  _docId: string;
+  _docId?: string;
   _docUserId?: string;
   /** Explicit layer assignment — set when filterByDocumentId is active */
   _layerType?: import('@/hooks/use-layer-visibility').LayerType;
@@ -35,6 +42,7 @@ export interface AnnotatedLocation extends GeoLocation {
 
 interface LocationsState {
   documents: KMLDocument[];
+  detachedVisibleLocations: GeoLocation[];
   selectedLocations: Set<string>;
   focusedLocationId: string | null;
   filters: FilterCriteria;
@@ -57,6 +65,7 @@ interface LocationsState {
 
   // Actions
   addDocument: (doc: KMLDocument) => void;
+  setDetachedVisibleLocations: (locations: GeoLocation[]) => void;
   /** Delta-merge a fresh catalog snapshot. Preserva referencias de objetos no
    *  cambiados y solo toca documentos dentro del `ownerScope`. Sustituye al
    *  patrón destructivo `_resetStoreState()` + `addDocument(...)` en bucle. */
@@ -127,6 +136,7 @@ interface LocationsState {
 
 export const useLocationsStore = create<LocationsState>((set, get) => ({
   documents: [],
+  detachedVisibleLocations: [],
   selectedLocations: new Set(),
   focusedLocationId: null,
   filters: {},
@@ -166,6 +176,11 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       : [...state.documents, doc];
     return { documents, _docVersion: state._docVersion + 1 };
   }),
+
+  setDetachedVisibleLocations: (locations) => set((state) => ({
+    detachedVisibleLocations: dedupeLocationsById(locations),
+    _docVersion: state._docVersion + 1,
+  })),
 
   applyCatalogSnapshot: (docs, opts) => set((state) => {
     const { documents, mutated, removedLocationIds } = applyCatalogSnapshotPure(
@@ -219,6 +234,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
   _resetStoreState: () => set((state) => ({
     documents: [],
+    detachedVisibleLocations: [],
     selectedLocations: new Set(),
     focusedLocationId: null,
     filters: getPersistentFilters(state.filters),
@@ -230,6 +246,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     if (!success) return;
     set((state) => ({
       documents: [],
+      detachedVisibleLocations: [],
       selectedLocations: new Set(),
       focusedLocationId: null,
       filters: getPersistentFilters(state.filters),
@@ -247,6 +264,11 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
           : loc
       ),
     })),
+    detachedVisibleLocations: state.detachedVisibleLocations.map((loc) =>
+      loc.id === locationId
+        ? { ...loc, ...updates, updatedAt: new Date() }
+        : loc
+    ),
     _docVersion: state._docVersion + 1,
   })),
 
@@ -369,7 +391,10 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   getVisibleUniverseLocations: () => {
     const state = get();
     const annotated = (state as any)._getAnnotated() as AnnotatedLocation[];
-    return annotated.filter(loc => isLocationVisibleInGlobalMap(loc));
+    return dedupeLocationsById([
+      ...annotated.filter(loc => isLocationVisibleInGlobalMap(loc)),
+      ...state.detachedVisibleLocations,
+    ]);
   },
 
   /** Lazily rebuild the annotated flat array only when _docVersion changes */
@@ -405,8 +430,18 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       filterByDocumentId, hiddenDocumentIds,
     } = state.filters;
 
-    // Use cached annotated array (rebuilt only when docs change)
-    let source = (state as any)._getAnnotated() as AnnotatedLocation[];
+    // Universo global: locations anotadas por documento + locations visibles
+    // desacopladas cuyo documento no está en el store (p. ej. social vía RLS).
+    const annotated = (state as any)._getAnnotated() as AnnotatedLocation[];
+    const detachedAnnotated = state.detachedVisibleLocations.map((loc) => ({
+      ...(loc as AnnotatedLocation),
+      _docId: undefined,
+      _docUserId: undefined,
+    }));
+    let source = dedupeLocationsById([
+      ...annotated,
+      ...detachedAnnotated,
+    ]) as AnnotatedLocation[];
 
     // [TEMP DEBUG] user-filter funnel — quitar tras diagnosticar
     if (filterByUserId) {
@@ -417,7 +452,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       const annTotal = source.length;
       const annViaOwner = source.filter(l => l.ownerUserId === uid).length;
       const annViaDoc = source.filter(l => !l.ownerUserId && l._docUserId === uid).length;
-      const annInUidDocs = source.filter(l => docsOfUidIds.has(l._docId)).length;
+      const annInUidDocs = source.filter(l => l._docId ? docsOfUidIds.has(l._docId) : false).length;
       const annDocumentIdHit = source.filter(l => l.documentId && docsOfUidIds.has(l.documentId)).length;
       const ofUid = source.filter(l => getLocationOwnerUserId(l) === uid);
       const passVis = ofUid.filter(l => isLocationVisibleInGlobalMap(l)).length;
@@ -449,6 +484,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         dbDocs_of_uid,
         dbLocs_owner_uid,
         dbLocs_in_uid_docs,
+        detached_visible_total: state.detachedVisibleLocations.length,
         // Store (después de buildDoc + applyCatalogSnapshot)
         documents_total: docsTotal,
         documents_of_uid: docsOfUid.length,
@@ -524,7 +560,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
     if (hiddenDocumentIds && hiddenDocumentIds.length > 0) {
       const hiddenSet = new Set(hiddenDocumentIds);
-      source = source.filter(loc => !loc._docId || !hiddenSet.has(loc._docId));
+        source = source.filter(loc => !loc._docId || !hiddenSet.has(loc._docId));
     }
 
     // --- Curated sharing boundary (PR-1) ---

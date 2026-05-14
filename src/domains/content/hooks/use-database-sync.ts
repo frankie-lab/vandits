@@ -10,7 +10,7 @@ import { startLoading, updateLoading, endLoading } from '@/shared/loading';
 export type SyncPhase = 'idle' | 'own' | 'social' | 'done';
 
 export function useDatabaseSync(userId?: string | null) {
-  const { addDocument, applyCatalogSnapshot, _resetStoreState } = useLocationsStore();
+  const { addDocument, applyCatalogSnapshot, setDetachedVisibleLocations, _resetStoreState } = useLocationsStore();
   const hasLoadedRef = useRef(false);
   const reloadInFlightRef = useRef<Promise<void> | null>(null);
   const reloadQueuedRef = useRef(false);
@@ -94,6 +94,7 @@ export function useDatabaseSync(userId?: string | null) {
         };
       } catch { /* ignore */ }
 
+      const allDocIds = new Set(dbDocs.map(d => d.id));
       const adoptedFromIds = new Set<string>();
       const userDocIds = new Set(ownDocs.map(d => d.id));
 
@@ -119,6 +120,10 @@ export function useDatabaseSync(userId?: string | null) {
         locationsByDoc.get(docId)!.push(geoLoc);
       });
 
+      const detachedVisibleLocations = dbLocations
+        .filter((loc) => !loc.document_id || !allDocIds.has(loc.document_id))
+        .map(dbLocationToGeoLocation);
+
       const buildDoc = (doc: typeof dbDocs[0]): KMLDocument => {
         const profile = doc.user_id ? profilesMap.get(doc.user_id) : undefined;
         return {
@@ -139,6 +144,8 @@ export function useDatabaseSync(userId?: string | null) {
       const ownKmlDocs = ownDocs.map(buildDoc);
       const otherKmlDocs = otherDocs.map(buildDoc);
       const ownLocCount = ownKmlDocs.reduce((acc, d) => acc + d.locations.length, 0);
+
+      setDetachedVisibleLocations(detachedVisibleLocations);
 
       applyCatalogSnapshot(ownKmlDocs, { ownerScope: 'mine', currentUserId: currentUserId ?? null });
 
@@ -173,7 +180,7 @@ export function useDatabaseSync(userId?: string | null) {
     } finally {
       ensureEndLoading();
     }
-  }, [addDocument, _resetStoreState]);
+  }, [addDocument, _resetStoreState, setDetachedVisibleLocations]);
 
   const requestGlobalReload = useCallback(() => {
     if (reloadInFlightRef.current) {

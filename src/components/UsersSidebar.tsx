@@ -362,7 +362,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
       // dependa de markers montados ni de que `locationsRef` se haya
       // re-hidratado tras el cambio de filtro. Ver
       // mem://logic/map/subset-fit-contract y mem://logic/sharing/curated-only-rule.
-      const allLocs = useLocationsStore.getState().getAllLocations();
+      const allLocs = useLocationsStore.getState().getVisibleUniverseLocations();
       const myUid = currentUser?.id;
       const subset = allLocs.filter(l => {
         const ownerId = getLocationOwnerUserId(l as { ownerUserId?: string | null; _docUserId?: string | null });

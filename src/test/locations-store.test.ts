@@ -107,6 +107,29 @@ describe('locations-store', () => {
     expect(v3).toBeGreaterThan(v2);
   });
 
+  it('filterByUserId incluye POIs visibles desacoplados de documentos no cargados', () => {
+    useLocationsStore.getState().setCurrentUserId('viewer');
+    useLocationsStore.getState().setDetachedVisibleLocations([
+      {
+        id: 'shared-1',
+        name: 'Shared Alpha',
+        coordinates: { lat: 40, lng: -3 },
+        ownerUserId: 'alpha',
+        visibility: 'public',
+        geoHealth: 'ok',
+        isApproved: true,
+        enrichedData: { descripcion: 'Una descripción suficientemente larga y verificable para que este POI entre en la frontera canónica de compartición.' } as any,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ] as GeoLocation[]);
+
+    useLocationsStore.getState().setFilters({ filterByUserId: 'alpha' });
+
+    const filtered = useLocationsStore.getState().getFilteredLocations();
+    expect(filtered.map(l => l.id)).toEqual(['shared-1']);
+  });
+
   // ── Duplicates ─────────────────────────────────────────────
 
   it('addPendingDuplicates and removePendingDuplicate', () => {
