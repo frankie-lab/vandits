@@ -12,7 +12,7 @@ import type { OwnershipFilter } from '@/types/location';
 import '@/domains/discovery/preferences';
 
 // ── Types ────────────────────────────────────────────────────
-export type LayerType = 'catalog' | 'workspace' | 'own' | 'followed' | 'routes' | 'points';
+export type LayerType = 'catalog' | 'workspace' | 'own' | 'followed' | 'routes' | 'points' | 'app' | 'source';
 
 export interface LayerState {
   visible: boolean;
@@ -25,6 +25,10 @@ export interface LayerVisibilityState {
   catalog: LayerState;
   workspace: LayerState;
   followed: LayerState;
+  /** Capa padre `#vandits-app`. `entityHidden` = groupId[] (e.g. 'playas'). */
+  app: LayerState;
+  /** Capa padre fuentes externas. `entityHidden` = sourceId[]. */
+  source: LayerState;
   [key: string]: LayerState;
 }
 
@@ -43,6 +47,8 @@ interface PersistedState {
   followed: { visible: boolean; entityHidden: string[] };
   routes?: { visible: boolean };
   points?: { visible: boolean };
+  app?: { visible: boolean; entityHidden: string[] };
+  source?: { visible: boolean; entityHidden: string[] };
 }
 
 function loadPersisted(): PersistedState {
@@ -67,6 +73,8 @@ function migrateLegacy(): PersistedState {
     followed: { visible: true, entityHidden: [] },
     routes: { visible: true },
     points: { visible: true },
+    app: { visible: true, entityHidden: [] },
+    source: { visible: true, entityHidden: [] },
   };
 
   try {
@@ -116,6 +124,8 @@ function getSharedLayers(): LayerVisibilityState {
       followed: { visible: persisted.followed.visible, entityHidden: persisted.followed.entityHidden, minVisibilityZooms: new Map() },
       routes: { visible: persisted.routes?.visible ?? true, entityHidden: [], minVisibilityZooms: new Map() },
       points: { visible: persisted.points?.visible ?? true, entityHidden: [], minVisibilityZooms: new Map() },
+      app: { visible: persisted.app?.visible ?? true, entityHidden: persisted.app?.entityHidden ?? [], minVisibilityZooms: new Map() },
+      source: { visible: persisted.source?.visible ?? true, entityHidden: persisted.source?.entityHidden ?? [], minVisibilityZooms: new Map() },
     };
   }
   return sharedLayers;
@@ -169,6 +179,8 @@ export function applyVisibilityFromPanel(patch: Partial<Record<LayerType, boolea
     followed: { visible: layers.followed.visible, entityHidden: layers.followed.entityHidden },
     routes: { visible: layers.routes.visible },
     points: { visible: layers.points.visible },
+    app: { visible: layers.app.visible, entityHidden: layers.app.entityHidden },
+    source: { visible: layers.source.visible, entityHidden: layers.source.entityHidden },
   });
   emitChange();
 }
@@ -219,6 +231,8 @@ export function useLayerVisibility() {
       followed: { visible: l.followed.visible, entityHidden: l.followed.entityHidden },
       routes: { visible: l.routes.visible },
       points: { visible: l.points.visible },
+      app: { visible: l.app.visible, entityHidden: l.app.entityHidden },
+      source: { visible: l.source.visible, entityHidden: l.source.entityHidden },
     });
   }, []);
 

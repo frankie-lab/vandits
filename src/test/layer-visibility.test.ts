@@ -14,6 +14,8 @@ describe('resolveVisibility', () => {
     catalog: { visible: true, entityHidden: [], minVisibilityZooms: new Map() },
     workspace: { visible: false, entityHidden: [], minVisibilityZooms: new Map() },
     followed: { visible: true, entityHidden: ['hidden-user-1'], minVisibilityZooms: new Map() },
+    app: { visible: true, entityHidden: [], minVisibilityZooms: new Map() },
+    source: { visible: true, entityHidden: [], minVisibilityZooms: new Map() },
   };
 
   it('returns visible for an active layer', () => {

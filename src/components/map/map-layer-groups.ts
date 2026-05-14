@@ -6,8 +6,14 @@ import type { LayerType, LayerVisibilityState } from '@/hooks/use-layer-visibili
 
 // ── Registry ─────────────────────────────────────────────────
 
-/** Key for entity-scoped groups: "followed:<userId>" */
-export type LayerGroupKey = 'own' | 'catalog' | 'workspace' | `followed:${string}`;
+/** Key for entity-scoped groups. Free-form children of `app`/`source`/`followed`. */
+export type LayerGroupKey =
+  | 'own'
+  | 'catalog'
+  | 'workspace'
+  | `followed:${string}`
+  | `app:${string}`
+  | `source:${string}`;
 
 const layerGroups = new Map<LayerGroupKey, L.LayerGroup>();
 let mapInstance: L.Map | null = null;
