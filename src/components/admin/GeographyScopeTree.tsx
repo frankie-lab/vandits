@@ -50,14 +50,8 @@ export function GeographyScopeTree({
 
   const tree = useMemo(() => buildTree(locations, maxDepth), [locations, maxDepth]);
 
-  // Auto-expand top level (continents) on first render
-  useEffect(() => {
-    if (tree.length === 0) return;
-    setExpanded((prev) => {
-      if (prev.size > 0) return prev;
-      return new Set(tree.map((n) => n.pathKey));
-    });
-  }, [tree]);
+  // Vista de continentes plegada por defecto en todas partes (norma UX).
+  // No se auto-expande nada en primer render — el usuario decide qué abrir.
 
   const filteredTree = useMemo(() => {
     const q = search.trim().toLowerCase();
