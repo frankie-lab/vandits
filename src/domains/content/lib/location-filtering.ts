@@ -40,6 +40,44 @@ function matchesTags(loc: GeoLocation, tags: string[]): boolean {
   );
 }
 
+/**
+ * Match canónico para `filters.filterBySource`. Lee marcadores intrínsecos
+ * del POI (no requiere viewer). Para own/followed compara ownerUid; para
+ * app/source compara sourceKind + (sourceId | groupId).
+ */
+function matchesSourceFilter(
+  loc: GeoLocation,
+  f: NonNullable<FilterCriteria['filterBySource']>,
+): boolean {
+  const a = loc as GeoLocation & {
+    sourceKind?: string | null;
+    source_kind?: string | null;
+    sourceId?: string | null;
+    source_id?: string | null;
+    groupId?: string | null;
+    group_id?: string | null;
+  };
+  const sourceKind = a.sourceKind ?? a.source_kind ?? null;
+  const sourceId = a.sourceId ?? a.source_id ?? null;
+  const groupId = a.groupId ?? a.group_id ?? null;
+
+  if (f.type === 'own' || f.type === 'followed') {
+    // app/source no son ownership
+    if (sourceKind === 'app' || sourceKind === 'external') return false;
+    return getLocationOwnerUserId(loc as { ownerUserId?: string | null; _docUserId?: string | null }) === f.id;
+  }
+  if (f.type === 'app') {
+    if (sourceKind !== 'app') return false;
+    // id puede ser sourceId (e.g. 'vandits-app') o groupId (e.g. 'playas')
+    return sourceId === f.id || groupId === f.id;
+  }
+  if (f.type === 'source') {
+    if (sourceKind !== 'external') return false;
+    return sourceId === f.id;
+  }
+  return false;
+}
+
 export function matchesLocationFilters(
   loc: GeoLocation,
   filters: FilterCriteria,
