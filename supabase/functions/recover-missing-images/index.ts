@@ -116,7 +116,17 @@ serve(async (req) => {
   // Service role for actual DB work + role check.
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
-  const isInternalCall = bearer === SERVICE_ROLE;
+  const apiKeyHeader = req.headers.get("apikey") ?? req.headers.get("x-internal-key") ?? "";
+  const isInternalCall = bearer === SERVICE_ROLE || apiKeyHeader === SERVICE_ROLE;
+  if (!isInternalCall) {
+    console.log("[recover-missing-images] auth-debug", {
+      bearerLen: bearer.length,
+      bearerHead: bearer.slice(0, 12),
+      svcLen: SERVICE_ROLE.length,
+      svcHead: SERVICE_ROLE.slice(0, 12),
+      apiKeyLen: apiKeyHeader.length,
+    });
+  }
   if (!isInternalCall) {
     const userClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
