@@ -37,6 +37,13 @@ export function RecoverImagesPanel() {
   const [force, setForce] = useState(false);
   const [retryStaleDays, setRetryStaleDays] = useState(30);
   const [batchSize, setBatchSize] = useState(50);
+  // Franjas / tope
+  const [maxTotalText, setMaxTotalText] = useState('');
+  const [country, setCountry] = useState('');
+  const [region, setRegion] = useState('');
+  const [zone, setZone] = useState('');
+  const [createdBefore, setCreatedBefore] = useState(''); // YYYY-MM-DD
+  const [createdAfter, setCreatedAfter] = useState('');
 
   const job = useImageRecoveryJobStore();
   const running = job.running;
@@ -59,6 +66,8 @@ export function RecoverImagesPanel() {
       }
     }
 
+    const maxTotalNum = maxTotalText.trim() ? Math.max(1, Number(maxTotalText)) : null;
+
     void useImageRecoveryJobStore.getState().start({
       scope,
       userId: scope === 'user' ? userId.trim() : undefined,
@@ -67,6 +76,12 @@ export function RecoverImagesPanel() {
       dryRun,
       force,
       retryStaleDays,
+      maxTotal: Number.isFinite(maxTotalNum as number) ? maxTotalNum : null,
+      country: country.trim() || null,
+      region: region.trim() || null,
+      zone: zone.trim() || null,
+      createdBefore: createdBefore ? `${createdBefore}T00:00:00Z` : null,
+      createdAfter: createdAfter ? `${createdAfter}T00:00:00Z` : null,
     });
   };
 
