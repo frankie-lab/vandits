@@ -315,6 +315,9 @@ serve(async (req) => {
     await Promise.all(wave.map(async (loc: any) => {
       await new Promise((r) => setTimeout(r, PER_POI_JITTER_MS()));
       const t0 = Date.now();
+      let item: ItemLog | null = null;
+      let updatedDelta = 0;
+      let failedDelta = 0;
       try {
         const coords = (loc.latitude != null && loc.longitude != null)
           ? { lat: loc.latitude as number, lng: loc.longitude as number }
@@ -334,10 +337,10 @@ serve(async (req) => {
         const complete = isAttemptComplete(telemetry);
 
         if (hit) {
-          items.push({
+          item = {
             id: loc.id, name: loc.name, result: "found",
             source: telemetry.finalSource, durationMs: telemetry.durationMs,
-          });
+          };
           if (!dryRun) {
             const newEnriched = {
               ...(loc.enriched_data ?? {}),
@@ -358,25 +361,24 @@ serve(async (req) => {
               .from("locations")
               .update({ enriched_data: newEnriched })
               .eq("id", loc.id);
-            if (!uErr) updated++;
+            if (!uErr) { updated++; updatedDelta = 1; }
             else console.error("update failed", loc.id, uErr.message);
           } else {
-            updated++; // count as "would-update"
+            updated++; updatedDelta = 1; // count as "would-update"
           }
         } else if (!complete) {
-          // All failures were transient — DO NOT mark attempted. Will retry
-          // on a future run.
-          failedTransient++;
-          items.push({
+          // All failures were transient — DO NOT mark attempted. Will retry.
+          failedTransient++; failedDelta = 1;
+          item = {
             id: loc.id, name: loc.name, result: "transient",
             source: null, durationMs: telemetry.durationMs,
-          });
+          };
         } else {
           // Definitive miss — mark attempted to skip until retryStaleDays.
-          items.push({
+          item = {
             id: loc.id, name: loc.name, result: "none",
             source: null, durationMs: telemetry.durationMs,
-          });
+          };
           if (!dryRun) {
             const newEnriched = {
               ...(loc.enriched_data ?? {}),
@@ -396,14 +398,23 @@ serve(async (req) => {
           }
         }
       } catch (err) {
-        failedTransient++;
-        items.push({
+        failedTransient++; failedDelta = 1;
+        item = {
           id: loc.id, name: loc.name, result: "transient",
           source: null, durationMs: Date.now() - t0,
-        });
+        };
         console.error("recover error", loc.id, err);
       } finally {
+        if (item) items.push(item);
         if (loc.id > lastId) lastId = loc.id;
+        // Stream per-POI progress to image_recovery_jobs so the UI advances
+        // smoothly. scanned bumps once per processed candidate.
+        await bumpJob({
+          scanned: 1,
+          updated: updatedDelta,
+          failed: failedDelta,
+          item: item ?? null,
+        });
       }
     }));
   }
