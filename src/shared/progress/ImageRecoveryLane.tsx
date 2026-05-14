@@ -105,13 +105,15 @@ export function ImageRecoveryLane({ onActiveChange }: ImageRecoveryLaneProps) {
         title={dryRun ? 'Recuperando imágenes (dry-run)' : 'Recuperando imágenes faltantes'}
         subtitle={
           scanned > 0
-            ? `Lote ${job.waves} · tasa ${successRate.toFixed(1)}%`
+            ? total && total > 0
+              ? `${scanned}/${total} escaneados · tasa ${successRate.toFixed(1)}% · lote ${job.waves}`
+              : `${scanned} escaneados · tasa ${successRate.toFixed(1)}% · lote ${job.waves}`
             : `Lote ${job.waves} · iniciando…`
         }
         progressPct={donePct}
         segments={segments}
         metrics={metrics}
-        counter={{ done: updated, total: scanned }}
+        counter={total && total > 0 ? { done: scanned, total } : { done: updated, total: scanned }}
         eta={null}
         controls={controls}
         running={!job.stopping}
