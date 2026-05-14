@@ -81,7 +81,7 @@ const MODE_META: Record<ImageRecoveryMode, ModeMeta> = {
     honorsCooldown: true,
   },
   refresh: {
-    title: 'Refrescar imágenes',
+    title: 'Puntos enriquecidos',
     short: 'refrescar',
     desc: 'Todos los enriquecidos. Re-busca para mejorar atribución / reintentar fuentes.',
     icon: RefreshCw,
