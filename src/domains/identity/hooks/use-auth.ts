@@ -22,7 +22,7 @@ export function useAuth() {
  const [profile, setProfile] = useState<UserProfile | null>(null);
  const [loading, setLoading] = useState(true);
 
-  // Fetch user profile
+   // Fetch user profile
  const fetchProfile = useCallback(async (userId: string) => {
  try {
  const { data, error } = await supabase
@@ -35,7 +35,11 @@ export function useAuth() {
  console.error('Error fetching profile:', error);
  return null;
  }
- 
+
+ // PR-POI-SOURCE-6: registrar viewer en el username registry para
+ // que `#frankie` aparezca en hashtags de origen.
+ registerUsername(data?.id, data?.username ?? data?.display_name);
+
  return data as UserProfile;
  } catch (error) {
  console.error('Error in fetchProfile:', error);
