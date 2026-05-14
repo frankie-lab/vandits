@@ -383,7 +383,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
       const ids = subset.map(l => l.id);
       const coords = subset.map(l => [l.coordinates!.lat, l.coordinates!.lng] as [number, number]);
       if (ids.length > 0) {
-        requestSubsetFit(ids, { mode: 'always', reason: 'user-filter', coords });
+        requestSubsetFit(ids, { mode: 'always', reason: 'user-filter', coords, minZoom: 7 });
       } else {
         toast.info(`Sin puntos visibles para ${user.display_name || user.username}`);
       }
