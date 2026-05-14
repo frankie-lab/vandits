@@ -242,9 +242,12 @@ serve(async (req) => {
   let skippedAlreadyAttempted = 0;
 
   for (const r of rows ?? []) {
-    if (getMediaImageUrl(r.enriched_data)) continue; // already has image somewhere
-    if (r.user_image_url && String(r.user_image_url).length > 0) continue; // user uploaded URL
-    if (locationIdsWithPhotos.has(r.id)) continue; // gallery photo exists
+    // 'missing' is the only mode that requires there be NO existing image.
+    if (mode === "missing") {
+      if (getMediaImageUrl(r.enriched_data)) continue; // already has image somewhere
+      if (r.user_image_url && String(r.user_image_url).length > 0) continue; // user uploaded URL
+      if (locationIdsWithPhotos.has(r.id)) continue; // gallery photo exists
+    }
     if (!force) {
       const attempted = getRecoveryAttemptedAt(r.enriched_data);
       if (attempted) {
