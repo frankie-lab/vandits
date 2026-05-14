@@ -467,7 +467,7 @@ export function RecoverImagesPanel() {
             2 · Tipo de operación <span className="normal-case text-muted-foreground/70">(elige el universo base)</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3">
-            {(Object.keys(MODE_META) as ImageRecoveryMode[]).map((m) => {
+            {(['full', 'refresh', 'missing'] as ImageRecoveryMode[]).map((m) => {
               const mm = MODE_META[m];
               const Icon = mm.icon;
               const baseCount = breakdown
