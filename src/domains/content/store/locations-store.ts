@@ -13,6 +13,7 @@ import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-typ
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
 import { isShareablePoi } from '@/domains/content/lib/is-shareable-poi';
 import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
+import { lookupUsername } from '@/domains/identity/lib/username-registry';
 import { applyCatalogSnapshotPure, type ApplySnapshotOpts } from './catalog-snapshot';
 
 function getPersistentFilters(filters: FilterCriteria): FilterCriteria {
@@ -131,6 +132,7 @@ interface LocationsState {
     isOwn: boolean; ownerName?: string; ownerId?: string;
     docStatus?: string;
     viewerUid?: string | null;
+    usernameLookup?: (uid: string) => string | null | undefined;
   };
   selectedDocument: KMLDocument | null;
 }
@@ -715,6 +717,9 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   getLocationOwnership: (locationId, currentUserId) => {
     const state = get();
     const viewerUid = currentUserId ?? state.currentUserId ?? null;
+    // PR-POI-SOURCE-6: lookup centralizado de username (registro alimentado
+    // por useAuth + UsersSidebar). Helper único — no duplicar.
+    const usernameLookup = (uid: string) => lookupUsername(uid);
     for (const doc of state.documents) {
       if (doc.locations.some(loc => loc.id === locationId)) {
         const isOwn = !!(viewerUid && doc.userId === viewerUid);
@@ -724,10 +729,11 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
           ownerId: doc.userId,
           docStatus: doc.status,
           viewerUid,
+          usernameLookup,
         };
       }
     }
-    return { isOwn: true, viewerUid };
+    return { isOwn: true, viewerUid, usernameLookup };
   },
 
 }));
