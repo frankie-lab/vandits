@@ -2350,9 +2350,11 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<SubsetFitDetail>).detail;
       if (!detail || !Array.isArray(detail.locationIds) || detail.locationIds.length === 0) return;
-      if (Date.now() - lastUserInteractionAt < COOLDOWN_MS) return;
-
       const mode = detail.mode ?? 'if-outside';
+      // Cooldown manual SOLO aplica a 'if-outside'. 'always' es una acción
+      // explícita del usuario (popover Mis POI, filtro de usuario, etc.) y
+      // nunca debe ser silenciada por gestos previos.
+      if (mode !== 'always' && Date.now() - lastUserInteractionAt < COOLDOWN_MS) return;
 
       // Si el caller pasó coords pre-resueltas, usarlas directamente y
       // saltar la resolución vía markersRef/locationsRef. Imprescindible
