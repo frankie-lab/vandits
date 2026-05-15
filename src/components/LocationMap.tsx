@@ -1412,6 +1412,14 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
       // measurement) and ignore tiny deltas to avoid jitter on hover/anim.
       const popupEl = e.popup.getElement();
       const marker = (e as unknown as { target: L.Marker }).target;
+      // Bloquea bubbling de clicks/scroll de UI interna del popup hacia el mapa
+      // para que botones React no disparen el auto-close nativo de Leaflet.
+      // El cierre por click en mapa vacío sigue funcionando porque ese click
+      // ocurre fuera del popup.
+      if (popupEl) {
+        L.DomEvent.disableClickPropagation(popupEl);
+        L.DomEvent.disableScrollPropagation(popupEl);
+      }
       if (popupEl && marker && typeof ResizeObserver !== 'undefined') {
         let lastH = -1;
         const ro = new ResizeObserver((entries) => {
