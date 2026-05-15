@@ -68,6 +68,13 @@ export type MyCatalogPopoverAxis = 'visual' | 'health' | 'all';
 export interface MyCatalogPopoverAppliedDetail {
   axis: MyCatalogPopoverAxis;
   value: VisualStateFilter | HealthFilter | null;
+  /**
+   * Optional caller-supplied operation id. When present, the listener uses
+   * THIS exact id (instead of the deterministic `buildMyCatalogPopoverOpId`)
+   * so finish/start can never collide between repeated identical clicks.
+   * See selector interaction contract in ADR-0004.
+   */
+  opId?: string;
 }
 
 export interface MyCatalogPopoverEmptyDetail {
