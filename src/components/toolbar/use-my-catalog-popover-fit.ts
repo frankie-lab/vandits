@@ -68,6 +68,13 @@ export type MyCatalogPopoverAxis = 'visual' | 'health' | 'all';
 export interface MyCatalogPopoverAppliedDetail {
   axis: MyCatalogPopoverAxis;
   value: VisualStateFilter | HealthFilter | null;
+  /**
+   * Optional caller-supplied operation id. When present, the listener uses
+   * THIS exact id (instead of the deterministic `buildMyCatalogPopoverOpId`)
+   * so finish/start can never collide between repeated identical clicks.
+   * See selector interaction contract in ADR-0004.
+   */
+  opId?: string;
 }
 
 export interface MyCatalogPopoverEmptyDetail {
@@ -101,7 +108,7 @@ export function useMyCatalogPopoverFit(currentUserId: string | null | undefined)
       traceCameraFit('popover-fit handler RECEIVED event', { detail });
       if (!detail) return;
 
-      const opId = buildMyCatalogPopoverOpId(detail);
+      const opId = detail.opId ?? buildMyCatalogPopoverOpId(detail);
       const uid = userIdRef.current;
       if (!uid) {
         traceCameraFit('popover-fit ABORT: no uid (currentUserId=null)');
@@ -207,4 +214,16 @@ export function emitMyCatalogPopoverApplied(detail: MyCatalogPopoverAppliedDetai
   window.dispatchEvent(
     new CustomEvent<MyCatalogPopoverAppliedDetail>(MY_CATALOG_POPOVER_APPLIED_EVENT, { detail }),
   );
+}
+
+/**
+ * Helper: derive a unique opId for a popover action. Each click produces a
+ * distinct id so heavy-ops `blockReentry` never converts a legitimate
+ * re-click into a silent noop. The base id (axis/value) is preserved as
+ * prefix for log readability.
+ */
+export function buildUniqueMyCatalogPopoverOpId(detail: MyCatalogPopoverAppliedDetail): string {
+  const base = buildMyCatalogPopoverOpId(detail);
+  const nonce = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return `${base}#${nonce}`;
 }

@@ -8,11 +8,14 @@ El usuario necesitaba acceso 1-click a su catálogo personal con desglose por es
 - Dos secciones:
   1. **Estado del punto**: `visualState` (Ver todos / Enriquecidos / Sin actualizar / Vacíos)
   2. **Salud operativa**: `healthFilter` (Rellenar / Reparar / Revisar / Rotos)
-- Reglas de cierre:
-  - `healthFilter` → cierra (mueve cámara)
-  - `visualState` → permanece abierto (no debe distraer del comparativo)
-  - "Ver todos" → permanece abierto
-  - Click fuera / Escape → cierra (Radix default)
+- **Contrato de interacción del selector (sistémico)**:
+  - Toda fila visible es 100% interactiva o 100% disabled. No existe estado intermedio "activa pero ignora click".
+  - Click sobre fila interactiva SIEMPRE: cierra el popover, emite el evento del popover con un opId único, deja traza observable.
+  - Re-click sobre la fila ya activa = reafirmación de intención (replay del fit/refocus). **Nunca silent noop.**
+  - `setFilters` solo se invoca cuando la selección cambia realmente; el replay del recenter no muta el store.
+  - Implementación: handler único `applyRow({ axis, value })` en `MyCatalogQuickFilters`. Prohibido ramificar comportamiento por valor (`empty`, `enriched`, …).
+  - `heavy-operations.blockReentry` queda DESACTIVADO en este selector — un opId único por click garantiza que el re-click nunca colisione con una op viva. Si una operación tarda, debe verse como estado loading explícito, nunca como noop.
+- Click fuera / Escape → cierra (Radix default).
 
 ## Consecuencias
 - Punto único de acción rápida sobre catálogo propio.

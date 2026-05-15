@@ -172,6 +172,57 @@ test.describe('Camera QA — subset-fit harness', () => {
     expect(snap.metrics!.byReason['my-catalog-popover:visual:enriched']).toBe(2);
   });
 
+  // ── Selector interaction contract ────────────────────────────────────
+  // Every interactive row of the popover MUST honor the same contract:
+  //   - first click activates → emits exactly one request
+  //   - re-click on the active row replays → emits a second request
+  //   - popover closes after each click (no silent noop)
+  // This guards against per-value branches (e.g. an `empty` exception that
+  // turns into noop) re-appearing in the selector.
+  const ROW_CASES: Array<{ testId: string; reason: string }> = [
+    { testId: 'filter-all', reason: 'my-catalog-popover:all' },
+    { testId: 'filter-enriched', reason: 'my-catalog-popover:visual:enriched' },
+    { testId: 'filter-imported', reason: 'my-catalog-popover:visual:imported' },
+    { testId: 'filter-empty', reason: 'my-catalog-popover:visual:empty' },
+  ];
+  for (const { testId, reason } of ROW_CASES) {
+    test(`Selector contract — ${testId} re-click replays without silent noop`, async ({ page }) => {
+      await startCapture(page, `contract:${testId}`);
+
+      // First click: activates filter. The subset may be empty (in which
+      // case no requestSubsetFit fires) but the popover MUST close and
+      // the event MUST have been dispatched (visible in the trace).
+      await clickFilter(page, testId);
+      // Popover must close after click.
+      await page.locator('[data-testid="filter-empty"]').waitFor({ state: 'hidden', timeout: 1500 });
+
+      // Second click: reopen popover, click the same row again.
+      await clickFilter(page, testId);
+      await page.locator('[data-testid="filter-empty"]').waitFor({ state: 'hidden', timeout: 1500 });
+
+      const snap = await readSnapshot(page);
+      expect(snap?.metrics, 'metrics block must exist').not.toBeNull();
+      expect(snap?.metrics?.unknownReasons ?? {}, 'no unknownReasons').toEqual({});
+
+      // Two emissions must be visible in the trace, regardless of whether
+      // the subset was non-empty enough to trigger requestSubsetFit.
+      const dispatched = (snap?.trace ?? []).filter((e) =>
+        e.label === 'applyRow: emitMyCatalogPopoverApplied dispatched',
+      );
+      expect(dispatched.length, 'two dispatches in trace').toBeGreaterThanOrEqual(2);
+
+      // If the subset was non-empty, totalRequests must equal 2 with the
+      // canonical reason. If the subset was empty, totalRequests stays 0
+      // but the contract (events + popover close) is still satisfied.
+      const total = snap?.metrics?.totalRequests ?? 0;
+      if (total > 0) {
+        expect(total).toBe(2);
+        expect(snap?.metrics?.byReason[reason]).toBe(2);
+      }
+    });
+  }
+
+
   test('Cooldown bypass — `always` mode never increments cooldownSkipped', async ({ page }) => {
     await startCapture(page, 'cooldown');
     await clickFilter(page, 'filter-enriched');
