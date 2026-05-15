@@ -230,7 +230,7 @@ export function LocationMap() {
       const popupElement = popup.getElement();
       if (!popupElement) return;
 
-      // Insets canónicos (mismas vars que dialogs/sheets): top header + barra inferior.
+      // Insets canónicos (mismas vars que dialogs/sheets).
       const rootStyle = getComputedStyle(document.documentElement);
       const readPx = (name: string, fallback = 0) => {
         const raw = rootStyle.getPropertyValue(name).trim();
@@ -241,23 +241,33 @@ export function LocationMap() {
       const bottomInset = readPx('--bottom-overlay-safe-h', 0);
       const gap = readPx('--overlay-progress-gap', 12);
 
+      // Sidebar izquierdo (UsersSidebar u otros). Se descuenta del ancho útil.
+      const leftPanel = document.querySelector<HTMLElement>('[data-left-sidebar="true"]');
+      const leftPanelWidth = leftPanel ? leftPanel.getBoundingClientRect().width : 0;
+
       const popupRect = popupElement.getBoundingClientRect();
       const containerRect = map.getContainer().getBoundingClientRect();
-      const markerPoint = map.latLngToContainerPoint(marker.getLatLng());
-      const visibleWidth = Math.max(containerRect.width - rightPanelWidth, 240);
-      const visibleTop = topInset + gap;
-      const visibleBottom = containerRect.height - bottomInset - gap;
-      const visibleCenterY = (visibleTop + visibleBottom) / 2;
-      const idealMarkerX = visibleWidth / 2;
-      // Marker debe quedar bajo el popup: centro popup en banda visible + media altura popup.
-      const idealMarkerY = visibleCenterY + (popupRect.height / 2);
-      const offsetX = markerPoint.x - idealMarkerX;
-      const offsetY = markerPoint.y - idealMarkerY;
 
-      if (Math.abs(offsetX) > 20 || Math.abs(offsetY) > 30) {
+      // Centro visible del mapa (descontando barras y paneles).
+      const visibleLeft = containerRect.left + leftPanelWidth;
+      const visibleRight = containerRect.right - rightPanelWidth;
+      const visibleTop = containerRect.top + topInset + gap;
+      const visibleBottom = containerRect.bottom - bottomInset - gap;
+      const visibleCenterX = (visibleLeft + visibleRight) / 2;
+      const visibleCenterY = (visibleTop + visibleBottom) / 2;
+
+      // Centro actual del popup en pantalla.
+      const popupCenterX = popupRect.left + popupRect.width / 2;
+      const popupCenterY = popupRect.top + popupRect.height / 2;
+
+      // Pan que mueve el popup hacia el centro visible.
+      const offsetX = popupCenterX - visibleCenterX;
+      const offsetY = popupCenterY - visibleCenterY;
+
+      if (Math.abs(offsetX) > 12 || Math.abs(offsetY) > 12) {
         map.panBy([offsetX, offsetY], { animate: true, duration: 0.35 });
       }
-    }, 100);
+    }, 120);
   }, []);
 
 
