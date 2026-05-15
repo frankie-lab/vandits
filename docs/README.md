@@ -84,6 +84,8 @@ Cada contrato tiene una sección **Invariantes** (normativas, no descriptivas) y
 - [source-of-truth](audits/source-of-truth-audit.md)
 - [global-guards](audits/global-guards-audit.md)
 - [ui-domain-coupling](audits/ui-domain-coupling-audit.md)
+- [hardcoded-behaviors](audits/hardcoded-behaviors-audit.md)
+- [uniformity](audits/uniformity-audit.md)
 
 Cada finding numerado en estos audits está mapeado a un `BL-xxx` en el [backlog](audits/backlog.md).
 
