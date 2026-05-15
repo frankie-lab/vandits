@@ -75,11 +75,19 @@ export function useMyCatalogPopoverFit(currentUserId: string | null | undefined)
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<MyCatalogPopoverAppliedDetail>).detail;
+      if (isCameraFitDebugEnabled()) {
+        // eslint-disable-next-line no-console
+        console.debug('[F1-trace] popover-fit handler RECEIVED event', { detail });
+      }
       if (!detail) return;
 
       const opId = buildMyCatalogPopoverOpId(detail);
       const uid = userIdRef.current;
       if (!uid) {
+        if (isCameraFitDebugEnabled()) {
+          // eslint-disable-next-line no-console
+          console.warn('[F1-trace] popover-fit ABORT: no uid (currentUserId=null)');
+        }
         finishOperation(opId, { resultLabel: 'Filtro aplicado' });
         return;
       }
@@ -105,7 +113,23 @@ export function useMyCatalogPopoverFit(currentUserId: string | null | undefined)
         }
       }
 
+      if (isCameraFitDebugEnabled()) {
+        // eslint-disable-next-line no-console
+        console.debug('[F1-trace] popover-fit subset computed', {
+          uid,
+          allCount: all.length,
+          mineCount: mine.length,
+          subsetCount: subset.length,
+          axis: detail.axis,
+          value: detail.value,
+        });
+      }
+
       if (subset.length === 0) {
+        if (isCameraFitDebugEnabled()) {
+          // eslint-disable-next-line no-console
+          console.warn('[F1-trace] popover-fit ABORT: subset.length === 0 (emitiendo MY_CATALOG_POPOVER_EMPTY_EVENT)');
+        }
         window.dispatchEvent(
           new CustomEvent<MyCatalogPopoverEmptyDetail>(MY_CATALOG_POPOVER_EMPTY_EVENT, {
             detail: { axis: detail.axis, value: detail.value },
@@ -134,6 +158,34 @@ export function useMyCatalogPopoverFit(currentUserId: string | null | undefined)
         }
       }
 
+      if (isCameraFitDebugEnabled()) {
+        // eslint-disable-next-line no-console
+        console.debug('[F1-trace] popover-fit coords resolved', {
+          subsetCount: subset.length,
+          idsCount: ids.length,
+          coordsCount: coords.length,
+          droppedNoCoords: subset.length - ids.length,
+        });
+      }
+
+      if (ids.length === 0) {
+        if (isCameraFitDebugEnabled()) {
+          // eslint-disable-next-line no-console
+          console.warn('[F1-trace] popover-fit ABORT: ids.length === 0 después de filtrar coords inválidas');
+        }
+        finishOperation(opId, { resultLabel: 'Filtro aplicado' });
+        return;
+      }
+
+      if (isCameraFitDebugEnabled()) {
+        // eslint-disable-next-line no-console
+        console.debug('[F1-trace] popover-fit -> requestSubsetFit', {
+          reason,
+          mode: 'always',
+          idsCount: ids.length,
+          coordsCount: coords.length,
+        });
+      }
       requestSubsetFit(ids, { mode: 'always', reason, coords });
       // No hay confirmación real del fit en Fase 1: cerramos como
       // "Filtro aplicado" (operación lanzada / fit solicitado).
@@ -141,6 +193,10 @@ export function useMyCatalogPopoverFit(currentUserId: string | null | undefined)
     };
 
     window.addEventListener(MY_CATALOG_POPOVER_APPLIED_EVENT, handler);
+    if (isCameraFitDebugEnabled()) {
+      // eslint-disable-next-line no-console
+      console.debug('[F1-trace] popover-fit handler MOUNTED — listening on', MY_CATALOG_POPOVER_APPLIED_EVENT);
+    }
     return () => window.removeEventListener(MY_CATALOG_POPOVER_APPLIED_EVENT, handler);
   }, []);
 }
