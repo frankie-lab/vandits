@@ -1,0 +1,27 @@
+flowchart TD
+    subgraph Store [locations-store]
+      Focused[focusedLocationId: string | null]
+      Selected["selectedLocations: Set&lt;string&gt;"]
+    end
+
+    ClickMarker[Click marker] --> SetFocus["setFocusedLocationId(id)"]
+    SetFocus --> Focused
+    Focused --> Rerender[Re-render LocationMap]
+    Rerender --> Grammar[resolveMarkerGrammar +<br/>renderMode=rich + size up]
+
+    ToggleCheck[Click checkbox / shift] --> Toggle["toggleSelection(id)"]
+    SelectAll[Acción Seleccionar todo] --> SelAll[selectAll]
+    Toggle --> Selected
+    SelAll --> Selected
+
+    Selected --> Debounce["use-selection-fit-on-start<br/>(debounce 250ms)"]
+    Debounce -->|0 → N| Fit["requestSubsetFit(ids,<br/>{mode: 'if-outside',<br/>reason: 'selection-start'})"]
+
+    PopupClose[map.on popupclose] --> CheckFocus{closedId === focusedLocationId?}
+    CheckFocus -->|sí| ClearFocus["setFocusedLocationId(null)"]
+    CheckFocus -->|no| Keep[mantener]
+
+    ChangeView[viewMode / documentId cambia] --> Reset["clearSelection() +<br/>focusedLocationId=null"]
+
+    classDef ortho stroke-dasharray: 5 5
+    Note["focused y selected son ORTOGONALES"]:::ortho

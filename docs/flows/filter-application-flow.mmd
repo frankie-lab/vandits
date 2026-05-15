@@ -1,0 +1,36 @@
+flowchart TD
+    UserAction[Acción usuario] --> Origin{Origen}
+
+    Origin -->|FilterBar Geo/Tipo/Tags| SetFiltersPas["setFilters(patch)"]
+    Origin -->|FilterBar Health Discovery| SetFiltersH["setFilters({healthFilter})"]
+    Origin -->|Popover Mis POI| EnsureMine["setOwnershipFilter('mine')"]
+    Origin -->|UsersSidebar| SetUserFilter["setFilters({filterByUserId})"]
+    Origin -->|SourceFilterBridge| SetSrc["setFilters({filterBySource})"]
+
+    EnsureMine --> SetFiltersM["setFilters({visualState | healthFilter})"]
+
+    SetFiltersPas --> Store[(locations-store.filters)]
+    SetFiltersH --> Store
+    SetFiltersM --> Store
+    SetUserFilter --> Store
+    SetSrc --> Store
+
+    Store --> Matcher[matchesLocationFilters]
+    Matcher --> Filtered[filteredLocations]
+    Filtered --> Visibility[applyLayerVisibility +<br/>viewport culling]
+    Visibility --> Markers[markerLocations →<br/>render]
+
+    SetFiltersH --> HealthHook[use-health-filter-fit] --> FitHealth["requestSubsetFit<br/>mode: if-outside<br/>reason: health-filter"]
+    SetFiltersM --> PopoverEvent["dispatchEvent<br/>my-catalog-popover-applied"] --> PopoverHook[use-my-catalog-popover-fit] --> FitPopover["requestSubsetFit<br/>mode: always<br/>reason: my-catalog-popover:*<br/>coords pre-resueltas"]
+    SetUserFilter --> FitUser["requestSubsetFit<br/>mode: always<br/>reason: user-filter"]
+    SetSrc --> FitSrc["requestSubsetFit<br/>mode: if-outside<br/>reason: source-filter"]
+
+    SetFiltersPas -. NO mueve cámara .-> NoCam[no fit]
+
+    FitHealth --> SubsetFit[Subset Fit Listener]
+    FitPopover --> SubsetFit
+    FitUser --> SubsetFit
+    FitSrc --> SubsetFit
+
+    classDef passive stroke-dasharray: 5 5
+    NoCam:::passive

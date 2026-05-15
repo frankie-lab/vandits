@@ -1,0 +1,79 @@
+# Vandits — Documentación arquitectónica viva
+
+Esta carpeta congela contratos, ownerships y decisiones reales del sistema.
+No es documentación generativa de componentes: es la fuente normativa.
+
+## Cómo leer esta documentación
+
+Cada documento distingue cuatro niveles:
+
+| Nivel | Significado |
+|---|---|
+| **Contrato canónico** | Lo que el sistema DEBE hacer. Inmutable salvo ADR. |
+| **Implementación actual** | Lo que el código hace hoy. Puede coincidir o no con el contrato. |
+| **Workaround temporal** | Solución conocida-imperfecta, marcada para sustitución. |
+| **Deuda técnica** | Divergencia conocida sin plan de resolución todavía. |
+| **Legacy** | Comportamiento heredado mantenido por compatibilidad. |
+
+Si un código viola un contrato y no hay ADR que lo justifique, **el código está mal**, no el contrato.
+
+## Estructura
+
+```text
+docs/
+  contracts/   normas inmutables por subsistema
+  adr/         decisiones arquitectónicas cronológicas
+  flows/       diagramas Mermaid de flujos canónicos
+  glossary/    vocabulario congelado
+  specs/       specs consolidadas (visibilidad, markers, audit global)
+  audits/      hallazgos detectados sobre el código real
+```
+
+## Contratos
+
+| Contrato | Subsistema | Source of truth |
+|---|---|---|
+| [popup-contract](contracts/popup-contract.md) | Popups Leaflet | `LocationMap.openPopupLocationId` (local) + `map.on('popupclose')` |
+| [focus-selection-contract](contracts/focus-selection-contract.md) | Focus / selección múltiple | `locations-store.focusedLocationId` + `selectedLocations: Set<string>` |
+| [filter-axis-contract](contracts/filter-axis-contract.md) | Ejes de filtro | `locations-store.filters` |
+| [subset-fit-contract](contracts/subset-fit-contract.md) | Encuadre de subconjuntos | evento `subset-fit-bounds-request` + listener único en `LocationMap` |
+| [marker-grammar-contract](contracts/marker-grammar-contract.md) | Forma/color/anillos de POI | `resolveMarkerGrammar` → `createCustomIcon` |
+| [visibility-contract](contracts/visibility-contract.md) | Visibilidad por capa | `applyLayerVisibility` + `resolveLayerGroupKey` |
+| [heavy-operations-contract](contracts/heavy-operations-contract.md) | Feedback de operaciones | `useHeavyOpsStore` |
+
+## ADRs
+
+1. [Centralización de popupclose](adr/0001-popupclose-centralization.md)
+2. [Separación visibilidad vs gramática](adr/0002-visibility-vs-grammar-separation.md)
+3. [visualState reactivado como eje operativo](adr/0003-visualstate-as-operational-axis.md)
+4. [Popover "Mis POI"](adr/0004-my-poi-popover.md)
+5. [subset-fit explícito mode='always'](adr/0005-subset-fit-explicit-always.md)
+6. [HeavyOperationStore](adr/0006-heavy-operations-store.md)
+7. [Separación FilterBar vs popover](adr/0007-filterbar-vs-popover-separation.md)
+
+## Flujos
+
+- [popup-open-close-flow](flows/popup-open-close-flow.mmd)
+- [focus-selection-flow](flows/focus-selection-flow.mmd)
+- [subset-fit-flow](flows/subset-fit-flow.mmd)
+- [heavy-operations-flow](flows/heavy-operations-flow.mmd)
+- [filter-application-flow](flows/filter-application-flow.mmd)
+
+## Glosario y specs
+
+- [Glosario del sistema](glossary/system-glossary.md)
+- [Visibility spec](specs/visibility-spec.md)
+- [Marker system reference](specs/marker-system-reference.md)
+- [Architecture audit](specs/architecture-audit.md)
+
+## Auditorías activas
+
+- [stale-closures](audits/stale-closures-audit.md)
+- [duplicate-listeners](audits/duplicate-listeners-audit.md)
+- [source-of-truth](audits/source-of-truth-audit.md)
+- [global-guards](audits/global-guards-audit.md)
+- [ui-domain-coupling](audits/ui-domain-coupling-audit.md)
+
+## Mapa de dependencias entre contratos
+
+Ver [`dependency-map.md`](dependency-map.md).

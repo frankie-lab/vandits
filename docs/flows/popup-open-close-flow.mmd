@@ -1,0 +1,18 @@
+flowchart TD
+    Click[Click en marker] --> OpenCall["marker.openPopup()"]
+    OpenCall --> SetOpen["setOpenPopupLocationId(id)<br/>(local LocationMap)"]
+    SetOpen --> KeepIds["keepIds = focused ∪ openPopup<br/>(deriva)"]
+    KeepIds --> Reconcile[Reconciliación de markers]
+    Reconcile -->|id ∈ keepIds| Preserve[Marker preservado]
+    Reconcile -->|id ∉ keepIds| Remove[Marker eliminado]
+
+    UserClose[Usuario cierra popup] --> LeafletEvt["Leaflet emite popupclose"]
+    LeafletEvt --> SingleHandler["map.on('popupclose')<br/>handler ÚNICO"]
+    SingleHandler --> ReadStore["lee useLocationsStore.getState()<br/>(no closure)"]
+    ReadStore --> ClearOpen["setOpenPopupLocationId(prev =><br/>prev===closedId ? null : prev)"]
+    ClearOpen --> MaybeUnfocus{"focusedLocationId === closedId ?"}
+    MaybeUnfocus -->|sí| Unfocus["setFocusedLocationId(null)"]
+    MaybeUnfocus -->|no| Noop[no-op]
+
+    classDef forbidden fill:#ff6b6b,color:#fff
+    Forbidden["FORBIDDEN:<br/>marker.on('popupclose')<br/>per-marker handler"]:::forbidden

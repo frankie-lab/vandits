@@ -1,0 +1,31 @@
+flowchart LR
+    Caller[Caller: popover Mis POI, etc.] --> Start["startOperation({operationId,<br/>label, source, blockReentry,<br/>safetyTimeoutMs})"]
+    Start --> Check{blockReentry y op viva?}
+    Check -->|sí| ReturnFalse[return false → caller aborta]
+    Check -->|no| Pending[op = pending]
+
+    Pending --> Watchdog["setTimeout safetyTimeoutMs<br/>(filter/subset-fit: 10s,<br/>render: 15s)"]
+
+    Pending --> Run{markRunning ?}
+    Run -->|sí| Running[op = running]
+    Pending --> Progress{setProgress ?}
+    Progress -->|sí| RunningP["op = running<br/>indeterminate=false<br/>progress + etaMs"]
+
+    Running --> End{finishOperation o failOperation}
+    RunningP --> End
+    Pending --> End
+
+    End -->|finish| Done[op = done]
+    End -->|fail| Error[op = error]
+
+    Watchdog -->|expira si pending/running| ForceFail[failOperation con safetyMessage]
+    ForceFail --> Error
+
+    Done --> Purge1[setTimeout 1500ms → delete op]
+    Error --> Purge2[setTimeout 4000ms → delete op]
+
+    UI[useActiveHeavyOperations] -.->|select ops| Store[(useHeavyOpsStore)]
+    Pending -.-> Store
+    Running -.-> Store
+    Done -.-> Store
+    Error -.-> Store
