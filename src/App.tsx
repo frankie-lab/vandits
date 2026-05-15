@@ -16,6 +16,7 @@ import { GlobalLoadingBar } from "@/shared/loading";
 import { DesignSystemThemeProvider } from "@/design-system/runtime/theme-provider";
 import { EditModeBar } from "@/components/admin/design-system/EditModeBar";
 import { SourceFilterBridge } from "@/components/poi/SourceFilterBridge";
+import { CameraFitQaPanel } from "@/components/debug/CameraFitQaPanel";
 
 
 const queryClient = new QueryClient();
