@@ -1036,7 +1036,7 @@ Añadir a mi colección
 </button>
 ` : ''}
 
-${!isCuratorPoint ? `
+${(!isCuratorPoint && !isNearbyPopupContext(location.id)) ? `
 <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 10px; padding: 8px; background: #f9fafb; border-radius: 8px;">
 <div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
 ${isVisited && visitRelevance ? `
