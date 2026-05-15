@@ -650,6 +650,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
           </Button>
         </div>
       )}
+      {inlineNearby}
     </div>
   );
 }
