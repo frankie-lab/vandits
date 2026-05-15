@@ -30,13 +30,16 @@ import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { getMyCatalogQuickCounts } from '@/domains/content/lib/my-catalog-quick-counts';
 import {
   emitMyCatalogPopoverApplied,
-  buildUniqueMyCatalogPopoverOpId,
   MY_CATALOG_POPOVER_EMPTY_EVENT,
   type MyCatalogPopoverAppliedDetail,
   type MyCatalogPopoverEmptyDetail,
 } from '@/components/toolbar/use-my-catalog-popover-fit';
 import { traceCameraFit } from '@/components/debug/camera-fit-trace';
 import { startOperation } from '@/shared/operations/heavy-operations-store';
+import {
+  runSelectable,
+  resolveSelectableState,
+} from '@/shared/interaction/selectable-kernel';
 import type { VisualStateFilter, HealthFilter, OwnershipFilter } from '@/types/location';
 
 interface RowProps {
@@ -50,12 +53,21 @@ interface RowProps {
 }
 
 function Row({ label, count, dotClass, active, empty, onClick, testId }: RowProps) {
+  // Selectable contract: count===0 && !active ⇒ truly disabled (no false
+  // affordance). Active rows stay interactive even when count==0 because
+  // the user must be able to clear / replay the empty state.
+  const state = resolveSelectableState({ active, count });
+  const disabled = state === 'disabled';
   return (
     <button
       type="button"
       data-testid={testId}
       data-active={active ? 'true' : 'false'}
+      data-state={state}
+      aria-disabled={disabled || undefined}
+      disabled={disabled}
       onClick={(e) => {
+        if (disabled) return;
         // Contract: never silent noop. Always invoke the handler. The
         // handler decides whether to recenter or activate, but it ALWAYS
         // emits an observable interaction.
@@ -71,7 +83,9 @@ function Row({ label, count, dotClass, active, empty, onClick, testId }: RowProp
           ? empty
             ? 'bg-red-500/10 text-foreground ring-1 ring-red-500/40'
             : 'bg-emerald-500/10 text-foreground ring-1 ring-emerald-500/40'
-          : 'hover:bg-muted text-foreground/90'
+          : disabled
+            ? 'opacity-50 cursor-not-allowed text-foreground/60'
+            : 'hover:bg-muted text-foreground/90'
       }`}
     >
       <span className="flex items-center gap-2 min-w-0">
@@ -165,13 +179,8 @@ export function MyCatalogQuickFiltersButton({
 
       traceCameraFit('MyCatalogQuickFilters.applyRow', detailBase);
 
-      // 1. Close popover unconditionally so the click is always observable
-      //    even if downstream listeners skip side-effects (e.g. empty subset).
-      setOpen(false);
-
-      // 2. Decide if this is a pure recenter (selection unchanged).
       const cur = useLocationsStore.getState().filters;
-      const isAlreadyActive =
+      const wasActive =
         (action.axis === 'all' && !cur.visualState && !cur.healthFilter) ||
         (action.axis === 'visual' &&
           cur.visualState === action.value &&
@@ -180,45 +189,60 @@ export function MyCatalogQuickFiltersButton({
           cur.healthFilter === action.value &&
           !cur.visualState);
 
-      // 3. Unique opId per emission. blockReentry=false on purpose: the
-      //    selector contract guarantees every click is observable. If the
-      //    user double-clicks, both clicks fire and both are visible.
-      const opId = buildUniqueMyCatalogPopoverOpId(detailBase);
-      startOperation({
-        operationId: opId,
-        label: 'Filtrando…',
-        source: 'filter',
-        indeterminate: true,
-        blockReentry: false,
-        safetyTimeoutMs: 10000,
-        safetyMessage: 'Tiempo agotado aplicando filtro',
-      });
+      const sourcePrefix =
+        action.axis === 'all'
+          ? 'my-catalog-popover:all'
+          : `my-catalog-popover:${action.axis}:${String(action.value)}`;
 
-      ensureMine();
-
-      // 4. Mutate filter store ONLY when the selection actually changes.
-      if (!isAlreadyActive) {
-        const next = { ...useLocationsStore.getState().filters };
-        if (action.axis === 'all') {
-          next.visualState = undefined;
-          next.healthFilter = undefined;
-        } else if (action.axis === 'visual') {
-          next.visualState = action.value;
-          next.healthFilter = undefined;
-        } else {
-          next.visualState = undefined;
-          next.healthFilter = action.value;
-        }
-        setFilters(next);
-      }
-
-      // 5. Emit the event carrying our opId so the listener closes the
-      //    correct operation (avoids id mismatch on parallel clicks).
-      emitMyCatalogPopoverApplied({ ...detailBase, opId });
-      traceCameraFit('applyRow: emitMyCatalogPopoverApplied dispatched', {
-        ...detailBase,
-        opId,
-        recenter: isAlreadyActive,
+      // Selectable + Replayable kernel. `onAlways` runs the universal
+      // contract (close + emit + heavy-op start). `onChange` only mutates
+      // the filter store. `onReplay` is a no-op marker: the recenter is
+      // produced downstream by the popover-fit listener consuming the
+      // re-emitted event with a fresh opId.
+      runSelectable({
+        source: sourcePrefix,
+        wasActive,
+        onAlways: ({ opId }) => {
+          // 1. Close popover unconditionally so the click is always observable
+          //    even if downstream listeners skip side-effects (e.g. empty subset).
+          setOpen(false);
+          // 2. Heavy-op tied to THIS click's opId. blockReentry=false so a
+          //    legitimate re-click is never converted into silent noop.
+          startOperation({
+            operationId: opId,
+            label: 'Filtrando…',
+            source: 'filter',
+            indeterminate: true,
+            blockReentry: false,
+            safetyTimeoutMs: 10000,
+            safetyMessage: 'Tiempo agotado aplicando filtro',
+          });
+          ensureMine();
+          // 3. Emit the event carrying THIS opId so the listener closes the
+          //    correct operation (avoids id mismatch on parallel clicks).
+          emitMyCatalogPopoverApplied({ ...detailBase, opId });
+          traceCameraFit('applyRow: emitMyCatalogPopoverApplied dispatched', {
+            ...detailBase,
+            opId,
+            recenter: wasActive,
+          });
+        },
+        onChange: () => {
+          const next = { ...useLocationsStore.getState().filters };
+          if (action.axis === 'all') {
+            next.visualState = undefined;
+            next.healthFilter = undefined;
+          } else if (action.axis === 'visual') {
+            next.visualState = action.value;
+            next.healthFilter = undefined;
+          } else {
+            next.visualState = undefined;
+            next.healthFilter = action.value;
+          }
+          setFilters(next);
+        },
+        // onReplay omitted on purpose: recenter happens server-side via the
+        // popover-fit listener consuming the re-emitted event.
       });
     },
     [ensureMine, setFilters],

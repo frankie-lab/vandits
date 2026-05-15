@@ -34,6 +34,7 @@ import { usePermissions } from '@/domains/identity';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { toast } from 'sonner';
 import { formatDistanceToNowStrict } from 'date-fns';
+import { runSelectable } from '@/shared/interaction/selectable-kernel';
 
 /** "18m" / "2h" / "3d" / "5mo" / "1y". Avoids verbose "hace 18 minutos". */
 function formatActivityShort(iso: string): string {
@@ -351,37 +352,38 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  };
 
   const handleFilterByUser = (user: UserWithStats) => {
-    if (user.id === currentUser?.id || user.followStatus === 'accepted') {
-      setFilters({
-        ...filters,
-        filterByUserId: user.id,
-        filterByUserName: user.display_name || user.username,
-        ownershipFilter: undefined,
-      });
-      onClose();
+    if (user.id !== currentUser?.id && user.followStatus !== 'accepted') {
+      toast.error('Solo puedes ver puntos de usuarios que sigues');
+      return;
+    }
 
-      // Subset-fit canónico: el filtro por usuario es una acción explícita de
-      // foco. Calculamos los ids + coords de forma DETERMINISTA leyendo el
-      // universo completo (`getAllLocations`) y filtrando por owner +
-      // shareable boundary (mismo criterio que el matcher). Pasamos las
-      // coords pre-resueltas en el detail para que el listener del mapa NO
-      // dependa de markers montados ni de que `locationsRef` se haya
-      // re-hidratado tras el cambio de filtro. Ver
-      // mem://logic/map/subset-fit-contract y mem://logic/sharing/curated-only-rule.
+    const wasActive = filters.filterByUserId === user.id;
+
+    // Subset-fit canónico: el filtro por usuario es una acción explícita de
+    // foco. Calculamos los ids + coords de forma DETERMINISTA leyendo el
+    // universo completo (`getAllLocations`) y filtrando por owner +
+    // shareable boundary (mismo criterio que el matcher). Pasamos las
+    // coords pre-resueltas en el detail para que el listener del mapa NO
+    // dependa de markers montados ni de que `locationsRef` se haya
+    // re-hidratado tras el cambio de filtro. Ver
+    // mem://logic/map/subset-fit-contract y mem://logic/sharing/curated-only-rule.
+    const computeSubset = () => {
       const allLocs = useLocationsStore.getState().getVisibleUniverseLocations();
       const myUid = currentUser?.id;
       const subset = allLocs.filter(l => {
         const ownerId = getLocationOwnerUserId(l as { ownerUserId?: string | null; _docUserId?: string | null });
         if (ownerId !== user.id) return false;
-        // Coords válidas (sin esto el fit ignora el POI igualmente).
         if (l.coordinates?.lat == null || l.coordinates?.lng == null) return false;
-        // Mismo gating que getFilteredLocations: own siempre pasa, ajenos
-        // requieren shareable.
         const isOwn = myUid != null && ownerId === myUid;
         return isOwn || isShareablePoi(l);
       });
       const ids = subset.map(l => l.id);
       const coords = subset.map(l => [l.coordinates!.lat, l.coordinates!.lng] as [number, number]);
+      return { ids, coords };
+    };
+
+    const emitFit = () => {
+      const { ids, coords } = computeSubset();
       if (ids.length > 0) {
         // Sin minZoom floor: queremos ver TODOS los puntos del owner aunque
         // el bounds requiera z<7. El bypass de zoom-gate en
@@ -391,23 +393,47 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
       } else {
         toast.info(`Sin puntos visibles para ${user.display_name || user.username}`);
       }
+    };
 
-      toast.success(`Mostrando puntos de ${user.display_name || user.username}`, {
-        icon: <Filter className="w-4 h-4" />,
-        action: {
-          label: 'Quitar filtro',
-          onClick: () => {
-            setFilters({
-              ...filters,
-              filterByUserId: undefined,
-              filterByUserName: undefined,
-            });
+    runSelectable({
+      source: `users-sidebar:row:${user.id}`,
+      wasActive,
+      onAlways: () => {
+        // Always close the sidebar so the click feedback is consistent
+        // (sidebar is not an OverlaySurface yet, but the close-on-action
+        // semantics are part of the Selectable contract).
+        onClose();
+      },
+      onChange: () => {
+        setFilters({
+          ...filters,
+          filterByUserId: user.id,
+          filterByUserName: user.display_name || user.username,
+          ownershipFilter: undefined,
+        });
+        emitFit();
+        toast.success(`Mostrando puntos de ${user.display_name || user.username}`, {
+          icon: <Filter className="w-4 h-4" />,
+          action: {
+            label: 'Quitar filtro',
+            onClick: () => {
+              setFilters({
+                ...filters,
+                filterByUserId: undefined,
+                filterByUserName: undefined,
+              });
+            }
           }
-        }
-      });
-    } else {
-      toast.error('Solo puedes ver puntos de usuarios que sigues');
-    }
+        });
+      },
+      onReplay: () => {
+        // Re-click on the already-active user row = explicit recenter
+        // intent. Re-emit the subset-fit with a fresh request; the camera
+        // listener owns cooldown/clamp. Closes the documented silent-noop
+        // gap on this surface.
+        emitFit();
+      },
+    });
   };
 
  const currentUserData = React.useMemo(() => 
