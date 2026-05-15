@@ -1,42 +1,41 @@
-## Problema
+## Objetivo
 
-El popup "Sin localización clara" se desborda del viewport cuando se abre "Contexto cercano" inline.
-
-El contrato canónico (`mem://ui/map/popup-dimensions-and-scrolling`) dice:
-- El popup-root tiene `max-height: calc(100vh - top-header - bottom-overlay - …)`.
-- El cuerpo desplazable (`.popup-scroll-body` en `map-popups.ts:657`) gestiona **el único scroll** del popup.
-- Sin scrollbars anidadas dentro.
-
-Pero `PointContextActions.tsx` (variant `inline`, montado dentro del popup vía `UnenrichedRecoveryBlock` → `NearbyPanel`) está rompiendo el contrato:
-
-- Línea 696: el root inline impone `max-h-[60vh] overflow-hidden`. Esto trunca/expande el bloque a una altura fija que el popup-root no puede comprimir.
-- Línea 803: hay un `<ScrollArea className="flex-1 min-h-0 overflow-hidden">` dentro que crea un segundo scroll anidado.
-- Línea 937: footer "shrink-0" pegado dentro del ScrollArea, lo que aumenta la altura mínima del bloque.
-
-Resultado: el popup se hace más alto de lo que la fórmula `max-height` permite, porque su hijo inline ya impone una altura mínima/fija ≈ 60vh + header + footer.
+Reducir cada resultado de la lista "Contexto cercano" (popup INLINE del POI) a un bloque compacto de **2 líneas máximo**, eliminando ruido visual y enlaces no funcionales.
 
 ## Cambios
 
-Solo en `src/domains/content/components/PointContextActions.tsx`, **únicamente para `variant === 'inline'`**:
+Archivo único: `src/domains/content/components/PointContextActions.tsx` — componente `NearbyPointCard` (líneas 172–244) y wrapper de cada resultado en la lista (líneas 844–865).
 
-1. **Línea 696** — quitar `max-h-[60vh]` y `overflow-hidden` del root inline:
-   - Antes: `'flex w-full min-w-0 flex-col overflow-hidden overflow-x-hidden border-t border-border/60 bg-background max-h-[60vh]'`
-   - Después: `'flex w-full min-w-0 flex-col overflow-x-hidden border-t border-border/60 bg-background'`
-   - El root pasa a fluir con su contenido natural; el `popup-scroll-body` exterior decide cuánto se ve.
+### Nueva estructura de cada resultado (2 líneas)
 
-2. **Línea 803** — sustituir `<ScrollArea>` por un `<div>` plano cuando la variante es inline:
-   - Inline: `<div className="flex-1 min-w-0">…</div>` (sin scroll propio, sin `min-h-0`, sin `overflow`).
-   - Variante `card` (no inline) conserva el `<ScrollArea>` actual con `flex-1 min-h-0`.
-   - La lista de resultados crece y el scroll del popup la absorbe.
+**Línea 1** (una sola fila, sin wrap):
+- Nombre del punto propuesto (`point.name`), `truncate`, `flex-1`.
+- A la derecha, **botón "Enriquecer aquí"** (icono `Sparkles` + texto, o `Loader2` cuando `adoptingId === p.id`). Sustituye al botón actual que vivía en su propia fila aparte (líneas 852–865 actuales).
 
-3. **Footer** (línea 937) — en variant inline, dejar `shrink-0` pero quitar `border-t bg-background sticky` si lo hubiera. Como ya no está dentro de un scroll anidado, basta con que sea un bloque normal al final del flujo. (En la variante `card` se mantiene el footer pegado.)
+**Línea 2** (texto pequeño, muted, una sola fila truncada):
+- Distancia al POI origen (`{point.distance_m}m`) — **siempre visible**.
+- Coordenadas formateadas (`{lat.toFixed(4)}, {lng.toFixed(4)}`) — **OBLIGATORIO**.
+- Separador `·` entre ambos.
 
-No se tocan: la lógica de "Enriquecer aquí" por fila, los handlers, la query de vecinos, el header, ni el merge mode. Solo se eliminan las constraints de altura/scroll del modo inline.
+### Elementos eliminados de la tarjeta
 
-## Verificación
+- Icono lupa/Search/MapPin/Users a la izquierda (líneas 177–183, 188).
+- Botón cuadrado de la derecha con flecha externa (`ExternalLink` hacia `point.osm_link`, líneas 198–202).
+- Enlace "Ver en Google Maps" inferior (líneas 231–241).
+- Badges secundarias (`source_label`, `place_type`, `country`, `Sparkles` enriched marker, `tags`, `document_name`, `description`) — todo eliminado para mantener 2 líneas.
 
-Tras el cambio:
-- Abrir un POI sin localización clara → click en "Contexto cercano".
-- El popup debe crecer solo hasta `calc(100vh - …)` y mostrar **una única** scrollbar (la del `popup-scroll-body`).
-- Hacer scroll dentro del popup debe revelar todos los resultados de proximidad y el footer "Elige el punto correcto en la lista" sin que el popup salga del viewport.
-- La variante `card` (usada en `GalleryView` y `DocumentWaypointsTabs`) debe seguir igual, con su propio `ScrollArea` y footer pegado.
+### Limpieza derivada
+
+- La fila independiente actual con el botón "Enriquecer aquí" debajo de cada `NearbyPointCard` (líneas 852–865) se elimina, porque el botón pasa a la línea 1 de la tarjeta. Se sigue propagando `adoptingId`, `handleAdoptNearby` y `e.stopPropagation()` igual que ahora.
+- El bloque expandido al seleccionar (`selectedPointId === p.id`, líneas 866–925) con "Reemplazar importado / Punto personal" se conserva tal cual — sigue apareciendo bajo la tarjeta al hacer click.
+- En modo `mergeMode` (líneas 818–832) no se toca: ya es compacto.
+
+### Sin cambios
+
+- Lógica de búsqueda, ordenación, agrupación por categoría, slider de radio, header, current-point card, mismatch banner, footer.
+- `LocationMap.tsx`, `map-popups.ts`, `popup-recovery-mount.ts`, dimensiones/scroll del popup.
+- Variante `card` (sidebar): se reutiliza el mismo `NearbyPointCard`, así que también queda compacta de forma transversal (consistente con la regla "cambios transversales").
+
+## Resultado esperado
+
+Cada resultado ocupa ~2 líneas (≈ 44–52px) en lugar de los ~150px actuales, con la acción de enriquecer al alcance directo y la distancia + coordenadas siempre visibles.
