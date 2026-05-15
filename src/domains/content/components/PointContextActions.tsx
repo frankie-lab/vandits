@@ -655,7 +655,7 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
   return (
     <div className={rootClass}>
       {/* Header */}
-      <div className=`space-y-1 overflow-x-hidden border-b bg-muted/30 ${padX} py-2`>
+      <div className={`space-y-1 overflow-x-hidden border-b bg-muted/30 ${padX} py-2`}>
         <div className="flex min-w-0 items-center gap-2">
           <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => { clearMapMarkers(); onClose(); }}>
             <ChevronLeft className="w-4 h-4" />
@@ -697,7 +697,7 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
       </div>
 
       {/* Current point card */}
-      <div className=`min-w-0 shrink-0 ${padX} pt-3`>
+      <div className={`min-w-0 shrink-0 ${padX} pt-3`}>
         <div className="w-full min-w-0 overflow-hidden rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1">
           <div className="flex min-w-0 items-center gap-2">
             <Navigation className="w-3.5 h-3.5 text-primary" />
@@ -717,7 +717,7 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
 
       {/* Mismatch banner: name doesn't match these coordinates */}
       {mismatch?.nameLocation && (
-        <div className=`shrink-0 ${padX} pt-3`>
+        <div className={`shrink-0 ${padX} pt-3`}>
           <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 space-y-2">
             <div className="flex items-start gap-2">
               <Crosshair className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
@@ -756,7 +756,7 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
 
       {/* Results */}
       <ScrollArea className="flex-1 min-h-0 overflow-hidden">
-        <div className=`min-w-0 overflow-x-hidden ${padX} pb-8 pt-3`>
+        <div className={`min-w-0 overflow-x-hidden ${padX} pb-8 pt-3`}>
         {loadingNearby ? (
           <div className="flex items-center justify-center py-8 gap-2">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -875,7 +875,7 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
 
       {/* Footer */}
       {!mergeMode && (
-        <div className=`flex min-w-0 shrink-0 items-center justify-between gap-2 overflow-hidden border-t bg-background ${padX} py-2`>
+        <div className={`flex min-w-0 shrink-0 items-center justify-between gap-2 overflow-hidden border-t bg-background ${padX} py-2`}>
           <p className="truncate text-[10px] text-muted-foreground">
             {nearbyPoints.filter(p => hasRealEnrichment(p)).length} de {nearbyPoints.length} enriquecidos
           </p>
