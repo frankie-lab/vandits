@@ -15,7 +15,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ensureCameraFitMetrics,
+  installCameraFitObserver,
   isCameraFitDebugEnabled,
+  isCameraFitObserverInstalled,
   resetCameraFitMetrics,
   type CameraFitMetrics,
 } from '@/components/map/subset-fit';
