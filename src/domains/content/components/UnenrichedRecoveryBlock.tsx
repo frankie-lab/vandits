@@ -92,9 +92,11 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
   // se regenera por el contrato `location:enriched` (LocationMap listener), no
   // por efecto colateral del foco.
   const { parsed, loading } = useEnrichmentFailure(location.id, !isEnriched);
+  const { user } = useAuth();
   if (isEnriched) return null;
 
   const [busy, setBusy] = React.useState(false);
+  const [showNearby, setShowNearby] = React.useState(false);
   const [editingAll, setEditingAll] = React.useState(false);
   const [form, setForm] = React.useState({
     name: location.name ?? '',
