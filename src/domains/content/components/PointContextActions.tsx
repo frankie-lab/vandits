@@ -188,17 +188,17 @@ function NearbyPointCard({
           {point.name}
         </p>
         <Button
-          size="sm"
+          size="icon"
           variant="default"
-          className="h-6 shrink-0 gap-1 rounded-full px-2 text-[10px] font-medium shadow-sm transition-transform group-hover:scale-[1.02]"
+          className={`h-6 w-6 shrink-0 rounded-full p-0 shadow-sm transition-opacity ${enriching ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
           disabled={disabled}
           onClick={onEnrich}
           title="Enriquecer aquí"
+          aria-label="Enriquecer aquí"
         >
           {enriching
-            ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
-            : <Sparkles className="w-2.5 h-2.5" />}
-          Enriquecer
+            ? <Loader2 className="w-3 h-3 animate-spin" />
+            : <Sparkles className="w-3 h-3" />}
         </Button>
       </div>
       {/* Línea 2: distancia + coordenadas (OBLIGATORIO) */}
