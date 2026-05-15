@@ -38,6 +38,28 @@ import { useLocationsStore } from '@/domains/content/store/locations-store';
 import { finishOperation } from '@/shared/operations/heavy-operations-store';
 import type { GeoLocation, VisualStateFilter, HealthFilter } from '@/types/location';
 
+/**
+ * Resolución defensiva de coordenadas. El shape canónico de `GeoLocation`
+ * es `loc.coordinates.{lat,lng}`; los fallbacks cubren shapes legacy o
+ * variantes parciales que puedan colarse en el subset.
+ */
+function getLocationCoords(loc: any): [number, number] | null {
+  const candidates: Array<[unknown, unknown]> = [
+    [loc?.coordinates?.lat, loc?.coordinates?.lng],
+    [loc?.latitude, loc?.longitude],
+    [loc?.lat, loc?.lng],
+  ];
+  for (const [lat, lng] of candidates) {
+    if (
+      typeof lat === 'number' && typeof lng === 'number' &&
+      Number.isFinite(lat) && Number.isFinite(lng)
+    ) {
+      return [lat, lng];
+    }
+  }
+  return null;
+}
+
 export const MY_CATALOG_POPOVER_APPLIED_EVENT = 'lovable:my-catalog-popover-applied';
 export const MY_CATALOG_POPOVER_EMPTY_EVENT = 'lovable:my-catalog-popover-empty';
 
@@ -136,13 +158,15 @@ export function useMyCatalogPopoverFit(currentUserId: string | null | undefined)
       // Coords pre-resueltas desde el subset filtrado: evita que el listener
       // resuelva bounds desde markersRef (viewport culling produciría fit
       // parcial). Solo entran POIs con lat/lng numéricos finitos.
+      // Shape canónico GeoLocation: loc.coordinates.{lat,lng}. Los fallbacks
+      // legacy (loc.latitude/longitude, loc.lat/lng) se mantienen por
+      // defensa, pero el path principal es coordinates.{lat,lng}.
       const coords: Array<[number, number]> = [];
       const ids: string[] = [];
       for (const loc of subset) {
-        const lat = (loc as any).latitude ?? (loc as any).lat;
-        const lng = (loc as any).longitude ?? (loc as any).lng;
-        if (typeof lat === 'number' && typeof lng === 'number' && Number.isFinite(lat) && Number.isFinite(lng)) {
-          coords.push([lat, lng]);
+        const c = getLocationCoords(loc);
+        if (c) {
+          coords.push(c);
           ids.push(loc.id);
         }
       }
