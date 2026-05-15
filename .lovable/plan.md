@@ -1,74 +1,42 @@
-## Objetivo
+## Problema
 
-En el panel "Contexto cercano" (inline dentro del popup del POI sin localización clara), el botón **Enriquecer** debe estar asociado a **cada resultado** de la lista, no a un CTA global al pie. Así el usuario indica explícitamente cuál de los puntos cercanos es el lugar correcto para anclar la identidad y enriquecer.
+El popup "Sin localización clara" se desborda del viewport cuando se abre "Contexto cercano" inline.
 
-## Diagnóstico
+El contrato canónico (`mem://ui/map/popup-dimensions-and-scrolling`) dice:
+- El popup-root tiene `max-height: calc(100vh - top-header - bottom-overlay - …)`.
+- El cuerpo desplazable (`.popup-scroll-body` en `map-popups.ts:657`) gestiona **el único scroll** del popup.
+- Sin scrollbars anidadas dentro.
 
-`src/domains/content/components/PointContextActions.tsx`:
+Pero `PointContextActions.tsx` (variant `inline`, montado dentro del popup vía `UnenrichedRecoveryBlock` → `NearbyPanel`) está rompiendo el contrato:
 
-- Hoy hay un solo CTA global en el footer (línea 882–885): "Enriquecer este punto", que llama a `handleEnrichWithContext` y pasa los 10 primeros vecinos como mero contexto al modelo, **sin** anclar a ninguno en concreto. Eso confunde porque el usuario percibe que "no está asignado a ninguno".
-- Cada item se renderiza vía `<NearbyPointCard point={p} />` dentro de un `<div onClick={handleSelectPoint}>` (líneas 798–805). Al expandir el item ya hay acciones contextuales ("Reemplazar importado", "Punto personal"), pero no hay un "Enriquecer aquí" que adopte ese candidato.
+- Línea 696: el root inline impone `max-h-[60vh] overflow-hidden`. Esto trunca/expande el bloque a una altura fija que el popup-root no puede comprimir.
+- Línea 803: hay un `<ScrollArea className="flex-1 min-h-0 overflow-hidden">` dentro que crea un segundo scroll anidado.
+- Línea 937: footer "shrink-0" pegado dentro del ScrollArea, lo que aumenta la altura mínima del bloque.
 
-`UnenrichedRecoveryBlock.tsx` ya tiene el patrón correcto en `handleAdoptCandidate` (líneas 176–210): UPDATE de `name` + `latitude` + `longitude` en `locations`, sync del store, `triggerEnrichLocation(id, { skipValidation: true })`. Reproducimos esa misma semántica aquí.
+Resultado: el popup se hace más alto de lo que la fórmula `max-height` permite, porque su hijo inline ya impone una altura mínima/fija ≈ 60vh + header + footer.
 
 ## Cambios
 
-### 1. `PointContextActions.tsx` — nuevo handler `handleAdoptNearby`
+Solo en `src/domains/content/components/PointContextActions.tsx`, **únicamente para `variant === 'inline'`**:
 
-Análogo a `handleAdoptCandidate`. Recibe un `NearbyPoint`, hace:
-1. `UPDATE locations SET name = p.name, latitude = p.latitude, longitude = p.longitude WHERE id = location.id`.
-2. `useLocationsStore.getState().updateLocation(location.id, { name, coordinates: { lat, lng }, updatedAt })`.
-3. `triggerEnrichLocation(location.id, { focusAfter: false, skipValidation: true })`.
-4. `enrichmentFailureStore.invalidate(location.id)` en éxito; `toast.error(...)` en error.
-5. Estado local `adoptingId: string | null` para mostrar spinner sólo en la fila pulsada.
+1. **Línea 696** — quitar `max-h-[60vh]` y `overflow-hidden` del root inline:
+   - Antes: `'flex w-full min-w-0 flex-col overflow-hidden overflow-x-hidden border-t border-border/60 bg-background max-h-[60vh]'`
+   - Después: `'flex w-full min-w-0 flex-col overflow-x-hidden border-t border-border/60 bg-background'`
+   - El root pasa a fluir con su contenido natural; el `popup-scroll-body` exterior decide cuánto se ve.
 
-Importar `triggerEnrichLocation` y `enrichmentFailureStore` (ya disponibles en `domains/content`).
+2. **Línea 803** — sustituir `<ScrollArea>` por un `<div>` plano cuando la variante es inline:
+   - Inline: `<div className="flex-1 min-w-0">…</div>` (sin scroll propio, sin `min-h-0`, sin `overflow`).
+   - Variante `card` (no inline) conserva el `<ScrollArea>` actual con `flex-1 min-h-0`.
+   - La lista de resultados crece y el scroll del popup la absorbe.
 
-### 2. Render por fila — botón "Enriquecer aquí"
+3. **Footer** (línea 937) — en variant inline, dejar `shrink-0` pero quitar `border-t bg-background sticky` si lo hubiera. Como ya no está dentro de un scroll anidado, basta con que sea un bloque normal al final del flujo. (En la variante `card` se mantiene el footer pegado.)
 
-Dentro del `<div>` del resultado (líneas 798–866), justo debajo de `<NearbyPointCard />` y **siempre visible** (no requiere expandir/seleccionar la fila), añadir:
+No se tocan: la lógica de "Enriquecer aquí" por fila, los handlers, la query de vecinos, el header, ni el merge mode. Solo se eliminan las constraints de altura/scroll del modo inline.
 
-```tsx
-<div className="flex items-center justify-end px-3 pb-2">
-  <Button
-    size="sm"
-    variant="default"
-    className="h-7 text-[11px] gap-1.5"
-    disabled={adoptingId !== null}
-    onClick={(e) => { e.stopPropagation(); handleAdoptNearby(p); }}
-  >
-    {adoptingId === p.id
-      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-      : <Sparkles className="w-3.5 h-3.5" />}
-    Enriquecer aquí
-  </Button>
-</div>
-```
+## Verificación
 
-Las acciones existentes (Reemplazar / Personal / Guardar) que aparecen al seleccionar la fila se mantienen tal cual.
-
-### 3. Footer — eliminar el CTA ambiguo
-
-Sustituir el bloque de footer (líneas 877–887) por sólo el contador de progreso, sin botón:
-
-```tsx
-{!mergeMode && (
-  <div className={`flex min-w-0 shrink-0 items-center justify-between gap-2 overflow-hidden border-t bg-background ${padX} py-2`}>
-    <p className="truncate text-[10px] text-muted-foreground">
-      {nearbyPoints.filter(p => hasRealEnrichment(p)).length} de {nearbyPoints.length} enriquecidos
-    </p>
-    <p className="truncate text-[10px] text-muted-foreground">
-      Elige el punto correcto en la lista
-    </p>
-  </div>
-)}
-```
-
-Eliminamos `handleEnrichWithContext` y `enriching` si dejan de usarse en otro sitio (verificar con `rg`); si están referenciados por la variante 'sidebar' en otra superficie, mantener pero sin renderizar el botón.
-
-## Fuera de alcance
-
-- No se cambia la consulta de vecinos (`search-nearby-osm`), ni el ranking, ni el agrupado por categoría.
-- No se modifica `UnenrichedRecoveryBlock` ni el flujo de coherence-conflict (allí ya hay "Enriquecer aquí" por candidato).
-- No se persisten preferencias nuevas; el comportamiento es idempotente por POI.
-- `handleReplaceWithPoint` y "Punto personal" siguen disponibles al expandir la fila — son acciones distintas (no enriquecer, sino sustituir o crear personal).
+Tras el cambio:
+- Abrir un POI sin localización clara → click en "Contexto cercano".
+- El popup debe crecer solo hasta `calc(100vh - …)` y mostrar **una única** scrollbar (la del `popup-scroll-body`).
+- Hacer scroll dentro del popup debe revelar todos los resultados de proximidad y el footer "Elige el punto correcto en la lista" sin que el popup salga del viewport.
+- La variante `card` (usada en `GalleryView` y `DocumentWaypointsTabs`) debe seguir igual, con su propio `ScrollArea` y footer pegado.
