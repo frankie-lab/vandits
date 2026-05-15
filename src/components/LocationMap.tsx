@@ -1755,9 +1755,12 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
  centerOpenedPopupInVisibleMap(this, getDocumentFocusPanelWidth());
  });
 
- marker.on('dblclick', () => {
- toggleLocationSelection(location.id);
- });
+  marker.on('dblclick', (e: L.LeafletMouseEvent) => {
+    L.DomEvent.stop(e);
+    const map = mapRef.current;
+    if (!map) return;
+    map.panTo(marker.getLatLng(), { animate: true, duration: 0.4 });
+  });
 
   marker.on('popupclose', () => {
   if (focusedLocationId === location.id) {
