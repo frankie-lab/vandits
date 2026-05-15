@@ -20,10 +20,6 @@
  */
 
 import { isCameraFitDebugEnabled } from '@/components/map/subset-fit';
-// Side-effect: install window.__resetCameraQa / __startCameraCapture /
-// __exportCameraQa for Playwright. Must be imported AFTER subset-fit so
-// `ensureCameraFitMetrics()` runs against an existing module.
-import './camera-qa-globals';
 
 export type CameraFitTraceEvent = {
   timestamp: number;
