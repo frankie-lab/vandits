@@ -1,0 +1,31 @@
+flowchart TD
+    Caller[Caller: popover, sidebar, dialog, hook] --> Helper["requestSubsetFit(ids, opts)"]
+    Helper --> Detail["dispatchEvent<br/>'subset-fit-bounds-request'<br/>{locationIds, mode, reason, coords?, minZoom?}"]
+    Detail --> Listener["LocationMap useEffect<br/>(ÚNICO listener)"]
+
+    Listener --> CheckMode{detail.mode}
+    CheckMode -->|always| SkipCooldown[Ignorar cooldown manual]
+    CheckMode -->|if-outside| CheckCooldown{"Date.now - lastUserInteraction<br/>&lt; 4000ms ?"}
+    CheckCooldown -->|sí| Abort[abort silencioso]
+    CheckCooldown -->|no| ResolveCoords
+
+    SkipCooldown --> ResolveCoords
+    ResolveCoords{detail.coords presente?}
+    ResolveCoords -->|sí| UseCoords[Usar coords pre-resueltas]
+    ResolveCoords -->|no| FromMarkers["Resolver desde<br/>markersRef → locationsRef"]
+
+    FromMarkers --> Missing{missing &gt; 0 y pts vacío?}
+    Missing -->|sí| RAF[Reintentar 1 vez en rAF]
+    Missing -->|no| Compute
+
+    UseCoords --> Compute[Calcular bounds]
+    RAF --> Compute
+
+    Compute --> ModeFit{mode}
+    ModeFit -->|always| FlyAlways["flyTo bounds<br/>clamped a z12"]
+    ModeFit -->|if-outside| Inside{">=40% en viewport?"}
+    Inside -->|sí| ApplyFloor[Solo aplicar minZoomFloor]
+    Inside -->|no| FlyIfOut[flyTo bounds]
+
+    classDef forbidden fill:#ff6b6b,color:#fff
+    Forbidden["FORBIDDEN:<br/>map.flyToBounds directo<br/>desde caller"]:::forbidden
