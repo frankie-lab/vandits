@@ -181,26 +181,25 @@ function NearbyPointCard({
   disabled: boolean;
 }) {
   return (
-    <div className="group flex w-full max-w-full items-center gap-2 overflow-hidden rounded-lg border border-border/60 bg-card/40 px-2.5 py-1.5 shadow-sm transition-all hover:border-border hover:bg-muted/40 hover:shadow-md">
-      {/* Columna izquierda: nombre + datos apilados */}
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="min-w-0 truncate text-sm font-semibold leading-none tracking-tight text-foreground">
-          {point.name}
-        </p>
-        <div className="flex min-w-0 items-center gap-1.5 text-[11px] leading-none text-muted-foreground">
-          <span className="inline-flex shrink-0 items-center rounded-sm bg-muted/60 px-1 py-0.5 font-medium tabular-nums leading-none text-foreground/70">
-            {point.distance_m}m
-          </span>
-          <span className="truncate font-mono leading-none tabular-nums">
-            {point.latitude.toFixed(4)}, {point.longitude.toFixed(4)}
-          </span>
-        </div>
+    <div className="group grid w-full max-w-full grid-cols-[1fr_auto] grid-rows-[auto_auto] items-center gap-x-2 gap-y-1 overflow-hidden rounded-lg border border-border/60 bg-card/40 px-2.5 py-2 shadow-sm transition-all hover:border-border hover:bg-muted/40 hover:shadow-md">
+      {/* Fila 1: nombre */}
+      <p className="col-start-1 row-start-1 min-w-0 truncate text-sm font-semibold leading-none tracking-tight text-foreground">
+        {point.name}
+      </p>
+      {/* Fila 2: datos */}
+      <div className="col-start-1 row-start-2 flex min-w-0 items-center gap-1.5 text-[11px] leading-none text-muted-foreground">
+        <span className="inline-flex shrink-0 items-center rounded-sm bg-muted/60 px-1 py-0.5 font-medium tabular-nums leading-none text-foreground/70">
+          {point.distance_m}m
+        </span>
+        <span className="truncate font-mono leading-none tabular-nums">
+          {point.latitude.toFixed(4)}, {point.longitude.toFixed(4)}
+        </span>
       </div>
-      {/* Botón Enriquecer: centrado vertical respecto a las dos líneas */}
+      {/* Botón: ocupa ambas filas, centrado vertical garantizado */}
       <Button
         size="icon"
         variant="default"
-        className={`h-7 w-7 shrink-0 rounded-full p-0 shadow-sm transition-opacity ${enriching ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
+        className={`col-start-2 row-span-2 row-start-1 h-7 w-7 shrink-0 self-center rounded-full p-0 shadow-sm transition-opacity ${enriching ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
         disabled={disabled}
         onClick={onEnrich}
         title="Enriquecer aquí"
