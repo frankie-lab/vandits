@@ -230,12 +230,27 @@ export function LocationMap() {
       const popupElement = popup.getElement();
       if (!popupElement) return;
 
+      // Insets canónicos (mismas vars que dialogs/sheets): top header + barra inferior.
+      const rootStyle = getComputedStyle(document.documentElement);
+      const readPx = (name: string, fallback = 0) => {
+        const raw = rootStyle.getPropertyValue(name).trim();
+        const n = parseFloat(raw);
+        return Number.isFinite(n) ? n : fallback;
+      };
+      const topInset = readPx('--top-header-h', 72);
+      const bottomInset = readPx('--bottom-overlay-safe-h', 0);
+      const gap = readPx('--overlay-progress-gap', 12);
+
       const popupRect = popupElement.getBoundingClientRect();
       const containerRect = map.getContainer().getBoundingClientRect();
       const markerPoint = map.latLngToContainerPoint(marker.getLatLng());
       const visibleWidth = Math.max(containerRect.width - rightPanelWidth, 240);
+      const visibleTop = topInset + gap;
+      const visibleBottom = containerRect.height - bottomInset - gap;
+      const visibleCenterY = (visibleTop + visibleBottom) / 2;
       const idealMarkerX = visibleWidth / 2;
-      const idealMarkerY = (containerRect.height / 2) + (popupRect.height / 2);
+      // Marker debe quedar bajo el popup: centro popup en banda visible + media altura popup.
+      const idealMarkerY = visibleCenterY + (popupRect.height / 2);
       const offsetX = markerPoint.x - idealMarkerX;
       const offsetY = markerPoint.y - idealMarkerY;
 
@@ -1666,8 +1681,34 @@ export function LocationMap() {
  // image stays fixed while only the body scrolls.
  className: 'custom-popup',
  closeButton: true,
- autoPan: true,
- autoPanPadding: L.point(50, 80),
+  autoPan: true,
+  // Padding dinámico: honra header superior y barra inferior (vars canónicas).
+  autoPanPadding: (() => {
+    const rs = typeof document !== 'undefined' ? getComputedStyle(document.documentElement) : null;
+    const px = (name: string, f: number) => {
+      const v = parseFloat(rs?.getPropertyValue(name).trim() ?? '');
+      return Number.isFinite(v) ? v : f;
+    };
+    const top = px('--top-header-h', 72) + px('--overlay-progress-gap', 12);
+    const bottom = px('--bottom-overlay-safe-h', 0) + px('--overlay-progress-gap', 12) + 16;
+    return L.point(50, Math.max(top, bottom, 80));
+  })(),
+  autoPanPaddingTopLeft: (() => {
+    const rs = typeof document !== 'undefined' ? getComputedStyle(document.documentElement) : null;
+    const px = (name: string, f: number) => {
+      const v = parseFloat(rs?.getPropertyValue(name).trim() ?? '');
+      return Number.isFinite(v) ? v : f;
+    };
+    return L.point(50, px('--top-header-h', 72) + px('--overlay-progress-gap', 12));
+  })(),
+  autoPanPaddingBottomRight: (() => {
+    const rs = typeof document !== 'undefined' ? getComputedStyle(document.documentElement) : null;
+    const px = (name: string, f: number) => {
+      const v = parseFloat(rs?.getPropertyValue(name).trim() ?? '');
+      return Number.isFinite(v) ? v : f;
+    };
+    return L.point(50, px('--bottom-overlay-safe-h', 0) + px('--overlay-progress-gap', 12) + 16);
+  })(),
  // Viewport Culling v1: identifica el POI dueño del popup en map-level
  // popupopen/popupclose para mantenerlo en `keepIds`.
  locationId: location.id,
