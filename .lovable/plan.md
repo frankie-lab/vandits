@@ -1,48 +1,101 @@
-## Contexto
+## Objetivo
 
-Tienes razón. Habíamos definido que "Contexto cercano" se viera **inline dentro del popup de la ficha**, no en un panel lateral. En la iteración anterior, al arreglar que el botón no respondía en el mapa global, monté `GlobalNearbyContextHost` que abre `NearbyPanel` en un `Sheet` lateral derecho — eso fue un error de arquitectura.
+Cuando el usuario hace click en un POI, el popup debe quedar visualmente **centrado en la zona útil del mapa** (descontando: header superior, barra inferior de progreso, sidebar izquierdo de Usuarios, panel derecho de Documento si está abierto). El usuario sigue pudiendo hacer pan/zoom libre después.
 
-Memorias afectadas (a actualizar tras aplicar):
-- `mem://features/content/empty-point-quick-actions-v2` (dice "panel lateral se abre" → debe decir "se expande inline en el popup")
-- `mem://features/content/proximity-context-enrichment-v2` (dice "barra lateral" → debe reflejar "inline en ficha")
-- Añadir línea Core: "Contexto cercano = inline en popup. NUNCA panel lateral ni Sheet."
+## Diagnóstico
 
-## Plan
+El centrado actual en `LocationMap.tsx` (`centerOpenedPopupInVisibleMap`, líneas 222–271) ya hace la matemática correcta, pero falla por tres motivos:
 
-### 1. Eliminar el host lateral
-- Borrar `src/domains/content/components/GlobalNearbyContextHost.tsx`.
-- Quitar import + montaje en `src/domains/discovery/components/DiscoveryOrchestrator.tsx`.
-- Quitar el listener equivalente en `src/components/DocumentFocusView.tsx` (~líneas 514-531) — la ficha es el contenedor único.
+1. **Race con Leaflet autoPan**: el popup se crea con `autoPan: true` (línea 1694). Leaflet panea para que el popup "asome", y nuestro `panBy` ejecuta a los 120 ms — durante la animación de Leaflet el `getBoundingClientRect()` mide una posición transitoria.
+2. **Sidebar izquierdo no detectado**: `UsersSidebar` no expone `data-left-sidebar="true"`, así que `leftPanelWidth = 0` y el centro útil se desplaza a la izquierda.
+3. **Timing fijo de 120 ms** insuficiente para popups con tags/imágenes que afectan altura final.
 
-### 2. Cambiar el contrato del botón en `UnenrichedRecoveryBlock.tsx`
-En vez de disparar `open-nearby-context`, alternar estado local:
+## Cambios
+
+### 1. `src/components/LocationMap.tsx` — `centerOpenedPopupInVisibleMap`
+
+- Quitar el `setTimeout(120)` y reemplazar por dos `requestAnimationFrame` anidados, para esperar a que Leaflet termine layout y el popup tenga tamaño final.
+- Verificar estabilidad: medir `popupRect` dos veces seguidas (segundo rAF); si la altura cambió, repetir una vez más (máx 3 intentos) antes de panear.
+- Mantener la lógica de insets vía CSS vars (`--top-header-h`, `--bottom-overlay-safe-h`, `--overlay-progress-gap`).
+- Bajar el umbral de tolerancia a 4 px para asegurar centrado preciso.
+
+### 2. `src/components/LocationMap.tsx` — opciones del popup (línea 1694)
+
+- Cambiar `autoPan: true` a `autoPan: false`. Nuestro centrado lo sustituye por completo y evita la doble animación.
+
+### 3. `src/components/UsersSidebar.tsx`
+
+- Añadir `data-left-sidebar="true"` al contenedor raíz del sidebar (sólo cuando esté abierto/expandido), para que el helper lo descuente del ancho útil.
+
+### 4. (Opcional, defensivo) Re-centrar tras `popupopen` y tras carga de imágenes
+
+- Adjuntar un listener `load` a las `<img>` dentro del popup que dispare un re-centrado si la altura cambió tras cargar imágenes diferidas. Esto evita que un popup con thumbnail tardío quede descentrado.
+
+## Detalles técnicos
 
 ```ts
-const [showNearby, setShowNearby] = useState(false);
+const centerOpenedPopupInVisibleMap = useCallback(
+  (marker: L.Marker, rightPanelWidth = 0) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    let attempts = 0;
+    let lastHeight = -1;
+
+    const tryCenter = () => {
+      const popup = marker.getPopup();
+      const el = popup?.getElement();
+      if (!popup || !popup.isOpen() || !el) return;
+
+      const rect = el.getBoundingClientRect();
+      // Reintenta si aún está midiéndose o si la altura sigue cambiando
+      if ((rect.height < 20 || rect.height !== lastHeight) && attempts < 3) {
+        lastHeight = rect.height;
+        attempts++;
+        requestAnimationFrame(tryCenter);
+        return;
+      }
+
+      const rs = getComputedStyle(document.documentElement);
+      const px = (n: string, f: number) => {
+        const v = parseFloat(rs.getPropertyValue(n).trim());
+        return Number.isFinite(v) ? v : f;
+      };
+      const topInset = px('--top-header-h', 72);
+      const bottomInset = px('--bottom-overlay-safe-h', 0);
+      const gap = px('--overlay-progress-gap', 12);
+
+      const leftEl = document.querySelector<HTMLElement>('[data-left-sidebar="true"]');
+      const leftW = leftEl ? leftEl.getBoundingClientRect().width : 0;
+
+      const c = map.getContainer().getBoundingClientRect();
+      const visCx = (c.left + leftW + (c.right - rightPanelWidth)) / 2;
+      const visCy = (c.top + topInset + gap + (c.bottom - bottomInset - gap)) / 2;
+
+      const dx = (rect.left + rect.width / 2) - visCx;
+      const dy = (rect.top + rect.height / 2) - visCy;
+
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+        map.panBy([dx, dy], { animate: true, duration: 0.35 });
+      }
+    };
+
+    requestAnimationFrame(() => requestAnimationFrame(tryCenter));
+  },
+  [],
+);
 ```
 
-Renderizar `<NearbyPanel variant="inline" ... />` justo debajo de las acciones rápidas cuando `showNearby === true`. El botón "Contexto cercano" hace toggle.
+Y en las opciones del popup:
+```ts
+autoPan: false,         // antes: true — evita race con nuestro centrado
+autoPanPadding: ...     // se mantiene por defensa, pero ya no aplica
+```
 
-### 3. Adaptar `NearbyPanel` (en `PointContextActions.tsx`) para modo inline
-- Aceptar prop `variant?: 'sidebar' | 'inline'` (default `inline`).
-- Modo `inline`: contenedor con `max-h` acotada (~50vh) y scroll interno, padding compacto, sin header sticky redundante (la ficha ya tiene cabecera), botón "Cerrar" → colapsa el bloque vía `onClose`.
-- Misma lógica funcional intacta: búsqueda, slider de radio, lista, fusionar, guardar como personal.
+En `UsersSidebar.tsx`, añadir `data-left-sidebar="true"` al `<aside>`/contenedor raíz (sólo cuando `isOpen`).
 
-### 4. Limpiar el evento `open-nearby-context`
-- Quitar emisión en `UnenrichedRecoveryBlock.tsx` (`handleOpenContext`).
-- Quitar emisión en `src/components/map-popups.ts` si la hace.
-- Quitar listener en `DocumentFocusView.tsx`.
-- El evento queda eliminado del código.
+## Fuera de alcance
 
-### 5. No tocar `map-popups.ts` más allá de la limpieza del evento
-El popup HTML sigue montando `UnenrichedRecoveryBlock` por portal — `NearbyPanel` heredará ese contenedor automáticamente.
-
-### 6. Actualizar memorias
-Tras aplicar, reescribir las dos memorias citadas y añadir la regla Core para que ningún cambio futuro vuelva a moverlo a la columna derecha.
-
-## QA
-
-- Mapa global → click POI vacío → "Contexto cercano" → se expande dentro del propio popup, sin abrir nada en columna derecha.
-- Focus mode (documento abierto) → mismo comportamiento, sin panel lateral duplicado.
-- Cerrar contexto → el popup vuelve a su estado compacto y sigue abierto.
-- Popup respeta `--popup-max-h` y scroll interno.
+- No se toca lógica de negocio, ni filtros, ni store.
+- No se cambia el ancho/altura del popup ni su contenido.
+- No se modifica el comportamiento de pan/zoom posterior del usuario.
