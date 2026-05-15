@@ -43,7 +43,18 @@ Garantizar que **a lo sumo un popup** está abierto, que su marker no se desmont
 - (Histórico) Cada marker registraba `marker.on('popupclose')` con stale closure sobre `focusedLocationId`. Resuelto en ADR-0001 centralizando en `map.on('popupclose')`.
 - Comentario residual en `LocationMap.tsx:1801` recuerda no volver a añadir handlers per-marker.
 
+## Validation Notes (revisión manual contra código real)
+
+| Inv. | Estado | Archivo | Símbolo | Evidencia | Backlog |
+|---|---|---|---|---|---|
+| 1 (preserva marker en `keepIds`) | **validated** | `src/components/LocationMap.tsx` | reconciliación de markers L.1660-1714 | `preservedId = openPopupLocationId` (L.1662); `nextMarkers.set(preservedId!, preservedMarker)` (L.1689); skip de eliminación L.1684, L.1712 | — |
+| 2 (handler `popupclose` único a nivel mapa) | **validated** | `src/components/LocationMap.tsx` | `mapRef.current.on('popupclose', …)` en init effect | Único registro L.1436; comentario guardarraíl L.1801-1803 prohíbe per-marker | BL-002 (vigilancia) |
+| 3 (reabrir tras re-render preserva id vía `preservedId`) | **validated** | `src/components/LocationMap.tsx` | bloque reconciliación L.1660-1714 | `preservedId` reusa marker existente; sincroniza `keepIds` L.1885 | — |
+| `selectedLocations` no gobierna popup | **validated** | `src/components/LocationMap.tsx` + `src/domains/content/store/locations-store.ts` | `keepIds` L.1616-1618 | Solo une `focusedLocationId ∪ openPopupLocationId`; `selectedLocations` no entra en `keepIds` | — |
+| `openPopupLocationId` permanece local (no en store) | **validated** | `src/components/LocationMap.tsx` | `useState<string\|null>` L.684 | No referenciado en `locations-store.ts` (rg confirmado) | — |
+| Stale closure per-marker | **validated** (resuelto histórico) | `src/components/LocationMap.tsx` L.1801-1803 | Comentario normativo presente | — | BL-001 |
+
 ## Referencias
 - ADR-0001 (popupclose centralization)
 - mem://logic/map/popup-persist-on-rebuild
-- Código: `src/components/LocationMap.tsx` líneas ~1409, ~1436-1446, ~1660-1714
+- Código: `src/components/LocationMap.tsx` líneas ~684, ~1436-1446, ~1616-1618, ~1660-1714, ~1801-1803, ~1885

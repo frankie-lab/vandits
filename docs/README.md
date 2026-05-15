@@ -66,6 +66,16 @@ docs/
 - [Marker system reference](specs/marker-system-reference.md)
 - [Architecture audit](specs/architecture-audit.md)
 
+## Sistema verificable
+
+Cada contrato tiene una sección **Invariantes** (normativas, no descriptivas) y los 4 críticos (popup, focus-selection, subset-fit, heavy-operations) tienen además **Validation Notes** con archivo, símbolo y evidencia contra el código real. Estados posibles: `validated`, `mismatch`, `not found`, `unclear`. No se aceptan frases genéricas.
+
+- [Backlog técnico (audits)](audits/backlog.md)
+- [Architecture timeline](architecture-timeline.md)
+- [Danger zones](danger-zones.md)
+- [Reglas CI documentales](ci/documentation-rules.md)
+- [PR checklist](ci/pr-checklist.md)
+
 ## Auditorías activas
 
 - [stale-closures](audits/stale-closures-audit.md)
@@ -73,6 +83,8 @@ docs/
 - [source-of-truth](audits/source-of-truth-audit.md)
 - [global-guards](audits/global-guards-audit.md)
 - [ui-domain-coupling](audits/ui-domain-coupling-audit.md)
+
+Cada finding numerado en estos audits está mapeado a un `BL-xxx` en el [backlog](audits/backlog.md).
 
 ## Mapa de dependencias entre contratos
 
