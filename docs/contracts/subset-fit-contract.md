@@ -85,3 +85,16 @@ Triggers cableados hoy:
 - ADR-0005
 - mem://logic/map/subset-fit-contract
 - Código: `src/components/map/subset-fit.ts`, `src/components/LocationMap.tsx` L.2335-2491
+
+## Phase 1 — Freeze + Observability (PR-CAMERA-PHASE-1)
+
+| Item | Estado | Archivo | Evidencia |
+|---|---|---|---|
+| `FitReason` enum congelado | **validated** | `src/components/map/subset-fit.ts` | `FIT_REASONS` const + `FitReason` type. Reasons fuera del enum → `console.warn` (no bloqueante en Phase 1). |
+| Flag debug | **validated** | `src/components/map/subset-fit.ts` | `isCameraFitDebugEnabled()` lee `localStorage.vandits_debug_camera_fit`. Default ON en dev. |
+| Métricas runtime | **validated** | `src/components/map/subset-fit.ts` | `window.__cameraFitMetrics` (interface `CameraFitMetrics`). Reset vía `resetCameraFitMetrics()`. |
+| Observer de bypasses | **validated** | `src/components/map/subset-fit.ts` | `installCameraFitObserver()` monkey-patcha `L.Map.prototype.{fitBounds,flyTo,setView}`. Idempotente. Auto-init en browser. |
+| Hook listener (cooldown/source) | **validated** | `src/components/LocationMap.tsx` | `recordFitOutcome({ cooldownSkipped|cooldownBypassedByAlways, resolvedFrom })` invocado en cada rama del handler. |
+| Behavior preservation | **validated** | listener handler L.2350-2502 | Sin cambios de comportamiento; solo telemetría. Cooldown, clamp, padding, maxZoom intactos. |
+
+Plan completo: `docs/architecture/camera-subset-fit-stabilization-plan.md`.
