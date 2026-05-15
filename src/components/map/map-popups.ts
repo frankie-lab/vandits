@@ -30,6 +30,7 @@ import {
 } from '@/shared/enrichment/card-schema';
 import { descriptionToHtmlParagraphs } from '@/shared/enrichment/format-description';
 import { isPointEnriched } from '@/domains/content/lib/point-visual-state';
+import { isNearbyPopupContext } from '@/domains/content/lib/nearby-popup-context';
 import { getCollectionsForLocation } from '@/domains/content/store/location-collections-store';
 import { getCollectionChipColors } from '@/shared/lib/collection-chip-color';
 import { filterPersonalTags } from '@/domains/content/lib/personal-tags-filter';
