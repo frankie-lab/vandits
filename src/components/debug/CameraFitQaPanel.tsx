@@ -76,14 +76,39 @@ function readMetricsSnapshot(): CameraFitMetrics | null {
   };
 }
 
+function newCaptureId(): string {
+  const ts = Date.now().toString(36);
+  const rnd = Math.random().toString(36).slice(2, 8);
+  return `cap-${ts}-${rnd}`;
+}
+
+interface CaptureWindow {
+  captureId: string | null;
+  captureStartedAt: number | null;
+  resetAt: number | null;
+}
+
 function buildExportPayload(
   metrics: CameraFitMetrics | null,
   trace: CameraFitTraceEvent[],
   flowLabel: string,
+  capture: CaptureWindow,
 ): Record<string, unknown> {
+  const since = capture.captureStartedAt ?? capture.resetAt ?? 0;
+  const filteredTrace = since > 0 ? trace.filter((e) => e.timestamp >= since) : trace;
+  const filteredBypasses = metrics
+    ? since > 0
+      ? metrics.bypasses.filter((b) => b.ts >= since)
+      : metrics.bypasses
+    : [];
   return {
     timestamp: new Date().toISOString(),
     panelBuild: PANEL_BUILD,
+    captureId: capture.captureId,
+    captureStartedAt: capture.captureStartedAt
+      ? new Date(capture.captureStartedAt).toISOString()
+      : null,
+    resetAt: capture.resetAt ? new Date(capture.resetAt).toISOString() : null,
     route:
       typeof window !== 'undefined'
         ? `${window.location.pathname}${window.location.search}${window.location.hash}`
@@ -105,11 +130,11 @@ function buildExportPayload(
           cooldownSkipped: metrics.cooldownSkipped,
           cooldownBypassedByAlways: metrics.cooldownBypassedByAlways,
           directLeafletCalls: metrics.directLeafletCalls,
-          bypasses: metrics.bypasses,
+          bypasses: filteredBypasses,
           lastRequest: metrics.lastRequest,
         }
       : null,
-    trace,
+    trace: filteredTrace,
   };
 }
 
