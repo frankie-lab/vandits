@@ -137,20 +137,31 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
     }
   };
 
-  const handleOpenContext = () => {
-    window.dispatchEvent(
-      new CustomEvent('open-nearby-context', {
-        detail: {
-          locationId: location.id,
-          location,
-          reason: parsed?.kind === 'coherence' ? 'name-coordinate-mismatch' : 'manual',
-          providedName: parsed?.providedName ?? location.name,
-          nameLocation: parsed?.nameLocation,
-          nearbyCandidates: parsed?.candidates ?? [],
-        },
-      }),
-    );
-  };
+  // "Contexto cercano" se renderiza INLINE dentro de este mismo bloque
+  // (debajo del CTA), no como panel lateral. Ver mem://features/content/
+  // empty-point-quick-actions-v2.
+  const handleOpenContext = () => setShowNearby((v) => !v);
+
+  // Construye el LocationRow que NearbyPanel espera a partir del GeoLocation
+  // del store. Memo por id+coords+name para evitar re-renders innecesarios.
+  const nearbyLocationRow = React.useMemo(() => ({
+    id: fresh.id,
+    name: fresh.name,
+    description: fresh.description ?? null,
+    latitude: fresh.coordinates.lat,
+    longitude: fresh.coordinates.lng,
+    is_approved: fresh.isApproved ?? false,
+    enrichment_status: (fresh.enrichmentStatus ?? null) as string | null,
+    enriched_data: fresh.enrichedData ?? null,
+    place_type: (fresh.placeType ?? null) as string | null,
+    continent: fresh.continent ?? null,
+    country: fresh.country ?? null,
+    region: fresh.region ?? null,
+  }), [fresh.id, fresh.name, fresh.description, fresh.coordinates.lat, fresh.coordinates.lng, fresh.isApproved, fresh.enrichmentStatus, fresh.enrichedData, fresh.placeType, fresh.continent, fresh.country, fresh.region]);
+
+  const nearbyMismatch = parsed?.kind === 'coherence'
+    ? { providedName: parsed.providedName ?? location.name, nameLocation: parsed.nameLocation }
+    : null;
 
   /**
    * Acción unificada: el usuario elige un candidato como "este es el lugar correcto".
