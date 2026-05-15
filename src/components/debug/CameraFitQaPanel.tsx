@@ -265,7 +265,26 @@ export function CameraFitQaPanel() {
     : null;
   const lastRequestTs = metrics?.lastRequest?.ts ?? null;
 
-  const exportPayload = () => buildExportPayload(metrics, trace, flowLabel);
+  const exportPayload = () =>
+    buildExportPayload(metrics, trace, flowLabel, {
+      captureId,
+      captureStartedAt,
+      resetAt: lastResetAt,
+    });
+
+  const performReset = (now: number) => {
+    const m = typeof window !== 'undefined' ? window.__cameraFitMetrics : null;
+    if (m && typeof m.reset === 'function') {
+      m.reset();
+    } else {
+      resetCameraFitMetrics();
+    }
+    resetCameraFitTrace();
+    lastTotalRequestsRef.current = 0;
+    setLastMetricsUpdateAt(null);
+    setLastResetAt(now);
+    setTick((t) => t + 1);
+  };
 
   const handleCopy = async () => {
     if (!metricsAvailable) {
@@ -322,34 +341,32 @@ export function CameraFitQaPanel() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `camera-fit-${flowLabel}-${stamp}.json`;
+    const idPart = captureId ? `-${captureId}` : '';
+    const filename = `camera-fit-${flowLabel}${idPart}-${stamp}.json`;
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
     a.click();
-    a.remove();
+    a.remove;
     URL.revokeObjectURL(url);
-    setToast({
-      kind: 'success',
-      text: `Downloaded ${filename}`,
-      ts: Date.now(),
-    });
+    setToast({ kind: 'success', text: `Downloaded ${filename}`, ts: Date.now() });
   };
 
   const handleReset = () => {
-    const m = typeof window !== 'undefined' ? window.__cameraFitMetrics : null;
-    if (m && typeof m.reset === 'function') {
-      m.reset();
-    } else {
-      resetCameraFitMetrics();
-    }
-    resetCameraFitTrace();
-    lastTotalRequestsRef.current = 0;
-    setLastMetricsUpdateAt(null);
-    setLastResetAt(Date.now());
-    setTick((t) => t + 1);
-    setToast({ kind: 'success', text: 'Metrics + trace reset', ts: Date.now() });
+    const now = Date.now();
+    performReset(now);
+    setToast({ kind: 'success', text: 'Metrics + trace reset', ts: now });
   };
+
+  const handleStartCapture = () => {
+    const now = Date.now();
+    const id = newCaptureId();
+    performReset(now);
+    setCaptureId(id);
+    setCaptureStartedAt(now);
+    setToast({ kind: 'success', text: `Capture started · ${id}`, ts: now });
+  };
+
 
   // ───────── Floating launcher ─────────
   if (!open) {
