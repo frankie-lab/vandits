@@ -9,7 +9,7 @@ Status: `open` / `mitigated` (workaround activo) / `pending-manual-qa` (code-lev
 |---|---|---|---|---|---|---|---|
 | BL-001 | Stale closures per-marker en `popupclose` (histórico) | stale-closures H1 | high | Deselect incorrecto al cerrar popup tras filtros | map | resolved | ADR-0001 |
 | BL-002 | Listeners globales en `LocationMap` con dep `[]` — riesgo de duplicación si se añaden deps | duplicate-listeners H2, H4, H6 / stale-closures H4 | medium | Doble handler en `subset-fit` o `popupclose` causaría fits/cierres duplicados | map | open (vigilancia) | — |
-| BL-003 | Cooldown `subset-fit` bloqueaba `mode:'always'` | global-guards H1 | high | Popover Mis POI no encuadraba subset disperso | map | resolved | ADR-0005 |
+| BL-003 | Cooldown `subset-fit` bloqueaba `mode:'always'` | global-guards H1 | high | Popover Mis POI no encuadraba subset disperso | map | pending-manual-qa | ADR-0005 |
 | BL-004 | Callers de `requestSubsetFit` que no pasan `coords` cuando markers están culled | subset-fit-contract anti-patrón | medium | Fit parcial bajo viewport culling z≥7 | discovery / map | mitigated | — |
 | BL-005 | Watchdog `HeavyOps` puede disparar `failOperation` falso en ops legítimas >10s | global-guards H3 | low | Falsos negativos de timeout | shared/operations | accepted-debt | ADR-0006 |
 | BL-006 | `HeavyOps` Phase 1 — solo `MyCatalogQuickFilters` cableado; `finishOperation` significa "lanzado" no "completado" | source-of-truth (deuda fase) / heavy-operations-contract | medium | Feedback inconsistente entre lanes (enrichment/import/geocoding aún por su cuenta) | shared/operations | open | ADR-0006 |
