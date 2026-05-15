@@ -2351,10 +2351,17 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
       const detail = (e as CustomEvent<SubsetFitDetail>).detail;
       if (!detail || !Array.isArray(detail.locationIds) || detail.locationIds.length === 0) return;
       const mode = detail.mode ?? 'if-outside';
+      const cooldownActive = Date.now() - lastUserInteractionAt < COOLDOWN_MS;
       // Cooldown manual SOLO aplica a 'if-outside'. 'always' es una acción
       // explícita del usuario (popover Mis POI, filtro de usuario, etc.) y
       // nunca debe ser silenciada por gestos previos.
-      if (mode !== 'always' && Date.now() - lastUserInteractionAt < COOLDOWN_MS) return;
+      if (mode !== 'always' && cooldownActive) {
+        recordFitOutcome({ reason: String(detail.reason), mode, cooldownSkipped: true });
+        return;
+      }
+      if (mode === 'always' && cooldownActive) {
+        recordFitOutcome({ reason: String(detail.reason), mode, cooldownBypassedByAlways: true });
+      }
 
       // Si el caller pasó coords pre-resueltas, usarlas directamente y
       // saltar la resolución vía markersRef/locationsRef. Imprescindible
@@ -2362,12 +2369,12 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
       // re-renderizado (caso típico: filtro por usuario).
       const preCoords = Array.isArray(detail.coords) ? detail.coords : null;
 
-      const collectPts = (): { pts: [number, number][]; missing: number } => {
+      const collectPts = (): { pts: [number, number][]; missing: number; source: 'coords' | 'markers' } => {
         if (preCoords && preCoords.length > 0) {
           const valid = preCoords.filter(
             ([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng),
           );
-          return { pts: valid, missing: preCoords.length - valid.length };
+          return { pts: valid, missing: preCoords.length - valid.length, source: 'coords' };
         }
         const out: [number, number][] = [];
         let missing = 0;
@@ -2385,8 +2392,11 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
             missing++;
           }
         }
-        return { pts: out, missing };
+        return { pts: out, missing, source: 'markers' };
       };
+
+      let { pts, missing, source } = collectPts();
+      recordFitOutcome({ reason: String(detail.reason), mode, resolvedFrom: source });
 
       let { pts, missing } = collectPts();
 
