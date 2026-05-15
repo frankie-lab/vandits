@@ -20,7 +20,13 @@ import { useLocationsStore } from '@/domains/content/store/locations-store';
 import { useAuth } from '@/domains/identity';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { getMyCatalogQuickCounts } from '@/domains/content/lib/my-catalog-quick-counts';
-import { emitMyCatalogPopoverApplied } from '@/components/toolbar/use-my-catalog-popover-fit';
+import {
+  emitMyCatalogPopoverApplied,
+  buildMyCatalogPopoverOpId,
+  MY_CATALOG_POPOVER_EMPTY_EVENT,
+  type MyCatalogPopoverEmptyDetail,
+} from '@/components/toolbar/use-my-catalog-popover-fit';
+import { startOperation } from '@/shared/operations/heavy-operations-store';
 import type { VisualStateFilter, HealthFilter, OwnershipFilter } from '@/types/location';
 
 interface RowProps {
@@ -28,17 +34,20 @@ interface RowProps {
   count: number;
   dotClass: string;
   active: boolean;
+  empty?: boolean;
   onClick: () => void;
 }
 
-function Row({ label, count, dotClass, active, onClick }: RowProps) {
+function Row({ label, count, dotClass, active, empty, onClick }: RowProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={`w-full flex items-center justify-between gap-3 px-2.5 py-1.5 rounded-md text-sm transition-colors ${
         active
-          ? 'bg-emerald-500/10 text-foreground ring-1 ring-emerald-500/40'
+          ? empty
+            ? 'bg-red-500/10 text-foreground ring-1 ring-red-500/40'
+            : 'bg-emerald-500/10 text-foreground ring-1 ring-emerald-500/40'
           : 'hover:bg-muted text-foreground/90'
       }`}
     >
@@ -46,7 +55,11 @@ function Row({ label, count, dotClass, active, onClick }: RowProps) {
         <span className={`w-2 h-2 rounded-full shrink-0 ${dotClass}`} />
         <span className="truncate">{label}</span>
       </span>
-      <span className="text-xs tabular-nums text-muted-foreground">{count}</span>
+      {active && empty ? (
+        <span className="text-[11px] font-medium text-red-500">Sin resultados</span>
+      ) : (
+        <span className="text-xs tabular-nums text-muted-foreground">{count}</span>
+      )}
     </button>
   );
 }
@@ -80,6 +93,22 @@ export function MyCatalogQuickFiltersButton({
   const noneActive = !activeVisual && !activeHealth;
   const hasSubFilter = !!(activeVisual || activeHealth);
 
+  // Empty-result feedback for the active row, reset whenever selection
+  // changes. Driven by `MY_CATALOG_POPOVER_EMPTY_EVENT`.
+  const [emptyAxisValue, setEmptyAxisValue] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<MyCatalogPopoverEmptyDetail>).detail;
+      if (!detail) return;
+      setEmptyAxisValue(`${detail.axis}:${String(detail.value ?? 'all')}`);
+    };
+    window.addEventListener(MY_CATALOG_POPOVER_EMPTY_EVENT, handler);
+    return () => window.removeEventListener(MY_CATALOG_POPOVER_EMPTY_EVENT, handler);
+  }, []);
+  React.useEffect(() => {
+    setEmptyAxisValue(null);
+  }, [activeVisual, activeHealth]);
+
   // Restringir a 'mine' va SIEMPRE por useLayerVisibility (traduce a
   // filterByUserId, que es lo que el matcher consume). Los ejes propios
   // del popover (visualState, healthFilter) van por setFilters.
@@ -87,16 +116,38 @@ export function MyCatalogQuickFiltersButton({
     if (ownershipFilter !== 'mine') setOwnershipFilter('mine');
   };
 
+  /**
+   * Start a heavy-op BEFORE setFilters so the bottom badge appears in the
+   * next React frame. blockReentry guards against double clicks on the
+   * same axis/value while the previous op is still pending.
+   */
+  const beginOp = (
+    axis: 'visual' | 'health' | 'all',
+    value: VisualStateFilter | HealthFilter | null,
+  ): boolean => {
+    const opId = buildMyCatalogPopoverOpId({ axis, value });
+    return startOperation({
+      operationId: opId,
+      label: 'Filtrando…',
+      source: 'filter',
+      indeterminate: true,
+      blockReentry: true,
+      // Safety watchdog: si el evento applied no llega o falla el listener,
+      // la op no se queda colgada. 10s es holgado para un filtro local.
+      safetyTimeoutMs: 10000,
+      safetyMessage: 'Tiempo agotado aplicando filtro',
+    });
+  };
+
   const applyAll = () => {
+    if (!beginOp('all', null)) return;
     ensureMine();
     setFilters({
       ...useLocationsStore.getState().filters,
       visualState: undefined,
       healthFilter: undefined,
     });
-    // Subset-fit: encuadra el universo "mine" si <40% en viewport.
     emitMyCatalogPopoverApplied({ axis: 'all', value: null });
-    // Permanece abierto.
   };
 
   const applyVisual = (v: VisualStateFilter) => {
@@ -104,6 +155,7 @@ export function MyCatalogQuickFiltersButton({
       applyAll();
       return;
     }
+    if (!beginOp('visual', v)) return;
     ensureMine();
     setFilters({
       ...useLocationsStore.getState().filters,
@@ -111,17 +163,15 @@ export function MyCatalogQuickFiltersButton({
       healthFilter: undefined,
     });
     emitMyCatalogPopoverApplied({ axis: 'visual', value: v });
-    // Permanece abierto. El subset-fit es if-outside; si los puntos
-    // ya están en viewport, la cámara no se mueve.
   };
 
   const applyHealth = (h: HealthFilter) => {
     if (activeHealth === h && !activeVisual) {
-      // Re-toggle del único activo → Ver todos.
       applyAll();
       setOpen(false);
       return;
     }
+    if (!beginOp('health', h)) return;
     ensureMine();
     setFilters({
       ...useLocationsStore.getState().filters,
@@ -129,9 +179,11 @@ export function MyCatalogQuickFiltersButton({
       healthFilter: h,
     });
     emitMyCatalogPopoverApplied({ axis: 'health', value: h });
-    // Cierra: subset-fit puede mover cámara y el popover taparía el resultado.
     setOpen(false);
   };
+
+  const isEmpty = (axis: 'visual' | 'health' | 'all', value: unknown): boolean =>
+    emptyAxisValue === `${axis}:${String(value ?? 'all')}`;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -157,6 +209,7 @@ export function MyCatalogQuickFiltersButton({
             count={counts.all}
             dotClass="bg-emerald-500"
             active={noneActive}
+            empty={isEmpty('all', null)}
             onClick={applyAll}
           />
           <Row
@@ -164,6 +217,7 @@ export function MyCatalogQuickFiltersButton({
             count={counts.enriched}
             dotClass="bg-emerald-500"
             active={activeVisual === 'enriched'}
+            empty={isEmpty('visual', 'enriched')}
             onClick={() => applyVisual('enriched')}
           />
           <Row
@@ -171,6 +225,7 @@ export function MyCatalogQuickFiltersButton({
             count={counts.imported}
             dotClass="bg-muted-foreground/60"
             active={activeVisual === 'imported'}
+            empty={isEmpty('visual', 'imported')}
             onClick={() => applyVisual('imported')}
           />
           <Row
@@ -178,6 +233,7 @@ export function MyCatalogQuickFiltersButton({
             count={counts.empty}
             dotClass="bg-orange-500"
             active={activeVisual === 'empty'}
+            empty={isEmpty('visual', 'empty')}
             onClick={() => applyVisual('empty')}
           />
         </div>
@@ -193,6 +249,7 @@ export function MyCatalogQuickFiltersButton({
             count={counts.partial}
             dotClass="bg-amber-500"
             active={activeHealth === 'partial'}
+            empty={isEmpty('health', 'partial')}
             onClick={() => applyHealth('partial')}
           />
           <Row
@@ -200,6 +257,7 @@ export function MyCatalogQuickFiltersButton({
             count={counts.chain}
             dotClass="bg-yellow-400"
             active={activeHealth === 'chain'}
+            empty={isEmpty('health', 'chain')}
             onClick={() => applyHealth('chain')}
           />
           <Row
@@ -207,6 +265,7 @@ export function MyCatalogQuickFiltersButton({
             count={counts.review}
             dotClass="bg-fuchsia-500"
             active={activeHealth === 'review'}
+            empty={isEmpty('health', 'review')}
             onClick={() => applyHealth('review')}
           />
           <Row
@@ -214,6 +273,7 @@ export function MyCatalogQuickFiltersButton({
             count={counts.hardError}
             dotClass="bg-red-500"
             active={activeHealth === 'hardError'}
+            empty={isEmpty('health', 'hardError')}
             onClick={() => applyHealth('hardError')}
           />
         </div>

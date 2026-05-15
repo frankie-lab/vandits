@@ -48,6 +48,14 @@ export interface LaneRowProps {
   paused?: boolean;
   /** When true, animates barber-pole stripes. */
   running?: boolean;
+  /**
+   * When true, the row is rendered as a true indeterminate progress bar:
+   *   - segments and progress percentage are ignored,
+   *   - a "ghost" segment slides across the track,
+   *   - aria-busy is set, aria-valuenow is omitted.
+   * Use for ops that have no measurable progress yet.
+   */
+  indeterminate?: boolean;
 }
 
 const TONE_BG: Record<LaneTone, string> = {
@@ -70,6 +78,7 @@ export function LaneRow({
   controls,
   paused,
   running,
+  indeterminate,
 }: LaneRowProps) {
   const clamped = Math.min(100, Math.max(0, progressPct));
   return (
@@ -99,50 +108,76 @@ export function LaneRow({
         <div
           className="relative h-8 rounded-md overflow-hidden ring-1 ring-border/60 bg-muted/60 dark:bg-muted/30 shadow-inner"
           role="progressbar"
-          aria-valuenow={Math.round(clamped)}
+          aria-busy={indeterminate || undefined}
+          aria-valuenow={indeterminate ? undefined : Math.round(clamped)}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-label={title}
         >
-          {/* Segments drawn left-to-right */}
-          {(() => {
-            let cursor = 0;
-            return segments.map((seg, idx) => {
-              const left = cursor;
-              cursor += seg.pct;
-              return (
+          {indeterminate ? (
+            <>
+              {/* Sliding ghost segment */}
+              <motion.div
+                className="absolute inset-y-0 w-[30%] bg-gradient-to-r from-primary/30 via-primary/60 to-primary/30 rounded-sm"
+                initial={{ left: '-30%' }}
+                animate={{ left: ['-30%', '100%'] }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+              />
+              {/* Faint barber-pole over full track */}
+              <motion.div
+                className="absolute inset-0 pointer-events-none opacity-15 mix-blend-overlay"
+                style={{
+                  backgroundImage:
+                    'repeating-linear-gradient(135deg, rgba(255,255,255,0.6) 0 8px, transparent 8px 16px)',
+                  backgroundSize: '22px 22px',
+                }}
+                animate={{ backgroundPositionX: ['0px', '44px'] }}
+                transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
+              />
+            </>
+          ) : (
+            <>
+              {/* Segments drawn left-to-right */}
+              {(() => {
+                let cursor = 0;
+                return segments.map((seg, idx) => {
+                  const left = cursor;
+                  cursor += seg.pct;
+                  return (
+                    <motion.div
+                      key={idx}
+                      className={cn('absolute inset-y-0', seg.className)}
+                      initial={{ width: 0 }}
+                      animate={{ left: `${left}%`, width: `${seg.pct}%` }}
+                      transition={{ duration: 0.4, ease: 'easeOut' }}
+                    />
+                  );
+                });
+              })()}
+
+              {/* Stripes while running */}
+              {running && !paused && clamped < 100 && (
                 <motion.div
-                  key={idx}
-                  className={cn('absolute inset-y-0', seg.className)}
-                  initial={{ width: 0 }}
-                  animate={{ left: `${left}%`, width: `${seg.pct}%` }}
-                  transition={{ duration: 0.4, ease: 'easeOut' }}
+                  className="absolute inset-y-0 left-0 pointer-events-none opacity-20 mix-blend-overlay"
+                  style={{
+                    width: `${clamped}%`,
+                    backgroundImage:
+                      'repeating-linear-gradient(135deg, rgba(255,255,255,0.6) 0 8px, transparent 8px 16px)',
+                    backgroundSize: '22px 22px',
+                  }}
+                  animate={{ backgroundPositionX: ['0px', '44px'] }}
+                  transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
                 />
-              );
-            });
-          })()}
+              )}
 
-          {/* Stripes while running */}
-          {running && !paused && clamped < 100 && (
-            <motion.div
-              className="absolute inset-y-0 left-0 pointer-events-none opacity-20 mix-blend-overlay"
-              style={{
-                width: `${clamped}%`,
-                backgroundImage:
-                  'repeating-linear-gradient(135deg, rgba(255,255,255,0.6) 0 8px, transparent 8px 16px)',
-                backgroundSize: '22px 22px',
-              }}
-              animate={{ backgroundPositionX: ['0px', '44px'] }}
-              transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
-            />
-          )}
-
-          {/* Leading edge */}
-          {clamped > 0 && clamped < 100 && (
-            <div
-              className="absolute top-0 bottom-0 w-px bg-white/70 dark:bg-white/40 shadow-[0_0_8px_rgba(255,255,255,0.7)]"
-              style={{ left: `calc(${clamped}% - 0.5px)` }}
-            />
+              {/* Leading edge */}
+              {clamped > 0 && clamped < 100 && (
+                <div
+                  className="absolute top-0 bottom-0 w-px bg-white/70 dark:bg-white/40 shadow-[0_0_8px_rgba(255,255,255,0.7)]"
+                  style={{ left: `calc(${clamped}% - 0.5px)` }}
+                />
+              )}
+            </>
           )}
 
           {/* Overlay text */}
@@ -157,14 +192,16 @@ export function LaneRow({
                 {counter.done}
                 <span className="opacity-70">/{counter.total}</span>
               </span>
-              <span
-                className={cn(
-                  'text-[11px]',
-                  clamped > 55 ? 'text-white/85' : 'text-muted-foreground',
-                )}
-              >
-                {Math.round(clamped)}%
-              </span>
+              {!indeterminate && (
+                <span
+                  className={cn(
+                    'text-[11px]',
+                    clamped > 55 ? 'text-white/85' : 'text-muted-foreground',
+                  )}
+                >
+                  {Math.round(clamped)}%
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2.5 text-[11px]">
               {metrics?.map((m, idx) =>

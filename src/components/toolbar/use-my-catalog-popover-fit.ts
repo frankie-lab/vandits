@@ -1,5 +1,5 @@
 /**
- * use-my-catalog-popover-fit.ts — Subset-fit del popover "mis POI" (PR 1).
+ * use-my-catalog-popover-fit.ts — Subset-fit del popover "mis POI".
  *
  * Hook hermano (NO sustituto) de `useHealthFilterFit`. Solo escucha el
  * evento dedicado `lovable:my-catalog-popover-applied` que emite
@@ -7,21 +7,22 @@
  *
  *   - FilterBar visualState (si se añade en el futuro) NO mueve cámara.
  *   - El popover SIEMPRE encuadra (visual / health / "Ver todos").
- *   - No se duplica el comportamiento de salud que ya gobierna FilterBar:
- *     cuando el filtro de salud viene del popover el evento manda; cuando
- *     viene de FilterBar es `useHealthFilterFit` quien dispara.
  *
  * Política:
- *   - Modo `if-outside`, `minZoom: 7` (alineado con health en FilterBar).
+ *   - Modo `if-outside`, `minZoom: 7`.
  *   - Universo: `mine` (POIs cuyo owner === user.id).
- *   - Subset:
- *       axis='visual'  → getPointVisualState(loc) === value.
- *       axis='health'  → getPointHealthRings(loc).includes(value).
- *       axis='all'     → todo el universo `mine`.
- *   - Subset vacío → no dispara fit, emite `lovable:my-catalog-popover-empty`
- *     para que el popover muestre estado vacío (no se inventa fit a 0 ids).
+ *   - Subset vacío → no dispara fit, emite `lovable:my-catalog-popover-empty`.
  *
- * Ver mem://logic/map/subset-fit-contract y mem://ui/filter-axes-norm.
+ * Cierre de operaciones (PR 2):
+ *   - Cada axis/value tiene un `operationId` reproducible (ver
+ *     `buildMyCatalogPopoverOpId`). Tras procesar el evento se invoca
+ *     `finishOperation(opId, { resultLabel })` con:
+ *       'Filtro aplicado' (subset > 0) — significa "fit solicitado", no
+ *         "encuadre completado": no hay confirmación real del fit.
+ *       'Sin resultados'  (subset = 0).
+ *
+ * Ver mem://logic/map/subset-fit-contract, mem://ui/filter-axes-norm,
+ * mem://logic/operations/heavy-operations-feedback.
  */
 
 import { useEffect, useRef } from 'react';
@@ -30,6 +31,7 @@ import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
 import { getPointHealthRings } from '@/domains/content/lib/point-health-rings';
 import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
 import { useLocationsStore } from '@/domains/content/store/locations-store';
+import { finishOperation } from '@/shared/operations/heavy-operations-store';
 import type { GeoLocation, VisualStateFilter, HealthFilter } from '@/types/location';
 
 export const MY_CATALOG_POPOVER_APPLIED_EVENT = 'lovable:my-catalog-popover-applied';
@@ -48,6 +50,18 @@ export interface MyCatalogPopoverEmptyDetail {
 }
 
 /**
+ * Single source of truth for the operationId tied to each popover action.
+ * Both the emitter (popover button) and the listener (this hook) call it,
+ * so finish/start always agree on the id.
+ */
+export function buildMyCatalogPopoverOpId(detail: MyCatalogPopoverAppliedDetail): string {
+  if (detail.axis === 'all' || detail.value == null) {
+    return 'my-catalog-popover:all';
+  }
+  return `my-catalog-popover:${detail.axis}:${String(detail.value)}`;
+}
+
+/**
  * Monta UNA vez (en FloatingToolbar). Escucha el evento del popover y
  * dispara `requestSubsetFit`.
  */
@@ -60,11 +74,14 @@ export function useMyCatalogPopoverFit(currentUserId: string | null | undefined)
       const detail = (e as CustomEvent<MyCatalogPopoverAppliedDetail>).detail;
       if (!detail) return;
 
+      const opId = buildMyCatalogPopoverOpId(detail);
       const uid = userIdRef.current;
-      if (!uid) return;
+      if (!uid) {
+        finishOperation(opId, { resultLabel: 'Filtro aplicado' });
+        return;
+      }
 
       const all = useLocationsStore.getState().getAllLocations() as GeoLocation[];
-      // Universo "mine" (alineado con el matcher: owner resolver canónico).
       const mine: GeoLocation[] = [];
       for (const loc of all) {
         if (getLocationOwnerUserId(loc as any) === uid) mine.push(loc);
@@ -91,6 +108,7 @@ export function useMyCatalogPopoverFit(currentUserId: string | null | undefined)
             detail: { axis: detail.axis, value: detail.value },
           }),
         );
+        finishOperation(opId, { resultLabel: 'Sin resultados' });
         return;
       }
 
@@ -103,6 +121,9 @@ export function useMyCatalogPopoverFit(currentUserId: string | null | undefined)
         subset.map((l) => l.id),
         { mode: 'if-outside', reason, minZoom: 7 },
       );
+      // No hay confirmación real del fit en Fase 1: cerramos como
+      // "Filtro aplicado" (operación lanzada / fit solicitado).
+      finishOperation(opId, { resultLabel: 'Filtro aplicado' });
     };
 
     window.addEventListener(MY_CATALOG_POPOVER_APPLIED_EVENT, handler);
@@ -110,10 +131,6 @@ export function useMyCatalogPopoverFit(currentUserId: string | null | undefined)
   }, []);
 }
 
-/**
- * Helper para emitir el evento desde el popover. Mantiene el contrato
- * en un único sitio (consumidor + emisor leen el mismo símbolo).
- */
 export function emitMyCatalogPopoverApplied(detail: MyCatalogPopoverAppliedDetail): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(
