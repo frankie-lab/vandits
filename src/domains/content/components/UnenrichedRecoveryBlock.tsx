@@ -379,17 +379,14 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
   if (!parsed) {
     return (
       <div className="rounded-lg border bg-muted/40 border-border/60 flex flex-col">
-        <div className="flex items-start gap-2 px-3 pt-2.5 pb-2">
-          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-muted-foreground" />
-          <div className="flex-1 min-w-0">
-            <div className="text-[12px] font-semibold leading-tight">Aún sin enriquecer</div>
-            <div className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-              Lanza la IA para generar la ficha de este punto.
-            </div>
-          </div>
-          {loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground mt-1" />}
+        <div className="flex items-center gap-2 px-2 pt-2 pb-2">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-medium border border-border/60">
+            <AlertCircle className="w-3 h-3" />
+            Sin localización clara
+          </span>
+          {loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
         </div>
-        <div className="mx-3 mb-2 flex items-center gap-1.5">
+        <div className="mx-2 mb-2 flex items-center gap-1.5">
           <Button
             size="sm"
             variant="default"
