@@ -20,7 +20,13 @@ import { useLocationsStore } from '@/domains/content/store/locations-store';
 import { useAuth } from '@/domains/identity';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { getMyCatalogQuickCounts } from '@/domains/content/lib/my-catalog-quick-counts';
-import { emitMyCatalogPopoverApplied } from '@/components/toolbar/use-my-catalog-popover-fit';
+import {
+  emitMyCatalogPopoverApplied,
+  buildMyCatalogPopoverOpId,
+  MY_CATALOG_POPOVER_EMPTY_EVENT,
+  type MyCatalogPopoverEmptyDetail,
+} from '@/components/toolbar/use-my-catalog-popover-fit';
+import { startOperation } from '@/shared/operations/heavy-operations-store';
 import type { VisualStateFilter, HealthFilter, OwnershipFilter } from '@/types/location';
 
 interface RowProps {
