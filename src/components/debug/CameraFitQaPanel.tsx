@@ -347,7 +347,7 @@ export function CameraFitQaPanel() {
     a.download = filename;
     document.body.appendChild(a);
     a.click();
-    a.remove;
+    a.remove();
     URL.revokeObjectURL(url);
     setToast({ kind: 'success', text: `Downloaded ${filename}`, ts: Date.now() });
   };
