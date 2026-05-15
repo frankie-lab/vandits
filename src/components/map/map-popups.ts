@@ -1096,6 +1096,7 @@ ${location.description}
 </div>
 ` : ''}
 
+${isNearbyPopupContext(location.id) ? '' : `
 ${buildSourceHashtagsBlock(location, ownership)}
 ${buildCollectionChipsPlaceholder(location)}
 ${buildPersonalTagsBlock(location)}
