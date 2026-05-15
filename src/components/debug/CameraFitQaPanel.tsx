@@ -76,14 +76,39 @@ function readMetricsSnapshot(): CameraFitMetrics | null {
   };
 }
 
+function newCaptureId(): string {
+  const ts = Date.now().toString(36);
+  const rnd = Math.random().toString(36).slice(2, 8);
+  return `cap-${ts}-${rnd}`;
+}
+
+interface CaptureWindow {
+  captureId: string | null;
+  captureStartedAt: number | null;
+  resetAt: number | null;
+}
+
 function buildExportPayload(
   metrics: CameraFitMetrics | null,
   trace: CameraFitTraceEvent[],
   flowLabel: string,
+  capture: CaptureWindow,
 ): Record<string, unknown> {
+  const since = capture.captureStartedAt ?? capture.resetAt ?? 0;
+  const filteredTrace = since > 0 ? trace.filter((e) => e.timestamp >= since) : trace;
+  const filteredBypasses = metrics
+    ? since > 0
+      ? metrics.bypasses.filter((b) => b.ts >= since)
+      : metrics.bypasses
+    : [];
   return {
     timestamp: new Date().toISOString(),
     panelBuild: PANEL_BUILD,
+    captureId: capture.captureId,
+    captureStartedAt: capture.captureStartedAt
+      ? new Date(capture.captureStartedAt).toISOString()
+      : null,
+    resetAt: capture.resetAt ? new Date(capture.resetAt).toISOString() : null,
     route:
       typeof window !== 'undefined'
         ? `${window.location.pathname}${window.location.search}${window.location.hash}`
@@ -105,11 +130,11 @@ function buildExportPayload(
           cooldownSkipped: metrics.cooldownSkipped,
           cooldownBypassedByAlways: metrics.cooldownBypassedByAlways,
           directLeafletCalls: metrics.directLeafletCalls,
-          bypasses: metrics.bypasses,
+          bypasses: filteredBypasses,
           lastRequest: metrics.lastRequest,
         }
       : null,
-    trace,
+    trace: filteredTrace,
   };
 }
 
@@ -146,6 +171,8 @@ export function CameraFitQaPanel() {
   const [toast, setToast] = useState<ToastState>(null);
   const [lastResetAt, setLastResetAt] = useState<number | null>(null);
   const [lastMetricsUpdateAt, setLastMetricsUpdateAt] = useState<number | null>(null);
+  const [captureId, setCaptureId] = useState<string | null>(null);
+  const [captureStartedAt, setCaptureStartedAt] = useState<number | null>(null);
   const lastTotalRequestsRef = useRef<number>(-1);
 
   // Honor query-param activation + force init of metrics + observer.
@@ -238,7 +265,26 @@ export function CameraFitQaPanel() {
     : null;
   const lastRequestTs = metrics?.lastRequest?.ts ?? null;
 
-  const exportPayload = () => buildExportPayload(metrics, trace, flowLabel);
+  const exportPayload = () =>
+    buildExportPayload(metrics, trace, flowLabel, {
+      captureId,
+      captureStartedAt,
+      resetAt: lastResetAt,
+    });
+
+  const performReset = (now: number) => {
+    const m = typeof window !== 'undefined' ? window.__cameraFitMetrics : null;
+    if (m && typeof m.reset === 'function') {
+      m.reset();
+    } else {
+      resetCameraFitMetrics();
+    }
+    resetCameraFitTrace();
+    lastTotalRequestsRef.current = 0;
+    setLastMetricsUpdateAt(null);
+    setLastResetAt(now);
+    setTick((t) => t + 1);
+  };
 
   const handleCopy = async () => {
     if (!metricsAvailable) {
@@ -295,34 +341,32 @@ export function CameraFitQaPanel() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `camera-fit-${flowLabel}-${stamp}.json`;
+    const idPart = captureId ? `-${captureId}` : '';
+    const filename = `camera-fit-${flowLabel}${idPart}-${stamp}.json`;
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    setToast({
-      kind: 'success',
-      text: `Downloaded ${filename}`,
-      ts: Date.now(),
-    });
+    setToast({ kind: 'success', text: `Downloaded ${filename}`, ts: Date.now() });
   };
 
   const handleReset = () => {
-    const m = typeof window !== 'undefined' ? window.__cameraFitMetrics : null;
-    if (m && typeof m.reset === 'function') {
-      m.reset();
-    } else {
-      resetCameraFitMetrics();
-    }
-    resetCameraFitTrace();
-    lastTotalRequestsRef.current = 0;
-    setLastMetricsUpdateAt(null);
-    setLastResetAt(Date.now());
-    setTick((t) => t + 1);
-    setToast({ kind: 'success', text: 'Metrics + trace reset', ts: Date.now() });
+    const now = Date.now();
+    performReset(now);
+    setToast({ kind: 'success', text: 'Metrics + trace reset', ts: now });
   };
+
+  const handleStartCapture = () => {
+    const now = Date.now();
+    const id = newCaptureId();
+    performReset(now);
+    setCaptureId(id);
+    setCaptureStartedAt(now);
+    setToast({ kind: 'success', text: `Capture started · ${id}`, ts: now });
+  };
+
 
   // ───────── Floating launcher ─────────
   if (!open) {
@@ -543,9 +587,32 @@ export function CameraFitQaPanel() {
 
         {/* Actions */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+          <ActionBtn onClick={handleStartCapture} label="Start capture" />
           <ActionBtn onClick={handleReset} label="Reset" />
           <ActionBtn onClick={handleCopy} label="Copy JSON" />
           <ActionBtn onClick={handleDownload} label="Download JSON" />
+        </div>
+
+        {/* Capture window */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 6,
+            marginBottom: 8,
+            padding: '4px 8px',
+            background: '#0f172a',
+            border: '1px solid #334155',
+            borderRadius: 4,
+            fontSize: 10,
+            color: '#cbd5e1',
+          }}
+        >
+          <span style={{ color: '#64748b' }}>Capture:</span>
+          <span style={{ color: captureId ? '#86efac' : '#64748b' }}>
+            {captureId ?? '(none — using last reset as window)'}
+          </span>
+          <span style={{ color: '#64748b' }}>started @ {fmtClock(captureStartedAt)}</span>
         </div>
 
         {/* Heartbeat */}
