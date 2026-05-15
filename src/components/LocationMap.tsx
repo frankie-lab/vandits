@@ -2398,7 +2398,7 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
       let { pts, missing, source } = collectPts();
       recordFitOutcome({ reason: String(detail.reason), mode, resolvedFrom: source });
 
-      let { pts, missing } = collectPts();
+      
 
       // Si quedan ids sin coords (locationsRef aún no hidratado o markers no
       // montados por culling), reintentar UNA vez en el siguiente frame.
