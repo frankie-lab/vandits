@@ -46,6 +46,7 @@ import { useSelectionFitOnStart } from './discovery/use-selection-fit-on-start';
 import { useHealthFilterFit } from './discovery/use-health-filter-fit';
 import { getHealthBucketCounts } from '@/domains/content/lib/location-health-counts';
 import { toast } from 'sonner';
+import { runSelectable, resolveSelectableState } from '@/shared/interaction/selectable-kernel';
 
 const COUNT_FORMATTER = new Intl.NumberFormat('es-ES');
 
