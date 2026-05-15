@@ -13,9 +13,9 @@
  * `traceCameraFit(...)` actually writes the ring buffer during automated
  * runs (otherwise tests would see an empty trace).
  *
- * Side-effect import: this module runs at app start (re-exported from
- * `camera-fit-trace.ts`). No UI, no React. Safe to ship in prod — the
- * helpers are inert until called from the test runner / DevTools.
+ * IMPORTANT: this module is imported eagerly from `main.tsx` and MUST NOT
+ * import from `camera-fit-trace.ts` (would create a cycle). It only reads
+ * `window.__cameraFitTrace` / `window.__cameraFitMetrics` directly.
  */
 
 import {
@@ -23,12 +23,13 @@ import {
   resetCameraFitMetrics,
   type CameraFitMetrics,
 } from '@/components/map/subset-fit';
-import {
-  ensureCameraFitTraceBuffer,
-  resetCameraFitTrace,
-  getCameraFitTrace,
-  type CameraFitTraceEvent,
-} from '@/components/debug/camera-fit-trace';
+
+interface CameraFitTraceEvent {
+  timestamp: number;
+  iso: string;
+  label: string;
+  payload?: unknown;
+}
 
 export interface CameraQaSnapshot {
   capturedAt: string;
@@ -41,6 +42,7 @@ export interface CameraQaSnapshot {
 
 declare global {
   interface Window {
+    __cameraFitTrace?: CameraFitTraceEvent[];
     __cameraQaCaptureId?: string | null;
     __cameraQaCaptureLabel?: string | null;
     __cameraQaCaptureStartedAt?: number | null;
@@ -64,6 +66,22 @@ function enableDebugFlag(): void {
   }
 }
 
+function ensureTraceBuffer(): CameraFitTraceEvent[] {
+  if (!Array.isArray(window.__cameraFitTrace)) {
+    window.__cameraFitTrace = [];
+  }
+  return window.__cameraFitTrace;
+}
+
+function resetTrace(): void {
+  window.__cameraFitTrace = [];
+}
+
+function readTrace(): CameraFitTraceEvent[] {
+  const buf = window.__cameraFitTrace;
+  return Array.isArray(buf) ? buf.slice() : [];
+}
+
 function newCaptureId(): string {
   const ts = Date.now().toString(36);
   const rnd = Math.random().toString(36).slice(2, 8);
@@ -76,14 +94,14 @@ function installCameraQaGlobals(): void {
   // Make sure both buffers exist immediately so tests can read them
   // before any flow has fired.
   ensureCameraFitMetrics();
-  ensureCameraFitTraceBuffer();
+  ensureTraceBuffer();
   enableDebugFlag();
 
   if (typeof window.__resetCameraQa !== 'function') {
     window.__resetCameraQa = () => {
       enableDebugFlag();
       resetCameraFitMetrics();
-      resetCameraFitTrace();
+      resetTrace();
       window.__cameraQaCaptureId = null;
       window.__cameraQaCaptureLabel = null;
       window.__cameraQaCaptureStartedAt = null;
@@ -94,7 +112,7 @@ function installCameraQaGlobals(): void {
     window.__startCameraCapture = (label?: string) => {
       enableDebugFlag();
       resetCameraFitMetrics();
-      resetCameraFitTrace();
+      resetTrace();
       const id = newCaptureId();
       window.__cameraQaCaptureId = id;
       window.__cameraQaCaptureLabel = label ?? null;
@@ -106,7 +124,7 @@ function installCameraQaGlobals(): void {
   if (typeof window.__exportCameraQa !== 'function') {
     window.__exportCameraQa = (): CameraQaSnapshot => {
       const metrics = window.__cameraFitMetrics ?? null;
-      const trace = getCameraFitTrace();
+      const trace = readTrace();
       const startedAt = window.__cameraQaCaptureStartedAt ?? null;
       return {
         capturedAt: new Date().toISOString(),
