@@ -59,7 +59,8 @@ const App = () => (
     <Toaster />
      <GlobalLoadingBar />
       <EditModeBar />
-      <SourceFilterBridge />
+       <SourceFilterBridge />
+       <CameraFitQaPanel />
  <BrowserRouter>
  <Routes>
  <Route path="/auth" element={<Auth />} />
