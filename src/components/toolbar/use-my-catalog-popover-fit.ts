@@ -136,13 +136,15 @@ export function useMyCatalogPopoverFit(currentUserId: string | null | undefined)
       // Coords pre-resueltas desde el subset filtrado: evita que el listener
       // resuelva bounds desde markersRef (viewport culling produciría fit
       // parcial). Solo entran POIs con lat/lng numéricos finitos.
+      // Shape canónico GeoLocation: loc.coordinates.{lat,lng}. Los fallbacks
+      // legacy (loc.latitude/longitude, loc.lat/lng) se mantienen por
+      // defensa, pero el path principal es coordinates.{lat,lng}.
       const coords: Array<[number, number]> = [];
       const ids: string[] = [];
       for (const loc of subset) {
-        const lat = (loc as any).latitude ?? (loc as any).lat;
-        const lng = (loc as any).longitude ?? (loc as any).lng;
-        if (typeof lat === 'number' && typeof lng === 'number' && Number.isFinite(lat) && Number.isFinite(lng)) {
-          coords.push([lat, lng]);
+        const c = getLocationCoords(loc);
+        if (c) {
+          coords.push(c);
           ids.push(loc.id);
         }
       }
