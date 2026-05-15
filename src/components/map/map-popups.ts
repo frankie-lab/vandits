@@ -645,7 +645,7 @@ Añadir a mi colección
     };
 
     return `
-<div id="${popupId}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: calc(100vh - 160px);">
+<div id="${popupId}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: calc(100vh - var(--top-header-h, 72px) - var(--bottom-overlay-safe-h, 0px) - 2 * var(--overlay-progress-gap, 12px) - 24px);">
 ${statusBarHtml}
 
 <!-- Hero (fija, no participa en el scroll) -->
