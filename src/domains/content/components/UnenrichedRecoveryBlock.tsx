@@ -159,8 +159,14 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
     region: fresh.region ?? null,
   }), [fresh.id, fresh.name, fresh.description, fresh.coordinates.lat, fresh.coordinates.lng, fresh.isApproved, fresh.enrichmentStatus, fresh.enrichedData, fresh.placeType, fresh.continent, fresh.country, fresh.region]);
 
+  const nl = parsed?.nameLocation;
+  const nameLocComplete =
+    nl && typeof nl.lat === 'number' && typeof nl.lng === 'number' &&
+    typeof nl.title === 'string' && typeof nl.url === 'string' && typeof nl.distanceKm === 'number'
+      ? { lat: nl.lat, lng: nl.lng, title: nl.title, url: nl.url, distanceKm: nl.distanceKm }
+      : undefined;
   const nearbyMismatch = parsed?.kind === 'coherence'
-    ? { providedName: parsed.providedName ?? location.name, nameLocation: parsed.nameLocation }
+    ? { providedName: parsed.providedName ?? location.name, nameLocation: nameLocComplete }
     : null;
 
   /**
