@@ -1,55 +1,84 @@
-## Problema verificado en preview
+## Popover de filtros rápidos sobre el contador verde "mis POI"
 
-Pinchando un POI ("Cascada Oculta A Coruña") y luego en mapa vacío:
-- El popup **NO se cierra** (esperado: cerrar + deseleccionar).
-- Aparece toast colateral "Ubicación no encontrada".
+Sustituir el toggle simple del contador verde por un **popover** que combina los dos ejes canónicos ya existentes (`visualState` + `healthFilter`) restringidos siempre a `ownershipFilter='mine'`.
 
-## Causa raíz
+El número verde sigue siendo `myCatalog` (contrato Top-bar counter). El popover solo añade interacción al click.
 
-`src/components/LocationMap.tsx:1745` crea el popup con `closeOnClick: false`. Esto anula el cierre nativo de Leaflet en cualquier click del mapa, incluyendo el área vacía. El motivo original (comentario en código) era impedir que clicks en botones React dentro del popup propagasen al mapa y dispararan auto-close. Es la solución equivocada: bloquea ambos casos en lugar de solo el bubbling interno.
+## Contrato confirmado
 
-Como `popupclose` no se dispara, el contrato canónico de `map.on('popupclose')` (limpiar foco si `currentFocusedId === closedId`) nunca se ejecuta → el POI queda focado y el popup visible.
+- Click número verde → abre popover anclado al botón.
+- **Cualquier** item del popover fuerza `ownershipFilter='mine'`.
+- **"Ver todos"** = `ownershipFilter='mine'` + `visualState=undefined` + `healthFilter=undefined`. NO desactiva `mine`. El toggle legacy desaparece.
+- **Enriquecidos / Importados / Vacíos** → setean `visualState`, limpian `healthFilter`.
+- **Rellenar huecos / Reparar cadena / Revisar / Rotos** → setean `healthFilter`, limpian `visualState`.
+- **Re-toggle** del item activo → vuelve a "Ver todos" (mine + ambos ejes limpios).
+- **Reflejo bidireccional**: si el estado entra desde FilterBar con `visualState` + `healthFilter` coexistiendo, el popover muestra **ambos como activos**. Solo cuando el usuario actúa desde el popover se aplica la regla "un eje cada vez" (limpia el contrario).
+- Ring/badge en el botón verde cuando `visualState || healthFilter`.
+- El contador verde NO cambia: siempre `myCatalog` total. Los counts del subset "míos" van junto a cada item del popover.
 
-El toast "Ubicación no encontrada" es un síntoma adicional: algún listener de `popup-action` recibe un evento con locationId que ya no está en `documents`. Hay que confirmar si lo dispara el welcome-dismiss handler u otro punto al hacer click en mapa vacío.
+## Estructura del popover
 
-## Fix propuesto
+**Sección "Estado del punto"** (eje `visualState`, single-select):
+- Ver todos — limpia ambos ejes (mantiene `mine`)
+- Enriquecidos (verde) — `visualState='enriched'`
+- Sin actualizar / Importados (gris) — `visualState='imported'`
+- Vacíos (naranja) — `visualState='empty'`
 
-### 1. Restaurar cierre nativo + bloquear bubbling solo desde el popup
+**Separador**
 
-En `src/components/LocationMap.tsx`:
+**Sección "Salud operativa"** (eje `healthFilter`, single-select, mismos buckets que FilterBar):
+- Rellenar huecos (amber) — `healthFilter='partial'`
+- Reparar cadena (yellow) — `healthFilter='chain'`
+- Revisar (magenta) — `healthFilter='review'`
+- Rotos / Reintentar (red) — `healthFilter='hardError'`
 
-- **Quitar** `closeOnClick: false` de las opciones del popup (~L.1745). Dejar que Leaflet use el default (`true`), de modo que click en mapa vacío cierre el popup y dispare el `popupclose` canónico.
-- En el handler `map.on('popupopen', ...)` ya existente (~L.1400-1427), añadir tras obtener `popupEl`:
-  ```ts
-  L.DomEvent.disableClickPropagation(popupEl);
-  L.DomEvent.disableScrollPropagation(popupEl);
-  ```
-  Esto neutraliza el bubbling de clicks de botones React dentro del popup hacia el mapa, sin afectar al click en zona vacía.
+Cada item: dot de color (token CSS canónico) + label + count tabular del subset "míos".
 
-Resultado:
-- Click en mapa vacío → Leaflet cierra el popup → `popupclose` → contrato canónico limpia foco.
-- Click en otro marker → flujo A→B intacto (el guard `currentFocusedId === closedId` ya estaba bien).
-- Click dentro del popup (botones, links, scroll) → no propaga al mapa, no cierra.
+## Implementación técnica
 
-### 2. Investigar y silenciar el toast espurio
+1. **Helper nuevo** — `src/domains/content/lib/my-catalog-quick-counts.ts`:
+   ```ts
+   getMyCatalogQuickCounts(allLocations, currentUserId): {
+     all, enriched, imported, empty,
+     partial, chain, review, hardError
+   }
+   ```
+   Reusa `getPointVisualState`, `getHealthBucketCounts`, `getLocationOwnerUserId`. Filtra por owner=`currentUserId` + `is_approved=true` (mismo criterio que `myCatalog` en `getBucketStats`), luego cuenta por bucket. Single source of truth.
 
-Antes de tocar nada, localizar quién dispara `popup-action` cuando se hace click en mapa vacío:
-- `rg -n "dispatchEvent.*popup-action" src/`
-- Inspeccionar si el welcome-dismiss handler (`mapRef.current.on('click', () => setWelcomeDismissed(true))` en L.1339) tiene un side-effect que reenvíe a popup-action con stale id, o si es otro listener.
+2. **Componente nuevo** — `src/components/toolbar/MyCatalogQuickFilters.tsx`:
+   - shadcn `Popover` + lista de `Button` agrupados por sección.
+   - Lee `filters` y `setFilters` del store de filtros (mismo que FloatingToolbar y FilterBar).
+   - Lee counts vía `getMyCatalogQuickCounts(allLocations, currentUserId)`.
+   - Cada item marca `active` leyendo `filters.visualState` o `filters.healthFilter` (independientes — ambos pueden estar activos simultáneamente si vinieron de FilterBar).
+   - Handler `applyQuickFilter(kind, value)`:
+     - Re-toggle item activo (`kind==='visual' && filters.visualState===value` o equivalente health) → kind='all'
+     - `kind='visual'` → `setFilters({ ...filters, ownershipFilter: 'mine', visualState: value, healthFilter: undefined })`
+     - `kind='health'` → `setFilters({ ...filters, ownershipFilter: 'mine', visualState: undefined, healthFilter: value })`
+     - `kind='all'` → `setFilters({ ...filters, ownershipFilter: 'mine', visualState: undefined, healthFilter: undefined })`
 
-Si el origen es legítimo pero la búsqueda en `documents` falla por carrera, cambiar el `toast.error('Ubicación no encontrada')` de `use-popup-actions.ts:109` por un `console.warn` silencioso (no es un error accionable para el usuario). Si es un bug de doble-dispatch, eliminar la fuente.
+3. **Edición de `FloatingToolbar.tsx`**:
+   - Sustituir `<button onClick={toggleMine}>` del contador verde por `<Popover>` con `<PopoverTrigger asChild>` envolviendo el botón existente.
+   - Indicador visual: `ring-2 ring-emerald-500/40` cuando `filters.visualState || filters.healthFilter`.
+   - Mantener idénticos: número (`myCatalog` total), dot verde, tooltip, formato.
 
-### 3. Verificación en preview
+4. **Subset-fit**: respetar `requestSubsetFit` ya cableado. Activar `healthFilter='hardError'` (o cualquier health) desde el popover dispara el mismo path que el chip de FilterBar (lógica en `use-health-filter-fit.ts`, no se duplica). Activar `visualState` no mueve cámara.
 
-Repetir el flujo manual con browser tools:
-1. Abrir popup A → click mapa vacío → confirmar que popup desaparece y no hay toast.
-2. Abrir popup A → click marker B → confirmar B abierto, foco en B.
-3. Abrir popup con "Contexto cercano" desplegado → click mapa vacío → confirmar cierre completo (panel inline incluido).
-4. Click en cualquier botón del popup (re-enriquecer, notas, estrella) → confirmar que el popup NO se cierra.
+## Lo que NO se toca
 
-## Archivos a tocar
+- Contador azul (`catalogTotal`).
+- `getBucketStats` ni regla del Top-bar counter.
+- Matcher (`location-filtering.ts` / `matchesLocationFilters`).
+- FilterBar modo Mantener — sigue funcionando, sincronizado por `FilterCriteria`.
+- Palette, health rings, iconos.
 
-- `src/components/LocationMap.tsx` — quitar `closeOnClick: false`, añadir `disableClickPropagation` en `popupopen`.
-- Posiblemente `src/domains/content/hooks/use-popup-actions.ts` — bajar severidad del log "Ubicación no encontrada" si se confirma que no es accionable.
+## Criterio de aceptación
 
-Ningún cambio en `PointContextActions`, `nearby-popup-context`, ni en el contrato `map.on('popupclose')` ya implementado.
+1. Número verde sigue siendo `myCatalog` total (no cambia con sub-filtros).
+2. Counts internos del popover son del subset "míos".
+3. "Ver todos" mantiene `ownershipFilter='mine'`.
+4. Activar `visualState` desde popover limpia `healthFilter`.
+5. Activar `healthFilter` desde popover limpia `visualState`.
+6. Si FilterBar dejó ambos activos, popover refleja los dos como activos.
+7. Re-click sobre item activo → vuelve a "Ver todos".
+8. `hardError` desde popover dispara el mismo subset-fit que FilterBar.
+9. Botón verde muestra ring cuando hay sub-filtro activo.
