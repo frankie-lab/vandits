@@ -2349,18 +2349,12 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
 
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<SubsetFitDetail>).detail;
-      // F1-trace: log entry to canonical SUBSET_FIT_BOUNDS_EVENT listener.
-      try {
-        if (typeof window !== 'undefined' && window.localStorage?.getItem('vandits_debug_camera_fit') !== 'false') {
-          // eslint-disable-next-line no-console
-          console.debug('[F1-trace] LocationMap SUBSET_FIT listener received', {
-            reason: detail?.reason,
-            mode: detail?.mode,
-            idsCount: detail?.locationIds?.length ?? 0,
-            coordsCount: detail?.coords?.length ?? 0,
-          });
-        }
-      } catch { /* noop */ }
+      traceCameraFit('LocationMap SUBSET_FIT listener received', {
+        reason: detail?.reason,
+        mode: detail?.mode,
+        idsCount: detail?.locationIds?.length ?? 0,
+        coordsCount: detail?.coords?.length ?? 0,
+      });
       if (!detail || !Array.isArray(detail.locationIds) || detail.locationIds.length === 0) return;
       const mode = detail.mode ?? 'if-outside';
       const cooldownActive = Date.now() - lastUserInteractionAt < COOLDOWN_MS;
