@@ -34,17 +34,20 @@ interface RowProps {
   count: number;
   dotClass: string;
   active: boolean;
+  empty?: boolean;
   onClick: () => void;
 }
 
-function Row({ label, count, dotClass, active, onClick }: RowProps) {
+function Row({ label, count, dotClass, active, empty, onClick }: RowProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={`w-full flex items-center justify-between gap-3 px-2.5 py-1.5 rounded-md text-sm transition-colors ${
         active
-          ? 'bg-emerald-500/10 text-foreground ring-1 ring-emerald-500/40'
+          ? empty
+            ? 'bg-red-500/10 text-foreground ring-1 ring-red-500/40'
+            : 'bg-emerald-500/10 text-foreground ring-1 ring-emerald-500/40'
           : 'hover:bg-muted text-foreground/90'
       }`}
     >
@@ -52,7 +55,11 @@ function Row({ label, count, dotClass, active, onClick }: RowProps) {
         <span className={`w-2 h-2 rounded-full shrink-0 ${dotClass}`} />
         <span className="truncate">{label}</span>
       </span>
-      <span className="text-xs tabular-nums text-muted-foreground">{count}</span>
+      {active && empty ? (
+        <span className="text-[11px] font-medium text-red-500">Sin resultados</span>
+      ) : (
+        <span className="text-xs tabular-nums text-muted-foreground">{count}</span>
+      )}
     </button>
   );
 }
