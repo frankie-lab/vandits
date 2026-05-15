@@ -210,14 +210,29 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
  // Map center config version to trigger re-centering
  const [centerConfigVersion, setCenterConfigVersion] = useState(0);
 
+  // Devuelve el ancho efectivo ocupado por CUALQUIER overlay anclado a la
+  // derecha del mapa (document focus, collection focus, paneles flotantes,
+  // SemanticSearch, etc.). Usado para descontar ese ancho al centrar popups
+  // y evitar que queden tapados detrás del panel.
   const getDocumentFocusPanelWidth = useCallback(() => {
-    const panel = document.querySelector<HTMLElement>(
-      '[data-document-focus-panel="true"], [data-collection-focus-panel="true"]'
+    const panels = document.querySelectorAll<HTMLElement>(
+      '[data-document-focus-panel="true"], [data-collection-focus-panel="true"], [data-right-overlay="true"]'
     );
-    if (!panel) return 0;
+    if (!panels.length) return 0;
 
-    const { width } = panel.getBoundingClientRect();
-    return width > 0 ? width : 0;
+    const containerRight =
+      mapRef.current?.getContainer().getBoundingClientRect().right ??
+      window.innerWidth;
+
+    let maxWidth = 0;
+    panels.forEach((el) => {
+      const r = el.getBoundingClientRect();
+      // Solo cuenta si está realmente sobre el mapa por la derecha.
+      if (r.width <= 0 || r.right < containerRight - 4) return;
+      const effective = Math.max(0, containerRight - r.left);
+      if (effective > maxWidth) maxWidth = effective;
+    });
+    return maxWidth;
   }, []);
 
   const centerOpenedPopupInVisibleMap = useCallback((marker: L.Marker, rightPanelWidth = 0) => {
