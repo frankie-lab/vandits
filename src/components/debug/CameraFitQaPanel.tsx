@@ -97,7 +97,10 @@ function buildExportPayload(
 }
 
 export function CameraFitQaPanel() {
-  // Honor query-param activation: set flag in localStorage and continue.
+  const [observerInstalled, setObserverInstalled] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+
+  // Honor query-param activation + force init of metrics + observer.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
@@ -108,6 +111,16 @@ export function CameraFitQaPanel() {
     } catch {
       // ignore
     }
+    if (!isCameraFitDebugEnabled()) return;
+    // Force-init metrics object so the panel can read it before the first fit.
+    ensureCameraFitMetrics();
+    // Force-install observer (idempotente). Cubre el caso en que el flag se
+    // activó vía query-param DESPUÉS de que el módulo subset-fit.ts ya hizo
+    // su auto-init y vio el flag OFF.
+    void installCameraFitObserver().then(() => {
+      setObserverInstalled(isCameraFitObserverInstalled());
+    });
+    setObserverInstalled(isCameraFitObserverInstalled());
   }, []);
 
   const enabled = isCameraFitDebugEnabled();
@@ -116,11 +129,13 @@ export function CameraFitQaPanel() {
   const [, setTick] = useState(0);
   const intervalRef = useRef<number | null>(null);
 
-  // Polling 500ms mientras esté abierto.
+  // Polling 500ms mientras esté abierto. También refresca el estado del observer.
   useEffect(() => {
     if (!open) return;
     intervalRef.current = window.setInterval(() => {
       setTick((t) => (t + 1) % 1_000_000);
+      const installed = isCameraFitObserverInstalled();
+      setObserverInstalled((prev) => (prev === installed ? prev : installed));
     }, 500);
     return () => {
       if (intervalRef.current !== null) {
@@ -138,21 +153,33 @@ export function CameraFitQaPanel() {
 
   if (!enabled) return null;
 
+  const metricsAvailable = metrics !== null;
   const exportPayload = () => buildExportPayload(metrics, flowLabel);
 
   const handleCopy = async () => {
+    setCopyError(null);
+    if (!metricsAvailable) {
+      setCopyError(
+        'No metrics yet. window.__cameraFitMetrics is not initialized. Trigger any fit first or check that the observer is installed.',
+      );
+      return;
+    }
     try {
       await navigator.clipboard.writeText(
         JSON.stringify(exportPayload(), null, 2),
       );
     } catch {
       // Fallback: textarea
-      const ta = document.createElement('textarea');
-      ta.value = JSON.stringify(exportPayload(), null, 2);
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      ta.remove();
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = JSON.stringify(exportPayload(), null, 2);
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      } catch (e) {
+        setCopyError(`Copy failed: ${(e as Error).message}`);
+      }
     }
   };
 
