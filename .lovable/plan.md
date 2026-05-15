@@ -1,40 +1,48 @@
-## Problema
+## Contexto
 
-La barra inferior de "Recuperar imágenes" pinta un único segmento violeta = `scanned / totalTarget` (avance bruto). El título resalta solo `updated / scanned` (98.8%), y los POIs "no actualizados" (sin imagen + fallos técnicos = 1.3% en la captura, ese 2.2% acumulado del usuario) viven únicamente en el subtítulo en texto. Visualmente parece que todo el avance es éxito.
+Tienes razón. Habíamos definido que "Contexto cercano" se viera **inline dentro del popup de la ficha**, no en un panel lateral. En la iteración anterior, al arreglar que el botón no respondía en el mapa global, monté `GlobalNearbyContextHost` que abre `NearbyPanel` en un `Sheet` lateral derecho — eso fue un error de arquitectura.
 
-El usuario quiere lo que acordamos: **total a procesar · éxito · fallidos** representado en la barra y en los contadores principales.
+Memorias afectadas (a actualizar tras aplicar):
+- `mem://features/content/empty-point-quick-actions-v2` (dice "panel lateral se abre" → debe decir "se expande inline en el popup")
+- `mem://features/content/proximity-context-enrichment-v2` (dice "barra lateral" → debe reflejar "inline en ficha")
+- Añadir línea Core: "Contexto cercano = inline en popup. NUNCA panel lateral ni Sheet."
 
-## Cambio
+## Plan
 
-Solo presentación, archivo único `src/shared/progress/ImageRecoveryLane.tsx`. El contrato de métricas (`getImageRecoveryMetrics`) ya expone todo lo necesario, no se toca.
+### 1. Eliminar el host lateral
+- Borrar `src/domains/content/components/GlobalNearbyContextHost.tsx`.
+- Quitar import + montaje en `src/domains/discovery/components/DiscoveryOrchestrator.tsx`.
+- Quitar el listener equivalente en `src/components/DocumentFocusView.tsx` (~líneas 514-531) — la ficha es el contenedor único.
 
-**Barra segmentada (sobre la longitud `scanned / totalTarget`):**
+### 2. Cambiar el contrato del botón en `UnenrichedRecoveryBlock.tsx`
+En vez de disparar `open-nearby-context`, alternar estado local:
 
-```text
-[ verde: updated/total ][ rojo: (noImage+failed)/total ][ resto vacío hasta total ]
+```ts
+const [showNearby, setShowNearby] = useState(false);
 ```
 
-- Verde esmeralda = `updated / totalTarget * 100` → POIs procesados con éxito.
-- Rojo/destructive = `(noImage + failed) / totalTarget * 100` → POIs procesados sin éxito (fallidos en sentido del usuario: no se obtuvo imagen, sea por técnica o por ausencia en fuentes).
-- El resto del ancho queda vacío y representa lo que falta por procesar.
-- Si `totalTarget` es desconocido, se cae al modo actual (un solo segmento de avance).
+Renderizar `<NearbyPanel variant="inline" ... />` justo debajo de las acciones rápidas cuando `showNearby === true`. El botón "Contexto cercano" hace toggle.
 
-**Título y subtítulo:**
+### 3. Adaptar `NearbyPanel` (en `PointContextActions.tsx`) para modo inline
+- Aceptar prop `variant?: 'sidebar' | 'inline'` (default `inline`).
+- Modo `inline`: contenedor con `max-h` acotada (~50vh) y scroll interno, padding compacto, sin header sticky redundante (la ficha ya tiene cabecera), botón "Cerrar" → colapsa el bloque vía `onClose`.
+- Misma lógica funcional intacta: búsqueda, slider de radio, lista, fusionar, guardar como personal.
 
-- Título: `Recuperación · 240 / 577 procesados` (avance honesto, no la tasa de éxito).
-- Subtítulo: `237 éxito · 3 fallidos · lote 4` (tres números acordados; "saltados" se mantiene oculto salvo que >0).
+### 4. Limpiar el evento `open-nearby-context`
+- Quitar emisión en `UnenrichedRecoveryBlock.tsx` (`handleOpenContext`).
+- Quitar emisión en `src/components/map-popups.ts` si la hace.
+- Quitar listener en `DocumentFocusView.tsx`.
+- El evento queda eliminado del código.
 
-**Métricas overlay (chips a la derecha de la barra):**
+### 5. No tocar `map-popups.ts` más allá de la limpieza del evento
+El popup HTML sigue montando `UnenrichedRecoveryBlock` por portal — `NearbyPanel` heredará ese contenedor automáticamente.
 
-- Verde · Éxito · `updated`
-- Rojo · Fallidos · `noImage + failed`
-- (se elimina el desglose en 3 puntitos verde/gris/ámbar para alinearlo al modelo "éxito vs fallidos" pedido)
+### 6. Actualizar memorias
+Tras aplicar, reescribir las dos memorias citadas y añadir la regla Core para que ningún cambio futuro vuelva a moverlo a la columna derecha.
 
-## Fuera de alcance
+## QA
 
-- No se toca el panel admin `RecoverImagesPanel.tsx` (mantiene su desglose detallado de actualizados / sin imagen / fallos técnicos / saltados).
-- No se cambia el contrato de medición ni el backend.
-
-## Archivos
-
-- `src/shared/progress/ImageRecoveryLane.tsx` — recalcular `segments`, `title`, `subtitle` y `metrics` según lo anterior.
+- Mapa global → click POI vacío → "Contexto cercano" → se expande dentro del propio popup, sin abrir nada en columna derecha.
+- Focus mode (documento abierto) → mismo comportamiento, sin panel lateral duplicado.
+- Cerrar contexto → el popup vuelve a su estado compacto y sigue abierto.
+- Popup respeta `--popup-max-h` y scroll interno.

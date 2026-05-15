@@ -43,6 +43,8 @@ import {
 import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
 import { useLocationsStore } from '@/domains/content';
 import { searchWikiCandidates } from '@/domains/content/lib/wiki-name-search';
+import { useAuth } from '@/domains/identity/hooks/use-auth';
+import { NearbyPanel } from './PointContextActions';
 
 interface Props {
   location: GeoLocation;
@@ -90,9 +92,11 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
   // se regenera por el contrato `location:enriched` (LocationMap listener), no
   // por efecto colateral del foco.
   const { parsed, loading } = useEnrichmentFailure(location.id, !isEnriched);
+  const { user } = useAuth();
   if (isEnriched) return null;
 
   const [busy, setBusy] = React.useState(false);
+  const [showNearby, setShowNearby] = React.useState(false);
   const [editingAll, setEditingAll] = React.useState(false);
   const [form, setForm] = React.useState({
     name: location.name ?? '',
@@ -133,20 +137,37 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
     }
   };
 
-  const handleOpenContext = () => {
-    window.dispatchEvent(
-      new CustomEvent('open-nearby-context', {
-        detail: {
-          locationId: location.id,
-          location,
-          reason: parsed?.kind === 'coherence' ? 'name-coordinate-mismatch' : 'manual',
-          providedName: parsed?.providedName ?? location.name,
-          nameLocation: parsed?.nameLocation,
-          nearbyCandidates: parsed?.candidates ?? [],
-        },
-      }),
-    );
-  };
+  // "Contexto cercano" se renderiza INLINE dentro de este mismo bloque
+  // (debajo del CTA), no como panel lateral. Ver mem://features/content/
+  // empty-point-quick-actions-v2.
+  const handleOpenContext = () => setShowNearby((v) => !v);
+
+  // Construye el LocationRow que NearbyPanel espera a partir del GeoLocation
+  // del store. Memo por id+coords+name para evitar re-renders innecesarios.
+  const nearbyLocationRow = React.useMemo(() => ({
+    id: fresh.id,
+    name: fresh.name,
+    description: fresh.description ?? null,
+    latitude: fresh.coordinates.lat,
+    longitude: fresh.coordinates.lng,
+    is_approved: fresh.isApproved ?? false,
+    enrichment_status: (fresh.enrichmentStatus ?? null) as string | null,
+    enriched_data: fresh.enrichedData ?? null,
+    place_type: (fresh.placeType ?? null) as string | null,
+    continent: fresh.continent ?? null,
+    country: fresh.country ?? null,
+    region: fresh.region ?? null,
+  }), [fresh.id, fresh.name, fresh.description, fresh.coordinates.lat, fresh.coordinates.lng, fresh.isApproved, fresh.enrichmentStatus, fresh.enrichedData, fresh.placeType, fresh.continent, fresh.country, fresh.region]);
+
+  const nl = parsed?.nameLocation;
+  const nameLocComplete =
+    nl && typeof nl.lat === 'number' && typeof nl.lng === 'number' &&
+    typeof nl.title === 'string' && typeof nl.url === 'string' && typeof nl.distanceKm === 'number'
+      ? { lat: nl.lat, lng: nl.lng, title: nl.title, url: nl.url, distanceKm: nl.distanceKm }
+      : undefined;
+  const nearbyMismatch = parsed?.kind === 'coherence'
+    ? { providedName: parsed.providedName ?? location.name, nameLocation: nameLocComplete }
+    : null;
 
   /**
    * Acción unificada: el usuario elige un candidato como "este es el lugar correcto".
@@ -337,6 +358,23 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
 
   // ── render: variante card ─────────────────────────────────────────────────
 
+  // Bloque inline de "Contexto cercano" (renderizado dentro del propio popup
+  // cuando el usuario lo activa). NUNCA panel lateral.
+  const inlineNearby = showNearby && user ? (
+    <div className="mx-3 mb-2 mt-0">
+      <NearbyPanel
+        location={nearbyLocationRow}
+        docId={fresh.documentId ?? null}
+        userId={user.id}
+        variant="inline"
+        mismatch={nearbyMismatch}
+        onClose={() => setShowNearby(false)}
+        onLocationUpdated={() => { /* store ya se actualiza por canal canónico */ }}
+        onLocationMerged={() => setShowNearby(false)}
+      />
+    </div>
+  ) : null;
+
   // Sin conflicto: bloque simple Enriquecer + Contexto cercano.
   if (!parsed) {
     return (
@@ -364,15 +402,16 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
           </Button>
           <Button
             size="sm"
-            variant="ghost"
+            variant={showNearby ? 'default' : 'ghost'}
             className="h-7 text-[11px] px-2 gap-1"
             onClick={handleOpenContext}
             disabled={busy}
           >
             <Compass className="w-3 h-3" />
-            Contexto cercano
+            {showNearby ? 'Cerrar contexto' : 'Contexto cercano'}
           </Button>
         </div>
+        {inlineNearby}
       </div>
     );
   }
@@ -598,19 +637,30 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
 
       {/* Footer CTA full-width */}
       {!editingAll && (
-        <div className="border-t border-border/40 p-2">
+        <div className="border-t border-border/40 p-2 flex items-center gap-1.5">
           <Button
             size="sm"
             variant="outline"
-            className="w-full h-7 text-[11px] gap-1"
+            className="flex-1 h-7 text-[11px] gap-1"
             onClick={() => setEditingAll(true)}
             disabled={busy || searching}
           >
             <RefreshCw className="w-3 h-3" />
             Editar
           </Button>
+          <Button
+            size="sm"
+            variant={showNearby ? 'default' : 'ghost'}
+            className="h-7 text-[11px] px-2 gap-1"
+            onClick={handleOpenContext}
+            disabled={busy || searching}
+          >
+            <Compass className="w-3 h-3" />
+            {showNearby ? 'Cerrar contexto' : 'Contexto cercano'}
+          </Button>
         </div>
       )}
+      {inlineNearby}
     </div>
   );
 }

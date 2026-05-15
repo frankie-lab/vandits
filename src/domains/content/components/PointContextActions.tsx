@@ -78,6 +78,12 @@ export interface NearbyPanelProps {
     providedName: string;
     nameLocation?: { lat: number; lng: number; title: string; url: string; distanceKm: number };
   } | null;
+  /**
+   * 'sidebar' = ocupa toda la altura disponible (Sheet/DocumentFocusView).
+   * 'inline'  = bloque acotado (~60vh) dentro del popup del POI.
+   *             Por defecto 'sidebar' para no romper consumidores existentes.
+   */
+  variant?: 'sidebar' | 'inline';
   onClose: () => void;
   onLocationUpdated: (loc: LocationRow) => void;
   onLocationMerged: (mergedIntoId: string, removedId: string) => void;
@@ -235,8 +241,9 @@ function NearbyPointCard({ point }: { point: NearbyPoint }) {
   );
 }
 
-// ── Exported inline nearby panel (renders in left sidebar) ──
-export function NearbyPanel({ location, userId, mismatch, onClose, onLocationUpdated, onLocationMerged }: NearbyPanelProps) {
+// ── Exported nearby panel — variant 'sidebar' (full-height Sheet) o 'inline'
+//    (bloque acotado dentro del popup del POI). Lógica idéntica en ambos. ──
+export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', onClose, onLocationUpdated, onLocationMerged }: NearbyPanelProps) {
   const [nearbyPoints, setNearbyPoints] = useState<NearbyPoint[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(true);
   const [enriching, setEnriching] = useState(false);
@@ -639,8 +646,13 @@ export function NearbyPanel({ location, userId, mismatch, onClose, onLocationUpd
     }
   };
 
+  const isInline = variant === 'inline';
+  const rootClass = isInline
+    ? 'flex w-full min-w-0 flex-col overflow-hidden overflow-x-hidden rounded-md border border-border/60 bg-background max-h-[60vh]'
+    : 'flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overflow-x-hidden';
+
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overflow-x-hidden">
+    <div className={rootClass}>
       {/* Header */}
       <div className="space-y-1 overflow-x-hidden border-b bg-muted/30 px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">

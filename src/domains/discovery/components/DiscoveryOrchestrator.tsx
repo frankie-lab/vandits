@@ -18,7 +18,6 @@ import { DuplicatesList } from '@/components/DuplicatesList';
 import { IncompleteLocationsPanel } from '@/components/IncompleteLocationsPanel';
 import { UnresolvedLocationsPanel } from '@/components/UnresolvedLocationsPanel';
 import { LayersPanel } from '@/components/LayersPanel';
-import { GlobalNearbyContextHost } from '@/domains/content/components/GlobalNearbyContextHost';
 import { useLocationsStore } from '@/domains/content';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { useRightPanel } from '@/hooks/use-right-panel';
@@ -188,10 +187,8 @@ export function DiscoveryOrchestrator({ onControlsReady, criteriaVersion }: Disc
         onLocationClick={() => {}}
       />
 
-      {/* Global "Contexto cercano" host — escucha el evento `open-nearby-context`
-          emitido desde popups del mapa y abre NearbyPanel en un Sheet lateral.
-          Se auto-inhibe si DocumentFocusView está montado. */}
-      <GlobalNearbyContextHost />
+      {/* "Contexto cercano" se renderiza INLINE dentro del propio popup
+          del POI (UnenrichedRecoveryBlock). No hay panel lateral global. */}
     </>
   );
 }
