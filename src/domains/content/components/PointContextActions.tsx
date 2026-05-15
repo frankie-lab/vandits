@@ -25,6 +25,7 @@ import { triggerEnrichLocation } from '@/domains/content/lib/enrich-location';
 import { enrichmentFailureStore } from '@/domains/content/hooks/use-enrichment-failure';
 import { toast } from 'sonner';
 import { RenormalizeButton } from '@/shared/geography/RenormalizeButton';
+import { NearbyResultCard } from '@/shared/components/ui/nearby-result-card';
 
 interface LocationRow {
   id: string;
