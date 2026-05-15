@@ -258,6 +258,7 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
   const [wantPersonal, setWantPersonal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [executingActions, setExecutingActions] = useState(false);
+  const [adoptingId, setAdoptingId] = useState<string | null>(null);
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
   const documents = useLocationsStore(state => state.documents);
   const selectedRef = useRef<HTMLDivElement | null>(null);
