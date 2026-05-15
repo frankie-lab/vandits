@@ -413,3 +413,26 @@ Cinco fases. Cada fase es PR-aislable y NO bloquea las siguientes hasta su merge
 - Memory: `mem://logic/map/subset-fit-contract`, `mem://logic/map/locate-me-button-contract`, `mem://logic/map/popup-persist-on-rebuild`.
 - Backlog: BL-002 (cooldown), BL-003 (popover Mis POI, pending-manual-qa), BL-012 (E2E test), BL-015 (unify fit buses), BL-017 (fit tokens).
 - Contratos relacionados: `subset-fit-contract`, `popup-contract`, `danger-zones` en `LocationMap.tsx`.
+
+---
+
+## 8. Camera QA — trace buffer (genérico)
+
+Para que el QA manual no dependa de DevTools, todos los logs `[camera-fit-trace]` se reflejan también en un buffer global cuando el debug flag está activo.
+
+- **Helper único:** `traceCameraFit(label, payload?)` en `src/components/debug/camera-fit-trace.ts`. Genérico (NO específico de F1) — cualquier flujo que necesite dejar rastro para QA de cámara llama a este helper.
+- **Buffer global:** `window.__cameraFitTrace: CameraFitTraceEvent[]` (`{ timestamp, iso, label, payload? }`). Ring buffer cap = 500, drop-oldest.
+- **Gate:** `isCameraFitDebugEnabled()`. Off → no-op. Console y push viajan juntos: prefijo de consola = `[camera-fit-trace]`.
+- **API:** `ensureCameraFitTraceBuffer()`, `getCameraFitTrace()`, `resetCameraFitTrace()`.
+- **Panel (`CameraFitQaPanel`):**
+  - Sección "Trace events: N". Si N = 0 → warning rojo "No trace captured".
+  - Botón **Reset** limpia metrics + trace en una sola acción.
+  - Copy/Download JSON exportan `{ timestamp, route, viewportSize, flowLabel, metrics, trace }` para cualquier flujo seleccionado, no solo F1.
+- **Labels canónicos** (genéricos, sin prefijo de flujo):
+  - `MyCatalogQuickFilters.applyAll click` / `applyVisual click` / `applyHealth click`
+  - `popover-fit handler RECEIVED event`
+  - `popover-fit subset computed`
+  - `popover-fit coords resolved`
+  - `popover-fit requestSubsetFit`
+  - `LocationMap SUBSET_FIT listener received`
+- **Non-goal:** sin cambios de comportamiento de cámara. Solo instrumentación.

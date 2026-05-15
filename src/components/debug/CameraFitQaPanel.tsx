@@ -22,6 +22,12 @@ import {
   resetCameraFitMetrics,
   type CameraFitMetrics,
 } from '@/components/map/subset-fit';
+import {
+  ensureCameraFitTraceBuffer,
+  getCameraFitTrace,
+  resetCameraFitTrace,
+  type CameraFitTraceEvent,
+} from '@/components/debug/camera-fit-trace';
 
 const FLOW_LABELS = [
   { id: 'unlabeled', label: '— sin etiquetar —' },
@@ -64,6 +70,7 @@ function readMetricsSnapshot(): CameraFitMetrics | null {
 
 function buildExportPayload(
   metrics: CameraFitMetrics | null,
+  trace: CameraFitTraceEvent[],
   flowLabel: string,
 ): Record<string, unknown> {
   return {
@@ -93,6 +100,7 @@ function buildExportPayload(
           lastRequest: metrics.lastRequest,
         }
       : null,
+    trace,
   };
 }
 
@@ -114,6 +122,9 @@ export function CameraFitQaPanel() {
     if (!isCameraFitDebugEnabled()) return;
     // Force-init metrics object so the panel can read it before the first fit.
     ensureCameraFitMetrics();
+    // Force-init trace buffer so getCameraFitTrace() never returns null even
+    // before the first traceCameraFit() call.
+    ensureCameraFitTraceBuffer();
     // Force-install observer (idempotente). Cubre el caso en que el flag se
     // activó vía query-param DESPUÉS de que el módulo subset-fit.ts ya hizo
     // su auto-init y vio el flag OFF.
@@ -151,10 +162,17 @@ export function CameraFitQaPanel() {
     [open, /* re-read each tick: */ intervalRef.current, /* state: */ flowLabel],
   );
 
+  const trace = useMemo<CameraFitTraceEvent[]>(
+    () => (open ? getCameraFitTrace() : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [open, intervalRef.current, flowLabel],
+  );
+
   if (!enabled) return null;
 
   const metricsAvailable = metrics !== null;
-  const exportPayload = () => buildExportPayload(metrics, flowLabel);
+  const traceCount = trace.length;
+  const exportPayload = () => buildExportPayload(metrics, trace, flowLabel);
 
   const handleCopy = async () => {
     setCopyError(null);
@@ -212,6 +230,7 @@ export function CameraFitQaPanel() {
     } else {
       resetCameraFitMetrics();
     }
+    resetCameraFitTrace();
     setTick((t) => t + 1);
   };
 
@@ -354,6 +373,33 @@ export function CameraFitQaPanel() {
               {metricsAvailable ? 'available' : 'unavailable'}
             </strong>
           </span>
+        </div>
+
+        {/* Trace events */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 8,
+            marginBottom: 8,
+            padding: '4px 6px',
+            background: traceCount === 0 ? 'rgba(127,29,29,0.35)' : '#0f172a',
+            border: `1px solid ${traceCount === 0 ? '#fca5a5' : '#334155'}`,
+            borderRadius: 4,
+          }}
+        >
+          <span>
+            <span style={{ color: '#94a3b8' }}>Trace events:</span>{' '}
+            <strong style={{ color: traceCount > 0 ? '#86efac' : '#fca5a5' }}>
+              {traceCount}
+            </strong>
+          </span>
+          {traceCount === 0 && (
+            <span style={{ color: '#fecaca', fontSize: 10 }}>
+              No trace captured
+            </span>
+          )}
         </div>
 
         {copyError && (
