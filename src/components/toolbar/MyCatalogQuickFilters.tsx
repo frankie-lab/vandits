@@ -26,6 +26,7 @@ import {
   MY_CATALOG_POPOVER_EMPTY_EVENT,
   type MyCatalogPopoverEmptyDetail,
 } from '@/components/toolbar/use-my-catalog-popover-fit';
+import { isCameraFitDebugEnabled } from '@/components/map/subset-fit';
 import { startOperation } from '@/shared/operations/heavy-operations-store';
 import type { VisualStateFilter, HealthFilter, OwnershipFilter } from '@/types/location';
 
