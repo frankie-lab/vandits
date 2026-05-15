@@ -18,7 +18,7 @@ Status: `open` / `mitigated` (workaround activo) / `pending-manual-qa` (code-lev
 | BL-009 | Coupling UI↔domain: lectura directa de `loc.enriched_data?.descripcion` desde UI | ui-domain-coupling H5 | low | Bypass de helpers (`isPointEnriched`) | content / ui | open (regla de review) | — |
 | BL-010 | Side-effects de cámara distribuidos en hooks que reaccionan a `filters` | ui-domain-coupling H6 | medium | Riesgo de hooks compitiendo por la cámara | discovery / map | open | filter-axis-contract |
 | BL-011 | Refactor de `LocationMap.tsx` (archivo gigante) en subhooks por capa | stale-closures H2 | medium | Re-render coste creciente; deps lists pesadas | map | accepted-debt | — |
-| BL-012 | Single listener `subset-fit` no testeado (sin assert de count en runtime) | duplicate-listeners H2 (recomendación) | low | Regresión silenciosa si se duplica | map / qa | open | — |
+| BL-012 | Single listener `subset-fit` no testeado (sin assert de count en runtime) + pendiente test E2E con control de tiempo y eventos Leaflet (`movestart`/`zoomstart`/`dragstart`); bloquea cierre de BL-003 a `resolved` hasta tener cobertura automatizada | duplicate-listeners H2 (recomendación) | low | Regresión silenciosa si se duplica | map / qa | open | — |
 | BL-013 | `openPopupLocationId` solo accesible vía LocationMap — no expuesto a otros componentes | source-of-truth H1 | low | Si futuro consumidor necesita conocer el popup activo, hay que decidir vía ADR antes de promoverlo | map | accepted-debt | — |
 
 ## Reglas
