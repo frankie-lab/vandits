@@ -1,8 +1,12 @@
 /**
  * CameraFitQaPanel — Panel temporal de QA para el sistema de cámara.
  *
- * Solo visible en dev/debug. Permite leer `window.__cameraFitMetrics` sin
- * abrir DevTools, etiquetar snapshots por flujo (F1..Fn) y exportarlos.
+ * Solo visible en dev/debug. Permite leer `window.__cameraFitMetrics` y
+ * `window.__cameraFitTrace` sin abrir DevTools, etiquetar snapshots por
+ * flujo (F1..Fn) y exportarlos.
+ *
+ * Build: trace-v2 — añade UX para QA humana (toasts inline, live event
+ * stream, heartbeat, status pills).
  *
  * Activación:
  *  - `localStorage.vandits_debug_camera_fit === 'true'` (o dev por defecto), o
@@ -29,6 +33,8 @@ import {
   type CameraFitTraceEvent,
 } from '@/components/debug/camera-fit-trace';
 
+const PANEL_BUILD = 'trace-v2';
+
 const FLOW_LABELS = [
   { id: 'unlabeled', label: '— sin etiquetar —' },
   { id: 'F1', label: 'F1 — Mis POI → Enriquecidos' },
@@ -46,11 +52,13 @@ const FLOW_LABELS = [
   { id: 'AGGREGATE', label: 'Aggregate — corrida completa sin reset' },
 ] as const;
 
+type ToastKind = 'success' | 'error' | 'info';
+type ToastState = { kind: ToastKind; text: string; ts: number } | null;
+
 function readMetricsSnapshot(): CameraFitMetrics | null {
   if (typeof window === 'undefined') return null;
   const m = window.__cameraFitMetrics;
   if (!m) return null;
-  // shallow clone for stable rendering; arrays/objects re-leídos en cada tick
   return {
     totalRequests: m.totalRequests,
     byReason: { ...m.byReason },
@@ -75,6 +83,7 @@ function buildExportPayload(
 ): Record<string, unknown> {
   return {
     timestamp: new Date().toISOString(),
+    panelBuild: PANEL_BUILD,
     route:
       typeof window !== 'undefined'
         ? `${window.location.pathname}${window.location.search}${window.location.hash}`
@@ -104,9 +113,40 @@ function buildExportPayload(
   };
 }
 
+function fmtClock(ts: number | null | undefined): string {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  const ms = String(d.getMilliseconds()).padStart(3, '0');
+  return `${hh}:${mm}:${ss}.${ms}`;
+}
+
+function summarizePayload(payload: unknown): string {
+  if (payload === undefined || payload === null) return '';
+  if (typeof payload !== 'object') return String(payload);
+  try {
+    const s = JSON.stringify(payload);
+    return s.length > 80 ? `${s.slice(0, 77)}…` : s;
+  } catch {
+    return '[unserializable]';
+  }
+}
+
+function fmtBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 export function CameraFitQaPanel() {
   const [observerInstalled, setObserverInstalled] = useState(false);
-  const [copyError, setCopyError] = useState<string | null>(null);
+  const [observerInstalledAt, setObserverInstalledAt] = useState<number | null>(null);
+  const [toast, setToast] = useState<ToastState>(null);
+  const [lastResetAt, setLastResetAt] = useState<number | null>(null);
+  const [lastMetricsUpdateAt, setLastMetricsUpdateAt] = useState<number | null>(null);
+  const lastTotalRequestsRef = useRef<number>(-1);
 
   // Honor query-param activation + force init of metrics + observer.
   useEffect(() => {
@@ -117,21 +157,19 @@ export function CameraFitQaPanel() {
         window.localStorage.setItem('vandits_debug_camera_fit', 'true');
       }
     } catch {
-      // ignore
+      /* ignore */
     }
     if (!isCameraFitDebugEnabled()) return;
-    // Force-init metrics object so the panel can read it before the first fit.
     ensureCameraFitMetrics();
-    // Force-init trace buffer so getCameraFitTrace() never returns null even
-    // before the first traceCameraFit() call.
     ensureCameraFitTraceBuffer();
-    // Force-install observer (idempotente). Cubre el caso en que el flag se
-    // activó vía query-param DESPUÉS de que el módulo subset-fit.ts ya hizo
-    // su auto-init y vio el flag OFF.
     void installCameraFitObserver().then(() => {
-      setObserverInstalled(isCameraFitObserverInstalled());
+      const ok = isCameraFitObserverInstalled();
+      setObserverInstalled(ok);
+      if (ok) setObserverInstalledAt((prev) => prev ?? Date.now());
     });
-    setObserverInstalled(isCameraFitObserverInstalled());
+    const ok = isCameraFitObserverInstalled();
+    setObserverInstalled(ok);
+    if (ok) setObserverInstalledAt((prev) => prev ?? Date.now());
   }, []);
 
   const enabled = isCameraFitDebugEnabled();
@@ -140,13 +178,20 @@ export function CameraFitQaPanel() {
   const [, setTick] = useState(0);
   const intervalRef = useRef<number | null>(null);
 
-  // Polling 500ms mientras esté abierto. También refresca el estado del observer.
+  // Polling 500ms mientras esté abierto. Refresca observer + heartbeat.
   useEffect(() => {
     if (!open) return;
     intervalRef.current = window.setInterval(() => {
       setTick((t) => (t + 1) % 1_000_000);
       const installed = isCameraFitObserverInstalled();
       setObserverInstalled((prev) => (prev === installed ? prev : installed));
+      if (installed) setObserverInstalledAt((prev) => prev ?? Date.now());
+      // Heartbeat: detect monotonic growth in totalRequests.
+      const m = typeof window !== 'undefined' ? window.__cameraFitMetrics : null;
+      if (m && m.totalRequests !== lastTotalRequestsRef.current) {
+        lastTotalRequestsRef.current = m.totalRequests;
+        setLastMetricsUpdateAt(Date.now());
+      }
     }, 500);
     return () => {
       if (intervalRef.current !== null) {
@@ -156,10 +201,17 @@ export function CameraFitQaPanel() {
     };
   }, [open]);
 
+  // Auto-dismiss toast.
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 2500);
+    return () => window.clearTimeout(id);
+  }, [toast]);
+
   const metrics = useMemo(
     () => (open ? readMetricsSnapshot() : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [open, /* re-read each tick: */ intervalRef.current, /* state: */ flowLabel],
+    [open, intervalRef.current, flowLabel],
   );
 
   const trace = useMemo<CameraFitTraceEvent[]>(
@@ -168,59 +220,93 @@ export function CameraFitQaPanel() {
     [open, intervalRef.current, flowLabel],
   );
 
+  // Auto-scroll del live stream al último evento.
+  const streamRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = streamRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [trace.length, open]);
+
   if (!enabled) return null;
 
   const metricsAvailable = metrics !== null;
   const traceCount = trace.length;
+  const recent = trace.slice(-10);
+  const lastBypassTs = metrics?.bypasses?.length
+    ? metrics.bypasses[metrics.bypasses.length - 1].ts
+    : null;
+  const lastRequestTs = metrics?.lastRequest?.ts ?? null;
+
   const exportPayload = () => buildExportPayload(metrics, trace, flowLabel);
 
   const handleCopy = async () => {
-    setCopyError(null);
     if (!metricsAvailable) {
-      setCopyError(
-        'No metrics yet. window.__cameraFitMetrics is not initialized. Trigger any fit first or check that the observer is installed.',
-      );
+      setToast({
+        kind: 'error',
+        text: 'No metrics yet. Trigger any fit first.',
+        ts: Date.now(),
+      });
       return;
     }
+    const json = JSON.stringify(exportPayload(), null, 2);
+    const bytes = new Blob([json]).size;
     try {
-      await navigator.clipboard.writeText(
-        JSON.stringify(exportPayload(), null, 2),
-      );
+      await navigator.clipboard.writeText(json);
+      setToast({
+        kind: 'success',
+        text: `Copied to clipboard (${fmtBytes(bytes)})`,
+        ts: Date.now(),
+      });
     } catch {
-      // Fallback: textarea
       try {
         const ta = document.createElement('textarea');
-        ta.value = JSON.stringify(exportPayload(), null, 2);
+        ta.value = json;
         document.body.appendChild(ta);
         ta.select();
         document.execCommand('copy');
         ta.remove();
+        setToast({
+          kind: 'success',
+          text: `Copied via fallback (${fmtBytes(bytes)})`,
+          ts: Date.now(),
+        });
       } catch (e) {
-        setCopyError(`Copy failed: ${(e as Error).message}`);
+        setToast({
+          kind: 'error',
+          text: `Copy failed: ${(e as Error).message}`,
+          ts: Date.now(),
+        });
       }
     }
   };
 
   const handleDownload = () => {
-    setCopyError(null);
     if (!metricsAvailable) {
-      setCopyError(
-        'No metrics yet. window.__cameraFitMetrics is not initialized. Trigger any fit first or check that the observer is installed.',
-      );
+      setToast({
+        kind: 'error',
+        text: 'No metrics yet. Trigger any fit first.',
+        ts: Date.now(),
+      });
       return;
     }
-    const blob = new Blob([JSON.stringify(exportPayload(), null, 2)], {
-      type: 'application/json',
-    });
+    const json = JSON.stringify(exportPayload(), null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `camera-fit-${flowLabel}-${stamp}.json`;
     a.href = url;
-    a.download = `camera-fit-metrics_${flowLabel}_${stamp}.json`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+    setToast({
+      kind: 'success',
+      text: `Downloaded ${filename}`,
+      ts: Date.now(),
+    });
   };
 
   const handleReset = () => {
@@ -231,11 +317,22 @@ export function CameraFitQaPanel() {
       resetCameraFitMetrics();
     }
     resetCameraFitTrace();
+    lastTotalRequestsRef.current = 0;
+    setLastMetricsUpdateAt(null);
+    setLastResetAt(Date.now());
     setTick((t) => t + 1);
+    setToast({ kind: 'success', text: 'Metrics + trace reset', ts: Date.now() });
   };
 
-  // Floating launcher
+  // ───────── Floating launcher ─────────
   if (!open) {
+    const launcherStatus = !observerInstalled
+      ? '#fca5a5'
+      : !metricsAvailable
+        ? '#fde68a'
+        : traceCount > 0
+          ? '#86efac'
+          : '#94a3b8';
     return (
       <button
         type="button"
@@ -249,8 +346,8 @@ export function CameraFitQaPanel() {
           fontSize: 11,
           fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
           background: 'rgba(15,23,42,0.85)',
-          color: '#fde68a',
-          border: '1px solid #fde68a',
+          color: launcherStatus,
+          border: `1px solid ${launcherStatus}`,
           borderRadius: 6,
           cursor: 'pointer',
           boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
@@ -258,10 +355,52 @@ export function CameraFitQaPanel() {
         aria-label="Open Camera QA panel"
         title="Camera fit metrics (debug)"
       >
-        Camera QA{metrics ? ` · ${metrics.totalRequests}` : ''}
+        Camera QA · {traceCount}t / {metrics?.totalRequests ?? 0}r
       </button>
     );
   }
+
+  // ───────── Status pill state ─────────
+  let statusKind: 'idle' | 'active' | 'warn' | 'error';
+  let statusTitle: string;
+  let statusSubtitle: string;
+  if (!observerInstalled) {
+    statusKind = 'error';
+    statusTitle = 'Observer missing';
+    statusSubtitle = 'L.Map not patched yet';
+  } else if (!metricsAvailable) {
+    statusKind = 'error';
+    statusTitle = 'No metrics';
+    statusSubtitle = 'window.__cameraFitMetrics missing';
+  } else if (traceCount === 0) {
+    statusKind = 'idle';
+    statusTitle = 'Trace buffer IDLE';
+    statusSubtitle = '0 events captured — trigger a flow';
+  } else if (metrics && metrics.directLeafletCalls > 0) {
+    statusKind = 'warn';
+    statusTitle = 'Trace buffer ACTIVE';
+    statusSubtitle = `${traceCount} events · ${metrics.directLeafletCalls} bypass(es) detected`;
+  } else {
+    statusKind = 'active';
+    statusTitle = 'Trace buffer ACTIVE';
+    statusSubtitle = `${traceCount} event${traceCount === 1 ? '' : 's'} captured`;
+  }
+  const statusColor =
+    statusKind === 'active'
+      ? '#86efac'
+      : statusKind === 'warn'
+        ? '#fde68a'
+        : statusKind === 'error'
+          ? '#fca5a5'
+          : '#94a3b8';
+  const statusBg =
+    statusKind === 'error'
+      ? 'rgba(127,29,29,0.35)'
+      : statusKind === 'warn'
+        ? 'rgba(120,53,15,0.35)'
+        : statusKind === 'active'
+          ? 'rgba(6,78,59,0.35)'
+          : 'rgba(30,41,59,0.6)';
 
   return (
     <div
@@ -272,8 +411,8 @@ export function CameraFitQaPanel() {
         bottom: 12,
         right: 12,
         zIndex: 99999,
-        width: 380,
-        maxHeight: '80vh',
+        width: 400,
+        maxHeight: '85vh',
         overflow: 'auto',
         background: 'rgba(15,23,42,0.96)',
         color: '#e2e8f0',
@@ -295,9 +434,15 @@ export function CameraFitQaPanel() {
           background: 'rgba(30,41,59,0.7)',
           position: 'sticky',
           top: 0,
+          zIndex: 1,
         }}
       >
-        <strong style={{ color: '#fde68a' }}>Camera QA · Phase 1</strong>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <strong style={{ color: '#fde68a' }}>Camera QA</strong>
+          <span style={{ color: '#64748b', fontSize: 10 }}>
+            build: {PANEL_BUILD} · observer @ {fmtClock(observerInstalledAt)}
+          </span>
+        </div>
         <button
           type="button"
           onClick={() => setOpen(false)}
@@ -315,6 +460,61 @@ export function CameraFitQaPanel() {
       </header>
 
       <div style={{ padding: 10 }}>
+        {/* Toast */}
+        {toast && (
+          <div
+            role="status"
+            style={{
+              padding: '6px 8px',
+              marginBottom: 8,
+              background:
+                toast.kind === 'success'
+                  ? 'rgba(6,78,59,0.6)'
+                  : toast.kind === 'error'
+                    ? 'rgba(127,29,29,0.55)'
+                    : 'rgba(30,58,138,0.55)',
+              border: `1px solid ${
+                toast.kind === 'success'
+                  ? '#86efac'
+                  : toast.kind === 'error'
+                    ? '#fca5a5'
+                    : '#93c5fd'
+              }`,
+              borderRadius: 4,
+              color:
+                toast.kind === 'success'
+                  ? '#bbf7d0'
+                  : toast.kind === 'error'
+                    ? '#fecaca'
+                    : '#bfdbfe',
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 8,
+            }}
+          >
+            <span>{toast.text}</span>
+            <span style={{ color: '#64748b', fontSize: 10 }}>
+              {fmtClock(toast.ts)}
+            </span>
+          </div>
+        )}
+
+        {/* Status pill */}
+        <div
+          style={{
+            padding: '6px 8px',
+            marginBottom: 8,
+            background: statusBg,
+            border: `1px solid ${statusColor}`,
+            borderRadius: 4,
+          }}
+        >
+          <div style={{ color: statusColor, fontWeight: 'bold' }}>
+            {statusTitle}
+          </div>
+          <div style={{ color: '#cbd5e1', fontSize: 10 }}>{statusSubtitle}</div>
+        </div>
+
         {/* Flow selector */}
         <label style={{ display: 'block', marginBottom: 8 }}>
           <span style={{ color: '#94a3b8' }}>Mark flow:</span>{' '}
@@ -348,82 +548,80 @@ export function CameraFitQaPanel() {
           <ActionBtn onClick={handleDownload} label="Download JSON" />
         </div>
 
-        {/* Status */}
+        {/* Heartbeat */}
         <div
           style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            gap: 8,
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 4,
             marginBottom: 8,
-            padding: '4px 6px',
+            padding: '6px 8px',
             background: '#0f172a',
             border: '1px solid #334155',
             borderRadius: 4,
+            fontSize: 10,
           }}
         >
-          <span>
-            <span style={{ color: '#94a3b8' }}>Observer:</span>{' '}
-            <strong style={{ color: observerInstalled ? '#86efac' : '#fca5a5' }}>
-              {observerInstalled ? 'installed' : 'not installed'}
-            </strong>
-          </span>
-          <span>
-            <span style={{ color: '#94a3b8' }}>Metrics:</span>{' '}
-            <strong style={{ color: metricsAvailable ? '#86efac' : '#fca5a5' }}>
-              {metricsAvailable ? 'available' : 'unavailable'}
-            </strong>
-          </span>
+          <HeartbeatRow label="Observer" value={observerInstalled ? 'installed' : 'missing'} ok={observerInstalled} />
+          <HeartbeatRow label="Metrics" value={metricsAvailable ? 'available' : 'missing'} ok={metricsAvailable} />
+          <HeartbeatRow label="Last metrics update" value={fmtClock(lastMetricsUpdateAt)} />
+          <HeartbeatRow label="Last request" value={fmtClock(lastRequestTs)} />
+          <HeartbeatRow label="Last bypass" value={fmtClock(lastBypassTs)} warn={!!lastBypassTs} />
+          <HeartbeatRow label="Last reset" value={fmtClock(lastResetAt)} />
         </div>
 
-        {/* Trace events */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 8,
-            marginBottom: 8,
-            padding: '4px 6px',
-            background: traceCount === 0 ? 'rgba(127,29,29,0.35)' : '#0f172a',
-            border: `1px solid ${traceCount === 0 ? '#fca5a5' : '#334155'}`,
-            borderRadius: 4,
-          }}
-        >
-          <span>
-            <span style={{ color: '#94a3b8' }}>Trace events:</span>{' '}
-            <strong style={{ color: traceCount > 0 ? '#86efac' : '#fca5a5' }}>
-              {traceCount}
-            </strong>
-          </span>
-          {traceCount === 0 && (
-            <span style={{ color: '#fecaca', fontSize: 10 }}>
-              No trace captured
-            </span>
+        {/* Live event stream */}
+        <Section title={`Recent trace events (last ${recent.length} of ${traceCount})`}>
+          {recent.length === 0 ? (
+            <div style={{ color: '#64748b' }}>(no events yet)</div>
+          ) : (
+            <div
+              ref={streamRef}
+              style={{
+                maxHeight: 180,
+                overflow: 'auto',
+                background: '#020617',
+                border: '1px solid #334155',
+                borderRadius: 4,
+                padding: 4,
+              }}
+            >
+              {recent.map((ev, i) => (
+                <div
+                  key={`${ev.timestamp}-${i}`}
+                  style={{
+                    display: 'flex',
+                    gap: 6,
+                    padding: '2px 0',
+                    borderTop: i === 0 ? 'none' : '1px dashed #1e293b',
+                    fontSize: 10,
+                  }}
+                >
+                  <span style={{ color: '#64748b', flex: '0 0 auto' }}>
+                    {fmtClock(ev.timestamp)}
+                  </span>
+                  <span style={{ color: '#fde68a', flex: '0 0 auto' }}>
+                    {ev.label}
+                  </span>
+                  {ev.payload !== undefined && (
+                    <span
+                      style={{
+                        color: '#94a3b8',
+                        flex: '1 1 auto',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                      title={summarizePayload(ev.payload)}
+                    >
+                      {summarizePayload(ev.payload)}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
-        </div>
-
-        {copyError && (
-          <div
-            role="alert"
-            style={{
-              padding: '6px 8px',
-              marginBottom: 8,
-              background: 'rgba(127,29,29,0.4)',
-              border: '1px solid #fca5a5',
-              borderRadius: 4,
-              color: '#fecaca',
-            }}
-          >
-            {copyError}
-          </div>
-        )}
-
-        {!metrics && (
-          <p style={{ color: '#fca5a5' }}>
-            window.__cameraFitMetrics no inicializado todavía. Disparar
-            cualquier fit o esperar al primer evento.
-          </p>
-        )}
+        </Section>
 
         {metrics && (
           <>
@@ -433,10 +631,7 @@ export function CameraFitQaPanel() {
               <Row k="resolvedFromCoords" v={metrics.resolvedFromCoords} />
               <Row k="resolvedFromMarkers" v={metrics.resolvedFromMarkers} />
               <Row k="cooldownSkipped" v={metrics.cooldownSkipped} />
-              <Row
-                k="cooldownBypassedByAlways"
-                v={metrics.cooldownBypassedByAlways}
-              />
+              <Row k="cooldownBypassedByAlways" v={metrics.cooldownBypassedByAlways} />
               <Row
                 k="directLeafletCalls"
                 v={metrics.directLeafletCalls}
@@ -453,11 +648,7 @@ export function CameraFitQaPanel() {
             </Section>
 
             <Section title="unknownReasons (warn)">
-              <KvBlock
-                obj={metrics.unknownReasons}
-                emptyMsg="(ninguno)"
-                warn
-              />
+              <KvBlock obj={metrics.unknownReasons} emptyMsg="(ninguno)" warn />
             </Section>
 
             <Section title={`bypasses (${metrics.bypasses.length})`}>
@@ -477,7 +668,7 @@ export function CameraFitQaPanel() {
                       <div>
                         <strong>{b.api}</strong>{' '}
                         <span style={{ color: '#64748b' }}>
-                          @ {new Date(b.ts).toLocaleTimeString()}
+                          @ {fmtClock(b.ts)}
                         </span>
                       </div>
                       {b.stack && (
@@ -516,6 +707,27 @@ export function CameraFitQaPanel() {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function HeartbeatRow({
+  label,
+  value,
+  ok,
+  warn,
+}: {
+  label: string;
+  value: string;
+  ok?: boolean;
+  warn?: boolean;
+}) {
+  const color =
+    ok === false ? '#fca5a5' : warn ? '#fde68a' : ok ? '#86efac' : '#cbd5e1';
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+      <span style={{ color: '#64748b' }}>{label}</span>
+      <span style={{ color, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
     </div>
   );
 }
