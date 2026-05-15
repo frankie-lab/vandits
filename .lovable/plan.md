@@ -1,41 +1,36 @@
-## Objetivo
+## Problema
 
-Reducir cada resultado de la lista "Contexto cercano" (popup INLINE del POI) a un bloque compacto de **2 líneas máximo**, eliminando ruido visual y enlaces no funcionales.
+En `NearbyPointCard` (`src/domains/content/components/PointContextActions.tsx`, líneas 172-215) la fila está dividida en dos bloques apilados verticalmente:
 
-## Cambios
+- Línea 1 = `flex` con nombre + botón Enriquecer
+- Línea 2 = `flex` con `110m` + coordenadas (debajo)
 
-Archivo único: `src/domains/content/components/PointContextActions.tsx` — componente `NearbyPointCard` (líneas 172–244) y wrapper de cada resultado en la lista (líneas 844–865).
+Eso hace que:
+1. El botón Enriquecer quede pegado a la línea del nombre y NO centrado respecto a las dos líneas.
+2. La línea de datos (debajo) no comparte caja con el nombre, así que parecen desalineados.
+3. La pastilla `110m` y el texto de coordenadas tienen alturas distintas y no quedan centrados entre sí.
 
-### Nueva estructura de cada resultado (2 líneas)
+## Cambio
 
-**Línea 1** (una sola fila, sin wrap):
-- Nombre del punto propuesto (`point.name`), `truncate`, `flex-1`.
-- A la derecha, **botón "Enriquecer aquí"** (icono `Sparkles` + texto, o `Loader2` cuando `adoptingId === p.id`). Sustituye al botón actual que vivía en su propia fila aparte (líneas 852–865 actuales).
+Reestructurar `NearbyPointCard` a un layout de dos columnas:
 
-**Línea 2** (texto pequeño, muted, una sola fila truncada):
-- Distancia al POI origen (`{point.distance_m}m`) — **siempre visible**.
-- Coordenadas formateadas (`{lat.toFixed(4)}, {lng.toFixed(4)}`) — **OBLIGATORIO**.
-- Separador `·` entre ambos.
+```text
+┌──────────────────────────────────────────────┐
+│ Nombre del punto                       [✦]  │
+│ 110m   40.9115, 8.7184                      │
+└──────────────────────────────────────────────┘
+```
 
-### Elementos eliminados de la tarjeta
+- Contenedor raíz: `flex items-center gap-2` (centra el botón verticalmente respecto a la columna de texto completa).
+- Columna izquierda: `flex-1 min-w-0` con dos líneas apiladas (`<p>` nombre + `<div>` datos).
+- Botón Enriquecer: hermano `shrink-0`, sin `-my-1`, sin `self-start`. Queda centrado por `items-center` del padre.
+- Línea de datos: mantener `flex items-center`, asegurar que la pastilla `110m` y las coordenadas comparten línea base centrada (`leading-none` en ambos hijos, `items-center` en el wrapper — ya está; eliminar `py-px` extra de la pastilla y usar `py-0.5` simétrico para que la altura no descentre).
 
-- Icono lupa/Search/MapPin/Users a la izquierda (líneas 177–183, 188).
-- Botón cuadrado de la derecha con flecha externa (`ExternalLink` hacia `point.osm_link`, líneas 198–202).
-- Enlace "Ver en Google Maps" inferior (líneas 231–241).
-- Badges secundarias (`source_label`, `place_type`, `country`, `Sparkles` enriched marker, `tags`, `document_name`, `description`) — todo eliminado para mantener 2 líneas.
+## Archivos afectados
 
-### Limpieza derivada
+- `src/domains/content/components/PointContextActions.tsx` — solo el JSX de `NearbyPointCard` (líneas 183-214). No cambia lógica ni props.
 
-- La fila independiente actual con el botón "Enriquecer aquí" debajo de cada `NearbyPointCard` (líneas 852–865) se elimina, porque el botón pasa a la línea 1 de la tarjeta. Se sigue propagando `adoptingId`, `handleAdoptNearby` y `e.stopPropagation()` igual que ahora.
-- El bloque expandido al seleccionar (`selectedPointId === p.id`, líneas 866–925) con "Reemplazar importado / Punto personal" se conserva tal cual — sigue apareciendo bajo la tarjeta al hacer click.
-- En modo `mergeMode` (líneas 818–832) no se toca: ya es compacto.
+## Fuera de alcance
 
-### Sin cambios
-
-- Lógica de búsqueda, ordenación, agrupación por categoría, slider de radio, header, current-point card, mismatch banner, footer.
-- `LocationMap.tsx`, `map-popups.ts`, `popup-recovery-mount.ts`, dimensiones/scroll del popup.
-- Variante `card` (sidebar): se reutiliza el mismo `NearbyPointCard`, así que también queda compacta de forma transversal (consistente con la regla "cambios transversales").
-
-## Resultado esperado
-
-Cada resultado ocupa ~2 líneas (≈ 44–52px) en lugar de los ~150px actuales, con la acción de enriquecer al alcance directo y la distancia + coordenadas siempre visibles.
+- No tocar `NearbyPanel`, header del popup, ni estilos globales.
+- No cambiar tamaños de fuente ni colores.
