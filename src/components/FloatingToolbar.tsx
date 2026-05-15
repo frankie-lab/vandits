@@ -59,6 +59,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { MyCatalogQuickFiltersButton } from '@/components/toolbar/MyCatalogQuickFilters';
+import { useMyCatalogPopoverFit } from '@/components/toolbar/use-my-catalog-popover-fit';
 import {
  AlertDialog,
  AlertDialogAction,
@@ -239,6 +240,8 @@ export function FloatingToolbar({
   // Social stats
  const { stats: socialStats } = useSocialStats();
  const { user } = useAuth();
+ // Subset-fit del popover de "mis POI" (PR 1). Listener único.
+ useMyCatalogPopoverFit(user?.id);
 
 
  const handleGoHome = () => {

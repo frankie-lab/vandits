@@ -20,6 +20,7 @@ import { useLocationsStore } from '@/domains/content/store/locations-store';
 import { useAuth } from '@/domains/identity';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { getMyCatalogQuickCounts } from '@/domains/content/lib/my-catalog-quick-counts';
+import { emitMyCatalogPopoverApplied } from '@/components/toolbar/use-my-catalog-popover-fit';
 import type { VisualStateFilter, HealthFilter, OwnershipFilter } from '@/types/location';
 
 interface RowProps {
@@ -93,6 +94,8 @@ export function MyCatalogQuickFiltersButton({
       visualState: undefined,
       healthFilter: undefined,
     });
+    // Subset-fit: encuadra el universo "mine" si <40% en viewport.
+    emitMyCatalogPopoverApplied({ axis: 'all', value: null });
     // Permanece abierto.
   };
 
@@ -107,13 +110,14 @@ export function MyCatalogQuickFiltersButton({
       visualState: v,
       healthFilter: undefined,
     });
-    // Permanece abierto: visualState NO mueve cámara.
+    emitMyCatalogPopoverApplied({ axis: 'visual', value: v });
+    // Permanece abierto. El subset-fit es if-outside; si los puntos
+    // ya están en viewport, la cámara no se mueve.
   };
 
   const applyHealth = (h: HealthFilter) => {
     if (activeHealth === h && !activeVisual) {
-      // Re-toggle del único activo → Ver todos. Cerramos porque el
-      // cambio de healthFilter (h → undefined) dispara fit-reset.
+      // Re-toggle del único activo → Ver todos.
       applyAll();
       setOpen(false);
       return;
@@ -124,7 +128,8 @@ export function MyCatalogQuickFiltersButton({
       visualState: undefined,
       healthFilter: h,
     });
-    // Cierra: subset-fit moverá cámara y el popover taparía el resultado.
+    emitMyCatalogPopoverApplied({ axis: 'health', value: h });
+    // Cierra: subset-fit puede mover cámara y el popover taparía el resultado.
     setOpen(false);
   };
 
