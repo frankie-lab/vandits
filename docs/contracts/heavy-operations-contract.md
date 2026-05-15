@@ -58,7 +58,20 @@ Si `pending|running` al expirar → `failOperation('Tiempo agotado…')`.
 - Phase 1: SOLO `MyCatalogQuickFilters` está cableado. `enrichment/import/geocoding` mantienen sus lanes históricos.
 - (Vigilar) Calleres que llaman `finishOperation` antes de que el efecto real haya terminado — el `resultLabel` `'Filtro aplicado'` significa "lanzado", no "fit completado".
 
+## Validation Notes (revisión manual contra código real)
+
+| Inv. | Estado | Archivo | Símbolo | Evidencia | Backlog |
+|---|---|---|---|---|---|
+| 1 (`operationId` clave única) | **validated** | `src/shared/operations/heavy-operations-store.ts` | `startOperation` L.97-117 | Lee `existing` por id; `blockReentry && isAlive(existing) → return false` (L.103) | — |
+| 2 (`progress`/`etaMs` null mientras indeterminate) | **validated** | `src/shared/operations/heavy-operations-store.ts` | `setProgress` L.155 | `setProgress` flips a determinate y solo entonces expone progress | — |
+| 3 (auto-purge done 1.5s, error 4s) | **validated** | `src/shared/operations/heavy-operations-store.ts` | `finishOperation` L.179, `failOperation` L.209 | Implementación de purge presente en ambas funciones | — |
+| 4 (`blockReentry` protege doble click) | **validated** | `src/shared/operations/heavy-operations-store.ts` | L.100-103 | Default `false`; cuando `true`, segundo `startOperation` con id vivo retorna `false` | — |
+| 5 (watchdog garantiza no-hang) | **validated** | `src/shared/operations/heavy-operations-store.ts` | L.122-130 | `timeoutMs = input.safetyTimeoutMs ?? DEFAULT_TIMEOUT[source]`; si vivo al expirar → `failOperation('Tiempo agotado…')` | BL-005 |
+| ETA nunca inferida | **validated** | `src/shared/operations/heavy-operations-store.ts` | comentario header + ausencia de cálculos de ETA en el store | Solo se expone si caller la pasa explícitamente vía `setProgress` | — |
+| Phase 1 cobertura limitada | **validated** (deuda declarada) | callers actuales | Solo `MyCatalogQuickFilters` cableado | `enrichment/import/geocoding` mantienen lanes propios | BL-006 |
+| `finishOperation('Filtro aplicado')` significa "lanzado" no "fit completado" | **mismatch semántico** (vigilar) | `src/components/toolbar/MyCatalogQuickFilters.tsx` (uso) | label de cierre | El usuario puede creer que el fit ya terminó cuando solo se ha despachado el evento | BL-006 |
+
 ## Referencias
 - ADR-0006
 - mem://logic/operations/heavy-operations-feedback
-- Código: `src/shared/operations/heavy-operations-store.ts`
+- Código: `src/shared/operations/heavy-operations-store.ts` L.9-220
