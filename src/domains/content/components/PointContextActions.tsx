@@ -420,6 +420,48 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
 
   useEffect(() => { searchNearby(); }, [searchNearby]);
 
+  // Adopta un punto cercano como identidad correcta del POI: actualiza
+  // name + lat + lng del POI a los del vecino y dispara el enriquecimiento.
+  const handleAdoptNearby = async (p: NearbyPoint) => {
+    setAdoptingId(p.id);
+    try {
+      const name = (p.name ?? '').trim();
+      if (!name) {
+        toast.error('Punto sin nombre');
+        return;
+      }
+      const { error } = await supabase
+        .from('locations')
+        .update({
+          name,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', location.id);
+      if (error) throw error;
+      useLocationsStore.getState().updateLocation(location.id, {
+        name,
+        coordinates: { lat: p.latitude, lng: p.longitude },
+        updatedAt: new Date(),
+      });
+      const result = await triggerEnrichLocation(location.id, {
+        focusAfter: false,
+        skipValidation: true,
+      });
+      if (result.success) {
+        enrichmentFailureStore.invalidate(location.id);
+        toast.success(`Enriquecido como "${name}"`);
+      } else if (result.error) {
+        toast.error(result.error);
+      }
+    } catch {
+      toast.error('No se pudo aplicar la opción');
+    } finally {
+      setAdoptingId(null);
+    }
+  };
+
   const handleEnrichWithContext = async () => {
     setEnriching(true);
     try {
