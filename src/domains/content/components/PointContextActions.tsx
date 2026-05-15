@@ -78,6 +78,12 @@ export interface NearbyPanelProps {
     providedName: string;
     nameLocation?: { lat: number; lng: number; title: string; url: string; distanceKm: number };
   } | null;
+  /**
+   * 'sidebar' = ocupa toda la altura disponible (Sheet/DocumentFocusView).
+   * 'inline'  = bloque acotado (~60vh) dentro del popup del POI.
+   *             Por defecto 'sidebar' para no romper consumidores existentes.
+   */
+  variant?: 'sidebar' | 'inline';
   onClose: () => void;
   onLocationUpdated: (loc: LocationRow) => void;
   onLocationMerged: (mergedIntoId: string, removedId: string) => void;
