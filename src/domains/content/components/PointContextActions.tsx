@@ -684,24 +684,11 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
             <ChevronLeft className="w-4 h-4" />
           </Button>
           <div className="flex-1 min-w-0">
-            <div className="flex min-w-0 items-center gap-2">
-              <Compass className="w-4 h-4 text-primary shrink-0" />
-              <p className="text-sm font-medium truncate">Contexto de proximidad</p>
-            </div>
             <p className="text-[11px] text-muted-foreground">
               <span className="font-medium text-foreground">{location.name}</span>
               {' · '}Radio {radiusMeters}m · {nearbyPoints.length} puntos
             </p>
           </div>
-          <Button
-            variant={mergeMode ? 'default' : 'outline'}
-            size="sm"
-            className="h-6 text-[10px] gap-1 shrink-0"
-            onClick={() => setMergeMode(!mergeMode)}
-          >
-            <Merge className="w-3 h-3" />
-            {mergeMode ? 'Cancelar' : 'Fusionar'}
-          </Button>
         </div>
 
         {/* Radius slider */}
