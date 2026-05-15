@@ -9,7 +9,10 @@
  *   - El popover SIEMPRE encuadra (visual / health / "Ver todos").
  *
  * Política:
- *   - Modo `if-outside`, `minZoom: 7`.
+ *   - Modo `always` (acción explícita del usuario → siempre encuadra).
+ *   - Sin `minZoom`: el subset puede ser disperso y requerir z<7 para verse íntegro.
+ *   - Coords pre-resueltas desde el subset filtrado (NO desde markersRef):
+ *     evita fits parciales bajo viewport culling.
  *   - Universo: `mine` (POIs cuyo owner === user.id).
  *   - Subset vacío → no dispara fit, emite `lovable:my-catalog-popover-empty`.
  *
