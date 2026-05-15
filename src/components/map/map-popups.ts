@@ -1096,12 +1096,12 @@ ${location.description}
 </div>
 ` : ''}
 
-${isNearbyPopupContext(location.id) ? '' : `
-${buildSourceHashtagsBlock(location, ownership)}
-${buildCollectionChipsPlaceholder(location)}
-${buildPersonalTagsBlock(location)}
+${isNearbyPopupContext(location.id) ? '' : buildSourceHashtagsBlock(location, ownership)}
+${isNearbyPopupContext(location.id) ? '' : buildCollectionChipsPlaceholder(location)}
+${isNearbyPopupContext(location.id) ? '' : buildPersonalTagsBlock(location)}
 
 <div style="padding: 12px 16px;">
+${isNearbyPopupContext(location.id) ? '' : `
 <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
@@ -1121,6 +1121,7 @@ ${customDataHtml}
 ${moreDataCount > 0 ? `<div style="font-size: 11px; color: #9ca3af; padding-top: 8px;">+${moreDataCount} campos más</div>` : ''}
 </div>
 ` : ''}
+`}
 
 ${(() => {
   const pt = (location.placeType ?? '').toString();
