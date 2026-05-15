@@ -117,10 +117,21 @@ export function useMyCatalogPopoverFit(currentUserId: string | null | undefined)
           ? 'my-catalog-popover:all'
           : `my-catalog-popover:${detail.axis}:${String(detail.value)}`;
 
-      requestSubsetFit(
-        subset.map((l) => l.id),
-        { mode: 'if-outside', reason, minZoom: 7 },
-      );
+      // Coords pre-resueltas desde el subset filtrado: evita que el listener
+      // resuelva bounds desde markersRef (viewport culling produciría fit
+      // parcial). Solo entran POIs con lat/lng numéricos finitos.
+      const coords: Array<[number, number]> = [];
+      const ids: string[] = [];
+      for (const loc of subset) {
+        const lat = (loc as any).latitude ?? (loc as any).lat;
+        const lng = (loc as any).longitude ?? (loc as any).lng;
+        if (typeof lat === 'number' && typeof lng === 'number' && Number.isFinite(lat) && Number.isFinite(lng)) {
+          coords.push([lat, lng]);
+          ids.push(loc.id);
+        }
+      }
+
+      requestSubsetFit(ids, { mode: 'always', reason, coords });
       // No hay confirmación real del fit en Fase 1: cerramos como
       // "Filtro aplicado" (operación lanzada / fit solicitado).
       finishOperation(opId, { resultLabel: 'Filtro aplicado' });
