@@ -97,6 +97,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
 
   const [busy, setBusy] = React.useState(false);
   const [showNearby, setShowNearby] = React.useState(false);
+  const [nearbyEverOpened, setNearbyEverOpened] = React.useState(false);
   const [editingAll, setEditingAll] = React.useState(false);
   const [form, setForm] = React.useState({
     name: location.name ?? '',
@@ -140,7 +141,12 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
   // "Contexto cercano" se renderiza INLINE dentro de este mismo bloque
   // (debajo del CTA), no como panel lateral. Ver mem://features/content/
   // empty-point-quick-actions-v2.
-  const handleOpenContext = () => setShowNearby((v) => !v);
+  const handleOpenContext = () =>
+    setShowNearby((v) => {
+      const next = !v;
+      if (next) setNearbyEverOpened(true);
+      return next;
+    });
 
   // Construye el LocationRow que NearbyPanel espera a partir del GeoLocation
   // del store. Memo por id+coords+name para evitar re-renders innecesarios.
@@ -387,20 +393,22 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
           {loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
         </div>
         <div className="mx-2 mb-2 flex items-center gap-1.5">
+          {nearbyEverOpened && (
+            <Button
+              size="sm"
+              variant="default"
+              className="h-7 text-[11px] px-2.5 gap-1 flex-1"
+              onClick={handleRetry}
+              disabled={busy}
+            >
+              {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+              Enriquecer
+            </Button>
+          )}
           <Button
             size="sm"
-            variant="default"
-            className="h-7 text-[11px] px-2.5 gap-1 flex-1"
-            onClick={handleRetry}
-            disabled={busy}
-          >
-            {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-            Enriquecer
-          </Button>
-          <Button
-            size="sm"
-            variant={showNearby ? 'default' : 'ghost'}
-            className="h-7 text-[11px] px-2 gap-1"
+            variant={nearbyEverOpened ? (showNearby ? 'default' : 'ghost') : 'default'}
+            className={`h-7 text-[11px] px-2 gap-1 ${nearbyEverOpened ? '' : 'flex-1'}`}
             onClick={handleOpenContext}
             disabled={busy}
           >
