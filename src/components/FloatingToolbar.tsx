@@ -58,7 +58,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Popover, PopoverTrigger } from '@/components/ui/popover';
 import { MyCatalogQuickFiltersButton } from '@/components/toolbar/MyCatalogQuickFilters';
 import {
  AlertDialog,
