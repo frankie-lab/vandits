@@ -587,10 +587,10 @@ export function CameraFitQaPanel() {
 
         {/* Actions */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-          <ActionBtn onClick={handleStartCapture} label="Start capture" />
-          <ActionBtn onClick={handleReset} label="Reset" />
-          <ActionBtn onClick={handleCopy} label="Copy JSON" />
-          <ActionBtn onClick={handleDownload} label="Download JSON" />
+          <ActionBtn onClick={handleStartCapture} label="Start capture" testId="camera-qa-start-capture" />
+          <ActionBtn onClick={handleReset} label="Reset" testId="camera-qa-reset" />
+          <ActionBtn onClick={handleCopy} label="Copy JSON" testId="camera-qa-copy" />
+          <ActionBtn onClick={handleDownload} label="Download JSON" testId="camera-qa-download" />
         </div>
 
         {/* Capture window */}
@@ -873,11 +873,20 @@ function KvBlock({
   );
 }
 
-function ActionBtn({ onClick, label }: { onClick: () => void; label: string }) {
+function ActionBtn({
+  onClick,
+  label,
+  testId,
+}: {
+  onClick: () => void;
+  label: string;
+  testId?: string;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
+      data-testid={testId}
       style={{
         padding: '4px 8px',
         background: '#1e293b',
