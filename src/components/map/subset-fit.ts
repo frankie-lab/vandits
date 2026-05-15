@@ -212,10 +212,30 @@ function getMetrics(): CameraFitMetrics | null {
   return window.__cameraFitMetrics;
 }
 
-/** Reset desde DevTools: `window.__cameraFitMetrics = undefined`. */
+/**
+ * Reset in-place. También expuesto como `window.__cameraFitMetrics.reset()`.
+ * Mantiene la misma referencia del objeto para no romper inspects abiertos.
+ */
 export function resetCameraFitMetrics(): void {
   if (typeof window === 'undefined') return;
-  window.__cameraFitMetrics = emptyMetrics();
+  const current = window.__cameraFitMetrics;
+  const fresh = emptyMetrics();
+  if (!current) {
+    window.__cameraFitMetrics = fresh;
+    return;
+  }
+  current.totalRequests = 0;
+  current.byReason = {};
+  current.byMode = { always: 0, 'if-outside': 0 };
+  current.unknownReasons = {};
+  current.coordsProvided = 0;
+  current.resolvedFromMarkers = 0;
+  current.resolvedFromCoords = 0;
+  current.cooldownSkipped = 0;
+  current.cooldownBypassedByAlways = 0;
+  current.directLeafletCalls = 0;
+  current.bypasses = [];
+  current.lastRequest = null;
 }
 
 /**
