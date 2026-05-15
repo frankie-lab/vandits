@@ -1748,9 +1748,9 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
  // image stays fixed while only the body scrolls.
   className: 'custom-popup',
   closeButton: true,
-  // Evita que clicks dentro del popup (botones React) propaguen al mapa
-  // y disparen el auto-close de Leaflet.
-  closeOnClick: false,
+  // closeOnClick: usa el default de Leaflet (true). El bubbling de clicks
+  // internos se neutraliza con L.DomEvent.disableClickPropagation aplicado
+  // en el handler `popupopen` del mapa, no desactivando esta opción.
    // autoPan desactivado: `centerOpenedPopupInVisibleMap` lo sustituye y
    // evita el race con la animación nativa de Leaflet.
    autoPan: false,
