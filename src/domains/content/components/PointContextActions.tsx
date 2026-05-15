@@ -181,7 +181,7 @@ function NearbyPointCard({
   disabled: boolean;
 }) {
   return (
-    <div className="group grid w-full max-w-full grid-cols-[1fr_auto] grid-rows-[auto_auto] items-center gap-x-2 gap-y-1 overflow-hidden rounded-lg border border-border/60 bg-card/40 px-2.5 py-2 shadow-sm transition-all hover:border-border hover:bg-muted/40 hover:shadow-md">
+    <div className="group grid w-full max-w-full grid-cols-[1fr_auto] grid-rows-[auto_auto] items-center gap-x-2 gap-y-0.5 overflow-hidden rounded-lg border border-border/60 bg-card/40 px-2.5 py-1.5 shadow-sm transition-all hover:border-border hover:bg-muted/40 hover:shadow-md">
       {/* Fila 1: nombre */}
       <p className="col-start-1 row-start-1 min-w-0 truncate text-sm font-semibold leading-none tracking-tight text-foreground">
         {point.name}
