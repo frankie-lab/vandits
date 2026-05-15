@@ -76,6 +76,7 @@ Cada contrato tiene una sección **Invariantes** (normativas, no descriptivas) y
 - [Reglas CI documentales](ci/documentation-rules.md)
 - [PR Impact Matrix](ci/pr-impact-matrix.md) — puerta de control: paths sensibles → contratos obligatorios
 - [PR checklist](ci/pr-checklist.md)
+- [Camera / subset-fit stabilization plan](architecture/camera-subset-fit-stabilization-plan.md) — Tier 1-A: pipeline canónico + plan gradual de convergencia (5 fases, doc-only)
 
 ## Auditorías activas
 
