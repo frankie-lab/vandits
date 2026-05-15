@@ -233,10 +233,6 @@ export function CameraFitQaPanel() {
     resetCameraFitTrace();
     setTick((t) => t + 1);
   };
-      resetCameraFitMetrics();
-    }
-    setTick((t) => t + 1);
-  };
 
   // Floating launcher
   if (!open) {
