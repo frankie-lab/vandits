@@ -352,6 +352,23 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
 
   // ── render: variante card ─────────────────────────────────────────────────
 
+  // Bloque inline de "Contexto cercano" (renderizado dentro del propio popup
+  // cuando el usuario lo activa). NUNCA panel lateral.
+  const inlineNearby = showNearby && user ? (
+    <div className="mx-3 mb-2 mt-0">
+      <NearbyPanel
+        location={nearbyLocationRow}
+        docId={fresh.documentId ?? null}
+        userId={user.id}
+        variant="inline"
+        mismatch={nearbyMismatch}
+        onClose={() => setShowNearby(false)}
+        onLocationUpdated={() => { /* store ya se actualiza por canal canónico */ }}
+        onLocationMerged={() => setShowNearby(false)}
+      />
+    </div>
+  ) : null;
+
   // Sin conflicto: bloque simple Enriquecer + Contexto cercano.
   if (!parsed) {
     return (
@@ -379,15 +396,16 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
           </Button>
           <Button
             size="sm"
-            variant="ghost"
+            variant={showNearby ? 'default' : 'ghost'}
             className="h-7 text-[11px] px-2 gap-1"
             onClick={handleOpenContext}
             disabled={busy}
           >
             <Compass className="w-3 h-3" />
-            Contexto cercano
+            {showNearby ? 'Cerrar contexto' : 'Contexto cercano'}
           </Button>
         </div>
+        {inlineNearby}
       </div>
     );
   }
