@@ -171,6 +171,8 @@ export function CameraFitQaPanel() {
   const [toast, setToast] = useState<ToastState>(null);
   const [lastResetAt, setLastResetAt] = useState<number | null>(null);
   const [lastMetricsUpdateAt, setLastMetricsUpdateAt] = useState<number | null>(null);
+  const [captureId, setCaptureId] = useState<string | null>(null);
+  const [captureStartedAt, setCaptureStartedAt] = useState<number | null>(null);
   const lastTotalRequestsRef = useRef<number>(-1);
 
   // Honor query-param activation + force init of metrics + observer.
