@@ -392,30 +392,20 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
           </span>
           {loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
         </div>
-        <div className="mx-2 mb-2 flex items-center gap-1.5">
-          {nearbyEverOpened && (
+        {!showNearby && (
+          <div className="mx-2 mb-2 flex items-center gap-1.5">
             <Button
               size="sm"
               variant="default"
-              className="h-7 text-[11px] px-2.5 gap-1 flex-1"
-              onClick={handleRetry}
+              className="h-7 text-[11px] px-2 gap-1 flex-1"
+              onClick={handleOpenContext}
               disabled={busy}
             >
-              {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-              Enriquecer
+              <Compass className="w-3 h-3" />
+              Contexto cercano
             </Button>
-          )}
-          <Button
-            size="sm"
-            variant={nearbyEverOpened ? (showNearby ? 'default' : 'ghost') : 'default'}
-            className={`h-7 text-[11px] px-2 gap-1 ${nearbyEverOpened ? '' : 'flex-1'}`}
-            onClick={handleOpenContext}
-            disabled={busy}
-          >
-            <Compass className="w-3 h-3" />
-            {showNearby ? 'Cerrar contexto' : 'Contexto cercano'}
-          </Button>
-        </div>
+          </div>
+        )}
         {inlineNearby}
       </div>
     );
