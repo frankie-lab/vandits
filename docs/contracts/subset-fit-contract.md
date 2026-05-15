@@ -29,7 +29,7 @@ Triggers cableados hoy:
 | `use-selection-fit-on-start` | `if-outside` | `selection-start` | (default) |
 | `use-health-filter-fit` | `if-outside` | `health-filter` | 7 |
 | `UsersSidebar` (filtro usuario) | `always` | `user-filter` | sin |
-| `use-my-catalog-popover-fit` | `always` | `my-catalog-popover:*` | sin |
+| `use-my-catalog-popover-fit` | `always` | `my-catalog-popover:all` \| `my-catalog-popover:<axis>:<value>` | sin |
 | `SourceFilterBridge` | `if-outside` | `source-filter` | (default) |
 
 ## Semántica de mode
