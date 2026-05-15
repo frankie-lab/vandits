@@ -97,6 +97,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
 
   const [busy, setBusy] = React.useState(false);
   const [showNearby, setShowNearby] = React.useState(false);
+  const [nearbyEverOpened, setNearbyEverOpened] = React.useState(false);
   const [editingAll, setEditingAll] = React.useState(false);
   const [form, setForm] = React.useState({
     name: location.name ?? '',
