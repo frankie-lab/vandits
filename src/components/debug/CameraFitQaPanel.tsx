@@ -122,6 +122,9 @@ export function CameraFitQaPanel() {
     if (!isCameraFitDebugEnabled()) return;
     // Force-init metrics object so the panel can read it before the first fit.
     ensureCameraFitMetrics();
+    // Force-init trace buffer so getCameraFitTrace() never returns null even
+    // before the first traceCameraFit() call.
+    ensureCameraFitTraceBuffer();
     // Force-install observer (idempotente). Cubre el caso en que el flag se
     // activó vía query-param DESPUÉS de que el módulo subset-fit.ts ya hizo
     // su auto-init y vio el flag OFF.
@@ -159,10 +162,17 @@ export function CameraFitQaPanel() {
     [open, /* re-read each tick: */ intervalRef.current, /* state: */ flowLabel],
   );
 
+  const trace = useMemo<CameraFitTraceEvent[]>(
+    () => (open ? getCameraFitTrace() : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [open, intervalRef.current, flowLabel],
+  );
+
   if (!enabled) return null;
 
   const metricsAvailable = metrics !== null;
-  const exportPayload = () => buildExportPayload(metrics, flowLabel);
+  const traceCount = trace.length;
+  const exportPayload = () => buildExportPayload(metrics, trace, flowLabel);
 
   const handleCopy = async () => {
     setCopyError(null);
@@ -218,6 +228,11 @@ export function CameraFitQaPanel() {
     if (m && typeof m.reset === 'function') {
       m.reset();
     } else {
+      resetCameraFitMetrics();
+    }
+    resetCameraFitTrace();
+    setTick((t) => t + 1);
+  };
       resetCameraFitMetrics();
     }
     setTick((t) => t + 1);
