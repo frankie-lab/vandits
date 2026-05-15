@@ -94,6 +94,10 @@ Inventarios exhaustivos (segunda pasada, una fila por ocurrencia + sección High
 - [ownership-resolution-inventory](audits/ownership-resolution-inventory.md)
 - [constants-thresholds-inventory](audits/constants-thresholds-inventory.md)
 
+Priorización estratégica (síntesis sobre los inventarios):
+
+- [structural-risk-priority](audits/structural-risk-priority.md) — Tiers T1–T4 con estrategia (freeze/unify/deprecate/isolate) por finding.
+
 Cada finding numerado en estos audits está mapeado a un `BL-xxx` en el [backlog](audits/backlog.md).
 
 ## Mapa de dependencias entre contratos
