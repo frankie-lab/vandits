@@ -98,3 +98,12 @@ Triggers cableados hoy:
 | Behavior preservation | **validated** | listener handler L.2350-2502 | Sin cambios de comportamiento; solo telemetría. Cooldown, clamp, padding, maxZoom intactos. |
 
 Plan completo: `docs/architecture/camera-subset-fit-stabilization-plan.md`.
+
+## Phase 1 — Camera QA trace buffer
+
+| Item | Estado | Archivo | Evidencia |
+|---|---|---|---|
+| `window.__cameraFitTrace` espejo de `[camera-fit-trace]` | **validated** | `src/components/debug/camera-fit-trace.ts` | `traceCameraFit(label, payload?)` push + `console.debug('[camera-fit-trace]', ...)`. Gate `isCameraFitDebugEnabled()`. Ring buffer cap 500. |
+| Reset unificado (metrics + trace) | **validated** | `src/components/debug/CameraFitQaPanel.tsx` | `handleReset()` invoca `window.__cameraFitMetrics.reset()` y `resetCameraFitTrace()`. |
+| Export JSON incluye trace | **validated** | `src/components/debug/CameraFitQaPanel.tsx` | `buildExportPayload(metrics, trace, flowLabel)` añade `trace` al payload Copy/Download para cualquier `flowLabel`. |
+| Sección "Trace events: N" + warning si 0 | **validated** | `src/components/debug/CameraFitQaPanel.tsx` | Banner rojo "No trace captured" cuando `traceCount === 0`. |
