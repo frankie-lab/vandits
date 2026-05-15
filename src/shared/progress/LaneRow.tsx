@@ -78,6 +78,7 @@ export function LaneRow({
   controls,
   paused,
   running,
+  indeterminate,
 }: LaneRowProps) {
   const clamped = Math.min(100, Math.max(0, progressPct));
   return (
