@@ -39,7 +39,17 @@ interface RowProps {
   onClick: () => void;
 }
 
-function Row({ label, count, dotClass, active, empty, onClick }: RowProps) {
+interface RowProps {
+  label: string;
+  count: number;
+  dotClass: string;
+  active: boolean;
+  empty?: boolean;
+  onClick: () => void;
+  testId?: string;
+}
+
+function Row({ label, count, dotClass, active, empty, onClick, testId }: RowProps) {
   return (
     <button
       type="button"
