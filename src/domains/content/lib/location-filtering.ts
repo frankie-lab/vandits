@@ -2,6 +2,7 @@ import type { FilterCriteria, GeoLocation } from '@/types/location';
 import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
 import { getLocationHierarchy, isPlaceholderValue } from '@/shared/geography/hierarchy';
 import { getPointHealthRings } from '@/domains/content/lib/point-health-rings';
+import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
 import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
 import { resolvePoiSource } from '@/domains/content/lib/poi-source';
 
@@ -124,9 +125,13 @@ export function matchesLocationFilters(
     semanticResultIds,
   } = filters;
 
-  // NORMA TRANSVERSAL: los ejes de estado (visitedFilter, visualState,
-  // enrichmentStatus, onlyEnriched, verified) han sido eliminados de la UI
-  // y NO se aplican como filtro. "Todos" = universo completo de puntos.
+  // NORMA TRANSVERSAL: visitedFilter, enrichmentStatus, onlyEnriched y
+  // verified siguen retirados. `visualState` SÍ es eje activo, consumido
+  // por el popover "mis POI" (MyCatalogQuickFilters). Delega 100% en
+  // getPointVisualState(loc) — single source of truth de la paleta.
+  if (filters.visualState) {
+    if (getPointVisualState(loc) !== filters.visualState) return false;
+  }
 
   // Eje "origen" (PR-POI-SOURCE-3). SIEMPRE aplicado. `filterBySource` es el
   // canónico; `filterByUserId` queda como alias legacy y se ignora si el
