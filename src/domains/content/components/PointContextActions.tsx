@@ -21,6 +21,8 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content';
 import { hasRealEnrichment } from '@/domains/content/lib/enrichment-state';
+import { triggerEnrichLocation } from '@/domains/content/lib/enrich-location';
+import { enrichmentFailureStore } from '@/domains/content/hooks/use-enrichment-failure';
 import { toast } from 'sonner';
 import { RenormalizeButton } from '@/shared/geography/RenormalizeButton';
 
@@ -256,6 +258,7 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
   const [wantPersonal, setWantPersonal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [executingActions, setExecutingActions] = useState(false);
+  const [adoptingId, setAdoptingId] = useState<string | null>(null);
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
   const documents = useLocationsStore(state => state.documents);
   const selectedRef = useRef<HTMLDivElement | null>(null);
@@ -416,6 +419,48 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
   }, [location.latitude, location.longitude, radiusMeters]);
 
   useEffect(() => { searchNearby(); }, [searchNearby]);
+
+  // Adopta un punto cercano como identidad correcta del POI: actualiza
+  // name + lat + lng del POI a los del vecino y dispara el enriquecimiento.
+  const handleAdoptNearby = async (p: NearbyPoint) => {
+    setAdoptingId(p.id);
+    try {
+      const name = (p.name ?? '').trim();
+      if (!name) {
+        toast.error('Punto sin nombre');
+        return;
+      }
+      const { error } = await supabase
+        .from('locations')
+        .update({
+          name,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', location.id);
+      if (error) throw error;
+      useLocationsStore.getState().updateLocation(location.id, {
+        name,
+        coordinates: { lat: p.latitude, lng: p.longitude },
+        updatedAt: new Date(),
+      });
+      const result = await triggerEnrichLocation(location.id, {
+        focusAfter: false,
+        skipValidation: true,
+      });
+      if (result.success) {
+        enrichmentFailureStore.invalidate(location.id);
+        toast.success(`Enriquecido como "${name}"`);
+      } else if (result.error) {
+        toast.error(result.error);
+      }
+    } catch {
+      toast.error('No se pudo aplicar la opción');
+    } finally {
+      setAdoptingId(null);
+    }
+  };
 
   const handleEnrichWithContext = async () => {
     setEnriching(true);
@@ -803,6 +848,20 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
                       className={`w-full min-w-0 max-w-full cursor-pointer rounded-lg transition-colors ${selectedPointId === p.id ? 'bg-primary/5 ring-2 ring-primary/50' : ''}`}
                     >
                       <NearbyPointCard point={p} />
+                      <div className="flex items-center justify-end px-3 pb-2">
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="h-7 text-[11px] gap-1.5"
+                          disabled={adoptingId !== null}
+                          onClick={(e) => { e.stopPropagation(); handleAdoptNearby(p); }}
+                        >
+                          {adoptingId === p.id
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <Sparkles className="w-3.5 h-3.5" />}
+                          Enriquecer aquí
+                        </Button>
+                      </div>
                       {selectedPointId === p.id && (
                         <div className="space-y-2 px-3 pb-3">
                           <div className="flex items-center gap-1 text-[10px] text-primary">
@@ -879,10 +938,9 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
           <p className="truncate text-[10px] text-muted-foreground">
             {nearbyPoints.filter(p => hasRealEnrichment(p)).length} de {nearbyPoints.length} enriquecidos
           </p>
-          <Button size="sm" className="h-7 shrink-0 gap-1.5 text-[11px]" onClick={handleEnrichWithContext} disabled={enriching}>
-            {enriching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-            Enriquecer este punto
-          </Button>
+          <p className="truncate text-[10px] text-muted-foreground">
+            Elige el punto correcto en la lista
+          </p>
         </div>
       )}
     </div>

@@ -1,44 +1,74 @@
 ## Objetivo
 
-En el popup de POIs sin enriquecer y **sin localización clara** (variante simple, `!parsed` en `UnenrichedRecoveryBlock.tsx`), el botón **"Enriquecer"** sólo debe aparecer **después de que el usuario haya abierto al menos una vez "Contexto cercano"**. Antes de eso, el único CTA visible es "Contexto cercano".
-
-Razón: enriquecer sin haber revisado los puntos cercanos produce resultados pobres porque el modelo no tiene un ancla geográfica fiable.
+En el panel "Contexto cercano" (inline dentro del popup del POI sin localización clara), el botón **Enriquecer** debe estar asociado a **cada resultado** de la lista, no a un CTA global al pie. Así el usuario indica explícitamente cuál de los puntos cercanos es el lugar correcto para anclar la identidad y enriquecer.
 
 ## Diagnóstico
 
-`src/domains/content/components/UnenrichedRecoveryBlock.tsx`, rama `if (!parsed)` (líneas 379–414): hoy se renderizan ambos botones a la vez, "Enriquecer" (primario) y "Contexto cercano" (ghost).
+`src/domains/content/components/PointContextActions.tsx`:
 
-El estado `showNearby` ya existe (línea 99) y se togglea en `handleOpenContext` (línea 143).
+- Hoy hay un solo CTA global en el footer (línea 882–885): "Enriquecer este punto", que llama a `handleEnrichWithContext` y pasa los 10 primeros vecinos como mero contexto al modelo, **sin** anclar a ninguno en concreto. Eso confunde porque el usuario percibe que "no está asignado a ninguno".
+- Cada item se renderiza vía `<NearbyPointCard point={p} />` dentro de un `<div onClick={handleSelectPoint}>` (líneas 798–805). Al expandir el item ya hay acciones contextuales ("Reemplazar importado", "Punto personal"), pero no hay un "Enriquecer aquí" que adopte ese candidato.
 
-## Cambio
+`UnenrichedRecoveryBlock.tsx` ya tiene el patrón correcto en `handleAdoptCandidate` (líneas 176–210): UPDATE de `name` + `latitude` + `longitude` en `locations`, sync del store, `triggerEnrichLocation(id, { skipValidation: true })`. Reproducimos esa misma semántica aquí.
 
-1. Añadir un nuevo estado local `nearbyEverOpened` (boolean) que se ponga a `true` la primera vez que el usuario abre "Contexto cercano" y nunca vuelva a `false`.
+## Cambios
 
-   ```tsx
-   const [nearbyEverOpened, setNearbyEverOpened] = React.useState(false);
+### 1. `PointContextActions.tsx` — nuevo handler `handleAdoptNearby`
 
-   const handleOpenContext = () => {
-     setShowNearby((v) => {
-       const next = !v;
-       if (next) setNearbyEverOpened(true);
-       return next;
-     });
-   };
-   ```
+Análogo a `handleAdoptCandidate`. Recibe un `NearbyPoint`, hace:
+1. `UPDATE locations SET name = p.name, latitude = p.latitude, longitude = p.longitude WHERE id = location.id`.
+2. `useLocationsStore.getState().updateLocation(location.id, { name, coordinates: { lat, lng }, updatedAt })`.
+3. `triggerEnrichLocation(location.id, { focusAfter: false, skipValidation: true })`.
+4. `enrichmentFailureStore.invalidate(location.id)` en éxito; `toast.error(...)` en error.
+5. Estado local `adoptingId: string | null` para mostrar spinner sólo en la fila pulsada.
 
-2. En la rama `if (!parsed)`:
-   - Si `!nearbyEverOpened`: renderizar **sólo** el botón "Contexto cercano", a ancho completo (`flex-1`), como CTA principal (variant `default`).
-   - Si `nearbyEverOpened`: renderizar la fila actual con "Enriquecer" (primary, flex-1) + "Contexto cercano" (ghost), tal cual está hoy.
+Importar `triggerEnrichLocation` y `enrichmentFailureStore` (ya disponibles en `domains/content`).
 
-3. El badge "Sin localización clara" y el bloque inline `inlineNearby` no cambian.
+### 2. Render por fila — botón "Enriquecer aquí"
 
-## Alcance
+Dentro del `<div>` del resultado (líneas 798–866), justo debajo de `<NearbyPointCard />` y **siempre visible** (no requiere expandir/seleccionar la fila), añadir:
 
-- Sólo afecta la variante `card` de `UnenrichedRecoveryBlock` cuando `parsed == null` (caso "Sin localización clara").
-- La variante `row` y la rama `parsed != null` (con candidatos de coherencia) no se tocan.
-- Sin cambios de lógica de negocio, sin cambios en `triggerEnrichLocation`, sin cambios en `NearbyPanel`.
+```tsx
+<div className="flex items-center justify-end px-3 pb-2">
+  <Button
+    size="sm"
+    variant="default"
+    className="h-7 text-[11px] gap-1.5"
+    disabled={adoptingId !== null}
+    onClick={(e) => { e.stopPropagation(); handleAdoptNearby(p); }}
+  >
+    {adoptingId === p.id
+      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+      : <Sparkles className="w-3.5 h-3.5" />}
+    Enriquecer aquí
+  </Button>
+</div>
+```
+
+Las acciones existentes (Reemplazar / Personal / Guardar) que aparecen al seleccionar la fila se mantienen tal cual.
+
+### 3. Footer — eliminar el CTA ambiguo
+
+Sustituir el bloque de footer (líneas 877–887) por sólo el contador de progreso, sin botón:
+
+```tsx
+{!mergeMode && (
+  <div className={`flex min-w-0 shrink-0 items-center justify-between gap-2 overflow-hidden border-t bg-background ${padX} py-2`}>
+    <p className="truncate text-[10px] text-muted-foreground">
+      {nearbyPoints.filter(p => hasRealEnrichment(p)).length} de {nearbyPoints.length} enriquecidos
+    </p>
+    <p className="truncate text-[10px] text-muted-foreground">
+      Elige el punto correcto en la lista
+    </p>
+  </div>
+)}
+```
+
+Eliminamos `handleEnrichWithContext` y `enriching` si dejan de usarse en otro sitio (verificar con `rg`); si están referenciados por la variante 'sidebar' en otra superficie, mantener pero sin renderizar el botón.
 
 ## Fuera de alcance
 
-- No se persiste el flag entre sesiones: si el usuario cierra y reabre el popup, vuelve a tener que abrir "Contexto cercano" primero. Esto refuerza la intención (revisar antes de enriquecer).
-- No se cambia el comportamiento cuando hay conflicto/coherencia.
+- No se cambia la consulta de vecinos (`search-nearby-osm`), ni el ranking, ni el agrupado por categoría.
+- No se modifica `UnenrichedRecoveryBlock` ni el flujo de coherence-conflict (allí ya hay "Enriquecer aquí" por candidato).
+- No se persisten preferencias nuevas; el comportamiento es idempotente por POI.
+- `handleReplaceWithPoint` y "Punto personal" siguen disponibles al expandir la fila — son acciones distintas (no enriquecer, sino sustituir o crear personal).
