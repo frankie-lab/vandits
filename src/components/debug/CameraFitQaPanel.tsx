@@ -184,6 +184,13 @@ export function CameraFitQaPanel() {
   };
 
   const handleDownload = () => {
+    setCopyError(null);
+    if (!metricsAvailable) {
+      setCopyError(
+        'No metrics yet. window.__cameraFitMetrics is not initialized. Trigger any fit first or check that the observer is installed.',
+      );
+      return;
+    }
     const blob = new Blob([JSON.stringify(exportPayload(), null, 2)], {
       type: 'application/json',
     });
