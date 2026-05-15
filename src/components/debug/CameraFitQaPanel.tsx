@@ -873,11 +873,20 @@ function KvBlock({
   );
 }
 
-function ActionBtn({ onClick, label }: { onClick: () => void; label: string }) {
+function ActionBtn({
+  onClick,
+  label,
+  testId,
+}: {
+  onClick: () => void;
+  label: string;
+  testId?: string;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
+      data-testid={testId}
       style={{
         padding: '4px 8px',
         background: '#1e293b',
