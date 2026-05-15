@@ -613,6 +613,14 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
   };
 
   const handleSelectPoint = (point: NearbyPoint) => {
+    // Toggle: si la fila ya estaba seleccionada, deselecciona y limpia foco.
+    if (selectedPointId === point.id) {
+      setSelectedPointId(null);
+      setWantReplace(false);
+      setWantPersonal(false);
+      setSelectedCategory(null);
+      return;
+    }
     setSelectedPointId(point.id);
     setWantReplace(false);
     setWantPersonal(false);
