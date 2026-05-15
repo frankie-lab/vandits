@@ -64,6 +64,12 @@ Triggers cableados hoy:
 - Click "Enriquecidos" en popover Mis POI: emite `mode='always', coords=[[lat,lng]…]` con TODO el subset → fit completo aunque la cámara esté en otra región.
 - Activar chip "Reparar cadena": `mode='if-outside', minZoom: 7` → encuadra solo si la cámara no contenía ya >40% del subset.
 
+## Selector interaction contract (popover Mis POI)
+- Cada click sobre una fila visible del popover dispara un evento con `opId` ÚNICO (`buildUniqueMyCatalogPopoverOpId`). Nunca se reutiliza el opId determinista entre clicks consecutivos.
+- Re-click sobre la fila ya activa = reafirmación → re-emite evento, redispara fit, cierra popover. **Prohibido silent noop.**
+- `heavy-operations.blockReentry=false` en este selector. La unicidad de opId garantiza observabilidad sin colisiones.
+- Subset vacío sigue siendo un resultado válido (no fit, pero popover cerrado + evento emitido + heavy-op cerrada como `Sin resultados`).
+
 ## Anti-patrones detectados
 - (Resuelto) `mode: 'always'` era ignorado por cooldown global. Corregido aislando el guard a `if-outside`.
 - (Vigilar) Calleres que pasan ids pero no `coords` cuando saben que sus markers no están montados (riesgo de fit parcial bajo culling).
