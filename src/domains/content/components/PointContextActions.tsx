@@ -666,12 +666,17 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
   // Inline: el popup-root (popup-scroll-body) gestiona el ÚNICO scroll. No
   // imponer max-h ni overflow aquí — ver mem://ui/map/popup-dimensions-and-scrolling.
   const rootClass = isInline
-    ? 'flex w-full min-w-0 flex-col overflow-x-hidden border-t border-border/60 bg-background'
+    ? 'flex min-h-0 w-full min-w-0 flex-col overflow-hidden border-t border-border/60 bg-background'
     : 'flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overflow-x-hidden';
+  const inlineRootStyle = isInline
+    ? {
+        maxHeight: 'calc(100dvh - var(--top-header-h, 72px) - var(--bottom-overlay-safe-h, 0px) - 24px)',
+      }
+    : undefined;
   const padX = isInline ? 'px-1.5' : 'px-3';
 
   return (
-    <div className={rootClass}>
+    <div className={rootClass} style={inlineRootStyle}>
       {/* Header */}
       <div className={`space-y-1 overflow-x-hidden border-b bg-muted/30 ${padX} py-2`}>
         <div className="flex min-w-0 items-center gap-2">
@@ -772,8 +777,8 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
         </div>
       )}
 
-      {/* Results — inline: sin scroll propio (lo gestiona popup-scroll-body); card: scroll propio */}
-      <div className={`flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden ${padX} pb-8 pt-3`} style={isInline ? { maxHeight: '50vh', overscrollBehavior: 'contain' } : undefined}>
+      {/* Results — inline: scroll interno para no desbordar el alto visible del popup; card: scroll propio */}
+      <div className={`flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden ${padX} pb-8 pt-3`} style={isInline ? { overscrollBehavior: 'contain' } : undefined}>
         {loadingNearby ? (
           <div className="flex items-center justify-center py-8 gap-2">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
