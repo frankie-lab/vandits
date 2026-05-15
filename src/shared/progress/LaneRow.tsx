@@ -48,6 +48,14 @@ export interface LaneRowProps {
   paused?: boolean;
   /** When true, animates barber-pole stripes. */
   running?: boolean;
+  /**
+   * When true, the row is rendered as a true indeterminate progress bar:
+   *   - segments and progress percentage are ignored,
+   *   - a "ghost" segment slides across the track,
+   *   - aria-busy is set, aria-valuenow is omitted.
+   * Use for ops that have no measurable progress yet.
+   */
+  indeterminate?: boolean;
 }
 
 const TONE_BG: Record<LaneTone, string> = {
