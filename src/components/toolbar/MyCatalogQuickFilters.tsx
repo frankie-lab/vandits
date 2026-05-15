@@ -193,7 +193,7 @@ export function MyCatalogQuickFiltersButton({
           className={`flex items-center gap-1.5 transition-all cursor-pointer rounded-full px-1 py-0.5 ${
             ownershipFilter === 'mine' ? 'text-emerald-400' : 'text-emerald-500 hover:text-emerald-400'
           } ${hasSubFilter ? 'ring-2 ring-emerald-500/40' : ''}`}
-          title="Mis puntos en Catálogo — filtros rápidos"
+          
         >
           <span className="text-base font-semibold tabular-nums leading-none">{formatCount(count)}</span>
           <div className="w-2 h-2 rounded-full bg-emerald-500" />
