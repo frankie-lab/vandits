@@ -1715,8 +1715,11 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
  minWidth: 360,
  // No `maxHeight` here: the popup root owns its own scroll so the hero
  // image stays fixed while only the body scrolls.
- className: 'custom-popup',
- closeButton: true,
+  className: 'custom-popup',
+  closeButton: true,
+  // Evita que clicks dentro del popup (botones React) propaguen al mapa
+  // y disparen el auto-close de Leaflet.
+  closeOnClick: false,
    // autoPan desactivado: `centerOpenedPopupInVisibleMap` lo sustituye y
    // evita el race con la animación nativa de Leaflet.
    autoPan: false,
