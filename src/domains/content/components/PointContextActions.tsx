@@ -21,6 +21,8 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content';
 import { hasRealEnrichment } from '@/domains/content/lib/enrichment-state';
+import { triggerEnrichLocation } from '@/domains/content/lib/enrich-location';
+import { enrichmentFailureStore } from '@/domains/content/hooks/use-enrichment-failure';
 import { toast } from 'sonner';
 import { RenormalizeButton } from '@/shared/geography/RenormalizeButton';
 
