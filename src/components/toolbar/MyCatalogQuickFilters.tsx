@@ -209,6 +209,7 @@ export function MyCatalogQuickFiltersButton({
             count={counts.all}
             dotClass="bg-emerald-500"
             active={noneActive}
+            empty={isEmpty('all', null)}
             onClick={applyAll}
           />
           <Row
@@ -216,6 +217,7 @@ export function MyCatalogQuickFiltersButton({
             count={counts.enriched}
             dotClass="bg-emerald-500"
             active={activeVisual === 'enriched'}
+            empty={isEmpty('visual', 'enriched')}
             onClick={() => applyVisual('enriched')}
           />
           <Row
@@ -223,6 +225,7 @@ export function MyCatalogQuickFiltersButton({
             count={counts.imported}
             dotClass="bg-muted-foreground/60"
             active={activeVisual === 'imported'}
+            empty={isEmpty('visual', 'imported')}
             onClick={() => applyVisual('imported')}
           />
           <Row
@@ -230,6 +233,7 @@ export function MyCatalogQuickFiltersButton({
             count={counts.empty}
             dotClass="bg-orange-500"
             active={activeVisual === 'empty'}
+            empty={isEmpty('visual', 'empty')}
             onClick={() => applyVisual('empty')}
           />
         </div>
@@ -245,6 +249,7 @@ export function MyCatalogQuickFiltersButton({
             count={counts.partial}
             dotClass="bg-amber-500"
             active={activeHealth === 'partial'}
+            empty={isEmpty('health', 'partial')}
             onClick={() => applyHealth('partial')}
           />
           <Row
@@ -252,6 +257,7 @@ export function MyCatalogQuickFiltersButton({
             count={counts.chain}
             dotClass="bg-yellow-400"
             active={activeHealth === 'chain'}
+            empty={isEmpty('health', 'chain')}
             onClick={() => applyHealth('chain')}
           />
           <Row
@@ -259,6 +265,7 @@ export function MyCatalogQuickFiltersButton({
             count={counts.review}
             dotClass="bg-fuchsia-500"
             active={activeHealth === 'review'}
+            empty={isEmpty('health', 'review')}
             onClick={() => applyHealth('review')}
           />
           <Row
@@ -266,6 +273,7 @@ export function MyCatalogQuickFiltersButton({
             count={counts.hardError}
             dotClass="bg-red-500"
             active={activeHealth === 'hardError'}
+            empty={isEmpty('health', 'hardError')}
             onClick={() => applyHealth('hardError')}
           />
         </div>
