@@ -213,6 +213,21 @@ function getMetrics(): CameraFitMetrics | null {
 }
 
 /**
+ * Inicializa `window.__cameraFitMetrics` si todavía no existe. Idempotente.
+ * Pensado para callers de QA (panel debug) que necesitan leer métricas antes
+ * de que se haya disparado el primer fit.
+ */
+export function ensureCameraFitMetrics(): CameraFitMetrics | null {
+  return getMetrics();
+}
+
+/** True si el observer de bypasses está instalado en `L.Map.prototype`. */
+export function isCameraFitObserverInstalled(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.__cameraFitObserverInstalled === true;
+}
+
+/**
  * Reset in-place. También expuesto como `window.__cameraFitMetrics.reset()`.
  * Mantiene la misma referencia del objeto para no romper inspects abiertos.
  */
