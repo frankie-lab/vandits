@@ -22,6 +22,12 @@ import {
   resetCameraFitMetrics,
   type CameraFitMetrics,
 } from '@/components/map/subset-fit';
+import {
+  ensureCameraFitTraceBuffer,
+  getCameraFitTrace,
+  resetCameraFitTrace,
+  type CameraFitTraceEvent,
+} from '@/components/debug/camera-fit-trace';
 
 const FLOW_LABELS = [
   { id: 'unlabeled', label: '— sin etiquetar —' },
@@ -64,6 +70,7 @@ function readMetricsSnapshot(): CameraFitMetrics | null {
 
 function buildExportPayload(
   metrics: CameraFitMetrics | null,
+  trace: CameraFitTraceEvent[],
   flowLabel: string,
 ): Record<string, unknown> {
   return {
@@ -93,6 +100,7 @@ function buildExportPayload(
           lastRequest: metrics.lastRequest,
         }
       : null,
+    trace,
   };
 }
 
