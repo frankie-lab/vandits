@@ -43,7 +43,23 @@ function Row({ label, count, dotClass, active, empty, onClick }: RowProps) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onPointerDown={(e) => {
+        // F1 diagnostics: capture earliest evidence that the click reaches
+        // the actual <button> in PopoverContent (before React's onClick,
+        // before composed handlers, before any overlay close).
+        traceCameraFit('MyCatalogQuickFilters.Row pointerdown', {
+          label,
+          button: e.button,
+          target: (e.target as HTMLElement | null)?.tagName ?? null,
+        });
+      }}
+      onClick={(e) => {
+        traceCameraFit('MyCatalogQuickFilters.Row onClick fired', {
+          label,
+          defaultPrevented: e.defaultPrevented,
+        });
+        onClick();
+      }}
       className={`w-full flex items-center justify-between gap-3 px-2.5 py-1.5 rounded-md text-sm transition-colors ${
         active
           ? empty
@@ -202,10 +218,24 @@ export function MyCatalogQuickFiltersButton({
     emptyAxisValue === `${axis}:${String(value ?? 'all')}`;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        traceCameraFit('MyCatalogQuickFilters.Popover onOpenChange', {
+          from: open,
+          to: next,
+        });
+        setOpen(next);
+      }}
+    >
       <PopoverTrigger asChild>
         <button
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            traceCameraFit('MyCatalogQuickFilters.Trigger click', {
+              currentlyOpen: open,
+            });
+            e.stopPropagation();
+          }}
           className={`flex items-center gap-1.5 transition-all cursor-pointer rounded-full px-1 py-0.5 ${
             ownershipFilter === 'mine' ? 'text-emerald-400' : 'text-emerald-500 hover:text-emerald-400'
           } ${hasSubFilter ? 'ring-2 ring-emerald-500/40' : ''}`}
