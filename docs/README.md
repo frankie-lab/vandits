@@ -87,6 +87,13 @@ Cada contrato tiene una sección **Invariantes** (normativas, no descriptivas) y
 - [hardcoded-behaviors](audits/hardcoded-behaviors-audit.md)
 - [uniformity](audits/uniformity-audit.md)
 
+Inventarios exhaustivos (segunda pasada, una fila por ocurrencia + sección High-risk al final):
+
+- [event-bus-inventory](audits/event-bus-inventory.md)
+- [hardcode-inventory](audits/hardcode-inventory.md)
+- [ownership-resolution-inventory](audits/ownership-resolution-inventory.md)
+- [constants-thresholds-inventory](audits/constants-thresholds-inventory.md)
+
 Cada finding numerado en estos audits está mapeado a un `BL-xxx` en el [backlog](audits/backlog.md).
 
 ## Mapa de dependencias entre contratos
