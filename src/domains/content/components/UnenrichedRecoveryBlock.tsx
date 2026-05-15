@@ -141,12 +141,15 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
   // "Contexto cercano" se renderiza INLINE dentro de este mismo bloque
   // (debajo del CTA), no como panel lateral. Ver mem://features/content/
   // empty-point-quick-actions-v2.
-  const handleOpenContext = () =>
+  const handleOpenContext = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
     setShowNearby((v) => {
       const next = !v;
       if (next) setNearbyEverOpened(true);
       return next;
     });
+  };
 
   // Construye el LocationRow que NearbyPanel espera a partir del GeoLocation
   // del store. Memo por id+coords+name para evitar re-renders innecesarios.
