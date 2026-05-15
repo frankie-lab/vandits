@@ -393,7 +393,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
             <AlertCircle className="w-3.5 h-3.5" />
             Sin localización clara
           </span>
-          {loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+          
         </div>
         {!showNearby && (
           <div className="mx-2 mb-2 flex items-center gap-1.5">
