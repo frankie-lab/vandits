@@ -773,7 +773,7 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
       )}
 
       {/* Results — inline: sin scroll propio (lo gestiona popup-scroll-body); card: scroll propio */}
-      <div className={`flex-1 min-w-0 ${isInline ? "" : "min-h-0 overflow-y-auto"} overflow-x-hidden ${padX} pb-8 pt-3`}>
+      <div className={`flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden ${padX} pb-8 pt-3`} style={isInline ? { maxHeight: '50vh', overscrollBehavior: 'contain' } : undefined}>
         {loadingNearby ? (
           <div className="flex items-center justify-center py-8 gap-2">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
