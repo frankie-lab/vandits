@@ -587,9 +587,32 @@ export function CameraFitQaPanel() {
 
         {/* Actions */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+          <ActionBtn onClick={handleStartCapture} label="Start capture" />
           <ActionBtn onClick={handleReset} label="Reset" />
           <ActionBtn onClick={handleCopy} label="Copy JSON" />
           <ActionBtn onClick={handleDownload} label="Download JSON" />
+        </div>
+
+        {/* Capture window */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 6,
+            marginBottom: 8,
+            padding: '4px 8px',
+            background: '#0f172a',
+            border: '1px solid #334155',
+            borderRadius: 4,
+            fontSize: 10,
+            color: '#cbd5e1',
+          }}
+        >
+          <span style={{ color: '#64748b' }}>Capture:</span>
+          <span style={{ color: captureId ? '#86efac' : '#64748b' }}>
+            {captureId ?? '(none — using last reset as window)'}
+          </span>
+          <span style={{ color: '#64748b' }}>started @ {fmtClock(captureStartedAt)}</span>
         </div>
 
         {/* Heartbeat */}
