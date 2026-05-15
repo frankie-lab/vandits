@@ -43,6 +43,8 @@ import {
 import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
 import { useLocationsStore } from '@/domains/content';
 import { searchWikiCandidates } from '@/domains/content/lib/wiki-name-search';
+import { useAuth } from '@/domains/identity/hooks/use-auth';
+import { NearbyPanel } from './PointContextActions';
 
 interface Props {
   location: GeoLocation;
