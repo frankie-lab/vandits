@@ -86,6 +86,22 @@ export function MyCatalogQuickFiltersButton({
   const noneActive = !activeVisual && !activeHealth;
   const hasSubFilter = !!(activeVisual || activeHealth);
 
+  // Empty-result feedback for the active row, reset whenever selection
+  // changes. Driven by `MY_CATALOG_POPOVER_EMPTY_EVENT`.
+  const [emptyAxisValue, setEmptyAxisValue] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<MyCatalogPopoverEmptyDetail>).detail;
+      if (!detail) return;
+      setEmptyAxisValue(`${detail.axis}:${String(detail.value ?? 'all')}`);
+    };
+    window.addEventListener(MY_CATALOG_POPOVER_EMPTY_EVENT, handler);
+    return () => window.removeEventListener(MY_CATALOG_POPOVER_EMPTY_EVENT, handler);
+  }, []);
+  React.useEffect(() => {
+    setEmptyAxisValue(null);
+  }, [activeVisual, activeHealth]);
+
   // Restringir a 'mine' va SIEMPRE por useLayerVisibility (traduce a
   // filterByUserId, que es lo que el matcher consume). Los ejes propios
   // del popover (visualState, healthFilter) van por setFilters.
@@ -93,16 +109,38 @@ export function MyCatalogQuickFiltersButton({
     if (ownershipFilter !== 'mine') setOwnershipFilter('mine');
   };
 
+  /**
+   * Start a heavy-op BEFORE setFilters so the bottom badge appears in the
+   * next React frame. blockReentry guards against double clicks on the
+   * same axis/value while the previous op is still pending.
+   */
+  const beginOp = (
+    axis: 'visual' | 'health' | 'all',
+    value: VisualStateFilter | HealthFilter | null,
+  ): boolean => {
+    const opId = buildMyCatalogPopoverOpId({ axis, value });
+    return startOperation({
+      operationId: opId,
+      label: 'Filtrando…',
+      source: 'filter',
+      indeterminate: true,
+      blockReentry: true,
+      // Safety watchdog: si el evento applied no llega o falla el listener,
+      // la op no se queda colgada. 10s es holgado para un filtro local.
+      safetyTimeoutMs: 10000,
+      safetyMessage: 'Tiempo agotado aplicando filtro',
+    });
+  };
+
   const applyAll = () => {
+    if (!beginOp('all', null)) return;
     ensureMine();
     setFilters({
       ...useLocationsStore.getState().filters,
       visualState: undefined,
       healthFilter: undefined,
     });
-    // Subset-fit: encuadra el universo "mine" si <40% en viewport.
     emitMyCatalogPopoverApplied({ axis: 'all', value: null });
-    // Permanece abierto.
   };
 
   const applyVisual = (v: VisualStateFilter) => {
@@ -110,6 +148,7 @@ export function MyCatalogQuickFiltersButton({
       applyAll();
       return;
     }
+    if (!beginOp('visual', v)) return;
     ensureMine();
     setFilters({
       ...useLocationsStore.getState().filters,
@@ -117,17 +156,15 @@ export function MyCatalogQuickFiltersButton({
       healthFilter: undefined,
     });
     emitMyCatalogPopoverApplied({ axis: 'visual', value: v });
-    // Permanece abierto. El subset-fit es if-outside; si los puntos
-    // ya están en viewport, la cámara no se mueve.
   };
 
   const applyHealth = (h: HealthFilter) => {
     if (activeHealth === h && !activeVisual) {
-      // Re-toggle del único activo → Ver todos.
       applyAll();
       setOpen(false);
       return;
     }
+    if (!beginOp('health', h)) return;
     ensureMine();
     setFilters({
       ...useLocationsStore.getState().filters,
@@ -135,9 +172,11 @@ export function MyCatalogQuickFiltersButton({
       healthFilter: h,
     });
     emitMyCatalogPopoverApplied({ axis: 'health', value: h });
-    // Cierra: subset-fit puede mover cámara y el popover taparía el resultado.
     setOpen(false);
   };
+
+  const isEmpty = (axis: 'visual' | 'health' | 'all', value: unknown): boolean =>
+    emptyAxisValue === `${axis}:${String(value ?? 'all')}`;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
