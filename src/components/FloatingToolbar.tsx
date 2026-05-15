@@ -59,7 +59,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Popover, PopoverTrigger } from '@/components/ui/popover';
-import { MyCatalogQuickFiltersContent } from '@/components/toolbar/MyCatalogQuickFilters';
+import { MyCatalogQuickFiltersButton } from '@/components/toolbar/MyCatalogQuickFilters';
 import {
  AlertDialog,
  AlertDialogAction,
@@ -654,23 +654,11 @@ export function FloatingToolbar({
  <TooltipTrigger asChild>
                 <div className="flex items-center gap-0 px-2 py-1">
                    {/* 1. VERDE: Mis puntos publicados en Catálogo (popover de filtros rápidos) */}
-                   <Popover>
-                     <PopoverTrigger asChild>
-                       <button
-                         onClick={(e) => e.stopPropagation()}
-                         className={`flex items-center gap-1.5 transition-all cursor-pointer rounded-full px-1 py-0.5 ${
-                           ownershipFilter === 'mine' ? 'text-emerald-400' : 'text-emerald-500 hover:text-emerald-400'
-                         } ${
-                           (filters.visualState || filters.healthFilter) ? 'ring-2 ring-emerald-500/40' : ''
-                         }`}
-                         title="Mis puntos en Catálogo — filtros rápidos"
-                       >
-                         <span className="text-base font-semibold tabular-nums leading-none">{formatCount(catalogStats.myCatalogCount)}</span>
-                         <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                       </button>
-                     </PopoverTrigger>
-                     <MyCatalogQuickFiltersContent />
-                   </Popover>
+                   <MyCatalogQuickFiltersButton
+                     count={catalogStats.myCatalogCount}
+                     ownershipFilter={ownershipFilter}
+                     formatCount={formatCount}
+                   />
 
                   <span className="text-base text-muted-foreground mx-1.5 leading-none">/</span>
 
