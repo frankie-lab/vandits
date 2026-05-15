@@ -18,6 +18,7 @@
  *
  * See mem://logic/operations/heavy-operations-feedback.
  */
+import { useMemo } from 'react';
 import { create } from 'zustand';
 
 export type HeavyOpStatus = 'pending' | 'running' | 'done' | 'error';
