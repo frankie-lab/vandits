@@ -380,8 +380,8 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
     return (
       <div className="rounded-lg border bg-muted/40 border-border/60 flex flex-col">
         <div className="flex items-center gap-2 px-2 pt-2 pb-2">
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-medium border border-border/60">
-            <AlertCircle className="w-3 h-3" />
+          <span className="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-md bg-amber-100 text-amber-900 text-[11px] font-medium border border-amber-300 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800">
+            <AlertCircle className="w-3.5 h-3.5" />
             Sin localización clara
           </span>
           {loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
