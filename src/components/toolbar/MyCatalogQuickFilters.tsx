@@ -37,15 +37,6 @@ interface RowProps {
   active: boolean;
   empty?: boolean;
   onClick: () => void;
-}
-
-interface RowProps {
-  label: string;
-  count: number;
-  dotClass: string;
-  active: boolean;
-  empty?: boolean;
-  onClick: () => void;
   testId?: string;
 }
 
