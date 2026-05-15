@@ -683,12 +683,6 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
           <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => { clearMapMarkers(); onClose(); }}>
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <div className="flex-1 min-w-0">
-            <p className="text-[11px] text-muted-foreground">
-              <span className="font-medium text-foreground">{location.name}</span>
-              {' · '}Radio {radiusMeters}m · {nearbyPoints.length} puntos
-            </p>
-          </div>
         </div>
 
         {/* Radius slider */}
