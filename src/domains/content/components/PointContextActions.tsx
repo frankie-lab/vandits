@@ -181,16 +181,16 @@ function NearbyPointCard({
   disabled: boolean;
 }) {
   return (
-    <div className="group w-full max-w-full overflow-hidden rounded-lg border border-border/60 bg-card/40 px-2.5 py-1.5 shadow-sm transition-all hover:border-border hover:bg-muted/40 hover:shadow-md">
+    <div className="group w-full max-w-full overflow-hidden rounded-lg border border-border/60 bg-card/40 px-2.5 py-1 shadow-sm transition-all hover:border-border hover:bg-muted/40 hover:shadow-md">
       {/* Línea 1: nombre + botón enriquecer */}
       <div className="flex min-w-0 items-center gap-2">
-        <p className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight tracking-tight text-foreground">
+        <p className="min-w-0 flex-1 truncate text-sm font-semibold leading-none tracking-tight text-foreground">
           {point.name}
         </p>
         <Button
           size="icon"
           variant="default"
-          className={`h-7 w-7 shrink-0 rounded-full p-0 shadow-sm transition-opacity ${enriching ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
+          className={`-my-1 h-7 w-7 shrink-0 rounded-full p-0 shadow-sm transition-opacity ${enriching ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
           disabled={disabled}
           onClick={onEnrich}
           title="Enriquecer aquí"
@@ -202,7 +202,7 @@ function NearbyPointCard({
         </Button>
       </div>
       {/* Línea 2: distancia + coordenadas (OBLIGATORIO) */}
-      <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] leading-tight text-muted-foreground">
+      <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] leading-none text-muted-foreground">
         <span className="shrink-0 rounded-sm bg-muted/60 px-1 py-px font-medium tabular-nums text-foreground/70">
           {point.distance_m}m
         </span>
