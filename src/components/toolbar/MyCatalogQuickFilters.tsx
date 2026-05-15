@@ -4,11 +4,19 @@
  * Combina los dos ejes canónicos (`visualState` + `healthFilter`) SIEMPRE
  * restringidos a `ownershipFilter='mine'`.
  *
- * Reglas de cierre del popover:
- *  - healthFilter → cierra (subset-fit dispara movimiento de cámara).
- *  - visualState  → permanece abierto (no mueve cámara).
- *  - "Ver todos"  → permanece abierto.
- *  - Click fuera / Escape → cierra (Radix por defecto).
+ * Contrato de interacción del selector (sistémico, NO por valor):
+ *   - Toda fila visible es 100% interactiva o 100% disabled. No existe
+ *     estado intermedio "activa pero ignora click".
+ *   - Click sobre fila interactiva SIEMPRE:
+ *       1. cierra el popover,
+ *       2. emite `lovable:my-catalog-popover-applied` con un opId único,
+ *       3. produce traza observable (Camera QA / heavy-ops).
+ *   - Re-click sobre la fila ya activa = reafirmación de intención
+ *     (replay del fit/refocus). Nunca silent noop.
+ *   - `setFilters` solo se invoca cuando la selección cambia realmente;
+ *     el replay del recenter NO necesita mutar el store.
+ *
+ * Ver ADR-0004, docs/contracts/subset-fit-contract.md.
  */
 import React from 'react';
 import {
@@ -22,8 +30,9 @@ import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { getMyCatalogQuickCounts } from '@/domains/content/lib/my-catalog-quick-counts';
 import {
   emitMyCatalogPopoverApplied,
-  buildMyCatalogPopoverOpId,
+  buildUniqueMyCatalogPopoverOpId,
   MY_CATALOG_POPOVER_EMPTY_EVENT,
+  type MyCatalogPopoverAppliedDetail,
   type MyCatalogPopoverEmptyDetail,
 } from '@/components/toolbar/use-my-catalog-popover-fit';
 import { traceCameraFit } from '@/components/debug/camera-fit-trace';
@@ -45,19 +54,14 @@ function Row({ label, count, dotClass, active, empty, onClick, testId }: RowProp
     <button
       type="button"
       data-testid={testId}
-      onPointerDown={(e) => {
-        // F1 diagnostics: capture earliest evidence that the click reaches
-        // the actual <button> in PopoverContent (before React's onClick,
-        // before composed handlers, before any overlay close).
-        traceCameraFit('MyCatalogQuickFilters.Row pointerdown', {
-          label,
-          button: e.button,
-          target: (e.target as HTMLElement | null)?.tagName ?? null,
-        });
-      }}
+      data-active={active ? 'true' : 'false'}
       onClick={(e) => {
-        traceCameraFit('MyCatalogQuickFilters.Row onClick fired', {
+        // Contract: never silent noop. Always invoke the handler. The
+        // handler decides whether to recenter or activate, but it ALWAYS
+        // emits an observable interaction.
+        traceCameraFit('MyCatalogQuickFilters.Row onClick', {
           label,
+          active,
           defaultPrevented: e.defaultPrevented,
         });
         onClick();
@@ -88,6 +92,12 @@ interface MyCatalogQuickFiltersButtonProps {
   ownershipFilter: OwnershipFilter;
   formatCount: (n: number) => string;
 }
+
+/** Acción canónica de fila (axis + value opcional). */
+type RowAction =
+  | { axis: 'all' }
+  | { axis: 'visual'; value: VisualStateFilter }
+  | { axis: 'health'; value: HealthFilter };
 
 export function MyCatalogQuickFiltersButton({
   count,
@@ -128,97 +138,91 @@ export function MyCatalogQuickFiltersButton({
     setEmptyAxisValue(null);
   }, [activeVisual, activeHealth]);
 
-  // Restringir a 'mine' va SIEMPRE por useLayerVisibility (traduce a
-  // filterByUserId, que es lo que el matcher consume). Los ejes propios
-  // del popover (visualState, healthFilter) van por setFilters.
-  const ensureMine = () => {
+  const ensureMine = React.useCallback(() => {
     if (ownershipFilter !== 'mine') setOwnershipFilter('mine');
-  };
+  }, [ownershipFilter, setOwnershipFilter]);
 
   /**
-   * Start a heavy-op BEFORE setFilters so the bottom badge appears in the
-   * next React frame. blockReentry guards against double clicks on the
-   * same axis/value while the previous op is still pending.
+   * Handler único para CUALQUIER fila del selector. No ramifica por axis
+   * ni por value. Ejecuta el contrato de interacción al pie de la letra:
+   *
+   *   1. Cierra el popover (feedback inmediato).
+   *   2. Calcula si la selección ya estaba activa (recenter) o cambia.
+   *   3. Mutar `setFilters` SOLO cuando la selección cambia.
+   *   4. Abre una heavy-op con opId UNIQUE (sin blockReentry → re-click
+   *      legítimo nunca queda en silent noop).
+   *   5. Emite el evento del popover con el mismo opId; el listener
+   *      cerrará la op y disparará `requestSubsetFit`.
    */
-  const beginOp = (
-    axis: 'visual' | 'health' | 'all',
-    value: VisualStateFilter | HealthFilter | null,
-  ): boolean => {
-    const opId = buildMyCatalogPopoverOpId({ axis, value });
-    return startOperation({
-      operationId: opId,
-      label: 'Filtrando…',
-      source: 'filter',
-      indeterminate: true,
-      blockReentry: true,
-      // Safety watchdog: si el evento applied no llega o falla el listener,
-      // la op no se queda colgada. 10s es holgado para un filtro local.
-      safetyTimeoutMs: 10000,
-      safetyMessage: 'Tiempo agotado aplicando filtro',
-    });
-  };
+  const applyRow = React.useCallback(
+    (action: RowAction) => {
+      const detailBase: MyCatalogPopoverAppliedDetail =
+        action.axis === 'all'
+          ? { axis: 'all', value: null }
+          : action.axis === 'visual'
+            ? { axis: 'visual', value: action.value }
+            : { axis: 'health', value: action.value };
 
-  const applyAll = () => {
-    traceCameraFit('MyCatalogQuickFilters.applyAll click');
-    if (!beginOp('all', null)) {
-      traceCameraFit('applyAll: beginOp returned FALSE (blocked)');
-      return;
-    }
-    ensureMine();
-    setFilters({
-      ...useLocationsStore.getState().filters,
-      visualState: undefined,
-      healthFilter: undefined,
-    });
-    emitMyCatalogPopoverApplied({ axis: 'all', value: null });
-    traceCameraFit('applyAll: emitMyCatalogPopoverApplied dispatched');
-  };
+      traceCameraFit('MyCatalogQuickFilters.applyRow', detailBase);
 
-  const applyVisual = (v: VisualStateFilter) => {
-    traceCameraFit('MyCatalogQuickFilters.applyVisual click', { value: v });
-    // Re-click on already-active visual filter = legitimate recenter intent.
-    // Re-emit the same event so subset-fit fires again. Close popover so the
-    // user gets immediate feedback that the click was registered (otherwise
-    // the row looks like a silent noop).
-    const isRecenter = activeVisual === v && !activeHealth;
-    if (!beginOp('visual', v)) {
-      traceCameraFit('applyVisual: beginOp returned FALSE (blocked)', { value: v, isRecenter });
-      return;
-    }
-    ensureMine();
-    if (!isRecenter) {
-      setFilters({
-        ...useLocationsStore.getState().filters,
-        visualState: v,
-        healthFilter: undefined,
-      });
-    }
-    emitMyCatalogPopoverApplied({ axis: 'visual', value: v });
-    traceCameraFit('applyVisual: emitMyCatalogPopoverApplied dispatched', { value: v, isRecenter });
-    if (isRecenter) setOpen(false);
-  };
-
-  const applyHealth = (h: HealthFilter) => {
-    traceCameraFit('MyCatalogQuickFilters.applyHealth click', { value: h });
-    if (activeHealth === h && !activeVisual) {
-      applyAll();
+      // 1. Close popover unconditionally so the click is always observable
+      //    even if downstream listeners skip side-effects (e.g. empty subset).
       setOpen(false);
-      return;
-    }
-    if (!beginOp('health', h)) {
-      traceCameraFit('applyHealth: beginOp returned FALSE (blocked)', { value: h });
-      return;
-    }
-    ensureMine();
-    setFilters({
-      ...useLocationsStore.getState().filters,
-      visualState: undefined,
-      healthFilter: h,
-    });
-    emitMyCatalogPopoverApplied({ axis: 'health', value: h });
-    traceCameraFit('applyHealth: emitMyCatalogPopoverApplied dispatched', { value: h });
-    setOpen(false);
-  };
+
+      // 2. Decide if this is a pure recenter (selection unchanged).
+      const cur = useLocationsStore.getState().filters;
+      const isAlreadyActive =
+        (action.axis === 'all' && !cur.visualState && !cur.healthFilter) ||
+        (action.axis === 'visual' &&
+          cur.visualState === action.value &&
+          !cur.healthFilter) ||
+        (action.axis === 'health' &&
+          cur.healthFilter === action.value &&
+          !cur.visualState);
+
+      // 3. Unique opId per emission. blockReentry=false on purpose: the
+      //    selector contract guarantees every click is observable. If the
+      //    user double-clicks, both clicks fire and both are visible.
+      const opId = buildUniqueMyCatalogPopoverOpId(detailBase);
+      startOperation({
+        operationId: opId,
+        label: 'Filtrando…',
+        source: 'filter',
+        indeterminate: true,
+        blockReentry: false,
+        safetyTimeoutMs: 10000,
+        safetyMessage: 'Tiempo agotado aplicando filtro',
+      });
+
+      ensureMine();
+
+      // 4. Mutate filter store ONLY when the selection actually changes.
+      if (!isAlreadyActive) {
+        const next = { ...useLocationsStore.getState().filters };
+        if (action.axis === 'all') {
+          next.visualState = undefined;
+          next.healthFilter = undefined;
+        } else if (action.axis === 'visual') {
+          next.visualState = action.value;
+          next.healthFilter = undefined;
+        } else {
+          next.visualState = undefined;
+          next.healthFilter = action.value;
+        }
+        setFilters(next);
+      }
+
+      // 5. Emit the event carrying our opId so the listener closes the
+      //    correct operation (avoids id mismatch on parallel clicks).
+      emitMyCatalogPopoverApplied({ ...detailBase, opId });
+      traceCameraFit('applyRow: emitMyCatalogPopoverApplied dispatched', {
+        ...detailBase,
+        opId,
+        recenter: isAlreadyActive,
+      });
+    },
+    [ensureMine, setFilters],
+  );
 
   const isEmpty = (axis: 'visual' | 'health' | 'all', value: unknown): boolean =>
     emptyAxisValue === `${axis}:${String(value ?? 'all')}`;
@@ -246,7 +250,6 @@ export function MyCatalogQuickFiltersButton({
           className={`flex items-center gap-1.5 transition-all cursor-pointer rounded-full px-1 py-0.5 ${
             ownershipFilter === 'mine' ? 'text-emerald-400' : 'text-emerald-500 hover:text-emerald-400'
           } ${hasSubFilter ? 'ring-2 ring-emerald-500/40' : ''}`}
-          
         >
           <span className="text-base font-semibold tabular-nums leading-none">{formatCount(count)}</span>
           <div className="w-2 h-2 rounded-full bg-emerald-500" />
@@ -264,7 +267,7 @@ export function MyCatalogQuickFiltersButton({
             dotClass="bg-emerald-500"
             active={noneActive}
             empty={isEmpty('all', null)}
-            onClick={applyAll}
+            onClick={() => applyRow({ axis: 'all' })}
           />
           <Row
             testId="filter-enriched"
@@ -273,7 +276,7 @@ export function MyCatalogQuickFiltersButton({
             dotClass="bg-emerald-500"
             active={activeVisual === 'enriched'}
             empty={isEmpty('visual', 'enriched')}
-            onClick={() => applyVisual('enriched')}
+            onClick={() => applyRow({ axis: 'visual', value: 'enriched' })}
           />
           <Row
             testId="filter-imported"
@@ -282,7 +285,7 @@ export function MyCatalogQuickFiltersButton({
             dotClass="bg-muted-foreground/60"
             active={activeVisual === 'imported'}
             empty={isEmpty('visual', 'imported')}
-            onClick={() => applyVisual('imported')}
+            onClick={() => applyRow({ axis: 'visual', value: 'imported' })}
           />
           <Row
             testId="filter-empty"
@@ -291,7 +294,7 @@ export function MyCatalogQuickFiltersButton({
             dotClass="bg-orange-500"
             active={activeVisual === 'empty'}
             empty={isEmpty('visual', 'empty')}
-            onClick={() => applyVisual('empty')}
+            onClick={() => applyRow({ axis: 'visual', value: 'empty' })}
           />
         </div>
 
@@ -308,7 +311,7 @@ export function MyCatalogQuickFiltersButton({
             dotClass="bg-amber-500"
             active={activeHealth === 'partial'}
             empty={isEmpty('health', 'partial')}
-            onClick={() => applyHealth('partial')}
+            onClick={() => applyRow({ axis: 'health', value: 'partial' })}
           />
           <Row
             testId="filter-health-chain"
@@ -317,7 +320,7 @@ export function MyCatalogQuickFiltersButton({
             dotClass="bg-yellow-400"
             active={activeHealth === 'chain'}
             empty={isEmpty('health', 'chain')}
-            onClick={() => applyHealth('chain')}
+            onClick={() => applyRow({ axis: 'health', value: 'chain' })}
           />
           <Row
             testId="filter-health-review"
@@ -326,7 +329,7 @@ export function MyCatalogQuickFiltersButton({
             dotClass="bg-fuchsia-500"
             active={activeHealth === 'review'}
             empty={isEmpty('health', 'review')}
-            onClick={() => applyHealth('review')}
+            onClick={() => applyRow({ axis: 'health', value: 'review' })}
           />
           <Row
             testId="filter-health-hardError"
@@ -335,7 +338,7 @@ export function MyCatalogQuickFiltersButton({
             dotClass="bg-red-500"
             active={activeHealth === 'hardError'}
             empty={isEmpty('health', 'hardError')}
-            onClick={() => applyHealth('hardError')}
+            onClick={() => applyRow({ axis: 'health', value: 'hardError' })}
           />
         </div>
       </PopoverContent>
