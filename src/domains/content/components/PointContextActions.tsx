@@ -26,6 +26,7 @@ import { enrichmentFailureStore } from '@/domains/content/hooks/use-enrichment-f
 import { toast } from 'sonner';
 import { RenormalizeButton } from '@/shared/geography/RenormalizeButton';
 import { NearbyResultCard } from '@/shared/components/ui/nearby-result-card';
+import { setNearbyPopupContextId } from '@/domains/content/lib/nearby-popup-context';
 
 interface LocationRow {
   id: string;
@@ -266,9 +267,12 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
     window.dispatchEvent(new CustomEvent('map-clear-nearby-ref'));
   }, []);
 
-  // Clear markers on unmount
+  // Clear markers + nearby-popup-context on unmount
   useEffect(() => {
-    return () => { clearMapMarkers(); };
+    return () => {
+      clearMapMarkers();
+      setNearbyPopupContextId(null);
+    };
   }, [clearMapMarkers]);
 
   const searchNearby = useCallback(async () => {
@@ -619,12 +623,16 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
       setWantReplace(false);
       setWantPersonal(false);
       setSelectedCategory(null);
+      setNearbyPopupContextId(null);
       return;
     }
     setSelectedPointId(point.id);
     setWantReplace(false);
     setWantPersonal(false);
     setSelectedCategory(null);
+    // Marca el id como "abierto desde Contexto cercano" ANTES de focar,
+    // para que el popup se renderice ya en su variante reducida.
+    setNearbyPopupContextId(point.id);
     if (point.source !== 'osm') {
       setFocusedLocation(point.id);
     }
