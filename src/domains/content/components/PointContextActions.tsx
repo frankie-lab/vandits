@@ -181,26 +181,26 @@ function NearbyPointCard({
   disabled: boolean;
 }) {
   return (
-    <div className="w-full max-w-full overflow-hidden rounded-lg border border-border px-2.5 py-1.5 transition-colors hover:bg-muted/30">
+    <div className="w-full max-w-full overflow-hidden rounded-md border border-border px-2 py-1 transition-colors hover:bg-muted/30">
       {/* Línea 1: nombre + botón enriquecer */}
       <div className="flex min-w-0 items-center gap-2">
-        <p className="min-w-0 flex-1 truncate text-[13px] font-semibold leading-tight">{point.name}</p>
+        <p className="min-w-0 flex-1 truncate text-[12px] font-semibold leading-tight">{point.name}</p>
         <Button
           size="sm"
           variant="default"
-          className="h-6 shrink-0 gap-1 px-2 text-[11px]"
+          className="h-5 shrink-0 gap-1 px-1.5 text-[10px]"
           disabled={disabled}
           onClick={onEnrich}
           title="Enriquecer aquí"
         >
           {enriching
-            ? <Loader2 className="w-3 h-3 animate-spin" />
-            : <Sparkles className="w-3 h-3" />}
+            ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
+            : <Sparkles className="w-2.5 h-2.5" />}
           Enriquecer
         </Button>
       </div>
       {/* Línea 2: distancia + coordenadas (OBLIGATORIO) */}
-      <p className="mt-0.5 truncate text-[10px] text-muted-foreground tabular-nums">
+      <p className="truncate text-[10px] leading-tight text-muted-foreground tabular-nums">
         {point.distance_m}m · {point.latitude.toFixed(4)}, {point.longitude.toFixed(4)}
       </p>
     </div>
@@ -796,7 +796,7 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
             ))}
           </div>
         ) : (
-          <div className="min-w-0 space-y-4 pb-8">
+          <div className="min-w-0 space-y-2 pb-8">
             {groupByCategory(nearbyPoints).map(group => (
               <div key={group.category} className="min-w-0">
                 <div className="mb-2 flex min-w-0 items-center gap-1.5 text-muted-foreground">
@@ -804,7 +804,7 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
                   <span className="min-w-0 truncate text-[11px] font-semibold">{group.meta.label}</span>
                   <Badge variant="outline" className="ml-auto h-4 shrink-0 text-[9px]">{group.points.length}</Badge>
                 </div>
-                <div className="min-w-0 space-y-2">
+                <div className="min-w-0 space-y-1">
                   {group.points.map(p => (
                     <div
                       key={p.id}
