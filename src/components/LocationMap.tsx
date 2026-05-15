@@ -223,11 +223,13 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
   const centerOpenedPopupInVisibleMap = useCallback((marker: L.Marker, rightPanelWidth = 0) => {
     const map = mapRef.current;
     if (!map) return;
+    if (!marker || typeof (marker as L.Marker & { getPopup?: () => L.Popup | undefined }).getPopup !== 'function') return;
 
     let attempts = 0;
     let lastHeight = -1;
 
     const tryCenter = () => {
+      if (typeof (marker as L.Marker & { getPopup?: () => L.Popup | undefined }).getPopup !== 'function') return;
       const popup = marker.getPopup();
       const el = popup?.getElement();
       if (!popup || !popup.isOpen() || !el) return;
