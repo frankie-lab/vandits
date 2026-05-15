@@ -140,7 +140,8 @@ function safeRefreshMarkerClusters(cluster: L.MarkerClusterGroup | null | undefi
 export function LocationMap() {
  const mapRef = useRef<L.Map | null>(null);
  const mapContainerRef = useRef<HTMLDivElement>(null);
- const markersRef = useRef<Map<string, L.Marker>>(new Map());
+const markersRef = useRef<Map<string, L.Marker>>(new Map());
+const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
   const locationsRef = useRef<Map<string, GeoLocation>>(new Map());
   // Ids actualmente permitidos como markers (subset visual). Se usa en el
   // handler `popupclose` a nivel de mapa para detectar markers preservados
