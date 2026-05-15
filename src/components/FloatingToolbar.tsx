@@ -652,8 +652,6 @@ export function FloatingToolbar({
 
   {/* SECTION 0: Catálogo counter — VERDE (mis puntos en catálogo) / AZUL (catálogo total: míos + seguidores) */}
  {totalCount > 0 && (
- <Tooltip>
- <TooltipTrigger asChild>
                 <div className="flex items-center gap-0 px-2 py-1">
                    {/* 1. VERDE: Mis puntos publicados en Catálogo (popover de filtros rápidos) */}
                    <MyCatalogQuickFiltersButton
@@ -674,32 +672,6 @@ export function FloatingToolbar({
                     <div className="w-2 h-2 rounded-full bg-sky-500" />
                   </button>
                 </div>
- </TooltipTrigger>
- <TooltipContent side="bottom" className="text-xs max-w-[260px] p-3">
- <div className="space-y-2">
- <div className="flex justify-between items-center gap-3">
- <span className="flex items-center gap-1.5 text-muted-foreground">
- <div className="w-2 h-2 rounded-full bg-emerald-500" />
- Mis puntos en Catálogo:
- </span>
-                    <span className="font-bold text-emerald-500 tabular-nums">{formatCount(catalogStats.myCatalogCount)}</span>
-                  </div>
-                  <div className="flex justify-between items-center gap-3">
-                    <span className="flex items-center gap-1.5 text-muted-foreground">
-                      <div className="w-2 h-2 rounded-full bg-sky-500" />
-                      Catálogo total accesible:
-                    </span>
-                    <span className="font-bold text-sky-500 tabular-nums">{formatCount(catalogStats.totalCatalogCount)}</span>
-                  </div>
-                  {catalogStats.followedCatalogCount > 0 && (
-                    <div className="flex justify-between items-center text-[11px] pl-4 text-muted-foreground">
-                      <span>· De seguidores:</span>
-                      <span className="font-medium tabular-nums">{formatCount(catalogStats.followedCatalogCount)}</span>
-                    </div>
-                  )}
- </div>
- </TooltipContent>
- </Tooltip>
  )}
  
   {/* SECTION 1 (puntos / duplicados / validaciones) eliminada */}
