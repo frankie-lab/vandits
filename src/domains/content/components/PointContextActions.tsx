@@ -938,10 +938,9 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
           <p className="truncate text-[10px] text-muted-foreground">
             {nearbyPoints.filter(p => hasRealEnrichment(p)).length} de {nearbyPoints.length} enriquecidos
           </p>
-          <Button size="sm" className="h-7 shrink-0 gap-1.5 text-[11px]" onClick={handleEnrichWithContext} disabled={enriching}>
-            {enriching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-            Enriquecer este punto
-          </Button>
+          <p className="truncate text-[10px] text-muted-foreground">
+            Elige el punto correcto en la lista
+          </p>
         </div>
       )}
     </div>
