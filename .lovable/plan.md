@@ -1,84 +1,58 @@
-## Popover de filtros rápidos sobre el contador verde "mis POI"
+## Comportamiento al seleccionar una fila del popover de "mis POI"
 
-Sustituir el toggle simple del contador verde por un **popover** que combina los dos ejes canónicos ya existentes (`visualState` + `healthFilter`) restringidos siempre a `ownershipFilter='mine'`.
+Extiende el contrato ya implementado con dos reglas de feedback inmediato.
 
-El número verde sigue siendo `myCatalog` (contrato Top-bar counter). El popover solo añade interacción al click.
+## Contrato de selección
 
-## Contrato confirmado
+Al hacer click en una fila del popover:
 
-- Click número verde → abre popover anclado al botón.
-- **Cualquier** item del popover fuerza `ownershipFilter='mine'`.
-- **"Ver todos"** = `ownershipFilter='mine'` + `visualState=undefined` + `healthFilter=undefined`. NO desactiva `mine`. El toggle legacy desaparece.
-- **Enriquecidos / Importados / Vacíos** → setean `visualState`, limpian `healthFilter`.
-- **Rellenar huecos / Reparar cadena / Revisar / Rotos** → setean `healthFilter`, limpian `visualState`.
-- **Re-toggle** del item activo → vuelve a "Ver todos" (mine + ambos ejes limpios).
-- **Reflejo bidireccional**: si el estado entra desde FilterBar con `visualState` + `healthFilter` coexistiendo, el popover muestra **ambos como activos**. Solo cuando el usuario actúa desde el popover se aplica la regla "un eje cada vez" (limpia el contrario).
-- Ring/badge en el botón verde cuando `visualState || healthFilter`.
-- El contador verde NO cambia: siempre `myCatalog` total. Los counts del subset "míos" van junto a cada item del popover.
+1. **Se aplica el filtro** según el eje (mismo flujo ya implementado):
+   - "Ver todos" → `ownershipFilter='mine'`, limpia ambos ejes.
+   - Item de **Estado del punto** → `ownershipFilter='mine'` + `visualState=value`, limpia `healthFilter`.
+   - Item de **Salud operativa** → `ownershipFilter='mine'` + `healthFilter=value`, limpia `visualState`.
+   - Re-click sobre el item activo → vuelve a "Ver todos".
 
-## Estructura del popover
+2. **Cierre del popover** (nuevo):
+   - **Salud operativa** → el popover **se cierra** tras el click. Razón: dispara `requestSubsetFit` y el usuario debe ver el zoom resultante sin que el popover tape el mapa.
+   - **Estado del punto** → el popover **permanece abierto**. Razón: no mueve cámara, el usuario puede comparar buckets seguidos sin reabrir.
+   - **"Ver todos"** → permanece abierto (no mueve cámara, igual que visualState).
+   - Click fuera o `Escape` → cierra siempre (comportamiento estándar Radix).
 
-**Sección "Estado del punto"** (eje `visualState`, single-select):
-- Ver todos — limpia ambos ejes (mantiene `mine`)
-- Enriquecidos (verde) — `visualState='enriched'`
-- Sin actualizar / Importados (gris) — `visualState='imported'`
-- Vacíos (naranja) — `visualState='empty'`
+3. **Efecto en el mapa** (confirmación):
+   - **Estado del punto**: SOLO filtra `markerLocations`. NO mueve cámara. (Coherente con la norma: Geo/Tipo/Tags/visualState no mueven cámara.)
+   - **Salud operativa**: filtra + dispara `requestSubsetFit` vía `useHealthFilterFit` (path existente, ya cableado).
 
-**Separador**
-
-**Sección "Salud operativa"** (eje `healthFilter`, single-select, mismos buckets que FilterBar):
-- Rellenar huecos (amber) — `healthFilter='partial'`
-- Reparar cadena (yellow) — `healthFilter='chain'`
-- Revisar (magenta) — `healthFilter='review'`
-- Rotos / Reintentar (red) — `healthFilter='hardError'`
-
-Cada item: dot de color (token CSS canónico) + label + count tabular del subset "míos".
+4. **Feedback visual constante** (ya implementado, sin cambios):
+   - Botón verde muestra `ring-2 ring-emerald-500/40` mientras haya `visualState || healthFilter`.
+   - El número verde sigue siendo `myCatalog` total (no cambia con sub-filtros).
+   - La fila activa del popover queda resaltada (anillo + fondo).
 
 ## Implementación técnica
 
-1. **Helper nuevo** — `src/domains/content/lib/my-catalog-quick-counts.ts`:
-   ```ts
-   getMyCatalogQuickCounts(allLocations, currentUserId): {
-     all, enriched, imported, empty,
-     partial, chain, review, hardError
-   }
-   ```
-   Reusa `getPointVisualState`, `getHealthBucketCounts`, `getLocationOwnerUserId`. Filtra por owner=`currentUserId` + `is_approved=true` (mismo criterio que `myCatalog` en `getBucketStats`), luego cuenta por bucket. Single source of truth.
+Cambio mínimo en **`src/components/toolbar/MyCatalogQuickFilters.tsx`**:
 
-2. **Componente nuevo** — `src/components/toolbar/MyCatalogQuickFilters.tsx`:
-   - shadcn `Popover` + lista de `Button` agrupados por sección.
-   - Lee `filters` y `setFilters` del store de filtros (mismo que FloatingToolbar y FilterBar).
-   - Lee counts vía `getMyCatalogQuickCounts(allLocations, currentUserId)`.
-   - Cada item marca `active` leyendo `filters.visualState` o `filters.healthFilter` (independientes — ambos pueden estar activos simultáneamente si vinieron de FilterBar).
-   - Handler `applyQuickFilter(kind, value)`:
-     - Re-toggle item activo (`kind==='visual' && filters.visualState===value` o equivalente health) → kind='all'
-     - `kind='visual'` → `setFilters({ ...filters, ownershipFilter: 'mine', visualState: value, healthFilter: undefined })`
-     - `kind='health'` → `setFilters({ ...filters, ownershipFilter: 'mine', visualState: undefined, healthFilter: value })`
-     - `kind='all'` → `setFilters({ ...filters, ownershipFilter: 'mine', visualState: undefined, healthFilter: undefined })`
+1. Convertir el estado `open` del `Popover` en controlado: `const [open, setOpen] = useState(false)` y pasarlo a `<Popover open={open} onOpenChange={setOpen}>`.
+2. Mover `<PopoverTrigger>` y `<PopoverContent>` dentro del mismo componente exportado (en vez de exportar solo el `Content`), y consumirlo desde `FloatingToolbar` como un único bloque.
+3. En los handlers:
+   - `applyHealth(h)` → `setOpen(false)` después de `setFilters(...)`.
+   - `applyVisual(v)` y `applyAll()` → no cierran (dejan el popover abierto).
 
-3. **Edición de `FloatingToolbar.tsx`**:
-   - Sustituir `<button onClick={toggleMine}>` del contador verde por `<Popover>` con `<PopoverTrigger asChild>` envolviendo el botón existente.
-   - Indicador visual: `ring-2 ring-emerald-500/40` cuando `filters.visualState || filters.healthFilter`.
-   - Mantener idénticos: número (`myCatalog` total), dot verde, tooltip, formato.
+Esto requiere refactor mínimo en **`FloatingToolbar.tsx`**:
+- Reemplazar el bloque `<Popover>...<PopoverTrigger asChild><button>...</button></PopoverTrigger><MyCatalogQuickFiltersContent /></Popover>` por `<MyCatalogQuickFiltersButton count={catalogStats.myCatalogCount} ownershipFilter={ownershipFilter} />` que encapsula trigger + content + estado controlado.
+- El nuevo componente recibe el count y el `ownershipFilter` como props para renderizar el botón verde con el mismo aspecto y ring actuales.
 
-4. **Subset-fit**: respetar `requestSubsetFit` ya cableado. Activar `healthFilter='hardError'` (o cualquier health) desde el popover dispara el mismo path que el chip de FilterBar (lógica en `use-health-filter-fit.ts`, no se duplica). Activar `visualState` no mueve cámara.
+## Lo que NO cambia
 
-## Lo que NO se toca
-
-- Contador azul (`catalogTotal`).
-- `getBucketStats` ni regla del Top-bar counter.
-- Matcher (`location-filtering.ts` / `matchesLocationFilters`).
-- FilterBar modo Mantener — sigue funcionando, sincronizado por `FilterCriteria`.
-- Palette, health rings, iconos.
+- Helper `getMyCatalogQuickCounts` — sin cambios.
+- `useHealthFilterFit` — sin cambios; el subset-fit ya se dispara automáticamente cuando `filters.healthFilter` cambia.
+- Matcher, `getBucketStats`, contador azul, FilterBar, palette, health rings, iconos.
+- Reflejo bidireccional del estado FilterBar ↔ popover (sigue funcionando porque ambos leen `filters`).
 
 ## Criterio de aceptación
 
-1. Número verde sigue siendo `myCatalog` total (no cambia con sub-filtros).
-2. Counts internos del popover son del subset "míos".
-3. "Ver todos" mantiene `ownershipFilter='mine'`.
-4. Activar `visualState` desde popover limpia `healthFilter`.
-5. Activar `healthFilter` desde popover limpia `visualState`.
-6. Si FilterBar dejó ambos activos, popover refleja los dos como activos.
-7. Re-click sobre item activo → vuelve a "Ver todos".
-8. `hardError` desde popover dispara el mismo subset-fit que FilterBar.
-9. Botón verde muestra ring cuando hay sub-filtro activo.
+1. Click en "Rellenar huecos" / "Reparar cadena" / "Revisar" / "Rotos" → filtro aplicado, **popover cerrado**, mapa hace subset-fit a esos POIs.
+2. Click en "Enriquecidos" / "Sin actualizar" / "Vacíos" → filtro aplicado, **popover sigue abierto**, mapa NO mueve cámara.
+3. Click en "Ver todos" → ambos ejes limpios, `mine` mantenido, **popover sigue abierto**, sin movimiento de cámara.
+4. Re-click sobre el item activo → vuelve a "Ver todos" con la misma regla de cierre del eje correspondiente (health cierra, visual no).
+5. Click fuera o Escape → cierra el popover sin cambiar filtros.
+6. El botón verde mantiene su número (`myCatalog` total) y muestra el ring mientras haya sub-filtro activo.
