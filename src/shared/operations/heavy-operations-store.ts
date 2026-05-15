@@ -18,6 +18,7 @@
  *
  * See mem://logic/operations/heavy-operations-feedback.
  */
+import { useMemo } from 'react';
 import { create } from 'zustand';
 
 export type HeavyOpStatus = 'pending' | 'running' | 'done' | 'error';
@@ -238,5 +239,8 @@ export function getActiveOperations(): HeavyOperation[] {
 }
 
 export function useActiveHeavyOperations(): HeavyOperation[] {
-  return useHeavyOpsStore((s) => Object.values(s.ops));
+  // Select the stable `ops` record reference; derive array via useMemo so we
+  // don't return a fresh array each render (which would loop useSyncExternalStore).
+  const ops = useHeavyOpsStore((s) => s.ops);
+  return useMemo(() => Object.values(ops), [ops]);
 }
