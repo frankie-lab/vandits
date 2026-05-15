@@ -101,7 +101,7 @@ import {
   getTintForLocation,
   getTintForRoute,
 } from '@/domains/content/lib/collection-visibility';
-import { SUBSET_FIT_BOUNDS_EVENT, type SubsetFitDetail } from './map/subset-fit';
+import { SUBSET_FIT_BOUNDS_EVENT, type SubsetFitDetail, recordFitOutcome } from './map/subset-fit';
 import { pickDominantRegion, shouldUseDominantRegion } from './map/dominant-region';
 
 
