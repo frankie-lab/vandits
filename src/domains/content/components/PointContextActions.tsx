@@ -692,8 +692,10 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
   };
 
   const isInline = variant === 'inline';
+  // Inline: el popup-root (popup-scroll-body) gestiona el ÚNICO scroll. No
+  // imponer max-h ni overflow aquí — ver mem://ui/map/popup-dimensions-and-scrolling.
   const rootClass = isInline
-    ? 'flex w-full min-w-0 flex-col overflow-hidden overflow-x-hidden border-t border-border/60 bg-background max-h-[60vh]'
+    ? 'flex w-full min-w-0 flex-col overflow-x-hidden border-t border-border/60 bg-background'
     : 'flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overflow-x-hidden';
   const padX = isInline ? 'px-1.5' : 'px-3';
 
