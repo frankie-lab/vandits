@@ -29,7 +29,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { requestSubsetFit } from '@/components/map/subset-fit';
+import { isCameraFitDebugEnabled, requestSubsetFit } from '@/components/map/subset-fit';
 import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
 import { getPointHealthRings } from '@/domains/content/lib/point-health-rings';
 import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
