@@ -259,7 +259,7 @@
 
 .leaflet-popup-content {
   margin: 0 !important;
-  overflow: visible !important;
+  overflow: hidden !important;
 }
 
 .leaflet-popup-close-button {
