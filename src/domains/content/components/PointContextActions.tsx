@@ -684,7 +684,7 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
         </div>
 
         {/* Radius slider */}
-        <div className="flex items-center gap-2 px-1 pt-1">
+        <div className="flex items-center gap-2 px-1 pt-1 overflow-hidden">
           <span className="text-[10px] text-muted-foreground whitespace-nowrap">Radio</span>
           <Slider
             value={[radiusMeters]}
@@ -692,9 +692,11 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
             min={100}
             max={2000}
             step={100}
-            className="flex-1"
+            className="flex-1 min-w-0"
+            trackClassName="h-[3px]"
+            thumbClassName="h-3.5 w-3.5 border"
           />
-          <span className="text-[10px] font-medium tabular-nums w-10 text-right">{radiusMeters}m</span>
+          <span className="text-[10px] font-medium tabular-nums w-10 text-right shrink-0">{radiusMeters}m</span>
         </div>
       </div>
 
