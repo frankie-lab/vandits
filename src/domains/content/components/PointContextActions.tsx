@@ -848,6 +848,20 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
                       className={`w-full min-w-0 max-w-full cursor-pointer rounded-lg transition-colors ${selectedPointId === p.id ? 'bg-primary/5 ring-2 ring-primary/50' : ''}`}
                     >
                       <NearbyPointCard point={p} />
+                      <div className="flex items-center justify-end px-3 pb-2">
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="h-7 text-[11px] gap-1.5"
+                          disabled={adoptingId !== null}
+                          onClick={(e) => { e.stopPropagation(); handleAdoptNearby(p); }}
+                        >
+                          {adoptingId === p.id
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <Sparkles className="w-3.5 h-3.5" />}
+                          Enriquecer aquí
+                        </Button>
+                      </div>
                       {selectedPointId === p.id && (
                         <div className="space-y-2 px-3 pb-3">
                           <div className="flex items-center gap-1 text-[10px] text-primary">
