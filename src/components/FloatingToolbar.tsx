@@ -227,7 +227,7 @@ export function FloatingToolbar({
  const [, forceUpdate] = useState(0);
  
  const { mapTheme, setMapTheme, autoTheme, setAutoTheme } = useMapTheme();
- const { ownershipFilter, toggleMine } = useLayerVisibility();
+ const { ownershipFilter } = useLayerVisibility();
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
  open: boolean;
