@@ -141,7 +141,17 @@ export function MyCatalogQuickFiltersButton({
   };
 
   const applyAll = () => {
-    if (!beginOp('all', null)) return;
+    if (isCameraFitDebugEnabled()) {
+      // eslint-disable-next-line no-console
+      console.debug('[F1-trace] MyCatalogQuickFilters.applyAll click');
+    }
+    if (!beginOp('all', null)) {
+      if (isCameraFitDebugEnabled()) {
+        // eslint-disable-next-line no-console
+        console.debug('[F1-trace] applyAll: beginOp returned FALSE (blocked)');
+      }
+      return;
+    }
     ensureMine();
     setFilters({
       ...useLocationsStore.getState().filters,
@@ -149,14 +159,28 @@ export function MyCatalogQuickFiltersButton({
       healthFilter: undefined,
     });
     emitMyCatalogPopoverApplied({ axis: 'all', value: null });
+    if (isCameraFitDebugEnabled()) {
+      // eslint-disable-next-line no-console
+      console.debug('[F1-trace] applyAll: emitMyCatalogPopoverApplied dispatched');
+    }
   };
 
   const applyVisual = (v: VisualStateFilter) => {
+    if (isCameraFitDebugEnabled()) {
+      // eslint-disable-next-line no-console
+      console.debug('[F1-trace] MyCatalogQuickFilters.applyVisual click', { value: v });
+    }
     if (activeVisual === v && !activeHealth) {
       applyAll();
       return;
     }
-    if (!beginOp('visual', v)) return;
+    if (!beginOp('visual', v)) {
+      if (isCameraFitDebugEnabled()) {
+        // eslint-disable-next-line no-console
+        console.debug('[F1-trace] applyVisual: beginOp returned FALSE (blocked)', { value: v });
+      }
+      return;
+    }
     ensureMine();
     setFilters({
       ...useLocationsStore.getState().filters,
@@ -164,15 +188,29 @@ export function MyCatalogQuickFiltersButton({
       healthFilter: undefined,
     });
     emitMyCatalogPopoverApplied({ axis: 'visual', value: v });
+    if (isCameraFitDebugEnabled()) {
+      // eslint-disable-next-line no-console
+      console.debug('[F1-trace] applyVisual: emitMyCatalogPopoverApplied dispatched', { value: v });
+    }
   };
 
   const applyHealth = (h: HealthFilter) => {
+    if (isCameraFitDebugEnabled()) {
+      // eslint-disable-next-line no-console
+      console.debug('[F1-trace] MyCatalogQuickFilters.applyHealth click', { value: h });
+    }
     if (activeHealth === h && !activeVisual) {
       applyAll();
       setOpen(false);
       return;
     }
-    if (!beginOp('health', h)) return;
+    if (!beginOp('health', h)) {
+      if (isCameraFitDebugEnabled()) {
+        // eslint-disable-next-line no-console
+        console.debug('[F1-trace] applyHealth: beginOp returned FALSE (blocked)', { value: h });
+      }
+      return;
+    }
     ensureMine();
     setFilters({
       ...useLocationsStore.getState().filters,
@@ -180,6 +218,10 @@ export function MyCatalogQuickFiltersButton({
       healthFilter: h,
     });
     emitMyCatalogPopoverApplied({ axis: 'health', value: h });
+    if (isCameraFitDebugEnabled()) {
+      // eslint-disable-next-line no-console
+      console.debug('[F1-trace] applyHealth: emitMyCatalogPopoverApplied dispatched', { value: h });
+    }
     setOpen(false);
   };
 
