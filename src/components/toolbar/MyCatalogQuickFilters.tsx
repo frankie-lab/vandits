@@ -30,13 +30,16 @@ import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { getMyCatalogQuickCounts } from '@/domains/content/lib/my-catalog-quick-counts';
 import {
   emitMyCatalogPopoverApplied,
-  buildUniqueMyCatalogPopoverOpId,
   MY_CATALOG_POPOVER_EMPTY_EVENT,
   type MyCatalogPopoverAppliedDetail,
   type MyCatalogPopoverEmptyDetail,
 } from '@/components/toolbar/use-my-catalog-popover-fit';
 import { traceCameraFit } from '@/components/debug/camera-fit-trace';
 import { startOperation } from '@/shared/operations/heavy-operations-store';
+import {
+  runSelectable,
+  resolveSelectableState,
+} from '@/shared/interaction/selectable-kernel';
 import type { VisualStateFilter, HealthFilter, OwnershipFilter } from '@/types/location';
 
 interface RowProps {
@@ -50,12 +53,21 @@ interface RowProps {
 }
 
 function Row({ label, count, dotClass, active, empty, onClick, testId }: RowProps) {
+  // Selectable contract: count===0 && !active ⇒ truly disabled (no false
+  // affordance). Active rows stay interactive even when count==0 because
+  // the user must be able to clear / replay the empty state.
+  const state = resolveSelectableState({ active, count });
+  const disabled = state === 'disabled';
   return (
     <button
       type="button"
       data-testid={testId}
       data-active={active ? 'true' : 'false'}
+      data-state={state}
+      aria-disabled={disabled || undefined}
+      disabled={disabled}
       onClick={(e) => {
+        if (disabled) return;
         // Contract: never silent noop. Always invoke the handler. The
         // handler decides whether to recenter or activate, but it ALWAYS
         // emits an observable interaction.
@@ -71,7 +83,9 @@ function Row({ label, count, dotClass, active, empty, onClick, testId }: RowProp
           ? empty
             ? 'bg-red-500/10 text-foreground ring-1 ring-red-500/40'
             : 'bg-emerald-500/10 text-foreground ring-1 ring-emerald-500/40'
-          : 'hover:bg-muted text-foreground/90'
+          : disabled
+            ? 'opacity-50 cursor-not-allowed text-foreground/60'
+            : 'hover:bg-muted text-foreground/90'
       }`}
     >
       <span className="flex items-center gap-2 min-w-0">
