@@ -1695,7 +1695,9 @@ export function LocationMap() {
  // image stays fixed while only the body scrolls.
  className: 'custom-popup',
  closeButton: true,
-  autoPan: true,
+   // autoPan desactivado: `centerOpenedPopupInVisibleMap` lo sustituye y
+   // evita el race con la animación nativa de Leaflet.
+   autoPan: false,
   // Padding dinámico: honra header superior y barra inferior (vars canónicas).
   autoPanPadding: (() => {
     const rs = typeof document !== 'undefined' ? getComputedStyle(document.documentElement) : null;
