@@ -140,7 +140,8 @@ function safeRefreshMarkerClusters(cluster: L.MarkerClusterGroup | null | undefi
 export function LocationMap() {
  const mapRef = useRef<L.Map | null>(null);
  const mapContainerRef = useRef<HTMLDivElement>(null);
- const markersRef = useRef<Map<string, L.Marker>>(new Map());
+const markersRef = useRef<Map<string, L.Marker>>(new Map());
+const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
   const locationsRef = useRef<Map<string, GeoLocation>>(new Map());
   // Ids actualmente permitidos como markers (subset visual). Se usa en el
   // handler `popupclose` a nivel de mapa para detectar markers preservados
@@ -1389,10 +1390,29 @@ export function LocationMap() {
     mapRef.current.on('popupopen', (e: L.PopupEvent) => {
       const id = (e.popup.options as { locationId?: string })?.locationId ?? null;
       setOpenPopupLocationId(id);
+      // Re-center popup when its content changes height (e.g. user expands
+      // "Contexto cercano" inline panel). Skip first observation (initial
+      // measurement) and ignore tiny deltas to avoid jitter on hover/anim.
+      const popupEl = e.popup.getElement();
+      const marker = (e as unknown as { target: L.Marker }).target;
+      if (popupEl && marker && typeof ResizeObserver !== 'undefined') {
+        let lastH = -1;
+        const ro = new ResizeObserver((entries) => {
+          const h = entries[0]?.contentRect.height ?? 0;
+          if (lastH < 0) { lastH = h; return; }
+          if (Math.abs(h - lastH) < 24) return;
+          lastH = h;
+          centerOpenedPopupInVisibleMap(marker, getDocumentFocusPanelWidth());
+        });
+        ro.observe(popupEl);
+        popupResizeObserversRef.current.set(e.popup, ro);
+      }
     });
     mapRef.current.on('popupclose', (e: L.PopupEvent) => {
       const closedId = (e.popup.options as { locationId?: string })?.locationId ?? null;
       setOpenPopupLocationId(null);
+      const ro = popupResizeObserversRef.current.get(e.popup);
+      if (ro) { ro.disconnect(); popupResizeObserversRef.current.delete(e.popup); }
       // PR-POPUP-PERSIST: si el marker fue preservado como excepción visual
       // (POI fuera del subset actual), eliminarlo al cerrar el popup.
       if (closedId && !allowedMarkerIdsRef.current.has(closedId)) {
