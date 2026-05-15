@@ -679,11 +679,7 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
     <div className={rootClass} style={inlineRootStyle}>
       {/* Header */}
       <div className={`space-y-1 overflow-x-hidden border-b bg-muted/30 ${padX} py-2`}>
-        <div className="flex min-w-0 items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => { clearMapMarkers(); onClose(); }}>
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-        </div>
+
 
         {/* Radius slider */}
         <div className="flex items-center gap-2 px-1 pt-1 overflow-hidden">
