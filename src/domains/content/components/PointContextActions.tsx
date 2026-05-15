@@ -646,8 +646,13 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
     }
   };
 
+  const isInline = variant === 'inline';
+  const rootClass = isInline
+    ? 'flex w-full min-w-0 flex-col overflow-hidden overflow-x-hidden rounded-md border border-border/60 bg-background max-h-[60vh]'
+    : 'flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overflow-x-hidden';
+
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overflow-x-hidden">
+    <div className={rootClass}>
       {/* Header */}
       <div className="space-y-1 overflow-x-hidden border-b bg-muted/30 px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
