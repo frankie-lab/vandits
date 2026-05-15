@@ -165,23 +165,36 @@ export interface CameraFitMetrics {
         ts: number;
       }
     | null;
+  /**
+   * API oficial para reiniciar contadores in-place desde DevTools.
+   * No-enumerable: JSON.stringify(window.__cameraFitMetrics) la ignora.
+   * Uso: `window.__cameraFitMetrics.reset()`
+   */
+  reset: () => void;
 }
 
 function emptyMetrics(): CameraFitMetrics {
-  return {
+  const m = {
     totalRequests: 0,
-    byReason: {},
-    byMode: { always: 0, 'if-outside': 0 },
-    unknownReasons: {},
+    byReason: {} as Record<string, number>,
+    byMode: { always: 0, 'if-outside': 0 } as Record<SubsetFitMode, number>,
+    unknownReasons: {} as Record<string, number>,
     coordsProvided: 0,
     resolvedFromMarkers: 0,
     resolvedFromCoords: 0,
     cooldownSkipped: 0,
     cooldownBypassedByAlways: 0,
     directLeafletCalls: 0,
-    bypasses: [],
-    lastRequest: null,
-  };
+    bypasses: [] as CameraFitMetrics['bypasses'],
+    lastRequest: null as CameraFitMetrics['lastRequest'],
+  } as CameraFitMetrics;
+  Object.defineProperty(m, 'reset', {
+    value: () => resetCameraFitMetrics(),
+    enumerable: false,
+    writable: false,
+    configurable: false,
+  });
+  return m;
 }
 
 declare global {
