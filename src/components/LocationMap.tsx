@@ -1412,6 +1412,14 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
       // measurement) and ignore tiny deltas to avoid jitter on hover/anim.
       const popupEl = e.popup.getElement();
       const marker = (e as unknown as { target: L.Marker }).target;
+      // Bloquea bubbling de clicks/scroll de UI interna del popup hacia el mapa
+      // para que botones React no disparen el auto-close nativo de Leaflet.
+      // El cierre por click en mapa vacío sigue funcionando porque ese click
+      // ocurre fuera del popup.
+      if (popupEl) {
+        L.DomEvent.disableClickPropagation(popupEl);
+        L.DomEvent.disableScrollPropagation(popupEl);
+      }
       if (popupEl && marker && typeof ResizeObserver !== 'undefined') {
         let lastH = -1;
         const ro = new ResizeObserver((entries) => {
@@ -1740,9 +1748,9 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
  // image stays fixed while only the body scrolls.
   className: 'custom-popup',
   closeButton: true,
-  // Evita que clicks dentro del popup (botones React) propaguen al mapa
-  // y disparen el auto-close de Leaflet.
-  closeOnClick: false,
+  // closeOnClick: usa el default de Leaflet (true). El bubbling de clicks
+  // internos se neutraliza con L.DomEvent.disableClickPropagation aplicado
+  // en el handler `popupopen` del mapa, no desactivando esta opción.
    // autoPan desactivado: `centerOpenedPopupInVisibleMap` lo sustituye y
    // evita el race con la animación nativa de Leaflet.
    autoPan: false,
