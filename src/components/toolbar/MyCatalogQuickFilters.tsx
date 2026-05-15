@@ -44,6 +44,7 @@ function Row({ label, count, dotClass, active, empty, onClick, testId }: RowProp
   return (
     <button
       type="button"
+      data-testid={testId}
       onPointerDown={(e) => {
         // F1 diagnostics: capture earliest evidence that the click reaches
         // the actual <button> in PopoverContent (before React's onClick,
