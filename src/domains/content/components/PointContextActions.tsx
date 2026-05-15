@@ -801,8 +801,8 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
         </div>
       )}
 
-      {/* Results */}
-      <ScrollArea className="flex-1 min-h-0 overflow-hidden">
+      {/* Results — inline: sin scroll propio (lo gestiona popup-scroll-body); card: ScrollArea */}
+      {isInline ? (
         <div className={`min-w-0 overflow-x-hidden ${padX} pb-8 pt-3`}>
         {loadingNearby ? (
           <div className="flex items-center justify-center py-8 gap-2">
