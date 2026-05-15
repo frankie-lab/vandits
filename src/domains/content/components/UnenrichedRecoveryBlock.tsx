@@ -637,16 +637,26 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
 
       {/* Footer CTA full-width */}
       {!editingAll && (
-        <div className="border-t border-border/40 p-2">
+        <div className="border-t border-border/40 p-2 flex items-center gap-1.5">
           <Button
             size="sm"
             variant="outline"
-            className="w-full h-7 text-[11px] gap-1"
+            className="flex-1 h-7 text-[11px] gap-1"
             onClick={() => setEditingAll(true)}
             disabled={busy || searching}
           >
             <RefreshCw className="w-3 h-3" />
             Editar
+          </Button>
+          <Button
+            size="sm"
+            variant={showNearby ? 'default' : 'ghost'}
+            className="h-7 text-[11px] px-2 gap-1"
+            onClick={handleOpenContext}
+            disabled={busy || searching}
+          >
+            <Compass className="w-3 h-3" />
+            {showNearby ? 'Cerrar contexto' : 'Contexto cercano'}
           </Button>
         </div>
       )}
