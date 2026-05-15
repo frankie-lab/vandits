@@ -174,22 +174,26 @@ export function MyCatalogQuickFiltersButton({
 
   const applyVisual = (v: VisualStateFilter) => {
     traceCameraFit('MyCatalogQuickFilters.applyVisual click', { value: v });
-    if (activeVisual === v && !activeHealth) {
-      applyAll();
-      return;
-    }
+    // Re-click on already-active visual filter = legitimate recenter intent.
+    // Re-emit the same event so subset-fit fires again. Close popover so the
+    // user gets immediate feedback that the click was registered (otherwise
+    // the row looks like a silent noop).
+    const isRecenter = activeVisual === v && !activeHealth;
     if (!beginOp('visual', v)) {
-      traceCameraFit('applyVisual: beginOp returned FALSE (blocked)', { value: v });
+      traceCameraFit('applyVisual: beginOp returned FALSE (blocked)', { value: v, isRecenter });
       return;
     }
     ensureMine();
-    setFilters({
-      ...useLocationsStore.getState().filters,
-      visualState: v,
-      healthFilter: undefined,
-    });
+    if (!isRecenter) {
+      setFilters({
+        ...useLocationsStore.getState().filters,
+        visualState: v,
+        healthFilter: undefined,
+      });
+    }
     emitMyCatalogPopoverApplied({ axis: 'visual', value: v });
-    traceCameraFit('applyVisual: emitMyCatalogPopoverApplied dispatched', { value: v });
+    traceCameraFit('applyVisual: emitMyCatalogPopoverApplied dispatched', { value: v, isRecenter });
+    if (isRecenter) setOpen(false);
   };
 
   const applyHealth = (h: HealthFilter) => {
