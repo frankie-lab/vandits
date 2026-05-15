@@ -241,8 +241,9 @@ function NearbyPointCard({ point }: { point: NearbyPoint }) {
   );
 }
 
-// ── Exported inline nearby panel (renders in left sidebar) ──
-export function NearbyPanel({ location, userId, mismatch, onClose, onLocationUpdated, onLocationMerged }: NearbyPanelProps) {
+// ── Exported nearby panel — variant 'sidebar' (full-height Sheet) o 'inline'
+//    (bloque acotado dentro del popup del POI). Lógica idéntica en ambos. ──
+export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', onClose, onLocationUpdated, onLocationMerged }: NearbyPanelProps) {
   const [nearbyPoints, setNearbyPoints] = useState<NearbyPoint[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(true);
   const [enriching, setEnriching] = useState(false);
