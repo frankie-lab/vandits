@@ -102,6 +102,7 @@ import {
   getTintForRoute,
 } from '@/domains/content/lib/collection-visibility';
 import { SUBSET_FIT_BOUNDS_EVENT, type SubsetFitDetail, recordFitOutcome } from './map/subset-fit';
+import { traceCameraFit } from './debug/camera-fit-trace';
 import { pickDominantRegion, shouldUseDominantRegion } from './map/dominant-region';
 
 
