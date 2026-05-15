@@ -88,6 +88,7 @@ function buildPopupConfig(v2: EnrichmentCardConfigV2): PopupCardConfig {
 }
 
 const DEFAULT_POPUP_CONFIG: PopupCardConfig = buildPopupConfig(DEFAULT_CARD_CONFIG_V2);
+const POPUP_MAX_HEIGHT = 'calc(100dvh - var(--top-header-h, 72px) - var(--bottom-overlay-safe-h, 0px) - 2 * var(--overlay-progress-gap, 12px) - 24px)';
 
 export async function loadCardConfig(): Promise<PopupCardConfig> {
   if (cachedCardConfig) return cachedCardConfig;
@@ -645,7 +646,7 @@ Añadir a mi colección
     };
 
     return `
-<div id="${popupId}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: calc(100vh - var(--top-header-h, 72px) - var(--bottom-overlay-safe-h, 0px) - 2 * var(--overlay-progress-gap, 12px) - 24px);">
+<div id="${popupId}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: ${POPUP_MAX_HEIGHT}; overflow: hidden;">
 ${statusBarHtml}
 
 <!-- Hero (fija, no participa en el scroll) -->
@@ -994,11 +995,14 @@ ${actionButtonsHtml}
   const moreDataCount = filteredCustomData.length - 6;
 
   return `
-<div style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY};">
+<div style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: ${POPUP_MAX_HEIGHT}; overflow: hidden;">
 ${statusBarHtml}
 
+<div style="flex-shrink: 0;">
 ${buildImageSection(location, null, ownershipInfo)}
+</div>
 
+<div class="popup-scroll-body" style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;">
 <div style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb;">
 <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
 <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #1a1a1a; line-height: 1.3; flex: 1;">
@@ -1187,6 +1191,7 @@ Reclasificar
 <div data-recovery-root="${location.id}" style="margin: 0 0 8px 0;"></div>
 
 ${actionButtonsHtml}
+</div>
 </div>
 </div>
 `;
