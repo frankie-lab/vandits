@@ -74,6 +74,7 @@ Cada contrato tiene una sección **Invariantes** (normativas, no descriptivas) y
 - [Architecture timeline](architecture-timeline.md)
 - [Danger zones](danger-zones.md)
 - [Reglas CI documentales](ci/documentation-rules.md)
+- [PR Impact Matrix](ci/pr-impact-matrix.md) — puerta de control: paths sensibles → contratos obligatorios
 - [PR checklist](ci/pr-checklist.md)
 
 ## Auditorías activas
