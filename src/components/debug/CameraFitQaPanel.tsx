@@ -375,6 +375,33 @@ export function CameraFitQaPanel() {
           </span>
         </div>
 
+        {/* Trace events */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 8,
+            marginBottom: 8,
+            padding: '4px 6px',
+            background: traceCount === 0 ? 'rgba(127,29,29,0.35)' : '#0f172a',
+            border: `1px solid ${traceCount === 0 ? '#fca5a5' : '#334155'}`,
+            borderRadius: 4,
+          }}
+        >
+          <span>
+            <span style={{ color: '#94a3b8' }}>Trace events:</span>{' '}
+            <strong style={{ color: traceCount > 0 ? '#86efac' : '#fca5a5' }}>
+              {traceCount}
+            </strong>
+          </span>
+          {traceCount === 0 && (
+            <span style={{ color: '#fecaca', fontSize: 10 }}>
+              No trace captured
+            </span>
+          )}
+        </div>
+
         {copyError && (
           <div
             role="alert"
