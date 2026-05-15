@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/popover';
 import { useLocationsStore } from '@/domains/content/store/locations-store';
 import { useAuth } from '@/domains/identity';
+import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { getMyCatalogQuickCounts } from '@/domains/content/lib/my-catalog-quick-counts';
 import type { VisualStateFilter, HealthFilter, OwnershipFilter } from '@/types/location';
 
@@ -65,6 +66,7 @@ export function MyCatalogQuickFiltersButton({
   const setFilters = useLocationsStore((s) => s.setFilters);
   const getAllLocations = useLocationsStore((s) => s.getAllLocations);
   const { user } = useAuth();
+  const { setOwnershipFilter } = useLayerVisibility();
 
   const counts = React.useMemo(
     () => getMyCatalogQuickCounts(getAllLocations() as any, user?.id),
@@ -77,10 +79,17 @@ export function MyCatalogQuickFiltersButton({
   const noneActive = !activeVisual && !activeHealth;
   const hasSubFilter = !!(activeVisual || activeHealth);
 
+  // Restringir a 'mine' va SIEMPRE por useLayerVisibility (traduce a
+  // filterByUserId, que es lo que el matcher consume). Los ejes propios
+  // del popover (visualState, healthFilter) van por setFilters.
+  const ensureMine = () => {
+    if (ownershipFilter !== 'mine') setOwnershipFilter('mine');
+  };
+
   const applyAll = () => {
+    ensureMine();
     setFilters({
-      ...filters,
-      ownershipFilter: 'mine',
+      ...useLocationsStore.getState().filters,
       visualState: undefined,
       healthFilter: undefined,
     });
@@ -92,9 +101,9 @@ export function MyCatalogQuickFiltersButton({
       applyAll();
       return;
     }
+    ensureMine();
     setFilters({
-      ...filters,
-      ownershipFilter: 'mine',
+      ...useLocationsStore.getState().filters,
       visualState: v,
       healthFilter: undefined,
     });
@@ -103,15 +112,15 @@ export function MyCatalogQuickFiltersButton({
 
   const applyHealth = (h: HealthFilter) => {
     if (activeHealth === h && !activeVisual) {
-      // Re-toggle del único activo → Ver todos. Aun así cerramos porque
-      // healthFilter cambia (de h → undefined) y eso dispara un fit-reset.
+      // Re-toggle del único activo → Ver todos. Cerramos porque el
+      // cambio de healthFilter (h → undefined) dispara fit-reset.
       applyAll();
       setOpen(false);
       return;
     }
+    ensureMine();
     setFilters({
-      ...filters,
-      ownershipFilter: 'mine',
+      ...useLocationsStore.getState().filters,
       visualState: undefined,
       healthFilter: h,
     });
