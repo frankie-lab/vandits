@@ -3,7 +3,7 @@
 Tabla normativa. Cada finding listado en `docs/audits/*.md` debe tener entrada aquí.
 
 Severities: `critical` (bloquea release) / `high` (regresión visible) / `medium` (deuda activa) / `low` (vigilancia).
-Status: `open` / `mitigated` (workaround activo) / `resolved` / `accepted-debt` (consciente, sin plan).
+Status: `open` / `mitigated` (workaround activo) / `pending-manual-qa` (code-level validated; runtime QA humana pendiente; cierre condicionado a confirmación de los casos descritos en §QA Manual Pendiente) / `resolved` / `accepted-debt` (consciente, sin plan).
 
 | ID | Finding | Source audit | Severity | Impact | Owner | Status | PR / ADR |
 |---|---|---|---|---|---|---|---|
