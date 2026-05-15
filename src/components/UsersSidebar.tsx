@@ -533,18 +533,19 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  {isOpen && (
  <>
  {/* Panel */}
- <motion.div
- initial={{ x: -320, opacity: 0 }}
- animate={{ x: 0, opacity: 1 }}
- exit={{ x: -320, opacity: 0 }}
- transition={{ type: 'spring', damping: 25, stiffness: 300 }}
- className={cn(
- 'fixed left-4 top-20 bottom-20 w-[340px] z-[2001]',
- 'bg-card backdrop-blur-xl rounded-2xl',
- 'border border-border/50 shadow-2xl',
- 'flex flex-col overflow-hidden'
- )}
- >
+  <motion.div
+  data-left-sidebar="true"
+  initial={{ x: -320, opacity: 0 }}
+  animate={{ x: 0, opacity: 1 }}
+  exit={{ x: -320, opacity: 0 }}
+  transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+  className={cn(
+  'fixed left-4 top-20 bottom-20 w-[340px] z-[2001]',
+  'bg-card backdrop-blur-xl rounded-2xl',
+  'border border-border/50 shadow-2xl',
+  'flex flex-col overflow-hidden'
+  )}
+  >
   {/* Header */}
   <div className="p-4 pb-2 border-b border-border/50">
     <div className="flex items-center justify-between mb-3">

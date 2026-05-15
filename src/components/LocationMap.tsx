@@ -220,54 +220,58 @@ export function LocationMap() {
   }, []);
 
   const centerOpenedPopupInVisibleMap = useCallback((marker: L.Marker, rightPanelWidth = 0) => {
-    window.setTimeout(() => {
-      const map = mapRef.current;
-      if (!map) return;
+    const map = mapRef.current;
+    if (!map) return;
 
+    let attempts = 0;
+    let lastHeight = -1;
+
+    const tryCenter = () => {
       const popup = marker.getPopup();
-      if (!popup || !popup.isOpen()) return;
+      const el = popup?.getElement();
+      if (!popup || !popup.isOpen() || !el) return;
 
-      const popupElement = popup.getElement();
-      if (!popupElement) return;
+      const rect = el.getBoundingClientRect();
+      // Reintenta si aún no se midió o si la altura sigue cambiando (max 3).
+      if ((rect.height < 20 || rect.height !== lastHeight) && attempts < 3) {
+        lastHeight = rect.height;
+        attempts++;
+        requestAnimationFrame(tryCenter);
+        return;
+      }
 
-      // Insets canónicos (mismas vars que dialogs/sheets).
-      const rootStyle = getComputedStyle(document.documentElement);
-      const readPx = (name: string, fallback = 0) => {
-        const raw = rootStyle.getPropertyValue(name).trim();
-        const n = parseFloat(raw);
-        return Number.isFinite(n) ? n : fallback;
+      const rs = getComputedStyle(document.documentElement);
+      const px = (n: string, f: number) => {
+        const v = parseFloat(rs.getPropertyValue(n).trim());
+        return Number.isFinite(v) ? v : f;
       };
-      const topInset = readPx('--top-header-h', 72);
-      const bottomInset = readPx('--bottom-overlay-safe-h', 0);
-      const gap = readPx('--overlay-progress-gap', 12);
+      const topInset = px('--top-header-h', 72);
+      const bottomInset = px('--bottom-overlay-safe-h', 0);
+      const gap = px('--overlay-progress-gap', 12);
 
       // Sidebar izquierdo (UsersSidebar u otros). Se descuenta del ancho útil.
-      const leftPanel = document.querySelector<HTMLElement>('[data-left-sidebar="true"]');
-      const leftPanelWidth = leftPanel ? leftPanel.getBoundingClientRect().width : 0;
+      const leftEl = document.querySelector<HTMLElement>('[data-left-sidebar="true"]');
+      const leftRect = leftEl ? leftEl.getBoundingClientRect() : null;
+      // Sólo descontamos si el sidebar realmente ocupa espacio sobre el mapa.
+      const leftW = leftRect ? Math.max(0, leftRect.right) : 0;
 
-      const popupRect = popupElement.getBoundingClientRect();
-      const containerRect = map.getContainer().getBoundingClientRect();
+      const c = map.getContainer().getBoundingClientRect();
+      const visLeft = Math.max(c.left, leftW);
+      const visRight = c.right - rightPanelWidth;
+      const visTop = c.top + topInset + gap;
+      const visBottom = c.bottom - bottomInset - gap;
+      const visCx = (visLeft + visRight) / 2;
+      const visCy = (visTop + visBottom) / 2;
 
-      // Centro visible del mapa (descontando barras y paneles).
-      const visibleLeft = containerRect.left + leftPanelWidth;
-      const visibleRight = containerRect.right - rightPanelWidth;
-      const visibleTop = containerRect.top + topInset + gap;
-      const visibleBottom = containerRect.bottom - bottomInset - gap;
-      const visibleCenterX = (visibleLeft + visibleRight) / 2;
-      const visibleCenterY = (visibleTop + visibleBottom) / 2;
+      const dx = (rect.left + rect.width / 2) - visCx;
+      const dy = (rect.top + rect.height / 2) - visCy;
 
-      // Centro actual del popup en pantalla.
-      const popupCenterX = popupRect.left + popupRect.width / 2;
-      const popupCenterY = popupRect.top + popupRect.height / 2;
-
-      // Pan que mueve el popup hacia el centro visible.
-      const offsetX = popupCenterX - visibleCenterX;
-      const offsetY = popupCenterY - visibleCenterY;
-
-      if (Math.abs(offsetX) > 12 || Math.abs(offsetY) > 12) {
-        map.panBy([offsetX, offsetY], { animate: true, duration: 0.35 });
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+        map.panBy([dx, dy], { animate: true, duration: 0.35 });
       }
-    }, 120);
+    };
+
+    requestAnimationFrame(() => requestAnimationFrame(tryCenter));
   }, []);
 
 
@@ -1691,7 +1695,9 @@ export function LocationMap() {
  // image stays fixed while only the body scrolls.
  className: 'custom-popup',
  closeButton: true,
-  autoPan: true,
+   // autoPan desactivado: `centerOpenedPopupInVisibleMap` lo sustituye y
+   // evita el race con la animación nativa de Leaflet.
+   autoPan: false,
   // Padding dinámico: honra header superior y barra inferior (vars canónicas).
   autoPanPadding: (() => {
     const rs = typeof document !== 'undefined' ? getComputedStyle(document.documentElement) : null;
