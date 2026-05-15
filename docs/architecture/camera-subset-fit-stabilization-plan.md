@@ -15,7 +15,7 @@ _Plan gradual de convergencia hacia un único pipeline de cámara._
 **Phase 1 entregado:**
 - `FIT_REASONS` y `FitReason` congelados en `src/components/map/subset-fit.ts`. Cualquier `reason` fuera del enum dispara `console.warn` (no bloqueante).
 - Flag dev `localStorage.vandits_debug_camera_fit` (`'true'`/`'false'`). Por defecto ON en `import.meta.env.DEV`, OFF en producción.
-- `window.__cameraFitMetrics` con: `totalRequests`, `byReason`, `byMode`, `unknownReasons`, `coordsProvided`, `resolvedFromCoords`/`resolvedFromMarkers`, `cooldownSkipped`, `cooldownBypassedByAlways`, `directLeafletCalls`, `bypasses[]`, `lastRequest`. Helper `resetCameraFitMetrics()` exportado.
+- `window.__cameraFitMetrics` con: `totalRequests`, `byReason`, `byMode`, `unknownReasons`, `coordsProvided`, `resolvedFromCoords`/`resolvedFromMarkers`, `cooldownSkipped`, `cooldownBypassedByAlways`, `directLeafletCalls`, `bypasses[]`, `lastRequest`. **Reset oficial in-place: `window.__cameraFitMetrics.reset()`** (método no-enumerable, no aparece en `JSON.stringify`). También expuesto como `resetCameraFitMetrics()`. La referencia del objeto se preserva entre resets.
 - `installCameraFitObserver()` monkey-patch idempotente sobre `L.Map.prototype.{fitBounds,flyTo,setView}`. Solo activo cuando el flag está ON. Llamadas que no se originan en el listener canónico se cuentan como bypass + `console.warn`. NO altera el comportamiento (delega en la implementación original).
 - Listener en `LocationMap.tsx` reporta `cooldownSkipped` / `cooldownBypassedByAlways` / `resolvedFrom: 'coords'|'markers'` vía `recordFitOutcome`.
 - Cero cambio de UX. Cooldown, padding, maxZoom y comportamiento visual idénticos.

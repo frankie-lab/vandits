@@ -165,23 +165,36 @@ export interface CameraFitMetrics {
         ts: number;
       }
     | null;
+  /**
+   * API oficial para reiniciar contadores in-place desde DevTools.
+   * No-enumerable: JSON.stringify(window.__cameraFitMetrics) la ignora.
+   * Uso: `window.__cameraFitMetrics.reset()`
+   */
+  reset: () => void;
 }
 
 function emptyMetrics(): CameraFitMetrics {
-  return {
+  const m = {
     totalRequests: 0,
-    byReason: {},
-    byMode: { always: 0, 'if-outside': 0 },
-    unknownReasons: {},
+    byReason: {} as Record<string, number>,
+    byMode: { always: 0, 'if-outside': 0 } as Record<SubsetFitMode, number>,
+    unknownReasons: {} as Record<string, number>,
     coordsProvided: 0,
     resolvedFromMarkers: 0,
     resolvedFromCoords: 0,
     cooldownSkipped: 0,
     cooldownBypassedByAlways: 0,
     directLeafletCalls: 0,
-    bypasses: [],
-    lastRequest: null,
-  };
+    bypasses: [] as CameraFitMetrics['bypasses'],
+    lastRequest: null as CameraFitMetrics['lastRequest'],
+  } as CameraFitMetrics;
+  Object.defineProperty(m, 'reset', {
+    value: () => resetCameraFitMetrics(),
+    enumerable: false,
+    writable: false,
+    configurable: false,
+  });
+  return m;
 }
 
 declare global {
@@ -199,10 +212,30 @@ function getMetrics(): CameraFitMetrics | null {
   return window.__cameraFitMetrics;
 }
 
-/** Reset desde DevTools: `window.__cameraFitMetrics = undefined`. */
+/**
+ * Reset in-place. También expuesto como `window.__cameraFitMetrics.reset()`.
+ * Mantiene la misma referencia del objeto para no romper inspects abiertos.
+ */
 export function resetCameraFitMetrics(): void {
   if (typeof window === 'undefined') return;
-  window.__cameraFitMetrics = emptyMetrics();
+  const current = window.__cameraFitMetrics;
+  const fresh = emptyMetrics();
+  if (!current) {
+    window.__cameraFitMetrics = fresh;
+    return;
+  }
+  current.totalRequests = 0;
+  current.byReason = {};
+  current.byMode = { always: 0, 'if-outside': 0 };
+  current.unknownReasons = {};
+  current.coordsProvided = 0;
+  current.resolvedFromMarkers = 0;
+  current.resolvedFromCoords = 0;
+  current.cooldownSkipped = 0;
+  current.cooldownBypassedByAlways = 0;
+  current.directLeafletCalls = 0;
+  current.bypasses = [];
+  current.lastRequest = null;
 }
 
 /**
