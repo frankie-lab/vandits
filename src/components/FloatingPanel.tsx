@@ -78,6 +78,7 @@ export function FloatingPanel({
  <AnimatePresence>
  {isOpen && (
  <motion.div
+ data-right-overlay={position === 'right' ? 'true' : undefined}
  initial={{ opacity: 0, x: position === 'left' ? -20 : 20 }}
  animate={{ opacity: 1, x: 0 }}
  exit={{ opacity: 0, x: position === 'left' ? -20 : 20 }}
