@@ -329,6 +329,49 @@ export function CameraFitQaPanel() {
           <ActionBtn onClick={handleDownload} label="Download JSON" />
         </div>
 
+        {/* Status */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 8,
+            marginBottom: 8,
+            padding: '4px 6px',
+            background: '#0f172a',
+            border: '1px solid #334155',
+            borderRadius: 4,
+          }}
+        >
+          <span>
+            <span style={{ color: '#94a3b8' }}>Observer:</span>{' '}
+            <strong style={{ color: observerInstalled ? '#86efac' : '#fca5a5' }}>
+              {observerInstalled ? 'installed' : 'not installed'}
+            </strong>
+          </span>
+          <span>
+            <span style={{ color: '#94a3b8' }}>Metrics:</span>{' '}
+            <strong style={{ color: metricsAvailable ? '#86efac' : '#fca5a5' }}>
+              {metricsAvailable ? 'available' : 'unavailable'}
+            </strong>
+          </span>
+        </div>
+
+        {copyError && (
+          <div
+            role="alert"
+            style={{
+              padding: '6px 8px',
+              marginBottom: 8,
+              background: 'rgba(127,29,29,0.4)',
+              border: '1px solid #fca5a5',
+              borderRadius: 4,
+              color: '#fecaca',
+            }}
+          >
+            {copyError}
+          </div>
+        )}
+
         {!metrics && (
           <p style={{ color: '#fca5a5' }}>
             window.__cameraFitMetrics no inicializado todavía. Disparar
