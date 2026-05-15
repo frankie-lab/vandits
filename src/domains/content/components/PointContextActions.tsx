@@ -692,8 +692,10 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
   };
 
   const isInline = variant === 'inline';
+  // Inline: el popup-root (popup-scroll-body) gestiona el ÚNICO scroll. No
+  // imponer max-h ni overflow aquí — ver mem://ui/map/popup-dimensions-and-scrolling.
   const rootClass = isInline
-    ? 'flex w-full min-w-0 flex-col overflow-hidden overflow-x-hidden border-t border-border/60 bg-background max-h-[60vh]'
+    ? 'flex w-full min-w-0 flex-col overflow-x-hidden border-t border-border/60 bg-background'
     : 'flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overflow-x-hidden';
   const padX = isInline ? 'px-1.5' : 'px-3';
 
@@ -799,9 +801,8 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
         </div>
       )}
 
-      {/* Results */}
-      <ScrollArea className="flex-1 min-h-0 overflow-hidden">
-        <div className={`min-w-0 overflow-x-hidden ${padX} pb-8 pt-3`}>
+      {/* Results — inline: sin scroll propio (lo gestiona popup-scroll-body); card: scroll propio */}
+      <div className={`flex-1 min-w-0 ${isInline ? "" : "min-h-0 overflow-y-auto"} overflow-x-hidden ${padX} pb-8 pt-3`}>
         {loadingNearby ? (
           <div className="flex items-center justify-center py-8 gap-2">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -930,7 +931,6 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
           </div>
         )}
         </div>
-      </ScrollArea>
 
       {/* Footer */}
       {!mergeMode && (
