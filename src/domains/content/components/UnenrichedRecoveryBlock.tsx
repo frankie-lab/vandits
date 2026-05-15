@@ -361,7 +361,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
   // Bloque inline de "Contexto cercano" (renderizado dentro del propio popup
   // cuando el usuario lo activa). NUNCA panel lateral.
   const inlineNearby = showNearby && user ? (
-    <div className="mx-3 mb-2 mt-0">
+    <div className="mt-0">
       <NearbyPanel
         location={nearbyLocationRow}
         docId={fresh.documentId ?? null}
