@@ -18,7 +18,6 @@ import { DuplicatesList } from '@/components/DuplicatesList';
 import { IncompleteLocationsPanel } from '@/components/IncompleteLocationsPanel';
 import { UnresolvedLocationsPanel } from '@/components/UnresolvedLocationsPanel';
 import { LayersPanel } from '@/components/LayersPanel';
-import { GlobalNearbyContextHost } from '@/domains/content/components/GlobalNearbyContextHost';
 import { useLocationsStore } from '@/domains/content';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { useRightPanel } from '@/hooks/use-right-panel';
