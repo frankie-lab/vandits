@@ -192,14 +192,16 @@ export function LaneRow({
                 {counter.done}
                 <span className="opacity-70">/{counter.total}</span>
               </span>
-              <span
-                className={cn(
-                  'text-[11px]',
-                  clamped > 55 ? 'text-white/85' : 'text-muted-foreground',
-                )}
-              >
-                {Math.round(clamped)}%
-              </span>
+              {!indeterminate && (
+                <span
+                  className={cn(
+                    'text-[11px]',
+                    clamped > 55 ? 'text-white/85' : 'text-muted-foreground',
+                  )}
+                >
+                  {Math.round(clamped)}%
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2.5 text-[11px]">
               {metrics?.map((m, idx) =>
