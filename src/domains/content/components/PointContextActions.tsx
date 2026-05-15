@@ -932,7 +932,7 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
           </div>
         )}
         </div>
-      </ScrollArea>
+      )}
 
       {/* Footer */}
       {!mergeMode && (
