@@ -1427,7 +1427,15 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
     });
     mapRef.current.on('popupclose', (e: L.PopupEvent) => {
       const closedId = (e.popup.options as { locationId?: string })?.locationId ?? null;
-      setOpenPopupLocationId(null);
+      // Contrato canónico de deselect: solo limpia foco/openPopup si lo cerrado
+      // es el POI actualmente focado. Lectura en vivo del store (no closure)
+      // para que una transición A→B no borre el foco recién puesto en B cuando
+      // llega tarde el popupclose de A.
+      const currentFocusedId = useLocationsStore.getState().focusedLocationId;
+      if (closedId && currentFocusedId === closedId) {
+        useLocationsStore.getState().setFocusedLocation(null);
+      }
+      setOpenPopupLocationId(prev => (prev === closedId ? null : prev));
       const ro = popupResizeObserversRef.current.get(e.popup);
       if (ro) { ro.disconnect(); popupResizeObserversRef.current.delete(e.popup); }
       // PR-POPUP-PERSIST: si el marker fue preservado como excepción visual
@@ -1782,11 +1790,10 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
     map.panTo(marker.getLatLng(), { animate: true, duration: 0.4 });
   });
 
-  marker.on('popupclose', () => {
-  if (focusedLocationId === location.id) {
-  setFocusedLocation(null);
-  }
-  });
+  // NOTA: el deselect canónico vive en el handler `map.on('popupclose')`
+  // (lectura en vivo del store + comparación con `closedId`). Aquí NO se
+  // registra un marker.on('popupclose') porque dependería de `focusedLocationId`
+  // como closure stale del momento de creación del marker.
 
   // Hidrata <UnenrichedRecoveryBlock> dentro del popup cuando se abre.
    // Helper único. Solo se monta si el POI no está enriquecido (decidido por
