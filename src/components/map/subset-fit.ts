@@ -54,6 +54,18 @@ export const FIT_REASONS = [
   'health-filter',
   'selection-on-start',
   'my-catalog-popover',
+  // popover "Mis POI" — variantes por axis/value emitidas desde
+  // `use-my-catalog-popover-fit.ts` (`my-catalog-popover:<axis>:<value>` y
+  // `my-catalog-popover:all`). Se enumeran explícitamente para que no
+  // disparen warns de `unknownReasons`.
+  'my-catalog-popover:all',
+  'my-catalog-popover:visual:enriched',
+  'my-catalog-popover:visual:imported',
+  'my-catalog-popover:visual:empty',
+  'my-catalog-popover:health:partial',
+  'my-catalog-popover:health:chain',
+  'my-catalog-popover:health:review',
+  'my-catalog-popover:health:hardError',
   'user-filter',
   'source-filter',
   // legacy `map-fit-bounds` — pendiente de migración (Phase 3)
