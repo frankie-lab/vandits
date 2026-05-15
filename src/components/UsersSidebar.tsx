@@ -34,6 +34,7 @@ import { usePermissions } from '@/domains/identity';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { toast } from 'sonner';
 import { formatDistanceToNowStrict } from 'date-fns';
+import { runSelectable } from '@/shared/interaction/selectable-kernel';
 
 /** "18m" / "2h" / "3d" / "5mo" / "1y". Avoids verbose "hace 18 minutos". */
 function formatActivityShort(iso: string): string {
