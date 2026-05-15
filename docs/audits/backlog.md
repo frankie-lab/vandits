@@ -21,9 +21,30 @@ Status: `open` / `mitigated` (workaround activo) / `pending-manual-qa` (code-lev
 | BL-012 | Single listener `subset-fit` no testeado (sin assert de count en runtime) + pendiente test E2E con control de tiempo y eventos Leaflet (`movestart`/`zoomstart`/`dragstart`); bloquea cierre de BL-003 a `resolved` hasta tener cobertura automatizada | duplicate-listeners H2 (recomendación) | low | Regresión silenciosa si se duplica | map / qa | open | — |
 | BL-013 | `openPopupLocationId` solo accesible vía LocationMap — no expuesto a otros componentes | source-of-truth H1 | low | Si futuro consumidor necesita conocer el popup activo, hay que decidir vía ADR antes de promoverlo | map | accepted-debt | — |
 
+## QA Manual Pendiente
+
+### BL-003 — subset-fit cooldown bypass para `mode:'always'`
+
+Code-level validated en `docs/contracts/subset-fit-contract.md` (Validation Notes). Runtime pendiente de confirmar manualmente los dos casos siguientes:
+
+**Caso A (positivo — `mode:'always'` debe ignorar cooldown):**
+1. Pan/zoom manual sobre el mapa.
+2. Antes de 4s: abrir popover "Mis POI" → click "Enriquecidos".
+3. Esperado: SÍ encuadra (cámara se mueve a bounds del subset, clamp z12).
+
+**Caso B (negativo — `mode:'if-outside'` debe respetar cooldown):**
+1. Reset: pan/zoom manual sobre el mapa.
+2. Antes de 4s: click chip Salud (FilterBar, `reason:'health-filter'`, `mode:'if-outside'`).
+3. Esperado: NO encuadra (cooldown bloquea fit).
+
+**Cierre:**
+- Ambos casos confirmados → BL-003 pasa a `resolved`, anotar fecha + revisor en esta sección.
+- BL-012 sigue `open` hasta cobertura E2E automatizada.
+
 ## Reglas
 
 1. Toda entrada nueva debe nacer aquí antes de cualquier PR de fix.
 2. `Status` se actualiza en la misma PR que cambia el código.
 3. Findings nuevos descubiertos durante reviews → entrada con `open` antes de mergear.
 4. `accepted-debt` requiere ADR o nota explícita de por qué no se va a resolver.
+5. Findings con código mergeado pero sin validación runtime quedan en `pending-manual-qa` hasta que QA humana confirme los casos descritos en §QA Manual Pendiente. No se permite saltar de `open` a `resolved` sin pasar por este estado cuando la validación estática no cubre el comportamiento end-to-end.
