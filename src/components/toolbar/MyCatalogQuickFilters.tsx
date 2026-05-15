@@ -236,6 +236,7 @@ export function MyCatalogQuickFiltersButton({
     >
       <PopoverTrigger asChild>
         <button
+          data-testid="my-poi-trigger"
           onClick={(e) => {
             traceCameraFit('MyCatalogQuickFilters.Trigger click', {
               currentlyOpen: open,
@@ -257,6 +258,7 @@ export function MyCatalogQuickFiltersButton({
         </div>
         <div className="flex flex-col gap-0.5">
           <Row
+            testId="filter-all"
             label="Ver todos"
             count={counts.all}
             dotClass="bg-emerald-500"
@@ -265,6 +267,7 @@ export function MyCatalogQuickFiltersButton({
             onClick={applyAll}
           />
           <Row
+            testId="filter-enriched"
             label="Enriquecidos"
             count={counts.enriched}
             dotClass="bg-emerald-500"
@@ -273,6 +276,7 @@ export function MyCatalogQuickFiltersButton({
             onClick={() => applyVisual('enriched')}
           />
           <Row
+            testId="filter-imported"
             label="Sin actualizar"
             count={counts.imported}
             dotClass="bg-muted-foreground/60"
@@ -281,6 +285,7 @@ export function MyCatalogQuickFiltersButton({
             onClick={() => applyVisual('imported')}
           />
           <Row
+            testId="filter-empty"
             label="Vacíos"
             count={counts.empty}
             dotClass="bg-orange-500"
@@ -297,6 +302,7 @@ export function MyCatalogQuickFiltersButton({
         </div>
         <div className="flex flex-col gap-0.5">
           <Row
+            testId="filter-health-partial"
             label="Rellenar huecos"
             count={counts.partial}
             dotClass="bg-amber-500"
@@ -305,6 +311,7 @@ export function MyCatalogQuickFiltersButton({
             onClick={() => applyHealth('partial')}
           />
           <Row
+            testId="filter-health-chain"
             label="Reparar cadena"
             count={counts.chain}
             dotClass="bg-yellow-400"
@@ -313,6 +320,7 @@ export function MyCatalogQuickFiltersButton({
             onClick={() => applyHealth('chain')}
           />
           <Row
+            testId="filter-health-review"
             label="Revisar"
             count={counts.review}
             dotClass="bg-fuchsia-500"
@@ -321,6 +329,7 @@ export function MyCatalogQuickFiltersButton({
             onClick={() => applyHealth('review')}
           />
           <Row
+            testId="filter-health-hardError"
             label="Rotos / Reintentar"
             count={counts.hardError}
             dotClass="bg-red-500"
