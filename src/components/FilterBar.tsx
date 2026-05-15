@@ -402,20 +402,48 @@ export function FilterBar() {
           ];
           return buckets.map((b) => {
             const active = (filters.healthFilter ?? null) === b.id;
+            // Pilot 1: Selectable kernel for disabled-state + observable
+            // click. FRICTION DOCUMENTED — these chips have toggle-off
+            // semantics on re-click of the active chip (clear filter).
+            // That is NOT replay; we route deselection through `onChange`
+            // and leave `onReplay` undefined. The kernel does not impose
+            // replay; see docs/interaction-pilot-1-diff.md §Friction.
+            const state = resolveSelectableState({ active, count: b.count });
+            const disabled = state === 'disabled';
             return (
               <Button
                 key={b.id ?? 'all'}
                 type="button"
                 variant={active ? 'default' : 'outline'}
                 size="sm"
+                disabled={disabled}
+                aria-disabled={disabled || undefined}
+                data-state={state}
                 onClick={() => {
-                  const next = { ...filters };
-                  if (b.id == null || active) {
-                    delete (next as Record<string, unknown>).healthFilter;
-                  } else {
-                    next.healthFilter = b.id;
-                  }
-                  setFilters(next);
+                  if (disabled) return;
+                  runSelectable({
+                    source: `filter-bar:health:${String(b.id ?? 'all')}`,
+                    wasActive: active,
+                    onAlways: () => {},
+                    onChange: () => {
+                      const next = { ...filters };
+                      if (b.id == null) {
+                        delete (next as Record<string, unknown>).healthFilter;
+                      } else {
+                        next.healthFilter = b.id;
+                      }
+                      setFilters(next);
+                    },
+                    onReplay: () => {
+                      // Toggle-off on re-click: clear the filter. This is
+                      // pre-existing behavior; replay-as-recenter is not
+                      // added here (would require touching cámara, out of
+                      // pilot scope).
+                      const next = { ...filters };
+                      delete (next as Record<string, unknown>).healthFilter;
+                      setFilters(next);
+                    },
+                  });
                 }}
                 className="h-7 px-2 text-xs gap-1.5 shrink-0"
               >
