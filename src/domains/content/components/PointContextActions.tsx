@@ -169,76 +169,40 @@ function groupByCategory(points: NearbyPoint[]): { category: SemanticCategory; m
     .sort((a, b) => a.meta.order - b.meta.order);
 }
 
-function NearbyPointCard({ point }: { point: NearbyPoint }) {
-  const enriched = point.enriched_data;
-  const desc = enriched?.descripcion_detallada || point.description;
-  const tags: string[] = enriched?.tags || [];
-
-  const sourceIcon = point.source === 'osm' ? (
-    <Search className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
-  ) : point.source === 'followed' ? (
-    <Users className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
-  ) : (
-    <MapPin className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
-  );
-
+function NearbyPointCard({
+  point,
+  onEnrich,
+  enriching,
+  disabled,
+}: {
+  point: NearbyPoint;
+  onEnrich: (e: React.MouseEvent) => void;
+  enriching: boolean;
+  disabled: boolean;
+}) {
   return (
-    <div className="w-full max-w-full overflow-hidden rounded-lg border border-border p-3 space-y-2 transition-colors hover:bg-muted/30">
-      <div className="flex min-w-0 items-start gap-2">
-        {sourceIcon}
-        <div className="flex-1 min-w-0">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            <p className="min-w-0 flex-1 break-words text-[13px] font-semibold leading-tight">{point.name}</p>
-            <Badge variant="outline" className="text-[9px] shrink-0 tabular-nums">
-              {point.distance_m}m
-            </Badge>
-            <Badge variant="secondary" className="text-[8px] h-4 px-1 shrink-0">
-              {point.source_label}
-            </Badge>
-            {point.osm_link && (
-              <a href={point.osm_link} target="_blank" rel="noopener noreferrer" className="shrink-0" onClick={e => e.stopPropagation()}>
-                <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground" />
-              </a>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
-            {point.place_type && <Badge variant="secondary" className="text-[9px] h-4 px-1.5">{point.place_type}</Badge>}
-            {point.country && (
-              <span className="flex items-center gap-0.5">
-                <Globe className="w-2.5 h-2.5" />
-                {point.country}{point.region ? `, ${point.region}` : ''}
-              </span>
-            )}
-            {hasRealEnrichment(point) && <Sparkles className="w-3 h-3 text-amber-500" />}
-          </div>
-        </div>
-      </div>
-      {point.document_name && (
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground pl-5">
-          <FileText className="w-2.5 h-2.5" />
-          <span className="truncate">{point.document_name}</span>
-        </div>
-      )}
-      {desc && <p className="text-[11px] text-muted-foreground pl-5 line-clamp-3 leading-relaxed">{desc}</p>}
-      {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 pl-5">
-          {tags.slice(0, 6).map((t: string, i: number) => (
-            <Badge key={i} variant="outline" className="text-[8px] h-3.5 px-1">{t}</Badge>
-          ))}
-          {tags.length > 6 && <span className="text-[8px] text-muted-foreground">+{tags.length - 6}</span>}
-        </div>
-      )}
-      {point.source === 'osm' && (
-        <a
-          href={`https://www.google.com/maps/search/?api=1&query=${point.latitude},${point.longitude}`}
-          target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground pl-5"
-          onClick={e => e.stopPropagation()}
+    <div className="w-full max-w-full overflow-hidden rounded-lg border border-border px-2.5 py-1.5 transition-colors hover:bg-muted/30">
+      {/* Línea 1: nombre + botón enriquecer */}
+      <div className="flex min-w-0 items-center gap-2">
+        <p className="min-w-0 flex-1 truncate text-[13px] font-semibold leading-tight">{point.name}</p>
+        <Button
+          size="sm"
+          variant="default"
+          className="h-6 shrink-0 gap-1 px-2 text-[11px]"
+          disabled={disabled}
+          onClick={onEnrich}
+          title="Enriquecer aquí"
         >
-          <Globe className="w-2.5 h-2.5" />
-          Ver en Google Maps
-        </a>
-      )}
+          {enriching
+            ? <Loader2 className="w-3 h-3 animate-spin" />
+            : <Sparkles className="w-3 h-3" />}
+          Enriquecer
+        </Button>
+      </div>
+      {/* Línea 2: distancia + coordenadas (OBLIGATORIO) */}
+      <p className="mt-0.5 truncate text-[10px] text-muted-foreground tabular-nums">
+        {point.distance_m}m · {point.latitude.toFixed(4)}, {point.longitude.toFixed(4)}
+      </p>
     </div>
   );
 }
@@ -848,21 +812,12 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
                       onClick={() => handleSelectPoint(p)}
                       className={`w-full min-w-0 max-w-full cursor-pointer rounded-lg transition-colors ${selectedPointId === p.id ? 'bg-primary/5 ring-2 ring-primary/50' : ''}`}
                     >
-                      <NearbyPointCard point={p} />
-                      <div className="flex items-center justify-end px-3 pb-2">
-                        <Button
-                          size="sm"
-                          variant="default"
-                          className="h-7 text-[11px] gap-1.5"
-                          disabled={adoptingId !== null}
-                          onClick={(e) => { e.stopPropagation(); handleAdoptNearby(p); }}
-                        >
-                          {adoptingId === p.id
-                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            : <Sparkles className="w-3.5 h-3.5" />}
-                          Enriquecer aquí
-                        </Button>
-                      </div>
+                      <NearbyPointCard
+                        point={p}
+                        enriching={adoptingId === p.id}
+                        disabled={adoptingId !== null}
+                        onEnrich={(e) => { e.stopPropagation(); handleAdoptNearby(p); }}
+                      />
                       {selectedPointId === p.id && (
                         <div className="space-y-2 px-3 pb-3">
                           <div className="flex items-center gap-1 text-[10px] text-primary">
