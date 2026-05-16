@@ -272,25 +272,46 @@ function wrapCollapsibleSection(
   '</details>';
 }
 
-// ─── Collection Chips (always visible, transversal) ────────────────────────
-// Helper único: emite HTML final con los hashtags de colección, leyendo
-// SÍNCRONAMENTE del store transversal `location-collections-store`. No usa
-// React mount dentro de Leaflet — cuando cambian las colecciones, el mapa
-// regenera el popup con `marker.setPopupContent(createPopupContent(...))`.
-// Misma fuente de datos que el resto de la app (GalleryView, admin…).
-export function buildCollectionChipsPlaceholder(location: GeoLocation): string {
-  const chips = getCollectionsForLocation(location.id);
-  if (chips.length === 0) {
-    // Host estable para que el bloque tenga la misma altura aunque aún no se
-    // haya hidratado; al refrescar el popup tras el prime se rellena.
-    return `<div data-collections-root="${location.id}" style="clear: both; min-height: 0; margin: 0 0 ${CARD.sectionGap}px 0;"></div>`;
+// ─── P-POPUP-4E — Collection metadata segment ─────────────────────────────
+// Las colecciones del POI se renderizan INLINE en la línea metadata (junto a
+// la fecha) — NO como chips/pills/hashtags. Icono Lucide `bookmark` + nombre
+// legible en `foreground` normal, sin color de colección. Máx 2 inline; del
+// 3º en adelante "+N" con `title` listando los nombres restantes.
+//
+// Esta función emite el segmento listo para concatenar tras `<span>${date}…`
+// en `buildOwnAddedLineHtml`, `buildOwnEnrichedMetadataLineHtml` y
+// `buildSourceMetadataLineHtml`. Devuelve '' si el POI no tiene colecciones.
+//
+// `vía …` queda RESERVADO a provenance/source externo y nunca para colecciones.
+const BOOKMARK_SVG = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>`;
+
+const COLLECTIONS_INLINE_MAX = 2;
+
+export function buildCollectionsMetadataSegment(location: GeoLocation): string {
+  const cols = getCollectionsForLocation(location.id);
+  if (!cols.length) return '';
+  const inline = cols.slice(0, COLLECTIONS_INLINE_MAX);
+  const overflow = cols.slice(COLLECTIONS_INLINE_MAX);
+  const nameSpans = inline.map((c) => {
+    const safeName = String(c.name ?? '').replace(/"/g, '&quot;');
+    const safeId = String(c.id ?? '').replace(/"/g, '&quot;');
+    return `<span class="collection-filter-chip" data-collection-id="${safeId}" data-collection-name="${safeName}" title="Colección: ${safeName}">${safeName}</span>`;
+  }).join(', ');
+  let overflowHtml = '';
+  if (overflow.length > 0) {
+    const overflowNames = overflow.map((c) => String(c.name ?? '')).join(', ').replace(/"/g, '&quot;');
+    overflowHtml = ` <span title="${overflowNames}" style="opacity: 0.8;">+${overflow.length}</span>`;
   }
-  const chipsHtml = chips.map((c) => {
-    const slug = (c.name ?? '').replace(/\s+/g, '');
-    const tokens = getCollectionChipColors(c.color);
-    return `<span title="${(c.name ?? '').replace(/"/g, '&quot;')}" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 500; border: 1px solid; color: ${tokens.text}; border-color: ${tokens.border}; background-color: ${tokens.background};"><span style="color: ${tokens.hashtag};">#</span>${slug}</span>`;
-  }).join('');
-  return `<div data-collections-root="${location.id}" style="clear: both; display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; margin: 0 0 ${CARD.sectionGap}px 0;">${chipsHtml}</div>`;
+  return ` <span aria-hidden="true">·</span> <span data-popup-collections-meta="${location.id}" style="display: inline-flex; align-items: center; gap: 4px; color: hsl(var(--foreground));">${BOOKMARK_SVG}<span>${nameSpans}${overflowHtml}</span></span>`;
+}
+
+// ─── Collection Chips placeholder (P-POPUP-4E: no-op) ──────────────────────
+// Las colecciones ya NO se pintan como chips/hashtags flotantes; viven en la
+// línea metadata vía `buildCollectionsMetadataSegment`. Se conserva el export
+// como no-op para no romper imports legados; cualquier llamada actual emite
+// string vacío y no inyecta DOM.
+export function buildCollectionChipsPlaceholder(_location: GeoLocation): string {
+  return '';
 }
 
 // APIs legacy mantenidas como no-op para no romper imports antiguos.
