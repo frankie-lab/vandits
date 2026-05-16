@@ -391,7 +391,118 @@ export function buildOwnAddedLineHtml(location: GeoLocation): string {
 </div>`;
 }
 
-// ─── Image Section ───────────────────────────────────────────────────────────
+// ─── P-POPUP-4A — Source metadata line (source/app enriched only) ──────────
+// Reemplaza al chip `#sourceId` por una línea legible
+//   `Añadido dd/mm/aaaa · vía <label-clicable>`
+// Para `app` con groupId se emiten DOS chips clicables separados por `·`,
+// uno por filtro (preserva paridad funcional con `buildSourceHashtagsBlock`).
+// Cada chip conserva `.source-filter-chip` + datasets canónicos.
+//
+// Reglas de formato del label (`prettifySourceId`):
+//   - reemplaza `_`/`-` por ` · ` / espacios respectivamente
+//   - separa CamelCase (`AtlasObscura` → `Atlas Obscura`)
+//   - tokens cortos all-lowercase ≤4 letras → uppercase (`osm` → `OSM`)
+//   - resto: capitaliza palabras conservadoramente
+//   - fallback: string crudo si no aplica nada (seguridad)
+export function prettifySourceId(raw: string | null | undefined): string {
+  if (!raw) return '';
+  const s = String(raw).trim();
+  if (!s) return '';
+  // Separadores → ` · ` (underscore) y ` ` (hyphen).
+  const parts = s.split('_').map(part => {
+    if (!part) return '';
+    const hyphenated = part.replace(/-/g, ' ');
+    // CamelCase split (preserva acrónimos seguidos de minúscula: `USAToday` → `USA Today`).
+    const camelSplit = hyphenated
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
+    // Tokens cortos all-lower → upper. Resto: capitaliza primera de cada palabra.
+    return camelSplit
+      .split(/\s+/)
+      .map(w => {
+        if (!w) return '';
+        if (/^[a-z]{1,4}$/.test(w)) return w.toUpperCase();
+        return w.charAt(0).toUpperCase() + w.slice(1);
+      })
+      .join(' ');
+  });
+  return parts.filter(Boolean).join(' · ') || s;
+}
+
+function buildSourceChipSpan(
+  type: string,
+  filterId: string,
+  label: string,
+): string {
+  const safeLabel = String(label).replace(/"/g, '&quot;');
+  const safeId = String(filterId).replace(/"/g, '&quot;');
+  const safeType = String(type).replace(/"/g, '&quot;');
+  return `<span class="source-filter-chip" data-source-type="${safeType}" data-source-id="${safeId}" data-source-label="${safeLabel}" title="Filtrar por ${safeLabel}" style="cursor: pointer; text-decoration: underline; text-decoration-color: hsl(var(--muted-foreground) / 0.4); text-underline-offset: 2px; color: hsl(var(--muted-foreground)); transition: color 0.15s;">${safeLabel}</span>`;
+}
+
+/**
+ * Emite la línea metadata canónica para `source` / `app` en rama A enriched.
+ * Retorna '' si:
+ *  - el flag está OFF
+ *  - el tipo no es `source` ni `app`
+ *  - no hay hashtags ni fecha (línea vacía no se pinta)
+ */
+export function buildSourceMetadataLineHtml(
+  location: GeoLocation,
+  ownership: PopupOwnership | undefined,
+): string {
+  if (!isPopupSourceMetadataV1On()) return '';
+  const viewerUid = ownership?.viewerUid ?? null;
+  const source = resolvePoiSource(viewerUid, location, { usernameLookup: ownership?.usernameLookup });
+  if (source.type !== 'source' && source.type !== 'app') return '';
+
+  // Fecha (opcional, mismo formato que ownership-strip).
+  let datePart = '';
+  const raw = (location as { createdAt?: Date | string | null }).createdAt;
+  if (raw) {
+    const d = raw instanceof Date ? raw : new Date(raw);
+    if (!isNaN(d.getTime())) {
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      datePart = `Añadido ${dd}/${mm}/${yyyy}`;
+    }
+  }
+
+  // Chips: uno por hashtag, cada uno con su filterId canónico.
+  const chips = source.hashtags
+    .map((tag, idx) => {
+      const isPrimary = idx === 0;
+      const filterId = isPrimary
+        ? source.sourceId ?? tag
+        : tag; // groupId
+      if (!filterId) return '';
+      return buildSourceChipSpan(source.type, filterId, prettifySourceId(tag));
+    })
+    .filter(Boolean);
+
+  if (chips.length === 0 && !datePart) return '';
+
+  const viaSegment = chips.length > 0
+    ? `vía ${chips.join(' <span aria-hidden="true">·</span> ')}`
+    : '';
+
+  const segments = [datePart, viaSegment].filter(Boolean);
+  if (segments.length === 0) return '';
+
+  const inner = segments.join(' <span aria-hidden="true">·</span> ');
+
+  return `<div data-popup-source-metadata="${location.id}" data-source-metadata-type="${source.type}" style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 ${CARD.sectionGap}px 0; font-size: 11px; line-height: 1.3; color: hsl(var(--muted-foreground));">
+<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<ellipse cx="12" cy="5" rx="9" ry="3"/>
+<path d="M3 5v14a9 3 0 0 0 18 0V5"/>
+<path d="M3 12a9 3 0 0 0 18 0"/>
+</svg>
+<span>${inner}</span>
+</div>`;
+}
+
+
 
 export function buildImageSection(
   location: GeoLocation,
