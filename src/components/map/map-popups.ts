@@ -339,7 +339,93 @@ export function buildPersonalTagsBlock(location: GeoLocation): string {
 <div style="clear: both; display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; margin: 0 0 ${CARD.sectionGap}px 0;">${tagsHtml}</div>`;
 }
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── P-POPUP-7A — Personal interaction state (helper único) ──────────────
+//
+// Bloque compacto con el estado personal del usuario sobre el POI:
+//   - Botón Visitado (toggle, gated por proximidad/foto-GPS en backend)
+//   - Badge de verificación (icono Lucide camera/mapPin — sin emoji)
+//   - Valoración personal 1–5★ COLAPSADA por defecto cuando user_rating=0
+//     (se muestra affordance textual "Valorar" que expande el control 5★
+//     inline al click — evita 5 estrellas vacías arriba del fold)
+//
+// Se renderiza UNA SOLA VEZ, debajo de `descripcion` en la rama enriched y
+// debajo de `description` en la rama legacy. Helper único para evitar drift
+// (norma transversal multiusuario).
+//
+// Devuelve '' para puntos de curador o para popups en contexto "Cerca de".
+export function buildPersonalStateBlock(
+  location: GeoLocation,
+  ctx: { isOwn: boolean; isCuratorPoint: boolean; canEditLocation: boolean },
+): string {
+  if (ctx.isCuratorPoint) return '';
+  if (isNearbyPopupContext(location.id)) return '';
+
+  const isVisited = location.customData?.visited === 'true';
+  const visitRelevance = isVisited
+    ? calculateVisitRelevance(
+        location.customData?.visited_verified_at,
+        location.customData?.oldest_geotagged_photo_date,
+      )
+    : null;
+  const userRating = parseInt(location.customData?.user_rating || '0', 10) || 0;
+  const canRate = !!visitRelevance || ctx.canEditLocation;
+
+  // Visited toggle (con copy variable según ownership).
+  const visitedLabel = isVisited
+    ? 'Visitado'
+    : (!ctx.isOwn ? '+ Adoptar y Visitar' : 'Visitado');
+  const visitedTitle = isVisited
+    ? 'Click para desmarcar'
+    : (!ctx.isOwn ? 'Se añadirá a tu colección automáticamente' : 'Marcar como visitado');
+  const visitedBg = isVisited
+    ? 'hsl(var(--state-success) / 0.10)'
+    : (!ctx.isOwn ? 'hsl(var(--state-loading) / 0.10)' : 'transparent');
+  const visitedFg = isVisited
+    ? 'hsl(var(--state-success))'
+    : (!ctx.isOwn ? 'hsl(var(--state-loading))' : 'hsl(var(--text-secondary))');
+  const visitedBorder = isVisited
+    ? 'hsl(var(--state-success) / 0.35)'
+    : (!ctx.isOwn ? 'hsl(var(--state-loading) / 0.35)' : 'hsl(var(--surface-border))');
+  const visitedBtn = `<button class="popup-action-btn" data-action="toggle-visited" data-location-id="${location.id}" title="${visitedTitle}" style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; background: ${visitedBg}; color: ${visitedFg}; border: 1px solid ${visitedBorder}; border-radius: 9999px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;">${svgIcon('check', { size: 10, color: 'currentColor' })}<span>${visitedLabel}</span></button>`;
+
+  // Badge de verificación inline (iconos Lucide camera/mapPin, sin emoji).
+  const verifiedBadge = (isVisited && visitRelevance)
+    ? (() => {
+        const iconKey: keyof typeof SVG_PATHS = visitRelevance.verificationType === 'photo' ? 'camera' : 'mapPin';
+        return `<span title="${visitRelevance.label} · ${formatTimeAgo(visitRelevance.daysAgo)}" style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; font-size: 9px; color: hsl(var(--text-secondary)); border: 1px solid hsl(var(--surface-border)); border-radius: 9999px;">${svgIcon(iconKey, { size: 9, color: 'currentColor' })}<span>${formatTimeAgo(visitRelevance.daysAgo)}</span></span>`;
+      })()
+    : '';
+
+  // Stars helper (compacto, sin glow).
+  const starsControl = (ratingValue: number) => [1, 2, 3, 4, 5].map((star) => {
+    const active = ratingValue >= star;
+    const color = active ? 'hsl(var(--state-warning))' : 'hsl(var(--surface-border))';
+    return `<button class="popup-action-btn" data-action="set-rating" data-location-id="${location.id}" data-rating="${star}" title="Valorar ${star} estrella${star > 1 ? 's' : ''}" style="background: none; border: none; padding: 0; cursor: pointer; font-size: 13px; line-height: 1; color: ${color};">${active ? '\u2605' : '\u2606'}</button>`;
+  }).join('');
+
+  // Rating block — colapsado por defecto si user_rating=0 y se permite valorar.
+  let ratingHtml = '';
+  if (canRate) {
+    if (userRating > 0) {
+      // Modo expandido: 5★ + botón clear.
+      ratingHtml = `<span data-personal-rating-state="expanded" style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal">${starsControl(userRating)}<button class="popup-action-btn" data-action="clear-rating" data-location-id="${location.id}" title="Quitar valoración" style="background: none; border: none; padding: 0 0 0 4px; cursor: pointer; font-size: 10px; color: hsl(var(--text-secondary));">\u2715</button></span>`;
+    } else {
+      // Modo colapsado: affordance textual "Valorar" + control oculto que se
+      // revela inline al click (sin re-render, sin sacudida visual).
+      const expandJs = "var p=this.parentNode;this.style.display='none';var x=p.querySelector('[data-personal-rating-state=\\'expanded\\']');if(x){x.style.display='inline-flex';}";
+      ratingHtml = `<span style="display: inline-flex; align-items: center; gap: 6px;">`
+        + `<button type="button" data-personal-rating-state="collapsed" onclick="${expandJs}" style="background: none; border: none; padding: 0; cursor: pointer; font-size: 10px; color: hsl(var(--text-secondary)); text-decoration: underline; text-underline-offset: 2px;">Valorar</button>`
+        + `<span data-personal-rating-state="expanded" style="display: none; align-items: center; gap: 2px;" title="Tu valoración personal">${starsControl(0)}</span>`
+        + `</span>`;
+    }
+  }
+
+  const row = [verifiedBadge, visitedBtn, ratingHtml].filter(Boolean).join('');
+  return `
+<div data-popup-personal-state="${location.id}" style="display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 ${CARD.sectionGap}px 0; padding: 6px 8px; background: hsl(var(--surface-muted) / 0.5); border-radius: 8px;">${row}</div>`;
+}
+
+
 
 export interface PopupOwnership {
   isOwn: boolean;
@@ -1069,52 +1155,9 @@ ${[1, 2, 3, 4, 5].map(star => `<span style="font-size: 14px; line-height: 1; col
 ` : ''}
 `}
 
-${!isCuratorPoint ? `
-${isVisited && visitRelevance ? `
-<span 
-style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; background: ${visitRelevance.bgColor}; color: ${visitRelevance.color}; border: 1px solid ${visitRelevance.borderColor}; border-radius: 10px; font-size: 9px; font-weight: 500;"
-title="${visitRelevance.label} - Verificado ${visitRelevance.verificationType === 'photo' ? '📷' : '📍'} ${formatTimeAgo(visitRelevance.daysAgo)}"
->
-${visitRelevance.label}
-</span>
-` : ''}
-<button 
-class="popup-action-btn" 
-data-action="toggle-visited" 
-data-location-id="${location.id}"
-style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: ${isVisited ? tk('hsl(var(--state-success) / 0.12)', '#dcfce7') : (!isOwn ? tk('hsl(var(--state-loading) / 0.12)', '#eff6ff') : tk('hsl(var(--surface-card))', '#fff'))}; color: ${isVisited ? tk('hsl(var(--state-success))', '#166534') : (!isOwn ? tk('hsl(var(--state-loading))', '#1d4ed8') : tk('hsl(var(--text-secondary))', '#6b7280'))}; border: 1px solid ${isVisited ? tk('hsl(var(--state-success) / 0.4)', '#86efac') : (!isOwn ? tk('hsl(var(--state-loading) / 0.4)', '#93c5fd') : tk('hsl(var(--surface-border))', '#e5e7eb'))}; border-radius: 12px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
-title="${isVisited ? 'Click para desmarcar' : (!isOwn ? 'Se añadirá a tu colección automáticamente' : 'Requiere estar a menos de 500m o subir foto con GPS')}"
->
-<svg width="10" height="10" viewBox="0 0 24 24" fill="${isVisited ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
-<path d="M20 6 9 17l-5-5"/>
-</svg>
-${isVisited ? 'Visitado' : (!isOwn ? '+ Adoptar y Visitar' : 'Visitado')}
-</button>
+<!-- P-POPUP-7A: Visited + personal rating bajados al slot post-descripción.
+     Aquí permanece SOLO el rating IA (POI metadata, no user state). -->
 
-${(visitRelevance || canEditLocation) ? `
-<div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal${!visitRelevance && canEditLocation ? ' (Admin)' : ''}">
-${[1, 2, 3, 4, 5].map(star => `
-<button 
-class="popup-action-btn" 
-data-action="set-rating" 
-data-location-id="${location.id}"
-data-rating="${star}"
-style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; line-height: 1; transition: transform 0.1s; color: ${parseInt(location.customData?.user_rating || '0') >= star ? tk('hsl(var(--state-warning))', '#f59e0b') : tk('hsl(var(--surface-border))', '#d1d5db')};"
-title="Valorar ${star} estrella${star > 1 ? 's' : ''}"
->${parseInt(location.customData?.user_rating || '0') >= star ? '★' : '☆'}</button>
-`).join('')}
-${location.customData?.user_rating ? `
-<button 
-class="popup-action-btn" 
-data-action="clear-rating" 
-data-location-id="${location.id}"
-style="background: none; border: none; padding: 0 0 0 3px; cursor: pointer; font-size: 10px; color: ${tk('hsl(var(--text-secondary))', '#9ca3af')};"
-title="Quitar valoración"
->✕</button>
-` : ''}
-</div>
-` : ''}
-` : ''}
 </div>
 </div>
 
@@ -1147,7 +1190,18 @@ ${(() => {
   // editor (Configuración de fichas) — single source of truth.
   const orderedKeys = cardCfg.orderedKeys;
 
-  return orderedKeys.map(fieldKey => {
+  // P-POPUP-7A — flag para insertar el bloque de estado personal una sola vez,
+  // justo debajo de `descripcion`. Si la card config no incluye `descripcion`,
+  // el bloque se emite al final (fallback).
+  const personalStateCtx = { isOwn, isCuratorPoint, canEditLocation };
+  let personalStateRendered = false;
+  const personalStateOnce = () => {
+    if (personalStateRendered) return '';
+    personalStateRendered = true;
+    return buildPersonalStateBlock(location, personalStateCtx);
+  };
+
+  const mappedBody = orderedKeys.map(fieldKey => {
     switch (fieldKey) {
       case 'nombre_lugar':
       case 'localizacion':
@@ -1178,16 +1232,20 @@ ${(() => {
   <p style="margin: 0; font-size: ${FONT.body}px; font-weight: 500; color: ${COLOR.foreground}; line-height: 1.45;">${enriched.punto_destacado}</p>
 </div>`;
       
-      case 'descripcion':
-        if (!enriched.descripcion) return '';
-        return `
+      case 'descripcion': {
+        const desc = enriched.descripcion
+          ? `
 <div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0;">
   <div style="font-size: ${FONT.label}px; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; color: ${COLOR.muted}; margin-bottom: 4px;">Descripción</div>
   <div class="vandits-description-body">
     ${descriptionToHtmlParagraphs(enriched.descripcion, `margin: 0 0 8px 0; font-size: ${FONT.body}px; color: ${COLOR.bodyText}; line-height: 1.625;`)}
   </div>
   <span style="font-size: ${FONT.charCount}px; color: ${COLOR.muted};">${enriched.descripcion?.length || 0} caracteres</span>
-</div>`;
+</div>`
+          : '';
+        // P-POPUP-7A — bloque de estado personal SIEMPRE bajo `descripcion`.
+        return desc + personalStateOnce();
+      }
       
       case 'observacion':
         if (!enriched.observacion) return '';
@@ -1368,6 +1426,9 @@ ${(() => {
         return '';
     }
   }).join('\n');
+  // P-POPUP-7A — fallback: si la card config no incluye `descripcion`, emitir
+  // el bloque de estado personal al final (antes del footer).
+  return mappedBody + personalStateOnce();
 })()}
 
 ${locationUpdatedAt > 0 ? `
@@ -1456,56 +1517,8 @@ Añadir a mi colección
 </button>
 ` : ''}
 
-${(!isCuratorPoint && !isNearbyPopupContext(location.id)) ? `
-<div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 10px; padding: 8px; background: #f9fafb; border-radius: 8px;">
-<div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
-${isVisited && visitRelevance ? `
-<span 
-style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; background: ${visitRelevance.bgColor}; color: ${visitRelevance.color}; border: 1px solid ${visitRelevance.borderColor}; border-radius: 10px; font-size: 9px; font-weight: 500;"
-title="${visitRelevance.label}"
->
-${visitRelevance.label}
-</span>
-` : ''}
-<button 
-class="popup-action-btn" 
-data-action="toggle-visited" 
-data-location-id="${location.id}"
-style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: ${isVisited ? '#dcfce7' : (!isOwn ? '#eff6ff' : '#fff')}; color: ${isVisited ? '#166534' : (!isOwn ? '#1d4ed8' : '#6b7280')}; border: 1px solid ${isVisited ? '#86efac' : (!isOwn ? '#93c5fd' : '#e5e7eb')}; border-radius: 12px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
-title="${isVisited ? 'Click para desmarcar' : (!isOwn ? 'Se añadirá a tu colección automáticamente' : 'Marcar como visitado')}"
->
-<svg width="10" height="10" viewBox="0 0 24 24" fill="${isVisited ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
-<path d="M20 6 9 17l-5-5"/>
-</svg>
-${isVisited ? 'Visitado' : (!isOwn ? '+ Adoptar y Visitar' : 'Visitado')}
-</button>
-
-${(visitRelevance || canEditLocation) ? `
-<div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal${!visitRelevance && canEditLocation ? ' (Admin)' : ''}">
-${[1, 2, 3, 4, 5].map(star => `
-<button 
-class="popup-action-btn" 
-data-action="set-rating" 
-data-location-id="${location.id}"
-data-rating="${star}"
-style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; transition: transform 0.1s; color: ${parseInt(location.customData?.user_rating || '0') >= star ? '#f59e0b' : '#d1d5db'};"
-title="Valorar ${star} estrella${star > 1 ? 's' : ''}"
->${parseInt(location.customData?.user_rating || '0') >= star ? '★' : '☆'}</button>
-`).join('')}
-${location.customData?.user_rating ? `
-<button 
-class="popup-action-btn" 
-data-action="clear-rating" 
-data-location-id="${location.id}"
-style="background: none; border: none; padding: 0 0 0 3px; cursor: pointer; font-size: 10px; color: #9ca3af;"
-title="Quitar valoración"
->✕</button>
-` : ''}
-</div>
-` : ''}
-</div>
-</div>
-` : ''}
+<!-- P-POPUP-7A: Visited + personal rating bajados al slot post-descripcion.
+     Ver buildPersonalStateBlock debajo del bloque de descripcion. -->
 </div>
 
 ${location.description ? `
@@ -1515,6 +1528,8 @@ ${location.description}
 </p>
 </div>
 ` : ''}
+
+${buildPersonalStateBlock(location, { isOwn, isCuratorPoint, canEditLocation })}
 
 ${isNearbyPopupContext(location.id) ? '' : buildSourceHashtagsBlock(location, ownership)}
 ${isNearbyPopupContext(location.id) ? '' : buildCollectionChipsPlaceholder(location)}
