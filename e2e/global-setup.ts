@@ -68,39 +68,57 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
   try {
     await page.goto(`${baseURL}/auth`, { waitUntil: 'domcontentloaded' });
 
-    // Asegurar que estamos en modo login (es el default, pero por si acaso
-    // venimos de una redirección con ?mode=signup).
-    const loginTab = page.getByRole('button', { name: /iniciar sesión/i }).first();
-    if (await loginTab.isVisible().catch(() => false)) {
-      await loginTab.click().catch(() => undefined);
-    }
+    // Esperar a que el form de login esté renderizado (no el skeleton de
+    // loading que muestra Auth.tsx mientras useAuth resuelve la sesión).
+    await page.waitForSelector('[data-testid="auth-login-form"]', {
+      state: 'visible',
+      timeout: 30_000,
+    });
 
-    await page.locator('#email').fill(email);
-    await page.locator('#password').fill(password);
+    const emailField = page.getByTestId('auth-email');
+    const passwordField = page.getByTestId('auth-password');
+    const submitButton = page.getByTestId('auth-submit');
 
-    // Submit. El form tiene un solo submit visible con label "Iniciar Sesión".
+    await emailField.waitFor({ state: 'visible', timeout: 10_000 });
+    await emailField.fill(email);
+    await passwordField.fill(password);
+
     await Promise.all([
-      page
-        .locator('button[type="submit"]')
-        .filter({ hasText: /iniciar sesión/i })
-        .first()
-        .click(),
+      submitButton.click(),
       page.waitForURL((url) => !/\/auth(\b|\/|\?|$)/.test(url.toString()), {
-        timeout: 15_000,
+        timeout: 20_000,
       }),
     ]);
 
     // Señal canónica de sesión válida y app montada.
     await page.waitForSelector('[data-testid="my-poi-trigger"]', {
       state: 'visible',
-      timeout: 20_000,
+      timeout: 30_000,
     });
 
     await context.storageState({ path: STORAGE_STATE_PATH });
   } catch (err) {
+    // Diagnóstico: URL actual, título y volcado breve de HTML para entender
+    // a qué pantalla redirigió el flujo (login con error, captcha, etc.).
+    let diag = '';
+    try {
+      const url = page.url();
+      const title = await page.title().catch(() => '<no title>');
+      const bodyText = await page
+        .locator('body')
+        .innerText({ timeout: 2_000 })
+        .catch(() => '<no body>');
+      diag =
+        `\n  current url: ${url}` +
+        `\n  page title: ${title}` +
+        `\n  body excerpt: ${bodyText.slice(0, 500).replace(/\s+/g, ' ')}`;
+    } catch {
+      // ignore diagnostic failures
+    }
     throw new Error(
       `[e2e/global-setup] Login falló: ${(err as Error).message}\n` +
-        `Verifica que el usuario ${email} existe y que el dev server está disponible en ${baseURL}.`,
+        `Verifica que el usuario ${email} existe y que el dev server está disponible en ${baseURL}.` +
+        diag,
     );
   } finally {
     await browser.close();

@@ -331,13 +331,14 @@ export default function Auth() {
  </div>
  )}
 
- <AnimatePresence mode="wait">
+  <AnimatePresence mode="wait">
  <motion.form
  key={mode}
  initial={{ opacity: 0, y: 10 }}
  animate={{ opacity: 1, y: 0 }}
  exit={{ opacity: 0, y: -10 }}
  onSubmit={handleSubmit}
+ data-testid={mode === 'login' ? 'auth-login-form' : `auth-${mode}-form`}
  className="space-y-5"
  >
  {mode === 'signup' && (
@@ -374,6 +375,7 @@ export default function Auth() {
  placeholder="tu@email.com"
  value={email}
  onChange={(e) => setEmail(e.target.value)}
+ data-testid="auth-email"
  className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus:border-primary"
  />
  </div>
@@ -394,6 +396,7 @@ export default function Auth() {
  placeholder="••••••••"
  value={password}
  onChange={(e) => setPassword(e.target.value)}
+ data-testid="auth-password"
  className="pl-10 pr-10 bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus:border-primary"
  />
  <button
@@ -523,6 +526,7 @@ export default function Auth() {
  <Button
  type="submit"
  disabled={isSubmitting}
+ data-testid="auth-submit"
  className="w-full bg-gradient-to-r from-primary to-blue-500 hover:from-primary/90 hover:to-blue-500/90 text-white font-medium py-6"
  >
  {isSubmitting ? (
