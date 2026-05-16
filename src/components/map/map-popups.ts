@@ -881,8 +881,52 @@ ${(() => {
 
       case 'etiquetas': {
         if (!cardCfg.include_tags) return '';
+
+        // P-POPUP-2 — canonical 4-bucket dedupe path (flag-gated).
+        // - Removes `etiquetas_geograficas` from chips (covered by geo header).
+        // - Dedupes taxonomy ↔ semantic ↔ user by slug.
+        // - Caps overflow per `POPUP_TAG_CAPS`.
+        if (isPopupGeoCanonicalV1On()) {
+          const collectionSlugsForLoc = getCollectionsForLocation(location.id)
+            .map(c => tagSlug(c.name ?? ''))
+            .filter(Boolean);
+          const userPreFiltered = filterPersonalTags(location.id, enriched?.etiquetas_personales);
+          const buckets = getCanonicalPopupTags(location, collectionSlugsForLoc, userPreFiltered);
+          const parts: string[] = [];
+
+          const renderBucket = (
+            items: string[],
+            cap: number,
+            type: 'classification' | 'thematic' | 'personal',
+            filterType: 'searchTerm' | 'tag',
+          ) => {
+            if (!items.length) return;
+            const visible = items.slice(0, cap);
+            const overflow = items.length - visible.length;
+            const chips = visible.map(t => inlineTagBadge(
+              `#${String(t).replace('#', '').replace(/\s+/g, '')}`,
+              type,
+              { filterType, filterValue: String(t).replace('#', '') },
+            )).join('');
+            const overflowChip = overflow > 0
+              ? `<span title="+${overflow} más" style="padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 500; background: ${COLOR.secondary}; color: ${COLOR.muted};">+${overflow}</span>`
+              : '';
+            parts.push(`<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">${chips}${overflowChip}</div>`);
+          };
+
+          if (!isCuratorPoint) {
+            renderBucket(buckets.taxonomy, POPUP_TAG_CAPS.taxonomy, 'classification', 'searchTerm');
+            renderBucket(buckets.semantic, POPUP_TAG_CAPS.semantic, 'thematic', 'tag');
+            renderBucket(buckets.user, POPUP_TAG_CAPS.user, 'personal', 'tag');
+          }
+
+          if (parts.length === 0) return '';
+          return `<div style="margin-bottom: ${CARD.sectionGap}px;">` + parts.join('') + '</div>';
+        }
+
+        // ── Legacy path (flag OFF, default in prod) ───────────────────────
         const parts: string[] = [];
-        
+
         // Geographic tags
         if (enriched.etiquetas_geograficas?.length) {
           parts.push('<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">' +
