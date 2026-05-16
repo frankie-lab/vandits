@@ -1426,6 +1426,9 @@ ${(() => {
         return '';
     }
   }).join('\n');
+  // P-POPUP-7A — fallback: si la card config no incluye `descripcion`, emitir
+  // el bloque de estado personal al final (antes del footer).
+  return mappedBody + personalStateOnce();
 })()}
 
 ${locationUpdatedAt > 0 ? `
