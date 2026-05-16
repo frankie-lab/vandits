@@ -1097,7 +1097,12 @@ title="Quitar valoración"
 
 ${(() => {
   // P-POPUP-3A → own enriched: línea "Añadido dd/mm/yyyy" (sin literal ownership).
-  if (isOwn && isPopupOwnershipStripV1On()) return buildOwnAddedLineHtml(location);
+  if (isOwn && isPopupOwnershipStripV1On()) {
+    // P-POPUP-4A.1 — own + provenance: fusiona "Añadido …" con "vía <chip>".
+    // Si 4A está OFF o el POI no tiene provenance, degrada a línea sólo-fecha.
+    if (isPopupSourceMetadataV1On()) return buildOwnEnrichedMetadataLineHtml(location);
+    return buildOwnAddedLineHtml(location);
+  }
   // P-POPUP-4A → source/app enriched (rama A): línea metadata "Añadido … · vía <label>".
   // Si el helper devuelve '' (flag OFF, sin hashtags, etc.) → fallback al legado.
   if (isPopupSourceMetadataV1On()) {
