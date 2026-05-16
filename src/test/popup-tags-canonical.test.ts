@@ -1,0 +1,133 @@
+/**
+ * P-POPUP-2 — Contract tests for canonical popup tag bucketing + dedupe.
+ * Pure-function tests.
+ */
+import { describe, it, expect } from 'vitest';
+import {
+  dedupePopupTagBuckets,
+  extractTaxonomyCandidates,
+  getCanonicalPopupTags,
+  tagSlug,
+  POPUP_TAG_CAPS,
+} from '@/shared/popup/tags';
+import type { GeoLocation } from '@/types/location';
+
+function makeLoc(enriched: any): GeoLocation {
+  return {
+    id: 't', name: 't', coordinates: { lat: 0, lng: 0 }, enrichedData: enriched,
+  } as unknown as GeoLocation;
+}
+
+describe('P-POPUP-2 — tagSlug', () => {
+  it('normalises hash, case, accents, separators', () => {
+    expect(tagSlug('#Castillo')).toBe('castillo');
+    expect(tagSlug('Atlas Obscura')).toBe('atlasobscura');
+    expect(tagSlug('Camí_de-Sant Jaume')).toBe('camidesantjaume');
+    expect(tagSlug('  ')).toBe('');
+  });
+});
+
+describe('P-POPUP-2 — extractTaxonomyCandidates', () => {
+  it('strips IA numbering prefixes', () => {
+    const out = extractTaxonomyCandidates({
+      clasificacion: {
+        categoria_principal: '1. Arquitectura',
+        subcategoria: '1.2 Castillos',
+        tipo_especifico: '1.2.3 Castillo medieval',
+      },
+    });
+    expect(out).toEqual(['Arquitectura', 'Castillos', 'Castillo medieval']);
+  });
+
+  it('returns empty when no clasificacion', () => {
+    expect(extractTaxonomyCandidates({})).toEqual([]);
+    expect(extractTaxonomyCandidates(null)).toEqual([]);
+  });
+});
+
+describe('P-POPUP-2 — dedupePopupTagBuckets', () => {
+  it('produces 4 disjoint buckets by slug', () => {
+    const r = dedupePopupTagBuckets({
+      taxonomy: ['Castillo'],
+      collectionSlugs: ['atlasobscura'],
+      semantic: ['castillo', 'medieval', 'atlas obscura'],
+      user: ['#favorito', 'medieval', 'Castillo'],
+    });
+    expect(r.taxonomy).toEqual(['Castillo']);
+    expect(r.semantic).toEqual(['medieval']); // castillo↔taxonomy, atlas obscura↔collection
+    expect(r.user).toEqual(['#favorito']);
+  });
+
+  it('removes geographic tags from semantic (they live in geo header)', () => {
+    const r = dedupePopupTagBuckets({
+      taxonomy: [],
+      collectionSlugs: [],
+      semantic: ['España', 'medieval', 'Aragón'],
+      user: [],
+      geographic: ['España', 'Aragón'],
+    });
+    expect(r.semantic).toEqual(['medieval']);
+  });
+
+  it('priority: taxonomy > collection > semantic > user', () => {
+    const r = dedupePopupTagBuckets({
+      taxonomy: ['Castillo'],
+      collectionSlugs: ['castillo'], // collision with taxonomy
+      semantic: ['Castillo'],
+      user: ['Castillo'],
+    });
+    expect(r.taxonomy).toEqual(['Castillo']);
+    expect(r.semantic).toEqual([]);
+    expect(r.user).toEqual([]);
+  });
+
+  it('handles empty / undefined inputs safely', () => {
+    const r = dedupePopupTagBuckets({
+      taxonomy: [], collectionSlugs: [], semantic: [], user: [],
+    });
+    expect(r.taxonomy).toEqual([]);
+    expect(r.semantic).toEqual([]);
+    expect(r.user).toEqual([]);
+  });
+
+  it('skips non-string and empty entries', () => {
+    const r = dedupePopupTagBuckets({
+      taxonomy: [null as any, '', 'Castillo', undefined as any],
+      collectionSlugs: [],
+      semantic: ['  ', 42 as any, 'medieval'],
+      user: [],
+    });
+    expect(r.taxonomy).toEqual(['Castillo']);
+    expect(r.semantic).toEqual(['medieval']);
+  });
+});
+
+describe('P-POPUP-2 — getCanonicalPopupTags', () => {
+  it('integrates taxonomy + semantic + user from a GeoLocation', () => {
+    const loc = makeLoc({
+      clasificacion: {
+        categoria_principal: '1. Arquitectura',
+        subcategoria: '1.2 Castillos',
+      },
+      etiquetas: ['medieval', 'castillos', 'piedra'],
+      etiquetas_geograficas: ['España'],
+      etiquetas_personales: ['favorito'],
+    });
+    const r = getCanonicalPopupTags(loc, ['atlasobscura'], ['favorito']);
+    expect(r.taxonomy).toEqual(['Arquitectura', 'Castillos']);
+    // 'castillos' deduped against taxonomy 'Castillos' (slug match)
+    expect(r.semantic).toEqual(['medieval', 'piedra']);
+    expect(r.user).toEqual(['favorito']);
+  });
+});
+
+describe('P-POPUP-2 — POPUP_TAG_CAPS', () => {
+  it('matches plan §5.4 visible limits', () => {
+    expect(POPUP_TAG_CAPS).toEqual({
+      taxonomy: 3,
+      collections: 4,
+      semantic: 5,
+      user: 4,
+    });
+  });
+});

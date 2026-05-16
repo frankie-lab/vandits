@@ -35,6 +35,12 @@ import { getCollectionsForLocation } from '@/domains/content/store/location-coll
 import { getCollectionChipColors } from '@/shared/lib/collection-chip-color';
 import { filterPersonalTags } from '@/domains/content/lib/personal-tags-filter';
 import { resolvePoiSource } from '@/domains/content/lib/poi-source';
+import { buildGeoHeaderHtml } from '@/shared/popup/geo-header';
+import {
+  getCanonicalPopupTags,
+  tagSlug,
+  POPUP_TAG_CAPS,
+} from '@/shared/popup/tags';
 
 // ─── P-POPUP-1 Feature Flag ─────────────────────────────────────────────────
 // Tokenization of the `if (isEnriched && enriched)` branch of
@@ -62,6 +68,24 @@ function isPopupTokensEnrichedV1On(): boolean {
 /** Token-or-legacy resolver. Token side MUST be visually equivalent. */
 function tk(token: string, legacy: string): string {
   return isPopupTokensEnrichedV1On() ? token : legacy;
+}
+
+// ─── P-POPUP-2 Feature Flag ─────────────────────────────────────────────────
+// Structural change to the enriched branch: canonical geo header
+// (locality·zone·region·country) + 4-bucket canonical tag dedupe + overflow.
+//
+// Default: **false** (OFF in production). Enable in sandbox/QA via
+// `window.__POPUP_GEO_CANONICAL_V1__ = true` BEFORE opening a popup.
+// See docs/popups/p-popup-2-implementation-plan.md.
+const POPUP_GEO_CANONICAL_V1_DEFAULT = false;
+function isPopupGeoCanonicalV1On(): boolean {
+  try {
+    const w = (typeof window !== 'undefined' ? (window as any) : null);
+    if (w && typeof w.__POPUP_GEO_CANONICAL_V1__ === 'boolean') {
+      return w.__POPUP_GEO_CANONICAL_V1__;
+    }
+  } catch { /* SSR / restricted env */ }
+  return POPUP_GEO_CANONICAL_V1_DEFAULT;
 }
 
 // ─── Card Config Cache ──────────────────────────────────────────────────────
@@ -857,8 +881,52 @@ ${(() => {
 
       case 'etiquetas': {
         if (!cardCfg.include_tags) return '';
+
+        // P-POPUP-2 — canonical 4-bucket dedupe path (flag-gated).
+        // - Removes `etiquetas_geograficas` from chips (covered by geo header).
+        // - Dedupes taxonomy ↔ semantic ↔ user by slug.
+        // - Caps overflow per `POPUP_TAG_CAPS`.
+        if (isPopupGeoCanonicalV1On()) {
+          const collectionSlugsForLoc = getCollectionsForLocation(location.id)
+            .map(c => tagSlug(c.name ?? ''))
+            .filter(Boolean);
+          const userPreFiltered = filterPersonalTags(location.id, enriched?.etiquetas_personales);
+          const buckets = getCanonicalPopupTags(location, collectionSlugsForLoc, userPreFiltered);
+          const parts: string[] = [];
+
+          const renderBucket = (
+            items: string[],
+            cap: number,
+            type: 'classification' | 'thematic' | 'personal',
+            filterType: 'searchTerm' | 'tag',
+          ) => {
+            if (!items.length) return;
+            const visible = items.slice(0, cap);
+            const overflow = items.length - visible.length;
+            const chips = visible.map(t => inlineTagBadge(
+              `#${String(t).replace('#', '').replace(/\s+/g, '')}`,
+              type,
+              { filterType, filterValue: String(t).replace('#', '') },
+            )).join('');
+            const overflowChip = overflow > 0
+              ? `<span title="+${overflow} más" style="padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 500; background: ${COLOR.secondary}; color: ${COLOR.muted};">+${overflow}</span>`
+              : '';
+            parts.push(`<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">${chips}${overflowChip}</div>`);
+          };
+
+          if (!isCuratorPoint) {
+            renderBucket(buckets.taxonomy, POPUP_TAG_CAPS.taxonomy, 'classification', 'searchTerm');
+            renderBucket(buckets.semantic, POPUP_TAG_CAPS.semantic, 'thematic', 'tag');
+            renderBucket(buckets.user, POPUP_TAG_CAPS.user, 'personal', 'tag');
+          }
+
+          if (parts.length === 0) return '';
+          return `<div style="margin-bottom: ${CARD.sectionGap}px;">` + parts.join('') + '</div>';
+        }
+
+        // ── Legacy path (flag OFF, default in prod) ───────────────────────
         const parts: string[] = [];
-        
+
         // Geographic tags
         if (enriched.etiquetas_geograficas?.length) {
           parts.push('<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">' +
@@ -1039,12 +1107,14 @@ ${location.name}
 </h3>
 ${ownershipBadgeHtml}
 </div>
-<div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
+${isPopupGeoCanonicalV1On()
+  ? buildGeoHeaderHtml(location, { background: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' })
+  : `<div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
 ${location.continent ? `<span class="filter-link" data-filter-type="continent" data-filter-value="${location.continent}" style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">${location.continent}</span>` : ''}
 ${location.country ? `<span class="filter-link" data-filter-type="country" data-filter-value="${location.country}" style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'">${location.country}</span>` : ''}
 ${location.region ? `<span class="filter-link" data-filter-type="region" data-filter-value="${location.region}" style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#fde68a'" onmouseout="this.style.background='#fef3c7'">${location.region}</span>` : ''}
 ${location.zone ? `<span class="filter-link" data-filter-type="zone" data-filter-value="${location.zone}" style="background: #f3e8ff; color: #7c3aed; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">${location.zone}</span>` : ''}
-</div>
+</div>`}
 
 ${(!isOwn && !isCuratorPoint) ? `
 <button 
