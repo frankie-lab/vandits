@@ -35,6 +35,12 @@ import { getCollectionsForLocation } from '@/domains/content/store/location-coll
 import { getCollectionChipColors } from '@/shared/lib/collection-chip-color';
 import { filterPersonalTags } from '@/domains/content/lib/personal-tags-filter';
 import { resolvePoiSource } from '@/domains/content/lib/poi-source';
+import { buildGeoHeaderHtml } from '@/shared/popup/geo-header';
+import {
+  getCanonicalPopupTags,
+  tagSlug,
+  POPUP_TAG_CAPS,
+} from '@/shared/popup/tags';
 
 // ─── P-POPUP-1 Feature Flag ─────────────────────────────────────────────────
 // Tokenization of the `if (isEnriched && enriched)` branch of
