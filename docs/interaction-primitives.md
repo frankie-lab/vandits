@@ -274,13 +274,15 @@ that decision belongs to the extraction phase.
 
 | Current surface | Primitive(s) | Notes |
 |---|---|---|
-| `MyCatalogQuickFilters` rows | `Selectable` + `Replayable` + `FocusEmitter` (via popover-applied event) hosted in `OverlaySurface` (Radix Popover) | Canonical reference implementation post-fix. |
-| Map markers (`createCustomIcon` + click handler) | `Selectable` + `FocusEmitter` + `StatusSurface` (visual rings/colors are read-only projection) | Status layer must stay pointer-transparent. |
+| `MyCatalogQuickFilters` rows | `Selectable` + `RecenterableSelection` (§1.2a) + `FocusEmitter` hosted in `OverlaySurface` (Radix Popover) | Canonical reference for `RecenterableSelection`. |
+| Map markers (`createCustomIcon` + click handler) | `Selectable` + `FocusEmitter` + `StatusSurface` (visual rings/colors are read-only projection) | Status layer must stay pointer-transparent. Future `RecenterableSelection` candidate. |
 | Map popups (`map-popups.ts`) | `OverlaySurface` (non-modal, anchored) + `ContextualSurface` (entity-bound) | Persist-on-rebuild rule lives at the `ContextualSurface` lifecycle. |
 | `UnenrichedRecoveryBlock` + `<NearbyPanel inline>` | `ContextualSurface` (inline only) | Inline-only constraint already in Core. |
-| Document / Collection / Orphan / Route focus views | `ContextualSurface` (entity-scoped) + `FocusEmitter` (camera + sidebar) | Each view re-implements the entry/exit shell — duplication candidate. |
-| `FilterBar` chips, `LocationCollectionChips`, `SourceHashtag`, `PlaceTypeFilter`, `PanelModeTabs` | `Selectable` backed by `StatefulSelection` | Re-click semantics differ per chip — needs unification. |
-| `UsersSidebar` rows | `Selectable` (toggle filterByUserId) + `FocusEmitter` (subset-fit user-filter) + `StatusSurface` (identity triangle, badges) | Re-click contract not formalized. |
+| Document / Collection / Orphan / Route focus views | `ContextualSurface` (entity-scoped) + `FocusEmitter` (camera + sidebar) + future `RecenterableSelection` for the row that opens them | Each view re-implements the entry/exit shell — duplication candidate. |
+| `FilterBar` Health chips | `Selectable` + `ToggleableSelection` (§1.2b) backed by `StatefulSelection` | Pilot 1 validated `ToggleableSelection` here. |
+| `PlaceTypeFilter`, `SourceFilterBridge`, other mutually-exclusive single-value chips | `Selectable` + `ToggleableSelection` (§1.2b) | Future `ToggleableSelection` candidates; NOT migrated. |
+| `LocationCollectionChips`, `SourceHashtag`, `PanelModeTabs` | `Selectable` backed by `StatefulSelection` | Re-click family unresolved (multi-select vs single-axis); needs its own pilot before claiming a contract. |
+| `UsersSidebar` rows | `Selectable` + `RecenterableSelection` (§1.2a) + `FocusEmitter` (subset-fit `user-filter`) + `StatusSurface` (identity triangle, badges) | Pilot 1 validated `RecenterableSelection` here. |
 | `DocumentsPanel`, `CollectionsListPanel`, `RoutesListPanel`, `IncompleteLocationsPanel` rows | `Selectable` + `FocusEmitter` | Each panel duplicates row shell, hover, active styling. |
 | Health rings, owner identity triangle, collection tint, marker color | `StatusSurface` only | Already pure; must not gain handlers. |
 | `HealthFilterActionCTA`, `HealthRepairPreviewDialog` | `Selectable` (chip) + `OverlaySurface` (modal dialog) + `BlockingOperation` (repair lane) | Three primitives composed; today wired ad hoc. |
