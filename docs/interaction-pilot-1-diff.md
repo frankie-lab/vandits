@@ -203,3 +203,86 @@ form of `Replayable` proved extractable** in this pilot.
 
 The pilot ships as a small, reversible kernel. Reverting is one folder
 delete + three call-site reverts.
+
+---
+
+## 8. Conclusión arquitectónica: `Replayable` no generaliza
+
+Pilot 1 produjo evidencia concreta de que el contrato `Replayable`
+descrito en `docs/interaction-primitives.md` §1.2 (versión original)
+no puede describir las tres superficies a la vez sin convertirse en
+un foot-gun:
+
+| Superficie | Gesto físico | Intento de producto en re-click |
+|---|---|---|
+| `MyCatalogQuickFilters` | re-click sobre fila activa | mantener selección + recentrar (subset-fit con opId fresco) |
+| `UsersSidebar` (`handleFilterByUser`) | re-click sobre fila activa | mantener selección + recentrar el subset del usuario (subset-fit `user-filter`) |
+| `FilterBar` Health chips | re-click sobre chip activo | **deseleccionar** (eje vuelve a `'all'`); NO hay nada que recentrar |
+
+Mismo gesto, dos intenciones opuestas. El kernel del piloto absorbió
+la divergencia exponiendo `onChange` y `onReplay` como slots
+opcionales, pero **omitir `onReplay` por accidente colapsa silenciosamente
+"recenter" en "no-op"**, exactamente la clase de fallo que el contrato
+pretendía eliminar. La uniformidad teórica de `Replayable` es, en la
+práctica, una uniformidad sintáctica que oculta dos contratos
+distintos.
+
+## 9. Decisión: split en dos contratos
+
+Ratificado en `docs/interaction-primitives.md` §1.2a / §1.2b:
+
+- **`RecenterableSelection`** — re-click MANTIENE la selección y
+  REEMITE intención/focus/fit con `opId` fresco. Call sites pilot:
+  `MyCatalogQuickFilters`, `UsersSidebar`.
+- **`ToggleableSelection`** — re-click LIMPIA la selección
+  (axis → `null`/default), emite trace con `opId` fresco, NO reemite
+  focus/fit. Call site pilot: `FilterBar` Health chips.
+
+`runSelectable` (`src/shared/interaction/selectable-kernel.ts`)
+**queda como helper transitorio del piloto** (`pilot-frozen`):
+
+- Permanece en uso por las tres superficies migradas.
+- **NO debe extenderse a nuevos call sites.**
+- Será reemplazado por `runRecenterableSelection` /
+  `runToggleableSelection` en Pilot 2, una vez ratificado el split.
+- Hasta entonces, cualquier superficie nueva que se quiera
+  estandarizar debe esperar al Pilot 2; no se debe replicar el
+  patrón `onChange` + `onReplay` opcional.
+
+## 10. Riesgo de instrumentación: `traceSelectable` sobre `cameraFitTrace`
+
+El kernel escribe sus entradas (`selectable-kernel.run`) en
+`window.__cameraFitTrace` vía `traceCameraFit`. Esto fue **pragmatismo
+deliberado del piloto**: existe un ring buffer probado, un harness QA
+ya conectado (`e2e/camera-qa.spec.ts`), y la restricción de
+"cero nuevos traces/stores/providers" prohibía abrir un canal nuevo.
+
+**Por qué es un riesgo a futuro**:
+
+- El nombre del canal (`cameraFitTrace`) miente: contiene entradas
+  que no son de cámara.
+- Mezcla dos semánticas (intent de cámara vs intent de selección),
+  lo que dificultará particionar el log cuando aparezca `ObservableAction`.
+- Cualquier cambio en el ring buffer de cámara afectará al trace de
+  selectable y viceversa.
+
+**No es el canal definitivo.** Acción pendiente (no en este alcance):
+cuando se ratifique `ObservableAction`, migrar las entradas
+`selectable-kernel.*` a su propio buffer (`window.__appActionTrace` o
+equivalente) y dejar `cameraFitTrace` limpio. Mientras tanto, el
+acoplamiento queda documentado aquí y en `mem://architecture/interaction-kernel-pilot-1`.
+
+## 11. Dead code legacy: `buildUniqueMyCatalogPopoverOpId`
+
+Ya no se invoca desde código de producción (sustituido por
+`buildOpId('mycatalog-popover')` del kernel). Sigue:
+
+- Exportado en `src/components/toolbar/use-my-catalog-popover-fit.ts`.
+- Referenciado narrativamente en `docs/contracts/subset-fit-contract.md`
+  como descripción del comportamiento (el doc no ejecuta código).
+
+Acción aplicada en este alcance: marcado `@deprecated` con JSDoc
+apuntando a `buildOpId`. **No se elimina el export** porque actualizar
+`subset-fit-contract.md` queda fuera del alcance "solo docs +
+deprecation mark"; la retirada física pertenece a una pasada de
+limpieza posterior, junto con la actualización del contrato.
