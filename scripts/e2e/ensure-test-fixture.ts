@@ -138,7 +138,7 @@ async function upsertFixtureDocument(
     user_id: uid,
     name: FIXTURE_DOC_NAME,
     source_type: 'manual',
-    status: 'confirmed',
+    status: 'published',
     import_status: 'confirmed',
     total_waypoints: 2,
     resolved_count: 2,
