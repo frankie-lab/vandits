@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.image-recovery-job-tick]
 verify_jwt = false
+
+[functions.ensure-e2e-user]
+verify_jwt = false
