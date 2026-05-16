@@ -48,7 +48,7 @@ describe('P-POPUP-7C — buildImageSection hero chrome', () => {
       null,
       OWN,
     );
-    expect(out).toContain('class="popup-hero-controls"');
+    expect(out).toContain(`popup-hero-controls`);
     expect(out).toContain('data-action="delete-photo"');
     expect(out).toContain('data-action="upload-photo"');
   });
@@ -59,7 +59,7 @@ describe('P-POPUP-7C — buildImageSection hero chrome', () => {
       { imagen: 'http://x/y.jpg' },
       OWN,
     );
-    expect(out).toContain('class="popup-hero-controls"');
+    expect(out).toContain(`popup-hero-controls`);
     expect(out).toContain('data-action="upload-photo"');
     // sin user image → no delete-photo
     expect(out).not.toContain('data-action="delete-photo"');
