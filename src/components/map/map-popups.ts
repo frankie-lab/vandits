@@ -713,6 +713,7 @@ export function buildOwnEnrichedMetadataLineHtml(location: GeoLocation): string 
 export function isVisitedHeroOverlayActive(
   location: GeoLocation,
   ownership?: PopupOwnership | null,
+  enriched?: any,
 ): boolean {
   if (!location) return false;
   if (location.customData?.visited !== 'true') return false;
@@ -726,7 +727,11 @@ export function isVisitedHeroOverlayActive(
     visibility === 'public' ||
     (visibility === 'followers' && !!ownership?.isFollowing)
   );
-  const aiImage = ((location.enrichedData as any)?.imagen as string | undefined) || '';
+  // Mirror buildImageSection: legacy branch passes `enriched=null`, so the AI
+  // image is intentionally not displayed and the overlay should not appear
+  // when there is no user image either.
+  const enrichedSource = enriched === undefined ? (location.enrichedData as any) : enriched;
+  const aiImage = (enrichedSource?.imagen as string | undefined) || '';
   const displayImage = canSeeUserImage ? userImageUrl : aiImage;
   return !!displayImage;
 }
