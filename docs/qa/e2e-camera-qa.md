@@ -29,36 +29,46 @@ autenticación (`auth.spec.ts`).
 ## Crear/resetear el usuario de test
 
 Las contraseñas de Supabase Auth no se pueden leer (ni siquiera con
-service role); solo se pueden **escribir**. Por eso no hay "credenciales
-reales" almacenadas en el repo. Para tener un password conocido usa
-`scripts/e2e/ensure-test-user.ts`, que es idempotente:
+service role); solo se pueden **escribir**. Hay dos vías idempotentes:
 
-- Si el usuario no existe → lo crea con `email_confirm=true`.
-- Si ya existe → resetea su password al valor que le pases.
-- No toca roles, profiles, ni ningún otro dato del proyecto.
+### Opción A — desde Lovable Cloud (recomendada, sin service_role local)
+
+Esta es la vía usada para provisionar `sandbox-agent@vandits.test` en este
+proyecto y **no requiere** que nadie maneje la service_role key fuera del
+runtime gestionado.
+
+1. En el agente, añade los dos secrets de runtime (formulario seguro):
+   - `E2E_USER_EMAIL = sandbox-agent@vandits.test`
+   - `E2E_USER_PASSWORD = <password fuerte>` (8+, may/min/num)
+2. Despliega temporalmente la edge function `ensure-e2e-user` (lee solo
+   esos dos secrets + la `SUPABASE_SERVICE_ROLE_KEY` autoinyectada por el
+   runtime; no acepta body ni token).
+3. Invoca `POST /functions/v1/ensure-e2e-user` sin body. Respuesta:
+   `{ ok: true, action: "created"|"reset", uid, email }`.
+4. Verifica login real con el anon key (REST `/auth/v1/token?grant_type=password`).
+5. **Cleanup obligatorio**: borra la edge function y elimina los dos
+   secrets de runtime (`E2E_USER_EMAIL`, `E2E_USER_PASSWORD` del runtime
+   Lovable Cloud — NO los de GitHub Actions, que se mantienen).
+
+La función es código desechable: no debe quedar desplegada entre runs.
+
+### Opción B — script local (solo si tienes service_role)
+
+Si tienes acceso directo al service_role key, `scripts/e2e/ensure-test-user.ts`
+hace lo mismo desde tu máquina:
 
 ```bash
-# 1. Obtén el service_role key del proyecto:
-#    Lovable Cloud → API keys → service_role  (NO el anon)
 export SUPABASE_URL="https://nolmcafkzqwfmpleyfkx.supabase.co"
-export SUPABASE_SERVICE_ROLE_KEY="eyJ..."   # service_role
-
-# 2. Elige un password que cumpla la política (8+, may/min/num)
+export SUPABASE_SERVICE_ROLE_KEY="eyJ..."   # service_role, nunca commitear
+export E2E_USER_EMAIL="sandbox-agent@vandits.test"
 export E2E_USER_PASSWORD="SandboxAgent2026!"
-# E2E_USER_EMAIL es opcional — default sandbox-agent@vandits.test
-
-# 3. Ejecuta el script
-bun scripts/e2e/ensure-test-user.ts
-# o, si prefieres: npx tsx scripts/e2e/ensure-test-user.ts
+bun run e2e:ensure-user
 ```
 
 **Seguridad**:
-- Nunca commitees el service_role key ni el password.
-- Para CI, mete `E2E_USER_PASSWORD` como GitHub Secret (junto a
-  `E2E_USER_EMAIL`) y ejecuta el script UNA vez desde tu máquina para
-  sincronizar el password con el secret de CI.
-- NO añadas el service_role key como secret de CI a menos que el job
-  vaya a regenerar el usuario en cada run (no es necesario).
+- Nunca commitear la service_role key ni el password.
+- GitHub Actions solo necesita `E2E_USER_EMAIL` y `E2E_USER_PASSWORD`
+  (no la service_role).
 
 ## Variables de entorno
 

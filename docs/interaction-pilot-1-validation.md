@@ -31,6 +31,25 @@
 > fuera del sandbox (local o CI con secrets configurados). Cuando esté
 > verde, registrar resultado bajo §1.1 sobrescribiendo la nota de skip
 > histórica de abajo.
+>
+> **Update (Phase A — bootstrap usuario E2E, 2026-05-16)**: el usuario
+> `sandbox-agent@vandits.test` (uid `f04b3b95-7308-4b74-b3c7-7e819767c5fb`)
+> queda provisionado y verificado:
+>
+> - Provisión vía edge function temporal `ensure-e2e-user` (sin body, sin
+>   token, lee solo `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` del runtime +
+>   `SUPABASE_SERVICE_ROLE_KEY` autoinyectada). Respuesta: `action="reset"`.
+> - Login validado contra `/auth/v1/token?grant_type=password` con el anon
+>   key: 200 OK, `user.id` = uid canónico.
+> - Cleanup ejecutado: edge function `ensure-e2e-user` eliminada del
+>   proyecto y de `supabase/config.toml`. El password no aparece en logs
+>   ni en el repo.
+> - Secrets de runtime Lovable Cloud (`E2E_USER_EMAIL`, `E2E_USER_PASSWORD`)
+>   ya no son necesarios — pueden borrarse cuando el usuario lo decida.
+> - Secrets GitHub Actions a configurar (única acción manual pendiente):
+>   `E2E_USER_EMAIL = sandbox-agent@vandits.test` y
+>   `E2E_USER_PASSWORD = SandboxAgent2026!`. La service_role key **no** se
+>   sube a GitHub.
 
 ### 1.1 `e2e/camera-qa.spec.ts` (Playwright) — histórico Pilot 1
 
