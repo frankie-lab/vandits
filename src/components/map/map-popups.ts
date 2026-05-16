@@ -789,7 +789,7 @@ export function resolveVisitedPresentationState(
   const isVisited = location?.customData?.visited === 'true';
   const isCurator = !!ownership?.curatorId;
   const isNearby = !!location && isNearbyPopupContext(location.id);
-  const hasHero = !!resolveHeroDisplayImage(location, enriched, ownership);
+  const hasHero = !!resolveHeroImage(location, ownership, enriched).displayImage;
   const visitRelevance = isVisited
     ? calculateVisitRelevance(
         location?.customData?.visited_verified_at,
