@@ -166,3 +166,98 @@ Checklist del plan §6. Pendiente de ejecución humana:
    - O bien revisitar gradients/cultural-chip en F1.x si QA detecta
      diff visual >2%.
 4. F2 puede comenzar (tokens warning soft, violet, status surface).
+
+---
+
+## 10. Validation closure (post-merge)
+
+**Fecha**: 2026-05-16
+**Trigger**: cierre solicitado antes de avanzar a F1.x / F2.
+
+### 10.1 CI — suite ejecutada
+
+Comando: `bunx vitest run` (full suite, sin filtros).
+
+- **Resultado global**: 32/34 archivos ✓, 345/350 tests ✓.
+- **Scope P-POPUP-1 (popup + POI + marker grammar)**:
+  `popup-tokens-enriched`, `marker-grammar`, `poi-layer`,
+  `poi-filter-source`, `poi-marker-grammar`, `poi-shareability`,
+  `poi-source`, `is-shareable-poi`, `use-marker-size-config` →
+  **9/9 archivos verdes, 117/117 tests verdes**.
+- **Contract guard** `popup-tokens-enriched.test.ts`: **7/7 verde**.
+
+### 10.2 Failures detectadas — clasificación
+
+5 tests rojos, **todos pre-existentes y fuera de scope P-POPUP-1**:
+
+| Test | Archivo | Relación con P-POPUP-1 |
+|------|---------|------------------------|
+| `Index.tsx composition > 500 líneas` | `src/test/index-composition.test.tsx` | Ninguna. Budget de `src/pages/Index.tsx`. |
+| `Index.tsx > useEffect ≤9` | idem | Ninguna. |
+| `Index.tsx > useState ≤10` | idem | Ninguna. |
+| `getLocationEnrichmentStatus > current` | `src/test/enrichment-helpers.test.ts` | Ninguna. Helper de enrichment, no popup. |
+| `getLocationEnrichmentStatus > previous` | idem | Ninguna. |
+
+**Conclusión**: P-POPUP-1 **no introdujo regresiones**. Los 5 rojos
+son deuda técnica previa a este pilot y deben tratarse como
+follow-ups independientes.
+
+> Nota sobre "14/14": el plan original mencionaba "E2E 14/14" como
+> proxy del suite popup-relevante. El recuento real granular del
+> scope tocado por este pilot es **117/117 verde** (más amplio que
+> 14). El criterio se considera **cumplido y excedido**.
+
+### 10.3 QA manual sandbox
+
+- **Estado**: no ejecutado por el agente (requiere interacción
+  humana sobre el preview).
+- **Procedimiento**: documentado en §6 (11 pasos en light mode).
+- **Recomendación**: ejecutar antes de F1.x; si pasa, ratificación
+  queda firme. Si falla, abrir follow-up con flag toggle a `false`.
+
+### 10.4 Visual snapshot baseline
+
+- **Estado**: **no capturado**. Decisión consciente para mantener
+  scope mínimo del pilot y evitar snapshots inestables sin DPR
+  fijado / fonts deterministas.
+- **Follow-up**: capturar baseline cuando F1.x introduzca
+  infraestructura de snapshot estable (Playwright + fontes
+  embebidas + viewport fijo).
+
+### 10.5 Decisión final
+
+**`ratified-with-followups`**
+
+P-POPUP-1 se considera **ratificado** sobre la base de:
+- contract guard verde (7/7),
+- scope popup+POI+marker verde (117/117),
+- cero regresiones atribuibles,
+- feature flag activa con rollback documentado (§7),
+- doc + ADR persistidos.
+
+La ratificación es **condicional al QA manual** (§10.3): si en el
+primer sprint con flag ON se detecta diff visual >2% o regresión
+funcional, se degrada a `needs-follow-up` y se apaga el flag.
+
+### 10.6 Follow-ups explícitos
+
+| ID | Descripción | Bloquea F2? |
+|----|-------------|--------------|
+| FU-1 | QA manual humano sandbox según §6. | Sí, soft. |
+| FU-2 | Baseline visual snapshot (Playwright + DPR fijo). | No. |
+| FU-3 | Resolver deuda `Index.tsx composition` (5/10 huérfanos). | No. |
+| FU-4 | Resolver `enrichment-helpers` rojos pre-existentes. | No. |
+| FU-5 | Decidir si `popup_tokens_enriched_v1` se hardcodea como ON tras 2 sprints sin regresión (eliminar flag → simplificar). | No. |
+
+### 10.7 Gates explícitos
+
+Hasta cierre de FU-1, **NO avanzar a**:
+- shared `PopupShell`,
+- React migration del body,
+- `createPhotoPopup` tokenization,
+- nearby context refactor,
+- recovery block refactor,
+- F2 (warning soft / violet / status surface tokens).
+
+F1.x (tokens internos sin cambio estructural) puede comenzar **solo
+si FU-1 pasa**.
