@@ -22,6 +22,7 @@ import type { GeoLocation } from '@/types/location';
 import { clearPoiSourceCache } from '@/domains/content/lib/poi-source';
 import {
   buildSourceMetadataLineHtml,
+  buildOwnEnrichedMetadataLineHtml,
   prettifySourceId,
   isPopupSourceMetadataV1On,
 } from '@/components/map/map-popups';
