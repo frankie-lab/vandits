@@ -436,16 +436,24 @@ that decision belongs to the extraction phase.
 
 ## 6. Sequencing recommendation (non-binding)
 
-1. Pilot one primitive end-to-end on **one** surface group (proposal:
-   `Selectable` on `MyCatalogQuickFilters` is already the reference;
-   next pilot = `FilterBar` chips).
-2. Ratify primitive contracts as ADR-0005 once the pilot is stable.
-3. Extract `OverlaySurface` second — highest duplication / lowest
-   semantic risk.
-4. `BlockingOperation` feedback contract third — closes the
-   silent-block gap.
-5. `ObservableAction` last — once the action surface has
-   stabilized.
+0. **Ratify the `Replayable` split** (`RecenterableSelection` +
+   `ToggleableSelection`) before extending `runSelectable` to any new
+   call site. Pilot 1 surfaces stay as-is.
+1. Pilot 2: introduce `runRecenterableSelection` /
+   `runToggleableSelection` and migrate **one** non-pilot surface from
+   each family. `runSelectable` retires only after both helpers prove
+   out.
+2. Ratify primitive contracts as ADR-0005 once Pilot 2 is stable.
+3. Extract `OverlaySurface` — highest duplication / lowest semantic
+   risk.
+4. `BlockingOperation` feedback contract — closes the silent-block
+   gap.
+5. `ObservableAction` last — once the action surface has stabilized
+   and the trace can leave `window.__cameraFitTrace` (Pilot 1 diff §5
+   risk 2).
+
+Camera, `subset-fit`, and the `MyCatalog` selector remain
+out-of-scope throughout.
 
 Camera, `subset-fit`, and the `MyCatalog` selector remain
 out-of-scope throughout.
