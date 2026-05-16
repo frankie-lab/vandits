@@ -885,20 +885,15 @@ export function buildImageSection(
     const imageUrl = enriched?.imagen || ownership.curatorAvatar;
 
     if (imageUrl) {
-      return `<div style="margin: 0 -12px 0 -12px; position: relative;">
-<div style="width: 100%; height: 160px; position: relative; overflow: hidden;">
+      return `<div style="margin: 0 -12px 0 -12px;">
+<div class="popup-hero" style="width: 100%; height: 160px; overflow: hidden;">
 <img src="${imageUrl}" alt="${enriched?.imagen ? 'Ubicación' : 'Curador'}" style="width: 100%; height: 100%; object-fit: cover;" />
-<!-- Curator icon overlay in corner -->
-<div style="
-position: absolute;
-bottom: 8px;
-right: 8px;
+<!-- Curator icon overlay — posición vía safe-area canónica (P-POPUP-7D) -->
+<div class="popup-hero-chrome popup-hero-chrome--br" style="
 width: 40px;
 height: 40px;
 background: rgba(255,255,255,0.95);
 border-radius: 50%;
-display: flex;
-align-items: center;
 justify-content: center;
 box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 border: 2px solid ${curatorColor};
