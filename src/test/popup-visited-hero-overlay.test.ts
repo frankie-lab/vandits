@@ -105,12 +105,14 @@ describe('P-POPUP-7D — buildVisitedHeroOverlay (icon-only badge)', () => {
     // Tooltip / a11y
     expect(out).toContain('aria-label="Visitado');
     expect(out).toContain('click para quitar');
-    // Position + size 24x24
-    expect(out).toContain('position: absolute');
+    // P-POPUP-7D safe-area: posición vía clase canónica, NO inline.
+    expect(out).toContain('popup-hero-chrome');
+    expect(out).toContain('popup-hero-chrome--bl');
+    expect(out).not.toMatch(/style="[^"]*position:\s*absolute/);
+    expect(out).not.toMatch(/style="[^"]*\bbottom:\s*\d/);
+    expect(out).not.toMatch(/style="[^"]*\bleft:\s*\d/);
     expect(out).toContain('width: 24px');
     expect(out).toContain('height: 24px');
-    expect(out).toContain('z-index: 2');
-    expect(out).toContain('pointer-events: auto');
     expect(out).toContain('popup-hero-visited-badge');
   });
 
