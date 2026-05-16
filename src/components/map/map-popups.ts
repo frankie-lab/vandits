@@ -797,14 +797,18 @@ export function resolveVisitedPresentationState(
       )
     : null;
 
-  // Canon: overlay sólo si visited + hero válida + no curator + no nearby.
-  const showHeroOverlay = isVisited && hasHero && !isCurator && !isNearby;
-  // Inline discreto SOLO cuando el overlay también está activo (jerarquía).
-  const showInlineVisited = showHeroOverlay;
-  // Pill grande sólo cuando NO hay overlay (no visited o sin hero).
+  // Canon simplificado (sesión 2026-05-16):
+  //   - El overlay sobre la hero SIEMPRE se muestra cuando hay hero válida y
+  //     no es curator/nearby. Su etiqueta varía:
+  //       visited=true  → "✓ Visitado"
+  //       visited=false → "○ Pendiente"
+  //   - El bloque inferior ya no renderiza ningún control de visitado: el
+  //     overlay sustituye al pill/inline previos. Sólo queda rating.
+  //   - Si NO hay hero, fallback inferior mínimo (pill en bloque personal).
+  const showHeroOverlay = hasHero && !isCurator && !isNearby;
+  const showInlineVisited = false;
   const showVisitedPill = !isCurator && !isNearby && !showHeroOverlay;
-  // Verified badge vive sólo en el overlay del hero.
-  const showVerifiedOnHero = showHeroOverlay && !!visitRelevance;
+  const showVerifiedOnHero = showHeroOverlay && isVisited && !!visitRelevance;
 
   return {
     isVisited,
