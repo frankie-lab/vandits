@@ -25,6 +25,14 @@ describe('P-POPUP-2 — tagSlug', () => {
     expect(tagSlug('Camí_de-Sant Jaume')).toBe('camidesantjaume');
     expect(tagSlug('  ')).toBe('');
   });
+
+  it('P2-FIX-C — collapses all non-alphanumeric separators (slash, &, parens, dot, comma)', () => {
+    expect(tagSlug('Villa/Pueblo')).toBe(tagSlug('Villa Pueblo'));
+    expect(tagSlug('Naturaleza & Paisaje')).toBe(tagSlug('Naturaleza Paisaje'));
+    expect(tagSlug('Iglesia (s. XII)')).toBe(tagSlug('iglesia s xii'));
+    expect(tagSlug('Bar,Restaurante')).toBe(tagSlug('Bar Restaurante'));
+    expect(tagSlug('1.2 Villa/Pueblo')).toBe('12villapueblo');
+  });
 });
 
 describe('P-POPUP-2 — extractTaxonomyCandidates', () => {
