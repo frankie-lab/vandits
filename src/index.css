@@ -262,15 +262,8 @@
   overflow: hidden !important;
 }
 
-.leaflet-popup-close-button {
-  top: 8px !important;
-  right: 8px !important;
-  width: 24px !important;
-  height: 24px !important;
-  font-size: 20px !important;
-  color: white !important;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.5) !important;
-}
+/* P-POPUP-7D — `.leaflet-popup-close-button` retirado del popup hero
+   (`closeButton: false` en custom-popup). Reglas previas eliminadas. */
 
 .leaflet-control-zoom {
   @apply border-none shadow-md rounded-lg overflow-hidden;
