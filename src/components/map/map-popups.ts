@@ -841,6 +841,7 @@ export function buildImageSection(
   location: GeoLocation,
   enriched: any,
   ownership: PopupOwnership,
+  visitedState?: VisitedPresentationState,
 ): string {
   // For curator points: prioritize enriched image, then curator avatar, then icon
   if (ownership.curatorId) {
