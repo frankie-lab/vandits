@@ -156,3 +156,44 @@ Resultado: imposible que el overlay y el bloque inferior tomen decisiones distin
 ### Scope NO tocado
 
 P-POPUP-7C · P-POPUP-8 · taxonomy · collections · provenance · geo · lifecycle · marker grammar · F2 · React migration · PopupShell · wishlist/pending.
+
+---
+
+## Addendum — Drift renderer/resolver (sesión 2026-05-16)
+
+### Síntoma
+
+En preview: POI visited + enriched + hero IA visible → bloque `✓ Visitado` aparecía abajo pero el overlay sobre la hero **no se pintaba**.
+
+### Diagnóstico runtime (sonda dev-only en `buildImageSection` → luego en `createPopupContent`)
+
+- POIs con `enrichedData.descripcion` no vacío entraban correctamente por la rama enriched.
+- `buildImageSection` calculaba `displayImage` con su propia lógica inline (`canSeeUserImage ? userImageUrl : aiImage`).
+- `resolveHeroDisplayImage` reconstruía la misma lógica por su lado.
+- Drift estructural: dos definiciones paralelas de "¿hay hero?", potencialmente divergentes ante cualquier cambio futuro de fallback. El bug observado se manifestaba como `hasHero=false` mientras el renderer sí pintaba la imagen.
+
+### Clasificación: **C3** (renderer y resolver discrepaban en la decisión de hero)
+
+### Fix dirigido
+
+- Extraído helper único `resolveHeroImage(location, ownership, enriched): { displayImage, source }` como **SoT** del popup hero.
+- `buildImageSection` (rama regular no-curator) y `resolveVisitedPresentationState` consumen EXACTAMENTE el mismo helper. Imposible drift por construcción.
+- Eliminado `resolveHeroDisplayImage` (privado).
+- Sonda dev-only retirada por completo en el mismo commit.
+
+### Tests añadidos
+
+`describe('renderer↔resolver hero parity')` con 5 casos: enriched+AI, enriched sin AI, legacy con AI suprimida, user image pública, user image privada vista por otro. Invariante:
+```
+state.hasHero === !!resolveHeroImage(...).displayImage
+state.showHeroOverlay → html contiene data-visited-hero-overlay="true"
+```
+**30/30 verde** en `popup-visited-{hero-overlay,presentation-state}.test.ts`.
+
+### Validación visual
+
+Preview en Muniellos (POI visited + enriched + hero IA): overlay verde ✓ visible en bottom-left de la hero. Confirmado por screenshot.
+
+### Canon e intocados
+
+Sin cambios en canon, UX fuera del overlay aprobado, rating, taxonomy, collections, provenance, geo, lifecycle, marker grammar, F2, React migration, PopupShell, wishlist/pending. P-POPUP-7C no abierto.
