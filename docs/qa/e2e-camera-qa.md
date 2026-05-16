@@ -20,8 +20,45 @@ autenticación (`auth.spec.ts`).
 - Node 20+.
 - `npx playwright install chromium` (la primera vez).
 - Un usuario de test existente en el backend Lovable Cloud del proyecto.
-  Si no existe, créalo manualmente desde la app o vía la edge function
-  `create-test-users`.
+  Identidad canónica: `sandbox-agent@vandits.test`
+  (uid `f04b3b95-7308-4b74-b3c7-7e819767c5fb`, ver
+  `mem://preferences/sandbox-user-mirror`).
+  Si no existe — o no recuerdas su password — usa el script idempotente
+  descrito en [§ Crear/resetear el usuario de test](#crearresetear-el-usuario-de-test).
+
+## Crear/resetear el usuario de test
+
+Las contraseñas de Supabase Auth no se pueden leer (ni siquiera con
+service role); solo se pueden **escribir**. Por eso no hay "credenciales
+reales" almacenadas en el repo. Para tener un password conocido usa
+`scripts/e2e/ensure-test-user.ts`, que es idempotente:
+
+- Si el usuario no existe → lo crea con `email_confirm=true`.
+- Si ya existe → resetea su password al valor que le pases.
+- No toca roles, profiles, ni ningún otro dato del proyecto.
+
+```bash
+# 1. Obtén el service_role key del proyecto:
+#    Lovable Cloud → API keys → service_role  (NO el anon)
+export SUPABASE_URL="https://nolmcafkzqwfmpleyfkx.supabase.co"
+export SUPABASE_SERVICE_ROLE_KEY="eyJ..."   # service_role
+
+# 2. Elige un password que cumpla la política (8+, may/min/num)
+export E2E_USER_PASSWORD="SandboxAgent2026!"
+# E2E_USER_EMAIL es opcional — default sandbox-agent@vandits.test
+
+# 3. Ejecuta el script
+bun scripts/e2e/ensure-test-user.ts
+# o, si prefieres: npx tsx scripts/e2e/ensure-test-user.ts
+```
+
+**Seguridad**:
+- Nunca commitees el service_role key ni el password.
+- Para CI, mete `E2E_USER_PASSWORD` como GitHub Secret (junto a
+  `E2E_USER_EMAIL`) y ejecuta el script UNA vez desde tu máquina para
+  sincronizar el password con el secret de CI.
+- NO añadas el service_role key como secret de CI a menos que el job
+  vaya a regenerar el usuario en cada run (no es necesario).
 
 ## Variables de entorno
 
