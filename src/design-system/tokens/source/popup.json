@@ -13,7 +13,9 @@
       "gap":      { "value": "12px",  "_css": "--popup-body-gap" }
     },
     "hero": {
-      "ratio":    { "value": "16 / 9", "_css": "--popup-hero-ratio" }
+      "ratio":       { "value": "16 / 9", "_css": "--popup-hero-ratio" },
+      "chromeInset": { "value": "12px",   "_css": "--popup-hero-chrome-inset" },
+      "chromeGap":   { "value": "8px",    "_css": "--popup-hero-chrome-gap" }
     },
     "actionRow": {
       "height":   { "value": "44px",  "_css": "--popup-action-row-height" },
