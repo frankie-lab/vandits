@@ -844,28 +844,38 @@ export function buildVisitedHeroOverlay(
   const st = state ?? resolveVisitedPresentationState(location, ownership, enriched);
   if (!st.showHeroOverlay) return '';
 
+  const isVisited = st.isVisited;
   const visitRelevance = st.visitRelevance;
 
-  // P-POPUP-7B fix — los tokens `--state-success`, `--text-secondary`,
-  // `--surface-border` NO existen en `src/index.css`. Sin fallback el stroke
-  // de los SVG queda inválido y el overlay se ve como un pill vacío sobre la
-  // hero (efectivamente invisible). Usamos `tk(token, legacy)` para que los
-  // valores se resuelvan siempre, igual que en el resto del archivo.
-  const checkColor = tk('hsl(var(--state-success))', '#16a34a');
+  // Tokens con fallback (los `--state-*` no existen en index.css y el stroke
+  // SVG quedaría vacío sin fallback hex).
+  const visitedColor = tk('hsl(var(--state-success))', '#16a34a');
+  const pendingColor = tk('hsl(var(--text-secondary))', '#475569');
   const verifiedColor = tk('hsl(var(--text-secondary))', '#475569');
-  const bg = tk('hsl(var(--background) / 0.85)', 'rgba(255,255,255,0.92)');
-  const borderColor = tk('hsl(var(--surface-border) / 0.6)', 'rgba(15,23,42,0.18)');
+  const bg = tk('hsl(var(--background) / 0.92)', 'rgba(255,255,255,0.95)');
+  const borderColor = tk('hsl(var(--surface-border) / 0.6)', 'rgba(15,23,42,0.2)');
+
+  const iconColor = isVisited ? visitedColor : pendingColor;
+  const labelText = isVisited ? 'Visitado' : 'Pendiente';
+  const iconHtml = isVisited
+    ? svgIcon('check', { size: 14, color: iconColor })
+    // `circle` icon (Lucide) — outlined empty ring for "Pendiente".
+    : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>`;
 
   let verifiedSvg = '';
   let titleSuffix = '';
-  if (visitRelevance) {
+  if (isVisited && visitRelevance) {
     const iconKey: keyof typeof SVG_PATHS = visitRelevance.verificationType === 'photo' ? 'camera' : 'mapPin';
-    verifiedSvg = svgIcon(iconKey, { size: 14, color: verifiedColor });
+    verifiedSvg = svgIcon(iconKey, { size: 12, color: verifiedColor });
     titleSuffix = ` · ${visitRelevance.label} (${formatTimeAgo(visitRelevance.daysAgo)})`;
   }
 
-  const title = `Visitado${titleSuffix} · click para quitar`;
-  return `<button class="popup-action-btn" data-action="toggle-visited" data-location-id="${location.id}" data-visited-hero-overlay="true" aria-label="${title}" title="${title}" style="position: absolute; bottom: 8px; left: 8px; z-index: 2; pointer-events: auto; display: inline-flex; align-items: center; gap: 4px; padding: 5px 7px; background: ${bg}; border: 1px solid ${borderColor}; border-radius: 9999px; cursor: pointer; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 1px 4px rgba(0,0,0,0.18); line-height: 0;">${svgIcon('check', { size: 16, color: checkColor })}${verifiedSvg}</button>`;
+  const title = isVisited
+    ? `Visitado${titleSuffix} · click para marcar como pendiente`
+    : 'Pendiente · click para marcar como visitado';
+  const labelColor = isVisited ? visitedColor : pendingColor;
+
+  return `<button class="popup-action-btn" data-action="toggle-visited" data-location-id="${location.id}" data-visited-hero-overlay="true" data-visited-state="${isVisited ? 'visited' : 'pending'}" aria-label="${title}" title="${title}" style="position: absolute; bottom: 8px; left: 8px; z-index: 2; pointer-events: auto; display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 8px; background: ${bg}; border: 1px solid ${borderColor}; border-radius: 9999px; cursor: pointer; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 1px 4px rgba(0,0,0,0.18); font-size: 11px; font-weight: 600; line-height: 1; color: ${labelColor};">${iconHtml}<span>${labelText}</span>${verifiedSvg}</button>`;
 }
 
 // ─── Image Section ───────────────────────────────────────────────────────────
