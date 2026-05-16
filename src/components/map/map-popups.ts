@@ -1609,7 +1609,7 @@ ${location.description}
 </div>
 ` : ''}
 
-${buildPersonalStateBlock(location, { isOwn, isCuratorPoint, canEditLocation, heroOverlayActive: isVisitedHeroOverlayActive(location, ownershipInfo) })}
+${buildPersonalStateBlock(location, { isOwn, isCuratorPoint, canEditLocation, heroOverlayActive: isVisitedHeroOverlayActive(location, ownershipInfo, null) })}
 
 ${isNearbyPopupContext(location.id) ? '' : buildSourceHashtagsBlock(location, ownership)}
 ${isNearbyPopupContext(location.id) ? '' : buildCollectionChipsPlaceholder(location)}
