@@ -90,6 +90,27 @@ function isPopupGeoCanonicalV1On(): boolean {
   return POPUP_GEO_CANONICAL_V1_DEFAULT;
 }
 
+// ─── P-POPUP-3A Feature Flag (ownership strip) ──────────────────────────────
+// Own enriched popups: hide redundant ownership badge ("Mi punto") + own
+// `#username` chip; render a single compact line `Añadido dd/mm/yyyy`
+// immediately under the geo header. followed/app/source popups are
+// untouched. SourceFilterBridge contract intact.
+//
+// Default: **true** (rollout global, conforme docs/governance/rollout-policy.md).
+// Kill-switch global runtime (rollback/debug, sin segmentación): set
+// `window.__POPUP_OWNERSHIP_STRIP_V1__ = false` BEFORE opening the popup.
+// See docs/popups/p-popup-3-ownership-cleanup-plan.md.
+const POPUP_OWNERSHIP_STRIP_V1_DEFAULT = true;
+export function isPopupOwnershipStripV1On(): boolean {
+  try {
+    const w = (typeof window !== 'undefined' ? (window as any) : null);
+    if (w && typeof w.__POPUP_OWNERSHIP_STRIP_V1__ === 'boolean') {
+      return w.__POPUP_OWNERSHIP_STRIP_V1__;
+    }
+  } catch { /* SSR / restricted env */ }
+  return POPUP_OWNERSHIP_STRIP_V1_DEFAULT;
+}
+
 /**
  * P2-FIX-B — Temporary deployment signal visible in preview/staging.
  * `import.meta.env.DEV` is false in Lovable preview (built like prod), so the
