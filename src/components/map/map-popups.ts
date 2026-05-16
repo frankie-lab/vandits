@@ -731,14 +731,43 @@ export interface VisitedPresentationState {
 }
 
 /**
- * Resolve the hero display image URL using the SAME logic as
- * `buildImageSection`. Returns `''` when no image should render.
+ * P-POPUP-7B — SINGLE SOURCE OF TRUTH for "¿hay hero?" en el popup.
+ *
+ * Tanto `buildImageSection` (renderer) como `resolveVisitedPresentationState`
+ * (resolver del overlay visited) DEBEN consumir este helper. Cualquier futuro
+ * fallback de imagen debe añadirse SOLO aquí para impedir drift estructural.
+ *
+ * Contrato de `enriched` (idéntico al de `buildImageSection`):
+ *   - `undefined` → fallback a `location.enrichedData` (compat agnóstica).
+ *   - `null`      → rama legacy: NO se considera la imagen IA.
+ *   - objeto      → rama enriched: se usa `enriched.imagen` como AI image.
+ *
+ * Curator: el renderer renderiza una hero específica de curator y NO usa este
+ * helper para `displayImage`. El resolver tampoco lo necesita, porque el
+ * overlay visited está canónicamente off para curator (`isCurator` short-circuit
+ * en `resolveVisitedPresentationState`). Por simetría devolvemos `source:'curator'`
+ * cuando hay curatorId+algo renderizable, pero el consumer (overlay) lo ignora.
  */
-function resolveHeroDisplayImage(
+export type HeroImageSource = 'user' | 'ai' | 'curator' | null;
+export interface HeroImageResolution {
+  displayImage: string;        // '' si no hay
+  source: HeroImageSource;
+}
+
+export function resolveHeroImage(
   location: GeoLocation,
+  ownership: PopupOwnership | null | undefined,
   enriched: any,
-  ownership?: PopupOwnership | null,
-): string {
+): HeroImageResolution {
+  const enrichedSource = enriched === undefined ? (location.enrichedData as any) : enriched;
+  const aiImage = (enrichedSource?.imagen as string | undefined) || '';
+
+  // Curator path — paridad con `buildImageSection` curator branch.
+  if (ownership?.curatorId) {
+    const curatorImg = aiImage || ownership.curatorAvatar || '';
+    return { displayImage: curatorImg, source: curatorImg ? 'curator' : null };
+  }
+
   const userImageUrl = (location.customData?.user_image_url as string | undefined) || '';
   const visibility = (location.customData?.user_image_visibility as string) || 'private';
   const canSeeUserImage = !!userImageUrl && (
@@ -746,10 +775,10 @@ function resolveHeroDisplayImage(
     visibility === 'public' ||
     (visibility === 'followers' && !!ownership?.isFollowing)
   );
-  // `enriched === null` (legacy branch) intentionally suppresses AI fallback.
-  const enrichedSource = enriched === undefined ? (location.enrichedData as any) : enriched;
-  const aiImage = (enrichedSource?.imagen as string | undefined) || '';
-  return canSeeUserImage ? userImageUrl : aiImage;
+
+  if (canSeeUserImage) return { displayImage: userImageUrl, source: 'user' };
+  if (aiImage)         return { displayImage: aiImage,      source: 'ai' };
+  return { displayImage: '', source: null };
 }
 
 export function resolveVisitedPresentationState(
