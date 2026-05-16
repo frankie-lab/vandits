@@ -699,54 +699,119 @@ export function buildOwnEnrichedMetadataLineHtml(location: GeoLocation): string 
 </div>`;
 }
 
-// ─── P-POPUP-7B — Visited hero overlay ───────────────────────────────────
+// ─── P-POPUP-7B — Visited hero overlay (single source of truth) ──────────
 //
-// Overlay compacto (check + verified opcional, sin texto) en la esquina
-// inferior-izquierda de la hero image. Visible SÓLO cuando el POI está
-// marcado como visited y existe hero image. Clicable para quitar visited
-// (mismo handler `toggle-visited` que el bloque inferior).
+// `resolveVisitedPresentationState` es la ÚNICA fuente de verdad sobre el
+// estado visited del popup. Lo consumen TANTO `buildVisitedHeroOverlay`
+// COMO `buildPersonalStateBlock`, eliminando cualquier drift entre las
+// dos ramas (overlay sobre hero vs bloque inferior).
 //
-// Cuando este overlay está activo, el bloque inferior pierde su verified
-// badge (vive aquí) y la pill grande se reemplaza por una acción inline
-// discreta `✓ Visitado` — ver `buildPersonalStateBlock`.
+// Canon:
+//   - visited=true + hero válida → overlay visible sobre la hero
+//                                  + inline `✓ Visitado` discreto abajo
+//   - visited=false              → sin overlay
+//                                  + pill "Marcar visitado" en el bloque
+//   - verified badge             → SÓLO en el overlay (cuando hay hero)
+//
+// `enriched` se acepta como en `buildImageSection`:
+//   - `undefined`  → fallback a `location.enrichedData` (compat agnóstica).
+//   - `null`       → rama legacy: NO se considera la imagen IA.
+//   - objeto       → rama enriched: se usa `enriched.imagen` como AI image.
 
-export function isVisitedHeroOverlayActive(
+export interface VisitedPresentationState {
+  isVisited: boolean;
+  hasHero: boolean;
+  isCurator: boolean;
+  isNearby: boolean;
+  visitRelevance: ReturnType<typeof calculateVisitRelevance>;
+  showHeroOverlay: boolean;
+  showInlineVisited: boolean;
+  showVisitedPill: boolean;
+  showVerifiedOnHero: boolean;
+}
+
+/**
+ * Resolve the hero display image URL using the SAME logic as
+ * `buildImageSection`. Returns `''` when no image should render.
+ */
+function resolveHeroDisplayImage(
   location: GeoLocation,
+  enriched: any,
   ownership?: PopupOwnership | null,
-  enriched?: any,
-): boolean {
-  if (!location) return false;
-  if (location.customData?.visited !== 'true') return false;
-  if (ownership?.curatorId) return false;
-  if (isNearbyPopupContext(location.id)) return false;
-
-  const userImageUrl = location.customData?.user_image_url as string | undefined;
+): string {
+  const userImageUrl = (location.customData?.user_image_url as string | undefined) || '';
   const visibility = (location.customData?.user_image_visibility as string) || 'private';
   const canSeeUserImage = !!userImageUrl && (
     !!ownership?.isOwn ||
     visibility === 'public' ||
     (visibility === 'followers' && !!ownership?.isFollowing)
   );
-  // Mirror buildImageSection: legacy branch passes `enriched=null`, so the AI
-  // image is intentionally not displayed and the overlay should not appear
-  // when there is no user image either.
+  // `enriched === null` (legacy branch) intentionally suppresses AI fallback.
   const enrichedSource = enriched === undefined ? (location.enrichedData as any) : enriched;
   const aiImage = (enrichedSource?.imagen as string | undefined) || '';
-  const displayImage = canSeeUserImage ? userImageUrl : aiImage;
-  return !!displayImage;
+  return canSeeUserImage ? userImageUrl : aiImage;
+}
+
+export function resolveVisitedPresentationState(
+  location: GeoLocation,
+  ownership?: PopupOwnership | null,
+  enriched?: any,
+): VisitedPresentationState {
+  const isVisited = location?.customData?.visited === 'true';
+  const isCurator = !!ownership?.curatorId;
+  const isNearby = !!location && isNearbyPopupContext(location.id);
+  const hasHero = !!resolveHeroDisplayImage(location, enriched, ownership);
+  const visitRelevance = isVisited
+    ? calculateVisitRelevance(
+        location?.customData?.visited_verified_at,
+        location?.customData?.oldest_geotagged_photo_date,
+      )
+    : null;
+
+  // Canon: overlay sólo si visited + hero válida + no curator + no nearby.
+  const showHeroOverlay = isVisited && hasHero && !isCurator && !isNearby;
+  // Inline discreto SOLO cuando el overlay también está activo (jerarquía).
+  const showInlineVisited = showHeroOverlay;
+  // Pill grande sólo cuando NO hay overlay (no visited o sin hero).
+  const showVisitedPill = !isCurator && !isNearby && !showHeroOverlay;
+  // Verified badge vive sólo en el overlay del hero.
+  const showVerifiedOnHero = showHeroOverlay && !!visitRelevance;
+
+  return {
+    isVisited,
+    hasHero,
+    isCurator,
+    isNearby,
+    visitRelevance,
+    showHeroOverlay,
+    showInlineVisited,
+    showVisitedPill,
+    showVerifiedOnHero,
+  };
+}
+
+/**
+ * Compat wrapper: returns the single `showHeroOverlay` flag from the
+ * presentation state. Same args as before.
+ */
+export function isVisitedHeroOverlayActive(
+  location: GeoLocation,
+  ownership?: PopupOwnership | null,
+  enriched?: any,
+): boolean {
+  return resolveVisitedPresentationState(location, ownership, enriched).showHeroOverlay;
 }
 
 export function buildVisitedHeroOverlay(
   location: GeoLocation,
   ownership?: PopupOwnership | null,
   enriched?: any,
+  state?: VisitedPresentationState,
 ): string {
-  if (!isVisitedHeroOverlayActive(location, ownership, enriched)) return '';
+  const st = state ?? resolveVisitedPresentationState(location, ownership, enriched);
+  if (!st.showHeroOverlay) return '';
 
-  const visitRelevance = calculateVisitRelevance(
-    location.customData?.visited_verified_at,
-    location.customData?.oldest_geotagged_photo_date,
-  );
+  const visitRelevance = st.visitRelevance;
 
   // P-POPUP-7B fix — los tokens `--state-success`, `--text-secondary`,
   // `--surface-border` NO existen en `src/index.css`. Sin fallback el stroke
@@ -776,6 +841,7 @@ export function buildImageSection(
   location: GeoLocation,
   enriched: any,
   ownership: PopupOwnership,
+  visitedState?: VisitedPresentationState,
 ): string {
   // For curator points: prioritize enriched image, then curator avatar, then icon
   if (ownership.curatorId) {
@@ -931,7 +997,7 @@ title="${hasUserImage ? 'Cambiar foto' : 'Añadir foto'}"
   return `<div style="margin: 0 -12px 0 -12px; position: relative;">
 ${imageHtml}
 ${buttonHtml}
-${buildVisitedHeroOverlay(location, ownership, enriched)}
+${buildVisitedHeroOverlay(location, ownership, enriched, visitedState)}
 </div>`;
 }
 
@@ -1171,13 +1237,17 @@ Añadir a mi colección
       curatorAvatar: ownership?.curatorAvatar,
     };
 
+    // P-POPUP-7B (unificación) — single source of truth para el estado
+    // visited. Mismo objeto alimenta el overlay hero y el bloque inferior.
+    const visitedState = resolveVisitedPresentationState(location, ownershipInfo, enriched);
+
     return `
 <div id="${popupId}" data-popup-version="${isPopupGeoCanonicalV1On() ? 'geo-canonical-v1' : 'legacy'}" data-popup-geo-canonical="${isPopupGeoCanonicalV1On() ? 'true' : 'false'}" data-popup-ownership-strip="${(isOwn && isPopupOwnershipStripV1On()) ? 'v1' : 'legacy'}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: ${POPUP_MAX_HEIGHT}; overflow: hidden;">${isPopupDiagBadgeVisible() && isPopupGeoCanonicalV1On() ? `<div style="position: absolute; top: 4px; left: 4px; z-index: 10; padding: 2px 6px; border-radius: 4px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.85; pointer-events: none;" title="P-POPUP-2 canonical geo header + 4-bucket tag dedupe ACTIVE (preview/staging signal — will retire after ratification)">P-POPUP-2 ON</div>` : ''}${isPopupDiagBadgeVisible() && isOwn && isPopupOwnershipStripV1On() ? `<div style="position: absolute; top: 4px; left: 88px; z-index: 10; padding: 2px 6px; border-radius: 4px; background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.85; pointer-events: none;" title="P-POPUP-3A ownership-strip ACTIVE (own enriched only; preview/staging signal — will retire after ratification)">P-POPUP-3 ON</div>` : ''}
 ${statusBarHtml}
 
 <!-- Hero (fija, no participa en el scroll) -->
 <div style="flex-shrink: 0;">
-${buildImageSection(location, enriched, ownershipInfo)}
+${buildImageSection(location, enriched, ownershipInfo, visitedState)}
 </div>
 
 <!-- Cuerpo desplazable -->
@@ -1282,7 +1352,8 @@ ${(() => {
   // P-POPUP-7B — `heroOverlayActive` colapsa el bloque inferior a inline
   // `✓ Visitado` cuando el overlay sobre la hero está activo (visited + hay
   // hero image). El verified badge vive sólo en el overlay.
-  const heroOverlayActive = isVisitedHeroOverlayActive(location, ownershipInfo, enriched);
+  // P-POPUP-7B (unificación) — reutiliza el state ya resuelto arriba.
+  const heroOverlayActive = visitedState.showHeroOverlay;
   const personalStateCtx = { isOwn, isCuratorPoint, canEditLocation, heroOverlayActive };
   let personalStateRendered = false;
   const personalStateOnce = () => {
@@ -1550,6 +1621,10 @@ ${actionButtonsHtml}
     curatorAvatar: ownership?.curatorAvatar,
   };
 
+  // P-POPUP-7B (unificación) — single source of truth para el estado
+  // visited en la rama legacy (enriched=null intencional).
+  const visitedStateLegacy = resolveVisitedPresentationState(location, ownershipInfo, null);
+
   const filteredCustomData = Object.entries(location.customData || {})
     .filter(([key]) => !['user_image_url', 'user_image_visibility', 'has_notes', 'notes', 'visited', 'user_rating'].includes(key));
 
@@ -1569,7 +1644,7 @@ ${actionButtonsHtml}
 ${statusBarHtml}
 
 <div style="flex-shrink: 0;">
-${buildImageSection(location, null, ownershipInfo)}
+${buildImageSection(location, null, ownershipInfo, visitedStateLegacy)}
 </div>
 
 <div class="popup-scroll-body" style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;">
@@ -1619,7 +1694,7 @@ ${location.description}
 </div>
 ` : ''}
 
-${buildPersonalStateBlock(location, { isOwn, isCuratorPoint, canEditLocation, heroOverlayActive: isVisitedHeroOverlayActive(location, ownershipInfo, null) })}
+${buildPersonalStateBlock(location, { isOwn, isCuratorPoint, canEditLocation, heroOverlayActive: visitedStateLegacy.showHeroOverlay })}
 
 ${isNearbyPopupContext(location.id) ? '' : buildSourceHashtagsBlock(location, ownership)}
 ${isNearbyPopupContext(location.id) ? '' : buildCollectionChipsPlaceholder(location)}

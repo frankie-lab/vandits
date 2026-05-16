@@ -91,3 +91,68 @@ Ajustes visuales mínimos para discoverability (sin tocar canon: sin texto, esqu
 ### Canon intacto
 
 Overlay sólo si visited · sin texto · esquina inferior-izquierda · inline `✓ Visitado` debajo de descripción · mismo handler `toggle-visited` · verified sólo en overlay. Ninguna restricción tocada (taxonomy/collections/provenance/geo/lifecycle/marker grammar/F2/React migration/PopupShell/wishlist/pending).
+
+---
+
+## Post-merge fix #2 — Unificación: `resolveVisitedPresentationState`
+
+### Síntoma
+
+Tras el fix de tokens el overlay seguía sin verse en preview en POIs visited+enriched, mientras que el inline `✓ Visitado` SÍ aparecía bajo la descripción. Estado híbrido: las dos ramas no decidían "lo mismo" de forma garantizada.
+
+### Diagnóstico
+
+`buildVisitedHeroOverlay` (rama hero, llamado desde `buildImageSection`) e `isVisitedHeroOverlayActive` (rama bloque inferior, leído en `personalStateCtx.heroOverlayActive`) computaban de forma independiente:
+
+- Triple cálculo de `displayImage` (overlay + `buildImageSection` + ad-hoc en el bloque).
+- `enriched` se pasaba con tres semánticas distintas (`undefined` / `null` / objeto) y cada función reinterpretaba el fallback.
+- No había single source of truth: cualquier cambio futuro en una rama desincronizaba la otra sin que el test lo detectara.
+
+### Fix aplicado (canon intacto)
+
+Nuevo helper canonical en `src/components/map/map-popups.ts`:
+
+```ts
+resolveVisitedPresentationState(location, ownership, enriched): VisitedPresentationState
+```
+
+Devuelve la matriz completa:
+
+| Campo | Significado |
+|---|---|
+| `isVisited` | `customData.visited === 'true'` |
+| `hasHero` | hero image realmente renderizable (mismo cálculo que `buildImageSection`) |
+| `isCurator` | `ownership.curatorId` truthy |
+| `isNearby` | `isNearbyPopupContext(location.id)` |
+| `visitRelevance` | `calculateVisitRelevance(...)` si `isVisited` |
+| `showHeroOverlay` | `isVisited && hasHero && !isCurator && !isNearby` |
+| `showInlineVisited` | `=== showHeroOverlay` |
+| `showVisitedPill` | `!isCurator && !isNearby && !showHeroOverlay` |
+| `showVerifiedOnHero` | `showHeroOverlay && !!visitRelevance` |
+
+Acompañado de un helper privado `resolveHeroDisplayImage(location, enriched, ownership)` que centraliza el cómputo de `displayImage` (mismo algoritmo que `buildImageSection`, respetando la convención `enriched === null` para la rama legacy).
+
+- `isVisitedHeroOverlayActive` queda como wrapper de 1 línea: `resolveVisitedPresentationState(...).showHeroOverlay`.
+- `buildVisitedHeroOverlay` admite un parámetro opcional `state?: VisitedPresentationState` para reutilizar el estado ya resuelto sin recomputarlo.
+- `buildImageSection` admite el mismo parámetro y se lo propaga al overlay.
+- Los dos call sites de `createPopupContent` (rama enriched L1242 y rama legacy L1626) calculan el state **una sola vez** y lo comparten entre `buildImageSection` y `buildPersonalStateBlock` (`heroOverlayActive: visitedState.showHeroOverlay`).
+
+Resultado: imposible que el overlay y el bloque inferior tomen decisiones distintas — comparten el mismo objeto `VisitedPresentationState`.
+
+### Tests
+
+- Nuevo `src/test/popup-visited-presentation-state.test.ts` (9 casos): matriz canon + invariante `isVisitedHeroOverlayActive === state.showHeroOverlay` + respeto al `state` precomputado.
+- Suites previas intactas: `popup-visited-hero-overlay.test.ts` (16/16) y `popup-personal-state-hierarchy.test.ts` (11/11).
+- Total `bunx vitest run src/test/popup-visited-{hero-overlay,presentation-state}.test.ts src/test/popup-personal-state-hierarchy.test.ts` → **36/36 verde**.
+
+### Canon intacto
+
+- visited=true + hero válida → overlay visible + inline `✓ Visitado` discreto.
+- visited=false → sin overlay + pill "Marcar visitado".
+- verified sólo en overlay cuando hay hero.
+- rating sin cambios.
+- handlers, schema y realtime intactos.
+
+### Scope NO tocado
+
+P-POPUP-7C · P-POPUP-8 · taxonomy · collections · provenance · geo · lifecycle · marker grammar · F2 · React migration · PopupShell · wishlist/pending.
