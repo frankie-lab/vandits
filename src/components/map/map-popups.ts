@@ -1382,10 +1382,12 @@ ${(() => {
   const personalStateCtx = { isOwn, isCuratorPoint, canEditLocation, heroOverlayActive };
   const ratingFragment = buildPersonalStateBlock(location, personalStateCtx);
 
-  // Claves que el composer canónico extrae del flujo de `field_order`
-  // (su posición la decide el composer, no el switch).
+  // Claves cuya posición decide el composer canónico (NO `field_order`).
   const CANONICAL_KEYS = new Set(['descripcion', 'observacion']);
 
+  // (1) Extracción: el switch SOLO produce fragments por fieldKey.
+  //     Cero orquestación, cero side-effects ordinales.
+  const renderFragment = (fieldKey: string): string => {
     switch (fieldKey) {
       case 'nombre_lugar':
       case 'localizacion':
