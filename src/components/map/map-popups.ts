@@ -887,7 +887,9 @@ title="Quitar valoración"
 </div>
 </div>
 
-${buildSourceHashtagsBlock(location, ownership)}
+${(isOwn && isPopupOwnershipStripV1On())
+  ? buildOwnAddedLineHtml(location)
+  : buildSourceHashtagsBlock(location, ownership, { suppressOwn: false })}
 ${buildCollectionChipsPlaceholder(location)}
 ${buildPersonalTagsBlock(location)}
 
