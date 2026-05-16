@@ -548,3 +548,20 @@
 body.is-blocking-load .leaflet-container {
   pointer-events: none !important;
 }
+
+/* P-POPUP-7C — Hero chrome reduction.
+   Reveal-on-hover/focus para botones foto (upload/delete) en desktop.
+   En touch/mobile (sin hover capability) → siempre visibles (fallback seguro). */
+.popup-hero .popup-hero-controls {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.popup-hero:hover .popup-hero-controls,
+.popup-hero:focus-within .popup-hero-controls {
+  opacity: 1;
+}
+@media (hover: none) {
+  .popup-hero .popup-hero-controls {
+    opacity: 1;
+  }
+}
