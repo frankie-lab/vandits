@@ -865,7 +865,7 @@ export function buildVisitedHeroOverlay(
     : 'Pendiente · click para marcar como visitado';
   const labelColor = isVisited ? visitedColor : pendingColor;
 
-  return `<button class="popup-action-btn" data-action="toggle-visited" data-location-id="${location.id}" data-visited-hero-overlay="true" data-visited-state="${isVisited ? 'visited' : 'pending'}" aria-label="${title}" title="${title}" style="position: absolute; bottom: 8px; left: 8px; z-index: 2; pointer-events: auto; display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 8px; background: ${bg}; border: 1px solid ${borderColor}; border-radius: 9999px; cursor: pointer; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 1px 4px rgba(0,0,0,0.18); font-size: 11px; font-weight: 600; line-height: 1; color: ${labelColor};">${iconHtml}<span>${labelText}</span>${verifiedSvg}</button>`;
+  return `<button class="popup-action-btn popup-hero-visited-badge" data-action="toggle-visited" data-location-id="${location.id}" data-visited-hero-overlay="true" data-visited-state="${isVisited ? 'visited' : 'pending'}" aria-label="${title}" title="${title}" style="position: absolute; bottom: 6px; left: 6px; z-index: 2; pointer-events: auto; display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px 3px 6px; background: ${bg}; border: 1px solid ${borderColor}; border-radius: 9999px; cursor: pointer; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 1px 3px rgba(0,0,0,0.18); font-size: 10px; font-weight: 600; line-height: 1; color: ${labelColor};">${iconHtml}<span>${labelText}</span>${verifiedSvg}</button>`;
 }
 
 // ─── Image Section ───────────────────────────────────────────────────────────
