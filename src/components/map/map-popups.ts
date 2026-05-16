@@ -994,10 +994,38 @@ title="${hasUserImage ? 'Cambiar foto' : 'Añadir foto'}"
 </div>`;
   }
 
-  return `<div style="margin: 0 -12px 0 -12px; position: relative;">
+  const __overlayHtml = buildVisitedHeroOverlay(location, ownership, enriched, visitedState);
+
+  // P-POPUP-7B DEV PROBE — dev-only, removed in fix commit. No UX impact.
+  if (import.meta.env.DEV && typeof window !== 'undefined') {
+    const state = visitedState ?? resolveVisitedPresentationState(location, ownership, enriched);
+    const probe = {
+      id: location.id,
+      name: location.name,
+      branch: enriched === null ? 'legacy' : 'enriched',
+      state,
+      isCuratorPoint: !!ownership.curatorId,
+      isNearbyPopupContext: isNearbyPopupContext(location.id),
+      heroDisplayImage: resolveHeroDisplayImage(location, enriched, ownership) || null,
+      imageHtmlEmitted: !!imageHtml,
+      imageHtmlSample: imageHtml ? imageHtml.slice(0, 80) : null,
+      overlayHtmlEmitted: !!__overlayHtml,
+      overlayHtmlLength: __overlayHtml.length,
+    };
+    (window as any).__lastVisitedState = probe;
+    const log = (window as any).__visitedStateLog ?? [];
+    log.push(probe);
+    if (log.length > 20) log.shift();
+    (window as any).__visitedStateLog = log;
+    (window as any).__resolveVisitedPresentationState = resolveVisitedPresentationState;
+    // eslint-disable-next-line no-console
+    console.log('[P-POPUP-7B probe]', probe);
+  }
+
+  return `<div data-hero-wrapper="true" style="margin: 0 -12px 0 -12px; position: relative;">
 ${imageHtml}
 ${buttonHtml}
-${buildVisitedHeroOverlay(location, ownership, enriched, visitedState)}
+${__overlayHtml}
 </div>`;
 }
 
