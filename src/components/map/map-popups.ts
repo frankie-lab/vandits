@@ -1827,3 +1827,49 @@ ${actionButtonsHtml}
 </div>
 `;
 }
+
+// P-POPUP-7B DEV AUTODIAGNOSIS — module-level, dev-only. Removed in fix commit.
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  (async () => {
+    try {
+      const mod = await import('@/domains/content/store/locations-store');
+      const store: any = (mod as any).useLocationsStore;
+      const run = () => {
+        const locs: any[] = store.getState().locations || [];
+        const visited = locs.filter(l => l?.customData?.visited === 'true');
+        const enriched = visited.filter(l => !!l?.enrichedData?.descripcion);
+        const ownership = { isOwn: true, isFollowing: false } as any;
+        const rows = enriched.slice(0, 30).map((l: any) => {
+          const st = resolveVisitedPresentationState(l, ownership, l.enrichedData);
+          return {
+            id: l.id, name: l.name,
+            userImg: !!l.customData?.user_image_url,
+            aiImg: !!l.enrichedData?.imagen,
+            visibility: l.customData?.user_image_visibility ?? null,
+            ...st,
+          };
+        });
+        const summary = {
+          totalLocations: locs.length,
+          visitedCount: visited.length,
+          visitedEnrichedCount: enriched.length,
+          overlayActiveCount: rows.filter(r => r.showHeroOverlay).length,
+          inlineActiveCount: rows.filter(r => r.showInlineVisited).length,
+          sampleRows: rows,
+        };
+        (window as any).__diag7B = summary;
+        // eslint-disable-next-line no-console
+        console.log('[P-POPUP-7B autodiag]', JSON.stringify(summary));
+      };
+      let tries = 0;
+      const tick = () => {
+        const locs = store.getState().locations || [];
+        if (locs.length > 0 || tries++ > 30) return run();
+        setTimeout(tick, 1000);
+      };
+      tick();
+    } catch (e) {
+      console.warn('[P-POPUP-7B autodiag] failed', e);
+    }
+  })();
+}
