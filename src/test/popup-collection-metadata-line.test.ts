@@ -54,7 +54,7 @@ describe('P-POPUP-4E — buildCollectionsMetadataSegment', () => {
     __setCollections('p1', [{ id: 'c1', name: 'Atlas Obscura España' }]);
     const html = buildCollectionsMetadataSegment(poi('p1'));
     expect(html).toContain('Atlas Obscura España');
-    expect(html).toContain('M5v14');
+    expect(html).toContain('m19 21-7-4-7 4V5');
     // Sin pill/hashtag/color de colección.
     expect(html).not.toContain('border-radius');
     expect(html).not.toContain('#');
