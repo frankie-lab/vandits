@@ -52,6 +52,19 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
           VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID }}
 
+      - name: Ensure E2E fixture (sandbox user catalog has imported + empty POIs)
+        # Garantiza que `sandbox-agent@vandits.test` tiene ≥1 POI por
+        # cada `visualState` para que el contrato del selector
+        # (count===0 && !active ⇒ disabled) no bloquee filas en la suite
+        # camera-qa. Idempotente: usa IDs deterministas + upsert.
+        # NO requiere service_role — autentica con anon key + password.
+        run: bunx --bun bun scripts/e2e/ensure-test-fixture.ts || npx tsx scripts/e2e/ensure-test-fixture.ts
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+
       - name: Run E2E tests
         run: npx playwright test
         env:
