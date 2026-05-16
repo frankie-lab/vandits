@@ -7,6 +7,14 @@ const __dirname = dirname(__filename);
 
 const STORAGE_STATE = resolve(__dirname, 'e2e/.auth/user.json');
 
+const IS_CI = !!process.env.CI;
+const DEFAULT_BASE_URL = IS_CI
+  ? 'http://127.0.0.1:4173'
+  : 'http://127.0.0.1:8080';
+const WEB_SERVER_COMMAND = IS_CI
+  ? 'npm run preview -- --host 127.0.0.1 --port 4173'
+  : 'npm run dev -- --host 127.0.0.1 --port 8080';
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -19,7 +27,7 @@ export default defineConfig({
   // error claro y la suite no arranca. Ver docs/qa/e2e-camera-qa.md.
   globalSetup: './e2e/global-setup.ts',
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || DEFAULT_BASE_URL,
     trace: 'on-first-retry',
   },
   projects: [
@@ -42,8 +50,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
+    command: WEB_SERVER_COMMAND,
+    url: DEFAULT_BASE_URL,
+    timeout: 120_000,
+    reuseExistingServer: !IS_CI,
+    stdout: 'pipe',
+    stderr: 'pipe',
   },
 });
