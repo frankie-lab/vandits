@@ -739,8 +739,9 @@ export function isVisitedHeroOverlayActive(
 export function buildVisitedHeroOverlay(
   location: GeoLocation,
   ownership?: PopupOwnership | null,
+  enriched?: any,
 ): string {
-  if (!isVisitedHeroOverlayActive(location, ownership)) return '';
+  if (!isVisitedHeroOverlayActive(location, ownership, enriched)) return '';
 
   const visitRelevance = calculateVisitRelevance(
     location.customData?.visited_verified_at,
