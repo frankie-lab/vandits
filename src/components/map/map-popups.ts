@@ -507,7 +507,8 @@ export function buildSourceMetadataLineHtml(
     ? `vía ${chips.join(' <span aria-hidden="true">·</span> ')}`
     : '';
 
-  const segments = [datePart, viaSegment].filter(Boolean);
+  const collectionsSeg = buildCollectionsMetadataSegment(location);
+  const segments = [datePart, collectionsSeg, viaSegment].filter(Boolean);
   if (segments.length === 0) return '';
 
   const inner = segments.join(' <span aria-hidden="true">·</span> ');
