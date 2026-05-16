@@ -1,12 +1,43 @@
 # P-POPUP-4A — Source / Provenance cleanup (rama A enriched)
 
-Status: **IMPLEMENTED — pending preview ratification (2026-05-16, incluye fix 4A.1 own+provenance fusion)**.
-Companion plan: [`./p-popup-4a-source-provenance-cleanup-plan.md`](./p-popup-4a-source-provenance-cleanup-plan.md).
+Status: **INERTE EN PRODUCCIÓN — premisa revisada 2026-05-16**. El
+código y los tests del pilot v1 + fix 4A.1 quedan en árbol como base
+correcta para el día en que exista provenance estructurada en BD, pero
+NO resuelven el chip `#AtlasObscura_España` reportado por QA. Cleanup
+real reasignada a P-POPUP-4B (collection dedup) y P-POPUP-4C
+(import-origin demote).
+Companion plan: [`./p-popup-4a-source-provenance-cleanup-plan.md`](./p-popup-4a-source-provenance-cleanup-plan.md) (REESCRITO).
+Memoria ontológica: [`mem://logic/popup/provenance-vs-collection-vs-tag`](mem://logic/popup/provenance-vs-collection-vs-tag).
 Rollout governance: [`../governance/rollout-policy.md`](../governance/rollout-policy.md).
 
 ---
 
-## 0. Fix 4A.1 — Ownership y provenance NO son excluyentes
+## 0.bis Premisa revisada (2026-05-16)
+
+Auditoría de datos sobre 5447 `locations`:
+
+- 1757 POIs tienen `custom_data.source = atlas_obscura`.
+- 1703 POIs llevan `#AtlasObscura` en `custom_data.tags` (inyectado por
+  `scrape-tick`).
+- 23 POIs llevan literal "atlas obscura" en
+  `enriched_data.etiquetas_personales`.
+- 9 colecciones contienen "atlas" en el nombre.
+- **0 filas** tienen columnas `source_kind`/`source_id`/`group_id`
+  pobladas → `readPoiProvenance` retorna `null` siempre →
+  `buildOwnEnrichedMetadataLineHtml` degrada a `buildOwnAddedLineHtml`.
+
+Conclusión: el chip que el usuario ve no proviene de
+`buildSourceHashtagsBlock`, viene de `LocationCollectionChips`
+(colección curada por el usuario) y/o `buildPersonalTagsBlock`
+(personal tag legacy). Ver ontología canónica en
+[`mem://logic/popup/provenance-vs-collection-vs-tag`](mem://logic/popup/provenance-vs-collection-vs-tag).
+
+El flag `POPUP_SOURCE_METADATA_V1_DEFAULT = true` permanece ON. El
+kill-switch global sigue disponible. Sin revert.
+
+---
+
+## 0. Fix 4A.1 — Ownership y provenance NO son excluyentes (HISTÓRICO — sin efecto visible)
 
 **Regresión detectada en QA**: en POIs `own enriched` adoptados desde una
 fuente externa (Atlas Obscura, OSM…), el dispatch tomaba la rama
