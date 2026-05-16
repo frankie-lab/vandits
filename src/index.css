@@ -542,8 +542,31 @@ body.is-blocking-load .leaflet-container {
   pointer-events: none !important;
 }
 
+/* P-POPUP-7D — Hero chrome safe-area (canon transversal).
+   Contrato único para CUALQUIER overlay flotante sobre .popup-hero
+   (badge visited, controles foto, curator avatar, futuros menús/badges).
+   Ningún componente vuelve a hardcodear bottom/left/right/top sobre la hero.
+   Si cambia el border-radius del popup wrapper, se ajusta el token y todos
+   los overlays se reubican a la vez. */
+.popup-hero { position: relative; }
+
+.popup-hero-chrome {
+  position: absolute;
+  z-index: 2;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--popup-hero-chrome-gap, 8px);
+}
+.popup-hero-chrome--tl { top:    var(--popup-hero-chrome-inset, 12px); left:  var(--popup-hero-chrome-inset, 12px); }
+.popup-hero-chrome--tr { top:    var(--popup-hero-chrome-inset, 12px); right: var(--popup-hero-chrome-inset, 12px); }
+.popup-hero-chrome--bl { bottom: var(--popup-hero-chrome-inset, 12px); left:  var(--popup-hero-chrome-inset, 12px); }
+.popup-hero-chrome--br { bottom: var(--popup-hero-chrome-inset, 12px); right: var(--popup-hero-chrome-inset, 12px); }
+
 /* P-POPUP-7C — Hero chrome reduction.
    Reveal-on-hover/focus para botones foto (upload/delete) en desktop.
+   .popup-hero-controls gobierna OPACIDAD/visibilidad.
+   .popup-hero-chrome--br gobierna POSICIÓN. Se combinan en el mismo nodo.
    En touch/mobile (sin hover capability) → siempre visibles (fallback seguro). */
 .popup-hero .popup-hero-controls {
   opacity: 0;

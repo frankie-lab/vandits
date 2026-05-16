@@ -841,8 +841,9 @@ export function buildVisitedHeroOverlay(
   // Verified queda diferido (ver docs/popups/p-popup-7d-validation.md).
   const visitedColor = tk('hsl(var(--state-success))', '#16a34a');
   const pendingColor = tk('hsl(var(--text-primary))', '#ffffff');
-  const bg = 'rgba(0,0,0,0.38)';
-  const borderColor = 'rgba(255,255,255,0.25)';
+  // P-POPUP-7D safe-area: contraste reforzado contra fotos claras.
+  const bg = 'rgba(0,0,0,0.5)';
+  const borderColor = 'rgba(255,255,255,0.4)';
 
   const iconColor = isVisited ? visitedColor : pendingColor;
   const iconHtml = isVisited
@@ -861,7 +862,9 @@ export function buildVisitedHeroOverlay(
     ? `Visitado${titleSuffix} · click para quitar`
     : 'Pendiente · click para marcar visitado';
 
-  return `<button class="popup-action-btn popup-hero-visited-badge" data-action="toggle-visited" data-location-id="${location.id}" data-visited-hero-overlay="true" data-visited-state="${isVisited ? 'visited' : 'pending'}" aria-label="${title}" title="${title}" style="position: absolute; bottom: 6px; left: 6px; z-index: 2; pointer-events: auto; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; background: ${bg}; border: 1px solid ${borderColor}; border-radius: 9999px; cursor: pointer; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 1px 2px rgba(0,0,0,0.25); line-height: 0;">${iconHtml}</button>`;
+  // P-POPUP-7D — Posición delegada a .popup-hero-chrome--bl (safe-area canónica).
+  // NO añadir position/bottom/left/top/right inline aquí — guardrail anti-regresión.
+  return `<button class="popup-action-btn popup-hero-visited-badge popup-hero-chrome popup-hero-chrome--bl" data-action="toggle-visited" data-location-id="${location.id}" data-visited-hero-overlay="true" data-visited-state="${isVisited ? 'visited' : 'pending'}" aria-label="${title}" title="${title}" style="width: 24px; height: 24px; padding: 0; background: ${bg}; border: 1px solid ${borderColor}; border-radius: 9999px; cursor: pointer; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 1px 3px rgba(0,0,0,0.45); line-height: 0; justify-content: center;">${iconHtml}</button>`;
 }
 
 // ─── Image Section ───────────────────────────────────────────────────────────
@@ -882,20 +885,15 @@ export function buildImageSection(
     const imageUrl = enriched?.imagen || ownership.curatorAvatar;
 
     if (imageUrl) {
-      return `<div style="margin: 0 -12px 0 -12px; position: relative;">
-<div style="width: 100%; height: 160px; position: relative; overflow: hidden;">
+      return `<div style="margin: 0 -12px 0 -12px;">
+<div class="popup-hero" style="width: 100%; height: 160px; overflow: hidden;">
 <img src="${imageUrl}" alt="${enriched?.imagen ? 'Ubicación' : 'Curador'}" style="width: 100%; height: 100%; object-fit: cover;" />
-<!-- Curator icon overlay in corner -->
-<div style="
-position: absolute;
-bottom: 8px;
-right: 8px;
+<!-- Curator icon overlay — posición vía safe-area canónica (P-POPUP-7D) -->
+<div class="popup-hero-chrome popup-hero-chrome--br" style="
 width: 40px;
 height: 40px;
 background: rgba(255,255,255,0.95);
 border-radius: 50%;
-display: flex;
-align-items: center;
 justify-content: center;
 box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 border: 2px solid ${curatorColor};
@@ -980,7 +978,7 @@ title="Buscar o subir una imagen"
   if (ownership.isOwn) {
     const hasUserImage = !!userImageUrl;
     buttonHtml = `
-<div class="popup-hero-controls" style="position: absolute; bottom: 12px; right: 16px; display: flex; gap: 8px;">
+<div class="popup-hero-controls popup-hero-chrome popup-hero-chrome--br">
 ${hasUserImage ? `
 <button 
 class="popup-action-btn" 
