@@ -703,13 +703,13 @@ ${localizacionLinks}
 ${addToCollectionBtnHtml}
 
 <!-- Índice IA + Botones de interacción -->
-<div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px; padding: 8px; background: #f9fafb; border-radius: 8px;">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px; padding: 8px; background: ${tk('hsl(var(--surface-muted))', '#f9fafb')}; border-radius: 8px;">
 ${!isCuratorPoint ? `
 <!-- Warning de validación (oculto por defecto) -->
-<div id="visit-validation-warning-${location.id}" style="display: none; width: 100%; padding: 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1px solid #fcd34d; border-radius: 8px; margin-bottom: 4px;">
-<p style="margin: 0 0 4px 0; font-size: 11px; font-weight: 600; color: #92400e;">No se puede validar la visita</p>
-<p id="visit-distance-text-${location.id}" style="margin: 0 0 6px 0; font-size: 10px; color: #a16207;"></p>
-<div style="font-size: 9px; color: #78350f; border-top: 1px solid #fcd34d; padding-top: 6px;">
+<div id="visit-validation-warning-${location.id}" style="display: none; width: 100%; padding: 8px; background: ${tk('hsl(var(--state-warning) / 0.2)', 'linear-gradient(135deg, #fef3c7, #fde68a)')}; border: 1px solid ${tk('hsl(var(--state-warning) / 0.5)', '#fcd34d')}; border-radius: 8px; margin-bottom: 4px;">
+<p style="margin: 0 0 4px 0; font-size: 11px; font-weight: 600; color: ${tk('hsl(var(--state-warning))', '#92400e')};">No se puede validar la visita</p>
+<p id="visit-distance-text-${location.id}" style="margin: 0 0 6px 0; font-size: 10px; color: ${tk('hsl(var(--state-warning))', '#a16207')};"></p>
+<div style="font-size: 9px; color: ${tk('hsl(var(--state-warning))', '#78350f')}; border-top: 1px solid ${tk('hsl(var(--state-warning) / 0.5)', '#fcd34d')}; padding-top: 6px;">
 <p style="margin: 0 0 3px 0; font-weight: 500;">Criterios de validación:</p>
 <ul style="margin: 0; padding-left: 14px;">
 <li>Estar a menos de 500m del lugar</li>
@@ -726,20 +726,20 @@ ${isCuratorPoint ? `
 class="weighted-rating-container" 
 data-location-id="${location.id}" 
 data-ai-rating="${enriched.indice_interes || 0}"
-style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 1px solid #86efac; border-radius: 12px;"
+style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: ${tk('hsl(var(--state-success) / 0.12)', 'linear-gradient(135deg, #f0fdf4, #dcfce7)')}; border: 1px solid ${tk('hsl(var(--state-success) / 0.4)', '#86efac')}; border-radius: 12px;"
 title="Rating ponderado: 50% IA + 50% Comunidad"
 >
-<span style="font-size: 10px; font-weight: 500; color: #166534;">Valoración</span>
+<span style="font-size: 10px; font-weight: 500; color: ${tk('hsl(var(--state-success))', '#166534')};">Valoración</span>
 <span class="weighted-rating-stars" style="display: inline-flex; gap: 1px;">
-${[1, 2, 3, 4, 5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= (enriched.indice_interes || 0) ? '#16a34a' : '#d1d5db'};">${star <= (enriched.indice_interes || 0) ? '★' : '☆'}</span>`).join('')}
+${[1, 2, 3, 4, 5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= (enriched.indice_interes || 0) ? tk('hsl(var(--state-success))', '#16a34a') : tk('hsl(var(--surface-border))', '#d1d5db')};">${star <= (enriched.indice_interes || 0) ? '★' : '☆'}</span>`).join('')}
 </span>
-<span class="weighted-rating-value" style="font-size: 10px; font-weight: 600; color: #166534;">${enriched.indice_interes ? enriched.indice_interes.toFixed(1) : '-'}</span>
-<span class="weighted-rating-breakdown" style="font-size: 9px; color: #6b7280; display: none;">(IA: ${enriched.indice_interes || '-'} | Com: -)</span>
+<span class="weighted-rating-value" style="font-size: 10px; font-weight: 600; color: ${tk('hsl(var(--state-success))', '#166534')};">${enriched.indice_interes ? enriched.indice_interes.toFixed(1) : '-'}</span>
+<span class="weighted-rating-breakdown" style="font-size: 9px; color: ${tk('hsl(var(--text-secondary))', '#6b7280')}; display: none;">(IA: ${enriched.indice_interes || '-'} | Com: -)</span>
 </div>
 ` : `
 ${enriched.indice_interes ? `
-<div style="display: inline-flex; align-items: center; gap: 2px; padding: 3px 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés IA'}">
-${[1, 2, 3, 4, 5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= enriched.indice_interes ? '#b45309' : '#d1d5db'};">${star <= enriched.indice_interes ? '★' : '☆'}</span>`).join('')}
+<div style="display: inline-flex; align-items: center; gap: 2px; padding: 3px 8px; background: ${tk('hsl(var(--state-warning) / 0.2)', 'linear-gradient(135deg, #fef3c7, #fde68a)')}; border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés IA'}">
+${[1, 2, 3, 4, 5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= enriched.indice_interes ? tk('hsl(var(--state-warning))', '#b45309') : tk('hsl(var(--surface-border))', '#d1d5db')};">${star <= enriched.indice_interes ? '★' : '☆'}</span>`).join('')}
 </div>
 ` : ''}
 `}
@@ -757,7 +757,7 @@ ${visitRelevance.label}
 class="popup-action-btn" 
 data-action="toggle-visited" 
 data-location-id="${location.id}"
-style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: ${isVisited ? '#dcfce7' : (!isOwn ? '#eff6ff' : '#fff')}; color: ${isVisited ? '#166534' : (!isOwn ? '#1d4ed8' : '#6b7280')}; border: 1px solid ${isVisited ? '#86efac' : (!isOwn ? '#93c5fd' : '#e5e7eb')}; border-radius: 12px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
+style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: ${isVisited ? tk('hsl(var(--state-success) / 0.12)', '#dcfce7') : (!isOwn ? tk('hsl(var(--state-loading) / 0.12)', '#eff6ff') : tk('hsl(var(--surface-card))', '#fff'))}; color: ${isVisited ? tk('hsl(var(--state-success))', '#166534') : (!isOwn ? tk('hsl(var(--state-loading))', '#1d4ed8') : tk('hsl(var(--text-secondary))', '#6b7280'))}; border: 1px solid ${isVisited ? tk('hsl(var(--state-success) / 0.4)', '#86efac') : (!isOwn ? tk('hsl(var(--state-loading) / 0.4)', '#93c5fd') : tk('hsl(var(--surface-border))', '#e5e7eb'))}; border-radius: 12px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
 title="${isVisited ? 'Click para desmarcar' : (!isOwn ? 'Se añadirá a tu colección automáticamente' : 'Requiere estar a menos de 500m o subir foto con GPS')}"
 >
 <svg width="10" height="10" viewBox="0 0 24 24" fill="${isVisited ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
@@ -774,7 +774,7 @@ class="popup-action-btn"
 data-action="set-rating" 
 data-location-id="${location.id}"
 data-rating="${star}"
-style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; line-height: 1; transition: transform 0.1s; color: ${parseInt(location.customData?.user_rating || '0') >= star ? '#f59e0b' : '#d1d5db'};"
+style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; line-height: 1; transition: transform 0.1s; color: ${parseInt(location.customData?.user_rating || '0') >= star ? tk('hsl(var(--state-warning))', '#f59e0b') : tk('hsl(var(--surface-border))', '#d1d5db')};"
 title="Valorar ${star} estrella${star > 1 ? 's' : ''}"
 >${parseInt(location.customData?.user_rating || '0') >= star ? '★' : '☆'}</button>
 `).join('')}
@@ -783,7 +783,7 @@ ${location.customData?.user_rating ? `
 class="popup-action-btn" 
 data-action="clear-rating" 
 data-location-id="${location.id}"
-style="background: none; border: none; padding: 0 0 0 3px; cursor: pointer; font-size: 10px; color: #9ca3af;"
+style="background: none; border: none; padding: 0 0 0 3px; cursor: pointer; font-size: 10px; color: ${tk('hsl(var(--text-secondary))', '#9ca3af')};"
 title="Quitar valoración"
 >✕</button>
 ` : ''}
@@ -812,7 +812,7 @@ ${(() => {
       case 'clasificacion': {
         const cc = (enriched as any)?.cultural_context;
         const culturalChip = cc?.type_label
-          ? `<span title="${cc.type_label} (Wikidata)" style="display: inline-flex; align-items: center; gap: 4px; background: #ede9fe; color: #5b21b6; padding: ${CARD.tagPadding}; border-radius: ${CARD.tagRadius}; font-size: ${FONT.badge}px; font-weight: 500;">${cc.type_label}</span>`
+          ? `<span title="${cc.type_label} (Wikidata)" style="display: inline-flex; align-items: center; gap: 4px; background: ${tk('hsl(270 60% 95%)', '#ede9fe')}; color: ${tk('hsl(270 70% 35%)', '#5b21b6')}; padding: ${CARD.tagPadding}; border-radius: ${CARD.tagRadius}; font-size: ${FONT.badge}px; font-weight: 500;">${cc.type_label}</span>`
           : '';
         if (!enriched.clasificacion?.codigo && !culturalChip) return '';
         return `
