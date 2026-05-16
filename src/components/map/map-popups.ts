@@ -411,19 +411,18 @@ export function prettifySourceId(raw: string | null | undefined): string {
   // Separadores → ` · ` (underscore) y ` ` (hyphen).
   const parts = s.split('_').map(part => {
     if (!part) return '';
+    // Caso acrónimo: el segmento entero es all-lowercase ≤4 letras (`osm`).
+    // Solo aplica cuando NO hay hyphen ni CamelCase dentro.
+    if (/^[a-z]{1,4}$/.test(part)) return part.toUpperCase();
     const hyphenated = part.replace(/-/g, ' ');
     // CamelCase split (preserva acrónimos seguidos de minúscula: `USAToday` → `USA Today`).
     const camelSplit = hyphenated
       .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
       .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
-    // Tokens cortos all-lower → upper. Resto: capitaliza primera de cada palabra.
+    // Capitaliza primera letra de cada palabra (sin re-upper-case de tokens cortos).
     return camelSplit
       .split(/\s+/)
-      .map(w => {
-        if (!w) return '';
-        if (/^[a-z]{1,4}$/.test(w)) return w.toUpperCase();
-        return w.charAt(0).toUpperCase() + w.slice(1);
-      })
+      .map(w => (w ? w.charAt(0).toUpperCase() + w.slice(1) : ''))
       .join(' ');
   });
   return parts.filter(Boolean).join(' · ') || s;
