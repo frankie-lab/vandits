@@ -785,7 +785,7 @@ ${buildImageSection(location, enriched, ownershipInfo)}
 <h3 style="margin: 0; font-size: ${FONT.title}px; font-weight: 700; color: ${COLOR.foreground}; line-height: 1.3; flex: 1;">
 ${locationName || 'Sin nombre'}
 </h3>
-${ownershipBadgeHtml}
+${(isOwn && isPopupOwnershipStripV1On()) ? '' : ownershipBadgeHtml}
 </div>
 
 <!-- Geo header (P-POPUP-2: canonical chips bajo flag, fallback a localizacionLinks italic legacy) -->
