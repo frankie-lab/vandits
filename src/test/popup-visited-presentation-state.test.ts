@@ -182,8 +182,9 @@ describe('P-POPUP-7B — renderer↔resolver hero parity (drift extinguido)', ()
       if (hero.displayImage) {
         expect(html).toContain(hero.displayImage);
       }
-      // Overlay aparece sii visited + hero + no curator/nearby.
-      const shouldOverlay = state.isVisited && state.hasHero && !state.isCurator && !state.isNearby;
+      // Canon simplificado: overlay aparece sii hay hero + no curator/nearby
+      // (independiente de isVisited; etiqueta varía Visitado/Pendiente).
+      const shouldOverlay = state.hasHero && !state.isCurator && !state.isNearby;
       expect(state.showHeroOverlay).toBe(shouldOverlay);
       if (shouldOverlay) {
         expect(html).toContain('data-visited-hero-overlay="true"');
