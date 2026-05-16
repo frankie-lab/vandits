@@ -139,12 +139,16 @@ Checklist del plan §6. Pendiente de ejecución humana:
 
 ## 8. Criterio de aceptación
 
-- [x] Cero hex/rgba en la rama enriched (verificado por contract test).
-- [x] Feature flag con default explícito.
-- [x] Rollback documentado (3 niveles: runtime, cold, revert).
-- [x] Único archivo de producción modificado.
-- [x] Tests E2E pre-existentes **no modificados** (deben seguir verdes
-      en CI tras merge — validación post-merge).
+- [x] Cero hex/rgba en la rama enriched (**verificado**: contract test
+      `src/test/popup-tokens-enriched.test.ts` 7/7 verde).
+- [x] Feature flag con default explícito (`POPUP_TOKENS_ENRICHED_V1_DEFAULT = true`).
+- [x] Rollback documentado (3 niveles: runtime `window.__POPUP_TOKENS_ENRICHED_V1__`,
+      cold edit del const, `git revert`).
+- [x] Único archivo de producción modificado: `src/components/map/map-popups.ts`.
+- [x] Tests adyacentes (marker-grammar, poi-marker-grammar, poi-layer,
+      layer-visibility) **72/72 verdes** post-cambio.
+- [ ] Suite E2E completa en CI — pendiente validación post-merge
+      (camera-qa, popup persist on rebuild, auth, preferences).
 - [ ] QA manual §6 — pendiente sandbox.
 - [ ] Visual snapshot diff ≤2% — pendiente baseline (no creado en
       este pilot para mantener scope mínimo; recomendado para F1.x).
