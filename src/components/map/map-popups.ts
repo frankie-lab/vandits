@@ -371,25 +371,20 @@ export function buildPersonalStateBlock(
   const canRate = !!visitRelevance || ctx.canEditLocation || userRating > 0;
   const heroOverlayActive = !!ctx.heroOverlayActive;
 
-  // P-POPUP-7B — Cuando el overlay sobre la hero está activo (visited + hay
-  // hero image), el bloque inferior se reduce a una acción inline discreta
-  // `✓ Visitado` (sin pill, sin background) para preservar discoverability
-  // del toggle de retroceso. El verified badge (camera/mapPin) NO se
-  // duplica aquí: vive sólo en el overlay del hero.
+  // Canon simplificado (sesión 2026-05-16):
+  //   - Si el overlay sobre la hero está activo (hay hero) → este bloque
+  //     NO renderiza ningún control de visitado. El estado vive arriba.
+  //   - Si NO hay hero → fallback inferior mínimo: una pill discreta que
+  //     refleja "Visitado" / "Pendiente" y conserva el toggle accesible.
+  //   - Verified badge: vive sólo en el overlay; nunca duplicado aquí.
   let visitedBtn = '';
-  let verifiedBadge = '';
+  const verifiedBadge = '';
 
-  if (heroOverlayActive && isVisited) {
-    // Inline discreto: ✓ Visitado (sin pill, sin verified).
-    visitedBtn = `<button class="popup-action-btn" data-action="toggle-visited" data-location-id="${location.id}" data-personal-visited-inline="true" title="Visitado · click para quitar" style="display: inline-flex; align-items: center; gap: 4px; background: none; border: none; padding: 0; cursor: pointer; color: hsl(var(--text-secondary)); font-size: 11px;">${svgIcon('check', { size: 12, color: 'currentColor' })}<span>Visitado</span></button>`;
-  } else {
-    // Comportamiento P-POPUP-7A intacto (no visitado, o no hay hero overlay).
-    const visitedLabel = isVisited
-      ? 'Visitado'
-      : (!ctx.isOwn ? '+ Adoptar y Visitar' : 'Visitado');
+  if (!heroOverlayActive) {
+    const visitedLabel = isVisited ? 'Visitado' : (!ctx.isOwn ? '+ Adoptar y Visitar' : 'Pendiente');
     const visitedTitle = isVisited
-      ? 'Click para desmarcar'
-      : (!ctx.isOwn ? 'Se añadirá a tu colección automáticamente' : 'Marcar como visitado');
+      ? 'Click para marcar como pendiente'
+      : (!ctx.isOwn ? 'Se añadirá a tu colección automáticamente' : 'Click para marcar como visitado');
     const visitedBg = isVisited
       ? 'hsl(var(--state-success) / 0.10)'
       : (!ctx.isOwn ? 'hsl(var(--state-loading) / 0.10)' : 'transparent');
@@ -399,15 +394,10 @@ export function buildPersonalStateBlock(
     const visitedBorder = isVisited
       ? 'hsl(var(--state-success) / 0.35)'
       : (!ctx.isOwn ? 'hsl(var(--state-loading) / 0.35)' : 'hsl(var(--surface-border))');
-    visitedBtn = `<button class="popup-action-btn" data-action="toggle-visited" data-location-id="${location.id}" title="${visitedTitle}" style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; background: ${visitedBg}; color: ${visitedFg}; border: 1px solid ${visitedBorder}; border-radius: 9999px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;">${svgIcon('check', { size: 10, color: 'currentColor' })}<span>${visitedLabel}</span></button>`;
-
-    // Badge de verificación inline sólo en fallback (sin overlay).
-    verifiedBadge = (isVisited && visitRelevance)
-      ? (() => {
-          const iconKey: keyof typeof SVG_PATHS = visitRelevance.verificationType === 'photo' ? 'camera' : 'mapPin';
-          return `<span title="${visitRelevance.label} · ${formatTimeAgo(visitRelevance.daysAgo)}" style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; font-size: 9px; color: hsl(var(--text-secondary)); border: 1px solid hsl(var(--surface-border)); border-radius: 9999px;">${svgIcon(iconKey, { size: 9, color: 'currentColor' })}<span>${formatTimeAgo(visitRelevance.daysAgo)}</span></span>`;
-        })()
-      : '';
+    const iconHtml = isVisited
+      ? svgIcon('check', { size: 10, color: 'currentColor' })
+      : `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>`;
+    visitedBtn = `<button class="popup-action-btn" data-action="toggle-visited" data-location-id="${location.id}" title="${visitedTitle}" style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; background: ${visitedBg}; color: ${visitedFg}; border: 1px solid ${visitedBorder}; border-radius: 9999px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;">${iconHtml}<span>${visitedLabel}</span></button>`;
   }
 
   // Stars helper (compacto, sin glow).
