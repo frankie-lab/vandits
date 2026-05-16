@@ -1155,16 +1155,17 @@ ${(() => {
         return '';
       
       case 'clasificacion': {
+        // P-POPUP-6A — taxonomy canonical representation = chips (see `case 'etiquetas'`).
+        // The textual breadcrumb (codigo + categoria + separator + subcategoria) is removed to avoid
+        // duplicating taxonomy in two formats. The catalog code (e.g. "2.5.x") is also
+        // dropped — internal catalog metadata with no value for a human viewer.
+        // This slot now renders ONLY the cultural_context (Wikidata) chip. If absent,
+        // the block is omitted entirely (no empty container).
         const cc = (enriched as any)?.cultural_context;
-        const culturalChip = cc?.type_label
-          ? `<span title="${cc.type_label} (Wikidata)" style="display: inline-flex; align-items: center; gap: 4px; background: ${tk('hsl(270 60% 95%)', '#ede9fe')}; color: ${tk('hsl(270 70% 35%)', '#5b21b6')}; padding: ${CARD.tagPadding}; border-radius: ${CARD.tagRadius}; font-size: ${FONT.badge}px; font-weight: 500;">${cc.type_label}</span>`
-          : '';
-        if (!enriched.clasificacion?.codigo && !culturalChip) return '';
+        if (!cc?.type_label) return '';
+        const culturalChip = `<span title="${cc.type_label} (Wikidata)" style="display: inline-flex; align-items: center; gap: 4px; background: ${tk('hsl(270 60% 95%)', '#ede9fe')}; color: ${tk('hsl(270 70% 35%)', '#5b21b6')}; padding: ${CARD.tagPadding}; border-radius: ${CARD.tagRadius}; font-size: ${FONT.badge}px; font-weight: 500;">${cc.type_label}</span>`;
         return `
 <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: ${CARD.sectionGap}px;">
-  ${enriched.clasificacion?.codigo ? `<span style="background: ${COLOR.secondary}; color: ${COLOR.secondaryFg}; padding: ${CARD.tagPadding}; border-radius: ${CARD.tagRadius}; font-size: ${FONT.badge}px; font-weight: 500;">${enriched.clasificacion.codigo}</span>` : ''}
-  ${enriched.clasificacion?.categoria_principal ? `<span style="font-size: ${FONT.label}px; color: ${COLOR.muted};">${enriched.clasificacion.categoria_principal}</span>` : ''}
-  ${enriched.clasificacion?.subcategoria ? `<span style="font-size: ${FONT.label}px; color: ${COLOR.muted};">›</span><span style="font-size: ${FONT.label}px; color: ${COLOR.muted};">${enriched.clasificacion.subcategoria}</span>` : ''}
   ${culturalChip}
 </div>`;
       }
