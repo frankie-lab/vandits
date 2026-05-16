@@ -388,7 +388,7 @@ export function buildPersonalStateBlock(
     : (!ctx.isOwn ? 'hsl(var(--state-loading) / 0.35)' : 'hsl(var(--surface-border))');
   const visitedBtn = `<button class="popup-action-btn" data-action="toggle-visited" data-location-id="${location.id}" title="${visitedTitle}" style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; background: ${visitedBg}; color: ${visitedFg}; border: 1px solid ${visitedBorder}; border-radius: 9999px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;">${svgIcon('check', { size: 10, color: 'currentColor' })}<span>${visitedLabel}</span></button>`;
 
-  // Badge de verificación inline (sustituye 📷/📍 por iconos Lucide).
+  // Badge de verificación inline (iconos Lucide camera/mapPin, sin emoji).
   const verifiedBadge = (isVisited && visitRelevance)
     ? (() => {
         const iconKey: keyof typeof SVG_PATHS = visitRelevance.verificationType === 'photo' ? 'camera' : 'mapPin';
