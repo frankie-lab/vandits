@@ -302,7 +302,7 @@ export function buildCollectionsMetadataSegment(location: GeoLocation): string {
     const overflowNames = overflow.map((c) => String(c.name ?? '')).join(', ').replace(/"/g, '&quot;');
     overflowHtml = ` <span title="${overflowNames}" style="opacity: 0.8;">+${overflow.length}</span>`;
   }
-  return ` <span aria-hidden="true">·</span> <span data-popup-collections-meta="${location.id}" style="display: inline-flex; align-items: center; gap: 4px; color: hsl(var(--foreground));">${BOOKMARK_SVG}<span>${nameSpans}${overflowHtml}</span></span>`;
+  return `<span data-popup-collections-meta="${location.id}" style="display: inline-flex; align-items: center; gap: 4px; color: hsl(var(--foreground));">${BOOKMARK_SVG}<span>${nameSpans}${overflowHtml}</span></span>`;
 }
 
 // ─── Collection Chips placeholder (P-POPUP-4E: no-op) ──────────────────────
