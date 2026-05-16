@@ -1155,52 +1155,9 @@ ${[1, 2, 3, 4, 5].map(star => `<span style="font-size: 14px; line-height: 1; col
 ` : ''}
 `}
 
-${!isCuratorPoint ? `
-${isVisited && visitRelevance ? `
-<span 
-style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; background: ${visitRelevance.bgColor}; color: ${visitRelevance.color}; border: 1px solid ${visitRelevance.borderColor}; border-radius: 10px; font-size: 9px; font-weight: 500;"
-title="${visitRelevance.label} - Verificado ${visitRelevance.verificationType === 'photo' ? '📷' : '📍'} ${formatTimeAgo(visitRelevance.daysAgo)}"
->
-${visitRelevance.label}
-</span>
-` : ''}
-<button 
-class="popup-action-btn" 
-data-action="toggle-visited" 
-data-location-id="${location.id}"
-style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: ${isVisited ? tk('hsl(var(--state-success) / 0.12)', '#dcfce7') : (!isOwn ? tk('hsl(var(--state-loading) / 0.12)', '#eff6ff') : tk('hsl(var(--surface-card))', '#fff'))}; color: ${isVisited ? tk('hsl(var(--state-success))', '#166534') : (!isOwn ? tk('hsl(var(--state-loading))', '#1d4ed8') : tk('hsl(var(--text-secondary))', '#6b7280'))}; border: 1px solid ${isVisited ? tk('hsl(var(--state-success) / 0.4)', '#86efac') : (!isOwn ? tk('hsl(var(--state-loading) / 0.4)', '#93c5fd') : tk('hsl(var(--surface-border))', '#e5e7eb'))}; border-radius: 12px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
-title="${isVisited ? 'Click para desmarcar' : (!isOwn ? 'Se añadirá a tu colección automáticamente' : 'Requiere estar a menos de 500m o subir foto con GPS')}"
->
-<svg width="10" height="10" viewBox="0 0 24 24" fill="${isVisited ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
-<path d="M20 6 9 17l-5-5"/>
-</svg>
-${isVisited ? 'Visitado' : (!isOwn ? '+ Adoptar y Visitar' : 'Visitado')}
-</button>
+<!-- P-POPUP-7A: Visited + personal rating bajados al slot post-descripción.
+     Aquí permanece SOLO el rating IA (POI metadata, no user state). -->
 
-${(visitRelevance || canEditLocation) ? `
-<div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal${!visitRelevance && canEditLocation ? ' (Admin)' : ''}">
-${[1, 2, 3, 4, 5].map(star => `
-<button 
-class="popup-action-btn" 
-data-action="set-rating" 
-data-location-id="${location.id}"
-data-rating="${star}"
-style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; line-height: 1; transition: transform 0.1s; color: ${parseInt(location.customData?.user_rating || '0') >= star ? tk('hsl(var(--state-warning))', '#f59e0b') : tk('hsl(var(--surface-border))', '#d1d5db')};"
-title="Valorar ${star} estrella${star > 1 ? 's' : ''}"
->${parseInt(location.customData?.user_rating || '0') >= star ? '★' : '☆'}</button>
-`).join('')}
-${location.customData?.user_rating ? `
-<button 
-class="popup-action-btn" 
-data-action="clear-rating" 
-data-location-id="${location.id}"
-style="background: none; border: none; padding: 0 0 0 3px; cursor: pointer; font-size: 10px; color: ${tk('hsl(var(--text-secondary))', '#9ca3af')};"
-title="Quitar valoración"
->✕</button>
-` : ''}
-</div>
-` : ''}
-` : ''}
 </div>
 </div>
 
