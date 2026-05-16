@@ -1352,7 +1352,8 @@ ${(() => {
   // P-POPUP-7B — `heroOverlayActive` colapsa el bloque inferior a inline
   // `✓ Visitado` cuando el overlay sobre la hero está activo (visited + hay
   // hero image). El verified badge vive sólo en el overlay.
-  const heroOverlayActive = isVisitedHeroOverlayActive(location, ownershipInfo, enriched);
+  // P-POPUP-7B (unificación) — reutiliza el state ya resuelto arriba.
+  const heroOverlayActive = visitedState.showHeroOverlay;
   const personalStateCtx = { isOwn, isCuratorPoint, canEditLocation, heroOverlayActive };
   let personalStateRendered = false;
   const personalStateOnce = () => {
