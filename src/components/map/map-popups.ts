@@ -1022,9 +1022,22 @@ title="Quitar valoración"
 </div>
 </div>
 
-${(isOwn && isPopupOwnershipStripV1On())
-  ? buildOwnAddedLineHtml(location)
-  : buildSourceHashtagsBlock(location, ownership, { suppressOwn: false })}
+${(() => {
+  // P-POPUP-3A → own enriched: línea "Añadido dd/mm/yyyy" (sin literal ownership).
+  if (isOwn && isPopupOwnershipStripV1On()) return buildOwnAddedLineHtml(location);
+  // P-POPUP-4A → source/app enriched (rama A): línea metadata "Añadido … · vía <label>".
+  // Si el helper devuelve '' (flag OFF, sin hashtags, etc.) → fallback al legado.
+  if (isPopupSourceMetadataV1On()) {
+    const viewerUid = ownership?.viewerUid ?? null;
+    const src = resolvePoiSource(viewerUid, location, { usernameLookup: ownership?.usernameLookup });
+    if (src.type === 'source' || src.type === 'app') {
+      const html = buildSourceMetadataLineHtml(location, ownership);
+      if (html) return html;
+    }
+  }
+  // followed (y own con flag OFF) → comportamiento legado.
+  return buildSourceHashtagsBlock(location, ownership, { suppressOwn: false });
+})()}
 ${buildCollectionChipsPlaceholder(location)}
 ${buildPersonalTagsBlock(location)}
 
