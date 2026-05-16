@@ -50,6 +50,24 @@
 >   `E2E_USER_EMAIL = sandbox-agent@vandits.test` y
 >   `E2E_USER_PASSWORD = SandboxAgent2026!`. La service_role key **no** se
 >   sube a GitHub.
+>
+> **Update (Phase A — fixture de catálogo E2E, 2026-05-16)**: el contrato
+> sistémico del kernel `count===0 && !active ⇒ disabled` (ADR-0004,
+> `mem://ui/selector-interaction-contract`) implica que la suite
+> `Selector contract — filter-{imported,empty}` sólo puede hacer click
+> real si el usuario `sandbox-agent@vandits.test` tiene ≥1 POI en cada
+> bucket de `visualState`. Al estar el catálogo del usuario inicialmente
+> sólo con POIs `enriched`, las filas `imported` y `empty` quedaban
+> `aria-disabled="true"` por contrato (no por bug).
+>
+> Solución (Opción A, sin debilitar producto ni test):
+> `scripts/e2e/ensure-test-fixture.ts` upsertea de forma idempotente dos
+> POIs con IDs deterministas
+> (`...e2e000000001` = imported, `...e2e000000002` = empty), autenticado
+> con el anon key + password del usuario (sin service_role). Se ejecuta
+> como step previo en `.github/workflows/e2e.yml`. Ver
+> [`docs/qa/e2e-camera-qa.md § Fixture de catálogo del usuario E2E`](./qa/e2e-camera-qa.md#fixture-de-catálogo-del-usuario-e2e).
+> Kernel, cámara/subset-fit y `MyCatalogQuickFilters` no se modifican.
 
 ### 1.1 `e2e/camera-qa.spec.ts` (Playwright) — histórico Pilot 1
 

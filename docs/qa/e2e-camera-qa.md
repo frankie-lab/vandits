@@ -149,6 +149,48 @@ se llama; seguro en producción.
 
 Si alguno de estos selectores cambia, actualizar también este documento.
 
+## Fixture de catálogo del usuario E2E
+
+`MyCatalogQuickFilters` aplica el contrato sistémico del kernel:
+**`count === 0 && !active ⇒ disabled`** (sin false-affordance, ver
+ADR-0004 y `mem://ui/selector-interaction-contract`). Por tanto, para que
+la suite `Selector contract — filter-{imported,empty}` pueda hacer click
+real (sin `force`, sin skips, sin debilitar el contrato), el usuario
+`sandbox-agent@vandits.test` debe tener **≥1 POI en cada bucket de
+`visualState`** (`enriched`, `imported`, `empty`).
+
+`scripts/e2e/ensure-test-fixture.ts` garantiza esa precondición de forma
+**idempotente** mediante upsert con IDs deterministas:
+
+| Bucket   | ID estable                                      | Coordenadas        | Notas |
+|----------|-------------------------------------------------|--------------------|-------|
+| imported | `f04b3b95-7308-4b74-b3c7-e2e000000001`          | `40.4168, -3.7038` | `description` no vacío, `enriched_data=null` |
+| empty    | `f04b3b95-7308-4b74-b3c7-e2e000000002`          | `40.4170, -3.7040` | `description=null`, `enriched_data=null` |
+| enriched | (cualquiera de los 337 reales del catálogo)     | varias             | El usuario ya los tiene; no se tocan |
+
+Características clave:
+
+- **Sin service_role**: el script autentica con `VITE_SUPABASE_PUBLISHABLE_KEY`
+  + `E2E_USER_EMAIL` / `E2E_USER_PASSWORD`. El upsert pasa la RLS porque
+  `owner_user_id = auth.uid()`.
+- **Sin destrucción**: nunca borra POIs `enriched` existentes ni toca
+  ningún otro dato del usuario.
+- **CI**: se ejecuta como step "Ensure E2E fixture …" en
+  `.github/workflows/e2e.yml` antes de `npx playwright test`.
+- **Local**:
+
+  ```bash
+  export VITE_SUPABASE_URL="https://nolmcafkzqwfmpleyfkx.supabase.co"
+  export VITE_SUPABASE_PUBLISHABLE_KEY="<anon key>"
+  export E2E_USER_EMAIL="sandbox-agent@vandits.test"
+  export E2E_USER_PASSWORD="..."
+  bun scripts/e2e/ensure-test-fixture.ts   # o: npx tsx scripts/e2e/ensure-test-fixture.ts
+  ```
+
+Si en el futuro se añaden más buckets al popover (p.ej. nuevos
+`healthFilter` agregados al contrato del selector), extender este fixture
+con los IDs correspondientes — nunca debilitar el contrato del producto.
+
 ## Política de skips
 
 `camera-qa.spec.ts` mantiene un `test.skip` defensivo si el trigger no
