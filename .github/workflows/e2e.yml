@@ -58,7 +58,7 @@ jobs:
         # (count===0 && !active ⇒ disabled) no bloquee filas en la suite
         # camera-qa. Idempotente: usa IDs deterministas + upsert.
         # NO requiere service_role — autentica con anon key + password.
-        run: bunx --bun bun scripts/e2e/ensure-test-fixture.ts || npx tsx scripts/e2e/ensure-test-fixture.ts
+        run: npx --yes tsx scripts/e2e/ensure-test-fixture.ts
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
