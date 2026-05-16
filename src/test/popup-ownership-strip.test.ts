@@ -149,7 +149,7 @@ describe('P-POPUP-3A — static guard (rama enriched A)', () => {
   it('rama A sustituye buildSourceHashtagsBlock por buildOwnAddedLineHtml en own', () => {
     // Tras P-POPUP-4A el dispatch es una IIFE; aceptamos tanto el ternario
     // legacy como el `if (...) return buildOwnAddedLineHtml(location)`.
-    expect(src).toMatch(/isPopupOwnershipStripV1On\(\)\)[\s\S]{0,40}buildOwnAddedLineHtml\(location\)/);
+    expect(src).toMatch(/isPopupOwnershipStripV1On\(\)\)[\s\S]{0,400}buildOwnAddedLineHtml\(location\)/);
   });
 
   it('root popup expone data-popup-ownership-strip', () => {

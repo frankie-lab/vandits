@@ -1,8 +1,62 @@
 # P-POPUP-4A — Source / Provenance cleanup (rama A enriched)
 
-Status: **IMPLEMENTED — pending preview ratification (2026-05-16)**.
+Status: **IMPLEMENTED — pending preview ratification (2026-05-16, incluye fix 4A.1 own+provenance fusion)**.
 Companion plan: [`./p-popup-4a-source-provenance-cleanup-plan.md`](./p-popup-4a-source-provenance-cleanup-plan.md).
 Rollout governance: [`../governance/rollout-policy.md`](../governance/rollout-policy.md).
+
+---
+
+## 0. Fix 4A.1 — Ownership y provenance NO son excluyentes
+
+**Regresión detectada en QA**: en POIs `own enriched` adoptados desde una
+fuente externa (Atlas Obscura, OSM…), el dispatch tomaba la rama
+`buildOwnAddedLineHtml` (sólo fecha) y dejaba el chip `#AtlasObscura_España`
+intacto en otro slot, resultado:
+
+```
+Añadido 07/05/2026
+#AtlasObscura_España
+```
+
+**Causa raíz**: `resolvePoiSource` clasifica por prioridad `sourceKind > owner`,
+lo que enmascara la coexistencia ownership + provenance. El pilot 4A
+inicial sólo activaba la línea metadata cuando `type === 'source' | 'app'`.
+
+**Fix canónico**: ownership y provenance son **dimensiones independientes**.
+Para own:
+
+- Se mantiene ownership implícito (sin literal "Mi punto").
+- Se mantiene la fecha (`Añadido dd/mm/yyyy`).
+- Si existe provenance real (marker `sourceKind` external/app + `sourceId`),
+  se fusiona en la misma línea: `Añadido dd/mm/yyyy · vía <chip>`.
+- El chip preserva `.source-filter-chip` + datasets canónicos
+  (`data-source-type=source|app`, `data-source-id`, `data-source-label`).
+- Lectura de provenance vía nuevo helper `readPoiProvenance(loc)` que LEE
+  markers crudos del POI bypassando `resolvePoiSource` (independiente del
+  tipo resuelto).
+
+Helper público nuevo: `buildOwnEnrichedMetadataLineHtml(location)`.
+- Sin provenance → degrada a línea sólo-fecha (paridad 3A).
+- Con provenance → línea fusionada.
+
+Dispatch own actualizado:
+
+```ts
+if (isOwn && isPopupOwnershipStripV1On()) {
+  if (isPopupSourceMetadataV1On()) return buildOwnEnrichedMetadataLineHtml(location);
+  return buildOwnAddedLineHtml(location);
+}
+```
+
+Resultado esperado para el caso reportado:
+
+```
+Añadido 07/05/2026 · vía Atlas Obscura · España
+```
+
+(Sin chip `#AtlasObscura_España` separado.)
+
+---
 
 ---
 
