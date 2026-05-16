@@ -1630,17 +1630,11 @@ ${(() => {
   const descFragment = fragments.get('descripcion') ?? '';
   const obsFragment = fragments.get('observacion') ?? '';
 
-  // Resto de fields = todos los del orden persistido EXCEPTO las claves canónicas.
-  const nonCanonicalHtml = orderedKeys
-    .filter((k) => !CANONICAL_KEYS.has(k))
-    .map((k) => fragments.get(k) ?? '')
-    .join('\n');
-
   // Anclaje del rating:
-  //   - Si hay descripción y observación  → desc + rating + obs
-  //   - Si hay solo descripción           → desc + rating
-  //   - Si hay solo observación           → rating + obs
-  //   - Si no hay ninguna                 → rating al final (fallback histórico)
+  //   - desc + obs → desc + rating + obs
+  //   - desc       → desc + rating
+  //   - obs        → rating + obs
+  //   - ninguna    → rating al final (fallback histórico)
   let canonicalBlock = '';
   if (descFragment && obsFragment) {
     canonicalBlock = descFragment + ratingFragment + obsFragment;
@@ -1650,9 +1644,32 @@ ${(() => {
     canonicalBlock = ratingFragment + obsFragment;
   }
 
-  const trailingRating = (!descFragment && !obsFragment) ? ratingFragment : '';
+  // Posición del bloque canónico = posición del PRIMER fieldKey canónico
+  // presente en `orderedKeys`. Los fields no canónicos conservan su slot
+  // relativo en `field_order`. Si no hay claves canónicas en orderedKeys,
+  // el bloque (sólo rating, fallback) se ancla al final.
+  const firstCanonicalIdx = orderedKeys.findIndex((k) => CANONICAL_KEYS.has(k));
+  let anchorEmitted = false;
+  const composed: string[] = [];
+  if (firstCanonicalIdx === -1) {
+    for (const k of orderedKeys) composed.push(fragments.get(k) ?? '');
+    composed.push(ratingFragment); // fallback: ninguna canonical key configurada
+  } else {
+    orderedKeys.forEach((k, i) => {
+      if (CANONICAL_KEYS.has(k)) {
+        if (!anchorEmitted) {
+          composed.push(canonicalBlock);
+          anchorEmitted = true;
+        }
+        // Las claves canónicas no se emiten individualmente: viven en el bloque.
+        return;
+      }
+      composed.push(fragments.get(k) ?? '');
+    });
+  }
 
-  return nonCanonicalHtml + canonicalBlock + trailingRating;
+  return composed.join('\n');
+
 
 })()}
 
