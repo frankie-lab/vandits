@@ -4,6 +4,12 @@
 > call sites, kernel untouched. Companion to
 > `docs/interaction-primitives.md`, `docs/interaction-pilot-1-diff.md`
 > and `mem://architecture/interaction-kernel-pilot-1`.
+>
+> **Canon Change Policy**: ratificar el split
+> `RecenterableSelection` / `ToggleableSelection`, promover Pilot a
+> canon estable, o migrar surfaces no-pilot dispara un Migration Impact
+> Check obligatorio. Ver
+> [`docs/contracts/canon-change-policy.md`](./contracts/canon-change-policy.md).
 
 ---
 

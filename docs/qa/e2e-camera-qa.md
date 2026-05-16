@@ -1,5 +1,10 @@
 # E2E — Camera QA harness
 
+> **Canon Change Policy**: los QA contracts (Playwright projects, fixture
+> E2E sandbox, `storageState`, `window.__cameraFitTrace`) son canon. Todo
+> cambio aquí requiere Migration Impact Check. Ver
+> [`docs/contracts/canon-change-policy.md`](../contracts/canon-change-policy.md).
+
 Cómo ejecutar la suite Playwright que valida el Interaction Kernel Pilot 1
 (`camera-qa.spec.ts`, `preferences-runtime.spec.ts`) y el flujo de
 autenticación (`auth.spec.ts`).
