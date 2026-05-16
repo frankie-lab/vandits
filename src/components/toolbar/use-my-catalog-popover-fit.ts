@@ -221,6 +221,15 @@ export function emitMyCatalogPopoverApplied(detail: MyCatalogPopoverAppliedDetai
  * distinct id so heavy-ops `blockReentry` never converts a legitimate
  * re-click into a silent noop. The base id (axis/value) is preserved as
  * prefix for log readability.
+ *
+ * @deprecated Pilot 1 superseded this helper. Production code now uses
+ * `buildOpId('mycatalog-popover')` from
+ * `src/shared/interaction/selectable-kernel.ts`, which produces the same
+ * shape (`prefix#nonce`) without needing the full detail payload.
+ * Kept exported because `docs/contracts/subset-fit-contract.md` still
+ * references the name narratively; physical removal belongs to a
+ * follow-up cleanup pass that also updates the contract doc.
+ * See `docs/interaction-pilot-1-diff.md` §11.
  */
 export function buildUniqueMyCatalogPopoverOpId(detail: MyCatalogPopoverAppliedDetail): string {
   const base = buildMyCatalogPopoverOpId(detail);

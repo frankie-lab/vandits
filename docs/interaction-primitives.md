@@ -37,25 +37,90 @@ that decision belongs to the extraction phase.
   - first click on `idle` flips `active` exactly once.
 - **Ownership**: shared/core (UI primitive layer).
 
-### 1.2 `Replayable`
+### 1.2 `Replayable` — DEPRECATED (split by Pilot 1)
 
-- **Purpose**: an action whose side effect is idempotent in state but
-  meaningful in time (recenter, refit, refresh, reopen).
+> **Status**: superseded. Pilot 1 demonstrated that "re-click on active"
+> carries two opposite product intents depending on the axis. A single
+> contract cannot express both without becoming a foot-gun (silent
+> omission of `onReplay` collapses one intent into the other). Split
+> into §1.2a `RecenterableSelection` and §1.2b `ToggleableSelection`.
+> See `docs/interaction-pilot-1-diff.md` §3.1 + "Conclusión
+> arquitectónica" for the concrete evidence.
+>
+> **Pilot 1 status**: the in-tree helper `runSelectable` (in
+> `src/shared/interaction/selectable-kernel.ts`) remains as a
+> **transitional, pilot-frozen** wrapper that exposes both `onChange`
+> and `onReplay` so the three pilot surfaces can coexist while the
+> split is ratified. It **MUST NOT** be extended to new call sites.
+> Replacement candidates (not yet implemented): `runRecenterableSelection`
+> and `runToggleableSelection`.
+
+### 1.2a `RecenterableSelection` — candidate (validated by Pilot 1)
+
+- **Purpose**: a `Selectable` where re-clicking the active row
+  **maintains** the selection and **re-emits** the intent/focus/fit
+  with a fresh `opId`. The selection is sticky; the side effect is
+  replayable.
 - **Invariants**:
-  - Re-invocation must re-execute the side effect, not skip it.
-  - Each invocation carries a fresh `opId`.
-  - Replay never mutates state that wasn't going to change anyway.
-- **Lifecycle**: `invoke(opId₁) → side-effect → invoke(opId₂) →
-  side-effect`.
-- **Permitted**: dispatch identical downstream event with new id;
-  trigger camera/focus subscribers.
-- **Prohibited**: dedupe by payload equality; silent coalescing without
-  surfacing it; reuse of last `opId`.
-- **Observability**: `totalRequests` monotonically increases per click.
+  - Re-click does NOT mutate selection state.
+  - Re-click DOES re-emit the canonical event with a new `opId`.
+  - Subscribers (camera listener, focus emitter) decide cooldown /
+    clamp / bounds — the contract never bypasses them.
+  - `opId` is always fresh; payload-equality dedupe is forbidden.
+- **Lifecycle**: `select → emit(opId₁) → re-click → emit(opId₂,
+  sameSelection)`.
+- **Permitted**: re-emit the downstream selection event; trigger
+  `requestSubsetFit` with the same `reason` and a new `opId`; close
+  the enclosing `OverlaySurface`.
+- **Prohibited**: deselect on re-click; silent coalescing; toggle-off
+  semantics; reuse of last `opId`.
+- **Observability**: trace contains N entries with N distinct `opId`s
+  and `wasActive` flipping `false → true → true → ...`.
 - **QA contracts**:
-  - N clicks → N events → N side-effect dispatches.
-  - Trace contains N entries with distinct `opId`s.
-- **Ownership**: shared/core.
+  - N clicks on the same row → N events → N subscriber dispatches.
+  - State snapshot before/after re-click is byte-equal except for the
+    `opId` field.
+- **Pilot 1 call sites (validated)**:
+  - `MyCatalogQuickFilters` rows.
+  - `UsersSidebar` row (`handleFilterByUser`).
+- **Future candidates (not migrated)**:
+  - Marker / document / collection / orphan / route focus rows.
+- **Ownership (when ratified)**: shared/core.
+
+### 1.2b `ToggleableSelection` — candidate (validated by Pilot 1)
+
+- **Purpose**: a `Selectable` where re-clicking the active row
+  **clears** the selection (returns the axis to `null` / default).
+  Mutually-exclusive single-value axes.
+- **Invariants**:
+  - Re-click transitions the axis to `null` / default.
+  - Re-click still emits a fresh `opId` and writes a trace entry —
+    never a silent noop.
+  - No focus/fit re-emit on the toggle-off (nothing to focus once the
+    selection is cleared).
+- **Lifecycle**: `idle → select(opId₁) → re-click → null(opId₂)`.
+- **Permitted**: clear the axis; close the enclosing `OverlaySurface`;
+  emit a typed deselection event.
+- **Prohibited**: keep the selection on re-click; re-emit focus/fit on
+  the toggle-off; swallow the click without trace.
+- **Observability**: trace alternates `wasActive=false → true → false`
+  with monotonically increasing `opId`s.
+- **QA contracts**:
+  - Re-click on active leaves the axis at its default value.
+  - Next click re-selects with a fresh `opId`.
+- **Pilot 1 call sites (validated)**:
+  - `FilterBar` Health chips.
+- **Future candidates (not migrated)**:
+  - `PlaceTypeFilter`, `SourceFilterBridge`, and other mutually
+    exclusive single-axis filters.
+- **Ownership (when ratified)**: shared/core.
+
+> **Both contracts are candidates, not a stable global framework.**
+> They are validated by three pilot surfaces only. Promotion to
+> shared/core requires a second pilot wave that introduces
+> `runRecenterableSelection` / `runToggleableSelection` and migrates a
+> non-pilot surface from each family. Until then, `runSelectable`
+> stays frozen and no new consumers are added.
 
 ### 1.3 `FocusEmitter`
 
@@ -209,13 +274,15 @@ that decision belongs to the extraction phase.
 
 | Current surface | Primitive(s) | Notes |
 |---|---|---|
-| `MyCatalogQuickFilters` rows | `Selectable` + `Replayable` + `FocusEmitter` (via popover-applied event) hosted in `OverlaySurface` (Radix Popover) | Canonical reference implementation post-fix. |
-| Map markers (`createCustomIcon` + click handler) | `Selectable` + `FocusEmitter` + `StatusSurface` (visual rings/colors are read-only projection) | Status layer must stay pointer-transparent. |
+| `MyCatalogQuickFilters` rows | `Selectable` + `RecenterableSelection` (§1.2a) + `FocusEmitter` hosted in `OverlaySurface` (Radix Popover) | Canonical reference for `RecenterableSelection`. |
+| Map markers (`createCustomIcon` + click handler) | `Selectable` + `FocusEmitter` + `StatusSurface` (visual rings/colors are read-only projection) | Status layer must stay pointer-transparent. Future `RecenterableSelection` candidate. |
 | Map popups (`map-popups.ts`) | `OverlaySurface` (non-modal, anchored) + `ContextualSurface` (entity-bound) | Persist-on-rebuild rule lives at the `ContextualSurface` lifecycle. |
 | `UnenrichedRecoveryBlock` + `<NearbyPanel inline>` | `ContextualSurface` (inline only) | Inline-only constraint already in Core. |
-| Document / Collection / Orphan / Route focus views | `ContextualSurface` (entity-scoped) + `FocusEmitter` (camera + sidebar) | Each view re-implements the entry/exit shell — duplication candidate. |
-| `FilterBar` chips, `LocationCollectionChips`, `SourceHashtag`, `PlaceTypeFilter`, `PanelModeTabs` | `Selectable` backed by `StatefulSelection` | Re-click semantics differ per chip — needs unification. |
-| `UsersSidebar` rows | `Selectable` (toggle filterByUserId) + `FocusEmitter` (subset-fit user-filter) + `StatusSurface` (identity triangle, badges) | Re-click contract not formalized. |
+| Document / Collection / Orphan / Route focus views | `ContextualSurface` (entity-scoped) + `FocusEmitter` (camera + sidebar) + future `RecenterableSelection` for the row that opens them | Each view re-implements the entry/exit shell — duplication candidate. |
+| `FilterBar` Health chips | `Selectable` + `ToggleableSelection` (§1.2b) backed by `StatefulSelection` | Pilot 1 validated `ToggleableSelection` here. |
+| `PlaceTypeFilter`, `SourceFilterBridge`, other mutually-exclusive single-value chips | `Selectable` + `ToggleableSelection` (§1.2b) | Future `ToggleableSelection` candidates; NOT migrated. |
+| `LocationCollectionChips`, `SourceHashtag`, `PanelModeTabs` | `Selectable` backed by `StatefulSelection` | Re-click family unresolved (multi-select vs single-axis); needs its own pilot before claiming a contract. |
+| `UsersSidebar` rows | `Selectable` + `RecenterableSelection` (§1.2a) + `FocusEmitter` (subset-fit `user-filter`) + `StatusSurface` (identity triangle, badges) | Pilot 1 validated `RecenterableSelection` here. |
 | `DocumentsPanel`, `CollectionsListPanel`, `RoutesListPanel`, `IncompleteLocationsPanel` rows | `Selectable` + `FocusEmitter` | Each panel duplicates row shell, hover, active styling. |
 | Health rings, owner identity triangle, collection tint, marker color | `StatusSurface` only | Already pure; must not gain handlers. |
 | `HealthFilterActionCTA`, `HealthRepairPreviewDialog` | `Selectable` (chip) + `OverlaySurface` (modal dialog) + `BlockingOperation` (repair lane) | Three primitives composed; today wired ad hoc. |
@@ -327,8 +394,12 @@ that decision belongs to the extraction phase.
 
 - `useSelectable({ axis, value })` → returns `{ active, disabled,
   onActivate(opId) }`. Backs every chip / row / popover row.
-- `useReplayable(action)` → returns wrapped invoker that always
-  produces a fresh opId.
+- `useReplayable(action)` — **DEPRECATED before existing.** Split into
+  `useRecenterableSelection` (re-click re-emits) and
+  `useToggleableSelection` (re-click clears). Neither hook is
+  implemented yet; the pilot uses the stateless `runSelectable` helper
+  in `src/shared/interaction/selectable-kernel.ts` instead. Promotion
+  to hooks waits for a second pilot wave.
 - `useOverlay({ modal })` → returns `{ open, setOpen, onClose }`
   with unified close-reason semantics.
 - `useObservableAction(kind)` → returns `emit(payload)` that writes
@@ -365,16 +436,24 @@ that decision belongs to the extraction phase.
 
 ## 6. Sequencing recommendation (non-binding)
 
-1. Pilot one primitive end-to-end on **one** surface group (proposal:
-   `Selectable` on `MyCatalogQuickFilters` is already the reference;
-   next pilot = `FilterBar` chips).
-2. Ratify primitive contracts as ADR-0005 once the pilot is stable.
-3. Extract `OverlaySurface` second — highest duplication / lowest
-   semantic risk.
-4. `BlockingOperation` feedback contract third — closes the
-   silent-block gap.
-5. `ObservableAction` last — once the action surface has
-   stabilized.
+0. **Ratify the `Replayable` split** (`RecenterableSelection` +
+   `ToggleableSelection`) before extending `runSelectable` to any new
+   call site. Pilot 1 surfaces stay as-is.
+1. Pilot 2: introduce `runRecenterableSelection` /
+   `runToggleableSelection` and migrate **one** non-pilot surface from
+   each family. `runSelectable` retires only after both helpers prove
+   out.
+2. Ratify primitive contracts as ADR-0005 once Pilot 2 is stable.
+3. Extract `OverlaySurface` — highest duplication / lowest semantic
+   risk.
+4. `BlockingOperation` feedback contract — closes the silent-block
+   gap.
+5. `ObservableAction` last — once the action surface has stabilized
+   and the trace can leave `window.__cameraFitTrace` (Pilot 1 diff §5
+   risk 2).
+
+Camera, `subset-fit`, and the `MyCatalog` selector remain
+out-of-scope throughout.
 
 Camera, `subset-fit`, and the `MyCatalog` selector remain
 out-of-scope throughout.
