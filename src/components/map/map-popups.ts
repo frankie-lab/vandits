@@ -74,10 +74,12 @@ function tk(token: string, legacy: string): string {
 // Structural change to the enriched branch: canonical geo header
 // (locality·zone·region·country) + 4-bucket canonical tag dedupe + overflow.
 //
-// Default: **false** (OFF in production). Enable in sandbox/QA via
-// `window.__POPUP_GEO_CANONICAL_V1__ = true` BEFORE opening a popup.
-// See docs/popups/p-popup-2-implementation-plan.md.
-const POPUP_GEO_CANONICAL_V1_DEFAULT = false;
+// Default: **true** (ON in production, ratified 2026-05-16). Rollback in
+// runtime sin redeploy: `window.__POPUP_GEO_CANONICAL_V1__ = false` BEFORE
+// opening a popup. Code rollback: flip default back to `false` (1 line).
+// Legacy render branches preservadas intactas como rollback path.
+// See docs/popups/p-popup-2-validation.md.
+const POPUP_GEO_CANONICAL_V1_DEFAULT = true;
 function isPopupGeoCanonicalV1On(): boolean {
   try {
     const w = (typeof window !== 'undefined' ? (window as any) : null);
