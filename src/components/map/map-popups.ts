@@ -1621,6 +1621,10 @@ ${actionButtonsHtml}
     curatorAvatar: ownership?.curatorAvatar,
   };
 
+  // P-POPUP-7B (unificación) — single source of truth para el estado
+  // visited en la rama legacy (enriched=null intencional).
+  const visitedStateLegacy = resolveVisitedPresentationState(location, ownershipInfo, null);
+
   const filteredCustomData = Object.entries(location.customData || {})
     .filter(([key]) => !['user_image_url', 'user_image_visibility', 'has_notes', 'notes', 'visited', 'user_rating'].includes(key));
 
