@@ -1611,10 +1611,49 @@ ${(() => {
       default:
         return '';
     }
-  }).join('\n');
-  // P-POPUP-7A — fallback: si la card config no incluye `descripcion`, emitir
-  // el bloque de estado personal al final (antes del footer).
-  return mappedBody + personalStateOnce();
+  };
+
+  // (2) Composición canónica: la jerarquía la decide el composer, NO el switch
+  //     y NO `field_order`.
+  //
+  //     Bloque semántico congelado (transversal):
+  //         descripcion → rating (personal state) → observacion
+  //
+  //     El resto de fields respeta `orderedKeys`. Si una de las claves canónicas
+  //     no aparece en `orderedKeys` (admin la desactivó) o produce fragment vacío,
+  //     se preserva el slot lógico para que el rating siga entre descripción y
+  //     observación cuando ambas existan, y los fallbacks documentados se
+  //     mantengan cuando alguna (o ambas) falten.
+  const fragments = new Map<string, string>();
+  for (const k of orderedKeys) fragments.set(k, renderFragment(k));
+
+  const descFragment = fragments.get('descripcion') ?? '';
+  const obsFragment = fragments.get('observacion') ?? '';
+
+  // Resto de fields = todos los del orden persistido EXCEPTO las claves canónicas.
+  const nonCanonicalHtml = orderedKeys
+    .filter((k) => !CANONICAL_KEYS.has(k))
+    .map((k) => fragments.get(k) ?? '')
+    .join('\n');
+
+  // Anclaje del rating:
+  //   - Si hay descripción y observación  → desc + rating + obs
+  //   - Si hay solo descripción           → desc + rating
+  //   - Si hay solo observación           → rating + obs
+  //   - Si no hay ninguna                 → rating al final (fallback histórico)
+  let canonicalBlock = '';
+  if (descFragment && obsFragment) {
+    canonicalBlock = descFragment + ratingFragment + obsFragment;
+  } else if (descFragment) {
+    canonicalBlock = descFragment + ratingFragment;
+  } else if (obsFragment) {
+    canonicalBlock = ratingFragment + obsFragment;
+  }
+
+  const trailingRating = (!descFragment && !obsFragment) ? ratingFragment : '';
+
+  return nonCanonicalHtml + canonicalBlock + trailingRating;
+
 })()}
 
 ${locationUpdatedAt > 0 ? `
