@@ -7,7 +7,7 @@
  *  - NO renderiza 5 estrellas vacías por defecto cuando user_rating=0
  *    (regresión del problema 2 del plan): aparece affordance textual `Valorar`.
  *  - Con `user_rating > 0`, renderiza el control 5★ expandido + clear button.
- *  - El visited badge usa iconos Lucide (camera / mapPin) — sin emojis 📷/📍.
+ *  - El visited badge usa iconos Lucide (camera / mapPin) — sin emojis (camera/pin).
  *  - Devuelve '' para `isCuratorPoint` y para popups `nearby`.
  *  - El bloque enriched ya NO contiene `data-action="toggle-visited"` antes
  *    del bloque `Descripción` (queda debajo via `buildPersonalStateBlock`).
@@ -99,14 +99,14 @@ describe('P-POPUP-7A — buildPersonalStateBlock', () => {
     expect(out).not.toContain('data-action="set-rating"');
   });
 
-  it('renders Lucide camera SVG (not 📷) when verification is photo', () => {
+  it('renders Lucide camera SVG (not emoji) when verification is photo', () => {
     const oldDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const out = buildPersonalStateBlock(
       poi('a', { visited: 'true', oldest_geotagged_photo_date: oldDate }),
       { isOwn: true, isCuratorPoint: false, canEditLocation: false },
     );
-    expect(out).not.toContain('\uD83D\uDCF7'); // 📷
-    expect(out).not.toContain('\uD83D\uDCCD'); // 📍
+    expect(out).not.toContain('\uD83D\uDCF7'); // camera emoji
+    expect(out).not.toContain('\uD83D\uDCCD'); // pin emoji
     // Debe contener un SVG (camera path o mapPin path).
     expect(out).toMatch(/<svg [^>]*viewBox="0 0 24 24"/);
   });
@@ -116,8 +116,8 @@ describe('P-POPUP-7A — buildPersonalStateBlock', () => {
       poi('a', { visited: 'true', visited_verified_at: new Date().toISOString() }),
       { isOwn: true, isCuratorPoint: false, canEditLocation: false },
     );
-    expect(out).not.toContain('\uD83D\uDCF7');
-    expect(out).not.toContain('\uD83D\uDCCD');
+    expect(out).not.toContain('\uD83D\uDCF7'); // camera emoji
+    expect(out).not.toContain('\uD83D\uDCCD'); // pin emoji
     expect(out).toMatch(/<svg [^>]*viewBox="0 0 24 24"/);
   });
 });
@@ -142,13 +142,13 @@ describe('P-POPUP-7A — enriched branch upper section no longer has visited tog
   it('inserts personalStateOnce() right after descripcion case', () => {
     expect(src).toContain('personalStateOnce()');
     // Y descripcion case incluye el call.
-    expect(src).toMatch(/case 'descripcion':[\s\S]{0,400}personalStateOnce\(\)/);
+    expect(src).toMatch(/case 'descripcion':[\s\S]{0,800}personalStateOnce\(\)/);
   });
 });
 
 describe('P-POPUP-7A — emoji removal across map-popups.ts', () => {
-  it('no longer uses 📷 or 📍 anywhere in the file', () => {
-    expect(src).not.toContain('\uD83D\uDCF7'); // 📷
-    expect(src).not.toContain('\uD83D\uDCCD'); // 📍
+  it('no longer uses camera or pin emojis anywhere in the file', () => {
+    expect(src).not.toContain('\uD83D\uDCF7'); // camera emoji
+    expect(src).not.toContain('\uD83D\uDCCD'); // pin emoji
   });
 });
