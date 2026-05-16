@@ -1018,19 +1018,25 @@ title="${hasUserImage ? 'Cambiar foto' : 'Añadir foto'}"
 
   const __overlayHtml = buildVisitedHeroOverlay(location, ownership, enriched, visitedState);
 
-  // P-POPUP-7B DEV PROBE — dev-only, removed in fix commit. No UX impact.
+  // P-POPUP-7B DEV PROBE — dev-only, removed in Fase D cleanup. No UX impact.
   if (import.meta.env.DEV && typeof window !== 'undefined') {
     const state = visitedState ?? resolveVisitedPresentationState(location, ownership, enriched);
+    const heroResolved = resolveHeroImage(location, ownership, enriched);
+    const desc = (location.enrichedData as any)?.descripcion ?? (location as any).enriched_data?.descripcion ?? '';
     const probe = {
       id: location.id,
       name: location.name,
       branch: enriched === null ? 'legacy' : 'enriched',
-      state,
+      isPointEnriched: isPointEnriched(location),
+      descripcionLength: typeof desc === 'string' ? desc.length : 0,
+      enrichedDataImagen: !!(location.enrichedData as any)?.imagen,
+      userImageUrl: !!location.customData?.user_image_url,
+      heroSource: heroResolved.source,
+      heroDisplayImage: heroResolved.displayImage || null,
       isCuratorPoint: !!ownership.curatorId,
       isNearbyPopupContext: isNearbyPopupContext(location.id),
-      heroDisplayImage: resolveHeroDisplayImage(location, enriched, ownership) || null,
+      state,
       imageHtmlEmitted: !!imageHtml,
-      imageHtmlSample: imageHtml ? imageHtml.slice(0, 80) : null,
       overlayHtmlEmitted: !!__overlayHtml,
       overlayHtmlLength: __overlayHtml.length,
     };
