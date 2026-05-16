@@ -1364,27 +1364,28 @@ ${buildCollectionChipsPlaceholder(location)}
 ${buildPersonalTagsBlock(location)}
 
 ${(() => {
-  // Render enriched sections following the order/enablement persisted in the
-  // editor (Configuración de fichas) — single source of truth.
+  // P-POPUP-7A.1 — Compose enriched body en DOS niveles:
+  //   (1) el switch produce SOLO fragments por fieldKey (sin orquestación);
+  //   (2) un composer único decide la jerarquía final.
+  //
+  // CONTRATO TRANSVERSAL: `field_order` (card config) NO puede alterar la
+  // jerarquía semántica principal del popup. La tripleta canónica
+  //   descripcion → rating (personal state) → observacion
+  // queda CONGELADA, independiente de cualquier orden persistido en la
+  // editor de fichas. El resto de fields respeta `orderedKeys`.
+  // Ver docs/popups/p-popup-7a-validation.md (§ 7A.1).
   const orderedKeys = cardCfg.orderedKeys;
 
-  // P-POPUP-7A — flag para insertar el bloque de estado personal una sola vez,
-  // justo debajo de `descripcion`. Si la card config no incluye `descripcion`,
-  // el bloque se emite al final (fallback).
   // P-POPUP-7B — `heroOverlayActive` colapsa el bloque inferior a inline
-  // `✓ Visitado` cuando el overlay sobre la hero está activo (visited + hay
-  // hero image). El verified badge vive sólo en el overlay.
-  // P-POPUP-7B (unificación) — reutiliza el state ya resuelto arriba.
+  // `✓ Visitado` cuando el overlay sobre la hero está activo.
   const heroOverlayActive = visitedState.showHeroOverlay;
   const personalStateCtx = { isOwn, isCuratorPoint, canEditLocation, heroOverlayActive };
-  let personalStateRendered = false;
-  const personalStateOnce = () => {
-    if (personalStateRendered) return '';
-    personalStateRendered = true;
-    return buildPersonalStateBlock(location, personalStateCtx);
-  };
+  const ratingFragment = buildPersonalStateBlock(location, personalStateCtx);
 
-  const mappedBody = orderedKeys.map(fieldKey => {
+  // Claves que el composer canónico extrae del flujo de `field_order`
+  // (su posición la decide el composer, no el switch).
+  const CANONICAL_KEYS = new Set(['descripcion', 'observacion']);
+
     switch (fieldKey) {
       case 'nombre_lugar':
       case 'localizacion':
