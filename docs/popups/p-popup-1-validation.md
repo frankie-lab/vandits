@@ -261,3 +261,47 @@ Hasta cierre de FU-1, **NO avanzar a**:
 
 F1.x (tokens internos sin cambio estructural) puede comenzar **solo
 si FU-1 pasa**.
+
+---
+
+## 11. Final ratification (FU-1 closed)
+
+**Fecha**: 2026-05-16
+**Trigger**: QA manual sandbox aprobado por el usuario.
+
+### 11.1 QA manual — resultado
+
+Verificado en preview sobre popup POI propio enriched:
+
+- [x] Apertura OK
+- [x] Tamaño / scroll OK
+- [x] Legibilidad OK
+- [x] Badges / status OK
+- [x] Acciones OK
+- [x] Cierre / reapertura OK
+- [x] Sin regresión visual apreciable
+
+### 11.2 Estado final
+
+**`ratified`** (promovido desde `ratified-with-followups`).
+
+P-POPUP-1 queda cerrado. Feature flag `popup_tokens_enriched_v1`
+permanece ON por default. Rollback documentado en §7 sigue vigente.
+
+### 11.3 Follow-ups actualizados
+
+| ID | Descripción | Estado | Bloquea? |
+|----|-------------|--------|----------|
+| FU-1 | QA manual humano sandbox. | **cerrado** | — |
+| FU-2 | Baseline visual snapshot (Playwright + DPR fijo). | abierto | No (no bloqueante) |
+| FU-3 | Deuda `Index.tsx` composition. | abierto | No |
+| FU-4 | Deuda `enrichment-helpers` rojos. | abierto | No |
+| FU-5 | Hardcodear flag ON tras 2 sprints sin regresión. | abierto | No |
+
+### 11.4 Gates
+
+- **F1.x** (tokens internos sin cambio estructural): **desbloqueado**.
+- **F2** (warning soft / violet / status surface tokens):
+  **NO iniciar todavía** — pendiente de decisión explícita del usuario.
+- **PopupShell, React migration, photo popup, nearby, recovery**:
+  siguen bloqueados hasta cierre de sus propios pilots.
