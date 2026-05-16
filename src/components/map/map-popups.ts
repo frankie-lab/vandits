@@ -939,19 +939,12 @@ stroke-linejoin="round"/>
     }
   }
 
-  // Regular locations: user/followed logic
+  // P-POPUP-7B — single source of truth. Renderer y resolver consumen
+  // EXACTAMENTE el mismo helper para "¿hay hero?". Drift estructural extinguido.
+  const hero = resolveHeroImage(location, ownership, enriched);
+  const displayImage = hero.displayImage;
+  const fallbackImage = (enriched?.imagen as string | undefined) || '';
   const userImageUrl = location.customData?.user_image_url as string | undefined;
-  const userImageVisibility = (location.customData?.user_image_visibility as string) || 'private';
-  const aiImage = enriched?.imagen;
-
-  const canSeeUserImage = userImageUrl && (
-    ownership.isOwn ||
-    userImageVisibility === 'public' ||
-    (userImageVisibility === 'followers' && ownership.isFollowing)
-  );
-
-  const displayImage = canSeeUserImage ? userImageUrl : aiImage;
-  const fallbackImage = aiImage || '';
   const locationName = (enriched?.nombre_lugar && enriched.nombre_lugar !== 'null') ? enriched.nombre_lugar : location.name;
 
   let imageHtml = '';
