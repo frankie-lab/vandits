@@ -1644,7 +1644,7 @@ ${actionButtonsHtml}
 ${statusBarHtml}
 
 <div style="flex-shrink: 0;">
-${buildImageSection(location, null, ownershipInfo)}
+${buildImageSection(location, null, ownershipInfo, visitedStateLegacy)}
 </div>
 
 <div class="popup-scroll-body" style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;">
