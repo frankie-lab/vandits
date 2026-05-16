@@ -981,7 +981,7 @@ ${(() => {
 })()}
 
 ${locationUpdatedAt > 0 ? `
-<div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: #9ca3af; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e5e7eb;">
+<div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${tk('hsl(var(--text-secondary))', '#9ca3af')}; margin-top: 8px; padding-top: 8px; border-top: 1px dashed ${tk('hsl(var(--surface-border))', '#e5e7eb')};">
 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 <circle cx="12" cy="12" r="10"/>
 <polyline points="12 6 12 12 16 14"/>
