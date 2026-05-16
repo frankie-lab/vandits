@@ -231,3 +231,16 @@ los tests pasaban y los buckets de tags sí estaban canonicalizados.
 
 **Fuera de scope (P-POPUP-3)**: `Mi punto`, `#frankie_gmz`,
 `#AtlasObscura_España`, Notas, ownership cleanup, source hashtags cleanup.
+
+---
+
+## Rollout policy (2026-05-16)
+
+Rollout global, sin gating por usuario/email/role. El flag
+`POPUP_GEO_CANONICAL_V1_DEFAULT = true` y su kill-switch runtime
+`window.__POPUP_GEO_CANONICAL_V1__` son **globales**: herramientas
+de rollback/debug, no segmentación de cohorte. La validación visual
+humana ocurre directamente en preview/app con default ON para todos
+los usuarios. El sandbox queda reservado para fixtures E2E, datos
+sintéticos y validación técnica. Ver
+[`../governance/rollout-policy.md`](../governance/rollout-policy.md).

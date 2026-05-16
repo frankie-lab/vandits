@@ -305,3 +305,15 @@ permanece ON por default. Rollback documentado en §7 sigue vigente.
   **NO iniciar todavía** — pendiente de decisión explícita del usuario.
 - **PopupShell, React migration, photo popup, nearby, recovery**:
   siguen bloqueados hasta cierre de sus propios pilots.
+
+---
+
+## Rollout policy (2026-05-16)
+
+Rollout global, sin gating por usuario/email/role. El flag
+`POPUP_TOKENS_ENRICHED_V1_DEFAULT = true` y su kill-switch runtime
+`window.__POPUP_TOKENS_ENRICHED_V1__` son **globales**: herramientas
+de rollback/debug, no segmentación de cohorte. El sandbox
+(`sandbox-agent@vandits.test`) se reserva para fixtures E2E, datos
+sintéticos y validación técnica. Ver
+[`../governance/rollout-policy.md`](../governance/rollout-policy.md).
