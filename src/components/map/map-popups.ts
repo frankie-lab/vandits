@@ -111,6 +111,29 @@ export function isPopupOwnershipStripV1On(): boolean {
   return POPUP_OWNERSHIP_STRIP_V1_DEFAULT;
 }
 
+// ─── P-POPUP-4A Feature Flag (source metadata line) ────────────────────────
+// Source/app enriched popups (rama A): replace the legacy `#sourceId` chip(s)
+// rendered by `buildSourceHashtagsBlock` with a compact metadata line
+//   `Añadido dd/mm/yyyy · vía <label>`
+// where `<label>` is a clickable span preserving the `.source-filter-chip`
+// contract (data-source-type, data-source-id, data-source-label) so
+// SourceFilterBridge keeps working unchanged. own / followed / rama B are
+// untouched. See docs/popups/p-popup-4a-source-provenance-cleanup-plan.md.
+//
+// Default: **true** (rollout global, conforme docs/governance/rollout-policy.md).
+// Kill-switch global runtime: `window.__POPUP_SOURCE_METADATA_V1__ = false`
+// BEFORE opening the popup.
+const POPUP_SOURCE_METADATA_V1_DEFAULT = true;
+export function isPopupSourceMetadataV1On(): boolean {
+  try {
+    const w = (typeof window !== 'undefined' ? (window as any) : null);
+    if (w && typeof w.__POPUP_SOURCE_METADATA_V1__ === 'boolean') {
+      return w.__POPUP_SOURCE_METADATA_V1__;
+    }
+  } catch { /* SSR / restricted env */ }
+  return POPUP_SOURCE_METADATA_V1_DEFAULT;
+}
+
 /**
  * P2-FIX-B — Temporary deployment signal visible in preview/staging.
  * `import.meta.env.DEV` is false in Lovable preview (built like prod), so the
@@ -368,7 +391,118 @@ export function buildOwnAddedLineHtml(location: GeoLocation): string {
 </div>`;
 }
 
+// ─── P-POPUP-4A — Source metadata line (source/app enriched only) ──────────
+// Reemplaza al chip `#sourceId` por una línea legible
+//   `Añadido dd/mm/aaaa · vía <label-clicable>`
+// Para `app` con groupId se emiten DOS chips clicables separados por `·`,
+// uno por filtro (preserva paridad funcional con `buildSourceHashtagsBlock`).
+// Cada chip conserva `.source-filter-chip` + datasets canónicos.
+//
+// Reglas de formato del label (`prettifySourceId`):
+//   - reemplaza `_`/`-` por ` · ` / espacios respectivamente
+//   - separa CamelCase (`AtlasObscura` → `Atlas Obscura`)
+//   - tokens cortos all-lowercase ≤4 letras → uppercase (`osm` → `OSM`)
+//   - resto: capitaliza palabras conservadoramente
+//   - fallback: string crudo si no aplica nada (seguridad)
+export function prettifySourceId(raw: string | null | undefined): string {
+  if (!raw) return '';
+  const s = String(raw).trim();
+  if (!s) return '';
+  // Separadores → ` · ` (underscore) y ` ` (hyphen).
+  const parts = s.split('_').map(part => {
+    if (!part) return '';
+    // Caso acrónimo: el segmento entero es all-lowercase ≤4 letras (`osm`).
+    // Solo aplica cuando NO hay hyphen ni CamelCase dentro.
+    if (/^[a-z]{1,4}$/.test(part)) return part.toUpperCase();
+    const hyphenated = part.replace(/-/g, ' ');
+    // CamelCase split (preserva acrónimos seguidos de minúscula: `USAToday` → `USA Today`).
+    const camelSplit = hyphenated
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
+    // Capitaliza primera letra de cada palabra (sin re-upper-case de tokens cortos).
+    return camelSplit
+      .split(/\s+/)
+      .map(w => (w ? w.charAt(0).toUpperCase() + w.slice(1) : ''))
+      .join(' ');
+  });
+  return parts.filter(Boolean).join(' · ') || s;
+}
+
+function buildSourceChipSpan(
+  type: string,
+  filterId: string,
+  label: string,
+): string {
+  const safeLabel = String(label).replace(/"/g, '&quot;');
+  const safeId = String(filterId).replace(/"/g, '&quot;');
+  const safeType = String(type).replace(/"/g, '&quot;');
+  return `<span class="source-filter-chip" data-source-type="${safeType}" data-source-id="${safeId}" data-source-label="${safeLabel}" title="Filtrar por ${safeLabel}" style="cursor: pointer; text-decoration: underline; text-decoration-color: hsl(var(--muted-foreground) / 0.4); text-underline-offset: 2px; color: hsl(var(--muted-foreground)); transition: color 0.15s;">${safeLabel}</span>`;
+}
+
+/**
+ * Emite la línea metadata canónica para `source` / `app` en rama A enriched.
+ * Retorna '' si:
+ *  - el flag está OFF
+ *  - el tipo no es `source` ni `app`
+ *  - no hay hashtags ni fecha (línea vacía no se pinta)
+ */
+export function buildSourceMetadataLineHtml(
+  location: GeoLocation,
+  ownership: PopupOwnership | undefined,
+): string {
+  if (!isPopupSourceMetadataV1On()) return '';
+  const viewerUid = ownership?.viewerUid ?? null;
+  const source = resolvePoiSource(viewerUid, location, { usernameLookup: ownership?.usernameLookup });
+  if (source.type !== 'source' && source.type !== 'app') return '';
+
+  // Fecha (opcional, mismo formato que ownership-strip).
+  let datePart = '';
+  const raw = (location as { createdAt?: Date | string | null }).createdAt;
+  if (raw) {
+    const d = raw instanceof Date ? raw : new Date(raw);
+    if (!isNaN(d.getTime())) {
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      datePart = `Añadido ${dd}/${mm}/${yyyy}`;
+    }
+  }
+
+  // Chips: uno por hashtag, cada uno con su filterId canónico.
+  const chips = source.hashtags
+    .map((tag, idx) => {
+      const isPrimary = idx === 0;
+      const filterId = isPrimary
+        ? source.sourceId ?? tag
+        : tag; // groupId
+      if (!filterId) return '';
+      return buildSourceChipSpan(source.type, filterId, prettifySourceId(tag));
+    })
+    .filter(Boolean);
+
+  if (chips.length === 0 && !datePart) return '';
+
+  const viaSegment = chips.length > 0
+    ? `vía ${chips.join(' <span aria-hidden="true">·</span> ')}`
+    : '';
+
+  const segments = [datePart, viaSegment].filter(Boolean);
+  if (segments.length === 0) return '';
+
+  const inner = segments.join(' <span aria-hidden="true">·</span> ');
+
+  return `<div data-popup-source-metadata="${location.id}" data-source-metadata-type="${source.type}" style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 ${CARD.sectionGap}px 0; font-size: 11px; line-height: 1.3; color: hsl(var(--muted-foreground));">
+<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<ellipse cx="12" cy="5" rx="9" ry="3"/>
+<path d="M3 5v14a9 3 0 0 0 18 0V5"/>
+<path d="M3 12a9 3 0 0 0 18 0"/>
+</svg>
+<span>${inner}</span>
+</div>`;
+}
+
 // ─── Image Section ───────────────────────────────────────────────────────────
+
 
 export function buildImageSection(
   location: GeoLocation,
@@ -887,9 +1021,22 @@ title="Quitar valoración"
 </div>
 </div>
 
-${(isOwn && isPopupOwnershipStripV1On())
-  ? buildOwnAddedLineHtml(location)
-  : buildSourceHashtagsBlock(location, ownership, { suppressOwn: false })}
+${(() => {
+  // P-POPUP-3A → own enriched: línea "Añadido dd/mm/yyyy" (sin literal ownership).
+  if (isOwn && isPopupOwnershipStripV1On()) return buildOwnAddedLineHtml(location);
+  // P-POPUP-4A → source/app enriched (rama A): línea metadata "Añadido … · vía <label>".
+  // Si el helper devuelve '' (flag OFF, sin hashtags, etc.) → fallback al legado.
+  if (isPopupSourceMetadataV1On()) {
+    const viewerUid = ownership?.viewerUid ?? null;
+    const src = resolvePoiSource(viewerUid, location, { usernameLookup: ownership?.usernameLookup });
+    if (src.type === 'source' || src.type === 'app') {
+      const html = buildSourceMetadataLineHtml(location, ownership);
+      if (html) return html;
+    }
+  }
+  // followed (y own con flag OFF) → comportamiento legado.
+  return buildSourceHashtagsBlock(location, ownership, { suppressOwn: false });
+})()}
 ${buildCollectionChipsPlaceholder(location)}
 ${buildPersonalTagsBlock(location)}
 

@@ -1,0 +1,181 @@
+# P-POPUP-4A — Source / Provenance cleanup (rama A enriched)
+
+Status: **IMPLEMENTED — pending preview ratification (2026-05-16)**.
+Companion plan: [`./p-popup-4a-source-provenance-cleanup-plan.md`](./p-popup-4a-source-provenance-cleanup-plan.md).
+Rollout governance: [`../governance/rollout-policy.md`](../governance/rollout-policy.md).
+
+---
+
+## 1. Scope
+
+Solo popup enriched (rama A) en `src/components/map/map-popups.ts`. Solo
+POIs cuyo `resolvePoiSource(...)` devuelve `type === 'source'` o
+`type === 'app'`.
+
+Fuera de scope (no tocados):
+
+- `own` (gestionado por P-POPUP-3A — ownership strip).
+- `followed` (pendiente P-POPUP-3B / 4C).
+- Rama B (popup no-enriched) — sigue emitiendo `buildSourceHashtagsBlock`
+  legacy sin gating.
+- `SourceHashtag.tsx` (cards/listas React).
+- `SourceFilterBridge.tsx` y contrato de evento `lovable:apply-source-filter`.
+- Geo hierarchy, ownership, notes, stars/visited, lifecycle, taxonomy,
+  cámara/subset-fit, F2, React migration, PopupShell.
+
+## 2. Canon visual
+
+Antes (chip estilo hashtag, indistinguible de tags):
+
+```
+#AtlasObscura_España
+```
+
+Después (línea metadata compacta, muted, debajo del header):
+
+```
+Añadido 03/05/2026 · vía Atlas Obscura · España
+```
+
+- `vía` literal aprobado.
+- Label se obtiene de `prettifySourceId(sourceId)`: split CamelCase,
+  `_` → ` · `, `-` → espacio, acrónimos cortos all-lowercase → upper.
+- El label es clicable (subrayado muted) y dispara el mismo filtro que el
+  chip legacy. Para `app` con `groupId` se emiten DOS chips separados por
+  `·` (uno por filtro, paridad funcional con el chip legacy).
+
+## 3. Cambios de código
+
+### 3.1 Flag + helper de detección
+
+`src/components/map/map-popups.ts`:
+
+```ts
+const POPUP_SOURCE_METADATA_V1_DEFAULT = true;
+export function isPopupSourceMetadataV1On(): boolean { /* kill-switch global */ }
+```
+
+Default ON global conforme `rollout-policy.md`. Cero gating por uid /
+email / role / cohort.
+
+### 3.2 Helpers nuevos (exports)
+
+- `prettifySourceId(raw)` — formatter conservador. Fallback al string
+  crudo si no aplica nada.
+- `buildSourceMetadataLineHtml(location, ownership)` — emite la línea
+  completa. Retorna `''` si flag OFF, tipo no es `source|app`, o no hay
+  hashtags ni fecha.
+
+### 3.3 Dispatch en rama A
+
+Reemplazado el ternario directo por un selector explícito por tipo:
+
+```ts
+${(() => {
+  if (isOwn && isPopupOwnershipStripV1On()) return buildOwnAddedLineHtml(location);
+  if (isPopupSourceMetadataV1On()) {
+    const src = resolvePoiSource(viewerUid, location, { usernameLookup });
+    if (src.type === 'source' || src.type === 'app') {
+      const html = buildSourceMetadataLineHtml(location, ownership);
+      if (html) return html;
+    }
+  }
+  return buildSourceHashtagsBlock(location, ownership, { suppressOwn: false });
+})()}
+```
+
+## 4. Contrato funcional preservado
+
+Cada chip emitido por `buildSourceMetadataLineHtml` mantiene:
+
+- clase `.source-filter-chip`.
+- `data-source-type` (`source` | `app`).
+- `data-source-id` (sourceId o groupId, mismo valor que el chip legacy).
+- `data-source-label` (label legible — usado por SourceFilterBridge).
+
+Como consecuencia, el listener delegado en `SourceFilterBridge.tsx`
+(`document.click` sobre `.source-filter-chip`) sigue disparando
+`lovable:apply-source-filter` con los mismos `{type, id, label}`. Cero
+cambios en el bridge, en el store, ni en `requestSubsetFit`.
+
+## 5. Flag y rollback
+
+| Nivel | Mecanismo |
+|---|---|
+| Runtime (instant, sin redeploy) | `window.__POPUP_SOURCE_METADATA_V1__ = false` antes de abrir popup |
+| Code (1 línea) | `POPUP_SOURCE_METADATA_V1_DEFAULT = false` |
+| Path legacy | `buildSourceHashtagsBlock(location, ownership, { suppressOwn: false })` permanece intacto y se activa automáticamente cuando el flag está OFF o el helper devuelve `''` |
+
+Conforme `rollout-policy.md`, el kill-switch global es la herramienta
+canónica de rollback/debug. Sin segmentación por usuario.
+
+## 6. Tests
+
+`src/test/popup-source-metadata.test.ts` — 17 casos cubriendo:
+
+- `prettifySourceId` (CamelCase, snake_case, hyphen, acrónimos, null).
+- Scope helper: source emite línea, app emite 2 chips, own/followed
+  devuelven `''`, sin createdAt → solo `vía`, sin `#` en el label.
+- Token `--muted-foreground` sin hex hardcoded.
+- Flag default true + kill-switch runtime.
+- Static guards de la rama A: dispatch correcto, fallback legacy
+  preservado, P-POPUP-3A intacto, rama B intacta.
+
+Tests previos relevantes (deben seguir verdes):
+
+- `src/test/popup-ownership-strip.test.ts` (P-POPUP-3A).
+- `src/test/popup-tags-canonical.test.ts` (P-POPUP-2).
+- `src/test/popup-geo-header.test.ts`, `popup-tokens-enriched.test.ts`.
+- `src/test/poi-source.test.ts`, `poi-filter-source.test.ts`.
+
+## 7. Checklist de validación visual (preview)
+
+- [ ] POI `source` (Atlas Obscura) en mapa enriched muestra
+      `Añadido dd/mm/yyyy · vía Atlas Obscura · España` debajo del header
+      geo, sin chip `#AtlasObscura_España`.
+- [ ] Click en el label dispara `filterBySource` (subset-fit recorta
+      mapa al subconjunto source).
+- [ ] Re-click toggle off (filtro limpio, sin mover cámara).
+- [ ] POI `app` (vandits-app + groupId) muestra dos labels clicables
+      separados por `·`, cada uno filtra independientemente.
+- [ ] POI propio (own) sigue mostrando solo `Añadido dd/mm/yyyy`
+      (P-POPUP-3A intacto, sin "Mi punto" ni `#username`).
+- [ ] POI followed sigue mostrando chip `#username` legacy
+      (out of scope 4A).
+- [ ] Rama B (popup no-enriched) sigue mostrando chips legacy.
+- [ ] Kill-switch global: `window.__POPUP_SOURCE_METADATA_V1__ = false`
+      revierte instantáneamente al render legacy.
+
+## 8. Verificación de rollout-policy
+
+| Check | Resultado |
+|---|---|
+| `_DEFAULT = true` literal, sin `=== sandboxUid` | OK |
+| `isPopupSourceMetadataV1On()` no consulta `auth` / `profiles` / email | OK |
+| Kill-switch runtime es `window.__POPUP_SOURCE_METADATA_V1__` (global) | OK |
+| Sin badges/diagnostics gated por uid | OK |
+| `rg "sandbox\|vandits.test\|uid ===\|email ===" src/components/map/map-popups.ts` no muestra gating de canon | Pendiente confirmar en preview |
+
+## 9. Migration Impact
+
+- Archivos modificados: `src/components/map/map-popups.ts`.
+- Archivos creados: `src/test/popup-source-metadata.test.ts`,
+  `docs/popups/p-popup-4a-validation.md` (este).
+- Sin cambios en: `SourceHashtag.tsx`, `SourceFilterBridge.tsx`,
+  `poi-source.ts`, `poi-shareability.ts`, `poi-layer.ts`,
+  `poi-marker-grammar.ts`, store, bridges, eventos.
+- Riesgos detectados:
+  - `prettifySourceId` puede malformar `sourceId` muy exóticos →
+    fallback al string crudo + label visible en preview QA.
+  - Rama B sigue emitiendo chip legacy → deuda explícita P-POPUP-4B.
+
+## 10. Decisiones abiertas
+
+- Badge dev `P-POPUP-4 ON` — **NO añadido** en esta iteración (el badge
+  de P-POPUP-2 sigue cubriendo la deployment-signal global). Reconsiderar
+  si la ratificación visual requiere señal específica.
+- `prettifySourceId` para `followed` username → deferido a P-POPUP-3B/4C.
+
+## 11. Ratification log
+
+_Pendiente — completar tras QA visual con default ON global en preview._
