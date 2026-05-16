@@ -29,14 +29,23 @@
  */
 import type { GeoLocation } from '@/types/location';
 
-/** Slug normaliser shared with `personal-tags-filter.ts`. */
+/**
+ * Slug normaliser shared with `personal-tags-filter.ts`.
+ *
+ * P2-FIX-C — collapses **all** non-alphanumeric characters, not just
+ * whitespace/underscore/dash. Covers real-world cases reported in P-POPUP-2:
+ *   - `"Villa/Pueblo"` ↔ `"Villa Pueblo"` (slash separator)
+ *   - `"Naturaleza & Paisaje"` ↔ `"Naturaleza Paisaje"`
+ *   - `"Iglesia (s. XII)"` ↔ `"Iglesia s XII"`
+ * Leading `#`, accents (NFKD strip), and case are also normalised.
+ */
 export function tagSlug(input: string): string {
   return (input ?? '')
     .replace(/^#/, '')
     .toLowerCase()
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[\s_-]+/g, '');
+    .replace(/[^a-z0-9]+/g, '');
 }
 
 export interface CanonicalTagBuckets {
@@ -121,19 +130,36 @@ export function dedupePopupTagBuckets(input: DedupeInputs): CanonicalTagBuckets 
 /**
  * Extracts the raw taxonomy candidates from an enriched payload. Strips the
  * leading `N.` / `N.N` / `N.N.N` numbering that the IA classifier prepends.
+ *
+ * P2-FIX-E — also splits any field containing `>` (the IA classifier
+ * occasionally concatenates `categoria > subcategoria > tipo` into a single
+ * string). Each resulting fragment is trimmed and deduped (case-insensitive
+ * by slug) so the popup never renders the same chip twice.
  */
 export function extractTaxonomyCandidates(enriched: any): string[] {
   if (!enriched?.clasificacion) return [];
   const c = enriched.clasificacion;
-  const out: string[] = [];
+  const raw: string[] = [];
   const push = (v: unknown, prefixRe: RegExp) => {
     if (typeof v !== 'string') return;
-    const clean = v.replace(prefixRe, '').trim();
-    if (clean) out.push(clean);
+    // Split by `>` first (defensive against payloads where IA collapsed levels).
+    for (const part of v.split('>')) {
+      const clean = part.replace(prefixRe, '').trim();
+      if (clean) raw.push(clean);
+    }
   };
-  push(c.categoria_principal, /^\d+\.\s*/);
-  push(c.subcategoria, /^\d+\.\d+\s*/);
-  push(c.tipo_especifico, /^\d+\.\d+\.\d+\s*/);
+  push(c.categoria_principal, /^\d+(?:\.\d+)*\.?\s*/);
+  push(c.subcategoria, /^\d+(?:\.\d+)*\.?\s*/);
+  push(c.tipo_especifico, /^\d+(?:\.\d+)*\.?\s*/);
+  // Dedupe by slug, preserve first occurrence (most generic level first).
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const v of raw) {
+    const s = tagSlug(v);
+    if (!s || seen.has(s)) continue;
+    seen.add(s);
+    out.push(v);
+  }
   return out;
 }
 

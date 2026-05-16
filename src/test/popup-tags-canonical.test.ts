@@ -25,6 +25,14 @@ describe('P-POPUP-2 — tagSlug', () => {
     expect(tagSlug('Camí_de-Sant Jaume')).toBe('camidesantjaume');
     expect(tagSlug('  ')).toBe('');
   });
+
+  it('P2-FIX-C — collapses all non-alphanumeric separators (slash, &, parens, dot, comma)', () => {
+    expect(tagSlug('Villa/Pueblo')).toBe(tagSlug('Villa Pueblo'));
+    expect(tagSlug('Naturaleza & Paisaje')).toBe(tagSlug('Naturaleza Paisaje'));
+    expect(tagSlug('Iglesia (s. XII)')).toBe(tagSlug('iglesia s xii'));
+    expect(tagSlug('Bar,Restaurante')).toBe(tagSlug('Bar Restaurante'));
+    expect(tagSlug('1.2 Villa/Pueblo')).toBe('12villapueblo');
+  });
 });
 
 describe('P-POPUP-2 — extractTaxonomyCandidates', () => {
@@ -42,6 +50,35 @@ describe('P-POPUP-2 — extractTaxonomyCandidates', () => {
   it('returns empty when no clasificacion', () => {
     expect(extractTaxonomyCandidates({})).toEqual([]);
     expect(extractTaxonomyCandidates(null)).toEqual([]);
+  });
+
+  it('P2-FIX-E — splits payloads where IA concatenated levels with ">"', () => {
+    const out = extractTaxonomyCandidates({
+      clasificacion: {
+        categoria_principal: '1.2 Asentamientos humanos > Villa/Pueblo',
+        subcategoria: '1.2 Villa/Pueblo',
+        tipo_especifico: 'Villa/Pueblo',
+      },
+    });
+    // Splits the `>`, strips numbering, dedupes by slug (Villa/Pueblo ↔
+    // Villa/Pueblo collapses; thanks to P2-FIX-C the slash separator also
+    // matches "Villa Pueblo" if it appeared).
+    expect(out).toEqual(['Asentamientos humanos', 'Villa/Pueblo']);
+  });
+
+  it('P2-FIX-E — taxonomy chip is not duplicated as a semantic hashtag', () => {
+    // Simulates the preview regression: taxonomy emits "Villa/Pueblo" and
+    // enriched.etiquetas re-emits the same concept under different spelling.
+    const buckets = dedupePopupTagBuckets({
+      taxonomy: extractTaxonomyCandidates({
+        clasificacion: { categoria_principal: '1.2 Asentamientos humanos > Villa/Pueblo' },
+      }),
+      collectionSlugs: [],
+      semantic: ['Asentamientoshumanos', 'Villa Pueblo', 'medieval'],
+      user: [],
+    });
+    expect(buckets.taxonomy).toEqual(['Asentamientos humanos', 'Villa/Pueblo']);
+    expect(buckets.semantic).toEqual(['medieval']);
   });
 });
 

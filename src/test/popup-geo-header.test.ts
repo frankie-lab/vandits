@@ -128,4 +128,44 @@ describe('P-POPUP-2 — canonical geo header', () => {
     expect(idxLoc).toBeLessThan(idxZone);
     expect(idxZone).toBeLessThan(idxRegion);
   });
+
+  it('P2-FIX-D — dedupes zone==region for uniprovincial communities (Asturias)', () => {
+    // Real-world payload from preview: Principado de Asturias is uniprovincial
+    // (admin_nivel_1 === admin_nivel_2). Must collapse to a single chip and
+    // never emit continent in the header.
+    const loc = makeLoc({
+      enrichedData: {
+        datos_geograficos: {
+          admin_nivel_2: 'Principado de Asturias',
+          admin_nivel_1: 'Principado de Asturias',
+          pais: 'España',
+          continente: 'Europa',
+        },
+      },
+    });
+    const chips = getCanonicalGeoChips(loc);
+    expect(chips.map(c => c.value)).toEqual(['Principado de Asturias', 'Spain']);
+    // First occurrence (zone) wins per the dedupe contract.
+    expect(chips[0].level).toBe('zone');
+    expect(chips.find(c => (c as any).level === 'continent')).toBeUndefined();
+  });
+
+  it('P2-FIX-D — dedupes zone==region for Madrid uniprovincial', () => {
+    const loc = makeLoc({
+      enrichedData: {
+        datos_geograficos: {
+          localidad: 'Madrid',
+          admin_nivel_2: 'Madrid',
+          admin_nivel_1: 'Comunidad de Madrid',
+          pais: 'España',
+        },
+      },
+    });
+    const chips = getCanonicalGeoChips(loc);
+    // locality "Madrid" dedupes zone "Madrid"; region "Comunidad de Madrid"
+    // is a different slug and survives.
+    expect(chips.map(c => c.value)).toEqual([
+      'Madrid', 'Comunidad de Madrid', 'Spain',
+    ]);
+  });
 });

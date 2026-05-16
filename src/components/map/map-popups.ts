@@ -90,6 +90,23 @@ function isPopupGeoCanonicalV1On(): boolean {
   return POPUP_GEO_CANONICAL_V1_DEFAULT;
 }
 
+/**
+ * P2-FIX-B — Temporary deployment signal visible in preview/staging.
+ * `import.meta.env.DEV` is false in Lovable preview (built like prod), so the
+ * earlier badge never showed. This gate stays true on lovable.app + localhost
+ * (where rollout is being validated) and on opt-in `?diag=1`. Will be
+ * retired once P-POPUP-2 is fully ratified in production.
+ */
+function isPopupDiagBadgeVisible(): boolean {
+  try {
+    if (typeof window === 'undefined') return false;
+    const host = window.location?.hostname ?? '';
+    if (host.includes('lovable.app') || host === 'localhost' || host === '127.0.0.1') return true;
+    if (window.location?.search?.includes('diag=1')) return true;
+  } catch { /* noop */ }
+  return false;
+}
+
 // ─── Card Config Cache ──────────────────────────────────────────────────────
 // Source of truth: `app_settings.enrichment_card_config` always normalized
 // through `normalizeCardConfig()` to v2. The popup never reads legacy v1 keys.
@@ -1094,7 +1111,7 @@ ${actionButtonsHtml}
   const moreDataCount = filteredCustomData.length - 6;
 
   return `
-<div data-popup-version="${isPopupGeoCanonicalV1On() ? 'geo-canonical-v1' : 'legacy'}" data-popup-geo-canonical="${isPopupGeoCanonicalV1On() ? 'true' : 'false'}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: ${POPUP_MAX_HEIGHT}; overflow: hidden;">${import.meta.env.DEV && isPopupGeoCanonicalV1On() ? `<div style="position: absolute; top: 4px; left: 4px; z-index: 10; padding: 2px 6px; border-radius: 4px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.85; pointer-events: none;" title="P-POPUP-2 canonical geo header + 4-bucket tag dedupe ACTIVE (dev only)">P-POPUP-2 ON</div>` : ''}
+<div data-popup-version="${isPopupGeoCanonicalV1On() ? 'geo-canonical-v1' : 'legacy'}" data-popup-geo-canonical="${isPopupGeoCanonicalV1On() ? 'true' : 'false'}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: ${POPUP_MAX_HEIGHT}; overflow: hidden;">${isPopupDiagBadgeVisible() && isPopupGeoCanonicalV1On() ? `<div style="position: absolute; top: 4px; left: 4px; z-index: 10; padding: 2px 6px; border-radius: 4px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.85; pointer-events: none;" title="P-POPUP-2 canonical geo header + 4-bucket tag dedupe ACTIVE (preview/staging signal — will retire after ratification)">P-POPUP-2 ON</div>` : ''}
 ${statusBarHtml}
 
 <div style="flex-shrink: 0;">

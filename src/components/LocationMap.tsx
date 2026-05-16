@@ -1287,6 +1287,36 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
   // Handle popup action button clicks
   useEffect(() => { loadCardConfig(); return setupActionClickHandler(); }, []);
 
+  // P2-FIX-A — One-shot boot pass: when the popup canonical-v1 flag is ON
+  // (default in production since 2026-05-16), any marker bound to a popup
+  // BEFORE the bundle update still holds the legacy HTML cached in
+  // Leaflet. Force a `setPopupContent` sweep across all currently-known
+  // markers shortly after mount so stale-cache sessions also pick up the
+  // canonical render without requiring a hard refresh. Idempotent: only
+  // touches markers that already exist. Out of scope: lifecycle, camera,
+  // marker grammar, subset-fit.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      try {
+        if (typeof (window as any).__POPUP_GEO_CANONICAL_V1__ === 'boolean'
+          && !(window as any).__POPUP_GEO_CANONICAL_V1__) return;
+        markersRef.current.forEach((marker, id) => {
+          const location = locationsRef.current.get(id);
+          if (!marker || !location) return;
+          try {
+            const ownership = getLocationOwnership(location.id, currentUserId);
+            marker.setPopupContent(
+              createPopupContent(location, criteriaTimestamp, ownership, canEnrichLocations),
+            );
+          } catch { /* per-marker noop */ }
+        });
+      } catch { /* noop */ }
+    }, 1200);
+    return () => window.clearTimeout(t);
+    // Intentionally `[]`: this is a one-shot boot pass per session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Handle notes-updated event to refresh popup
   useEffect(() => {
     return setupNotesUpdatedHandler(markersRef, locationsRef, getLocationOwnership, currentUserId, criteriaTimestamp, canEnrichLocations, createPopupContent);
