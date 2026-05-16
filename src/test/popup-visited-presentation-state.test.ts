@@ -21,6 +21,8 @@ import {
   resolveVisitedPresentationState,
   isVisitedHeroOverlayActive,
   buildVisitedHeroOverlay,
+  resolveHeroImage,
+  buildImageSection,
 } from '@/components/map/map-popups';
 
 function poi(
