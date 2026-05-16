@@ -26,8 +26,17 @@
  *   uid:   f04b3b95-7308-4b74-b3c7-7e819767c5fb
  *
  * Fixture IDs (estables, reservados para infraestructura E2E):
+ *   document: f04b3b95-7308-4b74-b3c7-e2ed00000001
  *   imported: f04b3b95-7308-4b74-b3c7-e2e000000001
  *   empty:    f04b3b95-7308-4b74-b3c7-e2e000000002
+ *
+ * IMPORTANTE: los POIs DEBEN tener `document_id` apuntando al documento
+ * fixture. El popover My Catalog calcula sus counts vía `getAllLocations()`
+ * que SOLO recorre `documents[].locations` en el store del cliente. POIs
+ * huérfanos (document_id=NULL) entran por `detachedVisibleLocations` y no
+ * son visibles para los counts → la fila quedaría disabled aunque el POI
+ * exista en DB.
+ * Ver `docs/qa/e2e-camera-qa.md`.
  *
  * Coordenadas estables (centro de Madrid, suficientemente distinguibles
  * para no colisionar con datos reales del usuario):
