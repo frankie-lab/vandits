@@ -718,7 +718,7 @@ Añadir a mi colección
     };
 
     return `
-<div id="${popupId}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: ${POPUP_MAX_HEIGHT}; overflow: hidden;">
+<div id="${popupId}" data-popup-version="${isPopupGeoCanonicalV1On() ? 'geo-canonical-v1' : 'legacy'}" data-popup-geo-canonical="${isPopupGeoCanonicalV1On() ? 'true' : 'false'}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: ${POPUP_MAX_HEIGHT}; overflow: hidden;">${isPopupDiagBadgeVisible() && isPopupGeoCanonicalV1On() ? `<div style="position: absolute; top: 4px; left: 4px; z-index: 10; padding: 2px 6px; border-radius: 4px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.85; pointer-events: none;" title="P-POPUP-2 canonical geo header + 4-bucket tag dedupe ACTIVE (preview/staging signal — will retire after ratification)">P-POPUP-2 ON</div>` : ''}
 ${statusBarHtml}
 
 <!-- Hero (fija, no participa en el scroll) -->
@@ -737,10 +737,10 @@ ${locationName || 'Sin nombre'}
 ${ownershipBadgeHtml}
 </div>
 
-<!-- Localización links -->
-<p style="margin: 0 0 12px 0; font-size: ${FONT.subtitle}px; line-height: 1.4; color: ${COLOR.muted}; font-style: italic;">
-${localizacionLinks}
-</p>
+<!-- Geo header (P-POPUP-2: canonical chips bajo flag, fallback a localizacionLinks italic legacy) -->
+${isPopupGeoCanonicalV1On()
+  ? `<div style="margin: 0 0 12px 0;">${buildGeoHeaderHtml(location, { background: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' })}</div>`
+  : `<p style="margin: 0 0 12px 0; font-size: ${FONT.subtitle}px; line-height: 1.4; color: ${COLOR.muted}; font-style: italic;">${localizacionLinks}</p>`}
 
 <!-- Botón para añadir a colección (solo para puntos de seguidos) -->
 ${addToCollectionBtnHtml}

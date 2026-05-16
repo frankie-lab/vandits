@@ -187,3 +187,47 @@ Validar en preview con hard refresh:
 - `docs/popups/p-popup-2-validation.md` (este archivo)
 - Plan original: `docs/popups/p-popup-2-implementation-plan.md`
 - Sync GitHub automático vía Lovable
+
+## 9. P2-FIX-F — Mover canon a la rama enriched (2026-05-16)
+
+**Bug detectado en preview**: Tras P2-FIX-A..E, el usuario no veía ningún
+cambio visual ni el badge `P-POPUP-2 ON`. Causa raíz:
+
+`createPopupContent()` tiene dos ramas:
+- **Rama A enriched** (`if (isEnriched && enriched)`, líneas 706–1086):
+  es la que se renderiza para POIs con `enriched_data.descripcion`.
+- **Rama B fallback** (líneas 1088+): solo para POIs sin enriquecer.
+
+Los patches anteriores (data-popup-version, badge diag, switch
+`buildGeoHeaderHtml` vs chips legacy 4-color) se aplicaron por error a la
+**Rama B**, mientras que el caso real (A Coruña enriquecida) entra siempre
+por la **Rama A**. Por eso:
+- No aparecía `data-popup-version` en el DOM.
+- No aparecía el badge.
+- La jerarquía geo seguía siendo `localizacionLinks` italic ("A Coruña,
+  Galicia, España, Europa"), que nunca fue tocada por P-POPUP-2.
+
+**Nota**: la rama canonical de tags (`getCanonicalPopupTags`) SÍ se aplicó
+correctamente a la Rama A (línea 908 del switch `case 'etiquetas'`), por eso
+los tests pasaban y los buckets de tags sí estaban canonicalizados.
+
+**Fix aplicado**:
+- Movido `data-popup-version` + `data-popup-geo-canonical` + badge
+  `P-POPUP-2 ON` al `<div>` raíz de la Rama A (línea 721).
+- Sustituido `localizacionLinks` italic por `buildGeoHeaderHtml(...)`
+  bajo flag en la Rama A (línea 740). Si flag OFF → vuelve el italic legacy.
+- Sin cambios en lifecycle, cámara, subset-fit, marker grammar, React
+  migration, PopupShell.
+- 30/30 vitest siguen verdes.
+
+**Validación post-fix**:
+- Hard refresh preview → badge "P-POPUP-2 ON" visible en popup enriched.
+- DevTools → root del popup contiene `data-popup-version="geo-canonical-v1"`.
+- Header geo: chips canónicos sin continent, dedupe uniprovincial OK.
+- Rollback runtime: `window.__POPUP_GEO_CANONICAL_V1__=false` + reabrir →
+  vuelve el italic `localizacionLinks` legacy.
+
+**Estado**: `ratified-default-on + FIX-A..F applied`.
+
+**Fuera de scope (P-POPUP-3)**: `Mi punto`, `#frankie_gmz`,
+`#AtlasObscura_España`, Notas, ownership cleanup, source hashtags cleanup.
