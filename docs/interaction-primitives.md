@@ -4,6 +4,11 @@
 > hooks, no camera/subset-fit changes. Companion document to
 > `docs/interaction-grammar-discovery.md`. Names below are provisional and
 > serve as architectural anchors, not API contracts.
+>
+> **Canon Change Policy**: cualquier promoción de un primitive a
+> shared/core, cambio de invariante, o extracción descrita en §4 dispara
+> un Migration Impact Check obligatorio. Ver
+> [`docs/contracts/canon-change-policy.md`](./contracts/canon-change-policy.md).
 
 ---
 
