@@ -9,13 +9,13 @@ import {
 } from '@/shared/popup/geo-header';
 import type { GeoLocation } from '@/types/location';
 
-function makeLoc(partial: Partial<GeoLocation> & { enrichedData?: any }): GeoLocation {
+function makeLoc(partial: Record<string, any>): GeoLocation {
   return {
     id: 'test',
     name: 'Test',
     coordinates: { lat: 0, lng: 0 },
     ...partial,
-  } as GeoLocation;
+  } as unknown as GeoLocation;
 }
 
 describe('P-POPUP-2 — canonical geo header', () => {
