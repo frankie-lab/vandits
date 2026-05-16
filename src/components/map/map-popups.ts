@@ -1156,7 +1156,7 @@ ${(() => {
       
       case 'clasificacion': {
         // P-POPUP-6A — taxonomy canonical representation = chips (see `case 'etiquetas'`).
-        // The textual breadcrumb (codigo + categoria › subcategoria) is removed to avoid
+        // The textual breadcrumb (codigo + categoria + separator + subcategoria) is removed to avoid
         // duplicating taxonomy in two formats. The catalog code (e.g. "2.5.x") is also
         // dropped — internal catalog metadata with no value for a human viewer.
         // This slot now renders ONLY the cultural_context (Wikidata) chip. If absent,
