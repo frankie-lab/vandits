@@ -29,14 +29,23 @@
  */
 import type { GeoLocation } from '@/types/location';
 
-/** Slug normaliser shared with `personal-tags-filter.ts`. */
+/**
+ * Slug normaliser shared with `personal-tags-filter.ts`.
+ *
+ * P2-FIX-C — collapses **all** non-alphanumeric characters, not just
+ * whitespace/underscore/dash. Covers real-world cases reported in P-POPUP-2:
+ *   - `"Villa/Pueblo"` ↔ `"Villa Pueblo"` (slash separator)
+ *   - `"Naturaleza & Paisaje"` ↔ `"Naturaleza Paisaje"`
+ *   - `"Iglesia (s. XII)"` ↔ `"Iglesia s XII"`
+ * Leading `#`, accents (NFKD strip), and case are also normalised.
+ */
 export function tagSlug(input: string): string {
   return (input ?? '')
     .replace(/^#/, '')
     .toLowerCase()
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[\s_-]+/g, '');
+    .replace(/[^a-z0-9]+/g, '');
 }
 
 export interface CanonicalTagBuckets {
