@@ -1232,16 +1232,20 @@ ${(() => {
   <p style="margin: 0; font-size: ${FONT.body}px; font-weight: 500; color: ${COLOR.foreground}; line-height: 1.45;">${enriched.punto_destacado}</p>
 </div>`;
       
-      case 'descripcion':
-        if (!enriched.descripcion) return '';
-        return `
+      case 'descripcion': {
+        const desc = enriched.descripcion
+          ? `
 <div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0;">
   <div style="font-size: ${FONT.label}px; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; color: ${COLOR.muted}; margin-bottom: 4px;">Descripción</div>
   <div class="vandits-description-body">
     ${descriptionToHtmlParagraphs(enriched.descripcion, `margin: 0 0 8px 0; font-size: ${FONT.body}px; color: ${COLOR.bodyText}; line-height: 1.625;`)}
   </div>
   <span style="font-size: ${FONT.charCount}px; color: ${COLOR.muted};">${enriched.descripcion?.length || 0} caracteres</span>
-</div>`;
+</div>`
+          : '';
+        // P-POPUP-7A — bloque de estado personal SIEMPRE bajo `descripcion`.
+        return desc + personalStateOnce();
+      }
       
       case 'observacion':
         if (!enriched.observacion) return '';
