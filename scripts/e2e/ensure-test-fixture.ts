@@ -62,6 +62,9 @@ const EMAIL = process.env.E2E_USER_EMAIL ?? 'sandbox-agent@vandits.test';
 const PASSWORD = process.env.E2E_USER_PASSWORD;
 const CANONICAL_UID = 'f04b3b95-7308-4b74-b3c7-7e819767c5fb';
 
+const FIXTURE_DOC_ID = 'f04b3b95-7308-4b74-b3c7-e2ed00000001';
+const FIXTURE_DOC_NAME = 'E2E Fixture Document';
+
 const FIXTURE = {
   imported: {
     id: 'f04b3b95-7308-4b74-b3c7-e2e000000001',
