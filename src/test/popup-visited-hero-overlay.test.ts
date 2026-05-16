@@ -103,6 +103,10 @@ describe('P-POPUP-7B — buildVisitedHeroOverlay (Visitado/Pendiente)', () => {
     expect(out).toContain('position: absolute');
     expect(out).toContain('z-index: 2');
     expect(out).toContain('pointer-events: auto');
+    // P-POPUP-7C — compact badge.
+    expect(out).toContain('popup-hero-visited-badge');
+    expect(out).toContain('font-size: 10px');
+    expect(out).toContain('padding: 3px 7px 3px 6px');
   });
 
   it('renders "Pendiente" when visited=false but hay hero', () => {
