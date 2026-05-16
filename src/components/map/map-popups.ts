@@ -1517,8 +1517,8 @@ Añadir a mi colección
 </button>
 ` : ''}
 
-<!-- P-POPUP-7A: Visited + personal rating bajados al slot post-descripción.
-     Ver `buildPersonalStateBlock` debajo del bloque de descripción. -->
+<!-- P-POPUP-7A: Visited + personal rating bajados al slot post-descripcion.
+     Ver buildPersonalStateBlock debajo del bloque de descripcion. -->
 </div>
 
 ${location.description ? `
