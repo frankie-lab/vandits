@@ -978,7 +978,7 @@ title="Buscar o subir una imagen"
   if (ownership.isOwn) {
     const hasUserImage = !!userImageUrl;
     buttonHtml = `
-<div class="popup-hero-controls" style="position: absolute; bottom: 12px; right: 16px; display: flex; gap: 8px;">
+<div class="popup-hero-controls popup-hero-chrome popup-hero-chrome--br">
 ${hasUserImage ? `
 <button 
 class="popup-action-btn" 
