@@ -21,6 +21,8 @@ import {
   resolveVisitedPresentationState,
   isVisitedHeroOverlayActive,
   buildVisitedHeroOverlay,
+  resolveHeroImage,
+  buildImageSection,
 } from '@/components/map/map-popups';
 
 function poi(
@@ -140,4 +142,39 @@ describe('Wrappers comparten la fuente de verdad', () => {
     const onState = { ...forcedOn, showHeroOverlay: true };
     expect(buildVisitedHeroOverlay(noHero, OWN, null, onState)).toContain('data-visited-hero-overlay="true"');
   });
+});
+
+describe('P-POPUP-7B — renderer↔resolver hero parity (drift extinguido)', () => {
+  const cases: Array<[string, GeoLocation, any]> = [
+    ['enriched + AI image', poi('p1', { visited: 'true' }, { imagen: 'http://ai.jpg' }), { imagen: 'http://ai.jpg' }],
+    ['enriched sin AI image', poi('p2', { visited: 'true' }, {}), {}],
+    ['legacy + AI imagen en location (suprimida)', poi('p3', { visited: 'true' }, { imagen: 'http://ai.jpg' }), null],
+    ['user image pública', poi('p4', { visited: 'true', user_image_url: 'http://u.jpg', user_image_visibility: 'public' }, null), null],
+    ['user image privada vista por otro', poi('p5', { visited: 'true', user_image_url: 'http://u.jpg', user_image_visibility: 'private' }, null), null],
+  ];
+
+  for (const [label, loc, enriched] of cases) {
+    it(`paridad: ${label}`, () => {
+      const ownership = label.includes('vista por otro')
+        ? { isOwn: false, isFollowing: false }
+        : { isOwn: true, isFollowing: false };
+      const hero = resolveHeroImage(loc, ownership, enriched);
+      const state = resolveVisitedPresentationState(loc, ownership, enriched);
+      // Contrato canon: hasHero del resolver == !!displayImage del helper único.
+      expect(state.hasHero).toBe(!!hero.displayImage);
+      // Renderer usa el mismo helper, asi que su HTML refleja la misma decisión.
+      const html = buildImageSection(loc, enriched, ownership, state);
+      if (hero.displayImage) {
+        expect(html).toContain(hero.displayImage);
+      }
+      // Overlay aparece sii visited + hero + no curator/nearby.
+      const shouldOverlay = state.isVisited && state.hasHero && !state.isCurator && !state.isNearby;
+      expect(state.showHeroOverlay).toBe(shouldOverlay);
+      if (shouldOverlay) {
+        expect(html).toContain('data-visited-hero-overlay="true"');
+      } else {
+        expect(html).not.toContain('data-visited-hero-overlay="true"');
+      }
+    });
+  }
 });
