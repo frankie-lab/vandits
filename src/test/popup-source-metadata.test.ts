@@ -193,3 +193,102 @@ describe('P-POPUP-4A — static guard (rama A despacho)', () => {
     expect(src).toMatch(/export function isPopupSourceMetadataV1On/);
   });
 });
+
+describe('P-POPUP-4A.1 — buildOwnEnrichedMetadataLineHtml (own + provenance fusion)', () => {
+  it('own + sourceKind=external + sourceId=AtlasObscura_España → línea fusionada con chip clicable', () => {
+    const html = buildOwnEnrichedMetadataLineHtml(poi({
+      ownerUserId: VIEWER,
+      sourceKind: 'external',
+      sourceId: 'AtlasObscura_España',
+    }));
+    // Fecha propia preservada.
+    expect(html).toMatch(/Añadido 03\/05\/2026/);
+    // Vía + label legible.
+    expect(html).toContain('vía');
+    expect(html).toContain('Atlas Obscura · España');
+    // Chip clicable con contrato canónico preservado.
+    expect(html).toContain('source-filter-chip');
+    expect(html).toContain('data-source-type="source"');
+    expect(html).toContain('data-source-id="AtlasObscura_España"');
+    expect(html).toContain('data-source-label="Atlas Obscura · España"');
+    // El hashtag legacy NO debe renderizarse dentro de esta línea.
+    expect(html).not.toContain('#AtlasObscura_España');
+    expect(html).not.toContain('#Atlas');
+  });
+
+  it('own SIN provenance → degrada a línea sólo-fecha (idéntica a 3A)', () => {
+    const html = buildOwnEnrichedMetadataLineHtml(poi({ ownerUserId: VIEWER }));
+    expect(html).toMatch(/Añadido 03\/05\/2026/);
+    expect(html).not.toContain('vía');
+    expect(html).not.toContain('source-filter-chip');
+    // Sin literal de ownership.
+    expect(html).not.toMatch(/Mi punto/i);
+  });
+
+  it('own + sourceKind=app + groupId → dos chips clicables tras "vía"', () => {
+    const html = buildOwnEnrichedMetadataLineHtml(poi({
+      ownerUserId: VIEWER,
+      sourceKind: 'app',
+      sourceId: 'vandits-app',
+      groupId: 'playas',
+    }));
+    expect(html).toContain('vía');
+    expect(html).toContain('data-source-id="vandits-app"');
+    expect(html).toContain('data-source-id="playas"');
+    const chipCount = (html.match(/source-filter-chip/g) ?? []).length;
+    expect(chipCount).toBe(2);
+  });
+
+  it('own + provenance: marker data-popup-own-added preservado (compat 3A)', () => {
+    const html = buildOwnEnrichedMetadataLineHtml(poi({
+      ownerUserId: VIEWER,
+      sourceKind: 'external',
+      sourceId: 'osm',
+    }));
+    expect(html).toContain('data-popup-own-added="p1"');
+    expect(html).toContain('data-popup-source-metadata="p1"');
+    expect(html).toContain('data-source-metadata-type="source"');
+  });
+
+  it('own sin createdAt + sin provenance → cadena vacía', () => {
+    const html = buildOwnEnrichedMetadataLineHtml(poi({
+      ownerUserId: VIEWER,
+      createdAt: null,
+    }));
+    expect(html).toBe('');
+  });
+
+  it('NO usa estilo hashtag `#` en provenance fusionado', () => {
+    const html = buildOwnEnrichedMetadataLineHtml(poi({
+      ownerUserId: VIEWER,
+      sourceKind: 'external',
+      sourceId: 'AtlasObscura_España',
+    }));
+    expect(html).not.toMatch(/#Atlas/);
+    expect(html).not.toMatch(/#AtlasObscura_España/);
+  });
+
+  it('usa token muted-foreground (sin hex hardcoded)', () => {
+    const html = buildOwnEnrichedMetadataLineHtml(poi({
+      ownerUserId: VIEWER,
+      sourceKind: 'external',
+      sourceId: 'osm',
+    }));
+    expect(html).toContain('hsl(var(--muted-foreground))');
+    expect(html).not.toMatch(/color:\s*#[0-9a-fA-F]{3,6}/);
+  });
+});
+
+describe('P-POPUP-4A.1 — static guard (dispatch own usa fusion bajo 4A)', () => {
+  const SRC = resolve(__dirname, '../components/map/map-popups.ts');
+  const src = readFileSync(SRC, 'utf8');
+
+  it('dispatch own bajo 4A llama buildOwnEnrichedMetadataLineHtml', () => {
+    expect(src).toContain('buildOwnEnrichedMetadataLineHtml(location)');
+    expect(src).toMatch(/if \(isPopupSourceMetadataV1On\(\)\) return buildOwnEnrichedMetadataLineHtml/);
+  });
+
+  it('dispatch own conserva fallback buildOwnAddedLineHtml cuando 4A OFF', () => {
+    expect(src).toMatch(/return buildOwnAddedLineHtml\(location\);/);
+  });
+});
