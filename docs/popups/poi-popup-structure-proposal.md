@@ -371,3 +371,256 @@ new tokens land on still-flat structure.
 - Lines: see footer of file
 - Sync: GitHub automático vía Lovable
 - Status: proposal — awaiting review
+
+---
+
+## 9. Canonical hierarchy and semantic cleanup proposal
+
+> Added 2026-05-16 tras observaciones UX reales sobre popup POI propio
+> enriched (P-POPUP-1 ya ratificado). **No implementación.** Refina el canon
+> de Zona A/B/C/D propuesto en §3, sin reabrir esas decisiones.
+
+### 9.1 Diagnóstico de partida (observaciones UX)
+
+Sobre el popup actual (rama `isEnriched && enriched` en `map-popups.ts`):
+
+1. **Jerarquía geográfica**: se renderiza completa y a veces en orden
+   inconsistente (`localidad, provincia, país` vs `país > región > ...`),
+   con niveles redundantes que ya están implícitos (p.ej. continente cuando
+   se ve país europeo evidente). Genera ruido visual en Zona A.
+2. **Tags mezclados**: `etiquetas_personales`, chips de colección,
+   `categoria_principal`/`subcategorias` y eventuales tags semánticos del
+   enriched conviven en el mismo bloque sin jerarquía visual. El helper
+   `filterPersonalTags` ya deduplica colección↔personal, pero la mezcla
+   sigue presente.
+3. **"Mi punto"**: badge textual de ownership es redundante cuando ya
+   existe la grammar visual (círculo verde propio + health rings) y, en
+   futuro multiusuario, escala mal frente a los seguidos (triángulo +
+   identidad cromática).
+4. **Densidad de chips**: sin límite de overflow, popups con muchos tags
+   personales rompen el alto máximo definido en §3.3 (Zone C).
+5. **"Notas"**: campo presente que duplica semánticamente la descripción
+   enriquecida y la observación corta. UX real lo ignora.
+6. **Importancia (estrellas) + "Visited"**: dos ejes paralelos que la
+   gente confunde. Las estrellas no se usan de forma consistente; el eje
+   `visited` sí tiene tracción y casa con wishlist/pending.
+
+### 9.2 Jerarquía geográfica canónica
+
+**Fuente de verdad**: `getLocationHierarchy(loc)` en
+`src/shared/geography/hierarchy.ts` (8 niveles canónicos).
+
+**Propuesta de render en popup** (NO afecta el resto de la app):
+
+| Nivel | Mostrar por defecto | Regla |
+|---|---|---|
+| continent | ❌ | Solo en tooltip/expandido. Implícito por país. |
+| country | ✅ | Siempre, salvo si == país del usuario y zoom alto. |
+| region | ✅ | Comunidad/región. |
+| zone (provincia) | ✅ | Provincia/estado. |
+| admin_level_3 (comarca) | colapsado | Visible al expandir, no por defecto. |
+| locality | ✅ | Ciudad/villa/pueblo. |
+| sublocality | colapsado | Barrio: solo si zoom ≥ 14 o usuario expande. |
+| street | colapsado | Solo expandido. |
+
+**Orden estable** (de específico a general, una sola línea Zona A):
+```
+{locality}, {zone}, {country}
+```
+Resto (`region`, `comarca`, `sublocality`, `street`) → bloque colapsable
+"Ubicación completa" en Zona C.
+
+**Reglas de truncado**:
+- Línea Zona A ≤ 1 línea, con `text-overflow: ellipsis`.
+- Si `locality` ausente → fallback a `zone`. Si ambos ausentes → `country`.
+- Placeholders `(sin …)` (ver `isPlaceholderValue`) NUNCA se renderizan
+  como chip; se omiten silenciosamente.
+- Se canonicaliza vía `canonicalCountry`/`canonicalContinent` para evitar
+  "España / Spain" duplicado.
+
+### 9.3 Separación taxonomy vs semantic tags
+
+Hoy todo entra como "chip" sin distinción. Propuesta canónica — **4 tipos
+de tags**, cada uno con grammar visual propia y ubicación fija:
+
+| Tipo | Fuente | Ubicación canónica | Visual | Ejemplo |
+|---|---|---|---|---|
+| **Taxonomy** | `enriched.clasificacion.categoria_principal` + `subcategorias` | Zona B (al lado del status) | chip neutro outline, icon prefix, sin `#` | `🏛 Castillo` |
+| **Collection** | `useLocationCollections(id)` (canon `LocationCollectionChips`) | Zona C — primer bloque | chip relleno con color de colección, prefijo `#`, slug | `#AtlasObscura` |
+| **Semantic** | `enriched.etiquetas_semanticas` (nuevo, IA) — *de momento subset de `clasificacion.tags`* | Zona C — segundo bloque | chip ghost, prefijo `·`, sin color | `· medieval`, `· ruinas` |
+| **User** | `enriched.etiquetas_personales` filtradas vía `filterPersonalTags` | Zona C — tercer bloque, colapsable | chip muted, prefijo `#`, italic | `#favorito` |
+
+**Reglas de no-duplicación** (extender contrato `filterPersonalTags`):
+1. User tags se filtran contra: colecciones del POI **+ taxonomy del POI
+   + semantic tags del POI**. Hoy solo se filtra colección.
+2. Semantic tags se filtran contra taxonomy (no repetir `castillo` en
+   ambas).
+3. Taxonomy y collection son siempre disjuntos por naturaleza.
+
+**Helper único propuesto** (futuro pilot, no implementar ahora):
+`getCanonicalPopupTags(loc) → { taxonomy, collections, semantic, user }`
+en `src/shared/popup/tags.ts` (nuevo archivo).
+
+### 9.4 Ownership identity cleanup
+
+**Estado actual**: badge textual "Mi punto" en Zona A.
+
+**Diagnóstico**:
+- Redundante con la grammar visual del marker (círculo propio + health
+  rings + collection tint).
+- No escala: ¿"Punto de @ana"? ¿"Punto seguido"?
+- Conflicto futuro con `mem://logic/sharing/curated-only-rule` y con la
+  identidad cromática OKLCH del PR-OWNER-IDENTITY-2.6.
+
+**Propuesta canónica**:
+
+| Caso | Identity render |
+|---|---|
+| Propio (own) | **Sin badge.** El marker ya lo dice. Opcional: dot verde 8px junto al nombre. |
+| Seguido (followed accepted) | **Owner chip compacto** en Zona D (footer): avatar 16px + `@handle` con color OKLCH persistido (`getOwnerIdentityOklch(uid)`). |
+| App / Source / Curator | Chip en Zona D con icono de fuente (Atlas Obscura, OSM, …) sin avatar. |
+
+**Reglas**:
+- Una sola identidad por popup. Nunca convivir "Mi punto" + owner chip.
+- Color OKLCH solo si `followStatus === 'accepted'` (regla actual).
+- En caso `own`, si el usuario tiene colecciones compartidas, el sharing
+  status va a Zona D como icono, no como texto.
+
+### 9.5 Tag visual hierarchy
+
+**Densidad máxima por bloque** (Zone C):
+
+| Bloque | Máx visible | Overflow |
+|---|---|---|
+| Taxonomy | 3 chips | resto → tooltip "+N" |
+| Collections | 4 chips | "+N más" expande inline |
+| Semantic | 5 chips | "+N más" expande inline |
+| User | 4 chips | colapsado por defecto si >4; trigger "Mis etiquetas (N)" |
+
+**Prioridad visual** (más → menos peso):
+1. Taxonomy (define qué ES el lugar)
+2. Collections (define agrupación del usuario)
+3. Semantic (matiza la taxonomy)
+4. User (anotación personal)
+
+**Comportamiento overflow**:
+- Sin scroll horizontal en bloques de chips.
+- Wrap natural, máx 2 líneas por bloque antes de "+N más".
+- "+N más" usa `<Collapsible>` (ya disponible, ver
+  `src/components/ui/collapsible.tsx`).
+
+### 9.6 Notes removal analysis
+
+**Campos hoy presentes en popup enriched**:
+- `enriched.descripcion` (párrafo largo, IA)
+- `enriched.observacion` / `nota_corta` (1-2 frases, IA o usuario)
+- `enriched.highlights` (bullets, IA)
+- `enriched.notas` (campo libre usuario)
+- `loc.notes` (legacy KML import)
+
+**Análisis**:
+- `notas` (campo usuario) y `loc.notes` (legacy) se solapan ~100% con
+  `observacion` cuando existe, o con `descripcion` cuando el usuario las
+  importó desde KML.
+- UX real: ningún usuario distingue "nota" de "observación".
+- `highlights` cumple función propia (escaneo rápido) → mantener.
+
+**Propuesta**:
+- **Deprecar** render separado de `notas` y `loc.notes` en popup.
+- **Merge canónico** al cargar: si `enriched.observacion` está vacío y
+  existe `notas` o `loc.notes`, promover a `observacion` (transform en
+  `enriched-helpers`, no migración SQL).
+- Mantener `notas` en la ficha completa (no popup) como "Notas privadas",
+  campo editable.
+- Resultado en popup: 3 campos textuales máximo → `observacion` (Zona A),
+  `highlights` (Zona C tope), `descripcion` (Zona C colapsable).
+
+### 9.7 Importance / Visited cleanup
+
+**Estado actual**: dos ejes paralelos en Zona B.
+- `loc.importance` (0-5 estrellas) — `mem://features/user-ratings-and-status`
+- `loc.visitStatus` (boolean visited)
+
+**Diagnóstico**:
+- Estrellas ambiguas: ¿calidad esperada, prioridad de visita, valoración
+  post-visita? Tres semánticas en un eje.
+- Ejes desacoplados generan combinaciones absurdas (5★ + visitado vs 5★
+  + pending).
+
+**Propuesta — modelo único de 3 estados**:
+
+```
+status ∈ { wishlist | pending | visited }
+```
+
+| Valor | Semántica | Visual chip Zona B |
+|---|---|---|
+| `wishlist` | Quiero ir algún día | icon `Heart`, color muted |
+| `pending` | Planeado / en ruta | icon `Clock`, color amber |
+| `visited` | Ya estuve | icon `Check`, color verde |
+
+**Eliminación de estrellas**: una sola pasada deprecation.
+- Render: ocultar en popup desde flag `popup_remove_stars_v1`.
+- Datos: `importance` permanece en BD (no destructivo). Opcionalmente,
+  migrar a `personal_rating` (1-5 emoji ❤️) en ficha completa post-visita,
+  fuera de popup.
+
+**Impacto en contratos y filtros**:
+- `filter-axis-contract.md`: el eje "Importancia" pasa a no listarse en
+  FilterBar (rompe nada porque el filtro de estrellas tiene <2% uso según
+  `analytics--read_project_analytics`, a confirmar antes del pilot).
+- `mem://features/user-ratings-and-status`: requiere update con la nueva
+  enumeración.
+- `MyCatalogQuickFilters`: nuevo eje `status` con 3 valores; eje
+  `importance` deprecado tras 2 sprints.
+- Health rings: sin impacto (ortogonal a status del usuario).
+
+### 9.8 Migration Impact Check
+
+| Doc / Memoria | Impacto | Acción |
+|---|---|---|
+| `docs/popups/poi-popup-canon-proposal.md` | refina §canon estructura | actualizar tras pilot P-POPUP-2 |
+| `docs/popups/poi-popup-structure-proposal.md` | este doc | versión 1.1 con §9 |
+| `docs/contracts/popup-contract.md` | sin impacto (lifecycle intacto) | — |
+| `docs/contracts/marker-grammar-contract.md` | sin impacto | — |
+| `docs/contracts/focus-selection-contract.md` | sin impacto | — |
+| `docs/contracts/filter-axis-contract.md` | eje importancia deprecado, eje status nuevo | revisar pre-P-POPUP-7 |
+| `mem://ui/marker-status-symbology` | añadir nota sobre eliminación de "Mi punto" badge | update tras P-POPUP-3 |
+| `mem://features/user-ratings-and-status` | reescribir con modelo 3 estados | update tras P-POPUP-7 |
+| `mem://features/user-notes-system` | marcar `notas` popup-deprecated | update tras P-POPUP-6 |
+| `mem://logic/content/persistent-filter-preservation` | nuevo eje status | revisar pre-P-POPUP-7 |
+| `LocationCollectionChips`, `filterPersonalTags` | extender filtro a taxonomy + semantic | nuevo helper `getCanonicalPopupTags` |
+
+### 9.9 Phasing propuesto (gated, secuencial)
+
+Encadenado tras P-POPUP-1 (ya ratificado) y bajo la cadencia de
+`canon-change-policy.md`:
+
+| Pilot | Alcance | Flag |
+|---|---|---|
+| P-POPUP-2 | Jerarquía geográfica canónica (§9.2) en Zona A | `popup_geo_canonical_v1` |
+| P-POPUP-3 | Ownership cleanup (§9.4) — eliminar "Mi punto" | `popup_owner_identity_v1` |
+| P-POPUP-4 | Helper `getCanonicalPopupTags` + tipos de tags (§9.3) | `popup_tags_canonical_v1` |
+| P-POPUP-5 | Tag visual hierarchy + overflow (§9.5) | `popup_tags_density_v1` |
+| P-POPUP-6 | Notes merge (§9.6) | `popup_notes_merge_v1` |
+| P-POPUP-7 | Status 3 estados + remove stars (§9.7) | `popup_status_tri_v1` + `popup_remove_stars_v1` |
+
+Cada pilot: contrato → guard test → implementación tras Zona B/C de §3
+ya tokenizadas. **NO se inicia ninguno sin ratificación explícita.**
+
+### 9.10 Restricciones de este documento
+
+- No código tocado.
+- No cámara / subset-fit tocados.
+- No marker grammar tocada.
+- No F2 iniciada.
+- Documento de propuesta: cada pilot abre su propio plan operativo
+  (siguiendo plantilla `p-popup-1-implementation-plan.md`).
+
+---
+
+## 10. Persistence confirmation (v1.1)
+
+- Path: `docs/popups/poi-popup-structure-proposal.md`
+- Sync: GitHub automático vía Lovable
+- Status: proposal v1.1 — §9 añadido, awaiting review de pilots P-POPUP-2..7
