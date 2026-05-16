@@ -111,6 +111,29 @@ export function isPopupOwnershipStripV1On(): boolean {
   return POPUP_OWNERSHIP_STRIP_V1_DEFAULT;
 }
 
+// ─── P-POPUP-4A Feature Flag (source metadata line) ────────────────────────
+// Source/app enriched popups (rama A): replace the legacy `#sourceId` chip(s)
+// rendered by `buildSourceHashtagsBlock` with a compact metadata line
+//   `Añadido dd/mm/yyyy · vía <label>`
+// where `<label>` is a clickable span preserving the `.source-filter-chip`
+// contract (data-source-type, data-source-id, data-source-label) so
+// SourceFilterBridge keeps working unchanged. own / followed / rama B are
+// untouched. See docs/popups/p-popup-4a-source-provenance-cleanup-plan.md.
+//
+// Default: **true** (rollout global, conforme docs/governance/rollout-policy.md).
+// Kill-switch global runtime: `window.__POPUP_SOURCE_METADATA_V1__ = false`
+// BEFORE opening the popup.
+const POPUP_SOURCE_METADATA_V1_DEFAULT = true;
+export function isPopupSourceMetadataV1On(): boolean {
+  try {
+    const w = (typeof window !== 'undefined' ? (window as any) : null);
+    if (w && typeof w.__POPUP_SOURCE_METADATA_V1__ === 'boolean') {
+      return w.__POPUP_SOURCE_METADATA_V1__;
+    }
+  } catch { /* SSR / restricted env */ }
+  return POPUP_SOURCE_METADATA_V1_DEFAULT;
+}
+
 /**
  * P2-FIX-B — Temporary deployment signal visible in preview/staging.
  * `import.meta.env.DEV` is false in Lovable preview (built like prod), so the
