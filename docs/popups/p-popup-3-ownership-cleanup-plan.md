@@ -125,11 +125,81 @@ sobre el color identidad ya cableado en el marker).
 - Actualizar este doc con sección **Validation log** y enlazar desde
   `p-popup-2-validation.md` al cerrar el pilot.
 
-## 8. Decisiones abiertas (revisables tras QA visual)
+## 8. Micro-review UX — ownership-strip en own enriched
 
-- Literal `Mío`: aprobado provisionalmente. Alternativas a evaluar si resulta
-  informal o redundante: omitir texto y dejar solo `Añadido dd/mm/aaaa`, o
-  usar `Tuyo`.
-- Ubicación de la fila ownership-strip en la jerarquía vertical del popup:
-  inmediatamente bajo el geo header canónico, antes de
-  `buildCollectionChipsPlaceholder`.
+Comparación de tres opciones canónicas para el caso **own enriched**, previas
+a la implementación de 3A. Marco compartido: el marker del propio POI ya es un
+círculo verde (ownership + estado enriched), y el viewer ya tiene `filterByUserId`
+disponible en `UsersSidebar`. Es decir, "es mío" ya está dicho por la forma
+del marker antes de abrir el popup.
+
+### Opción A — `Mío · Añadido dd/mm/yyyy`
+
+| Eje | Evaluación |
+|---|---|
+| Redundancia vs marker | **Alta**. El círculo verde ya afirma ownership; el literal `Mío` lo repite. |
+| Ruido cognitivo | Medio. Dos tokens en la fila (`Mío` + fecha) compiten por foco. |
+| Scanning visual | Penaliza: el ojo lee la palabra antes que la fecha, que es la información nueva. |
+| Jerarquía vs título/tags | Aceptable si va con tipografía secundaria muted. Riesgo de leerse como sub-badge si se enfatiza. |
+| Consistencia con followed/source | **Baja**. En followed la fila es chip `#username`; en own un literal en castellano. Dos gramáticas distintas. |
+| Contexto temporal | Preservado. |
+
+### Opción B — `Añadido dd/mm/yyyy` (sin ownership explícito)
+
+| Eje | Evaluación |
+|---|---|
+| Redundancia vs marker | **Nula**. La ownership la lleva el marker; la fila aporta solo dato nuevo (fecha). |
+| Ruido cognitivo | Bajo. Una sola unidad semántica. |
+| Scanning visual | Óptimo: el ojo cae directo en la fecha. |
+| Jerarquía vs título/tags | Limpia. Línea muted, secundaria, sin competir con título. |
+| Consistencia con followed/source | **Alta**. Followed/source/app usan chip de provenance; own usa metadato temporal. Cada bucket tiene su gramática, pero todas son "una sola fila de identidad/contexto" — la regla canon se mantiene. |
+| Contexto temporal | Preservado y realzado al ser el único contenido. |
+
+### Opción C — Sin ownership-strip visible
+
+| Eje | Evaluación |
+|---|---|
+| Redundancia vs marker | Nula. |
+| Ruido cognitivo | Mínimo. |
+| Scanning visual | Óptimo. |
+| Jerarquía vs título/tags | Máxima limpieza. |
+| Consistencia con followed/source | **Asimétrica**. Followed/app/source siguen mostrando chip; own queda completamente mudo. La asimetría es legítima (no hay nada nuevo que decir) pero **se pierde la fecha de adopción**, que sí es información que el usuario hoy ve y usa. |
+| Contexto temporal | **Perdido**. Para recuperar la fecha haría falta exponerla en otro lugar (panel lateral, hover sobre marker, ficha ampliada) — fuera del scope del popup. |
+
+### Tabla resumen
+
+| Opción | Redundancia | Ruido | Scanning | Consistencia | Fecha visible |
+|---|---|---|---|---|---|
+| A `Mío · Añadido…` | Alta | Medio | Medio | Baja | Sí |
+| B `Añadido…` | Nula | Bajo | Alto | Alta | Sí |
+| C (nada) | Nula | Nulo | Máximo | Asimétrica | **No** |
+
+### Recomendación canónica → **Opción B**
+
+Razones:
+
+1. **No duplica el marker.** El círculo verde ya transmite ownership; añadir
+   `Mío` viola el mismo principio anti-redundancia que motivó P-POPUP-3
+   (eliminar el duplicado badge + hashtag).
+2. **Preserva el dato útil.** La fecha de adopción es información que solo
+   vive aquí, y es el contenido que justifica que la fila exista.
+3. **Consistencia gramatical con followed/source.** Cada bucket tiene una sola
+   fila contextual bajo el geo header: followed/app/source → chip de
+   provenance; own → metadato temporal. No hay duplicación cruzada y cada
+   fila aporta algo que el marker no dice.
+4. **Mejor scanning.** La fecha es el único token; el ojo no compite con un
+   literal redundante.
+5. **Reversible.** Si tras QA se decide que falta marca de ownership
+   explícita, la Opción A se recupera con una línea de código bajo el mismo
+   flag, sin migración de tests.
+
+Decisión propuesta para 3A: **Opción B** como canon. Implementación con icono
+reloj Lucide + tipografía muted (`text-muted-foreground text-xs`), inmediatamente
+bajo el geo header canónico y antes de `buildCollectionChipsPlaceholder`.
+
+### 8.bis Otras decisiones abiertas (revisables tras QA visual)
+
+- Si tras QA la fila se siente "huérfana" sin etiqueta de ownership, fallback
+  a Opción A con literal `Tuyo` (registro más natural en castellano que `Mío`).
+- Confirmar tipografía y peso del icono reloj para no competir con el geo
+  header (que ya usa chips con fondo).
