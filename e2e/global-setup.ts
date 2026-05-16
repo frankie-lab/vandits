@@ -65,6 +65,24 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
   const context = await browser.newContext();
   const page = await context.newPage();
 
+  // Diagnóstico temporal: capturar errores de consola/runtime del navegador.
+  // Imprescindible para diagnosticar pantallas en blanco (React no monta por
+  // env vars VITE_* ausentes en CI, errores de import, etc.).
+  const consoleErrors: string[] = [];
+  const pageErrors: string[] = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      const text = msg.text();
+      consoleErrors.push(text);
+      console.error(`[browser console.error] ${text}`);
+    }
+  });
+  page.on('pageerror', (err) => {
+    const text = err.message;
+    pageErrors.push(text);
+    console.error(`[browser pageerror] ${text}`);
+  });
+
   try {
     await page.goto(`${baseURL}/auth`, { waitUntil: 'domcontentloaded' });
 
@@ -98,8 +116,9 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
 
     await context.storageState({ path: STORAGE_STATE_PATH });
   } catch (err) {
-    // Diagnóstico: URL actual, título y volcado breve de HTML para entender
-    // a qué pantalla redirigió el flujo (login con error, captcha, etc.).
+    // Diagnóstico: URL, título, body, contenido de #root y errores capturados.
+    // Distingue entre "React no monta" (root vacío + pageerror) y "pantalla
+    // distinta a la esperada" (root con contenido pero sin testid).
     let diag = '';
     try {
       const url = page.url();
@@ -108,10 +127,28 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
         .locator('body')
         .innerText({ timeout: 2_000 })
         .catch(() => '<no body>');
+      const rootInfo = await page
+        .evaluate(() => {
+          const root = document.querySelector('#root');
+          return {
+            exists: !!root,
+            childCount: root?.childElementCount ?? 0,
+            innerHtmlExcerpt: root?.innerHTML.slice(0, 1000) ?? '<no #root>',
+          };
+        })
+        .catch(() => ({
+          exists: false,
+          childCount: 0,
+          innerHtmlExcerpt: '<evaluate failed>',
+        }));
       diag =
         `\n  current url: ${url}` +
         `\n  page title: ${title}` +
-        `\n  body excerpt: ${bodyText.slice(0, 500).replace(/\s+/g, ' ')}`;
+        `\n  body excerpt: ${bodyText.slice(0, 500).replace(/\s+/g, ' ') || '<empty>'}` +
+        `\n  #root exists: ${rootInfo.exists} (children=${rootInfo.childCount})` +
+        `\n  #root innerHTML excerpt: ${rootInfo.innerHtmlExcerpt.replace(/\s+/g, ' ')}` +
+        `\n  console errors (${consoleErrors.length}): ${consoleErrors.slice(0, 5).join(' | ') || '<none>'}` +
+        `\n  page errors (${pageErrors.length}): ${pageErrors.slice(0, 5).join(' | ') || '<none>'}`;
     } catch {
       // ignore diagnostic failures
     }
