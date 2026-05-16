@@ -984,7 +984,7 @@ title="Buscar o subir una imagen"
   if (ownership.isOwn) {
     const hasUserImage = !!userImageUrl;
     buttonHtml = `
-<div style="position: absolute; bottom: 12px; right: 16px; display: flex; gap: 8px;">
+<div class="popup-hero-controls" style="position: absolute; bottom: 12px; right: 16px; display: flex; gap: 8px;">
 ${hasUserImage ? `
 <button 
 class="popup-action-btn" 
@@ -1022,7 +1022,7 @@ title="${hasUserImage ? 'Cambiar foto' : 'Añadir foto'}"
 
   const __overlayHtml = buildVisitedHeroOverlay(location, ownership, enriched, visitedState);
 
-  return `<div style="margin: 0 -12px 0 -12px; position: relative;">
+  return `<div class="popup-hero" style="margin: 0 -12px 0 -12px; position: relative;">
 ${imageHtml}
 ${buttonHtml}
 ${__overlayHtml}
