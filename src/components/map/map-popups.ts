@@ -90,6 +90,27 @@ function isPopupGeoCanonicalV1On(): boolean {
   return POPUP_GEO_CANONICAL_V1_DEFAULT;
 }
 
+// ─── P-POPUP-3A Feature Flag (ownership strip) ──────────────────────────────
+// Own enriched popups: hide redundant ownership badge ("Mi punto") + own
+// `#username` chip; render a single compact line `Añadido dd/mm/yyyy`
+// immediately under the geo header. followed/app/source popups are
+// untouched. SourceFilterBridge contract intact.
+//
+// Default: **true** (rollout global, conforme docs/governance/rollout-policy.md).
+// Kill-switch global runtime (rollback/debug, sin segmentación): set
+// `window.__POPUP_OWNERSHIP_STRIP_V1__ = false` BEFORE opening the popup.
+// See docs/popups/p-popup-3-ownership-cleanup-plan.md.
+const POPUP_OWNERSHIP_STRIP_V1_DEFAULT = true;
+export function isPopupOwnershipStripV1On(): boolean {
+  try {
+    const w = (typeof window !== 'undefined' ? (window as any) : null);
+    if (w && typeof w.__POPUP_OWNERSHIP_STRIP_V1__ === 'boolean') {
+      return w.__POPUP_OWNERSHIP_STRIP_V1__;
+    }
+  } catch { /* SSR / restricted env */ }
+  return POPUP_OWNERSHIP_STRIP_V1_DEFAULT;
+}
+
 /**
  * P2-FIX-B — Temporary deployment signal visible in preview/staging.
  * `import.meta.env.DEV` is false in Lovable preview (built like prod), so the
@@ -298,10 +319,16 @@ export interface PopupOwnership {
 export function buildSourceHashtagsBlock(
   location: GeoLocation,
   ownership?: PopupOwnership,
+  opts?: { suppressOwn?: boolean },
 ): string {
   const viewerUid = ownership?.viewerUid ?? null;
   const source = resolvePoiSource(viewerUid, location, { usernameLookup: ownership?.usernameLookup });
   if (!source.hashtags.length) return '';
+  // P-POPUP-3A: en own enriched el chip `#username` propio queda suprimido
+  // (la ownership la lleva el marker; el viewer ya tiene `filterByUserId` en
+  // UsersSidebar). Solo aplica si el caller activa `suppressOwn` — followed/
+  // app/source SIEMPRE conservan su chip clicable.
+  if (opts?.suppressOwn && source.type === 'own') return '';
   const chips = source.hashtags.map((tag, idx) => {
     const isPrimary = idx === 0;
     const filterId = isPrimary
@@ -315,6 +342,30 @@ export function buildSourceHashtagsBlock(
     return `<span class="source-filter-chip" data-source-type="${source.type}" data-source-id="${safeId}" data-source-label="${safeTag}" title="Filtrar por #${safeTag}" style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 500; cursor: pointer; background: hsl(var(--secondary)); color: hsl(var(--secondary-foreground)); transition: background 0.15s;">#${safeTag}</span>`;
   }).join('');
   return `<div data-source-hashtags-root="${location.id}" style="clear: both; display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; margin: 0 0 ${CARD.sectionGap}px 0;">${chips}</div>`;
+}
+
+// ─── P-POPUP-3A — Ownership "added" line (own enriched only) ─────────────
+// Reemplaza al badge "Mi punto" + chip propio cuando el flag
+// POPUP_OWNERSHIP_STRIP_V1 está ON. Una sola línea compacta con la fecha
+// de adopción del POI. Sin literal de ownership: el marker (círculo verde)
+// ya transmite la propiedad. Ver opción B en
+// docs/popups/p-popup-3-ownership-cleanup-plan.md §8.
+export function buildOwnAddedLineHtml(location: GeoLocation): string {
+  const raw = (location as { createdAt?: Date | string | null }).createdAt;
+  if (!raw) return '';
+  const d = raw instanceof Date ? raw : new Date(raw);
+  if (isNaN(d.getTime())) return '';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const date = `${dd}/${mm}/${yyyy}`;
+  return `<div data-popup-own-added="${location.id}" style="display: flex; align-items: center; gap: 4px; margin: 0 0 ${CARD.sectionGap}px 0; font-size: 11px; line-height: 1.3; color: hsl(var(--muted-foreground));" title="Fecha en que añadiste este punto a tu red">
+<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<circle cx="12" cy="12" r="10"/>
+<polyline points="12 6 12 12 16 14"/>
+</svg>
+<span>Añadido ${date}</span>
+</div>`;
 }
 
 // ─── Image Section ───────────────────────────────────────────────────────────
@@ -718,7 +769,7 @@ Añadir a mi colección
     };
 
     return `
-<div id="${popupId}" data-popup-version="${isPopupGeoCanonicalV1On() ? 'geo-canonical-v1' : 'legacy'}" data-popup-geo-canonical="${isPopupGeoCanonicalV1On() ? 'true' : 'false'}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: ${POPUP_MAX_HEIGHT}; overflow: hidden;">${isPopupDiagBadgeVisible() && isPopupGeoCanonicalV1On() ? `<div style="position: absolute; top: 4px; left: 4px; z-index: 10; padding: 2px 6px; border-radius: 4px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.85; pointer-events: none;" title="P-POPUP-2 canonical geo header + 4-bucket tag dedupe ACTIVE (preview/staging signal — will retire after ratification)">P-POPUP-2 ON</div>` : ''}
+<div id="${popupId}" data-popup-version="${isPopupGeoCanonicalV1On() ? 'geo-canonical-v1' : 'legacy'}" data-popup-geo-canonical="${isPopupGeoCanonicalV1On() ? 'true' : 'false'}" data-popup-ownership-strip="${(isOwn && isPopupOwnershipStripV1On()) ? 'v1' : 'legacy'}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: ${POPUP_MAX_HEIGHT}; overflow: hidden;">${isPopupDiagBadgeVisible() && isPopupGeoCanonicalV1On() ? `<div style="position: absolute; top: 4px; left: 4px; z-index: 10; padding: 2px 6px; border-radius: 4px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.85; pointer-events: none;" title="P-POPUP-2 canonical geo header + 4-bucket tag dedupe ACTIVE (preview/staging signal — will retire after ratification)">P-POPUP-2 ON</div>` : ''}${isPopupDiagBadgeVisible() && isOwn && isPopupOwnershipStripV1On() ? `<div style="position: absolute; top: 4px; left: 88px; z-index: 10; padding: 2px 6px; border-radius: 4px; background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.85; pointer-events: none;" title="P-POPUP-3A ownership-strip ACTIVE (own enriched only; preview/staging signal — will retire after ratification)">P-POPUP-3 ON</div>` : ''}
 ${statusBarHtml}
 
 <!-- Hero (fija, no participa en el scroll) -->
@@ -734,7 +785,7 @@ ${buildImageSection(location, enriched, ownershipInfo)}
 <h3 style="margin: 0; font-size: ${FONT.title}px; font-weight: 700; color: ${COLOR.foreground}; line-height: 1.3; flex: 1;">
 ${locationName || 'Sin nombre'}
 </h3>
-${ownershipBadgeHtml}
+${(isOwn && isPopupOwnershipStripV1On()) ? '' : ownershipBadgeHtml}
 </div>
 
 <!-- Geo header (P-POPUP-2: canonical chips bajo flag, fallback a localizacionLinks italic legacy) -->
@@ -836,7 +887,9 @@ title="Quitar valoración"
 </div>
 </div>
 
-${buildSourceHashtagsBlock(location, ownership)}
+${(isOwn && isPopupOwnershipStripV1On())
+  ? buildOwnAddedLineHtml(location)
+  : buildSourceHashtagsBlock(location, ownership, { suppressOwn: false })}
 ${buildCollectionChipsPlaceholder(location)}
 ${buildPersonalTagsBlock(location)}
 
