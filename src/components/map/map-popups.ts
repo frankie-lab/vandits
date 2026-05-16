@@ -403,12 +403,12 @@ export function buildOwnAddedLineHtml(location: GeoLocation): string {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const yyyy = d.getFullYear();
   const date = `${dd}/${mm}/${yyyy}`;
-  return `<div data-popup-own-added="${location.id}" style="display: flex; align-items: center; gap: 4px; margin: 0 0 ${CARD.sectionGap}px 0; font-size: 11px; line-height: 1.3; color: hsl(var(--muted-foreground));" title="Fecha en que añadiste este punto a tu red">
+  return `<div data-popup-own-added="${location.id}" style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 ${CARD.sectionGap}px 0; font-size: 11px; line-height: 1.3; color: hsl(var(--muted-foreground));" title="Fecha en que añadiste este punto a tu red">
 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 <circle cx="12" cy="12" r="10"/>
 <polyline points="12 6 12 12 16 14"/>
 </svg>
-<span>Añadido ${date}</span>
+<span>Añadido ${date}</span>${buildCollectionsMetadataSegment(location)}
 </div>`;
 }
 
