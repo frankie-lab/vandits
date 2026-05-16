@@ -921,7 +921,7 @@ title="${hasUserImage ? 'Cambiar foto' : 'Añadir foto'}"
   return `<div style="margin: 0 -12px 0 -12px; position: relative;">
 ${imageHtml}
 ${buttonHtml}
-${buildVisitedHeroOverlay(location, ownership)}
+${buildVisitedHeroOverlay(location, ownership, enriched)}
 </div>`;
 }
 
