@@ -408,7 +408,7 @@ export function buildOwnAddedLineHtml(location: GeoLocation): string {
 <circle cx="12" cy="12" r="10"/>
 <polyline points="12 6 12 12 16 14"/>
 </svg>
-<span>Añadido ${date}</span>${buildCollectionsMetadataSegment(location)}
+<span>Añadido ${date}${(() => { const c = buildCollectionsMetadataSegment(location); return c ? ' <span aria-hidden="true">·</span> ' + c : ''; })()}</span>
 </div>`;
 }
 
