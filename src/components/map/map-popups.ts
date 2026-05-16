@@ -699,6 +699,61 @@ export function buildOwnEnrichedMetadataLineHtml(location: GeoLocation): string 
 </div>`;
 }
 
+// ─── P-POPUP-7B — Visited hero overlay ───────────────────────────────────
+//
+// Overlay compacto (check + verified opcional, sin texto) en la esquina
+// inferior-izquierda de la hero image. Visible SÓLO cuando el POI está
+// marcado como visited y existe hero image. Clicable para quitar visited
+// (mismo handler `toggle-visited` que el bloque inferior).
+//
+// Cuando este overlay está activo, el bloque inferior pierde su verified
+// badge (vive aquí) y la pill grande se reemplaza por una acción inline
+// discreta `✓ Visitado` — ver `buildPersonalStateBlock`.
+
+export function isVisitedHeroOverlayActive(
+  location: GeoLocation,
+  ownership?: PopupOwnership | null,
+): boolean {
+  if (!location) return false;
+  if (location.customData?.visited !== 'true') return false;
+  if (ownership?.curatorId) return false;
+  if (isNearbyPopupContext(location.id)) return false;
+
+  const userImageUrl = location.customData?.user_image_url as string | undefined;
+  const visibility = (location.customData?.user_image_visibility as string) || 'private';
+  const canSeeUserImage = !!userImageUrl && (
+    !!ownership?.isOwn ||
+    visibility === 'public' ||
+    (visibility === 'followers' && !!ownership?.isFollowing)
+  );
+  const aiImage = ((location.enrichedData as any)?.imagen as string | undefined) || '';
+  const displayImage = canSeeUserImage ? userImageUrl : aiImage;
+  return !!displayImage;
+}
+
+export function buildVisitedHeroOverlay(
+  location: GeoLocation,
+  ownership?: PopupOwnership | null,
+): string {
+  if (!isVisitedHeroOverlayActive(location, ownership)) return '';
+
+  const visitRelevance = calculateVisitRelevance(
+    location.customData?.visited_verified_at,
+    location.customData?.oldest_geotagged_photo_date,
+  );
+
+  let verifiedSvg = '';
+  let titleSuffix = '';
+  if (visitRelevance) {
+    const iconKey: keyof typeof SVG_PATHS = visitRelevance.verificationType === 'photo' ? 'camera' : 'mapPin';
+    verifiedSvg = svgIcon(iconKey, { size: 12, color: 'hsl(var(--text-secondary))' });
+    titleSuffix = ` · ${visitRelevance.label} (${formatTimeAgo(visitRelevance.daysAgo)})`;
+  }
+
+  const title = `Visitado${titleSuffix} · click para quitar`;
+  return `<button class="popup-action-btn" data-action="toggle-visited" data-location-id="${location.id}" data-visited-hero-overlay="true" aria-label="${title}" title="${title}" style="position: absolute; bottom: 8px; left: 8px; display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px; background: hsl(var(--background) / 0.85); border: 1px solid hsl(var(--surface-border) / 0.6); border-radius: 9999px; cursor: pointer; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 1px 4px rgba(0,0,0,0.15); line-height: 0;">${svgIcon('check', { size: 14, color: 'hsl(var(--state-success))' })}${verifiedSvg}</button>`;
+}
+
 // ─── Image Section ───────────────────────────────────────────────────────────
 
 export function buildImageSection(
