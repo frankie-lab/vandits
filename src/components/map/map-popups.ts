@@ -837,35 +837,31 @@ export function buildVisitedHeroOverlay(
   const isVisited = st.isVisited;
   const visitRelevance = st.visitRelevance;
 
-  // Tokens con fallback (los `--state-*` no existen en index.css y el stroke
-  // SVG quedaría vacío sin fallback hex).
+  // P-POPUP-7D — Badge icon-only 24x24. Sin label, sin verified visual.
+  // Verified queda diferido (ver docs/popups/p-popup-7d-validation.md).
   const visitedColor = tk('hsl(var(--state-success))', '#16a34a');
-  const pendingColor = tk('hsl(var(--text-secondary))', '#475569');
-  const verifiedColor = tk('hsl(var(--text-secondary))', '#475569');
-  const bg = tk('hsl(var(--background) / 0.92)', 'rgba(255,255,255,0.95)');
-  const borderColor = tk('hsl(var(--surface-border) / 0.6)', 'rgba(15,23,42,0.2)');
+  const pendingColor = tk('hsl(var(--text-primary))', '#ffffff');
+  const bg = 'rgba(0,0,0,0.38)';
+  const borderColor = 'rgba(255,255,255,0.25)';
 
   const iconColor = isVisited ? visitedColor : pendingColor;
-  const labelText = isVisited ? 'Visitado' : 'Pendiente';
   const iconHtml = isVisited
-    ? svgIcon('check', { size: 12, color: iconColor })
+    ? svgIcon('check', { size: 14, color: iconColor })
     // `circle` icon (Lucide) — outlined empty ring for "Pendiente".
-    : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>`;
+    : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>`;
 
-  let verifiedSvg = '';
+  // Verified NO se renderiza visualmente en el hero chrome (P-POPUP-7D).
+  // Tooltip puede incluir relevance pero el badge queda icon-only.
   let titleSuffix = '';
   if (isVisited && visitRelevance) {
-    const iconKey: keyof typeof SVG_PATHS = visitRelevance.verificationType === 'photo' ? 'camera' : 'mapPin';
-    verifiedSvg = svgIcon(iconKey, { size: 10, color: verifiedColor });
     titleSuffix = ` · ${visitRelevance.label} (${formatTimeAgo(visitRelevance.daysAgo)})`;
   }
 
   const title = isVisited
-    ? `Visitado${titleSuffix} · click para marcar como pendiente`
-    : 'Pendiente · click para marcar como visitado';
-  const labelColor = isVisited ? visitedColor : pendingColor;
+    ? `Visitado${titleSuffix} · click para quitar`
+    : 'Pendiente · click para marcar visitado';
 
-  return `<button class="popup-action-btn popup-hero-visited-badge" data-action="toggle-visited" data-location-id="${location.id}" data-visited-hero-overlay="true" data-visited-state="${isVisited ? 'visited' : 'pending'}" aria-label="${title}" title="${title}" style="position: absolute; bottom: 6px; left: 6px; z-index: 2; pointer-events: auto; display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px 3px 6px; background: ${bg}; border: 1px solid ${borderColor}; border-radius: 9999px; cursor: pointer; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 1px 3px rgba(0,0,0,0.18); font-size: 10px; font-weight: 600; line-height: 1; color: ${labelColor};">${iconHtml}<span>${labelText}</span>${verifiedSvg}</button>`;
+  return `<button class="popup-action-btn popup-hero-visited-badge" data-action="toggle-visited" data-location-id="${location.id}" data-visited-hero-overlay="true" data-visited-state="${isVisited ? 'visited' : 'pending'}" aria-label="${title}" title="${title}" style="position: absolute; bottom: 6px; left: 6px; z-index: 2; pointer-events: auto; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; background: ${bg}; border: 1px solid ${borderColor}; border-radius: 9999px; cursor: pointer; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 1px 2px rgba(0,0,0,0.25); line-height: 0;">${iconHtml}</button>`;
 }
 
 // ─── Image Section ───────────────────────────────────────────────────────────

@@ -86,12 +86,12 @@ describe('P-POPUP-7B — isVisitedHeroOverlayActive (canon simplificado)', () =>
   });
 });
 
-describe('P-POPUP-7B — buildVisitedHeroOverlay (Visitado/Pendiente)', () => {
+describe('P-POPUP-7D — buildVisitedHeroOverlay (icon-only badge)', () => {
   it('returns empty when no hero (inactive)', () => {
     expect(buildVisitedHeroOverlay(poi('a'), OWN_VIEWER)).toBe('');
   });
 
-  it('renders "Visitado" when visited=true', () => {
+  it('renders visited check icon-only (no label) when visited=true', () => {
     const out = buildVisitedHeroOverlay(
       poi('a', { visited: 'true' }, { imagen: 'http://x.jpg' }),
       OWN_VIEWER,
@@ -99,24 +99,30 @@ describe('P-POPUP-7B — buildVisitedHeroOverlay (Visitado/Pendiente)', () => {
     expect(out).toContain('data-action="toggle-visited"');
     expect(out).toContain('data-visited-hero-overlay="true"');
     expect(out).toContain('data-visited-state="visited"');
-    expect(out).toContain('<span>Visitado</span>');
+    // Sin label visible
+    expect(out).not.toContain('<span>Visitado</span>');
+    expect(out).not.toContain('<span>Pendiente</span>');
+    // Tooltip / a11y
+    expect(out).toContain('aria-label="Visitado');
+    expect(out).toContain('click para quitar');
+    // Position + size 24x24
     expect(out).toContain('position: absolute');
+    expect(out).toContain('width: 24px');
+    expect(out).toContain('height: 24px');
     expect(out).toContain('z-index: 2');
     expect(out).toContain('pointer-events: auto');
-    // P-POPUP-7C — compact badge.
     expect(out).toContain('popup-hero-visited-badge');
-    expect(out).toContain('font-size: 10px');
-    expect(out).toContain('padding: 3px 7px 3px 6px');
   });
 
-  it('renders "Pendiente" when visited=false but hay hero', () => {
+  it('renders pending circle icon-only (no label) when visited=false', () => {
     const out = buildVisitedHeroOverlay(
       poi('a', {}, { imagen: 'http://x.jpg' }),
       OWN_VIEWER,
     );
     expect(out).toContain('data-action="toggle-visited"');
     expect(out).toContain('data-visited-state="pending"');
-    expect(out).toContain('<span>Pendiente</span>');
+    expect(out).not.toContain('<span>Pendiente</span>');
+    expect(out).toContain('aria-label="Pendiente · click para marcar visitado"');
   });
 
   it('check SVG stroke usa un color resoluble (token o hex fallback)', () => {
@@ -127,24 +133,26 @@ describe('P-POPUP-7B — buildVisitedHeroOverlay (Visitado/Pendiente)', () => {
     expect(out).toMatch(/stroke="(hsl\(var\(--state-success\)\)|#16a34a)"/);
   });
 
-  it('incluye verified SVG cuando hay verification (visited=true)', () => {
+  it('verified NO se renderiza visualmente en el badge icon-only (P-POPUP-7D)', () => {
     const out = buildVisitedHeroOverlay(
       poi('a', { visited: 'true', visited_verified_at: new Date().toISOString() }, { imagen: 'http://x.jpg' }),
       OWN_VIEWER,
     );
+    // Sólo 1 SVG (check). Sin verified badge inyectado.
     const svgCount = (out.match(/<svg /g) ?? []).length;
-    // check + verified = 2
-    expect(svgCount).toBe(2);
+    expect(svgCount).toBe(1);
+    // Tooltip puede mencionar relevance pero sin renderizar icon adicional.
+    expect(out).toContain('aria-label="Visitado');
   });
 
-  it('verified NO aparece cuando visited=false', () => {
+  it('pending tampoco renderiza verified aunque haya visited_verified_at', () => {
     const out = buildVisitedHeroOverlay(
       poi('a', { visited_verified_at: new Date().toISOString() }, { imagen: 'http://x.jpg' }),
       OWN_VIEWER,
     );
     const svgCount = (out.match(/<svg /g) ?? []).length;
     expect(svgCount).toBe(1);
-    expect(out).toContain('<span>Pendiente</span>');
+    expect(out).toContain('data-visited-state="pending"');
   });
 });
 
