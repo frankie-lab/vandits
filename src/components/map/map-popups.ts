@@ -355,7 +355,7 @@ export function buildPersonalTagsBlock(location: GeoLocation): string {
 // Devuelve '' para puntos de curador o para popups en contexto "Cerca de".
 export function buildPersonalStateBlock(
   location: GeoLocation,
-  ctx: { isOwn: boolean; isCuratorPoint: boolean; canEditLocation: boolean },
+  ctx: { isOwn: boolean; isCuratorPoint: boolean; canEditLocation: boolean; heroOverlayActive?: boolean },
 ): string {
   if (ctx.isCuratorPoint) return '';
   if (isNearbyPopupContext(location.id)) return '';
@@ -369,32 +369,46 @@ export function buildPersonalStateBlock(
     : null;
   const userRating = parseInt(location.customData?.user_rating || '0', 10) || 0;
   const canRate = !!visitRelevance || ctx.canEditLocation || userRating > 0;
+  const heroOverlayActive = !!ctx.heroOverlayActive;
 
-  // Visited toggle (con copy variable según ownership).
-  const visitedLabel = isVisited
-    ? 'Visitado'
-    : (!ctx.isOwn ? '+ Adoptar y Visitar' : 'Visitado');
-  const visitedTitle = isVisited
-    ? 'Click para desmarcar'
-    : (!ctx.isOwn ? 'Se añadirá a tu colección automáticamente' : 'Marcar como visitado');
-  const visitedBg = isVisited
-    ? 'hsl(var(--state-success) / 0.10)'
-    : (!ctx.isOwn ? 'hsl(var(--state-loading) / 0.10)' : 'transparent');
-  const visitedFg = isVisited
-    ? 'hsl(var(--state-success))'
-    : (!ctx.isOwn ? 'hsl(var(--state-loading))' : 'hsl(var(--text-secondary))');
-  const visitedBorder = isVisited
-    ? 'hsl(var(--state-success) / 0.35)'
-    : (!ctx.isOwn ? 'hsl(var(--state-loading) / 0.35)' : 'hsl(var(--surface-border))');
-  const visitedBtn = `<button class="popup-action-btn" data-action="toggle-visited" data-location-id="${location.id}" title="${visitedTitle}" style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; background: ${visitedBg}; color: ${visitedFg}; border: 1px solid ${visitedBorder}; border-radius: 9999px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;">${svgIcon('check', { size: 10, color: 'currentColor' })}<span>${visitedLabel}</span></button>`;
+  // P-POPUP-7B — Cuando el overlay sobre la hero está activo (visited + hay
+  // hero image), el bloque inferior se reduce a una acción inline discreta
+  // `✓ Visitado` (sin pill, sin background) para preservar discoverability
+  // del toggle de retroceso. El verified badge (camera/mapPin) NO se
+  // duplica aquí: vive sólo en el overlay del hero.
+  let visitedBtn = '';
+  let verifiedBadge = '';
 
-  // Badge de verificación inline (iconos Lucide camera/mapPin, sin emoji).
-  const verifiedBadge = (isVisited && visitRelevance)
-    ? (() => {
-        const iconKey: keyof typeof SVG_PATHS = visitRelevance.verificationType === 'photo' ? 'camera' : 'mapPin';
-        return `<span title="${visitRelevance.label} · ${formatTimeAgo(visitRelevance.daysAgo)}" style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; font-size: 9px; color: hsl(var(--text-secondary)); border: 1px solid hsl(var(--surface-border)); border-radius: 9999px;">${svgIcon(iconKey, { size: 9, color: 'currentColor' })}<span>${formatTimeAgo(visitRelevance.daysAgo)}</span></span>`;
-      })()
-    : '';
+  if (heroOverlayActive && isVisited) {
+    // Inline discreto: ✓ Visitado (sin pill, sin verified).
+    visitedBtn = `<button class="popup-action-btn" data-action="toggle-visited" data-location-id="${location.id}" data-personal-visited-inline="true" title="Visitado · click para quitar" style="display: inline-flex; align-items: center; gap: 4px; background: none; border: none; padding: 0; cursor: pointer; color: hsl(var(--text-secondary)); font-size: 11px;">${svgIcon('check', { size: 12, color: 'currentColor' })}<span>Visitado</span></button>`;
+  } else {
+    // Comportamiento P-POPUP-7A intacto (no visitado, o no hay hero overlay).
+    const visitedLabel = isVisited
+      ? 'Visitado'
+      : (!ctx.isOwn ? '+ Adoptar y Visitar' : 'Visitado');
+    const visitedTitle = isVisited
+      ? 'Click para desmarcar'
+      : (!ctx.isOwn ? 'Se añadirá a tu colección automáticamente' : 'Marcar como visitado');
+    const visitedBg = isVisited
+      ? 'hsl(var(--state-success) / 0.10)'
+      : (!ctx.isOwn ? 'hsl(var(--state-loading) / 0.10)' : 'transparent');
+    const visitedFg = isVisited
+      ? 'hsl(var(--state-success))'
+      : (!ctx.isOwn ? 'hsl(var(--state-loading))' : 'hsl(var(--text-secondary))');
+    const visitedBorder = isVisited
+      ? 'hsl(var(--state-success) / 0.35)'
+      : (!ctx.isOwn ? 'hsl(var(--state-loading) / 0.35)' : 'hsl(var(--surface-border))');
+    visitedBtn = `<button class="popup-action-btn" data-action="toggle-visited" data-location-id="${location.id}" title="${visitedTitle}" style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; background: ${visitedBg}; color: ${visitedFg}; border: 1px solid ${visitedBorder}; border-radius: 9999px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;">${svgIcon('check', { size: 10, color: 'currentColor' })}<span>${visitedLabel}</span></button>`;
+
+    // Badge de verificación inline sólo en fallback (sin overlay).
+    verifiedBadge = (isVisited && visitRelevance)
+      ? (() => {
+          const iconKey: keyof typeof SVG_PATHS = visitRelevance.verificationType === 'photo' ? 'camera' : 'mapPin';
+          return `<span title="${visitRelevance.label} · ${formatTimeAgo(visitRelevance.daysAgo)}" style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; font-size: 9px; color: hsl(var(--text-secondary)); border: 1px solid hsl(var(--surface-border)); border-radius: 9999px;">${svgIcon(iconKey, { size: 9, color: 'currentColor' })}<span>${formatTimeAgo(visitRelevance.daysAgo)}</span></span>`;
+        })()
+      : '';
+  }
 
   // Stars helper (compacto, sin glow).
   const starsControl = (ratingValue: number) => [1, 2, 3, 4, 5].map((star) => {
@@ -685,6 +699,67 @@ export function buildOwnEnrichedMetadataLineHtml(location: GeoLocation): string 
 </div>`;
 }
 
+// ─── P-POPUP-7B — Visited hero overlay ───────────────────────────────────
+//
+// Overlay compacto (check + verified opcional, sin texto) en la esquina
+// inferior-izquierda de la hero image. Visible SÓLO cuando el POI está
+// marcado como visited y existe hero image. Clicable para quitar visited
+// (mismo handler `toggle-visited` que el bloque inferior).
+//
+// Cuando este overlay está activo, el bloque inferior pierde su verified
+// badge (vive aquí) y la pill grande se reemplaza por una acción inline
+// discreta `✓ Visitado` — ver `buildPersonalStateBlock`.
+
+export function isVisitedHeroOverlayActive(
+  location: GeoLocation,
+  ownership?: PopupOwnership | null,
+  enriched?: any,
+): boolean {
+  if (!location) return false;
+  if (location.customData?.visited !== 'true') return false;
+  if (ownership?.curatorId) return false;
+  if (isNearbyPopupContext(location.id)) return false;
+
+  const userImageUrl = location.customData?.user_image_url as string | undefined;
+  const visibility = (location.customData?.user_image_visibility as string) || 'private';
+  const canSeeUserImage = !!userImageUrl && (
+    !!ownership?.isOwn ||
+    visibility === 'public' ||
+    (visibility === 'followers' && !!ownership?.isFollowing)
+  );
+  // Mirror buildImageSection: legacy branch passes `enriched=null`, so the AI
+  // image is intentionally not displayed and the overlay should not appear
+  // when there is no user image either.
+  const enrichedSource = enriched === undefined ? (location.enrichedData as any) : enriched;
+  const aiImage = (enrichedSource?.imagen as string | undefined) || '';
+  const displayImage = canSeeUserImage ? userImageUrl : aiImage;
+  return !!displayImage;
+}
+
+export function buildVisitedHeroOverlay(
+  location: GeoLocation,
+  ownership?: PopupOwnership | null,
+  enriched?: any,
+): string {
+  if (!isVisitedHeroOverlayActive(location, ownership, enriched)) return '';
+
+  const visitRelevance = calculateVisitRelevance(
+    location.customData?.visited_verified_at,
+    location.customData?.oldest_geotagged_photo_date,
+  );
+
+  let verifiedSvg = '';
+  let titleSuffix = '';
+  if (visitRelevance) {
+    const iconKey: keyof typeof SVG_PATHS = visitRelevance.verificationType === 'photo' ? 'camera' : 'mapPin';
+    verifiedSvg = svgIcon(iconKey, { size: 12, color: 'hsl(var(--text-secondary))' });
+    titleSuffix = ` · ${visitRelevance.label} (${formatTimeAgo(visitRelevance.daysAgo)})`;
+  }
+
+  const title = `Visitado${titleSuffix} · click para quitar`;
+  return `<button class="popup-action-btn" data-action="toggle-visited" data-location-id="${location.id}" data-visited-hero-overlay="true" aria-label="${title}" title="${title}" style="position: absolute; bottom: 8px; left: 8px; display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px; background: hsl(var(--background) / 0.85); border: 1px solid hsl(var(--surface-border) / 0.6); border-radius: 9999px; cursor: pointer; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 1px 4px rgba(0,0,0,0.15); line-height: 0;">${svgIcon('check', { size: 14, color: 'hsl(var(--state-success))' })}${verifiedSvg}</button>`;
+}
+
 // ─── Image Section ───────────────────────────────────────────────────────────
 
 export function buildImageSection(
@@ -846,6 +921,7 @@ title="${hasUserImage ? 'Cambiar foto' : 'Añadir foto'}"
   return `<div style="margin: 0 -12px 0 -12px; position: relative;">
 ${imageHtml}
 ${buttonHtml}
+${buildVisitedHeroOverlay(location, ownership, enriched)}
 </div>`;
 }
 
@@ -1193,7 +1269,11 @@ ${(() => {
   // P-POPUP-7A — flag para insertar el bloque de estado personal una sola vez,
   // justo debajo de `descripcion`. Si la card config no incluye `descripcion`,
   // el bloque se emite al final (fallback).
-  const personalStateCtx = { isOwn, isCuratorPoint, canEditLocation };
+  // P-POPUP-7B — `heroOverlayActive` colapsa el bloque inferior a inline
+  // `✓ Visitado` cuando el overlay sobre la hero está activo (visited + hay
+  // hero image). El verified badge vive sólo en el overlay.
+  const heroOverlayActive = isVisitedHeroOverlayActive(location, ownershipInfo, enriched);
+  const personalStateCtx = { isOwn, isCuratorPoint, canEditLocation, heroOverlayActive };
   let personalStateRendered = false;
   const personalStateOnce = () => {
     if (personalStateRendered) return '';
@@ -1529,7 +1609,7 @@ ${location.description}
 </div>
 ` : ''}
 
-${buildPersonalStateBlock(location, { isOwn, isCuratorPoint, canEditLocation })}
+${buildPersonalStateBlock(location, { isOwn, isCuratorPoint, canEditLocation, heroOverlayActive: isVisitedHeroOverlayActive(location, ownershipInfo, null) })}
 
 ${isNearbyPopupContext(location.id) ? '' : buildSourceHashtagsBlock(location, ownership)}
 ${isNearbyPopupContext(location.id) ? '' : buildCollectionChipsPlaceholder(location)}
