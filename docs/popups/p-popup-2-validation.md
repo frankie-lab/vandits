@@ -116,18 +116,71 @@ cambios en helpers ni tests.
 
 ## 7. Estado
 
-- **P-POPUP-2 status**: `ratified-default-on` (promovido 2026-05-16).
+- **P-POPUP-2 status**: `ratified-default-on + FIX-A..E applied` (2026-05-16).
 - **Gates cerrados**:
-  - Vitest popup-relevantes 25/25 verdes.
+  - Vitest popup-relevantes 30/30 verdes (incluye nuevos tests FIX-C/D/E).
   - Helpers y ramas legacy preservados.
   - Rollback path documentado y validado.
 - **Gates delegados a CI externo**:
   - e2e 14/14 con default ON (post-merge).
 - **Follow-ups no bloqueantes**:
   - FU-2 baseline visual snapshot (opcional).
-  - Validación visual humana en preview/app con default ON (owner).
-- **Bloqueado hasta nueva orden**: P-POPUP-3 (ownership cleanup), P-POPUP-4..7,
-  PopupShell, React migration, photo popup, nearby, recovery, F2.
+  - Retirar badge "P-POPUP-2 ON" + `isPopupDiagBadgeVisible()` cuando el
+    rollout esté realmente ratificado en producción (no antes).
+- **Bloqueado hasta nueva orden**: P-POPUP-3 (ownership cleanup: `Mi punto`
+  vs `#frankie_gmz`), P-POPUP-4..7, PopupShell, React migration, photo
+  popup, nearby, recovery, F2.
+
+## 9. Fixes acotados aplicados (2026-05-16)
+
+Cierre técnico del pilot tras ratificar default-on. Alcance estrictamente
+dentro de `map-popups.ts`, `geo-header.ts`, `tags.ts`, `LocationMap.tsx`
+(1 efecto nuevo) y 2 test suites.
+
+- **P2-FIX-A — Boot re-bind defensivo**: `LocationMap` arranca un one-shot
+  pass tras 1.2s que recorre `markersRef.current` y reemplaza el popup HTML
+  vía `setPopupContent(createPopupContent(...))`. Garantiza que sesiones con
+  cache stale (markers bindados antes del flip a default ON) vean el render
+  canónico sin hard refresh. Respeta override runtime: si
+  `window.__POPUP_GEO_CANONICAL_V1__ === false`, no hace nada.
+- **P2-FIX-B — Señal visible en preview/staging**: badge "P-POPUP-2 ON"
+  pasa de `import.meta.env.DEV` (siempre false en preview Lovable) a
+  `isPopupDiagBadgeVisible()` (true en `*.lovable.app`, `localhost` y
+  `?diag=1`). Permite verificar despliegue sin DevTools/consola. Se
+  retirará cuando rollout sea ratificado en producción.
+- **P2-FIX-C — `tagSlug` robustecido**: regex pasa de `[\s_-]+` a
+  `[^a-z0-9]+`. Colapsa `/`, `&`, `(`, `)`, `.`, `,` y cualquier separador
+  no alfanumérico. Cubre `Villa/Pueblo ↔ Villa Pueblo`,
+  `Naturaleza & Paisaje`, `Iglesia (s. XII)`.
+- **P2-FIX-D — Test uniprovincial explícito**: 2 tests nuevos
+  (`Principado de Asturias` y `Madrid uniprovincial`) fijan contrato
+  zone==region → 1 chip, sin continente en header.
+- **P2-FIX-E — `extractTaxonomyCandidates` defensivo**: split por `>` en
+  cada nivel (cubre payloads IA que concatenan
+  `categoria > subcategoria > tipo` en un solo campo), prefijo numérico
+  unificado `^\d+(?:\.\d+)*\.?\s*`, dedupe por slug entre los 3 niveles
+  antes de devolver.
+
+**Fuera de scope (P-POPUP-3)**: duplicación `Mi punto` (badge) +
+`#frankie_gmz` (source hashtag). Decisión explícita: el badge ownership y
+el source pipeline canónico no se tocan en este pilot.
+
+## 10. QA manual tras FIX-A..E
+
+Validar en preview con hard refresh:
+
+1. Abrir POI propio enriched en Asturias → header `Principado de
+   Asturias · España` (2 chips, sin Europa, sin duplicado).
+2. Abrir POI en Madrid uniprovincial → header `Madrid · Comunidad de
+   Madrid · España`.
+3. Verificar atributo `data-popup-version="geo-canonical-v1"` en el `<div>`
+   raíz (Inspector → Element, sin consola).
+4. Verificar badge `P-POPUP-2 ON` arriba-izquierda del popup en
+   preview lovable.app.
+5. Abrir POI cuya taxonomy contenga `Villa/Pueblo` → la sección de
+   hashtags NO repite `#Villa/Pueblo` ni `#Asentamientoshumanos`.
+6. Rollback runtime: `window.__POPUP_GEO_CANONICAL_V1__ = false` y reabrir
+   popup → vuelve al header legacy de 4 chips coloreados con `Europa`.
 
 ## 8. Persistencia
 
