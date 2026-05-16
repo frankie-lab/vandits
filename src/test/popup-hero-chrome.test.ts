@@ -85,3 +85,35 @@ describe('P-POPUP-7C — buildImageSection hero chrome', () => {
     expect(out).toContain('data-action="toggle-visited"');
   });
 });
+
+describe('P-POPUP-7D — Hero chrome safe-area (canon transversal)', () => {
+  it('badge visited usa safe-area --bl + sin offsets inline', () => {
+    const out = buildImageSection(
+      poi('a', { visited: 'true' }, { imagen: 'http://x/y.jpg' }),
+      { imagen: 'http://x/y.jpg' },
+      OWN,
+    );
+    expect(out).toContain('popup-hero-chrome popup-hero-chrome--bl');
+    // El nodo del badge NO declara position/bottom/left inline.
+    const badgeMatch = out.match(/<button[^>]*popup-hero-visited-badge[^>]*>/)!;
+    expect(badgeMatch).toBeTruthy();
+    expect(badgeMatch[0]).not.toMatch(/\bposition:\s*absolute/);
+    expect(badgeMatch[0]).not.toMatch(/\bbottom:\s*\d/);
+    expect(badgeMatch[0]).not.toMatch(/\bleft:\s*\d/);
+  });
+
+  it('controles foto usan safe-area --br + sin offsets inline', () => {
+    const out = buildImageSection(
+      poi('a', { user_image_url: 'http://x/u.jpg' }),
+      null,
+      OWN,
+    );
+    expect(out).toContain('popup-hero-controls popup-hero-chrome popup-hero-chrome--br');
+    // El wrapper de controles NO declara position/bottom/right inline.
+    const wrapperMatch = out.match(/<div class="popup-hero-controls[^"]*"[^>]*>/)!;
+    expect(wrapperMatch).toBeTruthy();
+    expect(wrapperMatch[0]).not.toMatch(/\bposition:\s*absolute/);
+    expect(wrapperMatch[0]).not.toMatch(/\bbottom:\s*\d/);
+    expect(wrapperMatch[0]).not.toMatch(/\bright:\s*\d/);
+  });
+});
