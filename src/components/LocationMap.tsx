@@ -3099,24 +3099,7 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
  .custom-popup .leaflet-popup-content {
  margin: 0;
  }
- .custom-popup .leaflet-popup-close-button {
- top: 8px;
- right: 8px;
- width: 24px;
- height: 24px;
- font-size: 18px;
- color: #6b7280;
- background: white;
- border-radius: 50%;
- display: flex;
- align-items: center;
- justify-content: center;
- box-shadow: 0 2px 4px rgba(0,0,0,0.1);
- }
- .custom-popup .leaflet-popup-close-button:hover {
- color: #1a1a1a;
- background: #f3f4f6;
- }
+  /* P-POPUP-7D — close button retirado (closeButton: false). CSS muerto eliminado. */
  .custom-popup .leaflet-popup-tip {
  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
  }
