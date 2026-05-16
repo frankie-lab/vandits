@@ -23,3 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 storybook-static/
+
+# Playwright / E2E
+e2e/.auth/
+playwright-report/
+test-results/
