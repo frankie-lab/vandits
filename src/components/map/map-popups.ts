@@ -70,6 +70,24 @@ function tk(token: string, legacy: string): string {
   return isPopupTokensEnrichedV1On() ? token : legacy;
 }
 
+// ─── P-POPUP-2 Feature Flag ─────────────────────────────────────────────────
+// Structural change to the enriched branch: canonical geo header
+// (locality·zone·region·country) + 4-bucket canonical tag dedupe + overflow.
+//
+// Default: **false** (OFF in production). Enable in sandbox/QA via
+// `window.__POPUP_GEO_CANONICAL_V1__ = true` BEFORE opening a popup.
+// See docs/popups/p-popup-2-implementation-plan.md.
+const POPUP_GEO_CANONICAL_V1_DEFAULT = false;
+function isPopupGeoCanonicalV1On(): boolean {
+  try {
+    const w = (typeof window !== 'undefined' ? (window as any) : null);
+    if (w && typeof w.__POPUP_GEO_CANONICAL_V1__ === 'boolean') {
+      return w.__POPUP_GEO_CANONICAL_V1__;
+    }
+  } catch { /* SSR / restricted env */ }
+  return POPUP_GEO_CANONICAL_V1_DEFAULT;
+}
+
 // ─── Card Config Cache ──────────────────────────────────────────────────────
 // Source of truth: `app_settings.enrichment_card_config` always normalized
 // through `normalizeCardConfig()` to v2. The popup never reads legacy v1 keys.
