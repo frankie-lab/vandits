@@ -394,8 +394,12 @@ that decision belongs to the extraction phase.
 
 - `useSelectable({ axis, value })` → returns `{ active, disabled,
   onActivate(opId) }`. Backs every chip / row / popover row.
-- `useReplayable(action)` → returns wrapped invoker that always
-  produces a fresh opId.
+- `useReplayable(action)` — **DEPRECATED before existing.** Split into
+  `useRecenterableSelection` (re-click re-emits) and
+  `useToggleableSelection` (re-click clears). Neither hook is
+  implemented yet; the pilot uses the stateless `runSelectable` helper
+  in `src/shared/interaction/selectable-kernel.ts` instead. Promotion
+  to hooks waits for a second pilot wave.
 - `useOverlay({ modal })` → returns `{ open, setOpen, onClose }`
   with unified close-reason semantics.
 - `useObservableAction(kind)` → returns `emit(payload)` that writes
