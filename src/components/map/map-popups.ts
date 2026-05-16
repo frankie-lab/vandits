@@ -501,7 +501,82 @@ export function buildSourceMetadataLineHtml(
 </div>`;
 }
 
-// ─── Image Section ───────────────────────────────────────────────────────────
+// ─── P-POPUP-4A.1 — Provenance reader (ownership-independent) ──────────────
+// Ownership y provenance NO son excluyentes: un POI propio puede haberse
+// adoptado desde una fuente externa (Atlas Obscura, OSM…) o desde el catálogo
+// app (vandits-app + groupId). `resolvePoiSource` clasifica por PRIORIDAD
+// sourceKind > owner, lo que enmascara la coexistencia. Esta lectura cruda
+// devuelve el provenance independientemente del tipo resuelto, para fusionar
+// la línea metadata propia (`Añadido dd/mm/aaaa · vía …`).
+type ProvenanceMarker = {
+  /** 'source' (external) | 'app' | null. */
+  type: 'source' | 'app' | null;
+  sourceId: string | null;
+  groupId: string | null;
+};
+function readPoiProvenance(loc: GeoLocation): ProvenanceMarker {
+  const a = loc as GeoLocation & {
+    sourceKind?: string | null; source_kind?: string | null;
+    sourceId?: string | null; source_id?: string | null;
+    groupId?: string | null; group_id?: string | null;
+  };
+  const kind = a.sourceKind ?? a.source_kind ?? null;
+  const sourceId = a.sourceId ?? a.source_id ?? null;
+  const groupId = a.groupId ?? a.group_id ?? null;
+  if (kind === 'app') return { type: 'app', sourceId: sourceId || 'vandits-app', groupId };
+  if (kind === 'external' && sourceId) return { type: 'source', sourceId, groupId };
+  return { type: null, sourceId: null, groupId: null };
+}
+
+/**
+ * P-POPUP-4A.1 — Línea metadata para OWN enriched, fusionando provenance.
+ *  - Sin provenance → idéntica a `buildOwnAddedLineHtml(location)`.
+ *  - Con provenance (external/app) → `Añadido dd/mm/aaaa · vía <chip>(s)`,
+ *    donde cada chip preserva `.source-filter-chip` + datasets canónicos.
+ *
+ * Usa el mismo SVG/typografía/tokens que `buildOwnAddedLineHtml` para
+ * consistencia visual cuando no hay provenance.
+ */
+export function buildOwnEnrichedMetadataLineHtml(location: GeoLocation): string {
+  // Date part (mismo formato que ownership-strip 3A).
+  const raw = (location as { createdAt?: Date | string | null }).createdAt;
+  let datePart = '';
+  if (raw) {
+    const d = raw instanceof Date ? raw : new Date(raw);
+    if (!isNaN(d.getTime())) {
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      datePart = `Añadido ${dd}/${mm}/${yyyy}`;
+    }
+  }
+
+  const prov = readPoiProvenance(location);
+  const chips: string[] = [];
+  if (prov.type && prov.sourceId) {
+    chips.push(buildSourceChipSpan(prov.type, prov.sourceId, prettifySourceId(prov.sourceId)));
+    if (prov.type === 'app' && prov.groupId) {
+      chips.push(buildSourceChipSpan('app', prov.groupId, prettifySourceId(prov.groupId)));
+    }
+  }
+
+  if (!datePart && chips.length === 0) return '';
+
+  const viaSegment = chips.length > 0
+    ? `vía ${chips.join(' <span aria-hidden="true">·</span> ')}`
+    : '';
+  const inner = [datePart, viaSegment].filter(Boolean).join(' <span aria-hidden="true">·</span> ');
+
+  return `<div data-popup-own-added="${location.id}"${prov.type ? ` data-popup-source-metadata="${location.id}" data-source-metadata-type="${prov.type}"` : ''} style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 ${CARD.sectionGap}px 0; font-size: 11px; line-height: 1.3; color: hsl(var(--muted-foreground));" title="${prov.type ? 'Añadido a tu red — incluye fuente original' : 'Fecha en que añadiste este punto a tu red'}">
+<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<circle cx="12" cy="12" r="10"/>
+<polyline points="12 6 12 12 16 14"/>
+</svg>
+<span>${inner}</span>
+</div>`;
+}
+
+
 
 
 export function buildImageSection(
