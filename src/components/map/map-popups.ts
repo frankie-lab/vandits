@@ -368,7 +368,7 @@ export function buildPersonalStateBlock(
       )
     : null;
   const userRating = parseInt(location.customData?.user_rating || '0', 10) || 0;
-  const canRate = !!visitRelevance || ctx.canEditLocation;
+  const canRate = !!visitRelevance || ctx.canEditLocation || userRating > 0;
 
   // Visited toggle (con copy variable según ownership).
   const visitedLabel = isVisited
