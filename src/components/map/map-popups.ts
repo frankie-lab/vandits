@@ -576,8 +576,7 @@ export function buildOwnEnrichedMetadataLineHtml(location: GeoLocation): string 
 </div>`;
 }
 
-
-
+// ─── Image Section ───────────────────────────────────────────────────────────
 
 export function buildImageSection(
   location: GeoLocation,
