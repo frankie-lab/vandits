@@ -104,3 +104,61 @@ POI: Reserva Natural Integral de Muniellos (visitado, con AI image).
 
 Hero limpia. Verified visual queda diferido como decisión separada,
 no implícito. Listo para promover a canon.
+
+---
+
+## Hero chrome safe-area (canon transversal) — cierre P-POPUP-7D
+
+**Fecha**: 2026-05-16
+
+Tras el hotfix evidente del badge clipeado, P-POPUP-7D cierra como **contrato sistémico** y no como ajuste local de un único componente.
+
+### Problema raíz
+
+`.popup-hero` vive dentro de `.leaflet-popup-content-wrapper`, que tiene `border-radius` + `overflow: hidden`. Cualquier overlay con offset menor al radio entra en la zona curva y queda parcialmente recortado. Cada chrome venía resolviéndolo con números distintos sin contrato compartido:
+
+| Chrome | Posición previa |
+|---|---|
+| Badge visited/pending | `bottom: 6px; left: 6px` inline (clipeado) |
+| Wrapper controles foto (upload/delete) | `bottom: 12px; right: 16px` inline |
+| Curator avatar overlay | `bottom: 8px; right: 8px` inline |
+
+### Contrato
+
+Única fuente de verdad para CUALQUIER overlay flotante sobre `.popup-hero`:
+
+- **Tokens** (`src/design-system/tokens/source/popup.json` → `hero.chromeInset` / `hero.chromeGap`):
+  - `--popup-hero-chrome-inset: 12px` (cubre con holgura el radio actual del wrapper, 8px)
+  - `--popup-hero-chrome-gap: 8px` (gap interno cuando hay varios chromes apilados)
+- **Clases** (`src/index.css`):
+  - `.popup-hero-chrome` — base (`position: absolute; z-index: 2; pointer-events: auto; inline-flex; gap: var(--popup-hero-chrome-gap)`)
+  - `.popup-hero-chrome--tl | --tr | --bl | --br` — anclaje por esquina, offset = `var(--popup-hero-chrome-inset)`
+
+### Regla
+
+**Prohibido** `position: absolute` + offsets numéricos sueltos sobre `.popup-hero`. Cualquier overlay nuevo (badges, menús ⋯, indicadores futuros) DEBE aplicar `.popup-hero-chrome` + variante de esquina. Si el `border-radius` del popup wrapper cambia, se ajusta el token y todos los overlays se reubican a la vez.
+
+### Migración aplicada en esta PR
+
+`src/components/map/map-popups.ts`:
+
+1. **Badge visited/pending** (`buildVisitedHeroOverlay`): clase `popup-hero-chrome popup-hero-chrome--bl`. Inline retira `position/bottom/left/z-index/pointer-events/display/align-items/justify-content`. Contraste reforzado: `bg rgba(0,0,0,0.5)`, borde `rgba(255,255,255,0.4)`, sombra `0 1px 3px rgba(0,0,0,0.45)`.
+2. **Wrapper controles foto** (`buildImageSection`, branch `isOwn`): clase `popup-hero-controls popup-hero-chrome popup-hero-chrome--br`. `popup-hero-controls` sigue gobernando OPACIDAD (reveal-on-hover P-POPUP-7C). `popup-hero-chrome--br` gobierna POSICIÓN. Inline retira offsets.
+3. **Curator avatar overlay** (`buildImageSection`, branch `curatorId`): clase `popup-hero-chrome popup-hero-chrome--br` sobre el div del avatar; el contenedor interior pasa a `class="popup-hero"` para alinearse al contrato.
+
+### Verified visual
+
+Se mantiene retirado del hero chrome (decisión P-POPUP-7D base). No reaparece.
+
+### Tests
+
+- `src/test/popup-visited-hero-overlay.test.ts` — verifica `popup-hero-chrome--bl` y ausencia de offsets inline en el badge.
+- `src/test/popup-hero-chrome.test.ts` — bloque "Hero chrome safe-area" verifica clases canónicas en badge y wrapper de controles **y guardrail negativo**: ningún `position/bottom/left/right` numérico en `style` inline.
+
+### QA visual
+
+- Estado **visitado** → ✓ verde 24×24 completamente dentro de la hero, esquina inferior-izquierda. Sin clipping.
+- Estado **pendiente** → ○ blanco visible y legible sobre fondos claros y oscuros.
+- **Hover** sobre la hero → upload/delete aparecen en bottom-right (reveal P-POPUP-7C intacto), sin clipping.
+- POI **curator con avatar** → avatar en bottom-right, sin clipping.
+- Tap/click fuera → cierra popup (sin regresión vs P-POPUP-7D base).
