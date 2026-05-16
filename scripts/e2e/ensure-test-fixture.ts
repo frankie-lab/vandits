@@ -26,8 +26,17 @@
  *   uid:   f04b3b95-7308-4b74-b3c7-7e819767c5fb
  *
  * Fixture IDs (estables, reservados para infraestructura E2E):
+ *   document: f04b3b95-7308-4b74-b3c7-e2ed00000001
  *   imported: f04b3b95-7308-4b74-b3c7-e2e000000001
  *   empty:    f04b3b95-7308-4b74-b3c7-e2e000000002
+ *
+ * IMPORTANTE: los POIs DEBEN tener `document_id` apuntando al documento
+ * fixture. El popover My Catalog calcula sus counts vía `getAllLocations()`
+ * que SOLO recorre `documents[].locations` en el store del cliente. POIs
+ * huérfanos (document_id=NULL) entran por `detachedVisibleLocations` y no
+ * son visibles para los counts → la fila quedaría disabled aunque el POI
+ * exista en DB.
+ * Ver `docs/qa/e2e-camera-qa.md`.
  *
  * Coordenadas estables (centro de Madrid, suficientemente distinguibles
  * para no colisionar con datos reales del usuario):
@@ -52,6 +61,9 @@ const ANON_KEY =
 const EMAIL = process.env.E2E_USER_EMAIL ?? 'sandbox-agent@vandits.test';
 const PASSWORD = process.env.E2E_USER_PASSWORD;
 const CANONICAL_UID = 'f04b3b95-7308-4b74-b3c7-7e819767c5fb';
+
+const FIXTURE_DOC_ID = 'f04b3b95-7308-4b74-b3c7-e2ed00000001';
+const FIXTURE_DOC_NAME = 'E2E Fixture Document';
 
 const FIXTURE = {
   imported: {
@@ -106,6 +118,52 @@ async function signIn(): Promise<{ accessToken: string; uid: string }> {
   return { accessToken: body.access_token, uid: body.user.id };
 }
 
+async function upsertFixtureDocument(
+  accessToken: string,
+  uid: string,
+): Promise<'inserted' | 'updated'> {
+  const head = await fetch(
+    `${SUPABASE_URL}/rest/v1/documents?id=eq.${FIXTURE_DOC_ID}&select=id`,
+    {
+      headers: {
+        apikey: ANON_KEY!,
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+  const existed = head.ok && (await head.json()).length > 0;
+
+  const row = {
+    id: FIXTURE_DOC_ID,
+    user_id: uid,
+    name: FIXTURE_DOC_NAME,
+    source_type: 'manual',
+    status: 'published',
+    import_status: 'confirmed',
+    total_waypoints: 2,
+    resolved_count: 2,
+    pending_count: 0,
+    conflict_count: 0,
+  };
+
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/documents`, {
+    method: 'POST',
+    headers: {
+      apikey: ANON_KEY!,
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates,return=minimal',
+    },
+    body: JSON.stringify(row),
+  });
+  if (!res.ok) {
+    throw new Error(
+      `upsert document ${res.status}: ${(await res.text()).slice(0, 300)}`,
+    );
+  }
+  return existed ? 'updated' : 'inserted';
+}
+
 async function upsertFixture(
   accessToken: string,
   uid: string,
@@ -122,6 +180,11 @@ async function upsertFixture(
     is_approved: true,
     owner_user_id: uid,
     visibility: 'private',
+    // CRÍTICO: adjuntar al documento fixture para que el POI entre en
+    // `documents[].locations` del store y por tanto en `getAllLocations()`
+    // que alimenta los counts del popover My Catalog. Sin esto, el POI
+    // queda como orphan (detached) y la fila aparece como disabled.
+    document_id: FIXTURE_DOC_ID,
   };
 
   // Detecta pre-existencia para reporte (no afecta idempotencia: el
@@ -166,10 +229,15 @@ async function main() {
     );
   }
 
+  const docAction = await upsertFixtureDocument(accessToken, uid);
+  console.log(
+    `[ensure-test-fixture] document: ${docAction} (id=${FIXTURE_DOC_ID})`,
+  );
+
   for (const bucket of ['imported', 'empty'] as const) {
     const action = await upsertFixture(accessToken, uid, bucket);
     console.log(
-      `[ensure-test-fixture] ${bucket}: ${action} (id=${FIXTURE[bucket].id})`,
+      `[ensure-test-fixture] ${bucket}: ${action} (id=${FIXTURE[bucket].id}, document_id=${FIXTURE_DOC_ID})`,
     );
   }
   console.log('[ensure-test-fixture] OK — fixture garantizado.');
