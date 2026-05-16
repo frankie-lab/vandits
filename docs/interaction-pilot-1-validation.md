@@ -9,7 +9,30 @@
 
 ## 1. E2E execution
 
-### 1.1 `e2e/camera-qa.spec.ts` (Playwright)
+> **Update (Phase A — QA infra)**: la deuda de infraestructura QA
+> descrita en §1.1 ha sido cerrada. Ver
+> [`docs/qa/e2e-camera-qa.md`](./qa/e2e-camera-qa.md) para el manual de
+> ejecución local/CI. Cambios introducidos en Phase A:
+>
+> - `e2e/global-setup.ts` autentica una vez (vía `E2E_USER_EMAIL` /
+>   `E2E_USER_PASSWORD`) y persiste `storageState` en `e2e/.auth/user.json`.
+> - `playwright.config.ts` separa dos projects: `chromium-auth` (sin
+>   storageState, solo `auth.spec.ts`) y `chromium-app` (con storageState,
+>   resto de specs).
+> - `.gitignore` excluye `e2e/.auth/`, `playwright-report/`,
+>   `test-results/`.
+> - `.github/workflows/e2e.yml` mapea los secrets `E2E_USER_EMAIL` /
+>   `E2E_USER_PASSWORD` al step de tests.
+> - Sin credenciales, `global-setup` aborta con error claro (no skip
+>   silencioso).
+>
+> El gate para Pilot 2 es: la primera ejecución verde de
+> `camera-qa.spec.ts` contra el storageState. Esa ejecución se realiza
+> fuera del sandbox (local o CI con secrets configurados). Cuando esté
+> verde, registrar resultado bajo §1.1 sobrescribiendo la nota de skip
+> histórica de abajo.
+
+### 1.1 `e2e/camera-qa.spec.ts` (Playwright) — histórico Pilot 1
 
 **Status: SKIPPED in this environment (infrastructure, not pilot
 regression).**
