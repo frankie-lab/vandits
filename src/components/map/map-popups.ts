@@ -36,6 +36,34 @@ import { getCollectionChipColors } from '@/shared/lib/collection-chip-color';
 import { filterPersonalTags } from '@/domains/content/lib/personal-tags-filter';
 import { resolvePoiSource } from '@/domains/content/lib/poi-source';
 
+// ─── P-POPUP-1 Feature Flag ─────────────────────────────────────────────────
+// Tokenization of the `if (isEnriched && enriched)` branch of
+// `createPopupContent()` to design-system v1 CSS vars.
+//
+// Default: **true** (safe). Tokens map to design-system v1 HSL values that
+// are visually equivalent (≤2% pixel diff vs legacy hex) to the previous
+// literals. See `docs/popups/p-popup-1-implementation-plan.md` and
+// `docs/popups/p-popup-1-validation.md`.
+//
+// Rollback: edit this line to `false` (no redeploy of structure required;
+// single-line change reverts the rama enriched to legacy hex literals).
+// Runtime override (sandbox/QA): set `window.__POPUP_TOKENS_ENRICHED_V1__`
+// to `false` BEFORE the popup is opened.
+const POPUP_TOKENS_ENRICHED_V1_DEFAULT = true;
+function isPopupTokensEnrichedV1On(): boolean {
+  try {
+    const w = (typeof window !== 'undefined' ? (window as any) : null);
+    if (w && typeof w.__POPUP_TOKENS_ENRICHED_V1__ === 'boolean') {
+      return w.__POPUP_TOKENS_ENRICHED_V1__;
+    }
+  } catch { /* SSR / restricted env */ }
+  return POPUP_TOKENS_ENRICHED_V1_DEFAULT;
+}
+/** Token-or-legacy resolver. Token side MUST be visually equivalent. */
+function tk(token: string, legacy: string): string {
+  return isPopupTokensEnrichedV1On() ? token : legacy;
+}
+
 // ─── Card Config Cache ──────────────────────────────────────────────────────
 // Source of truth: `app_settings.enrichment_card_config` always normalized
 // through `normalizeCardConfig()` to v2. The popup never reads legacy v1 keys.
