@@ -1018,39 +1018,7 @@ title="${hasUserImage ? 'Cambiar foto' : 'Añadir foto'}"
 
   const __overlayHtml = buildVisitedHeroOverlay(location, ownership, enriched, visitedState);
 
-  // P-POPUP-7B DEV PROBE — dev-only, removed in Fase D cleanup. No UX impact.
-  if (import.meta.env.DEV && typeof window !== 'undefined') {
-    const state = visitedState ?? resolveVisitedPresentationState(location, ownership, enriched);
-    const heroResolved = resolveHeroImage(location, ownership, enriched);
-    const desc = (location.enrichedData as any)?.descripcion ?? (location as any).enriched_data?.descripcion ?? '';
-    const probe = {
-      id: location.id,
-      name: location.name,
-      branch: enriched === null ? 'legacy' : 'enriched',
-      isPointEnriched: isPointEnriched(location),
-      descripcionLength: typeof desc === 'string' ? desc.length : 0,
-      enrichedDataImagen: !!(location.enrichedData as any)?.imagen,
-      userImageUrl: !!location.customData?.user_image_url,
-      heroSource: heroResolved.source,
-      heroDisplayImage: heroResolved.displayImage || null,
-      isCuratorPoint: !!ownership.curatorId,
-      isNearbyPopupContext: isNearbyPopupContext(location.id),
-      state,
-      imageHtmlEmitted: !!imageHtml,
-      overlayHtmlEmitted: !!__overlayHtml,
-      overlayHtmlLength: __overlayHtml.length,
-    };
-    (window as any).__lastVisitedState = probe;
-    const log = (window as any).__visitedStateLog ?? [];
-    log.push(probe);
-    if (log.length > 20) log.shift();
-    (window as any).__visitedStateLog = log;
-    (window as any).__resolveVisitedPresentationState = resolveVisitedPresentationState;
-    // eslint-disable-next-line no-console
-    console.log('[P-POPUP-7B probe]', probe);
-  }
-
-  return `<div data-hero-wrapper="true" style="margin: 0 -12px 0 -12px; position: relative;">
+  return `<div style="margin: 0 -12px 0 -12px; position: relative;">
 ${imageHtml}
 ${buttonHtml}
 ${__overlayHtml}
