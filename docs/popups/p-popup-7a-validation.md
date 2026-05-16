@@ -109,3 +109,72 @@ Los iconos Lucide pueden quedarse (no rompen nada). Total: revertir
 taxonomy · collections · provenance · geo hierarchy · lifecycle · F2 ·
 React migration · PopupShell · wishlist/pending · notas · stars curator/IA
 (slot superior) · cultural_context · `customData` schema.
+
+---
+
+## P-POPUP-7A.1 — Slot canónico del bloque rating (composer transversal)
+
+### Contrato transversal
+
+> **`field_order` (card config) NO puede alterar la jerarquía semántica
+> principal del popup.**
+
+La tripleta:
+
+```
+descripción → rating (personal state) → observación
+```
+
+queda **congelada** y es responsabilidad de un **composer único**, no del
+switch que produce fragments por `fieldKey`.
+
+### Arquitectura del compose enriched
+
+El render del body enriched está separado en dos niveles explícitos:
+
+1. **Extracción** — `renderFragment(fieldKey)` (el `switch`) produce
+   SOLO el HTML de cada field. Cero orquestación. Cero side-effects
+   ordinales. Cero conocimiento de la posición final del rating.
+2. **Composición canónica** — un composer único:
+   - Materializa todos los fragments en un `Map<fieldKey, string>`.
+   - Reserva las claves canónicas (`descripcion`, `observacion`,
+     declaradas en `CANONICAL_KEYS`) como un **bloque atómico**:
+     `descFragment + ratingFragment + obsFragment` (con sus reducciones
+     cuando alguna falte).
+   - Ancla ese bloque en la posición del **primer fieldKey canónico**
+     que aparezca en `orderedKeys`. Los fields no canónicos conservan
+     su slot relativo respecto a `field_order`.
+   - Si `orderedKeys` no contiene ninguna clave canónica, el rating se
+     emite al final (fallback histórico).
+
+### Reducciones del bloque canónico
+
+| Estado                            | Composición emitida                  |
+| --------------------------------- | ------------------------------------ |
+| `descripcion` + `observacion`     | `desc + rating + obs`                |
+| sólo `descripcion`                | `desc + rating`                      |
+| sólo `observacion`                | `rating + obs`                       |
+| ninguna canonical configurada     | rating al final (fallback)           |
+
+### Garantía
+
+Cualquier campo nuevo añadido al switch (`renderFragment`) o a
+`orderedKeys` (admin) NO puede colarse entre `descripcion`, `rating`
+y `observacion`: el composer trata la tripleta como bloque indivisible.
+
+### Tests de regresión
+
+`src/test/popup-personal-state-hierarchy.test.ts` cubre:
+
+- El switch `case 'descripcion'` devuelve sólo `desc` (no compone).
+- El composer declara `CANONICAL_KEYS` con `descripcion` + `observacion`.
+- Las tres reducciones del bloque canónico están presentes en el código.
+- El fallback `firstCanonicalIdx === -1` empuja el rating al final.
+
+### Out of scope (preservado)
+
+Handlers (`toggle-visited`, `set-rating`, `clear-rating`), schema
+`customData`, tokens, hero chrome, taxonomy, collections, provenance,
+geo hierarchy, lifecycle, marker grammar, F2, React migration,
+PopupShell, card config schema admin (`field_order` sigue gobernando
+el resto).

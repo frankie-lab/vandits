@@ -139,10 +139,17 @@ describe('P-POPUP-7A — enriched branch upper section no longer has visited tog
     expect(upper).not.toContain('data-action="set-rating"');
   });
 
-  it('inserts personalStateOnce() right after descripcion case', () => {
-    expect(src).toContain('personalStateOnce()');
-    // Y descripcion case incluye el call.
-    expect(src).toMatch(/case 'descripcion':[\s\S]{0,800}personalStateOnce\(\)/);
+  it('P-POPUP-7A.1 — switch produces fragments only; canonical composer anchors rating', () => {
+    // El switch (case 'descripcion') ya NO compone: devuelve sólo `desc`.
+    expect(src).toMatch(/case 'descripcion':[\s\S]{0,800}return desc;\s*\}/);
+    // El composer canónico existe y declara la tripleta congelada.
+    expect(src).toContain("CANONICAL_KEYS = new Set(['descripcion', 'observacion'])");
+    expect(src).toContain('descFragment + ratingFragment + obsFragment');
+    expect(src).toContain('descFragment + ratingFragment');
+    expect(src).toContain('ratingFragment + obsFragment');
+    // Y los fallbacks históricos quedan documentados (rating al final si no
+    // hay ninguna canonical key configurada).
+    expect(src).toMatch(/firstCanonicalIdx === -1[\s\S]{0,200}composed\.push\(ratingFragment\)/);
   });
 });
 

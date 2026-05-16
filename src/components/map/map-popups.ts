@@ -1364,27 +1364,30 @@ ${buildCollectionChipsPlaceholder(location)}
 ${buildPersonalTagsBlock(location)}
 
 ${(() => {
-  // Render enriched sections following the order/enablement persisted in the
-  // editor (Configuración de fichas) — single source of truth.
+  // P-POPUP-7A.1 — Compose enriched body en DOS niveles:
+  //   (1) el switch produce SOLO fragments por fieldKey (sin orquestación);
+  //   (2) un composer único decide la jerarquía final.
+  //
+  // CONTRATO TRANSVERSAL: `field_order` (card config) NO puede alterar la
+  // jerarquía semántica principal del popup. La tripleta canónica
+  //   descripcion → rating (personal state) → observacion
+  // queda CONGELADA, independiente de cualquier orden persistido en la
+  // editor de fichas. El resto de fields respeta `orderedKeys`.
+  // Ver docs/popups/p-popup-7a-validation.md (§ 7A.1).
   const orderedKeys = cardCfg.orderedKeys;
 
-  // P-POPUP-7A — flag para insertar el bloque de estado personal una sola vez,
-  // justo debajo de `descripcion`. Si la card config no incluye `descripcion`,
-  // el bloque se emite al final (fallback).
   // P-POPUP-7B — `heroOverlayActive` colapsa el bloque inferior a inline
-  // `✓ Visitado` cuando el overlay sobre la hero está activo (visited + hay
-  // hero image). El verified badge vive sólo en el overlay.
-  // P-POPUP-7B (unificación) — reutiliza el state ya resuelto arriba.
+  // `✓ Visitado` cuando el overlay sobre la hero está activo.
   const heroOverlayActive = visitedState.showHeroOverlay;
   const personalStateCtx = { isOwn, isCuratorPoint, canEditLocation, heroOverlayActive };
-  let personalStateRendered = false;
-  const personalStateOnce = () => {
-    if (personalStateRendered) return '';
-    personalStateRendered = true;
-    return buildPersonalStateBlock(location, personalStateCtx);
-  };
+  const ratingFragment = buildPersonalStateBlock(location, personalStateCtx);
 
-  const mappedBody = orderedKeys.map(fieldKey => {
+  // Claves cuya posición decide el composer canónico (NO `field_order`).
+  const CANONICAL_KEYS = new Set(['descripcion', 'observacion']);
+
+  // (1) Extracción: el switch SOLO produce fragments por fieldKey.
+  //     Cero orquestación, cero side-effects ordinales.
+  const renderFragment = (fieldKey: string): string => {
     switch (fieldKey) {
       case 'nombre_lugar':
       case 'localizacion':
@@ -1426,8 +1429,8 @@ ${(() => {
   <span style="font-size: ${FONT.charCount}px; color: ${COLOR.muted};">${enriched.descripcion?.length || 0} caracteres</span>
 </div>`
           : '';
-        // P-POPUP-7A — bloque de estado personal SIEMPRE bajo `descripcion`.
-        return desc + personalStateOnce();
+        // P-POPUP-7A.1 — el switch ya NO compone; el rating se ancla en el composer.
+        return desc;
       }
       
       case 'observacion':
@@ -1608,10 +1611,66 @@ ${(() => {
       default:
         return '';
     }
-  }).join('\n');
-  // P-POPUP-7A — fallback: si la card config no incluye `descripcion`, emitir
-  // el bloque de estado personal al final (antes del footer).
-  return mappedBody + personalStateOnce();
+  };
+
+  // (2) Composición canónica: la jerarquía la decide el composer, NO el switch
+  //     y NO `field_order`.
+  //
+  //     Bloque semántico congelado (transversal):
+  //         descripcion → rating (personal state) → observacion
+  //
+  //     El resto de fields respeta `orderedKeys`. Si una de las claves canónicas
+  //     no aparece en `orderedKeys` (admin la desactivó) o produce fragment vacío,
+  //     se preserva el slot lógico para que el rating siga entre descripción y
+  //     observación cuando ambas existan, y los fallbacks documentados se
+  //     mantengan cuando alguna (o ambas) falten.
+  const fragments = new Map<string, string>();
+  for (const k of orderedKeys) fragments.set(k, renderFragment(k));
+
+  const descFragment = fragments.get('descripcion') ?? '';
+  const obsFragment = fragments.get('observacion') ?? '';
+
+  // Anclaje del rating:
+  //   - desc + obs → desc + rating + obs
+  //   - desc       → desc + rating
+  //   - obs        → rating + obs
+  //   - ninguna    → rating al final (fallback histórico)
+  let canonicalBlock = '';
+  if (descFragment && obsFragment) {
+    canonicalBlock = descFragment + ratingFragment + obsFragment;
+  } else if (descFragment) {
+    canonicalBlock = descFragment + ratingFragment;
+  } else if (obsFragment) {
+    canonicalBlock = ratingFragment + obsFragment;
+  }
+
+  // Posición del bloque canónico = posición del PRIMER fieldKey canónico
+  // presente en `orderedKeys`. Los fields no canónicos conservan su slot
+  // relativo en `field_order`. Si no hay claves canónicas en orderedKeys,
+  // el bloque (sólo rating, fallback) se ancla al final.
+  const firstCanonicalIdx = orderedKeys.findIndex((k) => CANONICAL_KEYS.has(k));
+  let anchorEmitted = false;
+  const composed: string[] = [];
+  if (firstCanonicalIdx === -1) {
+    for (const k of orderedKeys) composed.push(fragments.get(k) ?? '');
+    composed.push(ratingFragment); // fallback: ninguna canonical key configurada
+  } else {
+    orderedKeys.forEach((k, i) => {
+      if (CANONICAL_KEYS.has(k)) {
+        if (!anchorEmitted) {
+          composed.push(canonicalBlock);
+          anchorEmitted = true;
+        }
+        // Las claves canónicas no se emiten individualmente: viven en el bloque.
+        return;
+      }
+      composed.push(fragments.get(k) ?? '');
+    });
+  }
+
+  return composed.join('\n');
+
+
 })()}
 
 ${locationUpdatedAt > 0 ? `
