@@ -1263,7 +1263,11 @@ ${(() => {
   // P-POPUP-7A — flag para insertar el bloque de estado personal una sola vez,
   // justo debajo de `descripcion`. Si la card config no incluye `descripcion`,
   // el bloque se emite al final (fallback).
-  const personalStateCtx = { isOwn, isCuratorPoint, canEditLocation };
+  // P-POPUP-7B — `heroOverlayActive` colapsa el bloque inferior a inline
+  // `✓ Visitado` cuando el overlay sobre la hero está activo (visited + hay
+  // hero image). El verified badge vive sólo en el overlay.
+  const heroOverlayActive = isVisitedHeroOverlayActive(location, ownershipInfo);
+  const personalStateCtx = { isOwn, isCuratorPoint, canEditLocation, heroOverlayActive };
   let personalStateRendered = false;
   const personalStateOnce = () => {
     if (personalStateRendered) return '';
