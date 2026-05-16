@@ -51,12 +51,12 @@ describe('P-POPUP-2 — canonical geo header', () => {
     expect(chips.map(c => c.level)).toEqual(['locality', 'region', 'country']);
   });
 
-  it('canonicalises country alias (Spain → España)', () => {
+  it('canonicalises country alias (España → Spain, canonical EN form)', () => {
     const loc = makeLoc({
-      enrichedData: { datos_geograficos: { pais: 'Spain' } },
+      enrichedData: { datos_geograficos: { pais: 'España' } },
     });
     const chips = getCanonicalGeoChips(loc);
-    expect(chips.find(c => c.level === 'country')?.value).toBe('España');
+    expect(chips.find(c => c.level === 'country')?.value).toBe('Spain');
   });
 
   it('emits .filter-link only for zone/region/country (locality stays static)', () => {
