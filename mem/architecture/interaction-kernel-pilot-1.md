@@ -42,3 +42,32 @@ selection-fit-on-start, useHealthFilterFit, collection-auto-fit,
 HealthRepairPreviewDialog, all other sidebar panels, FilterBar
 dismissable chips, SourceFilterBridge, LocationCollectionChips,
 PlaceTypeFilter, PanelModeTabs.
+
+---
+
+## Update — Replayable split ratified (docs only)
+
+`Replayable` (original §1.2) is **deprecated**. Split into two
+candidate contracts validated by — and only by — the three Pilot 1
+surfaces:
+
+- **`RecenterableSelection`** (§1.2a): re-click on active MAINTAINS
+  selection and RE-EMITS focus/fit with fresh `opId`.
+  Pilot sites: `MyCatalogQuickFilters`, `UsersSidebar.handleFilterByUser`.
+- **`ToggleableSelection`** (§1.2b): re-click on active CLEARS the
+  axis (`null`/default), emits trace with fresh `opId`, NO focus/fit
+  re-emit. Pilot site: `FilterBar` Health chips.
+
+**`runSelectable` status**: `pilot-frozen` / transitional. **MUST NOT**
+be extended to new call sites. Replaced in Pilot 2 by
+`runRecenterableSelection` + `runToggleableSelection`.
+
+**Deprecations**: `buildUniqueMyCatalogPopoverOpId` marked `@deprecated`
+(JSDoc only). Use `buildOpId('mycatalog-popover')` from the kernel.
+
+**Risk recorded**: `traceSelectable` entries live in
+`window.__cameraFitTrace` as a pragmatic pilot decision; must migrate to
+a dedicated `ObservableAction` channel before the kernel grows.
+
+**Zero behavior change in this update.** Docs + one `@deprecated`
+JSDoc tag. No call sites touched, no camera/subset-fit changes.
