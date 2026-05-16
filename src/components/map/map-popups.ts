@@ -699,54 +699,119 @@ export function buildOwnEnrichedMetadataLineHtml(location: GeoLocation): string 
 </div>`;
 }
 
-// ─── P-POPUP-7B — Visited hero overlay ───────────────────────────────────
+// ─── P-POPUP-7B — Visited hero overlay (single source of truth) ──────────
 //
-// Overlay compacto (check + verified opcional, sin texto) en la esquina
-// inferior-izquierda de la hero image. Visible SÓLO cuando el POI está
-// marcado como visited y existe hero image. Clicable para quitar visited
-// (mismo handler `toggle-visited` que el bloque inferior).
+// `resolveVisitedPresentationState` es la ÚNICA fuente de verdad sobre el
+// estado visited del popup. Lo consumen TANTO `buildVisitedHeroOverlay`
+// COMO `buildPersonalStateBlock`, eliminando cualquier drift entre las
+// dos ramas (overlay sobre hero vs bloque inferior).
 //
-// Cuando este overlay está activo, el bloque inferior pierde su verified
-// badge (vive aquí) y la pill grande se reemplaza por una acción inline
-// discreta `✓ Visitado` — ver `buildPersonalStateBlock`.
+// Canon:
+//   - visited=true + hero válida → overlay visible sobre la hero
+//                                  + inline `✓ Visitado` discreto abajo
+//   - visited=false              → sin overlay
+//                                  + pill "Marcar visitado" en el bloque
+//   - verified badge             → SÓLO en el overlay (cuando hay hero)
+//
+// `enriched` se acepta como en `buildImageSection`:
+//   - `undefined`  → fallback a `location.enrichedData` (compat agnóstica).
+//   - `null`       → rama legacy: NO se considera la imagen IA.
+//   - objeto       → rama enriched: se usa `enriched.imagen` como AI image.
 
-export function isVisitedHeroOverlayActive(
+export interface VisitedPresentationState {
+  isVisited: boolean;
+  hasHero: boolean;
+  isCurator: boolean;
+  isNearby: boolean;
+  visitRelevance: ReturnType<typeof calculateVisitRelevance>;
+  showHeroOverlay: boolean;
+  showInlineVisited: boolean;
+  showVisitedPill: boolean;
+  showVerifiedOnHero: boolean;
+}
+
+/**
+ * Resolve the hero display image URL using the SAME logic as
+ * `buildImageSection`. Returns `''` when no image should render.
+ */
+function resolveHeroDisplayImage(
   location: GeoLocation,
+  enriched: any,
   ownership?: PopupOwnership | null,
-  enriched?: any,
-): boolean {
-  if (!location) return false;
-  if (location.customData?.visited !== 'true') return false;
-  if (ownership?.curatorId) return false;
-  if (isNearbyPopupContext(location.id)) return false;
-
-  const userImageUrl = location.customData?.user_image_url as string | undefined;
+): string {
+  const userImageUrl = (location.customData?.user_image_url as string | undefined) || '';
   const visibility = (location.customData?.user_image_visibility as string) || 'private';
   const canSeeUserImage = !!userImageUrl && (
     !!ownership?.isOwn ||
     visibility === 'public' ||
     (visibility === 'followers' && !!ownership?.isFollowing)
   );
-  // Mirror buildImageSection: legacy branch passes `enriched=null`, so the AI
-  // image is intentionally not displayed and the overlay should not appear
-  // when there is no user image either.
+  // `enriched === null` (legacy branch) intentionally suppresses AI fallback.
   const enrichedSource = enriched === undefined ? (location.enrichedData as any) : enriched;
   const aiImage = (enrichedSource?.imagen as string | undefined) || '';
-  const displayImage = canSeeUserImage ? userImageUrl : aiImage;
-  return !!displayImage;
+  return canSeeUserImage ? userImageUrl : aiImage;
+}
+
+export function resolveVisitedPresentationState(
+  location: GeoLocation,
+  ownership?: PopupOwnership | null,
+  enriched?: any,
+): VisitedPresentationState {
+  const isVisited = location?.customData?.visited === 'true';
+  const isCurator = !!ownership?.curatorId;
+  const isNearby = !!location && isNearbyPopupContext(location.id);
+  const hasHero = !!resolveHeroDisplayImage(location, enriched, ownership);
+  const visitRelevance = isVisited
+    ? calculateVisitRelevance(
+        location?.customData?.visited_verified_at,
+        location?.customData?.oldest_geotagged_photo_date,
+      )
+    : null;
+
+  // Canon: overlay sólo si visited + hero válida + no curator + no nearby.
+  const showHeroOverlay = isVisited && hasHero && !isCurator && !isNearby;
+  // Inline discreto SOLO cuando el overlay también está activo (jerarquía).
+  const showInlineVisited = showHeroOverlay;
+  // Pill grande sólo cuando NO hay overlay (no visited o sin hero).
+  const showVisitedPill = !isCurator && !isNearby && !showHeroOverlay;
+  // Verified badge vive sólo en el overlay del hero.
+  const showVerifiedOnHero = showHeroOverlay && !!visitRelevance;
+
+  return {
+    isVisited,
+    hasHero,
+    isCurator,
+    isNearby,
+    visitRelevance,
+    showHeroOverlay,
+    showInlineVisited,
+    showVisitedPill,
+    showVerifiedOnHero,
+  };
+}
+
+/**
+ * Compat wrapper: returns the single `showHeroOverlay` flag from the
+ * presentation state. Same args as before.
+ */
+export function isVisitedHeroOverlayActive(
+  location: GeoLocation,
+  ownership?: PopupOwnership | null,
+  enriched?: any,
+): boolean {
+  return resolveVisitedPresentationState(location, ownership, enriched).showHeroOverlay;
 }
 
 export function buildVisitedHeroOverlay(
   location: GeoLocation,
   ownership?: PopupOwnership | null,
   enriched?: any,
+  state?: VisitedPresentationState,
 ): string {
-  if (!isVisitedHeroOverlayActive(location, ownership, enriched)) return '';
+  const st = state ?? resolveVisitedPresentationState(location, ownership, enriched);
+  if (!st.showHeroOverlay) return '';
 
-  const visitRelevance = calculateVisitRelevance(
-    location.customData?.visited_verified_at,
-    location.customData?.oldest_geotagged_photo_date,
-  );
+  const visitRelevance = st.visitRelevance;
 
   // P-POPUP-7B fix — los tokens `--state-success`, `--text-secondary`,
   // `--surface-border` NO existen en `src/index.css`. Sin fallback el stroke
