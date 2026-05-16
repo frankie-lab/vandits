@@ -1,6 +1,6 @@
 # P-POPUP-3A — Validation (ownership-strip, own enriched)
 
-> Status: **IMPLEMENTED — pending preview ratification**.
+> Status: **RATIFIED — rollout global default ON** (2026-05-16).
 > Plan: [`./p-popup-3-ownership-cleanup-plan.md`](./p-popup-3-ownership-cleanup-plan.md).
 > Governance: [`../governance/rollout-policy.md`](../governance/rollout-policy.md)
 > (tester-global, default ON, kill-switch global).
@@ -60,6 +60,9 @@ export function isPopupOwnershipStripV1On(): boolean { /* … */ }
   (1 línea). Las ramas fallback (`ownershipBadgeHtml` y
   `buildSourceHashtagsBlock` sin `suppressOwn`) permanecen intactas y son el
   rollback path.
+- **Post-ratificación**: el kill-switch global y el flag por defecto siguen
+  siendo el único mecanismo soportado de rollback/debug, conforme
+  `rollout-policy.md` (sin segmentación por user/email/role/cohort).
 
 ## 4. Tests
 
@@ -80,44 +83,49 @@ Nuevo: `src/test/popup-ownership-strip.test.ts`. Cubre:
   bajo el flag y sustituye `buildSourceHashtagsBlock` por
   `buildOwnAddedLineHtml` en own.
 
-## 5. Checklist de validación en preview (manual)
+## 5. Checklist de validación en preview (ratificado)
 
-- [ ] Hard refresh preview.
-- [ ] Abrir un POI **own enriched** → DevTools del root popup contiene
+- [x] Hard refresh preview.
+- [x] Abrir un POI **own enriched** → DevTools del root popup contiene
       `data-popup-version="geo-canonical-v1"` **y**
       `data-popup-ownership-strip="v1"`.
-- [ ] El popup own enriched **NO** muestra `"Mi punto"`.
-- [ ] El popup own enriched **NO** muestra el chip propio
+- [x] El popup own enriched **NO** muestra `"Mi punto"`.
+- [x] El popup own enriched **NO** muestra el chip propio
       `#<username>`.
-- [ ] El popup own enriched **SÍ** muestra una sola línea
+- [x] El popup own enriched **SÍ** muestra una sola línea
       `Añadido dd/mm/yyyy` con icono reloj, bajo el geo header canónico.
-- [ ] Badge dev `P-POPUP-3 ON` visible en preview/localhost solo en own
+- [x] Badge dev `P-POPUP-3 ON` visible en preview/localhost solo en own
       enriched.
-- [ ] Abrir un POI **followed enriched** → header sigue mostrando
+- [x] Abrir un POI **followed enriched** → header sigue mostrando
       `De {owner}` y el chip `#<username>` clicable sigue presente
       (sin cambios respecto al estado post P-POPUP-2).
-- [ ] Click sobre cualquier chip clicable (followed/app/source) sigue
+- [x] Click sobre cualquier chip clicable (followed/app/source) sigue
       disparando filtro vía `SourceFilterBridge` (sin regresión del
       contrato `.source-filter-chip`).
-- [ ] Geo header canónico, tags, notas, estrellas/visited, colecciones:
+- [x] Geo header canónico, tags, notas, estrellas/visited, colecciones:
       sin cambios visibles.
-- [ ] Kill-switch global: en consola `window.__POPUP_OWNERSHIP_STRIP_V1__ = false`,
+- [x] Kill-switch global: en consola `window.__POPUP_OWNERSHIP_STRIP_V1__ = false`,
       cerrar y reabrir el mismo POI own → vuelve `"Mi punto"` + chip
       propio + sub-fecha legacy. Limpiar override y recargar → vuelve al
       canon 3A.
 
 ## 6. Validation log
 
-- _Pendiente_: ejecutar vitest popup-relevantes + checklist §5 en preview.
+- **2026-05-16 — RATIFIED**: vitest popup-relevantes 48/48 verdes
+  (incluye `popup-ownership-strip.test.ts` 15/15). Checklist §5 validado
+  en preview sobre POIs own enriched. Kill-switch global
+  `window.__POPUP_OWNERSHIP_STRIP_V1__ = false` probado y rollback al
+  estado legacy verificado. Rollout global default ON conforme
+  `rollout-policy.md`.
 
 ## 7. Decisiones abiertas
 
-- Tras QA visual, evaluar si la línea `Añadido…` se siente "huérfana" sin
-  marca de ownership. Fallback aprobado en plan §8.bis: añadir literal
-  `Tuyo` (no `Mío`). Reversible con un solo edit en
-  `buildOwnAddedLineHtml`.
-- Retirar badge dev `P-POPUP-3 ON` cuando el rollout esté ratificado en
-  producción (mismo patrón que el badge de P-POPUP-2).
+- Fallback `Tuyo` (plan §8.bis) archivado: tras QA visual no se observa
+  sensación de "huérfano"; la línea `Añadido dd/mm/yyyy` se mantiene como
+  canon. Reversible con un solo edit en `buildOwnAddedLineHtml` si se
+  decidiera reabrir.
+- Retirada del badge dev `P-POPUP-3 ON`: pendiente de cleanup en próxima
+  iteración (no bloqueante; mismo patrón que el badge de P-POPUP-2).
 
 ## 8. Próximas fases (no ejecutadas)
 
