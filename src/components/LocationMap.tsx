@@ -1777,9 +1777,11 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
  minWidth: 360,
  // No `maxHeight` here: the popup root owns its own scroll so the hero
  // image stays fixed while only the body scrolls.
-  className: 'custom-popup',
-  closeButton: true,
-  // closeOnClick: usa el default de Leaflet (true). El bubbling de clicks
+   className: 'custom-popup',
+   // P-POPUP-7D — Hero final cleanup: la X persistente se retira del hero.
+   // Cierre: tap/click fuera del popup (Leaflet `closeOnClick: true` default).
+   closeButton: false,
+   // closeOnClick: usa el default de Leaflet (true). El bubbling de clicks
   // internos se neutraliza con L.DomEvent.disableClickPropagation aplicado
   // en el handler `popupopen` del mapa, no desactivando esta opción.
    // autoPan desactivado: `centerOpenedPopupInVisibleMap` lo sustituye y
