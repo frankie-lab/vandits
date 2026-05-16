@@ -848,15 +848,15 @@ export function buildVisitedHeroOverlay(
   const iconColor = isVisited ? visitedColor : pendingColor;
   const labelText = isVisited ? 'Visitado' : 'Pendiente';
   const iconHtml = isVisited
-    ? svgIcon('check', { size: 14, color: iconColor })
+    ? svgIcon('check', { size: 12, color: iconColor })
     // `circle` icon (Lucide) — outlined empty ring for "Pendiente".
-    : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>`;
+    : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>`;
 
   let verifiedSvg = '';
   let titleSuffix = '';
   if (isVisited && visitRelevance) {
     const iconKey: keyof typeof SVG_PATHS = visitRelevance.verificationType === 'photo' ? 'camera' : 'mapPin';
-    verifiedSvg = svgIcon(iconKey, { size: 12, color: verifiedColor });
+    verifiedSvg = svgIcon(iconKey, { size: 10, color: verifiedColor });
     titleSuffix = ` · ${visitRelevance.label} (${formatTimeAgo(visitRelevance.daysAgo)})`;
   }
 
