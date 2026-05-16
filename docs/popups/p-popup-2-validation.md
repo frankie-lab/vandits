@@ -52,13 +52,13 @@ test `confirms ZONE is rendered BETWEEN locality and region (semantic spec)`:
 
 ## 4. Resultados CI
 
-### Vitest popup-relevantes (post-promoción 2026-05-16)
+### Vitest popup-relevantes (post-P2-FIX-A..E, 2026-05-16)
 
 ```
 src/test/popup-tokens-enriched.test.ts  ✓ 7/7   (P-POPUP-1 guard)
-src/test/popup-geo-header.test.ts       ✓ 8/8   (P-POPUP-2)
-src/test/popup-tags-canonical.test.ts   ✓ 10/10 (P-POPUP-2)
-TOTAL popup-relevantes                  25/25 green
+src/test/popup-geo-header.test.ts       ✓ 10/10 (P-POPUP-2 + FIX-D)
+src/test/popup-tags-canonical.test.ts   ✓ 13/13 (P-POPUP-2 + FIX-C/E)
+TOTAL popup-relevantes                  30/30 green
 ```
 
 Duración: ~2.7s. Sin warnings, sin flakes.
