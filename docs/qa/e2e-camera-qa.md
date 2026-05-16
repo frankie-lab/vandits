@@ -164,9 +164,35 @@ real (sin `force`, sin skips, sin debilitar el contrato), el usuario
 
 | Bucket   | ID estable                                      | Coordenadas        | Notas |
 |----------|-------------------------------------------------|--------------------|-------|
-| imported | `f04b3b95-7308-4b74-b3c7-e2e000000001`          | `40.4168, -3.7038` | `description` no vacío, `enriched_data=null` |
-| empty    | `f04b3b95-7308-4b74-b3c7-e2e000000002`          | `40.4170, -3.7040` | `description=null`, `enriched_data=null` |
+| document | `f04b3b95-7308-4b74-b3c7-e2ed00000001`          | —                  | Documento contenedor (`source_type=manual`, `status=published`, `import_status=confirmed`). Propietario = sandbox user. |
+| imported | `f04b3b95-7308-4b74-b3c7-e2e000000001`          | `40.4168, -3.7038` | `description` no vacío, `enriched_data=null`, `document_id` → fixture doc |
+| empty    | `f04b3b95-7308-4b74-b3c7-e2e000000002`          | `40.4170, -3.7040` | `description=null`, `enriched_data=null`, `document_id` → fixture doc |
 | enriched | (cualquiera de los 337 reales del catálogo)     | varias             | El usuario ya los tiene; no se tocan |
+
+### Por qué los POIs DEBEN estar adjuntos a un documento
+
+El popover `MyCatalogQuickFilters` calcula sus counts vía
+`getMyCatalogQuickCounts(getAllLocations(), user.id)`. En el store
+(`src/domains/content/store/locations-store.ts`), `getAllLocations()` se
+define como:
+
+```ts
+getAllLocations: () => get().documents.flatMap(doc => doc.locations)
+```
+
+Es decir, **solo recorre el universo `documents[].locations`**. Los POIs
+huérfanos (`document_id = NULL`) entran en el store por la vía paralela
+`detachedVisibleLocations` y por tanto **son invisibles para los counts
+del popover**. Resultado práctico: aunque el fixture exista en DB y en
+`v_locations_resolved`, si `document_id` es nulo, `counts.imported === 0`
+y la fila aparece como `data-state="disabled"` por el contrato sistémico
+`count === 0 && !active ⇒ disabled` — Playwright rechaza el click y el
+test rompe sin causa aparente.
+
+Por eso el seed crea primero un documento fixture propiedad del sandbox
+user y luego upsertea cada POI con `document_id` apuntando a ese
+documento. Cualquier futuro fixture para `MyCatalogQuickFilters` debe
+seguir la misma pauta.
 
 Características clave:
 
