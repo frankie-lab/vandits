@@ -15,28 +15,22 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-vi.mock('@/domains/content/store/location-collections-store', () => {
-  const map = new Map<string, Array<{ id: string; name: string; color: null; icon: null }>>();
-  return {
-    __setCollections(locId: string, names: string[]) {
-      map.set(
-        locId,
-        names.map((name, i) => ({ id: `c${i}`, name, color: null, icon: null })),
-      );
-    },
-    __reset() { map.clear(); },
-    getCollectionsForLocation(id: string) { return map.get(id) ?? []; },
-  };
-});
+const __map = new Map<string, Array<{ id: string; name: string; color: null; icon: null }>>();
+function __setCollections(locId: string, names: string[]) {
+  __map.set(
+    locId,
+    names.map((name, i) => ({ id: `c${i}`, name, color: null, icon: null })),
+  );
+}
+function __reset() { __map.clear(); }
+
+vi.mock('@/domains/content/store/location-collections-store', () => ({
+  getCollectionsForLocation: (id: string) => __map.get(id) ?? [],
+}));
 
 import { filterPersonalTags } from '@/domains/content/lib/personal-tags-filter';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const store = require('@/domains/content/store/location-collections-store') as {
-  __setCollections: (locId: string, names: string[]) => void;
-  __reset: () => void;
-};
 
-beforeEach(() => store.__reset());
+beforeEach(() => __reset());
 
 describe('P-POPUP-4B — filterPersonalTags vs collections', () => {
   it('suprime #fulltrips cuando el POI pertenece a la colección FullTrips', () => {
