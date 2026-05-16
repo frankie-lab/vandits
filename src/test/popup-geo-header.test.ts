@@ -32,7 +32,7 @@ describe('P-POPUP-2 — canonical geo header', () => {
     });
     const chips = getCanonicalGeoChips(loc);
     expect(chips.map(c => c.level)).toEqual(['locality', 'zone', 'region', 'country']);
-    expect(chips.map(c => c.value)).toEqual(['Albarracín', 'Teruel', 'Aragón', 'España']);
+    expect(chips.map(c => c.value)).toEqual(['Albarracín', 'Teruel', 'Aragón', 'Spain']);
   });
 
   it('omits placeholders like "(sin provincia)" silently', () => {
