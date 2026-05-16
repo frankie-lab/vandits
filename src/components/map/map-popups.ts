@@ -371,25 +371,20 @@ export function buildPersonalStateBlock(
   const canRate = !!visitRelevance || ctx.canEditLocation || userRating > 0;
   const heroOverlayActive = !!ctx.heroOverlayActive;
 
-  // P-POPUP-7B — Cuando el overlay sobre la hero está activo (visited + hay
-  // hero image), el bloque inferior se reduce a una acción inline discreta
-  // `✓ Visitado` (sin pill, sin background) para preservar discoverability
-  // del toggle de retroceso. El verified badge (camera/mapPin) NO se
-  // duplica aquí: vive sólo en el overlay del hero.
+  // Canon simplificado (sesión 2026-05-16):
+  //   - Si el overlay sobre la hero está activo (hay hero) → este bloque
+  //     NO renderiza ningún control de visitado. El estado vive arriba.
+  //   - Si NO hay hero → fallback inferior mínimo: una pill discreta que
+  //     refleja "Visitado" / "Pendiente" y conserva el toggle accesible.
+  //   - Verified badge: vive sólo en el overlay; nunca duplicado aquí.
   let visitedBtn = '';
-  let verifiedBadge = '';
+  const verifiedBadge = '';
 
-  if (heroOverlayActive && isVisited) {
-    // Inline discreto: ✓ Visitado (sin pill, sin verified).
-    visitedBtn = `<button class="popup-action-btn" data-action="toggle-visited" data-location-id="${location.id}" data-personal-visited-inline="true" title="Visitado · click para quitar" style="display: inline-flex; align-items: center; gap: 4px; background: none; border: none; padding: 0; cursor: pointer; color: hsl(var(--text-secondary)); font-size: 11px;">${svgIcon('check', { size: 12, color: 'currentColor' })}<span>Visitado</span></button>`;
-  } else {
-    // Comportamiento P-POPUP-7A intacto (no visitado, o no hay hero overlay).
-    const visitedLabel = isVisited
-      ? 'Visitado'
-      : (!ctx.isOwn ? '+ Adoptar y Visitar' : 'Visitado');
+  if (!heroOverlayActive) {
+    const visitedLabel = isVisited ? 'Visitado' : (!ctx.isOwn ? '+ Adoptar y Visitar' : 'Pendiente');
     const visitedTitle = isVisited
-      ? 'Click para desmarcar'
-      : (!ctx.isOwn ? 'Se añadirá a tu colección automáticamente' : 'Marcar como visitado');
+      ? 'Click para marcar como pendiente'
+      : (!ctx.isOwn ? 'Se añadirá a tu colección automáticamente' : 'Click para marcar como visitado');
     const visitedBg = isVisited
       ? 'hsl(var(--state-success) / 0.10)'
       : (!ctx.isOwn ? 'hsl(var(--state-loading) / 0.10)' : 'transparent');
@@ -399,15 +394,10 @@ export function buildPersonalStateBlock(
     const visitedBorder = isVisited
       ? 'hsl(var(--state-success) / 0.35)'
       : (!ctx.isOwn ? 'hsl(var(--state-loading) / 0.35)' : 'hsl(var(--surface-border))');
-    visitedBtn = `<button class="popup-action-btn" data-action="toggle-visited" data-location-id="${location.id}" title="${visitedTitle}" style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; background: ${visitedBg}; color: ${visitedFg}; border: 1px solid ${visitedBorder}; border-radius: 9999px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;">${svgIcon('check', { size: 10, color: 'currentColor' })}<span>${visitedLabel}</span></button>`;
-
-    // Badge de verificación inline sólo en fallback (sin overlay).
-    verifiedBadge = (isVisited && visitRelevance)
-      ? (() => {
-          const iconKey: keyof typeof SVG_PATHS = visitRelevance.verificationType === 'photo' ? 'camera' : 'mapPin';
-          return `<span title="${visitRelevance.label} · ${formatTimeAgo(visitRelevance.daysAgo)}" style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; font-size: 9px; color: hsl(var(--text-secondary)); border: 1px solid hsl(var(--surface-border)); border-radius: 9999px;">${svgIcon(iconKey, { size: 9, color: 'currentColor' })}<span>${formatTimeAgo(visitRelevance.daysAgo)}</span></span>`;
-        })()
-      : '';
+    const iconHtml = isVisited
+      ? svgIcon('check', { size: 10, color: 'currentColor' })
+      : `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>`;
+    visitedBtn = `<button class="popup-action-btn" data-action="toggle-visited" data-location-id="${location.id}" title="${visitedTitle}" style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; background: ${visitedBg}; color: ${visitedFg}; border: 1px solid ${visitedBorder}; border-radius: 9999px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;">${iconHtml}<span>${visitedLabel}</span></button>`;
   }
 
   // Stars helper (compacto, sin glow).
@@ -797,14 +787,18 @@ export function resolveVisitedPresentationState(
       )
     : null;
 
-  // Canon: overlay sólo si visited + hero válida + no curator + no nearby.
-  const showHeroOverlay = isVisited && hasHero && !isCurator && !isNearby;
-  // Inline discreto SOLO cuando el overlay también está activo (jerarquía).
-  const showInlineVisited = showHeroOverlay;
-  // Pill grande sólo cuando NO hay overlay (no visited o sin hero).
+  // Canon simplificado (sesión 2026-05-16):
+  //   - El overlay sobre la hero SIEMPRE se muestra cuando hay hero válida y
+  //     no es curator/nearby. Su etiqueta varía:
+  //       visited=true  → "✓ Visitado"
+  //       visited=false → "○ Pendiente"
+  //   - El bloque inferior ya no renderiza ningún control de visitado: el
+  //     overlay sustituye al pill/inline previos. Sólo queda rating.
+  //   - Si NO hay hero, fallback inferior mínimo (pill en bloque personal).
+  const showHeroOverlay = hasHero && !isCurator && !isNearby;
+  const showInlineVisited = false;
   const showVisitedPill = !isCurator && !isNearby && !showHeroOverlay;
-  // Verified badge vive sólo en el overlay del hero.
-  const showVerifiedOnHero = showHeroOverlay && !!visitRelevance;
+  const showVerifiedOnHero = showHeroOverlay && isVisited && !!visitRelevance;
 
   return {
     isVisited,
@@ -840,28 +834,38 @@ export function buildVisitedHeroOverlay(
   const st = state ?? resolveVisitedPresentationState(location, ownership, enriched);
   if (!st.showHeroOverlay) return '';
 
+  const isVisited = st.isVisited;
   const visitRelevance = st.visitRelevance;
 
-  // P-POPUP-7B fix — los tokens `--state-success`, `--text-secondary`,
-  // `--surface-border` NO existen en `src/index.css`. Sin fallback el stroke
-  // de los SVG queda inválido y el overlay se ve como un pill vacío sobre la
-  // hero (efectivamente invisible). Usamos `tk(token, legacy)` para que los
-  // valores se resuelvan siempre, igual que en el resto del archivo.
-  const checkColor = tk('hsl(var(--state-success))', '#16a34a');
+  // Tokens con fallback (los `--state-*` no existen en index.css y el stroke
+  // SVG quedaría vacío sin fallback hex).
+  const visitedColor = tk('hsl(var(--state-success))', '#16a34a');
+  const pendingColor = tk('hsl(var(--text-secondary))', '#475569');
   const verifiedColor = tk('hsl(var(--text-secondary))', '#475569');
-  const bg = tk('hsl(var(--background) / 0.85)', 'rgba(255,255,255,0.92)');
-  const borderColor = tk('hsl(var(--surface-border) / 0.6)', 'rgba(15,23,42,0.18)');
+  const bg = tk('hsl(var(--background) / 0.92)', 'rgba(255,255,255,0.95)');
+  const borderColor = tk('hsl(var(--surface-border) / 0.6)', 'rgba(15,23,42,0.2)');
+
+  const iconColor = isVisited ? visitedColor : pendingColor;
+  const labelText = isVisited ? 'Visitado' : 'Pendiente';
+  const iconHtml = isVisited
+    ? svgIcon('check', { size: 14, color: iconColor })
+    // `circle` icon (Lucide) — outlined empty ring for "Pendiente".
+    : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>`;
 
   let verifiedSvg = '';
   let titleSuffix = '';
-  if (visitRelevance) {
+  if (isVisited && visitRelevance) {
     const iconKey: keyof typeof SVG_PATHS = visitRelevance.verificationType === 'photo' ? 'camera' : 'mapPin';
-    verifiedSvg = svgIcon(iconKey, { size: 14, color: verifiedColor });
+    verifiedSvg = svgIcon(iconKey, { size: 12, color: verifiedColor });
     titleSuffix = ` · ${visitRelevance.label} (${formatTimeAgo(visitRelevance.daysAgo)})`;
   }
 
-  const title = `Visitado${titleSuffix} · click para quitar`;
-  return `<button class="popup-action-btn" data-action="toggle-visited" data-location-id="${location.id}" data-visited-hero-overlay="true" aria-label="${title}" title="${title}" style="position: absolute; bottom: 8px; left: 8px; z-index: 2; pointer-events: auto; display: inline-flex; align-items: center; gap: 4px; padding: 5px 7px; background: ${bg}; border: 1px solid ${borderColor}; border-radius: 9999px; cursor: pointer; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 1px 4px rgba(0,0,0,0.18); line-height: 0;">${svgIcon('check', { size: 16, color: checkColor })}${verifiedSvg}</button>`;
+  const title = isVisited
+    ? `Visitado${titleSuffix} · click para marcar como pendiente`
+    : 'Pendiente · click para marcar como visitado';
+  const labelColor = isVisited ? visitedColor : pendingColor;
+
+  return `<button class="popup-action-btn" data-action="toggle-visited" data-location-id="${location.id}" data-visited-hero-overlay="true" data-visited-state="${isVisited ? 'visited' : 'pending'}" aria-label="${title}" title="${title}" style="position: absolute; bottom: 8px; left: 8px; z-index: 2; pointer-events: auto; display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 8px; background: ${bg}; border: 1px solid ${borderColor}; border-radius: 9999px; cursor: pointer; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 1px 4px rgba(0,0,0,0.18); font-size: 11px; font-weight: 600; line-height: 1; color: ${labelColor};">${iconHtml}<span>${labelText}</span>${verifiedSvg}</button>`;
 }
 
 // ─── Image Section ───────────────────────────────────────────────────────────
