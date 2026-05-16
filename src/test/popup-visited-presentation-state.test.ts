@@ -41,21 +41,21 @@ function poi(
 
 const OWN = { isOwn: true, isFollowing: false };
 
-describe('resolveVisitedPresentationState — canon matrix', () => {
-  it('visited=false + hero → no overlay, pill visible', () => {
+describe('resolveVisitedPresentationState — canon simplificado 2026-05-16', () => {
+  it('visited=false + hero → overlay (Pendiente), sin pill inferior', () => {
     const st = resolveVisitedPresentationState(
       poi('a', {}, { imagen: 'http://x.jpg' }),
       OWN,
     );
     expect(st.isVisited).toBe(false);
     expect(st.hasHero).toBe(true);
-    expect(st.showHeroOverlay).toBe(false);
+    expect(st.showHeroOverlay).toBe(true);
     expect(st.showInlineVisited).toBe(false);
-    expect(st.showVisitedPill).toBe(true);
+    expect(st.showVisitedPill).toBe(false);
     expect(st.showVerifiedOnHero).toBe(false);
   });
 
-  it('visited=true + hero → overlay + inline, NO pill', () => {
+  it('visited=true + hero → overlay (Visitado), sin pill', () => {
     const st = resolveVisitedPresentationState(
       poi('a', { visited: 'true' }, { imagen: 'http://x.jpg' }),
       OWN,
@@ -63,15 +63,21 @@ describe('resolveVisitedPresentationState — canon matrix', () => {
     expect(st.isVisited).toBe(true);
     expect(st.hasHero).toBe(true);
     expect(st.showHeroOverlay).toBe(true);
-    expect(st.showInlineVisited).toBe(true);
+    expect(st.showInlineVisited).toBe(false);
     expect(st.showVisitedPill).toBe(false);
   });
 
-  it('visited=true + sin hero → fallback: pill, sin overlay', () => {
+  it('visited=true + sin hero → fallback pill, sin overlay', () => {
     const st = resolveVisitedPresentationState(poi('a', { visited: 'true' }), OWN);
     expect(st.hasHero).toBe(false);
     expect(st.showHeroOverlay).toBe(false);
-    expect(st.showInlineVisited).toBe(false);
+    expect(st.showVisitedPill).toBe(true);
+  });
+
+  it('visited=false + sin hero → fallback pill', () => {
+    const st = resolveVisitedPresentationState(poi('a', {}), OWN);
+    expect(st.hasHero).toBe(false);
+    expect(st.showHeroOverlay).toBe(false);
     expect(st.showVisitedPill).toBe(true);
   });
 
@@ -112,6 +118,15 @@ describe('resolveVisitedPresentationState — canon matrix', () => {
     );
     expect(st.showVerifiedOnHero).toBe(true);
     expect(st.visitRelevance).toBeTruthy();
+  });
+
+  it('verified NO se muestra cuando visited=false (aunque haya hero)', () => {
+    const st = resolveVisitedPresentationState(
+      poi('a', { visited_verified_at: new Date().toISOString() }, { imagen: 'http://x.jpg' }),
+      OWN,
+    );
+    expect(st.showHeroOverlay).toBe(true);
+    expect(st.showVerifiedOnHero).toBe(false);
   });
 });
 
