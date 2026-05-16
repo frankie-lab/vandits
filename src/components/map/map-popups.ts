@@ -502,6 +502,7 @@ export function buildSourceMetadataLineHtml(
 </div>`;
 }
 
+// ─── Image Section ───────────────────────────────────────────────────────────
 
 
 export function buildImageSection(
