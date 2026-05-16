@@ -104,6 +104,19 @@ describe('P-POPUP-7B — buildVisitedHeroOverlay', () => {
     expect(out).toContain('position: absolute');
     expect(out).toContain('bottom: 8px');
     expect(out).toContain('left: 8px');
+    // P-POPUP-7B fix — defensive stacking + click target.
+    expect(out).toContain('z-index: 2');
+    expect(out).toContain('pointer-events: auto');
+  });
+
+  it('check SVG stroke uses a resolvable color (token or hex fallback)', () => {
+    const out = buildVisitedHeroOverlay(
+      poi('a', { visited: 'true' }, { imagen: 'http://x.jpg' }),
+      OWN_VIEWER,
+    );
+    // The check icon must have a non-empty stroke (either the design token
+    // or its literal hex fallback) — never an invalid empty stroke.
+    expect(out).toMatch(/stroke="(hsl\(var\(--state-success\)\)|#16a34a)"/);
   });
 
   it('does NOT render the text label "Visitado" inside the overlay', () => {
