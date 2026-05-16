@@ -1429,8 +1429,8 @@ ${(() => {
   <span style="font-size: ${FONT.charCount}px; color: ${COLOR.muted};">${enriched.descripcion?.length || 0} caracteres</span>
 </div>`
           : '';
-        // P-POPUP-7A — bloque de estado personal SIEMPRE bajo `descripcion`.
-        return desc + personalStateOnce();
+        // P-POPUP-7A.1 — el switch ya NO compone; el rating se ancla en el composer.
+        return desc;
       }
       
       case 'observacion':
