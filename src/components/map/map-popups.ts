@@ -1652,6 +1652,9 @@ ${(() => {
 
 
 
+  const descFragment = fragments.get('descripcion') ?? '';
+  const obsFragment = fragments.get('observacion') ?? '';
+
 
   // P-POPUP-7A.3 — Anclaje del bloque canónico (tripleta extendida):
   //     description → enrichmentRating → userPersonalState → observation
