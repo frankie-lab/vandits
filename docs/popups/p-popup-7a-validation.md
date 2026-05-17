@@ -178,3 +178,37 @@ Handlers (`toggle-visited`, `set-rating`, `clear-rating`), schema
 geo hierarchy, lifecycle, marker grammar, F2, React migration,
 PopupShell, card config schema admin (`field_order` sigue gobernando
 el resto).
+
+---
+
+## 7A.2 — Contrato transversal de Ratings (corrección + extensión)
+
+> Ver el documento completo: `docs/popups/p-popup-7a2-rating-contract.md`.
+
+### Corrección de 7A.1
+
+7A.1 ordenó el rating PERSONAL del usuario (`buildPersonalStateBlock`)
+dentro del composer, pero **NO** ordenó el rating de ENRIQUECIMIENTO
+(`weighted-rating-container` / chip ámbar `indice_interes`), que sigue
+rendering en la cabecera del body. La preview mostraba estrellas arriba
+de la descripción → 7A.1 **no queda ratificado** hasta que 7A.2 sea
+implementado.
+
+### Contrato resultante
+
+`field_order` **NO puede alterar la jerarquía semántica principal del
+popup**. El body enriched se compone por **slots semánticos**, no por
+fields arbitrarios:
+
+```text
+1. description
+2. enrichmentRating    (slot canónico, helper único)
+3. userPersonalState   (slot canónico, helper único)
+4. observation
+5. secondaryFields     (gobernados por field_order)
+```
+
+`description → enrichmentRating → userPersonalState → observation` es
+bloque atómico. Ningún `field_order` puede colar nada entre los slots
+1-4. `enrichmentRating` y `userPersonalState` son slots disjuntos —
+prohibido un `ratingFragment` genérico en el composer.
