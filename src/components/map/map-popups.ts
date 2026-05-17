@@ -1434,8 +1434,8 @@ ${(() => {
       case 'punto_destacado':
         if (!enriched.punto_destacado) return '';
         return `
-<div style="clear: both; display: block; margin: 0 0 20px 0; background: transparent; border-left: ${HIGHLIGHT.borderWidth}px solid ${HIGHLIGHT.borderColor}; padding: 4px 0 4px 16px;">
-  <p style="margin: 0; font-family: Georgia, Charter, 'Iowan Old Style', 'Palatino Linotype', serif; font-size: 15px; font-weight: 500; color: ${COLOR.foreground}; line-height: 1.75; letter-spacing: normal;">${enriched.punto_destacado}</p>
+<div style="clear: both; display: block; margin: 0 0 16px 0; background: transparent; border-left: ${HIGHLIGHT.borderWidth}px solid ${HIGHLIGHT.borderColor}; padding: 4px 0 4px 16px;">
+  <p style="margin: 0; font-family: Georgia, Charter, 'Iowan Old Style', 'Palatino Linotype', serif; font-size: 14px; font-weight: 500; color: ${COLOR.foreground}; line-height: 1.6; letter-spacing: normal;">${enriched.punto_destacado}</p>
 </div>`;
       
       case 'descripcion': {
