@@ -435,53 +435,136 @@ export interface PopupOwnership {
   usernameLookup?: (uid: string) => string | null | undefined;
 }
 
-// ─── P-POPUP-7A.3 — Enrichment rating (helper único) ───────────────────
+// ─── P-POPUP-14 — Unified ratings block (helper único) ────────────────
 //
-// Slot semántico `enrichmentRating` del composer canónico. Encapsula las
-// estrellas IA del POI (read-only, propiedad del POI, NO del usuario):
-//   - Curator → weighted-rating-container (verde, 5★ + valor + breakdown).
-//   - No curator con `enriched.indice_interes` → chip ámbar 5★.
-//   - Sin datos → ''.
+// Slot semántico `enrichmentRating` del composer canónico. Reemplaza la
+// presentación legacy de "chip IA suelto + barra Valorar separada" por un
+// único bloque editorial con DOS filas alineadas:
 //
-// Único origen de HTML de estrellas ligadas a `indice_interes`. Prohibido
-// renderizar `★`/`☆` de `indice_interes` fuera de aquí (guardrail G2).
-// NO contiene `data-action="set-rating"` ni `user_rating` (guardrail G8).
+//   Row 1 — "Rating del POI"  ……………………………………………  ★★★★☆
+//   Row 2 — "Tu valoración"   ……………………………………………  ★★★★★   (sólo si visitado)
 //
-// Ver `docs/popups/p-popup-7a2-rating-contract.md` y
+// Reglas (canon P-POPUP-14):
+//   - Ambas filas pertenecen al mismo bloque visual (background único).
+//   - Texto/leyenda a la izquierda; estrellas alineadas a la derecha.
+//   - Row 1 lee `enriched.indice_interes` (read-only). Si no hay rating
+//     IA y no es curator point → la fila se omite.
+//   - Row 2 lee `customData.user_rating` y `customData.visited`.
+//     Sólo se renderiza si `visited === 'true'` (y no curator / no nearby).
+//     Si visitado sin user_rating → affordance discreta "Valorar" inline.
+//     Si visitado con user_rating → 5★ + clear.
+//   - Curator points conservan `weighted-rating-container` + `data-ai-rating`
+//     (compat con tests/handlers legacy) embebido en la Row 1.
+//   - Si ninguna fila aplica → devuelve ''.
+//
+// NO toca: schema, handlers (`set-rating`/`clear-rating`/`toggle-visited`),
+// visited/pending, composer slots, hero, footer, taxonomy, marker grammar.
+//
+// Ver `docs/popups/p-popup-7a2-rating-contract.md` (concepts) y
 // `mem://logic/popup/rating-taxonomy`.
 export function buildEnrichmentRatingBlock(
   location: GeoLocation,
   enriched: { indice_interes?: number | null; indice_interes_notas?: string | null } | null | undefined,
-  ownership: { isCuratorPoint: boolean },
+  ownership: { isCuratorPoint: boolean; isOwn?: boolean; canEditLocation?: boolean },
 ): string {
   const rating = Number(enriched?.indice_interes ?? 0);
   const notas = enriched?.indice_interes_notas ?? '';
-  if (ownership.isCuratorPoint) {
-    return `
-<div data-popup-enrichment-rating="${location.id}" style="display: flex; align-items: center; margin: 0 0 ${CARD.sectionGap}px 0;">
+  const isCurator = !!ownership.isCuratorPoint;
+  const isNearby = isNearbyPopupContext(location.id);
+
+  // Estado personal del viewer.
+  const isVisited = location.customData?.visited === 'true';
+  const userRating = parseInt(location.customData?.user_rating || '0', 10) || 0;
+  const visitRelevance = isVisited
+    ? calculateVisitRelevance(
+        location.customData?.visited_verified_at,
+        location.customData?.oldest_geotagged_photo_date,
+      )
+    : null;
+  // En P-POPUP-14 la fila "Tu valoración" sólo aparece si el POI está visitado.
+  const showUserRow = !isCurator && !isNearby && isVisited;
+  const canRate = showUserRow && (!!visitRelevance || !!ownership.canEditLocation || userRating > 0);
+
+  // Helpers visuales (compartidos por ambas filas).
+  const labelStyle = `flex: 1 1 auto; min-width: 0; font-size: 11px; color: ${tk('hsl(var(--text-secondary))', '#6b7280')};`;
+  const starColor = (active: boolean, palette: 'amber' | 'success') => {
+    if (active) {
+      return palette === 'success'
+        ? tk('hsl(var(--state-success))', '#16a34a')
+        : tk('hsl(var(--state-warning))', '#b45309');
+    }
+    return tk('hsl(var(--surface-border))', '#d1d5db');
+  };
+  const renderStaticStars = (value: number, palette: 'amber' | 'success') =>
+    [1, 2, 3, 4, 5]
+      .map((star) => `<span style="font-size: 14px; line-height: 1; color: ${starColor(star <= value, palette)};">${star <= value ? '\u2605' : '\u2606'}</span>`)
+      .join('');
+
+  // ─── Row 1 — Rating del POI ─────────────────────────────────────────
+  let row1 = '';
+  if (isCurator) {
+    // Compat: mantenemos `weighted-rating-container` + `data-ai-rating` para
+    // handlers/tests legacy, pero ahora dentro del layout label↔stars.
+    row1 = `
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+  <span style="${labelStyle}">Rating del POI</span>
   <div
     class="weighted-rating-container"
     data-location-id="${location.id}"
     data-ai-rating="${rating || 0}"
-    style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: ${tk('hsl(var(--state-success) / 0.12)', 'linear-gradient(135deg, #f0fdf4, #dcfce7)')}; border: 1px solid ${tk('hsl(var(--state-success) / 0.4)', '#86efac')}; border-radius: 12px;"
+    style="display: inline-flex; align-items: center; gap: 6px;"
     title="Rating ponderado: 50% IA + 50% Comunidad"
   >
-    <span style="font-size: 10px; font-weight: 500; color: ${tk('hsl(var(--state-success))', '#166534')};">Valoración</span>
-    <span class="weighted-rating-stars" style="display: inline-flex; gap: 1px;">
-      ${[1, 2, 3, 4, 5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= rating ? tk('hsl(var(--state-success))', '#16a34a') : tk('hsl(var(--surface-border))', '#d1d5db')};">${star <= rating ? '★' : '☆'}</span>`).join('')}
-    </span>
+    <span class="weighted-rating-stars" style="display: inline-flex; gap: 1px;">${renderStaticStars(rating, 'success')}</span>
     <span class="weighted-rating-value" style="font-size: 10px; font-weight: 600; color: ${tk('hsl(var(--state-success))', '#166534')};">${rating ? rating.toFixed(1) : '-'}</span>
     <span class="weighted-rating-breakdown" style="font-size: 9px; color: ${tk('hsl(var(--text-secondary))', '#6b7280')}; display: none;">(IA: ${rating || '-'} | Com: -)</span>
   </div>
 </div>`;
-  }
-  if (!rating) return '';
-  return `
-<div data-popup-enrichment-rating="${location.id}" style="display: flex; align-items: center; margin: 0 0 ${CARD.sectionGap}px 0;">
-  <div style="display: inline-flex; align-items: center; gap: 2px; padding: 3px 8px; background: ${tk('hsl(var(--state-warning) / 0.2)', 'linear-gradient(135deg, #fef3c7, #fde68a)')}; border-radius: 12px;" title="${notas || 'Índice de interés IA'}">
-    ${[1, 2, 3, 4, 5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= rating ? tk('hsl(var(--state-warning))', '#b45309') : tk('hsl(var(--surface-border))', '#d1d5db')};">${star <= rating ? '★' : '☆'}</span>`).join('')}
-  </div>
+  } else if (rating > 0) {
+    row1 = `
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;" title="${notas || 'Índice de interés IA'}">
+  <span style="${labelStyle}">Rating del POI</span>
+  <span style="display: inline-flex; gap: 1px;">${renderStaticStars(rating, 'amber')}</span>
 </div>`;
+  }
+
+  // ─── Row 2 — Tu valoración (sólo si visitado) ───────────────────────
+  let row2 = '';
+  if (showUserRow) {
+    let starsHtml = '';
+    if (userRating > 0) {
+      const interactiveStars = [1, 2, 3, 4, 5].map((star) => {
+        const active = userRating >= star;
+        const color = starColor(active, 'amber');
+        return `<button class="popup-action-btn" data-action="set-rating" data-location-id="${location.id}" data-rating="${star}" title="Valorar ${star} estrella${star > 1 ? 's' : ''}" style="background: none; border: none; padding: 0; cursor: pointer; font-size: 13px; line-height: 1; color: ${color};">${active ? '\u2605' : '\u2606'}</button>`;
+      }).join('');
+      starsHtml = `<span data-personal-rating-state="expanded" style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal">${interactiveStars}<button class="popup-action-btn" data-action="clear-rating" data-location-id="${location.id}" title="Quitar valoración" style="background: none; border: none; padding: 0 0 0 4px; cursor: pointer; font-size: 10px; color: ${tk('hsl(var(--text-secondary))', '#6b7280')};">\u2715</button></span>`;
+    } else if (canRate) {
+      // Affordance discreta inline en la misma fila (no barra ancha).
+      const interactiveStars = [1, 2, 3, 4, 5].map((star) => {
+        const color = starColor(false, 'amber');
+        return `<button class="popup-action-btn" data-action="set-rating" data-location-id="${location.id}" data-rating="${star}" title="Valorar ${star} estrella${star > 1 ? 's' : ''}" style="background: none; border: none; padding: 0; cursor: pointer; font-size: 13px; line-height: 1; color: ${color};">\u2606</button>`;
+      }).join('');
+      const expandJs = "var p=this.parentNode;this.style.display='none';var x=p.querySelector('[data-personal-rating-state=\\'expanded\\']');if(x){x.style.display='inline-flex';}";
+      starsHtml = `<span style="display: inline-flex; align-items: center; gap: 6px;">`
+        + `<button type="button" data-personal-rating-state="collapsed" onclick="${expandJs}" style="background: none; border: none; padding: 0; cursor: pointer; font-size: 11px; color: ${tk('hsl(var(--text-secondary))', '#6b7280')}; text-decoration: underline; text-underline-offset: 2px;">Valorar</button>`
+        + `<span data-personal-rating-state="expanded" style="display: none; align-items: center; gap: 2px;" title="Tu valoración personal">${interactiveStars}</span>`
+        + `</span>`;
+    } else {
+      // Visitado pero sin permiso para valorar → fila silenciosa con guión.
+      starsHtml = `<span style="font-size: 11px; color: ${tk('hsl(var(--text-secondary))', '#9ca3af')};">—</span>`;
+    }
+    row2 = `
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+  <span style="${labelStyle}">Tu valoración</span>
+  ${starsHtml}
+</div>`;
+  }
+
+  if (!row1 && !row2) return '';
+
+  return `
+<div data-popup-enrichment-rating="${location.id}" data-popup-ratings-block="v1" style="display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; margin: 0 0 ${CARD.sectionGap}px 0; background: hsl(var(--surface-muted) / 0.5); border-radius: 8px;">${row1}${row2}</div>`;
 }
 
 // ─── Source Hashtags (PR-POI-SOURCE-6) ─────────────────────────────────
