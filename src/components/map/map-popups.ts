@@ -1416,19 +1416,10 @@ ${(() => {
         return '';
       
       case 'clasificacion': {
-        // P-POPUP-6A — taxonomy canonical representation = chips (see `case 'etiquetas'`).
-        // The textual breadcrumb (codigo + categoria + separator + subcategoria) is removed to avoid
-        // duplicating taxonomy in two formats. The catalog code (e.g. "2.5.x") is also
-        // dropped — internal catalog metadata with no value for a human viewer.
-        // This slot now renders ONLY the cultural_context (Wikidata) chip. If absent,
-        // the block is omitted entirely (no empty container).
-        const cc = (enriched as any)?.cultural_context;
-        if (!cc?.type_label) return '';
-        const culturalChip = `<span title="${cc.type_label} (Wikidata)" style="display: inline-flex; align-items: center; gap: 4px; background: ${tk('hsl(270 60% 95%)', '#ede9fe')}; color: ${tk('hsl(270 70% 35%)', '#5b21b6')}; padding: ${CARD.tagPadding}; border-radius: ${CARD.tagRadius}; font-size: ${FONT.badge}px; font-weight: 500;">${cc.type_label}</span>`;
-        return `
-<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: ${CARD.sectionGap}px;">
-  ${culturalChip}
-</div>`;
+        // P-POPUP-12 — el cultural_context se traslada al bloque taxonómico
+        // editorial (case 'etiquetas') como 4ª familia. Este slot queda inerte
+        // para preservar el orden del composer sin duplicar el chip violeta.
+        return '';
       }
 
       
