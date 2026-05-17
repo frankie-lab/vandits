@@ -45,47 +45,56 @@ describe('P-POPUP-10 — observación editorial', () => {
   });
 });
 
-describe('P-POPUP-10.1 — punto_destacado como entradilla editorial', () => {
-  it('usa stack serif editorial local, 15px / 1.75, sin italic, sin fondo, sin border-radius, acento lateral conservado', () => {
+describe('P-POPUP-10.1/10.2 — punto_destacado entradilla editorial subordinada', () => {
+  it('usa stack serif local, 14px / 1.6, sin italic, sin fondo, sin border-radius, acento lateral, margin compacto', () => {
     const slice = POPUPS_SRC.split("case 'punto_destacado':")[1]?.split("case 'descripcion'")[0] ?? '';
-    // Serif local: el font-family declara una stack que termina en `serif`.
     const fontFamilyMatch = slice.match(/font-family:\s*([^;"]+)/);
     expect(fontFamilyMatch).not.toBeNull();
     expect(fontFamilyMatch![1].trim().toLowerCase()).toMatch(/serif\s*$/);
-    // Jerarquía editorial.
-    expect(slice).toMatch(/font-size:\s*15px/);
-    expect(slice).toMatch(/line-height:\s*1\.75/);
-    // Sin italic, sin fondo tintado, sin esquinas redondeadas.
+    expect(slice).toMatch(/font-size:\s*14px/);
+    expect(slice).toMatch(/line-height:\s*1\.6/);
     expect(slice).not.toContain('font-style: italic');
     expect(slice).not.toContain('HIGHLIGHT.bgColor');
     expect(slice).toContain('background: transparent');
     expect(slice).not.toContain('border-radius');
-    // Acento lateral conservado + padding reducido + margin inferior editorial.
     expect(slice).toContain('border-left');
     expect(slice).toContain('padding: 4px 0 4px 16px');
-    expect(slice).toContain('margin: 0 0 20px 0');
+    expect(slice).toContain('margin: 0 0 16px 0');
   });
 });
 
-describe('P-POPUP-10 — byline metadata line', () => {
-  it('buildOwnEnrichedMetadataLineHtml no incluye icono de reloj', () => {
-    // El SVG del reloj (circle r=10 + polyline 12 6 12 12) no debe estar en el wrapper.
+describe('P-POPUP-10/10.2 — byline metadata line', () => {
+  it('no incluye reloj y compacta margen inferior', () => {
     const fn = POPUPS_SRC.split('export function buildOwnEnrichedMetadataLineHtml')[1]
       ?.split('export function ')[0] ?? '';
     expect(fn).not.toMatch(/polyline points="12 6 12 12 16 14"/);
-    expect(fn).toMatch(/font-style: italic/); // datePart italic
-    expect(fn).toMatch(/margin: 0 0 14px 0/);
+    expect(fn).toMatch(/font-style: italic/);
+    expect(fn).toMatch(/margin: 0 0 10px 0/);
   });
 });
 
-describe('P-POPUP-10 — breadcrumb territorial discreto', () => {
-  it('no usa text-decoration: underline plano; usa border-bottom transparente', () => {
+describe('P-POPUP-10.2 — header editorial compacto', () => {
+  it('título wrapper margin-bottom 4px y breadcrumb wrapper margin 0 0 4px 0', () => {
+    expect(POPUPS_SRC).toContain('gap: 8px; margin-bottom: 4px;');
+    expect(POPUPS_SRC).toContain('<div style="margin: 0 0 4px 0;">${buildTerritorialBreadcrumbHtml(location)}</div>');
+  });
+});
+
+describe('P-POPUP-10.2 — affordance sin hover (mobile/touch)', () => {
+  it('breadcrumb link tiene underline persistente por defecto (no transparent)', () => {
     const fn = GEO_SRC.split('export function buildTerritorialBreadcrumbHtml')[1] ?? '';
-    expect(fn).toContain('border-bottom: 1px solid transparent');
+    expect(fn).toContain('border-bottom: 1px solid hsl(var(--muted-foreground) / 0.35)');
+    expect(fn).not.toContain('border-bottom: 1px solid transparent');
     expect(fn).toContain('borderBottomColor');
-    // separador con opacity bajada
+    expect(fn).toContain('onfocus');
     expect(fn).toContain('opacity: 0.45');
-    // wrapper con margen inferior para respirar antes de la byline
-    expect(fn).toContain('margin-bottom: 6px');
+    expect(fn).toContain('margin-bottom: 2px');
+  });
+
+  it('collection link metadata tiene underline persistente por defecto', () => {
+    const fn = POPUPS_SRC.split('export function buildCollectionsMetadataSegment')[1]
+      ?.split(/export (function|const) /)[0] ?? '';
+    expect(fn).toContain('border-bottom: 1px solid hsl(var(--muted-foreground) / 0.35)');
+    expect(fn).not.toContain('border-bottom: 1px solid transparent');
   });
 });
