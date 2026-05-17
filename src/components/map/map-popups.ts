@@ -729,7 +729,7 @@ export function buildOwnEnrichedMetadataLineHtml(location: GeoLocation): string 
   const collectionsSeg = buildCollectionsMetadataSegment(location);
   const inner = [datePart, collectionsSeg, viaSegment].filter(Boolean).join(' <span aria-hidden="true">·</span> ');
 
-  return `<div data-popup-own-added="${location.id}"${prov.type ? ` data-popup-source-metadata="${location.id}" data-source-metadata-type="${prov.type}"` : ''} style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 14px 0; font-size: 11px; line-height: 1.4; color: hsl(var(--muted-foreground));" title="${prov.type ? 'Añadido a tu red — incluye fuente original' : 'Fecha en que añadiste este punto a tu red'}">
+  return `<div data-popup-own-added="${location.id}"${prov.type ? ` data-popup-source-metadata="${location.id}" data-source-metadata-type="${prov.type}"` : ''} style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 10px 0; font-size: 11px; line-height: 1.4; color: hsl(var(--muted-foreground));" title="${prov.type ? 'Añadido a tu red — incluye fuente original' : 'Fecha en que añadiste este punto a tu red'}">
 <span>${inner}</span>
 </div>`;
 }
