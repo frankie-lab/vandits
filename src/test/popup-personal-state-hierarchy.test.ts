@@ -71,8 +71,11 @@ describe('P-POPUP-14 — buildEnrichmentRatingBlock (unified ratings block)', ()
   it('Row 1 — "Rating del POI" con estrellas cuando hay indice_interes', () => {
     const out = buildEnrichmentRatingBlock(poi('a'), { indice_interes: 3 }, { isCuratorPoint: false });
     expect(out).toContain('Rating del POI');
-    const filled = (out.match(/\u2605/g) ?? []).length;
-    const empty = (out.match(/\u2606/g) ?? []).length;
+    // Aislar Row 1 (antes de Row 2 / data-personal-rating-state).
+    const row2Idx = out.indexOf('data-personal-rating-state');
+    const row1 = row2Idx >= 0 ? out.slice(0, row2Idx) : out;
+    const filled = (row1.match(/\u2605/g) ?? []).length;
+    const empty = (row1.match(/\u2606/g) ?? []).length;
     expect(filled).toBe(3);
     expect(empty).toBe(2);
   });
