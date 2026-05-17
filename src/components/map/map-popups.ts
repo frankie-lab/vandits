@@ -1693,20 +1693,14 @@ ${(() => {
 
 
 })()}
-
-${locationUpdatedAt > 0 ? `
-<div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${tk('hsl(var(--text-secondary))', '#9ca3af')}; margin-top: 8px; padding-top: 8px; border-top: 1px dashed ${tk('hsl(var(--surface-border))', '#e5e7eb')};">
-<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-<circle cx="12" cy="12" r="10"/>
-<polyline points="12 6 12 12 16 14"/>
-</svg>
-<span>Ficha IA actualizada: ${new Date(locationUpdatedAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
 </div>
-` : ''}
+</div>
 
-<!-- Botones de acción -->
+<!-- P-POPUP-11 — Footer persistente: estado IA + acciones técnicas. Sibling
+     del hero y del scroll body, flex-shrink:0 → siempre visible aunque el
+     body haga scroll. Estado IA único (no duplicado en el body). -->
+<div data-popup-footer="v1" style="flex-shrink: 0; border-top: 1px solid hsl(var(--border)); background: hsl(var(--muted) / 0.4); padding: 8px 12px;">
 ${actionButtonsHtml}
-</div>
 </div>
 </div>
 `;
