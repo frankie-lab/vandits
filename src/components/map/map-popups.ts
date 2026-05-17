@@ -35,6 +35,10 @@ import { getCollectionsForLocation } from '@/domains/content/store/location-coll
 import { getCollectionChipColors } from '@/shared/lib/collection-chip-color';
 import { filterPersonalTags } from '@/domains/content/lib/personal-tags-filter';
 import { resolvePoiSource } from '@/domains/content/lib/poi-source';
+import {
+  getPoiCurationLevel,
+  PRIMARY_ACTION_LABEL,
+} from '@/domains/content/lib/poi-curation-level';
 import { buildGeoHeaderHtml, buildTerritorialBreadcrumbHtml } from '@/shared/popup/geo-header';
 import {
   getCanonicalPopupTags,
