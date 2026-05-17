@@ -1089,7 +1089,11 @@ export function createPopupContent(
   // como proxy de "enriquecido" (puede contener stubs sin `descripcion`).
   const isEnriched = isPointEnriched(location);
   const canRegenerate = canEnrich && (!isEnriched || locationUpdatedAt < criteriaTimestamp);
-  const enriched = location.enrichedData;
+  // P-POPUP-13 — Unified renderer: el shell canónico es el único shell.
+  // `enriched` se normaliza a objeto vacío cuando el POI no está enriquecido
+  // (o `enriched_data` es null) para que el composer canónico pueda emitir
+  // fragments vacíos por campo sin bifurcar el árbol visual.
+  const enriched: any = location.enrichedData ?? {};
   const locationName = (enriched?.nombre_lugar && enriched.nombre_lugar !== 'null') ? enriched.nombre_lugar : location.name;
   const hasClassification = !!enriched?.clasificacion?.codigo;
 
