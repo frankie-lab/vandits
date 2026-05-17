@@ -1653,32 +1653,30 @@ ${(() => {
   const descFragment = fragments.get('descripcion') ?? '';
   const obsFragment = fragments.get('observacion') ?? '';
 
-  // Anclaje del rating:
-  //   - desc + obs → desc + rating + obs
-  //   - desc       → desc + rating
-  //   - obs        → rating + obs
-  //   - ninguna    → rating al final (fallback histórico)
-  let canonicalBlock = '';
-  if (descFragment && obsFragment) {
-    canonicalBlock = descFragment + ratingFragment + obsFragment;
-  } else if (descFragment) {
-    canonicalBlock = descFragment + ratingFragment;
-  } else if (obsFragment) {
-    canonicalBlock = ratingFragment + obsFragment;
-  }
+  // P-POPUP-7A.3 — Anclaje del bloque canónico (tripleta extendida):
+  //     description → enrichmentRating → userPersonalState → observation
+  //   Reducciones (compactar adyacentes preservando orden 1→2→3→4):
+  //     - desc + enrich + personal + obs  → 1+2+3+4
+  //     - desc + obs                       → 1   +4   (enrich/personal vacíos)
+  //     - sólo obs                         → 2+3+4 (enrich/personal antes)
+  //     - sólo desc                        → 1+2+3
+  //     - ninguna desc/obs                 → 2+3 (fallback)
+  const canonicalParts = [descFragment, enrichmentRatingFragment, personalStateFragment, obsFragment]
+    .filter(Boolean);
+  const canonicalBlock = canonicalParts.join('');
 
   // Posición del bloque canónico = posición del PRIMER fieldKey canónico
   // presente en `orderedKeys`. Los fields no canónicos conservan su slot
   // relativo en `field_order`. Si no hay claves canónicas en orderedKeys,
-  // el bloque (sólo rating, fallback) se ancla al final.
+  // los slots semánticos (enrich + personal) se anclan al final.
   const firstCanonicalIdx = orderedKeys.findIndex((k) => CANONICAL_KEYS.has(k));
   let anchorEmitted = false;
   const composed: string[] = [];
   if (firstCanonicalIdx === -1) {
     for (const k of orderedKeys) composed.push(fragments.get(k) ?? '');
-    composed.push(ratingFragment); // fallback: ninguna canonical key configurada
+    composed.push(enrichmentRatingFragment, personalStateFragment);
   } else {
-    orderedKeys.forEach((k, i) => {
+    orderedKeys.forEach((k) => {
       if (CANONICAL_KEYS.has(k)) {
         if (!anchorEmitted) {
           composed.push(canonicalBlock);
