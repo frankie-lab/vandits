@@ -1434,19 +1434,15 @@ ${(() => {
       case 'punto_destacado':
         if (!enriched.punto_destacado) return '';
         return `
-<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0; background: ${HIGHLIGHT.bgColor}; border-left: ${HIGHLIGHT.borderWidth}px solid ${HIGHLIGHT.borderColor}; padding: ${HIGHLIGHT.padding}; border-radius: ${HIGHLIGHT.borderRadius};">
-  <p style="margin: 0; font-size: ${FONT.body}px; font-weight: 500; color: ${COLOR.foreground}; line-height: 1.45;">${enriched.punto_destacado}</p>
+<div style="clear: both; display: block; margin: 0 0 16px 0; background: ${HIGHLIGHT.bgColor}; border-left: ${HIGHLIGHT.borderWidth}px solid ${HIGHLIGHT.borderColor}; padding: 12px 16px; border-radius: ${HIGHLIGHT.borderRadius};">
+  <p style="margin: 0; font-size: ${FONT.body}px; font-weight: 500; font-style: italic; color: ${COLOR.foreground}; line-height: 1.6;">${enriched.punto_destacado}</p>
 </div>`;
       
       case 'descripcion': {
         const desc = enriched.descripcion
           ? `
-<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0;">
-  <div style="font-size: ${FONT.label}px; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; color: ${COLOR.muted}; margin-bottom: 4px;">Descripción</div>
-  <div class="vandits-description-body">
-    ${descriptionToHtmlParagraphs(enriched.descripcion, `margin: 0 0 8px 0; font-size: ${FONT.body}px; color: ${COLOR.bodyText}; line-height: 1.625;`)}
-  </div>
-  <span style="font-size: ${FONT.charCount}px; color: ${COLOR.muted};">${enriched.descripcion?.length || 0} caracteres</span>
+<div class="vandits-description-body" style="clear: both; display: block; margin: 4px 0 16px 0;">
+  ${descriptionToHtmlParagraphs(enriched.descripcion, `margin: 0 0 12px 0; font-size: ${FONT.body}px; color: ${COLOR.bodyText}; line-height: 1.7; letter-spacing: 0.005em;`)}
 </div>`
           : '';
         // P-POPUP-7A.1 — el switch ya NO compone; el rating se ancla en el composer.
@@ -1456,9 +1452,8 @@ ${(() => {
       case 'observacion':
         if (!enriched.observacion) return '';
         return `
-<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0; background: ${OBSERVATION.bgColor}; padding: ${OBSERVATION.padding}; border-radius: ${OBSERVATION.borderRadius};">
-  <div style="font-size: ${FONT.label}px; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; color: ${COLOR.muted}; margin-bottom: 2px;">Observación</div>
-  <p style="margin: 0; font-size: ${FONT.body}px; color: ${COLOR.obsText}; line-height: 1.5;">${enriched.observacion}</p>
+<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0; background: ${OBSERVATION.bgColor}; padding: 12px 14px; border-radius: ${OBSERVATION.borderRadius};">
+  <p style="margin: 0; font-size: ${FONT.body}px; color: ${COLOR.obsText}; line-height: 1.65;"><span style="font-style: italic; color: ${COLOR.muted}; margin-right: 6px;">Nota:</span>${enriched.observacion}</p>
 </div>`;
       
       case 'etiquetas_personales':
