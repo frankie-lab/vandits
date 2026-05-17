@@ -21,8 +21,8 @@ describe('P-POPUP-11 — dedupe estado IA', () => {
     expect(POPUPS_SRC).not.toMatch(/Ficha IA actualizada/);
   });
 
-  it('mantiene el pill "Enriquecido" en el footer', () => {
-    expect(POPUPS_SRC).toMatch(/Enriquecido \$\{location\.updatedAt/);
+  it('mantiene el texto "Enriquecido ·" como pie informativo', () => {
+    expect(POPUPS_SRC).toMatch(/Enriquecido · \$\{formatRegistrationDate\(location\.updatedAt!\)\}/);
   });
 });
 
@@ -40,16 +40,15 @@ describe('P-POPUP-11 — footer persistente', () => {
 
   it('el bloque actionButtonsHtml ya no añade su propio border-top duplicado', () => {
     const slice = POPUPS_SRC.split('const actionButtonsHtml = `')[1]?.split('`;')[0] ?? '';
-    // La fila de botones interna ya no aplica border-top: el footer lo posee.
     expect(slice).not.toMatch(/border-top:\s*1px solid #e5e7eb/);
   });
 });
 
 describe('P-POPUP-11 — Re-enriquecer sin gradiente agresivo', () => {
-  it('NO usa el gradiente violeta #8b5cf6 → #7c3aed', () => {
-    const enrichBtn = POPUPS_SRC.split('data-action="enrich"')[1]?.slice(0, 600) ?? '';
+  it('NO usa el gradiente violeta #8b5cf6 → #7c3aed y usa primary suave', () => {
+    const enrichBtn = POPUPS_SRC.split('data-action="enrich"')[1]?.slice(0, 800) ?? '';
     expect(enrichBtn).not.toMatch(/linear-gradient\(135deg, #8b5cf6/);
-    expect(enrichBtn).toMatch(/hsl\(var\(--primary\)\s*\/\s*0\.12\)/);
+    expect(enrichBtn).toMatch(/hsl\(var\(--primary\)\s*\/\s*0\.10\)/);
   });
 });
 
@@ -59,7 +58,40 @@ describe('P-POPUP-11 — secundarios discretos', () => {
     expect(wrapFn).not.toMatch(/border:\s*1px solid \$\{COLOR\.border\}/);
     expect(wrapFn).not.toMatch(/border-radius:\s*\$\{CARD\.sectionRadius\}/);
     expect(wrapFn).not.toMatch(/background:\s*\$\{SECTION_HEADER\.bgColor\}/);
-    // Conserva un separador superior discreto entre secundarios.
     expect(wrapFn).toMatch(/border-top:\s*1px solid hsl\(var\(--border\)\s*\/\s*0\.6\)/);
+  });
+});
+
+describe('P-POPUP-11.1 — footer hierarchy refinement', () => {
+  it('Re-enriquecer no se renderiza dentro del pill verde #f0fdf4', () => {
+    const enrichBtn = POPUPS_SRC.split('data-action="enrich"')[1]?.slice(0, 800) ?? '';
+    expect(enrichBtn).not.toMatch(/background:\s*#f0fdf4/);
+  });
+
+  it('Borrar es icon-only sobre fondo transparente (sin #fef2f2)', () => {
+    const delBtn = POPUPS_SRC.split('data-action="delete-location"')[1]?.slice(0, 800) ?? '';
+    expect(delBtn).not.toMatch(/background:\s*#fef2f2/);
+    expect(delBtn).toMatch(/background:\s*transparent/);
+    expect(delBtn).toMatch(/hsl\(var\(--destructive\)/);
+  });
+
+  it('Notas usa paleta muted neutra (sin #fef3c7/#92400e/translateY)', () => {
+    const notesBtn = POPUPS_SRC.split('data-action="add-notes"')[1]?.slice(0, 800) ?? '';
+    expect(notesBtn).not.toMatch(/#fef3c7/);
+    expect(notesBtn).not.toMatch(/#92400e/);
+    expect(notesBtn).not.toMatch(/translateY/);
+    expect(notesBtn).toMatch(/hsl\(var\(--muted\)\)/);
+  });
+
+  it('Fila de acciones usa grid 32px | 1fr | 32px', () => {
+    expect(POPUPS_SRC).toMatch(/grid-template-columns:\s*32px\s+1fr\s+32px/);
+  });
+
+  it('Pie informativo "Enriquecido ·" centrado y muted', () => {
+    const idx = POPUPS_SRC.indexOf('Enriquecido ·');
+    expect(idx).toBeGreaterThan(-1);
+    const before = POPUPS_SRC.slice(Math.max(0, idx - 400), idx);
+    expect(before).toMatch(/text-align:\s*center/);
+    expect(before).toMatch(/hsl\(var\(--muted-foreground\)\)/);
   });
 });
