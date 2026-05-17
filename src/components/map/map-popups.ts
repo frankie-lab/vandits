@@ -1218,9 +1218,9 @@ Enriquecido ${location.updatedAt ? formatRegistrationDate(location.updatedAt) : 
 class="popup-action-btn" 
 data-action="enrich" 
 data-location-id="${location.id}"
-style="display: flex; align-items: center; justify-content: center; gap: 3px; padding: 6px 10px; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; border: none; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.15s; white-space: nowrap;"
-onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(139, 92, 246, 0.4)'"
-onmouseout="this.style.transform='none';this.style.boxShadow='none'"
+style="display: flex; align-items: center; justify-content: center; gap: 3px; padding: 6px 10px; background: hsl(var(--primary) / 0.12); color: hsl(var(--primary)); border: none; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer; transition: background 0.15s; white-space: nowrap;"
+onmouseover="this.style.background='hsl(var(--primary) / 0.2)'"
+onmouseout="this.style.background='hsl(var(--primary) / 0.12)'"
 title="Regenerar ficha completa con IA"
 >
 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
