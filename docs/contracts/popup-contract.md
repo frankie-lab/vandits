@@ -59,6 +59,53 @@ Garantizar que **a lo sumo un popup** está abierto, que su marker no se desmont
 - mem://logic/map/popup-persist-on-rebuild
 - Código: `src/components/LocationMap.tsx` líneas ~684, ~1436-1446, ~1616-1618, ~1660-1714, ~1801-1803, ~1885
 
+## Ratings del popup (P-POPUP-14.2)
+
+El bloque unificado de ratings (helper único `buildEnrichmentRatingBlock`, slot semántico `enrichmentRating` del composer canónico) consta de DOS filas:
+
+### Contrato
+
+| Concepto              | Fila  | Owner          | Editable                          |
+|-----------------------|-------|----------------|-----------------------------------|
+| `enrichmentRating`    | Row 1 | POI / IA       | NO — siempre read-only            |
+| `personalRatingState` | Row 2 | Usuario viewer | Sólo si `customData.visited==='true'` |
+
+`enrichmentRating ≠ personalRatingState`. Ambos coexisten en el mismo
+contenedor visual (`data-popup-ratings-block="v1"`) por canon editorial; no
+deben separarse en bloques independientes.
+
+### Reglas Row 2 (personalRatingState)
+
+La Row 2 **nunca desaparece** salvo en dos contextos contractuales:
+1. POI curator (`ownership.isCuratorPoint === true`).
+2. Popup en contexto nearby (`isNearbyPopupContext(location.id) === true`).
+
+`visited` gobierna si la valoración personal es editable, **no si la fila
+existe**. Tres estados visuales mutuamente excluyentes:
+
+| Estado          | Trigger                                | Label                       | Estrellas                | Color   | Interacción |
+|-----------------|----------------------------------------|-----------------------------|--------------------------|---------|-------------|
+| `not-visited`   | `visited !== 'true'`                   | `Pendiente`                 | 5☆ disabled              | gris    | read-only, sin `data-action="set-rating"`, `aria-disabled="true"` |
+| `visited-empty` | `visited === 'true'` && `user_rating===0` | `Pendiente de valoración`   | 5☆ interactivas          | verde   | 5 botones `data-action="set-rating"` con `data-rating="1..5"` |
+| `visited-rated` | `visited === 'true'` && `user_rating>0`   | `Tu valoración`             | ★ activas + `✕` clear    | verde   | `set-rating` + `data-action="clear-rating"` |
+
+Marcador estable: contenedor de estrellas de Row 2 lleva siempre
+`data-personal-rating-state="not-visited" | "visited-empty" | "visited-rated"`.
+
+### Forbidden
+
+- Sustituir Row 2 por una barra/link "Valorar" colapsable.
+- Ocultar Row 2 cuando el POI no está visitado (regresión pre-14.2).
+- Renderizar el rating personal fuera de este bloque (p. ej. en
+  `buildPersonalStateBlock`, que sólo gobierna el toggle de visitado).
+- Cambiar el orden Row 1 → Row 2.
+
+### Tests canónicos
+
+`src/test/popup-personal-state-hierarchy.test.ts` — escenarios:
+not-visited, visited-empty, visited-rated, curator, nearby, layout
+label↔stars.
+
 ## Affordance sin hover (mobile/touch) — P-POPUP-10.2
 
 Las acciones clicables esenciales del popup (breadcrumb territorial, links de

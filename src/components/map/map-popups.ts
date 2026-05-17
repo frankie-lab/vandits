@@ -481,9 +481,15 @@ export function buildEnrichmentRatingBlock(
         location.customData?.oldest_geotagged_photo_date,
       )
     : null;
-  // En P-POPUP-14 la fila "Tu valoración" depende SOLO de visited.
-  // No hay gating adicional: visitado ⇒ siempre se ofrece valoración personal.
-  const showUserRow = !isCurator && !isNearby && isVisited;
+  // P-POPUP-14.2: Row 2 SIEMPRE existe salvo curator/nearby. `visited`
+  // gobierna si es editable (verde activo) o pendiente (gris disabled),
+  // NO si la fila aparece.
+  const showUserRow = !isCurator && !isNearby;
+  const userRowState: 'not-visited' | 'visited-empty' | 'visited-rated' = !isVisited
+    ? 'not-visited'
+    : userRating > 0
+      ? 'visited-rated'
+      : 'visited-empty';
   void visitRelevance; // reservado para futura señal de confianza visual
 
   // Helpers visuales (compartidos por ambas filas).
@@ -529,28 +535,56 @@ export function buildEnrichmentRatingBlock(
 </div>`;
   }
 
-  // ─── Row 2 — Tu valoración (sólo si visitado) ───────────────────────
+  // ─── Row 2 — Estado personal (P-POPUP-14.2) ─────────────────────────
+  // Siempre presente salvo curator/nearby. 3 estados visuales:
+  //   not-visited   → label "Pendiente", 5☆ gris, read-only.
+  //   visited-empty → label "Pendiente de valoración", 5☆ verde, interactivo.
+  //   visited-rated → label "Tu valoración", ★ verde + clear, interactivo.
   let row2 = '';
   if (showUserRow) {
+    const successColor = tk('hsl(var(--state-success))', '#16a34a');
+    const mutedStarColor = tk('hsl(var(--surface-border))', '#d1d5db');
+    const mutedTextColor = tk('hsl(var(--text-secondary) / 0.7)', '#9ca3af');
+    const labelTextColor = tk('hsl(var(--text-secondary))', '#6b7280');
+
+    let labelText = '';
     let starsHtml = '';
-    if (userRating > 0) {
-      const interactiveStars = [1, 2, 3, 4, 5].map((star) => {
-        const active = userRating >= star;
-        const color = starColor(active, 'amber');
-        return `<button class="popup-action-btn" data-action="set-rating" data-location-id="${location.id}" data-rating="${star}" title="Valorar ${star} estrella${star > 1 ? 's' : ''}" style="background: none; border: none; padding: 0; cursor: pointer; font-size: 13px; line-height: 1; color: ${color};">${active ? '\u2605' : '\u2606'}</button>`;
-      }).join('');
-      starsHtml = `<span style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal">${interactiveStars}<button class="popup-action-btn" data-action="clear-rating" data-location-id="${location.id}" title="Quitar valoración" style="background: none; border: none; padding: 0 0 0 4px; cursor: pointer; font-size: 10px; color: ${tk('hsl(var(--text-secondary))', '#6b7280')};">\u2715</button></span>`;
+    const labelColor = userRowState === 'not-visited' ? mutedTextColor : labelTextColor;
+
+    if (userRowState === 'not-visited') {
+      labelText = 'Pendiente';
+      const stars = [1, 2, 3, 4, 5]
+        .map(
+          () =>
+            `<span aria-hidden="true" style="font-size: 13px; line-height: 1; color: ${mutedStarColor}; opacity: 0.7;">\u2606</span>`,
+        )
+        .join('');
+      starsHtml = `<span data-personal-rating-state="not-visited" aria-disabled="true" title="Marca como visitado para poder valorar" style="display: inline-flex; align-items: center; gap: 2px; cursor: default;">${stars}</span>`;
+    } else if (userRowState === 'visited-empty') {
+      labelText = 'Pendiente de valoración';
+      const interactiveStars = [1, 2, 3, 4, 5]
+        .map(
+          (star) =>
+            `<button class="popup-action-btn" data-action="set-rating" data-location-id="${location.id}" data-rating="${star}" title="Valorar ${star} estrella${star > 1 ? 's' : ''}" style="background: none; border: none; padding: 0; cursor: pointer; font-size: 13px; line-height: 1; color: ${successColor}; opacity: 0.55;">\u2606</button>`,
+        )
+        .join('');
+      starsHtml = `<span data-personal-rating-state="visited-empty" style="display: inline-flex; align-items: center; gap: 2px;" title="Valorar este lugar">${interactiveStars}</span>`;
     } else {
-      // Canon P-POPUP-14: 5 estrellas vacías interactivas inline (sin link "Valorar").
-      const interactiveStars = [1, 2, 3, 4, 5].map((star) => {
-        const color = starColor(false, 'amber');
-        return `<button class="popup-action-btn" data-action="set-rating" data-location-id="${location.id}" data-rating="${star}" title="Valorar ${star} estrella${star > 1 ? 's' : ''}" style="background: none; border: none; padding: 0; cursor: pointer; font-size: 13px; line-height: 1; color: ${color};">\u2606</button>`;
-      }).join('');
-      starsHtml = `<span style="display: inline-flex; align-items: center; gap: 2px;" title="Valorar este lugar">${interactiveStars}</span>`;
+      labelText = 'Tu valoración';
+      const interactiveStars = [1, 2, 3, 4, 5]
+        .map((star) => {
+          const active = userRating >= star;
+          const color = active ? successColor : mutedStarColor;
+          const opacity = active ? '1' : '0.55';
+          return `<button class="popup-action-btn" data-action="set-rating" data-location-id="${location.id}" data-rating="${star}" title="Valorar ${star} estrella${star > 1 ? 's' : ''}" style="background: none; border: none; padding: 0; cursor: pointer; font-size: 13px; line-height: 1; color: ${color}; opacity: ${opacity};">${active ? '\u2605' : '\u2606'}</button>`;
+        })
+        .join('');
+      starsHtml = `<span data-personal-rating-state="visited-rated" style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal">${interactiveStars}<button class="popup-action-btn" data-action="clear-rating" data-location-id="${location.id}" title="Quitar valoración" style="background: none; border: none; padding: 0 0 0 4px; cursor: pointer; font-size: 10px; color: ${labelTextColor};">\u2715</button></span>`;
     }
+
     row2 = `
 <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-  <span style="${labelStyle}">Tu valoración</span>
+  <span style="${labelStyle.replace(`color: ${tk('hsl(var(--text-secondary))', '#6b7280')};`, `color: ${labelColor};`)}">${labelText}</span>
   ${starsHtml}
 </div>`;
   }
