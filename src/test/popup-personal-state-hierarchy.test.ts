@@ -77,53 +77,61 @@ describe('P-POPUP-14 — buildEnrichmentRatingBlock (unified ratings block)', ()
     expect(empty).toBe(2);
   });
 
-  it('returns "" para non-curator sin indice_interes y sin visited', () => {
-    expect(buildEnrichmentRatingBlock(poi('a'), null, { isCuratorPoint: false })).toBe('');
-    expect(buildEnrichmentRatingBlock(poi('a'), { indice_interes: 0 }, { isCuratorPoint: false })).toBe('');
+  it('P-POPUP-14.2: Row 2 SIEMPRE existe para non-curator/non-nearby (aunque no haya indice_interes)', () => {
+    // sin indice_interes y sin visited → Row 2 "Pendiente" disabled aparece igualmente
+    const out = buildEnrichmentRatingBlock(poi('a'), null, { isCuratorPoint: false });
+    expect(out).not.toBe('');
+    expect(out).toContain('data-personal-rating-state="not-visited"');
+    expect(out).toContain('Pendiente');
   });
 
-  it('Row 2 NO aparece si el POI no está visitado', () => {
+  it('Row 2 estado "Pendiente" (no visitado): label gris, 5☆ disabled, SIN set-rating', () => {
     const out = buildEnrichmentRatingBlock(
       poi('a'),
       { indice_interes: 4 },
       { isCuratorPoint: false, isOwn: true, canEditLocation: true },
     );
-    expect(out).not.toContain('Tu valoración');
+    expect(out).toContain('data-personal-rating-state="not-visited"');
+    expect(out).toContain('>Pendiente<');
+    expect(out).toContain('aria-disabled="true"');
     expect(out).not.toContain('data-action="set-rating"');
     expect(out).not.toContain('>Valorar<');
+    // 5 estrellas vacías presentes en Row 2
+    const row2 = out.slice(out.indexOf('data-personal-rating-state="not-visited"'));
+    expect((row2.match(/\u2606/g) ?? []).length).toBeGreaterThanOrEqual(5);
   });
 
-  it('Row 2 muestra 5 estrellas vacías interactivas si visited && sin user_rating', () => {
+  it('Row 2 estado "Pendiente de valoración" (visitado sin rating): verde, interactivo', () => {
     const out = buildEnrichmentRatingBlock(
       poi('a', { visited: 'true', visited_verified_at: new Date().toISOString() }),
       { indice_interes: 4 },
       { isCuratorPoint: false, isOwn: true, canEditLocation: true },
     );
-    expect(out).toContain('Tu valoración');
+    expect(out).toContain('data-personal-rating-state="visited-empty"');
+    expect(out).toContain('>Pendiente de valoración<');
     expect(out).toContain('data-action="set-rating"');
-    // 5 botones set-rating con data-rating="1..5"
+    expect(out).toContain('hsl(var(--state-success))');
     for (const star of [1, 2, 3, 4, 5]) {
       expect(out).toContain(`data-rating="${star}"`);
     }
-    // Canon P-POPUP-14: sin link "Valorar", sin estado colapsado/expandido.
     expect(out).not.toContain('>Valorar<');
-    expect(out).not.toContain('data-personal-rating-state');
-    // 5 estrellas vacías visibles (sin estrellas llenas en esta fila).
-    const row2Idx = out.indexOf('Tu valoración');
-    const row2 = out.slice(row2Idx);
+    // 5 estrellas vacías en Row 2, sin estrellas llenas
+    const row2 = out.slice(out.indexOf('data-personal-rating-state="visited-empty"'));
     expect((row2.match(/\u2606/g) ?? []).length).toBeGreaterThanOrEqual(5);
-    expect(row2).not.toContain('\u2605');
+    expect(row2.split('</span>')[0]).not.toContain('\u2605');
   });
 
-  it('Row 2 muestra 5★ expandido + clear cuando visited && user_rating>0', () => {
+  it('Row 2 estado "Tu valoración" (visitado con rating): ★ verde + clear', () => {
     const out = buildEnrichmentRatingBlock(
       poi('a', { visited: 'true', visited_verified_at: new Date().toISOString(), user_rating: '3' }),
       { indice_interes: 4 },
       { isCuratorPoint: false, isOwn: true, canEditLocation: true },
     );
-    expect(out).toContain('Tu valoración');
+    expect(out).toContain('data-personal-rating-state="visited-rated"');
+    expect(out).toContain('>Tu valoración<');
     expect(out).toContain('data-action="set-rating"');
     expect(out).toContain('data-action="clear-rating"');
+    expect(out).toContain('hsl(var(--state-success))');
     expect(out).not.toContain('>Valorar<');
   });
 
