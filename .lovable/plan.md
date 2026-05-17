@@ -1,107 +1,107 @@
-# P-POPUP-11.1 — Footer action hierarchy refinement
 
-Cambio quirúrgico sobre el bloque `actionButtonsHtml` en `src/components/map/map-popups.ts` (L1194–1277). El footer persistente `data-popup-footer="v1"` (L1702) NO se toca: sigue siendo el contenedor sticky. Solo cambia su contenido interno.
+# P-POPUP-12 — Canon de taxonomía editorial estructurada
 
-## Estructura final del footer (caso `isEnriched && canEditLocation && canEditOwn`)
+Sustituir la "tag cloud" actual del popup por **un bloque taxonómico editorial** con 4 familias claramente diferenciadas, sin overflow visual.
 
-```text
-┌──────────────────────────────────────────────┐
-│ [spacer 32px] [Re-enriquecer] [Notas] [🗑] │  ← fila de acciones, grupo central
-│        Enriquecido · 17/05/2026              │  ← pie informativo, centrado, muted
-└──────────────────────────────────────────────┘
+## Estado actual
+
+- `case 'etiquetas'` (map-popups.ts L1464-1542) renderiza 3 familias (taxonomy / semantic / user) con chip `+N más` cuando se excede `POPUP_TAG_CAPS = { taxonomy:3, semantic:5, user:4 }`.
+- `case 'clasificacion'` (L1418-1432) renderiza el `cultural_context` como un chip suelto, en un slot independiente.
+- Sin separadores entre familias, sin alineado centrado canónico, sin color diferencial estricto (solo el variant del chip).
+- Colecciones y geografía ya están fuera del bloque (viven en metadata line / breadcrumb territorial) — eso se respeta tal cual.
+
+## Canon nuevo
+
+Cuatro familias renderizables, **siempre 5 max cada una, sin `+N`, sin truncado visual**:
+
+| Familia          | Fuente                                       | Color (token semántico)          |
+| ---------------- | -------------------------------------------- | -------------------------------- |
+| taxonomy         | `getCanonicalPopupTags(...).taxonomy`        | `--primary` (azul editorial)     |
+| semantic         | `getCanonicalPopupTags(...).semantic`        | `--accent` (ámbar/temático)      |
+| personal / user  | `getCanonicalPopupTags(...).user`            | `--ring` o token "personal"      |
+| cultural context | `enriched.cultural_context.type_label`       | violeta Wikidata (heredado 270°) |
+
+Render:
+
+```
+┌─────────────────────────────────────────┐
+│   #Arquitectura  #Castillos  #Medieval  │   ← taxonomy (centrado)
+├─────────────────────────────────────────┤
+│      #piedra  #fortaleza  #siglo-xii    │   ← semantic
+├─────────────────────────────────────────┤
+│           #favorito  #revisitar          │   ← personal
+├─────────────────────────────────────────┤
+│              Castillo medieval           │   ← cultural context
+└─────────────────────────────────────────┘
 ```
 
-Grid de 3 columnas en la fila de acciones: `grid-template-columns: 32px 1fr 32px`. La columna izquierda es un spacer invisible del mismo ancho óptico que el icono de borrar derecho, para que el par `[Re-enriquecer][Notas]` quede centrado respecto al popup.
+- Todas las familias visibles dentro del límite (≤5).
+- Separadas por línea divisoria horizontal de 1px (`hsl(var(--border)/0.6)`).
+- Cada familia tiene color propio (variant del chip).
+- Alineado centrado (`justify-content: center`).
+- Sin `+N`, sin `<details>`, sin truncado.
+- Familias vacías se omiten **junto con su divisor** (no líneas huérfanas).
+- Si el bloque entero queda vacío, no se renderiza contenedor.
 
-## Cambios concretos
+## Cambios
 
-### A. Mover el pill "Enriquecido" fuera de la fila de acciones
-- Eliminar el `<div>` verde `#f0fdf4 / #166534` que envuelve la fecha (L1210–1216).
-- Renderizar `Enriquecido · ${formatRegistrationDate(updatedAt)}` como segunda línea bajo la fila de botones:
-  - `text-align: center`
-  - `font-size: 10px`
-  - `color: hsl(var(--muted-foreground))`
-  - `margin-top: 6px`
-  - sin background, sin border, sin icono check.
-- Aplica al rama "enriched normal". El caso `isCuratorPoint` (L1198–1205) recibe el mismo tratamiento: pill verde fuera, línea muted dentro.
+### 1. `src/shared/popup/tags.ts`
 
-### B. Acciones principales equilibradas (Re-enriquecer + Notas)
-- Mismo tamaño/altura/padding/radius/font-size/font-weight.
-- Mismo estilo estructural (mismo `padding: 6px 12px`, `border-radius: 6px`, `font-size: 11px`, `font-weight: 600`, `height` implícita idéntica, `gap: 6px` interno).
-- Ambos dentro de un wrapper flex `gap: 8px; justify-content: center` ocupando la columna central del grid.
-- Mismo `<svg width="12" height="12">` para uniformidad de iconos.
+- `POPUP_TAG_CAPS` → `{ taxonomy:5, semantic:5, user:5, cultural:5 }`. Mantener `collections:4` (lo consume otro helper, fuera de scope).
+- Comentario de cabecera: actualizar para reflejar que ya no hay overflow visual.
 
-### C. Re-enriquecer — semántica utilitaria, no warning
-- Ya usa `hsl(var(--primary) / 0.12)` + `hsl(var(--primary))` (P-POPUP-11). Confirmar/normalizar:
-  - background: `hsl(var(--primary) / 0.10)`
-  - color: `hsl(var(--primary))`
-  - hover: `hsl(var(--primary) / 0.18)`
-  - sin gradiente, sin box-shadow, sin transform.
-- Eliminar cualquier residuo naranja/warning si estuviera presente en variantes.
+### 2. `src/components/map/map-popups.ts`
 
-### D. Notas — secundaria privada (no disabled)
-- Reemplazar la paleta actual (`#fef3c7/#92400e` con notas, `#f3f4f6/#374151` sin notas) por:
-  - background: `hsl(var(--muted))`
-  - color: `hsl(var(--foreground))`
-  - hover: `hsl(var(--muted) / 0.7)` (o equivalente token) — sin `translateY`.
-- Si `hasNotes`, añadir indicador discreto: un punto `4px` ámbar (`hsl(var(--primary) / 0.6)` o token equivalente) junto al label, sin invadir la paleta del botón.
-- Mismo tamaño que Re-enriquecer (regla B).
+**A. `case 'clasificacion'` (L1418-1432):** dejar `return ''`. El cultural_context se traslada al bloque taxonómico para que las 4 familias vivan en un único slot editorial coherente.
 
-### E. Borrar — icon-only discreto
-- Eliminar background `#fef2f2`.
-- `background: transparent; border: none; padding: 6px; border-radius: 6px;`
-- color icono: `hsl(var(--destructive) / 0.7)`
-- hover: `background: hsl(var(--destructive) / 0.10); color: hsl(var(--destructive))` — sin `translateY`.
-- Eliminar el texto/label si lo hubiera; solo el `<svg>` papelera 14×14.
-- Ancho óptico ≈ 32px → coincide con el spacer izquierdo.
+**B. `case 'etiquetas'` (L1464-1542):**
+- Borrar todo el path legacy (L1509-1541) — el flag `isPopupGeoCanonicalV1On()` ya es default ON en canon.
+- Reescribir el path canónico:
+  - `renderBucket(items, family)`:
+    - `slice(0, 5)` directo, sin cálculo de `overflow`.
+    - Quitar `overflowChip` completamente.
+    - Wrapper: `display:flex; flex-wrap:wrap; justify-content:center; gap:6px; padding:8px 4px;`.
+    - Variant de color por familia (taxonomy/semantic/personal/cultural) pasado a `inlineTagBadge`.
+  - Componer en orden: taxonomy → semantic → user → cultural.
+  - Entre familias renderizadas: `<div style="border-top:1px solid hsl(var(--border)/0.6); margin:0 8px;"></div>`.
+  - Cultural se compone como chip único con su color violeta (heredado del slot `clasificacion` actual).
+  - Si `parts.length === 0` → return `''`.
+- Contenedor exterior: `margin-bottom: ${CARD.sectionGap}px; text-align:center;`.
 
-### F. Centrado óptico via grid de 3 columnas
-- Fila de acciones:
-  ```text
-  display: grid;
-  grid-template-columns: 32px 1fr 32px;
-  align-items: center;
-  gap: 8px;
-  ```
-- Col 1: `<div aria-hidden="true">` vacío (spacer).
-- Col 2: wrapper flex con Re-enriquecer + Notas centrados (`justify-content: center; gap: 8px`).
-- Col 3: botón borrar icon-only.
-- Cuando falte alguna acción (sin `canEditLocation`, sin `canEditOwn`, etc.), las celdas vacías mantienen su ancho para no romper el centrado óptico.
+**C. `inlineTagBadge` (verificar):** asegurar que el variant `'personal'` existe y que `'classification'` mapea a un color azul `--primary`. Si falta el variant cultural, añadirlo respetando el mismo violeta del chip Wikidata actual (`hsl(270 60% 95%)` bg / `hsl(270 70% 35%)` fg).
 
-### G. Pie informativo "Enriquecido · fecha"
-- Renderizado siempre que `isEnriched || isCuratorPoint` y haya `updatedAt`.
-- `<div style="text-align:center; font-size:10px; color:hsl(var(--muted-foreground)); margin-top:6px; letter-spacing:0.01em;">Enriquecido · ${fecha}</div>`
-- Sin icono, sin pill, sin border.
+### 3. Tests
 
-## Fuera de scope (no se toca)
+- `src/test/popup-tags-canonical.test.ts`: actualizar el caso de `POPUP_TAG_CAPS` a `{ taxonomy:5, semantic:5, user:5, cultural:5, collections:4 }`.
+- `src/test/popup-taxonomy-canon-chips.test.ts`: el case `'clasificacion'` ahora devuelve `''` siempre; ajustar la aserción "still renders cultural_context.type_label" para verificar que el chip cultural aparece dentro del bloque del case `'etiquetas'`.
+- Nuevo `src/test/popup-taxonomy-structured.test.ts`:
+  - Renderiza un popup con 6 taxonomy + 7 semantic + 6 user + cultural y verifica:
+    - No aparece `+` ni `más` ni `+N` en el HTML del bloque.
+    - Máximo 5 chips por familia (cuenta `inline-tag-badge` por bucket).
+    - Hay exactamente N-1 separadores `border-top` entre las N familias renderizadas.
+    - Cada familia tiene su color/variant distinguible.
+    - `justify-content: center` presente.
+  - Caso "todas vacías": el bloque no se renderiza.
+  - Caso "solo cultural": no aparece separador.
 
-- `data-action` valores y handlers (`enrich`, `add-notes`, `delete-location`, `add-to-collection`).
-- Wrapper `data-popup-footer="v1"` (L1702) — sigue siendo sticky, mismo padding/border-top/background.
-- `progressBarHtml`, `adminEditWarning`, `addToCollectionBtnHtml`.
-- Composer 7A.3, hero chrome, breadcrumb, metadata line, ratings, taxonomy, schema, marker grammar, PopupShell, F2, visited/pending.
-- `wrapCollapsibleSection` y secundarios discretos (ya canonizados en P-POPUP-11).
+### 4. Documentación / memoria
 
-## Tests
+- `docs/contracts/popup-contract.md`: sección "Taxonomía editorial estructurada (P-POPUP-12)" describiendo las 4 familias, el límite duro de 5, ausencia de `+N` y la responsabilidad del enrichment/normalizador de recortar antes del render.
+- `docs/popups/p-popup-10-validation.md` (o nuevo `p-popup-12-validation.md`): registrar la migración.
+- `mem://style/popup/canonical-body-composer`: actualizar para incluir el slot "taxonomía editorial 4×5" canon.
+- `mem://logic/popup/provenance-vs-collection-vs-tag`: ratificar que `cultural_context` vive como 4ª familia del bloque taxonómico (no en slot independiente).
 
-Actualizar `src/test/popup-footer-persistent.test.ts`:
-- Mantener: no "Ficha IA actualizada", `data-popup-footer="v1"` presente, Re-enriquecer sin gradiente violeta.
-- Añadir:
-  - El bloque que contiene `data-action="enrich"` NO contiene `background: #f0fdf4` (pill verde fuera de la fila).
-  - El bloque que contiene `data-action="delete-location"` usa `background: transparent` (no `#fef2f2`) y no contiene texto visible (solo `<svg>`).
-  - El HTML del footer contiene la cadena `Enriquecido ·` con `color: hsl(var(--muted-foreground))` y `text-align: center`.
-  - El bloque de acciones usa `display: grid` con `grid-template-columns` que incluye `32px` (spacer + icon column).
-  - El bloque `data-action="add-notes"` ya no usa `#fef3c7`/`#92400e` ni `translateY`.
+## Fuera de scope (no tocar)
 
-## Documentación
+composer 7A.3, ratings logic, handlers, schema, hero chrome, breadcrumb territorial, metadata line, taxonomy/visibility upstream, marker grammar, PopupShell, F2, footer P-POPUP-11.1, visited/pending, secondary accordions, dedupe `dedupePopupTagBuckets` (la lógica de deduplicación inter-familia ya es correcta).
 
-- Actualizar `docs/popups/p-popup-10-validation.md` con sección P-POPUP-11.1 (jerarquía footer + grid de 3 columnas + pie informativo).
-- Actualizar `mem://style/popup/editorial-reading-style` con el canon final del footer: fila de acciones (grid 32/1fr/32) + pie muted centrado; Re-enriquecer primary suave; Notas muted neutro; Borrar icon-only destructive transparent.
-- No requiere nueva entrada en `mem://index.md` (ya hay referencia al editorial-reading-style).
+## Responsabilidad del enrichment
+
+Si una familia llega con >5 entradas (caso raro hoy: taxonomy max real = 3 niveles; semantic puede excederlo), el **render simplemente corta a 5**. La regla "el enriquecimiento debería priorizar antes" se documenta como contrato (no se implementa en este pase): el render no muestra `+N` ni avisa.
 
 ## Criterio de aceptación visual
 
-- El par `[Re-enriquecer][Notas]` se percibe ópticamente centrado respecto al ancho del popup.
-- Re-enriquecer ya no parece warning/alerta; lee como acción utilitaria disponible.
-- Notas no parece disabled; lee como acción secundaria privada con el mismo peso estructural que Re-enriquecer.
-- Borrar es claramente secundario/destructivo, sin caja.
-- "Enriquecido · 17/05/2026" lee como pie técnico, no como CTA ni como pill verde.
+- Las 4 familias se leen como bloques separados y centrados.
+- No aparece `+N` en ningún caso.
+- El color permite identificar a qué familia pertenece cada chip sin leer.
+- Colecciones siguen viviendo en metadata line; geografía sigue en breadcrumb.
