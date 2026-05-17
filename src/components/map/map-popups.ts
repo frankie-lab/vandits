@@ -539,21 +539,14 @@ export function buildEnrichmentRatingBlock(
         const color = starColor(active, 'amber');
         return `<button class="popup-action-btn" data-action="set-rating" data-location-id="${location.id}" data-rating="${star}" title="Valorar ${star} estrella${star > 1 ? 's' : ''}" style="background: none; border: none; padding: 0; cursor: pointer; font-size: 13px; line-height: 1; color: ${color};">${active ? '\u2605' : '\u2606'}</button>`;
       }).join('');
-      starsHtml = `<span data-personal-rating-state="expanded" style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal">${interactiveStars}<button class="popup-action-btn" data-action="clear-rating" data-location-id="${location.id}" title="Quitar valoración" style="background: none; border: none; padding: 0 0 0 4px; cursor: pointer; font-size: 10px; color: ${tk('hsl(var(--text-secondary))', '#6b7280')};">\u2715</button></span>`;
-    } else if (canRate) {
-      // Affordance discreta inline en la misma fila (no barra ancha).
+      starsHtml = `<span style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal">${interactiveStars}<button class="popup-action-btn" data-action="clear-rating" data-location-id="${location.id}" title="Quitar valoración" style="background: none; border: none; padding: 0 0 0 4px; cursor: pointer; font-size: 10px; color: ${tk('hsl(var(--text-secondary))', '#6b7280')};">\u2715</button></span>`;
+    } else {
+      // Canon P-POPUP-14: 5 estrellas vacías interactivas inline (sin link "Valorar").
       const interactiveStars = [1, 2, 3, 4, 5].map((star) => {
         const color = starColor(false, 'amber');
         return `<button class="popup-action-btn" data-action="set-rating" data-location-id="${location.id}" data-rating="${star}" title="Valorar ${star} estrella${star > 1 ? 's' : ''}" style="background: none; border: none; padding: 0; cursor: pointer; font-size: 13px; line-height: 1; color: ${color};">\u2606</button>`;
       }).join('');
-      const expandJs = "var p=this.parentNode;this.style.display='none';var x=p.querySelector('[data-personal-rating-state=\\'expanded\\']');if(x){x.style.display='inline-flex';}";
-      starsHtml = `<span style="display: inline-flex; align-items: center; gap: 6px;">`
-        + `<button type="button" data-personal-rating-state="collapsed" onclick="${expandJs}" style="background: none; border: none; padding: 0; cursor: pointer; font-size: 11px; color: ${tk('hsl(var(--text-secondary))', '#6b7280')}; text-decoration: underline; text-underline-offset: 2px;">Valorar</button>`
-        + `<span data-personal-rating-state="expanded" style="display: none; align-items: center; gap: 2px;" title="Tu valoración personal">${interactiveStars}</span>`
-        + `</span>`;
-    } else {
-      // Visitado pero sin permiso para valorar → fila silenciosa con guión.
-      starsHtml = `<span style="font-size: 11px; color: ${tk('hsl(var(--text-secondary))', '#9ca3af')};">—</span>`;
+      starsHtml = `<span style="display: inline-flex; align-items: center; gap: 2px;" title="Valorar este lugar">${interactiveStars}</span>`;
     }
     row2 = `
 <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
