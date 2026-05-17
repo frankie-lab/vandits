@@ -1,93 +1,132 @@
-# P-POPUP-9 — Territorial breadcrumbs + collection metadata links
+# P-POPUP-10 — Editorial popup reading style
 
-## Diagnóstico actual
+Cambios **sólo de estilo y ritmo tipográfico**. Orden canónico, helpers, contratos, handlers, schema, taxonomy, ratings, hero, visited y composer 7A.3 NO se tocan.
 
-- **Header territorial**: `buildGeoHeaderHtml` (`src/shared/popup/geo-header.ts`) emite chips con background `hsl(var(--secondary))`, padding 2x8 y border-radius 12px. Visualmente parecen hashtags/tags. Consumido en `map-popups.ts` L1337 (own-enriched) y L1764 (otra rama legacy con chips azul/verde/ámbar/violeta hardcodeados).
-- **Colecciones en metadata**: `buildCollectionsMetadataSegment` (`map-popups.ts` L290) ya devuelve `<span class="collection-filter-chip" data-collection-id … data-collection-name …>` sin pill ni hashtag, con icono `bookmark`. Cumple ya la mayor parte del contrato de Cambio 2; sólo falta confirmar/añadir afordancia visual de link (cursor pointer + underline hover) y verificar que el handler de click filtre por colección.
-- **Contrato de filtrado existente**: `.filter-link` + `data-filter-type` + `data-filter-value` ya es consumido por el handler central (`map-popup-handlers.ts`) para `zone | region | country | continent`. NO se modifica ese contrato.
+## Diagnóstico
 
-## Decisión de orden (canon nuevo)
+Bloques implicados (ya en su sitio):
 
-**Global → Local**: `Spain › Galicia › A Coruña`.
+```
+hero
+├─ título            (map-popups.ts L1328–1333)
+├─ breadcrumb        (geo-header.ts buildTerritorialBreadcrumbHtml)
+├─ metadata line     (buildOwnEnrichedMetadataLineHtml / buildSourceMetadataLineHtml)
+├─ punto_destacado   (switch case L1438)
+├─ descripcion       (switch case L1445)
+├─ enrichmentRating  (composer 7A.3)
+├─ userPersonalState (composer 7A.3)
+└─ observacion       (switch case L1460)
+```
 
-Justificación: convención editorial (breadcrumb estándar de navegación), facilita lectura "de dónde viene" antes que "qué punto". Se documenta en `mem://style/popup/territorial-breadcrumb` y en `docs/popups/p-popup-9-validation.md`. Inmutable salvo nueva PR.
+Problemas visuales actuales:
+- Título pegado al breadcrumb (margin-bottom 4px).
+- Breadcrumb correcto pero su contenedor mete 12px y compite con metadata line.
+- Metadata line tiene icono reloj + chips de provenance todavía pesados; debería leerse como byline.
+- `punto_destacado` legible pero sin aire editorial (line-height 1.45, padding tight).
+- `descripcion` renderiza un eyebrow "Descripción" en uppercase + contador de caracteres → ruido técnico que rompe la lectura editorial.
+- `observacion` arrastra el mismo eyebrow uppercase.
 
 ## Cambios
 
-### 1. Nuevo helper `buildTerritorialBreadcrumbHtml(location)`
+### 1. Header — título con aire (`map-popups.ts` L1328–1339)
 
-Ubicación: `src/shared/popup/geo-header.ts` (mismo módulo, reutiliza `getCanonicalGeoChips`). 
+- Subir `margin-bottom` del wrapper de `<h3>` de `4px` → `10px`.
+- Aumentar `line-height` del título de `1.3` → `1.2` con `letter-spacing: -0.01em` (más editorial, menos UI).
+- Mantener `FONT.title` / `font-weight: 700`.
 
-- Reinvierte el orden de `getCanonicalGeoChips` a `country → region → zone → locality` (global→local).
-- Render: `<nav data-popup-geo-breadcrumb="1" aria-label="Ubicación">` con elementos `<a>` (para `country/region/zone`) o `<span>` (locality, sin `filterType`) separados por `<span class="popup-breadcrumb-sep" aria-hidden="true">›</span>`.
-- Cada link clickable: `class="filter-link" data-filter-type="…" data-filter-value="…" data-geo-level="…"`. Mismo contrato que hoy → cero cambios en handler.
-- Estilo inline (sin tokens nuevos): `font-size: 11px; color: hsl(var(--muted-foreground)); text-decoration: none;` + hover `text-decoration: underline; color: hsl(var(--foreground));`. Separador `›` con `opacity: 0.6; margin: 0 4px;`. Wrap natural (`flex-wrap: wrap; row-gap: 2px;`).
-- Locality se mantiene NO clickable (mismo motivo que en geo-header actual: handler no soporta `locality`).
+### 2. Breadcrumb territorial (`src/shared/popup/geo-header.ts` `buildTerritorialBreadcrumbHtml`)
 
-### 2. Sustituir consumo en `map-popups.ts`
+Ya es link textual muted sin background. Refinamiento:
+- Bajar `font-size` de `11px` → `text-micro` equivalente (`11px` ya, mantenemos) pero subir `letter-spacing: 0.01em` y `line-height: 1.5`.
+- `<a>`: añadir `border-bottom: 1px solid transparent` y en hover `border-bottom-color: hsl(var(--muted-foreground) / 0.4)` para que el underline sea discreto y no `text-decoration: underline` plano.
+- Separador `›`: bajar `opacity` `0.6` → `0.45`.
+- Wrapper `<nav>`: añadir `margin-bottom: 6px` (separa del título y le da aire al byline siguiente).
 
-- **L1337** (own-enriched header): cambiar `buildGeoHeaderHtml(...)` por `buildTerritorialBreadcrumbHtml(location)`. Mantener el wrapper `<div style="margin: 0 0 12px 0;">`.
-- **L1764** (rama legacy con chips colorizados continent/country/region/zone): reemplazar bloque entero por una sola llamada a `buildTerritorialBreadcrumbHtml(location)`. Elimina los `background: #e0f2fe / #dcfce7 / #fef3c7 / #f3e8ff` hardcodeados.
-- Marcar `buildGeoHeaderHtml` como `@deprecated` (no se borra; otros tests lo cubren y puede haber consumidores que no quiero romper en esta PR). Si el grep confirma sólo los dos consumos detectados arriba + tests, se elimina junto con su test en una PR posterior (P-POPUP-9.1, fuera de scope).
+Sin cambios de estructura, atributos o contrato `.filter-link`.
 
-### 3. Colecciones — refinamiento mínimo del link
+### 3. Metadata line (byline) — `buildOwnEnrichedMetadataLineHtml` (L701–739) + `buildCollectionsMetadataSegment` (L290–306)
 
-`buildCollectionsMetadataSegment` ya emite el contrato correcto. Cambios cosméticos:
-- Añadir `cursor: pointer; text-decoration: none;` y hover `text-decoration: underline;` al `<span class="collection-filter-chip" …>` (vía estilo inline o regla CSS global en `src/index.css` bajo `.collection-filter-chip`).
-- Mantener intactos: `data-collection-id`, `data-collection-name`, `title`, icono bookmark, regla "máx 2 inline + `+N`".
-- **Nota fuera de scope**: el handler de click para `.collection-filter-chip` no aparece grepable en `src/`. Se documenta como deuda en `docs/popups/p-popup-9-validation.md` (probablemente vive en un listener global pendiente). Esta PR sólo garantiza el contrato HTML, no introduce nuevo handler.
+Convertir en byline editorial:
+- En `buildOwnEnrichedMetadataLineHtml`:
+  - Quitar el `<svg>` del reloj (línea 733–736). Una byline no lleva icono.
+  - Wrapper: `font-size: 11px` se mantiene; añadir `font-style: italic` SOLO al texto "Añadido dd/mm/yyyy" (envolver `datePart` en `<span style="font-style: italic;">`).
+  - `color: hsl(var(--muted-foreground))` ya está.
+  - Subir `margin-bottom` de `${CARD.sectionGap}px` (12px) → `14px` para crear respiro antes del extracto.
+- En `buildCollectionsMetadataSegment`:
+  - Quitar el `BOOKMARK_SVG` (línea 286 + uso L305). Colección queda como link textual puro.
+  - Mantener `.collection-filter-chip`, atributos `data-collection-*`, hover underline. Aplicar mismo patrón `border-bottom` discreto que el breadcrumb (en lugar de `text-decoration`).
+  - Color: cambiar `hsl(var(--foreground))` (L305) → `hsl(var(--muted-foreground))` para igualar registro byline.
+- Provenance chips (`buildSourceChipSpan`): NO se tocan en lógica; sólo se asegura que el wrapper byline herede `color: muted` y los chips ya muted se vean homogéneos. Si visualmente quedan como pills, se documenta como tarea siguiente (fuera de scope si requiere tocar `buildSourceChipSpan`).
 
-### 4. Orden metadata (sin cambios estructurales)
-
-Ya implementado por `buildOwnEnrichedMetadataLineHtml`:
+Resultado:
 ```
-Añadido dd/mm/yyyy · [colección/es] · vía [source]
+Añadido 12/05/2026 · Sendas del norte · vía Atlas Obscura
 ```
-Sólo se verifica en tests.
+Sin reloj, sin bookmark, sin pill.
 
-## Restricciones (no tocar)
+### 4. Extracto destacado — `case 'punto_destacado'` (L1438–1443)
 
-ratings, composer 7A.3, hero chrome, visited/pending, taxonomy, schema, marker grammar, F2, PopupShell. Tampoco el handler `.filter-link` ni la lógica de filtrado.
+- Subir `padding` `8px 12px` → `12px 16px`.
+- `line-height: 1.45` → `1.6`.
+- `font-size: FONT.body` (14px) → mantener; `font-weight: 500` → `font-weight: 500` (igual) pero añadir `font-style: italic` para que se lea como entradilla editorial.
+- `margin-bottom`: `${CARD.sectionGap}px` (12) → `16px`.
+- `border-left` y `bgColor` (HIGHLIGHT.\*) se mantienen.
+
+### 5. Descripción — `case 'descripcion'` (L1445–1458)
+
+- **Eliminar el eyebrow uppercase "Descripción"** (L1449). Es ruido técnico, una ficha editorial no rotula el cuerpo.
+- **Eliminar el contador "N caracteres"** (L1453). Idem.
+- Párrafos vía `descriptionToHtmlParagraphs`: subir
+  - `margin: 0 0 8px 0` → `margin: 0 0 12px 0` (separación entre párrafos).
+  - `line-height: 1.625` → `1.7`.
+  - Añadir `letter-spacing: 0.005em`.
+- Wrapper: añadir `margin: 4px 0 16px 0` (aire arriba/abajo natural).
+- Mantener `class="vandits-description-body"` y `color: COLOR.bodyText`.
+
+### 6. Observación — `case 'observacion'` (L1460–1466)
+
+- Eliminar eyebrow uppercase "Observación" (L1464).
+- Reemplazar por prefijo inline italic `<span style="font-style: italic; color: muted; margin-right: 6px;">Nota:</span>` al inicio del `<p>` (mismo registro editorial que un aside de blog).
+- `line-height: 1.5` → `1.65`.
+- `padding: 8px 12px` → `12px 14px`.
+
+### 7. Bloques posteriores (rating + personal state)
+
+- NO se toca composer 7A.3.
+- NO se toca `buildEnrichmentRatingBlock` ni `buildPersonalStateBlock`.
+- Sólo asegurar que el `margin-top` del primer fragment post-descripción respire: añadir un wrapper neutral `<div style="margin-top: 4px;">` alrededor de `enrichmentRatingFragment` en el composer SI y SÓLO SI no rompe ningún test 7A.\*. Si rompe, omitir y dejar el ritmo a los `sectionGap` existentes.
+
+## Restricciones honradas
+
+- Orden canónico: intacto.
+- Composer 7A.3: intacto (excepto wrapper de margen opcional).
+- Ratings, handlers, schema, taxonomy, collections logic, provenance logic, marker grammar, F2, PopupShell, hero chrome, visited/pending: intactos.
+- Atributos data-\*, clases `.filter-link` / `.collection-filter-chip`: intactos.
 
 ## Tests
 
-Nuevo archivo `src/test/popup-territorial-breadcrumb.test.ts`:
-- Emite elementos en orden `country → region → zone → locality`.
-- Cada nivel (excepto locality) lleva `class="filter-link"` y `data-filter-type` correcto.
-- Separador `›` aparece entre elementos, no al inicio ni al final.
-- Sin background azul/verde/ámbar/violeta hardcodeado (regex de hex).
-- Sin `border-radius` en los elementos del breadcrumb.
-- Wrap permitido (`flex-wrap: wrap`).
+Actualizar / añadir asserts en:
 
-Actualizar `src/test/popup-collection-metadata-line.test.ts`:
-- Añadir aserción `cursor: pointer` en el span de colección.
+- `src/test/popup-territorial-breadcrumb.test.ts`: confirmar separador `›` con `opacity: 0.45` y ausencia de `text-decoration: underline` plano en hover (sólo `border-bottom`).
+- `src/test/popup-collection-metadata-line.test.ts`:
+  - assert `NO contiene` el `BOOKMARK_SVG` (`<path d="m19 21-7-4-7 4V5...`).
+  - assert color del wrapper = `hsl(var(--muted-foreground))`.
+- Nuevo `src/test/popup-editorial-style.test.ts`:
+  - descripción NO contiene `>Descripción<` eyebrow.
+  - descripción NO contiene `caracteres</span>`.
+  - observación NO contiene `>Observación<` eyebrow; SÍ contiene `Nota:`.
+  - metadata line NO contiene `<circle cx="12" cy="12" r="10"/>` (icono reloj fuera).
+  - `punto_destacado` contiene `font-style: italic` y `line-height: 1.6`.
 
-Actualizar/añadir test de integración:
-- `buildEnrichedPopupContent` ya NO contiene `buildGeoHeaderHtml` chips (regex contra `background: hsl(var(--secondary))` en zona header).
-- Contiene `data-popup-geo-breadcrumb="1"`.
+## Documentación + memoria
 
-## Documentación y memoria
+- Nuevo: `docs/popups/p-popup-10-validation.md` (canon visual editorial + before/after).
+- Nuevo memory `mem://style/popup/editorial-reading-style` con la regla "byline sin iconos, descripción sin eyebrows, breadcrumb sin underline plano".
+- Update `mem://index.md` (entry nueva en Memories).
+- Update `docs/contracts/popup-contract.md` con sección "Editorial reading style v1".
 
-- **Crear** `docs/popups/p-popup-9-validation.md`: contrato breadcrumb + orden global→local + nota de deuda del handler de colecciones.
-- **Crear** `mem://style/popup/territorial-breadcrumb`: regla canónica (orden, contrato HTML, no-chip, link-style).
-- **Actualizar** `mem://index.md`: añadir entrada en Memories.
-- **Actualizar** `docs/contracts/popup-contract.md`: territorial = breadcrumb, no chips.
+## Out of scope
 
-## Archivos a editar
-
-1. `src/shared/popup/geo-header.ts` — añade `buildTerritorialBreadcrumbHtml`.
-2. `src/components/map/map-popups.ts` — sustituye dos consumos (L1337, L1764) + ajuste cosmético colección (L298 o CSS global).
-3. `src/index.css` — regla `.collection-filter-chip` + `.popup-breadcrumb-sep` (opcional si se prefiere CSS sobre inline).
-4. `src/test/popup-territorial-breadcrumb.test.ts` — nuevo.
-5. `src/test/popup-collection-metadata-line.test.ts` — añadir aserción link-style.
-6. `docs/popups/p-popup-9-validation.md` — nuevo.
-7. `mem://style/popup/territorial-breadcrumb` + `mem://index.md` + `docs/contracts/popup-contract.md`.
-
-## Criterio de aceptación
-
-- Header sin chips azules territoriales.
-- Breadcrumb `Spain › Galicia › A Coruña` visible, link-style, muted, clickable en country/region/zone.
-- Click en breadcrumb dispara filtro territorial usando contrato actual.
-- Colección clickable, sin hashtag/pill/badge color, en línea metadata.
-- Orden metadata: `Añadido dd/mm/yyyy · [colección] · vía [source]`.
-- Tests verdes (149 popup + nuevos breadcrumb).
+- Refactor de `buildSourceChipSpan` (provenance chips) — si visualmente persiste el aspecto pill tras vaciar el wrapper, queda como P-POPUP-10.1.
+- Tipografía global (`--font-display` para títulos del popup) — riesgo de drift con card preview.
+- Cualquier cambio en `formatDescription` / `descriptionToHtmlParagraphs` más allá del estilo inline pasado por argumento.
