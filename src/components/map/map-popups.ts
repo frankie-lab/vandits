@@ -295,7 +295,7 @@ export function buildCollectionsMetadataSegment(location: GeoLocation): string {
   const nameSpans = inline.map((c) => {
     const safeName = String(c.name ?? '').replace(/"/g, '&quot;');
     const safeId = String(c.id ?? '').replace(/"/g, '&quot;');
-    return `<span class="collection-filter-chip" data-collection-id="${safeId}" data-collection-name="${safeName}" title="Colección: ${safeName}" style="cursor: pointer; color: hsl(var(--muted-foreground)); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.15s;" onmouseover="this.style.borderBottomColor='hsl(var(--muted-foreground) / 0.4)'" onmouseout="this.style.borderBottomColor='transparent'">${safeName}</span>`;
+    return `<span class="collection-filter-chip" data-collection-id="${safeId}" data-collection-name="${safeName}" title="Colección: ${safeName}" style="cursor: pointer; color: hsl(var(--muted-foreground)); text-decoration: none; border-bottom: 1px solid hsl(var(--muted-foreground) / 0.35); transition: border-color 0.15s;" onmouseover="this.style.borderBottomColor='hsl(var(--muted-foreground) / 0.7)'" onmouseout="this.style.borderBottomColor='hsl(var(--muted-foreground) / 0.35)'">${safeName}</span>`;
   }).join(', ');
   let overflowHtml = '';
   if (overflow.length > 0) {
