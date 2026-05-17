@@ -481,9 +481,15 @@ export function buildEnrichmentRatingBlock(
         location.customData?.oldest_geotagged_photo_date,
       )
     : null;
-  // En P-POPUP-14 la fila "Tu valoración" depende SOLO de visited.
-  // No hay gating adicional: visitado ⇒ siempre se ofrece valoración personal.
-  const showUserRow = !isCurator && !isNearby && isVisited;
+  // P-POPUP-14.2: Row 2 SIEMPRE existe salvo curator/nearby. `visited`
+  // gobierna si es editable (verde activo) o pendiente (gris disabled),
+  // NO si la fila aparece.
+  const showUserRow = !isCurator && !isNearby;
+  const userRowState: 'not-visited' | 'visited-empty' | 'visited-rated' = !isVisited
+    ? 'not-visited'
+    : userRating > 0
+      ? 'visited-rated'
+      : 'visited-empty';
   void visitRelevance; // reservado para futura señal de confianza visual
 
   // Helpers visuales (compartidos por ambas filas).
