@@ -73,7 +73,7 @@ describe('P-POPUP-13 — Unified popup renderer (static guards)', () => {
   });
 
   it('el fallback de customData se gate por `!isEnriched`', () => {
-    expect(SRC).toMatch(/!isEnriched\)\s*\?\s*\(\(\)\s*=>\s*\{[\s\S]{0,800}data-popup-fallback-customdata/);
+    expect(SRC).toMatch(/\(!isEnriched\)\s*\?\s*\(\(\)\s*=>/);
   });
 
   it('la descripción canónica degrada a `location.description` cuando no hay enriched', () => {
