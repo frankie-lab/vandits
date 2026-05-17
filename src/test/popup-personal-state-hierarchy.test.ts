@@ -93,16 +93,26 @@ describe('P-POPUP-14 — buildEnrichmentRatingBlock (unified ratings block)', ()
     expect(out).not.toContain('>Valorar<');
   });
 
-  it('Row 2 aparece como affordance "Valorar" inline si visited && sin user_rating', () => {
+  it('Row 2 muestra 5 estrellas vacías interactivas si visited && sin user_rating', () => {
     const out = buildEnrichmentRatingBlock(
       poi('a', { visited: 'true', visited_verified_at: new Date().toISOString() }),
       { indice_interes: 4 },
       { isCuratorPoint: false, isOwn: true, canEditLocation: true },
     );
     expect(out).toContain('Tu valoración');
-    expect(out).toContain('>Valorar<');
-    expect(out).toContain('data-personal-rating-state="collapsed"');
-    expect(out).toContain('data-personal-rating-state="expanded"');
+    expect(out).toContain('data-action="set-rating"');
+    // 5 botones set-rating con data-rating="1..5"
+    for (const star of [1, 2, 3, 4, 5]) {
+      expect(out).toContain(`data-rating="${star}"`);
+    }
+    // Canon P-POPUP-14: sin link "Valorar", sin estado colapsado/expandido.
+    expect(out).not.toContain('>Valorar<');
+    expect(out).not.toContain('data-personal-rating-state');
+    // 5 estrellas vacías visibles (sin estrellas llenas en esta fila).
+    const row2Idx = out.indexOf('Tu valoración');
+    const row2 = out.slice(row2Idx);
+    expect((row2.match(/\u2606/g) ?? []).length).toBeGreaterThanOrEqual(5);
+    expect(row2).not.toContain('\u2605');
   });
 
   it('Row 2 muestra 5★ expandido + clear cuando visited && user_rating>0', () => {
