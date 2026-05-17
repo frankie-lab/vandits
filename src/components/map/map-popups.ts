@@ -1439,10 +1439,14 @@ ${(() => {
 </div>`;
       
       case 'descripcion': {
-        const desc = enriched.descripcion
+        // P-POPUP-13 — degradación graciosa: si no hay `enriched.descripcion`
+        // (POI no enriquecido), usamos `location.description` con el mismo
+        // estilo editorial. Si tampoco existe, fragment vacío.
+        const text = enriched.descripcion || (!isEnriched ? (location.description || '') : '');
+        const desc = text
           ? `
 <div class="vandits-description-body" style="clear: both; display: block; margin: 4px 0 16px 0;">
-  ${descriptionToHtmlParagraphs(enriched.descripcion, `margin: 0 0 12px 0; font-size: ${FONT.body}px; color: ${COLOR.bodyText}; line-height: 1.7; letter-spacing: 0.005em;`)}
+  ${descriptionToHtmlParagraphs(text, `margin: 0 0 12px 0; font-size: ${FONT.body}px; color: ${COLOR.bodyText}; line-height: 1.7; letter-spacing: 0.005em;`)}
 </div>`
           : '';
         // P-POPUP-7A.1 — el switch ya NO compone; el rating se ancla en el composer.
