@@ -45,12 +45,25 @@ describe('P-POPUP-10 — observación editorial', () => {
   });
 });
 
-describe('P-POPUP-10 — punto_destacado como entradilla', () => {
-  it('aplica italic + line-height 1.6 + padding generoso', () => {
+describe('P-POPUP-10.1 — punto_destacado como entradilla editorial', () => {
+  it('usa stack serif editorial local, 15px / 1.75, sin italic, sin fondo, sin border-radius, acento lateral conservado', () => {
     const slice = POPUPS_SRC.split("case 'punto_destacado':")[1]?.split("case 'descripcion'")[0] ?? '';
-    expect(slice).toContain('font-style: italic');
-    expect(slice).toMatch(/line-height: 1\.6/);
-    expect(slice).toContain('padding: 12px 16px');
+    // Serif local: el font-family declara una stack que termina en `serif`.
+    const fontFamilyMatch = slice.match(/font-family:\s*([^;"]+)/);
+    expect(fontFamilyMatch).not.toBeNull();
+    expect(fontFamilyMatch![1].trim().toLowerCase()).toMatch(/serif\s*$/);
+    // Jerarquía editorial.
+    expect(slice).toMatch(/font-size:\s*15px/);
+    expect(slice).toMatch(/line-height:\s*1\.75/);
+    // Sin italic, sin fondo tintado, sin esquinas redondeadas.
+    expect(slice).not.toContain('font-style: italic');
+    expect(slice).not.toContain('HIGHLIGHT.bgColor');
+    expect(slice).toContain('background: transparent');
+    expect(slice).not.toContain('border-radius');
+    // Acento lateral conservado + padding reducido + margin inferior editorial.
+    expect(slice).toContain('border-left');
+    expect(slice).toContain('padding: 4px 0 4px 16px');
+    expect(slice).toContain('margin: 0 0 20px 0');
   });
 });
 
