@@ -1416,19 +1416,10 @@ ${(() => {
         return '';
       
       case 'clasificacion': {
-        // P-POPUP-6A — taxonomy canonical representation = chips (see `case 'etiquetas'`).
-        // The textual breadcrumb (codigo + categoria + separator + subcategoria) is removed to avoid
-        // duplicating taxonomy in two formats. The catalog code (e.g. "2.5.x") is also
-        // dropped — internal catalog metadata with no value for a human viewer.
-        // This slot now renders ONLY the cultural_context (Wikidata) chip. If absent,
-        // the block is omitted entirely (no empty container).
-        const cc = (enriched as any)?.cultural_context;
-        if (!cc?.type_label) return '';
-        const culturalChip = `<span title="${cc.type_label} (Wikidata)" style="display: inline-flex; align-items: center; gap: 4px; background: ${tk('hsl(270 60% 95%)', '#ede9fe')}; color: ${tk('hsl(270 70% 35%)', '#5b21b6')}; padding: ${CARD.tagPadding}; border-radius: ${CARD.tagRadius}; font-size: ${FONT.badge}px; font-weight: 500;">${cc.type_label}</span>`;
-        return `
-<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: ${CARD.sectionGap}px;">
-  ${culturalChip}
-</div>`;
+        // P-POPUP-12 — el cultural_context se traslada al bloque taxonómico
+        // editorial (case 'etiquetas') como 4ª familia. Este slot queda inerte
+        // para preservar el orden del composer sin duplicar el chip violeta.
+        return '';
       }
 
       
@@ -1464,83 +1455,64 @@ ${(() => {
       case 'etiquetas': {
         if (!cardCfg.include_tags) return '';
 
-        // P-POPUP-2 — canonical 4-bucket dedupe path (flag-gated).
-        // - Removes `etiquetas_geograficas` from chips (covered by geo header).
-        // - Dedupes taxonomy ↔ semantic ↔ user by slug.
-        // - Caps overflow per `POPUP_TAG_CAPS`.
-        if (isPopupGeoCanonicalV1On()) {
-          const collectionSlugsForLoc = getCollectionsForLocation(location.id)
-            .map(c => tagSlug(c.name ?? ''))
-            .filter(Boolean);
-          const userPreFiltered = filterPersonalTags(location.id, enriched?.etiquetas_personales);
-          const buckets = getCanonicalPopupTags(location, collectionSlugsForLoc, userPreFiltered);
-          const parts: string[] = [];
+        // P-POPUP-12 — Canon de taxonomía editorial estructurada.
+        // Cuatro familias (taxonomy / semantic / user / cultural), cada una
+        // con límite duro de 5 (`POPUP_TAG_CAPS`). Sin overflow visual `+N`,
+        // sin <details>, sin nube de chips. Familias separadas por divisores
+        // horizontales y centradas. Colecciones y geografía NO viven aquí.
+        const collectionSlugsForLoc = getCollectionsForLocation(location.id)
+          .map(c => tagSlug(c.name ?? ''))
+          .filter(Boolean);
+        const userPreFiltered = filterPersonalTags(location.id, enriched?.etiquetas_personales);
+        const buckets = getCanonicalPopupTags(location, collectionSlugsForLoc, userPreFiltered);
 
-          const renderBucket = (
-            items: string[],
-            cap: number,
-            type: 'classification' | 'thematic' | 'personal',
-            filterType: 'searchTerm' | 'tag',
-          ) => {
-            if (!items.length) return;
-            const visible = items.slice(0, cap);
-            const overflow = items.length - visible.length;
-            const chips = visible.map(t => inlineTagBadge(
-              `#${String(t).replace('#', '').replace(/\s+/g, '')}`,
-              type,
-              { filterType, filterValue: String(t).replace('#', '') },
-            )).join('');
-            const overflowChip = overflow > 0
-              ? `<span title="+${overflow} más" style="padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 500; background: ${COLOR.secondary}; color: ${COLOR.muted};">+${overflow}</span>`
-              : '';
-            parts.push(`<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">${chips}${overflowChip}</div>`);
-          };
+        const familyRows: string[] = [];
 
-          if (!isCuratorPoint) {
-            renderBucket(buckets.taxonomy, POPUP_TAG_CAPS.taxonomy, 'classification', 'searchTerm');
-            renderBucket(buckets.semantic, POPUP_TAG_CAPS.semantic, 'thematic', 'tag');
-            renderBucket(buckets.user, POPUP_TAG_CAPS.user, 'personal', 'tag');
-          }
+        const renderFamilyChips = (
+          items: string[],
+          cap: number,
+          palette: 'classification' | 'thematic' | 'personal' | 'cultural',
+          filterType: 'searchTerm' | 'tag',
+        ) => {
+          if (!items.length) return;
+          const visible = items.slice(0, cap);
+          const chips = visible.map(t => inlineTagBadge(
+            `#${String(t).replace('#', '').replace(/\s+/g, '')}`,
+            palette,
+            { filterType, filterValue: String(t).replace('#', '') },
+          )).join('');
+          familyRows.push(
+            `<div data-tag-family="${palette}" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 8px 4px;">${chips}</div>`,
+          );
+        };
 
-          if (parts.length === 0) return '';
-          return `<div style="margin-bottom: ${CARD.sectionGap}px;">` + parts.join('') + '</div>';
+        if (!isCuratorPoint) {
+          renderFamilyChips(buckets.taxonomy, POPUP_TAG_CAPS.taxonomy, 'classification', 'searchTerm');
+          renderFamilyChips(buckets.semantic, POPUP_TAG_CAPS.semantic, 'thematic', 'tag');
+          renderFamilyChips(buckets.user, POPUP_TAG_CAPS.user, 'personal', 'tag');
         }
 
-        // ── Legacy path (flag OFF, default in prod) ───────────────────────
-        const parts: string[] = [];
+        // Cultural context = 4ª familia. Chip único derivado de
+        // `enriched.cultural_context.type_label` (Wikidata).
+        const cc = (enriched as any)?.cultural_context;
+        if (cc?.type_label) {
+          renderFamilyChips(
+            [String(cc.type_label)],
+            POPUP_TAG_CAPS.cultural,
+            'cultural',
+            'searchTerm',
+          );
+        }
 
-        // Geographic tags
-        if (enriched.etiquetas_geograficas?.length) {
-          parts.push('<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">' +
-            enriched.etiquetas_geograficas.map((tag: string) => 
-              inlineTagBadge(`#${tag.replace('#', '').replace(/\s+/g, '')}`, 'geo', { filterType: 'tag', filterValue: tag.replace('#', '') })
-            ).join('') + '</div>');
-        }
-        
-        // Classification tags
-        if (!isCuratorPoint && enriched.clasificacion?.codigo) {
-          const classTags: string[] = [];
-          if (enriched.clasificacion.categoria_principal) classTags.push(inlineTagBadge(`#${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '').replace(/\s+/g, '')}`, 'classification', { filterType: 'searchTerm', filterValue: enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '') }));
-          if (enriched.clasificacion.subcategoria) classTags.push(inlineTagBadge(`#${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '').replace(/\s+/g, '')}`, 'classification', { filterType: 'searchTerm', filterValue: enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '') }));
-          if (enriched.clasificacion.tipo_especifico) classTags.push(inlineTagBadge(`#${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '').replace(/\s+/g, '')}`, 'classification', { filterType: 'searchTerm', filterValue: enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '') }));
-          if (classTags.length) parts.push('<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">' + classTags.join('') + '</div>');
-        }
-        
-        // Thematic hashtags
-        if (!isCuratorPoint && enriched.etiquetas?.length) {
-          const filteredTags = enriched.etiquetas.filter((tag: string) => !enriched.etiquetas_geograficas?.some((gt: string) => gt.toLowerCase() === tag.toLowerCase()));
-          if (filteredTags.length) {
-            parts.push('<div style="display: flex; gap: 4px; flex-wrap: wrap;">' +
-              filteredTags.map((tag: string) => 
-                inlineTagBadge(`#${tag.replace('#', '').replace(/\s+/g, '')}`, 'thematic', { filterType: 'tag', filterValue: tag.replace('#', '') })
-              ).join('') + '</div>');
-          }
-        }
-        
-        if (parts.length === 0) return '';
-        return `<div style="margin-bottom: ${CARD.sectionGap}px;">` + parts.join('') + '</div>';
+        if (familyRows.length === 0) return '';
+
+        // Separador entre familias (N-1 dividers para N familias).
+        const divider = `<div style="border-top: 1px solid hsl(var(--border) / 0.6); margin: 0 8px;"></div>`;
+        const composed = familyRows.join(divider);
+
+        return `<div data-popup-taxonomy-block="v1" style="margin-bottom: ${CARD.sectionGap}px; text-align: center;">${composed}</div>`;
       }
-      
+
       case 'datos_geograficos':
         if (!enriched.datos_geograficos) return '';
         return (() => {
