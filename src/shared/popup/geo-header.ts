@@ -156,8 +156,9 @@ export function buildTerritorialBreadcrumbHtml(loc: GeoLocation): string {
   if (chips.length === 0) return '';
   // Canonical chips llegan local→global; el breadcrumb es global→local.
   const ordered = [...chips].reverse();
-  const linkBase = 'font-size: 11px; line-height: 1.5; color: hsl(var(--muted-foreground)); text-decoration: none; transition: color 0.15s;';
-  const sepStyle = 'margin: 0 4px; opacity: 0.6; color: hsl(var(--muted-foreground)); font-size: 11px;';
+  const linkBase = 'font-size: 11px; line-height: 1.5; letter-spacing: 0.01em; color: hsl(var(--muted-foreground)); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.15s;';
+  const staticBase = 'font-size: 11px; line-height: 1.5; letter-spacing: 0.01em; color: hsl(var(--muted-foreground));';
+  const sepStyle = 'margin: 0 4px; opacity: 0.45; color: hsl(var(--muted-foreground)); font-size: 11px;';
   const parts: string[] = [];
   ordered.forEach((c, idx) => {
     if (idx > 0) {
@@ -166,13 +167,13 @@ export function buildTerritorialBreadcrumbHtml(loc: GeoLocation): string {
     const v = esc(c.value);
     if (c.filterType) {
       parts.push(
-        `<a href="#" class="filter-link popup-breadcrumb-link" data-filter-type="${c.filterType}" data-filter-value="${v}" data-geo-level="${c.level}" style="${linkBase}" title="Filtrar por ${v}">${v}</a>`
+        `<a href="#" class="filter-link popup-breadcrumb-link" data-filter-type="${c.filterType}" data-filter-value="${v}" data-geo-level="${c.level}" style="${linkBase}" title="Filtrar por ${v}" onmouseover="this.style.borderBottomColor='hsl(var(--muted-foreground) / 0.4)'" onmouseout="this.style.borderBottomColor='transparent'">${v}</a>`
       );
     } else {
       parts.push(
-        `<span data-geo-level="${c.level}" style="${linkBase}">${v}</span>`
+        `<span data-geo-level="${c.level}" style="${staticBase}">${v}</span>`
       );
     }
   });
-  return `<nav data-popup-geo-breadcrumb="1" aria-label="Ubicación" style="display: flex; flex-wrap: wrap; align-items: center; row-gap: 2px;">${parts.join('')}</nav>`;
+  return `<nav data-popup-geo-breadcrumb="1" aria-label="Ubicación" style="display: flex; flex-wrap: wrap; align-items: center; row-gap: 2px; margin-bottom: 6px;">${parts.join('')}</nav>`;
 }

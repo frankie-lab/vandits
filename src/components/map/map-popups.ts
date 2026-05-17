@@ -295,14 +295,14 @@ export function buildCollectionsMetadataSegment(location: GeoLocation): string {
   const nameSpans = inline.map((c) => {
     const safeName = String(c.name ?? '').replace(/"/g, '&quot;');
     const safeId = String(c.id ?? '').replace(/"/g, '&quot;');
-    return `<span class="collection-filter-chip" data-collection-id="${safeId}" data-collection-name="${safeName}" title="Colección: ${safeName}" style="cursor: pointer; text-decoration: none; transition: text-decoration 0.15s;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${safeName}</span>`;
+    return `<span class="collection-filter-chip" data-collection-id="${safeId}" data-collection-name="${safeName}" title="Colección: ${safeName}" style="cursor: pointer; color: hsl(var(--muted-foreground)); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.15s;" onmouseover="this.style.borderBottomColor='hsl(var(--muted-foreground) / 0.4)'" onmouseout="this.style.borderBottomColor='transparent'">${safeName}</span>`;
   }).join(', ');
   let overflowHtml = '';
   if (overflow.length > 0) {
     const overflowNames = overflow.map((c) => String(c.name ?? '')).join(', ').replace(/"/g, '&quot;');
     overflowHtml = ` <span title="${overflowNames}" style="opacity: 0.8;">+${overflow.length}</span>`;
   }
-  return `<span data-popup-collections-meta="${location.id}" style="display: inline-flex; align-items: center; gap: 4px; color: hsl(var(--foreground));">${BOOKMARK_SVG}<span>${nameSpans}${overflowHtml}</span></span>`;
+  return `<span data-popup-collections-meta="${location.id}" style="display: inline-flex; align-items: center; gap: 4px; color: hsl(var(--muted-foreground));"><span>${nameSpans}${overflowHtml}</span></span>`;
 }
 
 // ─── Collection Chips placeholder (P-POPUP-4E: no-op) ──────────────────────
@@ -708,7 +708,7 @@ export function buildOwnEnrichedMetadataLineHtml(location: GeoLocation): string 
       const dd = String(d.getDate()).padStart(2, '0');
       const mm = String(d.getMonth() + 1).padStart(2, '0');
       const yyyy = d.getFullYear();
-      datePart = `Añadido ${dd}/${mm}/${yyyy}`;
+      datePart = `<span style="font-style: italic;">Añadido ${dd}/${mm}/${yyyy}</span>`;
     }
   }
 
@@ -729,11 +729,7 @@ export function buildOwnEnrichedMetadataLineHtml(location: GeoLocation): string 
   const collectionsSeg = buildCollectionsMetadataSegment(location);
   const inner = [datePart, collectionsSeg, viaSegment].filter(Boolean).join(' <span aria-hidden="true">·</span> ');
 
-  return `<div data-popup-own-added="${location.id}"${prov.type ? ` data-popup-source-metadata="${location.id}" data-source-metadata-type="${prov.type}"` : ''} style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 ${CARD.sectionGap}px 0; font-size: 11px; line-height: 1.3; color: hsl(var(--muted-foreground));" title="${prov.type ? 'Añadido a tu red — incluye fuente original' : 'Fecha en que añadiste este punto a tu red'}">
-<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-<circle cx="12" cy="12" r="10"/>
-<polyline points="12 6 12 12 16 14"/>
-</svg>
+  return `<div data-popup-own-added="${location.id}"${prov.type ? ` data-popup-source-metadata="${location.id}" data-source-metadata-type="${prov.type}"` : ''} style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 14px 0; font-size: 11px; line-height: 1.4; color: hsl(var(--muted-foreground));" title="${prov.type ? 'Añadido a tu red — incluye fuente original' : 'Fecha en que añadiste este punto a tu red'}">
 <span>${inner}</span>
 </div>`;
 }
@@ -1325,8 +1321,8 @@ ${buildImageSection(location, enriched, ownershipInfo, visitedState)}
 <div class="popup-scroll-body" style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;">
 <div style="padding: 16px 16px 8px 16px;">
 <!-- Nombre + Badge propiedad -->
-<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
-<h3 style="margin: 0; font-size: ${FONT.title}px; font-weight: 700; color: ${COLOR.foreground}; line-height: 1.3; flex: 1;">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px;">
+<h3 style="margin: 0; font-size: ${FONT.title}px; font-weight: 700; color: ${COLOR.foreground}; line-height: 1.2; letter-spacing: -0.01em; flex: 1;">
 ${locationName || 'Sin nombre'}
 </h3>
 ${(isOwn && isPopupOwnershipStripV1On()) ? '' : ownershipBadgeHtml}
@@ -1438,19 +1434,15 @@ ${(() => {
       case 'punto_destacado':
         if (!enriched.punto_destacado) return '';
         return `
-<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0; background: ${HIGHLIGHT.bgColor}; border-left: ${HIGHLIGHT.borderWidth}px solid ${HIGHLIGHT.borderColor}; padding: ${HIGHLIGHT.padding}; border-radius: ${HIGHLIGHT.borderRadius};">
-  <p style="margin: 0; font-size: ${FONT.body}px; font-weight: 500; color: ${COLOR.foreground}; line-height: 1.45;">${enriched.punto_destacado}</p>
+<div style="clear: both; display: block; margin: 0 0 16px 0; background: ${HIGHLIGHT.bgColor}; border-left: ${HIGHLIGHT.borderWidth}px solid ${HIGHLIGHT.borderColor}; padding: 12px 16px; border-radius: ${HIGHLIGHT.borderRadius};">
+  <p style="margin: 0; font-size: ${FONT.body}px; font-weight: 500; font-style: italic; color: ${COLOR.foreground}; line-height: 1.6;">${enriched.punto_destacado}</p>
 </div>`;
       
       case 'descripcion': {
         const desc = enriched.descripcion
           ? `
-<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0;">
-  <div style="font-size: ${FONT.label}px; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; color: ${COLOR.muted}; margin-bottom: 4px;">Descripción</div>
-  <div class="vandits-description-body">
-    ${descriptionToHtmlParagraphs(enriched.descripcion, `margin: 0 0 8px 0; font-size: ${FONT.body}px; color: ${COLOR.bodyText}; line-height: 1.625;`)}
-  </div>
-  <span style="font-size: ${FONT.charCount}px; color: ${COLOR.muted};">${enriched.descripcion?.length || 0} caracteres</span>
+<div class="vandits-description-body" style="clear: both; display: block; margin: 4px 0 16px 0;">
+  ${descriptionToHtmlParagraphs(enriched.descripcion, `margin: 0 0 12px 0; font-size: ${FONT.body}px; color: ${COLOR.bodyText}; line-height: 1.7; letter-spacing: 0.005em;`)}
 </div>`
           : '';
         // P-POPUP-7A.1 — el switch ya NO compone; el rating se ancla en el composer.
@@ -1460,9 +1452,8 @@ ${(() => {
       case 'observacion':
         if (!enriched.observacion) return '';
         return `
-<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0; background: ${OBSERVATION.bgColor}; padding: ${OBSERVATION.padding}; border-radius: ${OBSERVATION.borderRadius};">
-  <div style="font-size: ${FONT.label}px; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; color: ${COLOR.muted}; margin-bottom: 2px;">Observación</div>
-  <p style="margin: 0; font-size: ${FONT.body}px; color: ${COLOR.obsText}; line-height: 1.5;">${enriched.observacion}</p>
+<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0; background: ${OBSERVATION.bgColor}; padding: 12px 14px; border-radius: ${OBSERVATION.borderRadius};">
+  <p style="margin: 0; font-size: ${FONT.body}px; color: ${COLOR.obsText}; line-height: 1.65;"><span style="font-style: italic; color: ${COLOR.muted}; margin-right: 6px;">Nota:</span>${enriched.observacion}</p>
 </div>`;
       
       case 'etiquetas_personales':
