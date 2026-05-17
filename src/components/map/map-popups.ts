@@ -1340,11 +1340,13 @@ ${isPopupGeoCanonicalV1On()
 <!-- Botón para añadir a colección (solo para puntos de seguidos) -->
 ${addToCollectionBtnHtml}
 
-<!-- Índice IA + Botones de interacción -->
-<div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px; padding: 8px; background: ${tk('hsl(var(--surface-muted))', '#f9fafb')}; border-radius: 8px;">
+<!-- P-POPUP-7A.3 — Cabecera limpia: SOLO warning de validación de visita.
+     El rating IA (enrichmentRating) bajó al slot post-descripción del
+     composer canónico vía buildEnrichmentRatingBlock. -->
 ${!isCuratorPoint ? `
+<div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px;">
 <!-- Warning de validación (oculto por defecto) -->
-<div id="visit-validation-warning-${location.id}" style="display: none; width: 100%; padding: 8px; background: ${tk('hsl(var(--state-warning) / 0.2)', 'linear-gradient(135deg, #fef3c7, #fde68a)')}; border: 1px solid ${tk('hsl(var(--state-warning) / 0.5)', '#fcd34d')}; border-radius: 8px; margin-bottom: 4px;">
+<div id="visit-validation-warning-${location.id}" style="display: none; width: 100%; padding: 8px; background: ${tk('hsl(var(--state-warning) / 0.2)', 'linear-gradient(135deg, #fef3c7, #fde68a)')}; border: 1px solid ${tk('hsl(var(--state-warning) / 0.5)', '#fcd34d')}; border-radius: 8px;">
 <p style="margin: 0 0 4px 0; font-size: 11px; font-weight: 600; color: ${tk('hsl(var(--state-warning))', '#92400e')};">No se puede validar la visita</p>
 <p id="visit-distance-text-${location.id}" style="margin: 0 0 6px 0; font-size: 10px; color: ${tk('hsl(var(--state-warning))', '#a16207')};"></p>
 <div style="font-size: 9px; color: ${tk('hsl(var(--state-warning))', '#78350f')}; border-top: 1px solid ${tk('hsl(var(--state-warning) / 0.5)', '#fcd34d')}; padding-top: 6px;">
@@ -1355,38 +1357,8 @@ ${!isCuratorPoint ? `
 </ul>
 </div>
 </div>
-` : ''}
-
-<div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
-${isCuratorPoint ? `
-<!-- Rating ponderado para puntos de curador -->
-<div 
-class="weighted-rating-container" 
-data-location-id="${location.id}" 
-data-ai-rating="${enriched.indice_interes || 0}"
-style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: ${tk('hsl(var(--state-success) / 0.12)', 'linear-gradient(135deg, #f0fdf4, #dcfce7)')}; border: 1px solid ${tk('hsl(var(--state-success) / 0.4)', '#86efac')}; border-radius: 12px;"
-title="Rating ponderado: 50% IA + 50% Comunidad"
->
-<span style="font-size: 10px; font-weight: 500; color: ${tk('hsl(var(--state-success))', '#166534')};">Valoración</span>
-<span class="weighted-rating-stars" style="display: inline-flex; gap: 1px;">
-${[1, 2, 3, 4, 5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= (enriched.indice_interes || 0) ? tk('hsl(var(--state-success))', '#16a34a') : tk('hsl(var(--surface-border))', '#d1d5db')};">${star <= (enriched.indice_interes || 0) ? '★' : '☆'}</span>`).join('')}
-</span>
-<span class="weighted-rating-value" style="font-size: 10px; font-weight: 600; color: ${tk('hsl(var(--state-success))', '#166534')};">${enriched.indice_interes ? enriched.indice_interes.toFixed(1) : '-'}</span>
-<span class="weighted-rating-breakdown" style="font-size: 9px; color: ${tk('hsl(var(--text-secondary))', '#6b7280')}; display: none;">(IA: ${enriched.indice_interes || '-'} | Com: -)</span>
-</div>
-` : `
-${enriched.indice_interes ? `
-<div style="display: inline-flex; align-items: center; gap: 2px; padding: 3px 8px; background: ${tk('hsl(var(--state-warning) / 0.2)', 'linear-gradient(135deg, #fef3c7, #fde68a)')}; border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés IA'}">
-${[1, 2, 3, 4, 5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= enriched.indice_interes ? tk('hsl(var(--state-warning))', '#b45309') : tk('hsl(var(--surface-border))', '#d1d5db')};">${star <= enriched.indice_interes ? '★' : '☆'}</span>`).join('')}
 </div>
 ` : ''}
-`}
-
-<!-- P-POPUP-7A: Visited + personal rating bajados al slot post-descripción.
-     Aquí permanece SOLO el rating IA (POI metadata, no user state). -->
-
-</div>
-</div>
 
 ${(() => {
   // P-POPUP-3A → own enriched: línea "Añadido dd/mm/yyyy" (sin literal ownership).
