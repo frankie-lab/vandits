@@ -197,3 +197,40 @@ describe('P-POPUP-15 — Paridad de shell entre POI golden y degradado', () => {
     expect(degradedHtml).toContain('data-popup-footer="v1"');
   });
 });
+
+// ─── P-POI-CURATION-1 — Renderer invariance frente a niveles de curación ──
+describe('P-POI-CURATION-1 — los niveles de curación NO bifurcan el renderer', () => {
+  const allHtml = [goldenHtml, degradedHtml, visitedUnratedHtml];
+
+  it('ningún POI emite footer alternativo `v2+`', () => {
+    for (const h of allHtml) {
+      expect(h).not.toMatch(/data-popup-footer="v[2-9]"/);
+    }
+  });
+
+  it('ningún POI introduce wrappers/variantes nuevas alrededor del shell', () => {
+    for (const h of allHtml) {
+      expect(h).not.toContain('data-popup-variant');
+      expect(h).not.toContain('popup-v2-');
+      expect(h).not.toMatch(/class="[^"]*legacy-popup[^"]*"/);
+    }
+  });
+
+  it('todos los markers canónicos siguen presentes (shell único)', () => {
+    // El golden tiene todos los markers; degraded omite breadcrumb por falta
+    // de jerarquía (legítimo).
+    for (const marker of CANON_MARKERS) {
+      expect(goldenHtml).toContain(marker);
+      expect(visitedUnratedHtml).toContain(marker);
+    }
+  });
+
+  it('el único marker nuevo admisible es `data-curation-action` dentro del footer', () => {
+    // El golden (POI-10, rated) NO emite botón principal: estado final.
+    expect(goldenHtml).not.toContain('data-action="curation-primary"');
+    // El visited-unrated (POI-9) sí emite el botón con la acción correcta.
+    expect(visitedUnratedHtml).toContain('data-action="curation-primary"');
+    expect(visitedUnratedHtml).toContain('data-curation-action="rate-experience"');
+  });
+});
+
