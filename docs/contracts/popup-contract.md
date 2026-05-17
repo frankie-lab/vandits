@@ -106,7 +106,73 @@ Marcador estable: contenedor de estrellas de Row 2 lleva siempre
 not-visited, visited-empty, visited-rated, curator, nearby, layout
 label↔stars.
 
+## Golden POI popup (P-POPUP-15)
+
+**Regla**: Todo POI de usuario usa el renderer canónico único
+(`createPopupContent`, shell P-POPUP-13). NO existen variantes visuales
+legacy por estado `enriched` / `no-enriched` / `visited`. La degradación
+ocurre por ausencia de datos (slots vacíos se omiten), nunca por otro
+renderer.
+
+### Referencia canónica
+
+- Fixture: `src/test/fixtures/golden-poi-popup.ts`
+  - `GOLDEN_POI` — POI completo (ejercita los 10 slots editoriales).
+  - `GOLDEN_POI_DEGRADED` — POI sin enriched, sin visited, sin rating.
+  - `GOLDEN_POI_VISITED_UNRATED` — POI visitado sin rating personal.
+- Contrato test: `src/test/popup-golden-poi-contract.test.ts`.
+
+### Slots editoriales (orden inmutable)
+
+1. Hero (imagen)
+2. Título (`enriched.nombre_lugar` o fallback `location.name`)
+3. Breadcrumb territorial (P-POPUP-9, global→local)
+4. Metadata line (collections + source)
+5. Entradilla (`punto_destacado`)
+6. Descripción (`descripcion` o fallback `location.description`)
+7. Ratings (P-POPUP-14.2: Row 1 IA + Row 2 personal state)
+8. Taxonomía editorial (clasificación + etiquetas)
+9. Secundarios discretos (`observacion`, `datos_clave`)
+10. Footer persistente (`data-popup-footer="v1"`)
+
+### Markers canónicos obligatorios
+
+| Marker DOM                                | Significado                              |
+|-------------------------------------------|------------------------------------------|
+| `data-popup-version="geo-canonical-v1"`   | Shell único activo                       |
+| `data-popup-geo-breadcrumb="1"`           | Breadcrumb territorial (si hay jerarquía)|
+| `data-popup-ratings-block="v1"`           | Bloque ratings unificado (siempre)       |
+| `data-popup-footer="v1"`                  | Footer persistente único                 |
+
+### Degradación graciosa
+
+| Dato ausente                    | Efecto                                          |
+|---------------------------------|-------------------------------------------------|
+| `enriched.descripcion`          | Slot descripción se omite (o usa `location.description` si existe). |
+| `enriched.punto_destacado`      | Slot entradilla se omite.                       |
+| `enriched.indice_interes`       | Row 1 del bloque ratings se omite; Row 2 sigue. |
+| `enriched.clasificacion`        | Slot taxonomía se omite.                        |
+| jerarquía geográfica vacía      | Breadcrumb territorial se omite (resto sigue).  |
+| `customData.visited !== 'true'` | Row 2 = `not-visited` (gris, disabled).         |
+
+El shell (markers, footer, bloque ratings, breadcrumb container) sigue
+siendo el mismo.
+
+### Forbidden (golden contract)
+
+- `Ficha IA actualizada` (string legacy).
+- `+N campos más` o variantes (`moreDataCount`).
+- Chips territoriales antiguos (`background: #e0f2fe / #dcfce7 / #f3e8ff`).
+- Gradient verde legacy (`linear-gradient(135deg, #16a34a, #22c55e)`).
+- Borde gris legacy (`border: 1px solid #f0f0f0`).
+- Múltiples `data-popup-footer="v1"` en el mismo popup.
+- Link/barra colapsable `>Valorar<` o `data-personal-rating-state="collapsed"`.
+
+Si en el futuro un POI vuelve a mostrar UI legacy, el contrato golden
+(`src/test/popup-golden-poi-contract.test.ts`) DEBE fallar.
+
 ## Affordance sin hover (mobile/touch) — P-POPUP-10.2
+
 
 Las acciones clicables esenciales del popup (breadcrumb territorial, links de
 colección en la metadata line, filter-links inline) **no pueden depender
