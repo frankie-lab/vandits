@@ -1673,6 +1673,47 @@ ${(() => {
 
 
 })()}
+${(!isEnriched) ? (() => {
+  // P-POPUP-13 — Fallback body (POI sin enriched.descripcion): customData
+  // filtrado renderizado en lenguaje discreto. SIN `+N campos más`, SIN
+  // bordes `#f0f0f0`, SIN eyebrow uppercase agresivo. Mismo registro
+  // tipográfico que el resto del shell canónico.
+  const filteredCustomData = Object.entries(location.customData || {})
+    .filter(([key]) => !['user_image_url', 'user_image_visibility', 'has_notes', 'notes', 'visited', 'user_rating'].includes(key));
+  if (filteredCustomData.length === 0) return '';
+  const rowsHtml = filteredCustomData.map(([key, value]) => `
+<div style="display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid hsl(var(--border) / 0.4);">
+<span style="color: hsl(var(--muted-foreground)); font-size: 12px; min-width: 80px; font-weight: 500;">${key}</span>
+<span style="color: hsl(var(--foreground)); font-size: 12px; flex: 1;">${value}</span>
+</div>`).join('');
+  return `
+<details data-popup-fallback-customdata="v1" style="margin: 8px 16px 12px 16px; border-top: 1px solid hsl(var(--border) / 0.6); padding-top: 8px;">
+<summary style="cursor: pointer; font-size: 11px; color: hsl(var(--muted-foreground)); letter-spacing: 0.02em; padding: 4px 0; list-style: none;">Datos adicionales (${filteredCustomData.length})</summary>
+<div style="margin-top: 6px;">${rowsHtml}</div>
+</details>`;
+})() : ''}
+<!-- Mount point for UnenrichedRecoveryBlock (hydrated by LocationMap on popupopen).
+     Solo se monta si el POI no está enriquecido. -->
+${!isEnriched ? `<div data-recovery-root="${location.id}" style="margin: 0 16px 8px 16px;"></div>` : ''}
+${(() => {
+  const pt = (location.placeType ?? '').toString();
+  const isRouteWaypoint = pt === 'route_waypoint' || pt.startsWith('route_') || location.customData?.is_route_waypoint === 'true';
+  if (!(isOwn && canEditLocation && isRouteWaypoint)) return '';
+  // P-POPUP-13 — Route-waypoint actions en lenguaje muted P-POPUP-11.1
+  // (sin gradient amarillo, sin translateY, sin shadow).
+  const btn = (action: string, label: string, title: string, svg: string, extra: string = '') => `
+<button class="popup-action-btn" data-action="${action}" data-location-id="${location.id}" ${extra}
+style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 30px; padding: 0 8px; background: hsl(var(--muted)); color: hsl(var(--foreground)); border: none; border-radius: 6px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;"
+onmouseover="this.style.background='hsl(var(--muted) / 0.7)'" onmouseout="this.style.background='hsl(var(--muted))'"
+title="${title}">${svg}${label}</button>`;
+  return `
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 16px 8px 16px;">
+${btn('view-nearby', 'Contexto cercano', 'Explorar puntos de interés cercanos', '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/></svg>')}
+${btn('duplicate-point', 'Duplicar', 'Crear una copia de este punto', '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>', `data-location-name="${location.name}"`)}
+${btn('merge-nearby', 'Fusionar', 'Fusionar con un punto cercano', '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/></svg>')}
+${btn('reclassify-type', 'Reclasificar', 'Cambiar el tipo de lugar', '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>')}
+</div>`;
+})()}
 </div>
 </div>
 
