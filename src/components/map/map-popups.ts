@@ -1675,7 +1675,7 @@ ${(() => {
 })()}
 ${(!isEnriched) ? (() => {
   // P-POPUP-13 — Fallback body (POI sin enriched.descripcion): customData
-  // filtrado renderizado en lenguaje discreto. SIN `+N campos más`, SIN
+  // filtrado renderizado en lenguaje discreto. SIN overflow textual, SIN
   // bordes legacy grises, SIN eyebrow uppercase agresivo. Mismo registro
   // tipográfico que el resto del shell canónico.
   const filteredCustomData = Object.entries(location.customData || {})
