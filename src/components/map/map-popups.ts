@@ -295,7 +295,7 @@ export function buildCollectionsMetadataSegment(location: GeoLocation): string {
   const nameSpans = inline.map((c) => {
     const safeName = String(c.name ?? '').replace(/"/g, '&quot;');
     const safeId = String(c.id ?? '').replace(/"/g, '&quot;');
-    return `<span class="collection-filter-chip" data-collection-id="${safeId}" data-collection-name="${safeName}" title="Colección: ${safeName}">${safeName}</span>`;
+    return `<span class="collection-filter-chip" data-collection-id="${safeId}" data-collection-name="${safeName}" title="Coleccion: ${safeName}" style="cursor: pointer; text-decoration: none; transition: text-decoration 0.15s;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${safeName}</span>`;
   }).join(', ');
   let overflowHtml = '';
   if (overflow.length > 0) {
