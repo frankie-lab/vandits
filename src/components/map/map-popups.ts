@@ -445,6 +445,55 @@ export interface PopupOwnership {
   usernameLookup?: (uid: string) => string | null | undefined;
 }
 
+// ─── P-POPUP-7A.3 — Enrichment rating (helper único) ───────────────────
+//
+// Slot semántico `enrichmentRating` del composer canónico. Encapsula las
+// estrellas IA del POI (read-only, propiedad del POI, NO del usuario):
+//   - Curator → weighted-rating-container (verde, 5★ + valor + breakdown).
+//   - No curator con `enriched.indice_interes` → chip ámbar 5★.
+//   - Sin datos → ''.
+//
+// Único origen de HTML de estrellas ligadas a `indice_interes`. Prohibido
+// renderizar `★`/`☆` de `indice_interes` fuera de aquí (guardrail G2).
+// NO contiene `data-action="set-rating"` ni `user_rating` (guardrail G8).
+//
+// Ver `docs/popups/p-popup-7a2-rating-contract.md` y
+// `mem://logic/popup/rating-taxonomy`.
+export function buildEnrichmentRatingBlock(
+  location: GeoLocation,
+  enriched: { indice_interes?: number | null; indice_interes_notas?: string | null } | null | undefined,
+  ownership: { isCuratorPoint: boolean },
+): string {
+  const rating = Number(enriched?.indice_interes ?? 0);
+  const notas = enriched?.indice_interes_notas ?? '';
+  if (ownership.isCuratorPoint) {
+    return `
+<div data-popup-enrichment-rating="${location.id}" style="display: flex; align-items: center; margin: 0 0 ${CARD.sectionGap}px 0;">
+  <div
+    class="weighted-rating-container"
+    data-location-id="${location.id}"
+    data-ai-rating="${rating || 0}"
+    style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: ${tk('hsl(var(--state-success) / 0.12)', 'linear-gradient(135deg, #f0fdf4, #dcfce7)')}; border: 1px solid ${tk('hsl(var(--state-success) / 0.4)', '#86efac')}; border-radius: 12px;"
+    title="Rating ponderado: 50% IA + 50% Comunidad"
+  >
+    <span style="font-size: 10px; font-weight: 500; color: ${tk('hsl(var(--state-success))', '#166534')};">Valoración</span>
+    <span class="weighted-rating-stars" style="display: inline-flex; gap: 1px;">
+      ${[1, 2, 3, 4, 5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= rating ? tk('hsl(var(--state-success))', '#16a34a') : tk('hsl(var(--surface-border))', '#d1d5db')};">${star <= rating ? '★' : '☆'}</span>`).join('')}
+    </span>
+    <span class="weighted-rating-value" style="font-size: 10px; font-weight: 600; color: ${tk('hsl(var(--state-success))', '#166534')};">${rating ? rating.toFixed(1) : '-'}</span>
+    <span class="weighted-rating-breakdown" style="font-size: 9px; color: ${tk('hsl(var(--text-secondary))', '#6b7280')}; display: none;">(IA: ${rating || '-'} | Com: -)</span>
+  </div>
+</div>`;
+  }
+  if (!rating) return '';
+  return `
+<div data-popup-enrichment-rating="${location.id}" style="display: flex; align-items: center; margin: 0 0 ${CARD.sectionGap}px 0;">
+  <div style="display: inline-flex; align-items: center; gap: 2px; padding: 3px 8px; background: ${tk('hsl(var(--state-warning) / 0.2)', 'linear-gradient(135deg, #fef3c7, #fde68a)')}; border-radius: 12px;" title="${notas || 'Índice de interés IA'}">
+    ${[1, 2, 3, 4, 5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= rating ? tk('hsl(var(--state-warning))', '#b45309') : tk('hsl(var(--surface-border))', '#d1d5db')};">${star <= rating ? '★' : '☆'}</span>`).join('')}
+  </div>
+</div>`;
+}
+
 // ─── Source Hashtags (PR-POI-SOURCE-6) ─────────────────────────────────
 // Helper único: emite los hashtags de origen del POI como chips clicables
 // dentro del popup HTML. El click es delegado por `SourceFilterBridge` vía
