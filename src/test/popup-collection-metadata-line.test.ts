@@ -67,6 +67,8 @@ describe('P-POPUP-4E — buildCollectionsMetadataSegment', () => {
     expect(html).toContain('class="collection-filter-chip"');
     expect(html).toContain('data-collection-id="col-abc"');
     expect(html).toContain('data-collection-name="FullTrips"');
+    // P-POPUP-9 — afordancia de link textual discreto (sin chip/badge).
+    expect(html).toContain('cursor: pointer');
   });
 
   it('inline hasta 2 colecciones separadas por ", "', () => {
