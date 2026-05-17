@@ -25,7 +25,7 @@ vi.mock('@/domains/content/lib/personal-tags-filter', () => ({
   filterPersonalTags: (_id: string, tags: string[] | undefined) => tags ?? [],
 }));
 
-import { buildPersonalStateBlock } from '@/components/map/map-popups';
+import { buildPersonalStateBlock, buildEnrichmentRatingBlock } from '@/components/map/map-popups';
 
 const SRC = resolve(__dirname, '../components/map/map-popups.ts');
 const src = readFileSync(SRC, 'utf8');
