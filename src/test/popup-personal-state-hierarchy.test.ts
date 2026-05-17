@@ -197,9 +197,6 @@ describe('P-POPUP-7A — enriched branch upper section no longer has visited tog
 });
 
 describe('P-POPUP-7A.3 — buildEnrichmentRatingBlock', () => {
-  // Re-import lazily to keep the file ergonomic.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { buildEnrichmentRatingBlock } = require('@/components/map/map-popups');
 
   it('returns weighted-rating-container for curator points (even with no rating)', () => {
     const out = buildEnrichmentRatingBlock(poi('a'), { indice_interes: 0 }, { isCuratorPoint: true });
