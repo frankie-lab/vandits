@@ -1297,8 +1297,8 @@ Añadir a mi colección
 ` : '';
 
   // P-POPUP-13 — Renderer único: el shell canónico se aplica a TODOS los
-  // POIs. `enriched` (normalizado a {}) decide qué fragments existen, nunca
-  // qué sistema visual se usa. Sin rama legacy.
+  // POIs. `enriched` normalizado a objeto vacío decide qué fragments existen,
+  // nunca qué sistema visual se usa. Sin rama legacy.
   {
     const localizacionLinks = parseLocalizacionToLinks(enriched.localizacion, location);
     const popupId = `popup-${location.id.slice(0, 8)}`;
