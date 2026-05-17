@@ -105,8 +105,12 @@ function isVisited(loc: GeoLocation | null | undefined): boolean {
 }
 
 /**
- * Resuelve el nivel de curación del POI por prioridad descendente
- * 10 → 9 → 5 → 3 → 1 → 0. Cae al inferior si la combinación no encaja.
+ * Resuelve el nivel de curación del POI.
+ *
+ * Salud objetiva (rings, geoHealth, enrichment) decide PRIMERO. Estado
+ * personal (visited, user_rating) sólo discrimina POI-9 vs POI-10 una
+ * vez que el POI ya es objetivamente sano. "Pendiente de visita" NO es
+ * deuda de salud y NO produce `heal`.
  */
 export function getPoiCurationLevel(loc: GeoLocation | null | undefined): PoiCurationVerdict {
   const safe = (loc ?? null) as GeoLocation | null;
@@ -118,30 +122,28 @@ export function getPoiCurationLevel(loc: GeoLocation | null | undefined): PoiCur
 
   let level: PoiCurationLevel;
 
-  // POI-3 — conflicto geográfico tiene prioridad sobre el camino "enriched
-  // limpio": un POI enriquecido con geoHealth='broken' sigue siendo POI-3.
   if (geo === 'broken') {
+    // POI-3 — conflicto geográfico siempre prevalece (incluso enriched).
     level = 3;
-  } else if (enriched && visited && rated && rings.length === 0 && geo === 'ok') {
-    level = 10;
-  } else if (enriched && visited && !rated && rings.length === 0 && geo === 'ok') {
-    level = 9;
-  } else if (enriched) {
-    // Enriquecido pero con deuda: rings activos, geo partial/stale/empty,
-    // o todavía no visitado.
-    level = 5;
-  } else if (!hasValidatedName(safe)) {
+  } else if (!enriched && !hasValidatedName(safe)) {
     level = 0;
-  } else {
-    // Nombre presente pero geo sin validar/vacía/stale.
+  } else if (!enriched) {
     level = 1;
+  } else if (rings.length > 0 || geo !== 'ok') {
+    // Deuda OBJETIVA: rings activos o geoHealth ∈ {partial, stale_name, empty, null}.
+    level = 5;
+  } else if (visited && rated) {
+    level = 10;
+  } else {
+    // Enriched + sano (rings=[], geo=ok). Visitado o no, sin valoración final.
+    level = 9;
   }
 
   return {
     level,
     healthState: LEVEL_HEALTH[level],
     shareability: LEVEL_SHAREABILITY[level],
-    primaryAction: LEVEL_ACTION[level],
+    primaryAction: resolvePrimaryAction(level, { visited, rated }),
   };
 }
 
