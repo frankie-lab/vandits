@@ -1194,7 +1194,7 @@ box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   const actionButtonsHtml = `
 ${progressBarHtml}
 ${(canEditLocation && !isOwn && !isCuratorPoint) ? adminEditWarning : ''}
-<div style="display: flex; gap: 4px; margin-top: 8px; padding-top: 8px; padding-bottom: 6px; border-top: 1px solid #e5e7eb;">
+<div style="display: flex; gap: 4px;">
 ${isCuratorPoint ? `
 <div style="flex: 2; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 10px; background: #f0fdf4; color: #166534; border: none; border-radius: 4px; font-size: 11px; font-weight: 500;">
 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
