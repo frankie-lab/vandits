@@ -45,7 +45,7 @@ function extractClasificacionCase(src: string): string {
 const src = readFileSync(SRC, 'utf8');
 const body = extractClasificacionCase(src);
 
-describe('P-POPUP-6A — clasificacion block (breadcrumb removed)', () => {
+describe('P-POPUP-6A / P-POPUP-12 — clasificacion block is inert', () => {
   it('no longer reads enriched.clasificacion.codigo', () => {
     expect(body).not.toMatch(/enriched\.clasificacion\?\.codigo/);
     expect(body).not.toMatch(/enriched\.clasificacion\.codigo/);
@@ -60,14 +60,12 @@ describe('P-POPUP-6A — clasificacion block (breadcrumb removed)', () => {
     expect(body).not.toContain('›');
   });
 
-  it('returns "" when there is no cultural_context (no empty container)', () => {
-    // Heuristic: the case body must contain an early-return on missing cc.
-    expect(body).toMatch(/if\s*\(\s*!cc\?\.type_label\s*\)\s*return\s*''/);
-  });
-
-  it('still renders cultural_context.type_label as a Wikidata chip', () => {
-    expect(body).toContain('Wikidata');
-    expect(body).toContain('cc.type_label');
+  it('P-POPUP-12 — case clasificacion is fully inert (returns "")', () => {
+    // The case body must be just a `return '';` — cultural_context migrated
+    // to the taxonomy editorial block in case `etiquetas`.
+    expect(body).toMatch(/return\s*''/);
+    expect(body).not.toContain('cc.type_label');
+    expect(body).not.toContain('Wikidata');
   });
 });
 
