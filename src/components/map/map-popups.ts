@@ -254,21 +254,26 @@ function wrapCollapsibleSection(
   const isCollapsible = sectionCfg?.collapsible ?? false;
   const defaultOpen = sectionCfg?.defaultOpen ?? false;
 
+  // P-POPUP-11 — Secundarios discretos: sin tarjeta, sin fondo, sin borde
+  // completo. Sólo un separador superior fino que actúa como divisor entre
+  // secundarios consecutivos. Padding vertical reducido; nada de chrome tipo
+  // CTA. Mantenemos API y handlers; sólo bajamos peso visual.
+  const sectionGap = Math.round((CARD.sectionGap ?? 8) / 2);
   if (!isCollapsible) {
-    return `<div style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
-      `<div style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; border-bottom: 1px solid ${COLOR.border};">` +
+    return `<div style="border-top: 1px solid hsl(var(--border) / 0.6); margin-bottom: ${sectionGap}px;">` +
+      `<div style="display: flex; align-items: center; gap: 6px; padding: 6px 0;">` +
         headerHtml +
       '</div>' +
       bodyHtml +
     '</div>';
   }
 
-  return `<details${defaultOpen ? ' open' : ''} style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
-    `<summary style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; cursor: pointer; list-style: none; user-select: none;">` +
+  return `<details${defaultOpen ? ' open' : ''} style="border-top: 1px solid hsl(var(--border) / 0.6); margin-bottom: ${sectionGap}px;">` +
+    `<summary style="display: flex; align-items: center; gap: 6px; padding: 6px 0; background: transparent; cursor: pointer; list-style: none; user-select: none;">` +
       headerHtml +
       `<span style="font-size: 10px; color: ${COLOR.muted}; transition: transform 0.2s;">▶</span>` +
     '</summary>' +
-    `<div style="border-top: 1px solid ${COLOR.border};">` + bodyHtml + '</div>' +
+    `<div>` + bodyHtml + '</div>' +
   '</details>';
 }
 
