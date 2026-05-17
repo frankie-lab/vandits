@@ -58,3 +58,14 @@ Garantizar que **a lo sumo un popup** está abierto, que su marker no se desmont
 - ADR-0001 (popupclose centralization)
 - mem://logic/map/popup-persist-on-rebuild
 - Código: `src/components/LocationMap.tsx` líneas ~684, ~1436-1446, ~1616-1618, ~1660-1714, ~1801-1803, ~1885
+
+## Affordance sin hover (mobile/touch) — P-POPUP-10.2
+
+Las acciones clicables esenciales del popup (breadcrumb territorial, links de
+colección en la metadata line, filter-links inline) **no pueden depender
+únicamente de hover** para comunicar interactividad. Deben mantener una señal
+visible por defecto — underline sutil persistente (`border-bottom 1px
+hsl(var(--muted-foreground) / 0.35)`) o equivalente. Hover y `:focus-visible`
+pueden reforzar la señal, nunca sustituirla. Aplica a touch y a accesibilidad
+por teclado. Norma transversal: cualquier nuevo link clicable dentro del popup
+debe cumplirla.

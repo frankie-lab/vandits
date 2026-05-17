@@ -295,7 +295,7 @@ export function buildCollectionsMetadataSegment(location: GeoLocation): string {
   const nameSpans = inline.map((c) => {
     const safeName = String(c.name ?? '').replace(/"/g, '&quot;');
     const safeId = String(c.id ?? '').replace(/"/g, '&quot;');
-    return `<span class="collection-filter-chip" data-collection-id="${safeId}" data-collection-name="${safeName}" title="Colección: ${safeName}" style="cursor: pointer; color: hsl(var(--muted-foreground)); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.15s;" onmouseover="this.style.borderBottomColor='hsl(var(--muted-foreground) / 0.4)'" onmouseout="this.style.borderBottomColor='transparent'">${safeName}</span>`;
+    return `<span class="collection-filter-chip" data-collection-id="${safeId}" data-collection-name="${safeName}" title="Colección: ${safeName}" style="cursor: pointer; color: hsl(var(--muted-foreground)); text-decoration: none; border-bottom: 1px solid hsl(var(--muted-foreground) / 0.35); transition: border-color 0.15s;" onmouseover="this.style.borderBottomColor='hsl(var(--muted-foreground) / 0.7)'" onmouseout="this.style.borderBottomColor='hsl(var(--muted-foreground) / 0.35)'">${safeName}</span>`;
   }).join(', ');
   let overflowHtml = '';
   if (overflow.length > 0) {
@@ -729,7 +729,7 @@ export function buildOwnEnrichedMetadataLineHtml(location: GeoLocation): string 
   const collectionsSeg = buildCollectionsMetadataSegment(location);
   const inner = [datePart, collectionsSeg, viaSegment].filter(Boolean).join(' <span aria-hidden="true">·</span> ');
 
-  return `<div data-popup-own-added="${location.id}"${prov.type ? ` data-popup-source-metadata="${location.id}" data-source-metadata-type="${prov.type}"` : ''} style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 14px 0; font-size: 11px; line-height: 1.4; color: hsl(var(--muted-foreground));" title="${prov.type ? 'Añadido a tu red — incluye fuente original' : 'Fecha en que añadiste este punto a tu red'}">
+  return `<div data-popup-own-added="${location.id}"${prov.type ? ` data-popup-source-metadata="${location.id}" data-source-metadata-type="${prov.type}"` : ''} style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 10px 0; font-size: 11px; line-height: 1.4; color: hsl(var(--muted-foreground));" title="${prov.type ? 'Añadido a tu red — incluye fuente original' : 'Fecha en que añadiste este punto a tu red'}">
 <span>${inner}</span>
 </div>`;
 }
@@ -1321,7 +1321,7 @@ ${buildImageSection(location, enriched, ownershipInfo, visitedState)}
 <div class="popup-scroll-body" style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;">
 <div style="padding: 16px 16px 8px 16px;">
 <!-- Nombre + Badge propiedad -->
-<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px;">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
 <h3 style="margin: 0; font-size: ${FONT.title}px; font-weight: 700; color: ${COLOR.foreground}; line-height: 1.2; letter-spacing: -0.01em; flex: 1;">
 ${locationName || 'Sin nombre'}
 </h3>
@@ -1331,7 +1331,7 @@ ${(isOwn && isPopupOwnershipStripV1On()) ? '' : ownershipBadgeHtml}
 <!-- P-POPUP-9 — Territorial breadcrumb (global→local) sustituye chips azules.
      Fallback legacy: localizacionLinks italic cuando el flag canonico esta off. -->
 ${isPopupGeoCanonicalV1On()
-  ? `<div style="margin: 0 0 12px 0;">${buildTerritorialBreadcrumbHtml(location)}</div>`
+  ? `<div style="margin: 0 0 4px 0;">${buildTerritorialBreadcrumbHtml(location)}</div>`
   : `<p style="margin: 0 0 12px 0; font-size: ${FONT.subtitle}px; line-height: 1.4; color: ${COLOR.muted}; font-style: italic;">${localizacionLinks}</p>`}
 
 <!-- Botón para añadir a colección (solo para puntos de seguidos) -->
@@ -1434,8 +1434,8 @@ ${(() => {
       case 'punto_destacado':
         if (!enriched.punto_destacado) return '';
         return `
-<div style="clear: both; display: block; margin: 0 0 20px 0; background: transparent; border-left: ${HIGHLIGHT.borderWidth}px solid ${HIGHLIGHT.borderColor}; padding: 4px 0 4px 16px;">
-  <p style="margin: 0; font-family: Georgia, Charter, 'Iowan Old Style', 'Palatino Linotype', serif; font-size: 15px; font-weight: 500; color: ${COLOR.foreground}; line-height: 1.75; letter-spacing: normal;">${enriched.punto_destacado}</p>
+<div style="clear: both; display: block; margin: 0 0 16px 0; background: transparent; border-left: ${HIGHLIGHT.borderWidth}px solid ${HIGHLIGHT.borderColor}; padding: 4px 0 4px 16px;">
+  <p style="margin: 0; font-family: Georgia, Charter, 'Iowan Old Style', 'Palatino Linotype', serif; font-size: 14px; font-weight: 500; color: ${COLOR.foreground}; line-height: 1.6; letter-spacing: normal;">${enriched.punto_destacado}</p>
 </div>`;
       
       case 'descripcion': {
