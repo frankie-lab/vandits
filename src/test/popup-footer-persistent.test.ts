@@ -88,7 +88,7 @@ describe('P-POPUP-11.1 — footer hierarchy refinement', () => {
   });
 
   it('Pie informativo "Enriquecido ·" centrado y muted', () => {
-    const idx = POPUPS_SRC.indexOf('Enriquecido ·');
+    const idx = POPUPS_SRC.lastIndexOf('Enriquecido ·');
     expect(idx).toBeGreaterThan(-1);
     const before = POPUPS_SRC.slice(Math.max(0, idx - 400), idx);
     expect(before).toMatch(/text-align:\s*center/);
