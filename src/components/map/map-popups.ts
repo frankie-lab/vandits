@@ -1401,7 +1401,9 @@ ${(() => {
   // `✓ Visitado` cuando el overlay sobre la hero está activo.
   const heroOverlayActive = visitedState.showHeroOverlay;
   const personalStateCtx = { isOwn, isCuratorPoint, canEditLocation, heroOverlayActive };
-  const ratingFragment = buildPersonalStateBlock(location, personalStateCtx);
+  // P-POPUP-7A.3 — slots semánticos disjuntos (composer canónico).
+  const enrichmentRatingFragment = buildEnrichmentRatingBlock(location, enriched, { isCuratorPoint });
+  const personalStateFragment = buildPersonalStateBlock(location, personalStateCtx);
 
   // Claves cuya posición decide el composer canónico (NO `field_order`).
   const CANONICAL_KEYS = new Set(['descripcion', 'observacion']);
