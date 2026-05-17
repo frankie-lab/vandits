@@ -1650,8 +1650,8 @@ ${(() => {
   const fragments = new Map<string, string>();
   for (const k of orderedKeys) fragments.set(k, renderFragment(k));
 
-  const descFragment = fragments.get('descripcion') ?? '';
-  const obsFragment = fragments.get('observacion') ?? '';
+
+
 
   // P-POPUP-7A.3 — Anclaje del bloque canónico (tripleta extendida):
   //     description → enrichmentRating → userPersonalState → observation
