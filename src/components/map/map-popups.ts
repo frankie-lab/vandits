@@ -708,7 +708,7 @@ export function buildOwnEnrichedMetadataLineHtml(location: GeoLocation): string 
       const dd = String(d.getDate()).padStart(2, '0');
       const mm = String(d.getMonth() + 1).padStart(2, '0');
       const yyyy = d.getFullYear();
-      datePart = `Añadido ${dd}/${mm}/${yyyy}`;
+      datePart = `<span style="font-style: italic;">Añadido ${dd}/${mm}/${yyyy}</span>`;
     }
   }
 
@@ -729,11 +729,7 @@ export function buildOwnEnrichedMetadataLineHtml(location: GeoLocation): string 
   const collectionsSeg = buildCollectionsMetadataSegment(location);
   const inner = [datePart, collectionsSeg, viaSegment].filter(Boolean).join(' <span aria-hidden="true">·</span> ');
 
-  return `<div data-popup-own-added="${location.id}"${prov.type ? ` data-popup-source-metadata="${location.id}" data-source-metadata-type="${prov.type}"` : ''} style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 ${CARD.sectionGap}px 0; font-size: 11px; line-height: 1.3; color: hsl(var(--muted-foreground));" title="${prov.type ? 'Añadido a tu red — incluye fuente original' : 'Fecha en que añadiste este punto a tu red'}">
-<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-<circle cx="12" cy="12" r="10"/>
-<polyline points="12 6 12 12 16 14"/>
-</svg>
+  return `<div data-popup-own-added="${location.id}"${prov.type ? ` data-popup-source-metadata="${location.id}" data-source-metadata-type="${prov.type}"` : ''} style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 14px 0; font-size: 11px; line-height: 1.4; color: hsl(var(--muted-foreground));" title="${prov.type ? 'Añadido a tu red — incluye fuente original' : 'Fecha en que añadiste este punto a tu red'}">
 <span>${inner}</span>
 </div>`;
 }
