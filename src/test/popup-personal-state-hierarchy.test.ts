@@ -25,7 +25,7 @@ vi.mock('@/domains/content/lib/personal-tags-filter', () => ({
   filterPersonalTags: (_id: string, tags: string[] | undefined) => tags ?? [],
 }));
 
-import { buildPersonalStateBlock } from '@/components/map/map-popups';
+import { buildPersonalStateBlock, buildEnrichmentRatingBlock } from '@/components/map/map-popups';
 
 const SRC = resolve(__dirname, '../components/map/map-popups.ts');
 const src = readFileSync(SRC, 'utf8');
@@ -137,19 +137,99 @@ describe('P-POPUP-7A — enriched branch upper section no longer has visited tog
     const upper = lines.slice(startIdx, descIdx).join('\n');
     expect(upper).not.toContain('data-action="toggle-visited"');
     expect(upper).not.toContain('data-action="set-rating"');
+    // P-POPUP-7A.3 — G1: enrichmentRating NO vive en cabecera.
+    expect(upper).not.toContain('weighted-rating-container');
+    expect(upper).not.toContain('data-ai-rating');
+    expect(upper).not.toMatch(/enriched\.indice_interes\s*\?/);
   });
 
-  it('P-POPUP-7A.1 — switch produces fragments only; canonical composer anchors rating', () => {
-    // El switch (case 'descripcion') ya NO compone: devuelve sólo `desc`.
+  it('P-POPUP-7A.3 — composer declares disjoint slots (enrichmentRating + personalState)', () => {
     expect(src).toMatch(/case 'descripcion':[\s\S]{0,800}return desc;\s*\}/);
-    // El composer canónico existe y declara la tripleta congelada.
     expect(src).toContain("CANONICAL_KEYS = new Set(['descripcion', 'observacion'])");
-    expect(src).toContain('descFragment + ratingFragment + obsFragment');
-    expect(src).toContain('descFragment + ratingFragment');
-    expect(src).toContain('ratingFragment + obsFragment');
-    // Y los fallbacks históricos quedan documentados (rating al final si no
-    // hay ninguna canonical key configurada).
-    expect(src).toMatch(/firstCanonicalIdx === -1[\s\S]{0,200}composed\.push\(ratingFragment\)/);
+    // Slots disjuntos: enrichmentRating y userPersonalState declarados por separado.
+    expect(src).toContain('buildEnrichmentRatingBlock(location, enriched, { isCuratorPoint })');
+    expect(src).toContain('const enrichmentRatingFragment = buildEnrichmentRatingBlock');
+    expect(src).toContain('const personalStateFragment = buildPersonalStateBlock');
+    // No queda el nombre ambiguo legacy `ratingFragment` en el composer.
+    expect(src).not.toMatch(/\bratingFragment\b/);
+    // Tripleta canónica extendida con orden congelado 1→2→3→4.
+    expect(src).toContain('[descFragment, enrichmentRatingFragment, personalStateFragment, obsFragment]');
+    // Fallback: cuando no hay claves canónicas configuradas, ambos slots
+    // semánticos se anclan al final, en orden.
+    expect(src).toMatch(/firstCanonicalIdx === -1[\s\S]{0,300}composed\.push\(enrichmentRatingFragment, personalStateFragment\)/);
+  });
+
+  it('P-POPUP-7A.3 — G2: indice_interes stars exist only inside buildEnrichmentRatingBlock', () => {
+    const lines = src.split('\n');
+    const startIdx = lines.findIndex((l) => l.includes('export function buildEnrichmentRatingBlock'));
+    expect(startIdx).toBeGreaterThan(0);
+    const endIdx = lines.findIndex((l, i) => i > startIdx && /^export function /.test(l));
+    expect(endIdx).toBeGreaterThan(startIdx);
+    const stripComments = (slice: string[]) =>
+      slice.filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+    const before = stripComments(lines.slice(0, startIdx));
+    const after = stripComments(lines.slice(endIdx));
+    expect(before).not.toContain('weighted-rating-container');
+    expect(after).not.toContain('weighted-rating-container');
+    expect(after).not.toMatch(/\$\{[^}]*indice_interes[^}]*\}[^]{0,80}[\u2605\u2606]/);
+  });
+
+  it('P-POPUP-7A.3 — G8: helpers no comparten datos del concepto contrario', () => {
+    const lines = src.split('\n');
+    // Filtra líneas de comentario para no contaminar con bloques doc del
+    // siguiente helper (que mencionan ambos conceptos a propósito).
+    const stripComments = (slice: string[]) =>
+      slice.filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+    // buildEnrichmentRatingBlock no toca user state.
+    const eStart = lines.findIndex((l) => l.includes('export function buildEnrichmentRatingBlock'));
+    const eEnd = lines.findIndex((l, i) => i > eStart && /^export function /.test(l));
+    const enrichBody = stripComments(lines.slice(eStart, eEnd));
+    expect(enrichBody).not.toContain('data-action="set-rating"');
+    expect(enrichBody).not.toContain('data-action="clear-rating"');
+    expect(enrichBody).not.toContain('user_rating');
+    expect(enrichBody).not.toContain('data-personal-rating-state');
+    // buildPersonalStateBlock no toca enrichment rating.
+    const pStart = lines.findIndex((l) => l.includes('export function buildPersonalStateBlock'));
+    const pEnd = lines.findIndex((l, i) => i > pStart && /^export function /.test(l));
+    const personalBody = stripComments(lines.slice(pStart, pEnd));
+    expect(personalBody).not.toContain('weighted-rating-container');
+    expect(personalBody).not.toContain('data-ai-rating');
+    expect(personalBody).not.toContain('indice_interes');
+  });
+});
+
+describe('P-POPUP-7A.3 — buildEnrichmentRatingBlock', () => {
+
+  it('returns weighted-rating-container for curator points (even with no rating)', () => {
+    const out = buildEnrichmentRatingBlock(poi('a'), { indice_interes: 0 }, { isCuratorPoint: true });
+    expect(out).toContain('class="weighted-rating-container"');
+    expect(out).toContain('data-ai-rating="0"');
+  });
+
+  it('returns amber chip with 5 stars when non-curator has indice_interes', () => {
+    const out = buildEnrichmentRatingBlock(poi('a'), { indice_interes: 3 }, { isCuratorPoint: false });
+    expect(out).toContain('data-popup-enrichment-rating="a"');
+    const filled = (out.match(/\u2605/g) ?? []).length;
+    const empty = (out.match(/\u2606/g) ?? []).length;
+    expect(filled).toBe(3);
+    expect(empty).toBe(2);
+  });
+
+  it('returns "" for non-curator without indice_interes', () => {
+    expect(buildEnrichmentRatingBlock(poi('a'), null, { isCuratorPoint: false })).toBe('');
+    expect(buildEnrichmentRatingBlock(poi('a'), { indice_interes: 0 }, { isCuratorPoint: false })).toBe('');
+  });
+
+  it('G9 — no stars rendered above description in composer output (structural)', () => {
+    // Validación estructural: en `map-popups.ts` no aparece ningún ★/☆ entre
+    // `if (isEnriched && enriched) {` y `case 'descripcion'` (la cabecera).
+    const lines = src.split('\n');
+    const startIdx = lines.findIndex((l) => l.includes('if (isEnriched && enriched) {'));
+    const descIdx = lines.findIndex(
+      (l, i) => i > startIdx && l.includes("case 'descripcion'"),
+    );
+    const upper = lines.slice(startIdx, descIdx).join('\n');
+    expect(upper).not.toMatch(/[\u2605\u2606]/);
   });
 });
 

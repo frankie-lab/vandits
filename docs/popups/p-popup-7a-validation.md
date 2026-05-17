@@ -212,3 +212,29 @@ fields arbitrarios:
 bloque atómico. Ningún `field_order` puede colar nada entre los slots
 1-4. `enrichmentRating` y `userPersonalState` son slots disjuntos —
 prohibido un `ratingFragment` genérico en el composer.
+
+---
+
+## 7A.3 — Ratificación (implementación)
+
+Contrato 7A.2 implementado en `src/components/map/map-popups.ts`:
+
+- Nuevo helper único `buildEnrichmentRatingBlock(location, enriched, { isCuratorPoint })` — única fuente de HTML de estrellas IA. Cubre curator (`weighted-rating-container` verde) y no-curator (chip ámbar `indice_interes`).
+- Cabecera del body enriched limpia: ya no contiene `weighted-rating-container`, `data-ai-rating`, ni el chip ámbar inline. Sólo conserva el warning de validación de visita cuando `!isCuratorPoint`.
+- Composer canónico ordena cuatro slots semánticos disjuntos en orden inmutable 1→2→3→4:
+  ```
+  description → enrichmentRating → userPersonalState → observation → secondaryFields
+  ```
+- Variables del composer renombradas a slots explícitos: `enrichmentRatingFragment`, `personalStateFragment`. Eliminado el nombre ambiguo legacy `ratingFragment`.
+- Reducciones por filtro `[descFragment, enrichmentRatingFragment, personalStateFragment, obsFragment].filter(Boolean)`.
+- Fallback (sin claves canónicas en `orderedKeys`): ambos slots semánticos al final, en orden.
+
+Guardrails verdes (`src/test/popup-personal-state-hierarchy.test.ts`, 17 tests):
+
+- G1 — la cabecera no contiene `weighted-rating-container` ni `data-ai-rating` ni `enriched.indice_interes ?` inline.
+- G2 — `weighted-rating-container` aparece exclusivamente dentro de `buildEnrichmentRatingBlock` (scan estático con strip de comentarios).
+- G8 — `buildEnrichmentRatingBlock` no contiene `set-rating`/`clear-rating`/`user_rating`/`data-personal-rating-state`; `buildPersonalStateBlock` no contiene `weighted-rating-container`/`data-ai-rating`/`indice_interes`.
+- G9 — entre `if (isEnriched && enriched) {` y `case 'descripcion'` no aparece ningún `★`/`☆`.
+- Composer — declara `enrichmentRatingFragment` y `personalStateFragment` por separado, tripleta extendida explícita y fallback documentado. Eliminado `ratingFragment` ambiguo.
+
+Resultado: 7A.1 y 7A.2 quedan **ratificados** por 7A.3. La preview del popup muestra estrellas IA debajo de Descripción, `Valorar` debajo de las estrellas IA, y Observación debajo de ambos.

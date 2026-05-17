@@ -445,6 +445,55 @@ export interface PopupOwnership {
   usernameLookup?: (uid: string) => string | null | undefined;
 }
 
+// ─── P-POPUP-7A.3 — Enrichment rating (helper único) ───────────────────
+//
+// Slot semántico `enrichmentRating` del composer canónico. Encapsula las
+// estrellas IA del POI (read-only, propiedad del POI, NO del usuario):
+//   - Curator → weighted-rating-container (verde, 5★ + valor + breakdown).
+//   - No curator con `enriched.indice_interes` → chip ámbar 5★.
+//   - Sin datos → ''.
+//
+// Único origen de HTML de estrellas ligadas a `indice_interes`. Prohibido
+// renderizar `★`/`☆` de `indice_interes` fuera de aquí (guardrail G2).
+// NO contiene `data-action="set-rating"` ni `user_rating` (guardrail G8).
+//
+// Ver `docs/popups/p-popup-7a2-rating-contract.md` y
+// `mem://logic/popup/rating-taxonomy`.
+export function buildEnrichmentRatingBlock(
+  location: GeoLocation,
+  enriched: { indice_interes?: number | null; indice_interes_notas?: string | null } | null | undefined,
+  ownership: { isCuratorPoint: boolean },
+): string {
+  const rating = Number(enriched?.indice_interes ?? 0);
+  const notas = enriched?.indice_interes_notas ?? '';
+  if (ownership.isCuratorPoint) {
+    return `
+<div data-popup-enrichment-rating="${location.id}" style="display: flex; align-items: center; margin: 0 0 ${CARD.sectionGap}px 0;">
+  <div
+    class="weighted-rating-container"
+    data-location-id="${location.id}"
+    data-ai-rating="${rating || 0}"
+    style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: ${tk('hsl(var(--state-success) / 0.12)', 'linear-gradient(135deg, #f0fdf4, #dcfce7)')}; border: 1px solid ${tk('hsl(var(--state-success) / 0.4)', '#86efac')}; border-radius: 12px;"
+    title="Rating ponderado: 50% IA + 50% Comunidad"
+  >
+    <span style="font-size: 10px; font-weight: 500; color: ${tk('hsl(var(--state-success))', '#166534')};">Valoración</span>
+    <span class="weighted-rating-stars" style="display: inline-flex; gap: 1px;">
+      ${[1, 2, 3, 4, 5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= rating ? tk('hsl(var(--state-success))', '#16a34a') : tk('hsl(var(--surface-border))', '#d1d5db')};">${star <= rating ? '★' : '☆'}</span>`).join('')}
+    </span>
+    <span class="weighted-rating-value" style="font-size: 10px; font-weight: 600; color: ${tk('hsl(var(--state-success))', '#166534')};">${rating ? rating.toFixed(1) : '-'}</span>
+    <span class="weighted-rating-breakdown" style="font-size: 9px; color: ${tk('hsl(var(--text-secondary))', '#6b7280')}; display: none;">(IA: ${rating || '-'} | Com: -)</span>
+  </div>
+</div>`;
+  }
+  if (!rating) return '';
+  return `
+<div data-popup-enrichment-rating="${location.id}" style="display: flex; align-items: center; margin: 0 0 ${CARD.sectionGap}px 0;">
+  <div style="display: inline-flex; align-items: center; gap: 2px; padding: 3px 8px; background: ${tk('hsl(var(--state-warning) / 0.2)', 'linear-gradient(135deg, #fef3c7, #fde68a)')}; border-radius: 12px;" title="${notas || 'Índice de interés IA'}">
+    ${[1, 2, 3, 4, 5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= rating ? tk('hsl(var(--state-warning))', '#b45309') : tk('hsl(var(--surface-border))', '#d1d5db')};">${star <= rating ? '★' : '☆'}</span>`).join('')}
+  </div>
+</div>`;
+}
+
 // ─── Source Hashtags (PR-POI-SOURCE-6) ─────────────────────────────────
 // Helper único: emite los hashtags de origen del POI como chips clicables
 // dentro del popup HTML. El click es delegado por `SourceFilterBridge` vía
@@ -1291,11 +1340,13 @@ ${isPopupGeoCanonicalV1On()
 <!-- Botón para añadir a colección (solo para puntos de seguidos) -->
 ${addToCollectionBtnHtml}
 
-<!-- Índice IA + Botones de interacción -->
-<div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px; padding: 8px; background: ${tk('hsl(var(--surface-muted))', '#f9fafb')}; border-radius: 8px;">
+<!-- P-POPUP-7A.3 — Cabecera limpia: SOLO warning de validación de visita.
+     El rating IA (enrichmentRating) bajó al slot post-descripción del
+     composer canónico vía buildEnrichmentRatingBlock. -->
 ${!isCuratorPoint ? `
+<div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px;">
 <!-- Warning de validación (oculto por defecto) -->
-<div id="visit-validation-warning-${location.id}" style="display: none; width: 100%; padding: 8px; background: ${tk('hsl(var(--state-warning) / 0.2)', 'linear-gradient(135deg, #fef3c7, #fde68a)')}; border: 1px solid ${tk('hsl(var(--state-warning) / 0.5)', '#fcd34d')}; border-radius: 8px; margin-bottom: 4px;">
+<div id="visit-validation-warning-${location.id}" style="display: none; width: 100%; padding: 8px; background: ${tk('hsl(var(--state-warning) / 0.2)', 'linear-gradient(135deg, #fef3c7, #fde68a)')}; border: 1px solid ${tk('hsl(var(--state-warning) / 0.5)', '#fcd34d')}; border-radius: 8px;">
 <p style="margin: 0 0 4px 0; font-size: 11px; font-weight: 600; color: ${tk('hsl(var(--state-warning))', '#92400e')};">No se puede validar la visita</p>
 <p id="visit-distance-text-${location.id}" style="margin: 0 0 6px 0; font-size: 10px; color: ${tk('hsl(var(--state-warning))', '#a16207')};"></p>
 <div style="font-size: 9px; color: ${tk('hsl(var(--state-warning))', '#78350f')}; border-top: 1px solid ${tk('hsl(var(--state-warning) / 0.5)', '#fcd34d')}; padding-top: 6px;">
@@ -1306,38 +1357,8 @@ ${!isCuratorPoint ? `
 </ul>
 </div>
 </div>
-` : ''}
-
-<div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
-${isCuratorPoint ? `
-<!-- Rating ponderado para puntos de curador -->
-<div 
-class="weighted-rating-container" 
-data-location-id="${location.id}" 
-data-ai-rating="${enriched.indice_interes || 0}"
-style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: ${tk('hsl(var(--state-success) / 0.12)', 'linear-gradient(135deg, #f0fdf4, #dcfce7)')}; border: 1px solid ${tk('hsl(var(--state-success) / 0.4)', '#86efac')}; border-radius: 12px;"
-title="Rating ponderado: 50% IA + 50% Comunidad"
->
-<span style="font-size: 10px; font-weight: 500; color: ${tk('hsl(var(--state-success))', '#166534')};">Valoración</span>
-<span class="weighted-rating-stars" style="display: inline-flex; gap: 1px;">
-${[1, 2, 3, 4, 5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= (enriched.indice_interes || 0) ? tk('hsl(var(--state-success))', '#16a34a') : tk('hsl(var(--surface-border))', '#d1d5db')};">${star <= (enriched.indice_interes || 0) ? '★' : '☆'}</span>`).join('')}
-</span>
-<span class="weighted-rating-value" style="font-size: 10px; font-weight: 600; color: ${tk('hsl(var(--state-success))', '#166534')};">${enriched.indice_interes ? enriched.indice_interes.toFixed(1) : '-'}</span>
-<span class="weighted-rating-breakdown" style="font-size: 9px; color: ${tk('hsl(var(--text-secondary))', '#6b7280')}; display: none;">(IA: ${enriched.indice_interes || '-'} | Com: -)</span>
-</div>
-` : `
-${enriched.indice_interes ? `
-<div style="display: inline-flex; align-items: center; gap: 2px; padding: 3px 8px; background: ${tk('hsl(var(--state-warning) / 0.2)', 'linear-gradient(135deg, #fef3c7, #fde68a)')}; border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés IA'}">
-${[1, 2, 3, 4, 5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= enriched.indice_interes ? tk('hsl(var(--state-warning))', '#b45309') : tk('hsl(var(--surface-border))', '#d1d5db')};">${star <= enriched.indice_interes ? '★' : '☆'}</span>`).join('')}
 </div>
 ` : ''}
-`}
-
-<!-- P-POPUP-7A: Visited + personal rating bajados al slot post-descripción.
-     Aquí permanece SOLO el rating IA (POI metadata, no user state). -->
-
-</div>
-</div>
 
 ${(() => {
   // P-POPUP-3A → own enriched: línea "Añadido dd/mm/yyyy" (sin literal ownership).
@@ -1380,7 +1401,9 @@ ${(() => {
   // `✓ Visitado` cuando el overlay sobre la hero está activo.
   const heroOverlayActive = visitedState.showHeroOverlay;
   const personalStateCtx = { isOwn, isCuratorPoint, canEditLocation, heroOverlayActive };
-  const ratingFragment = buildPersonalStateBlock(location, personalStateCtx);
+  // P-POPUP-7A.3 — slots semánticos disjuntos (composer canónico).
+  const enrichmentRatingFragment = buildEnrichmentRatingBlock(location, enriched, { isCuratorPoint });
+  const personalStateFragment = buildPersonalStateBlock(location, personalStateCtx);
 
   // Claves cuya posición decide el composer canónico (NO `field_order`).
   const CANONICAL_KEYS = new Set(['descripcion', 'observacion']);
@@ -1627,35 +1650,36 @@ ${(() => {
   const fragments = new Map<string, string>();
   for (const k of orderedKeys) fragments.set(k, renderFragment(k));
 
+
+
   const descFragment = fragments.get('descripcion') ?? '';
   const obsFragment = fragments.get('observacion') ?? '';
 
-  // Anclaje del rating:
-  //   - desc + obs → desc + rating + obs
-  //   - desc       → desc + rating
-  //   - obs        → rating + obs
-  //   - ninguna    → rating al final (fallback histórico)
-  let canonicalBlock = '';
-  if (descFragment && obsFragment) {
-    canonicalBlock = descFragment + ratingFragment + obsFragment;
-  } else if (descFragment) {
-    canonicalBlock = descFragment + ratingFragment;
-  } else if (obsFragment) {
-    canonicalBlock = ratingFragment + obsFragment;
-  }
+
+  // P-POPUP-7A.3 — Anclaje del bloque canónico (tripleta extendida):
+  //     description → enrichmentRating → userPersonalState → observation
+  //   Reducciones (compactar adyacentes preservando orden 1→2→3→4):
+  //     - desc + enrich + personal + obs  → 1+2+3+4
+  //     - desc + obs                       → 1   +4   (enrich/personal vacíos)
+  //     - sólo obs                         → 2+3+4 (enrich/personal antes)
+  //     - sólo desc                        → 1+2+3
+  //     - ninguna desc/obs                 → 2+3 (fallback)
+  const canonicalParts = [descFragment, enrichmentRatingFragment, personalStateFragment, obsFragment]
+    .filter(Boolean);
+  const canonicalBlock = canonicalParts.join('');
 
   // Posición del bloque canónico = posición del PRIMER fieldKey canónico
   // presente en `orderedKeys`. Los fields no canónicos conservan su slot
   // relativo en `field_order`. Si no hay claves canónicas en orderedKeys,
-  // el bloque (sólo rating, fallback) se ancla al final.
+  // los slots semánticos (enrich + personal) se anclan al final.
   const firstCanonicalIdx = orderedKeys.findIndex((k) => CANONICAL_KEYS.has(k));
   let anchorEmitted = false;
   const composed: string[] = [];
   if (firstCanonicalIdx === -1) {
     for (const k of orderedKeys) composed.push(fragments.get(k) ?? '');
-    composed.push(ratingFragment); // fallback: ninguna canonical key configurada
+    composed.push(enrichmentRatingFragment, personalStateFragment);
   } else {
-    orderedKeys.forEach((k, i) => {
+    orderedKeys.forEach((k) => {
       if (CANONICAL_KEYS.has(k)) {
         if (!anchorEmitted) {
           composed.push(canonicalBlock);
