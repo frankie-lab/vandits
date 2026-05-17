@@ -1276,26 +1276,30 @@ ${deleteBtnHtml}
 ${enrichedFooterLine}
 `;
 
+  // P-POPUP-13 — Add-to-collection en lenguaje muted (sin gradient verde,
+  // sin shadow, sin translateY). Mismo registro tipográfico que notesBtn.
   const addToCollectionBtnHtml = (!isOwn && !isCuratorPoint) ? `
-<button 
-class="popup-action-btn" 
-data-action="add-to-collection" 
+<button
+class="popup-action-btn"
+data-action="add-to-collection"
 data-location-id="${location.id}"
 data-location-name="${location.name}"
-style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; background: linear-gradient(135deg, #16a34a, #22c55e); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);"
-onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(22, 163, 74, 0.4)'"
-onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 8px rgba(22, 163, 74, 0.3)'"
+style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; background: hsl(var(--muted)); color: hsl(var(--foreground)); border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.15s; margin-top: 8px; margin-bottom: 4px;"
+onmouseover="this.style.background='hsl(var(--muted) / 0.7)'"
+onmouseout="this.style.background='hsl(var(--muted))'"
 title="Añadir este punto a tu colección personal"
 >
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 <path d="M12 5v14M5 12h14"/>
 </svg>
 Añadir a mi colección
 </button>
 ` : '';
 
-  // Si tiene ficha enriquecida (descripcion IA real), mostrarla.
-  if (isEnriched && enriched) {
+  // P-POPUP-13 — Renderer único: el shell canónico se aplica a TODOS los
+  // POIs. `enriched` (normalizado a {}) decide qué fragments existen, nunca
+  // qué sistema visual se usa. Sin rama legacy.
+  {
     const localizacionLinks = parseLocalizacionToLinks(enriched.localizacion, location);
     const popupId = `popup-${location.id.slice(0, 8)}`;
     const cardCfg = getCardConfig();
