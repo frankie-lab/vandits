@@ -1333,7 +1333,7 @@ ${(isOwn && isPopupOwnershipStripV1On()) ? '' : ownershipBadgeHtml}
 </div>
 
 <!-- P-POPUP-9 — Territorial breadcrumb (global→local) sustituye chips azules.
-     Fallback legacy: `localizacionLinks` italic cuando el flag canónico está off. -->
+     Fallback legacy: localizacionLinks italic cuando el flag canonico esta off. -->
 ${isPopupGeoCanonicalV1On()
   ? `<div style="margin: 0 0 12px 0;">${buildTerritorialBreadcrumbHtml(location)}</div>`
   : `<p style="margin: 0 0 12px 0; font-size: ${FONT.subtitle}px; line-height: 1.4; color: ${COLOR.muted}; font-style: italic;">${localizacionLinks}</p>`}
