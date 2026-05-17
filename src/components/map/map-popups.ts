@@ -481,9 +481,10 @@ export function buildEnrichmentRatingBlock(
         location.customData?.oldest_geotagged_photo_date,
       )
     : null;
-  // En P-POPUP-14 la fila "Tu valoración" sólo aparece si el POI está visitado.
+  // En P-POPUP-14 la fila "Tu valoración" depende SOLO de visited.
+  // No hay gating adicional: visitado ⇒ siempre se ofrece valoración personal.
   const showUserRow = !isCurator && !isNearby && isVisited;
-  const canRate = showUserRow && (!!visitRelevance || !!ownership.canEditLocation || userRating > 0);
+  void visitRelevance; // reservado para futura señal de confianza visual
 
   // Helpers visuales (compartidos por ambas filas).
   const labelStyle = `flex: 1 1 auto; min-width: 0; font-size: 11px; color: ${tk('hsl(var(--text-secondary))', '#6b7280')};`;
