@@ -62,9 +62,10 @@ describe('P-POPUP-1 — enriched branch contract', () => {
   const branch = extractEnrichedBranch(src);
   const stripped = stripLegacyFallbacks(branch);
 
-  it('extracts a non-trivial enriched branch', () => {
+  it('extracts a non-trivial canonical shell', () => {
     expect(branch.length).toBeGreaterThan(2000);
-    expect(branch).toContain('if (isEnriched && enriched) {');
+    // P-POPUP-13 — shell único, anclado al marker canónico.
+    expect(branch).toContain('P-POPUP-13 — Renderer único');
   });
 
   it('strips the legacy half of tk() calls before scanning', () => {
