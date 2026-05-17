@@ -1676,7 +1676,7 @@ ${(() => {
 ${(!isEnriched) ? (() => {
   // P-POPUP-13 — Fallback body (POI sin enriched.descripcion): customData
   // filtrado renderizado en lenguaje discreto. SIN `+N campos más`, SIN
-  // bordes `#f0f0f0`, SIN eyebrow uppercase agresivo. Mismo registro
+  // bordes legacy grises, SIN eyebrow uppercase agresivo. Mismo registro
   // tipográfico que el resto del shell canónico.
   const filteredCustomData = Object.entries(location.customData || {})
     .filter(([key]) => !['user_image_url', 'user_image_visibility', 'has_notes', 'notes', 'visited', 'user_rating'].includes(key));
