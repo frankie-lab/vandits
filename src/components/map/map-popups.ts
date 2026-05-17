@@ -1321,7 +1321,7 @@ ${buildImageSection(location, enriched, ownershipInfo, visitedState)}
 <div class="popup-scroll-body" style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;">
 <div style="padding: 16px 16px 8px 16px;">
 <!-- Nombre + Badge propiedad -->
-<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px;">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
 <h3 style="margin: 0; font-size: ${FONT.title}px; font-weight: 700; color: ${COLOR.foreground}; line-height: 1.2; letter-spacing: -0.01em; flex: 1;">
 ${locationName || 'Sin nombre'}
 </h3>
@@ -1331,7 +1331,7 @@ ${(isOwn && isPopupOwnershipStripV1On()) ? '' : ownershipBadgeHtml}
 <!-- P-POPUP-9 — Territorial breadcrumb (global→local) sustituye chips azules.
      Fallback legacy: localizacionLinks italic cuando el flag canonico esta off. -->
 ${isPopupGeoCanonicalV1On()
-  ? `<div style="margin: 0 0 12px 0;">${buildTerritorialBreadcrumbHtml(location)}</div>`
+  ? `<div style="margin: 0 0 4px 0;">${buildTerritorialBreadcrumbHtml(location)}</div>`
   : `<p style="margin: 0 0 12px 0; font-size: ${FONT.subtitle}px; line-height: 1.4; color: ${COLOR.muted}; font-style: italic;">${localizacionLinks}</p>`}
 
 <!-- Botón para añadir a colección (solo para puntos de seguidos) -->
