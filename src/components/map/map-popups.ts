@@ -35,6 +35,10 @@ import { getCollectionsForLocation } from '@/domains/content/store/location-coll
 import { getCollectionChipColors } from '@/shared/lib/collection-chip-color';
 import { filterPersonalTags } from '@/domains/content/lib/personal-tags-filter';
 import { resolvePoiSource } from '@/domains/content/lib/poi-source';
+import {
+  getPoiCurationLevel,
+  PRIMARY_ACTION_LABEL,
+} from '@/domains/content/lib/poi-curation-level';
 import { buildGeoHeaderHtml, buildTerritorialBreadcrumbHtml } from '@/shared/popup/geo-header';
 import {
   getCanonicalPopupTags,
@@ -1356,7 +1360,32 @@ title="Mover a la papelera"
 </button>
 ` : '';
 
+  // P-POI-CURATION-1 — Botón principal contextual de curación. Capa LÓGICA
+  // pura: NO cambia shell, layouts ni variantes del renderer. Sólo emite un
+  // atributo `data-curation-action` distinto según el nivel del POI. Se
+  // omite para curator/nearby (igual que el bloque de ratings) y para
+  // POI-10 (estado final, sin deuda). Ver `mem://logic/poi/curation-levels`.
+  const curationVerdict = getPoiCurationLevel(location);
+  const showCurationPrimary =
+    !isCuratorPoint &&
+    !isNearbyPopupContext(location.id) &&
+    curationVerdict.primaryAction !== 'none';
+  const curationPrimaryBtnHtml = showCurationPrimary ? `
+<button
+class="popup-action-btn"
+data-action="curation-primary"
+data-curation-action="${curationVerdict.primaryAction}"
+data-curation-level="${curationVerdict.level}"
+data-location-id="${location.id}"
+style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.15s; margin-bottom: 8px;"
+onmouseover="this.style.background='hsl(var(--primary) / 0.85)'"
+onmouseout="this.style.background='hsl(var(--primary))'"
+title="${PRIMARY_ACTION_LABEL[curationVerdict.primaryAction]}"
+>${PRIMARY_ACTION_LABEL[curationVerdict.primaryAction]}</button>
+` : '';
+
   const actionButtonsHtml = `
+${curationPrimaryBtnHtml}
 ${progressBarHtml}
 ${(canEditLocation && !isOwn && !isCuratorPoint) ? adminEditWarning : ''}
 <div style="display: grid; grid-template-columns: 32px 1fr 32px; align-items: center; gap: 8px;">
