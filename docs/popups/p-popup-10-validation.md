@@ -37,3 +37,27 @@ observación       (sin eyebrow, prefijo italic "Nota:", line-height 1.65)
 
 - Refactor visual de `buildSourceChipSpan` si los chips de provenance siguen pareciendo pills dentro de la byline.
 - Migrar título a `--font-display`.
+
+## P-POPUP-11 — Footer persistente + dedupe estado IA
+
+Cambios visuales/estructurales (sin tocar composer 7A.3, ratings, hero chrome,
+breadcrumb, metadata, handlers, schema, taxonomy, marker grammar, F2 ni
+PopupShell):
+
+1. **Dedupe estado IA**: eliminado el bloque inferior "Ficha IA actualizada"
+   del body. El estado IA vive exclusivamente en el pill verde
+   `Enriquecido <fecha>` del footer.
+2. **Footer persistente** (`data-popup-footer="v1"`): el bloque
+   `actionButtonsHtml` se mueve fuera del scroll body y se renderiza como
+   sibling del hero. Wrapper: `flex-shrink:0`,
+   `border-top 1px hsl(var(--border))`, `background hsl(var(--muted)/0.4)`,
+   `padding 8px 12px`. Siempre visible aunque el body haga scroll.
+3. **Re-enriquecer suavizado**: gradiente violeta agresivo sustituido por
+   `bg hsl(var(--primary)/0.12)` + `text hsl(var(--primary))` (hover `/0.2`).
+4. **Secundarios discretos** (`wrapCollapsibleSection`): sin tarjeta, sin
+   border completo, sin border-radius, sin `SECTION_HEADER.bgColor`. Sólo un
+   `border-top 1px hsl(var(--border)/0.6)` como separador entre secundarios y
+   `padding 6px 0`. Mantiene API, handlers y lógica `collapsible_sections`.
+
+Tests: `src/test/popup-footer-persistent.test.ts` (7) +
+`src/test/popup-editorial-style.test.ts` mantienen invariantes.

@@ -1,132 +1,106 @@
-# P-POPUP-10 — Editorial popup reading style
+# P-POPUP-11 — Footer normalization + secondary data de-emphasis
 
-Cambios **sólo de estilo y ritmo tipográfico**. Orden canónico, helpers, contratos, handlers, schema, taxonomy, ratings, hero, visited y composer 7A.3 NO se tocan.
+Cambio puramente visual/estructural del popup enriquecido. No toca composer 7A.3, ratings, hero chrome, breadcrumb, metadata line, taxonomy, handlers, schema, marker grammar, F2 ni PopupShell.
 
-## Diagnóstico
-
-Bloques implicados (ya en su sitio):
+## Estado actual relevante (`src/components/map/map-popups.ts`)
 
 ```
-hero
-├─ título            (map-popups.ts L1328–1333)
-├─ breadcrumb        (geo-header.ts buildTerritorialBreadcrumbHtml)
-├─ metadata line     (buildOwnEnrichedMetadataLineHtml / buildSourceMetadataLineHtml)
-├─ punto_destacado   (switch case L1438)
-├─ descripcion       (switch case L1445)
-├─ enrichmentRating  (composer 7A.3)
-├─ userPersonalState (composer 7A.3)
-└─ observacion       (switch case L1460)
+contenedor flex column, max-height, overflow hidden
+├── statusBar
+├── HERO (flex-shrink: 0)               ← persistente
+└── popup-scroll-body (flex:1, overflow-y:auto)
+    └── padding 16/16/8/16
+        ├── título + ownership badge
+        ├── breadcrumb territorial
+        ├── metadata line
+        ├── add-to-collection (followed)
+        ├── composer canónico (desc → rating → obs → secundarios)
+        │     ├─ Datos geográficos   ← wrapCollapsibleSection
+        │     ├─ Datos clave         ← wrapCollapsibleSection
+        │     └─ Fuentes             ← wrapCollapsibleSection
+        ├── L1692-1700: “Ficha IA actualizada: <fecha>” (DUPLICADO)
+        └── actionButtonsHtml         ← dentro del scroll
+              ├─ pill verde “Enriquecido <fecha>”
+              ├─ Re-enriquecer (gradiente violeta llamativo)
+              ├─ Notas
+              └─ Borrar
 ```
 
-Problemas visuales actuales:
-- Título pegado al breadcrumb (margin-bottom 4px).
-- Breadcrumb correcto pero su contenedor mete 12px y compite con metadata line.
-- Metadata line tiene icono reloj + chips de provenance todavía pesados; debería leerse como byline.
-- `punto_destacado` legible pero sin aire editorial (line-height 1.45, padding tight).
-- `descripcion` renderiza un eyebrow "Descripción" en uppercase + contador de caracteres → ruido técnico que rompe la lectura editorial.
-- `observacion` arrastra el mismo eyebrow uppercase.
+Problemas confirmados: el bloque “Ficha IA actualizada” (L1693-1700) y el pill “Enriquecido <fecha>” (L1206-1211) comunican lo mismo. `actionButtonsHtml` vive dentro del scroll, no es footer real. Los tres acordeones secundarios usan los mismos tokens de borde/padding que cualquier sección principal (`SECTION_HEADER.padding`, `border 1px ${COLOR.border}`, `borderRadius CARD.sectionRadius`) → se leen como bloques principales.
 
 ## Cambios
 
-### 1. Header — título con aire (`map-popups.ts` L1328–1339)
+### A. Eliminar duplicidad estado IA
+- Borrar el bloque `Ficha IA actualizada …` (L1692-1700 en `map-popups.ts`). El estado IA queda únicamente en el footer (mismo pill verde “Enriquecido <fecha>” actual).
+- Sin cambios en `formatRegistrationDate` ni en `locationUpdatedAt`.
 
-- Subir `margin-bottom` del wrapper de `<h3>` de `4px` → `10px`.
-- Aumentar `line-height` del título de `1.3` → `1.2` con `letter-spacing: -0.01em` (más editorial, menos UI).
-- Mantener `FONT.title` / `font-weight: 700`.
+### B. Reducir protagonismo de los acordeones secundarios
+Tocar sólo `wrapCollapsibleSection` (L247-273) y, sólo si hace falta, los `headerHtml` de los tres casos (L1557-1619). NO se cambian handlers, contenido, ni la API `(sectionKey, headerHtml, bodyHtml, cardCfg)`.
 
-### 2. Breadcrumb territorial (`src/shared/popup/geo-header.ts` `buildTerritorialBreadcrumbHtml`)
+- Wrapper:
+  - `border 1px ${COLOR.border}` → `border: none` con un `border-top: 1px solid ${COLOR.border} / 0.6` (separador discreto entre secundarios consecutivos).
+  - `borderRadius` → 0.
+  - `margin-bottom`: usar la mitad de `CARD.sectionGap` (gap más compacto entre secundarios).
+- Summary/header:
+  - `background: ${SECTION_HEADER.bgColor}` → `transparent`.
+  - `padding: ${SECTION_HEADER.padding}` → padding vertical reducido (≈ 4px 0).
+  - Mantener `font-size`, `text-transform`, `letter-spacing`, `font-weight` ya existentes (son los del SECTION_HEADER, ya discretos).
+- Body:
+  - Conservar el contenido; quitar `border-top` (queda implícito por el summary compacto).
+- Indicador de expansión: mantener `▶` actual; sin cambios.
 
-Ya es link textual muted sin background. Refinamiento:
-- Bajar `font-size` de `11px` → `text-micro` equivalente (`11px` ya, mantenemos) pero subir `letter-spacing: 0.01em` y `line-height: 1.5`.
-- `<a>`: añadir `border-bottom: 1px solid transparent` y en hover `border-bottom-color: hsl(var(--muted-foreground) / 0.4)` para que el underline sea discreto y no `text-decoration: underline` plano.
-- Separador `›`: bajar `opacity` `0.6` → `0.45`.
-- Wrapper `<nav>`: añadir `margin-bottom: 6px` (separa del título y le da aire al byline siguiente).
+Resultado: los tres bloques pasan de “tarjeta con chrome” a “fila de información adicional expandible”, sin perder semantics ni la lógica `collapsible_sections` del `cardCfg`.
 
-Sin cambios de estructura, atributos o contrato `.filter-link`.
+### C. Footer persistente
 
-### 3. Metadata line (byline) — `buildOwnEnrichedMetadataLineHtml` (L701–739) + `buildCollectionsMetadataSegment` (L290–306)
+Reestructurar el shell del popup enriquecido (L1311-1707) para que `actionButtonsHtml` salga del scroll y se convierta en sibling del hero:
 
-Convertir en byline editorial:
-- En `buildOwnEnrichedMetadataLineHtml`:
-  - Quitar el `<svg>` del reloj (línea 733–736). Una byline no lleva icono.
-  - Wrapper: `font-size: 11px` se mantiene; añadir `font-style: italic` SOLO al texto "Añadido dd/mm/yyyy" (envolver `datePart` en `<span style="font-style: italic;">`).
-  - `color: hsl(var(--muted-foreground))` ya está.
-  - Subir `margin-bottom` de `${CARD.sectionGap}px` (12px) → `14px` para crear respiro antes del extracto.
-- En `buildCollectionsMetadataSegment`:
-  - Quitar el `BOOKMARK_SVG` (línea 286 + uso L305). Colección queda como link textual puro.
-  - Mantener `.collection-filter-chip`, atributos `data-collection-*`, hover underline. Aplicar mismo patrón `border-bottom` discreto que el breadcrumb (en lugar de `text-decoration`).
-  - Color: cambiar `hsl(var(--foreground))` (L305) → `hsl(var(--muted-foreground))` para igualar registro byline.
-- Provenance chips (`buildSourceChipSpan`): NO se tocan en lógica; sólo se asegura que el wrapper byline herede `color: muted` y los chips ya muted se vean homogéneos. Si visualmente quedan como pills, se documenta como tarea siguiente (fuera de scope si requiere tocar `buildSourceChipSpan`).
-
-Resultado:
 ```
-Añadido 12/05/2026 · Sendas del norte · vía Atlas Obscura
+contenedor flex column, max-height, overflow hidden
+├── statusBar
+├── HERO (flex-shrink: 0)
+├── popup-scroll-body (flex:1, overflow-y:auto)
+│     [título … composer … secundarios discretos]
+│     [ya NO contiene actionButtons ni “Ficha IA actualizada”]
+└── FOOTER (flex-shrink: 0)                ← NUEVO sibling, persistente
+      progressBarHtml
+      adminEditWarning (si aplica)
+      fila acciones (mismo HTML que actionButtonsHtml hoy)
 ```
-Sin reloj, sin bookmark, sin pill.
 
-### 4. Extracto destacado — `case 'punto_destacado'` (L1438–1443)
+- Mover el `${actionButtonsHtml}` actual (L1703) fuera del cierre del `popup-scroll-body`, como hermano del hero. El cierre `</div>` del scroll-body se reordena para que el footer quede dentro del contenedor flex pero fuera del área scrollable. La estructura `flex column + max-height + hero/footer flex-shrink:0` ya garantiza “sticky” natural sin position:sticky.
+- Padding del scroll-body: mantener `16px 16px 8px 16px` (sin doble padding inferior porque ya no hay botones dentro).
+- Footer wrapper nuevo: `flex-shrink:0; border-top: 1px solid ${COLOR.border}; background: hsl(var(--muted) / 0.4); padding: 8px 12px;` — chrome discreto, no tipo dashboard.
 
-- Subir `padding` `8px 12px` → `12px 16px`.
-- `line-height: 1.45` → `1.6`.
-- `font-size: FONT.body` (14px) → mantener; `font-weight: 500` → `font-weight: 500` (igual) pero añadir `font-style: italic` para que se lea como entradilla editorial.
-- `margin-bottom`: `${CARD.sectionGap}px` (12) → `16px`.
-- `border-left` y `bgColor` (HIGHLIGHT.\*) se mantienen.
+### D. Jerarquía visual del footer
 
-### 5. Descripción — `case 'descripcion'` (L1445–1458)
+- Mantener el pill verde “Enriquecido <fecha>” como elemento informativo (lo que ya existe en L1205-1211).
+- Re-enriquecer: bajar protagonismo del gradiente violeta agresivo (L1216-1218): pasar a fondo `hsl(var(--primary) / 0.12)` + texto `hsl(var(--primary))`, sin gradiente, sin sombra; hover sube a `/0.2`. Sigue siendo la acción principal visualmente, pero no compite con el body editorial.
+- Notas: sin cambios (ya es secundaria, fondo muted).
+- Borrar: sin cambios (ya es discreta destructiva); confirmar que tono rojo es suave (ya lo es: `#fef2f2/#dc2626`).
+- Curator branch (`isCuratorPoint`, L1193-1200): se mantiene tal cual dentro del nuevo footer.
 
-- **Eliminar el eyebrow uppercase "Descripción"** (L1449). Es ruido técnico, una ficha editorial no rotula el cuerpo.
-- **Eliminar el contador "N caracteres"** (L1453). Idem.
-- Párrafos vía `descriptionToHtmlParagraphs`: subir
-  - `margin: 0 0 8px 0` → `margin: 0 0 12px 0` (separación entre párrafos).
-  - `line-height: 1.625` → `1.7`.
-  - Añadir `letter-spacing: 0.005em`.
-- Wrapper: añadir `margin: 4px 0 16px 0` (aire arriba/abajo natural).
-- Mantener `class="vandits-description-body"` y `color: COLOR.bodyText`.
+### E. Tests
 
-### 6. Observación — `case 'observacion'` (L1460–1466)
+- Actualizar `src/test/popup-editorial-style.test.ts` y/o añadir un nuevo `src/test/popup-footer-persistent.test.ts` para validar:
+  - el HTML NO contiene `"Ficha IA actualizada"`.
+  - sigue conteniendo `"Enriquecido"` (footer) una sola vez por popup.
+  - existe un nodo footer hermano del scroll-body con los data-action `enrich`, `add-notes`, `delete-location`.
+  - los headers de `Datos geográficos / Datos clave / Fuentes` ya no aplican `SECTION_HEADER.bgColor` ni `border 1px` completo en el wrapper.
+- Revisar `popup-collection-metadata-line.test.ts` por si asserta sobre la línea “Ficha IA actualizada” (no debería).
 
-- Eliminar eyebrow uppercase "Observación" (L1464).
-- Reemplazar por prefijo inline italic `<span style="font-style: italic; color: muted; margin-right: 6px;">Nota:</span>` al inicio del `<p>` (mismo registro editorial que un aside de blog).
-- `line-height: 1.5` → `1.65`.
-- `padding: 8px 12px` → `12px 14px`.
+### F. Documentación / memoria
 
-### 7. Bloques posteriores (rating + personal state)
+- `docs/popups/p-popup-10-validation.md`: añadir sección breve “P-POPUP-11 footer + dedupe IA”.
+- `mem://style/popup/editorial-reading-style`: registrar la nueva forma canónica `hero → body editorial → secundarios discretos → footer persistente` y la regla de “estado IA único en el footer”.
+- `mem://index.md`: una sola línea actualizada referenciando la nueva regla (sin re-añadir memorias innecesarias).
 
-- NO se toca composer 7A.3.
-- NO se toca `buildEnrichmentRatingBlock` ni `buildPersonalStateBlock`.
-- Sólo asegurar que el `margin-top` del primer fragment post-descripción respire: añadir un wrapper neutral `<div style="margin-top: 4px;">` alrededor de `enrichmentRatingFragment` en el composer SI y SÓLO SI no rompe ningún test 7A.\*. Si rompe, omitir y dejar el ritmo a los `sectionGap` existentes.
+## Restricciones reiteradas
+No se tocan: composer 7A.3, ratings, hero chrome, breadcrumb territorial, metadata line, handlers (`data-action="enrich" | "add-notes" | "delete-location" | "add-to-collection"`), schema, taxonomy, marker grammar, F2, PopupShell, lógica de visited/pending, ni la API de `wrapCollapsibleSection`/`cardCfg`.
 
-## Restricciones honradas
-
-- Orden canónico: intacto.
-- Composer 7A.3: intacto (excepto wrapper de margen opcional).
-- Ratings, handlers, schema, taxonomy, collections logic, provenance logic, marker grammar, F2, PopupShell, hero chrome, visited/pending: intactos.
-- Atributos data-\*, clases `.filter-link` / `.collection-filter-chip`: intactos.
-
-## Tests
-
-Actualizar / añadir asserts en:
-
-- `src/test/popup-territorial-breadcrumb.test.ts`: confirmar separador `›` con `opacity: 0.45` y ausencia de `text-decoration: underline` plano en hover (sólo `border-bottom`).
-- `src/test/popup-collection-metadata-line.test.ts`:
-  - assert `NO contiene` el `BOOKMARK_SVG` (`<path d="m19 21-7-4-7 4V5...`).
-  - assert color del wrapper = `hsl(var(--muted-foreground))`.
-- Nuevo `src/test/popup-editorial-style.test.ts`:
-  - descripción NO contiene `>Descripción<` eyebrow.
-  - descripción NO contiene `caracteres</span>`.
-  - observación NO contiene `>Observación<` eyebrow; SÍ contiene `Nota:`.
-  - metadata line NO contiene `<circle cx="12" cy="12" r="10"/>` (icono reloj fuera).
-  - `punto_destacado` contiene `font-style: italic` y `line-height: 1.6`.
-
-## Documentación + memoria
-
-- Nuevo: `docs/popups/p-popup-10-validation.md` (canon visual editorial + before/after).
-- Nuevo memory `mem://style/popup/editorial-reading-style` con la regla "byline sin iconos, descripción sin eyebrows, breadcrumb sin underline plano".
-- Update `mem://index.md` (entry nueva en Memories).
-- Update `docs/contracts/popup-contract.md` con sección "Editorial reading style v1".
-
-## Out of scope
-
-- Refactor de `buildSourceChipSpan` (provenance chips) — si visualmente persiste el aspecto pill tras vaciar el wrapper, queda como P-POPUP-10.1.
-- Tipografía global (`--font-display` para títulos del popup) — riesgo de drift con card preview.
-- Cualquier cambio en `formatDescription` / `descriptionToHtmlParagraphs` más allá del estilo inline pasado por argumento.
+## Criterio visual de aceptación
+1. El popup se lee como: hero → artículo editorial → bloque “más información” discreto → footer técnico persistente.
+2. El estado IA aparece una sola vez (footer).
+3. Los tres acordeones secundarios ya no parecen tarjetas-CTA: se sienten como filas expandibles.
+4. Si el body hace scroll, el footer permanece visible junto con el hero.
+5. Re-enriquecer sigue siendo la acción dominante del footer, pero sin gradiente agresivo.

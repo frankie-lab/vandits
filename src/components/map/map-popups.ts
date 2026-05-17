@@ -254,21 +254,26 @@ function wrapCollapsibleSection(
   const isCollapsible = sectionCfg?.collapsible ?? false;
   const defaultOpen = sectionCfg?.defaultOpen ?? false;
 
+  // P-POPUP-11 — Secundarios discretos: sin tarjeta, sin fondo, sin borde
+  // completo. Sólo un separador superior fino que actúa como divisor entre
+  // secundarios consecutivos. Padding vertical reducido; nada de chrome tipo
+  // CTA. Mantenemos API y handlers; sólo bajamos peso visual.
+  const sectionGap = Math.round((CARD.sectionGap ?? 8) / 2);
   if (!isCollapsible) {
-    return `<div style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
-      `<div style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; border-bottom: 1px solid ${COLOR.border};">` +
+    return `<div style="border-top: 1px solid hsl(var(--border) / 0.6); margin-bottom: ${sectionGap}px;">` +
+      `<div style="display: flex; align-items: center; gap: 6px; padding: 6px 0;">` +
         headerHtml +
       '</div>' +
       bodyHtml +
     '</div>';
   }
 
-  return `<details${defaultOpen ? ' open' : ''} style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
-    `<summary style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; cursor: pointer; list-style: none; user-select: none;">` +
+  return `<details${defaultOpen ? ' open' : ''} style="border-top: 1px solid hsl(var(--border) / 0.6); margin-bottom: ${sectionGap}px;">` +
+    `<summary style="display: flex; align-items: center; gap: 6px; padding: 6px 0; background: transparent; cursor: pointer; list-style: none; user-select: none;">` +
       headerHtml +
       `<span style="font-size: 10px; color: ${COLOR.muted}; transition: transform 0.2s;">▶</span>` +
     '</summary>' +
-    `<div style="border-top: 1px solid ${COLOR.border};">` + bodyHtml + '</div>' +
+    `<div>` + bodyHtml + '</div>' +
   '</details>';
 }
 
@@ -1189,7 +1194,7 @@ box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   const actionButtonsHtml = `
 ${progressBarHtml}
 ${(canEditLocation && !isOwn && !isCuratorPoint) ? adminEditWarning : ''}
-<div style="display: flex; gap: 4px; margin-top: 8px; padding-top: 8px; padding-bottom: 6px; border-top: 1px solid #e5e7eb;">
+<div style="display: flex; gap: 4px;">
 ${isCuratorPoint ? `
 <div style="flex: 2; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 10px; background: #f0fdf4; color: #166534; border: none; border-radius: 4px; font-size: 11px; font-weight: 500;">
 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1213,9 +1218,9 @@ Enriquecido ${location.updatedAt ? formatRegistrationDate(location.updatedAt) : 
 class="popup-action-btn" 
 data-action="enrich" 
 data-location-id="${location.id}"
-style="display: flex; align-items: center; justify-content: center; gap: 3px; padding: 6px 10px; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; border: none; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.15s; white-space: nowrap;"
-onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(139, 92, 246, 0.4)'"
-onmouseout="this.style.transform='none';this.style.boxShadow='none'"
+style="display: flex; align-items: center; justify-content: center; gap: 3px; padding: 6px 10px; background: hsl(var(--primary) / 0.12); color: hsl(var(--primary)); border: none; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer; transition: background 0.15s; white-space: nowrap;"
+onmouseover="this.style.background='hsl(var(--primary) / 0.2)'"
+onmouseout="this.style.background='hsl(var(--primary) / 0.12)'"
 title="Regenerar ficha completa con IA"
 >
 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1688,20 +1693,14 @@ ${(() => {
 
 
 })()}
-
-${locationUpdatedAt > 0 ? `
-<div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${tk('hsl(var(--text-secondary))', '#9ca3af')}; margin-top: 8px; padding-top: 8px; border-top: 1px dashed ${tk('hsl(var(--surface-border))', '#e5e7eb')};">
-<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-<circle cx="12" cy="12" r="10"/>
-<polyline points="12 6 12 12 16 14"/>
-</svg>
-<span>Ficha IA actualizada: ${new Date(locationUpdatedAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
 </div>
-` : ''}
+</div>
 
-<!-- Botones de acción -->
+<!-- P-POPUP-11 — Footer persistente: estado IA + acciones técnicas. Sibling
+     del hero y del scroll body, flex-shrink:0 → siempre visible aunque el
+     body haga scroll. Estado IA único (no duplicado en el body). -->
+<div data-popup-footer="v1" style="flex-shrink: 0; border-top: 1px solid hsl(var(--border)); background: hsl(var(--muted) / 0.4); padding: 8px 12px;">
 ${actionButtonsHtml}
-</div>
 </div>
 </div>
 `;
