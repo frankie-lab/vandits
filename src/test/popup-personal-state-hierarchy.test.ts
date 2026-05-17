@@ -178,10 +178,14 @@ describe('P-POPUP-7A — enriched branch upper section no longer has visited tog
 
   it('P-POPUP-7A.3 — G8: helpers no comparten datos del concepto contrario', () => {
     const lines = src.split('\n');
+    // Filtra líneas de comentario para no contaminar con bloques doc del
+    // siguiente helper (que mencionan ambos conceptos a propósito).
+    const stripComments = (slice: string[]) =>
+      slice.filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
     // buildEnrichmentRatingBlock no toca user state.
     const eStart = lines.findIndex((l) => l.includes('export function buildEnrichmentRatingBlock'));
     const eEnd = lines.findIndex((l, i) => i > eStart && /^export function /.test(l));
-    const enrichBody = lines.slice(eStart, eEnd).join('\n');
+    const enrichBody = stripComments(lines.slice(eStart, eEnd));
     expect(enrichBody).not.toContain('data-action="set-rating"');
     expect(enrichBody).not.toContain('data-action="clear-rating"');
     expect(enrichBody).not.toContain('user_rating');
@@ -189,7 +193,7 @@ describe('P-POPUP-7A — enriched branch upper section no longer has visited tog
     // buildPersonalStateBlock no toca enrichment rating.
     const pStart = lines.findIndex((l) => l.includes('export function buildPersonalStateBlock'));
     const pEnd = lines.findIndex((l, i) => i > pStart && /^export function /.test(l));
-    const personalBody = lines.slice(pStart, pEnd).join('\n');
+    const personalBody = stripComments(lines.slice(pStart, pEnd));
     expect(personalBody).not.toContain('weighted-rating-container');
     expect(personalBody).not.toContain('data-ai-rating');
     expect(personalBody).not.toContain('indice_interes');
