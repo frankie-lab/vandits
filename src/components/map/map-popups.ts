@@ -588,12 +588,6 @@ export function buildEnrichmentRatingBlock(
   ${starsHtml}
 </div>`;
   }
-    row2 = `
-<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-  <span style="${labelStyle}">Tu valoración</span>
-  ${starsHtml}
-</div>`;
-  }
 
   if (!row1 && !row2) return '';
 
