@@ -90,9 +90,14 @@ describe('getPoiCurationLevel — 6 niveles canónicos', () => {
     expect(v.primaryAction).toBe('heal');
   });
 
-  it('POI-5: enriquecido y geo ok pero NO visitado → incompletitud', () => {
+  it('POI-9: enriched + geo ok + sin rings + NO visitado → sano, sin acción', () => {
+    // Regla canónica: visited/user_rating son estado personal, no salud.
+    // Un POI enriched + sano sin visita NO es POI-5 y NO emite "heal".
     const v = getPoiCurationLevel(loc({ enrichedData: enriched(), geoHealth: 'ok' }));
-    expect(v.level).toBe(5);
+    expect(v.level).toBe(9);
+    expect(v.healthState).toBe('green');
+    expect(v.shareability).toBe('yes');
+    expect(v.primaryAction).toBe('none');
   });
 
   it('POI-9: enriched + visited + sin rating', () => {
