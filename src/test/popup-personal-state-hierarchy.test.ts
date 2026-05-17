@@ -160,19 +160,17 @@ describe('P-POPUP-7A — enriched branch upper section no longer has visited tog
   });
 
   it('P-POPUP-7A.3 — G2: indice_interes stars exist only inside buildEnrichmentRatingBlock', () => {
-    // Localiza el cuerpo de buildEnrichmentRatingBlock.
     const lines = src.split('\n');
     const startIdx = lines.findIndex((l) => l.includes('export function buildEnrichmentRatingBlock'));
     expect(startIdx).toBeGreaterThan(0);
-    // Asume que el siguiente `export function` cierra el bloque.
     const endIdx = lines.findIndex((l, i) => i > startIdx && /^export function /.test(l));
     expect(endIdx).toBeGreaterThan(startIdx);
-    const before = lines.slice(0, startIdx).join('\n');
-    const after = lines.slice(endIdx).join('\n');
-    // weighted-rating-container no aparece fuera del helper.
+    const stripComments = (slice: string[]) =>
+      slice.filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+    const before = stripComments(lines.slice(0, startIdx));
+    const after = stripComments(lines.slice(endIdx));
     expect(before).not.toContain('weighted-rating-container');
     expect(after).not.toContain('weighted-rating-container');
-    // Tampoco se renderizan estrellas inline ligadas a indice_interes.
     expect(after).not.toMatch(/\$\{[^}]*indice_interes[^}]*\}[^]{0,80}[\u2605\u2606]/);
   });
 
