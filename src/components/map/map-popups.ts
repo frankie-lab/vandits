@@ -1332,9 +1332,10 @@ ${locationName || 'Sin nombre'}
 ${(isOwn && isPopupOwnershipStripV1On()) ? '' : ownershipBadgeHtml}
 </div>
 
-<!-- Geo header (P-POPUP-2: canonical chips bajo flag, fallback a localizacionLinks italic legacy) -->
+<!-- P-POPUP-9 — Territorial breadcrumb (global→local) sustituye chips azules.
+     Fallback legacy: `localizacionLinks` italic cuando el flag canónico está off. -->
 ${isPopupGeoCanonicalV1On()
-  ? `<div style="margin: 0 0 12px 0;">${buildGeoHeaderHtml(location, { background: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' })}</div>`
+  ? `<div style="margin: 0 0 12px 0;">${buildTerritorialBreadcrumbHtml(location)}</div>`
   : `<p style="margin: 0 0 12px 0; font-size: ${FONT.subtitle}px; line-height: 1.4; color: ${COLOR.muted}; font-style: italic;">${localizacionLinks}</p>`}
 
 <!-- Botón para añadir a colección (solo para puntos de seguidos) -->
