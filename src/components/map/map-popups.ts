@@ -1762,7 +1762,7 @@ ${location.name}
 ${ownershipBadgeHtml}
 </div>
 ${isPopupGeoCanonicalV1On()
-  ? buildGeoHeaderHtml(location, { background: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' })
+  ? buildTerritorialBreadcrumbHtml(location)
   : `<div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
 ${location.continent ? `<span class="filter-link" data-filter-type="continent" data-filter-value="${location.continent}" style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">${location.continent}</span>` : ''}
 ${location.country ? `<span class="filter-link" data-filter-type="country" data-filter-value="${location.country}" style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'">${location.country}</span>` : ''}
