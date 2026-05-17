@@ -26,8 +26,11 @@ const SRC = resolve(__dirname, '../components/map/map-popups.ts');
 
 function extractEnrichedBranch(src: string): string {
   const lines = src.split('\n');
-  const startIdx = lines.findIndex(l => l.includes('if (isEnriched && enriched) {'));
-  if (startIdx < 0) throw new Error('enriched branch start not found');
+  // P-POPUP-13 — Rama legacy eliminada. El shell canónico es el único
+  // bloque tras `P-POPUP-13 — Renderer único`. Anclamos el extractor a
+  // ese marker para mantener la guard sobre el shell único.
+  const startIdx = lines.findIndex(l => l.includes('P-POPUP-13 — Renderer único'));
+  if (startIdx < 0) throw new Error('canonical unified shell start not found');
   // Brace counting begins at the `{` on the same line.
   let depth = 0;
   let started = false;
@@ -59,9 +62,10 @@ describe('P-POPUP-1 — enriched branch contract', () => {
   const branch = extractEnrichedBranch(src);
   const stripped = stripLegacyFallbacks(branch);
 
-  it('extracts a non-trivial enriched branch', () => {
+  it('extracts a non-trivial canonical shell', () => {
     expect(branch.length).toBeGreaterThan(2000);
-    expect(branch).toContain('if (isEnriched && enriched) {');
+    // P-POPUP-13 — shell único, anclado al marker canónico.
+    expect(branch).toContain('P-POPUP-13 — Renderer único');
   });
 
   it('strips the legacy half of tk() calls before scanning', () => {

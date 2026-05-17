@@ -1,107 +1,115 @@
+## P-POPUP-13 — Unified popup renderer
 
-# P-POPUP-12 — Canon de taxonomía editorial estructurada
+Objetivo: `createPopupContent` deja de bifurcar visualmente entre `enriched` y `legacy`. Existe **un único shell canónico** (hero → scroll-body → footer persistente) que aplica P-POPUP-9/10/11/11.1/12. El estado enriched decide qué *fragments* existen, nunca qué *sistema visual* se usa.
 
-Sustituir la "tag cloud" actual del popup por **un bloque taxonómico editorial** con 4 familias claramente diferenciadas, sin overflow visual.
+### Criterio de aceptación (todos los POIs, con o sin enriched)
 
-## Estado actual
+Ningún popup puede emitir:
+- `Ficha IA actualizada`
+- `+N campos más`
+- chips territoriales antiguos (`#e0f2fe`, `#dcfce7`, `#fef3c7`, `#f3e8ff`)
+- `customDataHtml` con bordes `#f0f0f0` y "Datos adicionales" uppercase
+- gradiente verde `#16a34a → #22c55e` con `box-shadow` y `translateY` para "Añadir a mi colección"
+- acordeones con `border: 1px / borderRadius / SECTION_HEADER.bgColor`
+- footer antiguo (sin `data-popup-footer="v1"`)
+- breadcrumb antiguo en vez de `buildTerritorialBreadcrumbHtml`
 
-- `case 'etiquetas'` (map-popups.ts L1464-1542) renderiza 3 familias (taxonomy / semantic / user) con chip `+N más` cuando se excede `POPUP_TAG_CAPS = { taxonomy:3, semantic:5, user:4 }`.
-- `case 'clasificacion'` (L1418-1432) renderiza el `cultural_context` como un chip suelto, en un slot independiente.
-- Sin separadores entre familias, sin alineado centrado canónico, sin color diferencial estricto (solo el variant del chip).
-- Colecciones y geografía ya están fuera del bloque (viven en metadata line / breadcrumb territorial) — eso se respeta tal cual.
+El POI sin `enriched.descripcion` se renderiza con **el mismo shell**: hero + breadcrumb + footer persistente, omitiendo los fragments cuyos datos faltan.
 
-## Canon nuevo
+### Arquitectura propuesta
 
-Cuatro familias renderizables, **siempre 5 max cada una, sin `+N`, sin truncado visual**:
-
-| Familia          | Fuente                                       | Color (token semántico)          |
-| ---------------- | -------------------------------------------- | -------------------------------- |
-| taxonomy         | `getCanonicalPopupTags(...).taxonomy`        | `--primary` (azul editorial)     |
-| semantic         | `getCanonicalPopupTags(...).semantic`        | `--accent` (ámbar/temático)      |
-| personal / user  | `getCanonicalPopupTags(...).user`            | `--ring` o token "personal"      |
-| cultural context | `enriched.cultural_context.type_label`       | violeta Wikidata (heredado 270°) |
-
-Render:
-
+```text
+createPopupContent(loc)
+  └─ renderCanonicalPopupShell(loc, ctx)
+       ├─ statusBarHtml                              (siempre)
+       ├─ buildImageSection(...)                     (siempre — hero fija)
+       ├─ <div class="popup-scroll-body">
+       │    ├─ HEADER
+       │    │    ├─ <h3> title editorial (FONT.title, weight 700, -0.01em)
+       │    │    ├─ ownershipBadge (si !ownershipStripV1 / !isOwn)
+       │    │    ├─ buildTerritorialBreadcrumbHtml(loc)   (siempre)
+       │    │    └─ addToCollectionBtn (si !isOwn && !curator) — SIN gradient/shadow
+       │    ├─ METADATA LINE
+       │    │    └─ buildOwnEnrichedMetadataLineHtml | buildSourceMetadataLineHtml
+       │    │       (degrada a fecha o '' si falta data)
+       │    ├─ buildCollectionChipsPlaceholder
+       │    ├─ buildPersonalTagsBlock
+       │    ├─ BODY FRAGMENTS (composer canónico — cada uno devuelve '' si falta data)
+       │    │    ├─ punto_destacado
+       │    │    ├─ descripcion         ← omit si !enriched.descripcion
+       │    │    ├─ enrichmentRating    ← omit si !rating
+       │    │    ├─ personalState       ← omit si !isOwn / !visited / !rating
+       │    │    ├─ observacion         ← omit si !enriched.observacion
+       │    │    ├─ etiquetas (4 familias P-POPUP-12, omit familias vacías)
+       │    │    └─ secundarios (datos_geograficos, datos_clave, … wrapCollapsibleSection discreto)
+       │    ├─ FALLBACK BODY (solo si no hay enriched)
+       │    │    ├─ location.description (si existe) — mismo estilo editorial que descripcion
+       │    │    └─ customData filtrado — renderizado con wrapCollapsibleSection discreto,
+       │    │       SIN "+N campos más", SIN bordes #f0f0f0, SIN uppercase eyebrow
+       │    ├─ coords line (siempre, estilo muted actual)
+       │    └─ route-waypoint actions (si aplica) — mismas reglas P-POPUP-11.1 (muted, sin gradient)
+       └─ <div data-popup-footer="v1">
+            └─ actionButtonsHtml (grid 32px·1fr·32px + pie "Enriquecido · <fecha>" si aplica)
 ```
-┌─────────────────────────────────────────┐
-│   #Arquitectura  #Castillos  #Medieval  │   ← taxonomy (centrado)
-├─────────────────────────────────────────┤
-│      #piedra  #fortaleza  #siglo-xii    │   ← semantic
-├─────────────────────────────────────────┤
-│           #favorito  #revisitar          │   ← personal
-├─────────────────────────────────────────┤
-│              Castillo medieval           │   ← cultural context
-└─────────────────────────────────────────┘
-```
 
-- Todas las familias visibles dentro del límite (≤5).
-- Separadas por línea divisoria horizontal de 1px (`hsl(var(--border)/0.6)`).
-- Cada familia tiene color propio (variant del chip).
-- Alineado centrado (`justify-content: center`).
-- Sin `+N`, sin `<details>`, sin truncado.
-- Familias vacías se omiten **junto con su divisor** (no líneas huérfanas).
-- Si el bloque entero queda vacío, no se renderiza contenedor.
+### Cambios concretos en `src/components/map/map-popups.ts`
 
-## Cambios
+1. **Extraer helpers compartidos** (mismo archivo, sin nuevos módulos para no expandir scope):
+   - `renderPopupHeaderHtml(loc, ctx)` — title + ownershipBadge + breadcrumb + addToCollection.
+   - `renderPopupFallbackBodyHtml(loc, ctx)` — `location.description` + `customData` (discreto, sin `+N`).
+   - `renderPopupSecondaryAccordions(loc, enriched|null, cardCfg)` — `datos_geograficos`/`datos_clave`/etc. Si `enriched=null`, devuelve `''`.
+   - `renderPopupShell({ statusBarHtml, heroHtml, bodyHtml, footerHtml })` — wrapper único con `flex column`, `max-height`, scroll body y `data-popup-footer="v1"`.
 
-### 1. `src/shared/popup/tags.ts`
+2. **Colapsar la bifurcación**:
+   - Borrar el `return` del bloque `if (isEnriched && enriched) { ... }` y el `return` legacy posterior.
+   - Sustituir por una única llamada: `return renderPopupShell({ ..., bodyHtml: composeCanonicalBody(loc, enriched, ctx) })` donde `composeCanonicalBody` recibe `enriched: EnrichedData | null` y cada fragment hace `if (!enriched?.X) return '';`.
+   - El composer canónico ya existe parcialmente (slots 7A.3). Extender para aceptar `enriched=null` → emite header+breadcrumb+metadata+fallback body+footer.
 
-- `POPUP_TAG_CAPS` → `{ taxonomy:5, semantic:5, user:5, cultural:5 }`. Mantener `collections:4` (lo consume otro helper, fuera de scope).
-- Comentario de cabecera: actualizar para reflejar que ya no hay overflow visual.
+3. **Eliminar el bloque legacy visual** (L1706–L1864): toda esa rama se borra. Lo único rescatable y migrado:
+   - `location.description` → renderizado con el mismo wrapper editorial que `descripcion` IA (sin background `#fafafa`, sin scroll interno `max-height:150px`).
+   - `customData` (>0 entries) → `wrapCollapsibleSection` discreto con header `Datos adicionales`. **Sin `+N campos más`**: si excede límite razonable (p. ej. 12), `<details>` nativo dentro del accordion ya colapsado.
+   - Botón "Añadir a mi colección" → estilo neutro (mismo lenguaje que `notesBtn`: `hsl(var(--muted))` / `hsl(var(--foreground))`, sin gradient, sin shadow, sin translateY).
+   - Route-waypoint actions → re-estilados al lenguaje muted P-POPUP-11.1 (sin gradient amarillo, sin shadow).
 
-### 2. `src/components/map/map-popups.ts`
+4. **Estado IA del header**: la rama legacy ya no existe → `isPointEnriched=false` también muestra `data-popup-version` correcto. Se mantiene el flag de diagnóstico actual.
 
-**A. `case 'clasificacion'` (L1418-1432):** dejar `return ''`. El cultural_context se traslada al bloque taxonómico para que las 4 familias vivan en un único slot editorial coherente.
+### Lo que NO se toca (restricción dura)
 
-**B. `case 'etiquetas'` (L1464-1542):**
-- Borrar todo el path legacy (L1509-1541) — el flag `isPopupGeoCanonicalV1On()` ya es default ON en canon.
-- Reescribir el path canónico:
-  - `renderBucket(items, family)`:
-    - `slice(0, 5)` directo, sin cálculo de `overflow`.
-    - Quitar `overflowChip` completamente.
-    - Wrapper: `display:flex; flex-wrap:wrap; justify-content:center; gap:6px; padding:8px 4px;`.
-    - Variant de color por familia (taxonomy/semantic/personal/cultural) pasado a `inlineTagBadge`.
-  - Componer en orden: taxonomy → semantic → user → cultural.
-  - Entre familias renderizadas: `<div style="border-top:1px solid hsl(var(--border)/0.6); margin:0 8px;"></div>`.
-  - Cultural se compone como chip único con su color violeta (heredado del slot `clasificacion` actual).
-  - Si `parts.length === 0` → return `''`.
-- Contenedor exterior: `margin-bottom: ${CARD.sectionGap}px; text-align:center;`.
+- `isPointEnriched` (semántica intacta).
+- Schema / `EnrichedData` / `card-schema`.
+- `marker-grammar`, `PopupShell` (Leaflet wrapper), `F2`, `popupClose`.
+- Handlers (`map-popup-handlers.ts`, `data-action`, `data-location-id`).
+- `composer` 7A.3 interno, `buildEnrichmentRatingBlock`, `buildPersonalStateBlock`.
+- `buildImageSection`, hero chrome, visited overlay.
+- `buildTerritorialBreadcrumbHtml`, `buildOwnEnrichedMetadataLineHtml`, `buildSourceMetadataLineHtml`, `buildCollectionChipsPlaceholder`, `buildPersonalTagsBlock`, `buildSourceHashtagsBlock`.
+- `getCanonicalPopupTags`, `POPUP_TAG_CAPS`, `dedupePopupTagBuckets`, `filterPersonalTags`.
+- `wrapCollapsibleSection` (ya discreto desde P-POPUP-11).
+- `inlineTagBadge`, `card-style-tokens`.
+- `mem://`, contratos de canon, taxonomy.
 
-**C. `inlineTagBadge` (verificar):** asegurar que el variant `'personal'` existe y que `'classification'` mapea a un color azul `--primary`. Si falta el variant cultural, añadirlo respetando el mismo violeta del chip Wikidata actual (`hsl(270 60% 95%)` bg / `hsl(270 70% 35%)` fg).
+### Tests a añadir / actualizar
 
-### 3. Tests
+- **`src/test/popup-unified-renderer.test.ts`** (nuevo):
+  - Para un POI con `enriched=null`: el output contiene `data-popup-footer="v1"`, `buildTerritorialBreadcrumbHtml` marker (`data-popup-geo-breadcrumb`), y NO contiene: `Ficha IA actualizada`, `+${moreDataCount}`, `+N campos más`, `#e0f2fe`, `#dcfce7` con padding 2px 8px (chip territorial antiguo), `linear-gradient(135deg, #16a34a, #22c55e)`, `border: 1px solid #f0f0f0`.
+  - Para un POI con `enriched.descripcion`: idénticas invariantes.
+- **`src/test/popup-footer-persistent.test.ts`** (extender): el footer existe en ambas ramas (test sobre `createPopupContent` con/sin `enriched`).
+- **`src/test/popup-editorial-style.test.ts`** (extender): breadcrumb territorial aparece sin condicional `isPointEnriched`.
+- Tests existentes (`popup-tags-canonical`, `popup-taxonomy-structured`, `popup-territorial-breadcrumb`, `popup-collection-metadata-line`, `popup-hero-chrome`, `popup-visited-*`) deben seguir verdes sin tocarse.
 
-- `src/test/popup-tags-canonical.test.ts`: actualizar el caso de `POPUP_TAG_CAPS` a `{ taxonomy:5, semantic:5, user:5, cultural:5, collections:4 }`.
-- `src/test/popup-taxonomy-canon-chips.test.ts`: el case `'clasificacion'` ahora devuelve `''` siempre; ajustar la aserción "still renders cultural_context.type_label" para verificar que el chip cultural aparece dentro del bloque del case `'etiquetas'`.
-- Nuevo `src/test/popup-taxonomy-structured.test.ts`:
-  - Renderiza un popup con 6 taxonomy + 7 semantic + 6 user + cultural y verifica:
-    - No aparece `+` ni `más` ni `+N` en el HTML del bloque.
-    - Máximo 5 chips por familia (cuenta `inline-tag-badge` por bucket).
-    - Hay exactamente N-1 separadores `border-top` entre las N familias renderizadas.
-    - Cada familia tiene su color/variant distinguible.
-    - `justify-content: center` presente.
-  - Caso "todas vacías": el bloque no se renderiza.
-  - Caso "solo cultural": no aparece separador.
+### Documentación
 
-### 4. Documentación / memoria
+- `docs/popups/p-popup-13-unified-renderer.md` (nuevo): contrato del shell único, lista de fragments, política de degradación.
+- `docs/contracts/popup-contract.md`: añadir sección "Renderer único — prohibido bifurcar shell por estado enriched".
+- `mem://style/popup/canonical-body-composer`: añadir "Composer acepta `enriched=null`; emite header/breadcrumb/metadata/footer y fragments vacíos para campos ausentes".
+- `mem://logic/popup/provenance-vs-collection-vs-tag`: nota — el shell legacy queda eliminado, no hay ruta alternativa de render.
 
-- `docs/contracts/popup-contract.md`: sección "Taxonomía editorial estructurada (P-POPUP-12)" describiendo las 4 familias, el límite duro de 5, ausencia de `+N` y la responsabilidad del enrichment/normalizador de recortar antes del render.
-- `docs/popups/p-popup-10-validation.md` (o nuevo `p-popup-12-validation.md`): registrar la migración.
-- `mem://style/popup/canonical-body-composer`: actualizar para incluir el slot "taxonomía editorial 4×5" canon.
-- `mem://logic/popup/provenance-vs-collection-vs-tag`: ratificar que `cultural_context` vive como 4ª familia del bloque taxonómico (no en slot independiente).
+### Validación visual (manual, post-merge)
 
-## Fuera de scope (no tocar)
+1. POI propio sin `enriched.descripcion` (importado web) → breadcrumb territorial, footer persistente, sin chips azules, sin `+N`, sin botón verde con shadow.
+2. POI seguido sin enriched → mismo shell, ownership badge, sin add-to-collection con gradient.
+3. POI enriquecido completo → comportamiento actual P-POPUP-12 idéntico (regresión cero).
+4. POI con `customData` >12 entries → accordion colapsado, sin `+N campos más`.
 
-composer 7A.3, ratings logic, handlers, schema, hero chrome, breadcrumb territorial, metadata line, taxonomy/visibility upstream, marker grammar, PopupShell, F2, footer P-POPUP-11.1, visited/pending, secondary accordions, dedupe `dedupePopupTagBuckets` (la lógica de deduplicación inter-familia ya es correcta).
+### Riesgo
 
-## Responsabilidad del enrichment
-
-Si una familia llega con >5 entradas (caso raro hoy: taxonomy max real = 3 niveles; semantic puede excederlo), el **render simplemente corta a 5**. La regla "el enriquecimiento debería priorizar antes" se documenta como contrato (no se implementa en este pase): el render no muestra `+N` ni avisa.
-
-## Criterio de aceptación visual
-
-- Las 4 familias se leen como bloques separados y centrados.
-- No aparece `+N` en ningún caso.
-- El color permite identificar a qué familia pertenece cada chip sin leer.
-- Colecciones siguen viviendo en metadata line; geografía sigue en breadcrumb.
+Eliminar la rama legacy puede dejar al descubierto POIs con shapes inesperadas en `customData` o `location.description` larga. Mitigación: la rama fallback dentro del shell canónico mantiene esos datos accesibles, sólo cambia su lenguaje visual. Sin pérdida funcional.

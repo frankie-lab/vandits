@@ -156,11 +156,11 @@ describe('P-POPUP-3A — static guard (rama enriched A)', () => {
     expect(src).toContain('data-popup-ownership-strip=');
   });
 
-  it('rama B (fallback) NO ha sido tocada — sigue llamando ownershipBadgeHtml y buildSourceHashtagsBlock sin gating', () => {
-    // Hay exactamente dos sitios donde se inserta ${ownershipBadgeHtml}:
-    //  - rama A (envuelta bajo flag)
-    //  - rama B (sin flag — out of scope 3A)
+  it('P-POPUP-13 — rama legacy eliminada: ownershipBadgeHtml ya solo se renderiza dentro del shell canónico', () => {
+    // Tras P-POPUP-13 ya no existe la rama B (legacy). El badge se renderiza
+    // exclusivamente bajo el flag `isPopupOwnershipStripV1On()` (o como
+    // fallback inline cuando isOwn=false) dentro del shell canónico único.
     const matchesPlain = src.match(/^\$\{ownershipBadgeHtml\}$/gm) ?? [];
-    expect(matchesPlain.length).toBeGreaterThanOrEqual(1);
+    expect(matchesPlain.length).toBe(0);
   });
 });

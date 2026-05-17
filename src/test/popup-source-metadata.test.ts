@@ -184,9 +184,12 @@ describe('P-POPUP-4A — static guard (rama A despacho)', () => {
     expect(src).toMatch(/isOwn && isPopupOwnershipStripV1On\(\)/);
   });
 
-  it('rama B (fallback no-enriched) sigue llamando buildSourceHashtagsBlock sin gating', () => {
-    // Rama B en L≈1300+: una sola llamada sin opts (sin suppressOwn, sin metadata gating).
-    expect(src).toMatch(/buildSourceHashtagsBlock\(location, ownership\)/);
+  it('P-POPUP-13 — rama legacy eliminada: ya no existe fallback no-enriched independiente', () => {
+    // Tras P-POPUP-13 el shell es único. `buildSourceHashtagsBlock(location, ownership)`
+    // (rama B legacy sin opts) ya no debe existir; la única llamada superviviente
+    // es la del shell canónico con `{ suppressOwn: false }`.
+    expect(src).not.toMatch(/buildSourceHashtagsBlock\(location, ownership\)(?!,)/);
+    expect(src).toMatch(/buildSourceHashtagsBlock\(location, ownership, \{ suppressOwn: false \}\)/);
   });
 
   it('flag exporta isPopupSourceMetadataV1On (testabilidad)', () => {

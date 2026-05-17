@@ -1089,7 +1089,11 @@ export function createPopupContent(
   // como proxy de "enriquecido" (puede contener stubs sin `descripcion`).
   const isEnriched = isPointEnriched(location);
   const canRegenerate = canEnrich && (!isEnriched || locationUpdatedAt < criteriaTimestamp);
-  const enriched = location.enrichedData;
+  // P-POPUP-13 — Unified renderer: el shell canónico es el único shell.
+  // `enriched` se normaliza a objeto vacío cuando el POI no está enriquecido
+  // (o `enriched_data` es null) para que el composer canónico pueda emitir
+  // fragments vacíos por campo sin bifurcar el árbol visual.
+  const enriched: any = location.enrichedData ?? {};
   const locationName = (enriched?.nombre_lugar && enriched.nombre_lugar !== 'null') ? enriched.nombre_lugar : location.name;
   const hasClassification = !!enriched?.clasificacion?.codigo;
 
@@ -1272,26 +1276,30 @@ ${deleteBtnHtml}
 ${enrichedFooterLine}
 `;
 
+  // P-POPUP-13 — Add-to-collection en lenguaje muted (sin gradient verde,
+  // sin shadow, sin translateY). Mismo registro tipográfico que notesBtn.
   const addToCollectionBtnHtml = (!isOwn && !isCuratorPoint) ? `
-<button 
-class="popup-action-btn" 
-data-action="add-to-collection" 
+<button
+class="popup-action-btn"
+data-action="add-to-collection"
 data-location-id="${location.id}"
 data-location-name="${location.name}"
-style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; background: linear-gradient(135deg, #16a34a, #22c55e); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);"
-onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(22, 163, 74, 0.4)'"
-onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 8px rgba(22, 163, 74, 0.3)'"
+style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; background: hsl(var(--muted)); color: hsl(var(--foreground)); border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.15s; margin-top: 8px; margin-bottom: 4px;"
+onmouseover="this.style.background='hsl(var(--muted) / 0.7)'"
+onmouseout="this.style.background='hsl(var(--muted))'"
 title="Añadir este punto a tu colección personal"
 >
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 <path d="M12 5v14M5 12h14"/>
 </svg>
 Añadir a mi colección
 </button>
 ` : '';
 
-  // Si tiene ficha enriquecida (descripcion IA real), mostrarla.
-  if (isEnriched && enriched) {
+  // P-POPUP-13 — Renderer único: el shell canónico se aplica a TODOS los
+  // POIs. `enriched` normalizado a objeto vacío decide qué fragments existen,
+  // nunca qué sistema visual se usa. Sin rama legacy.
+  {
     const localizacionLinks = parseLocalizacionToLinks(enriched.localizacion, location);
     const popupId = `popup-${location.id.slice(0, 8)}`;
     const cardCfg = getCardConfig();
@@ -1431,10 +1439,14 @@ ${(() => {
 </div>`;
       
       case 'descripcion': {
-        const desc = enriched.descripcion
+        // P-POPUP-13 — degradación graciosa: si no hay `enriched.descripcion`
+        // (POI no enriquecido), usamos `location.description` con el mismo
+        // estilo editorial. Si tampoco existe, fragment vacío.
+        const text = enriched.descripcion || (!isEnriched ? (location.description || '') : '');
+        const desc = text
           ? `
 <div class="vandits-description-body" style="clear: both; display: block; margin: 4px 0 16px 0;">
-  ${descriptionToHtmlParagraphs(enriched.descripcion, `margin: 0 0 12px 0; font-size: ${FONT.body}px; color: ${COLOR.bodyText}; line-height: 1.7; letter-spacing: 0.005em;`)}
+  ${descriptionToHtmlParagraphs(text, `margin: 0 0 12px 0; font-size: ${FONT.body}px; color: ${COLOR.bodyText}; line-height: 1.7; letter-spacing: 0.005em;`)}
 </div>`
           : '';
         // P-POPUP-7A.1 — el switch ya NO compone; el rating se ancla en el composer.
@@ -1661,6 +1673,47 @@ ${(() => {
 
 
 })()}
+${(!isEnriched) ? (() => {
+  // P-POPUP-13 — Fallback body (POI sin enriched.descripcion): customData
+  // filtrado renderizado en lenguaje discreto. SIN overflow textual, SIN
+  // bordes legacy grises, SIN eyebrow uppercase agresivo. Mismo registro
+  // tipográfico que el resto del shell canónico.
+  const filteredCustomData = Object.entries(location.customData || {})
+    .filter(([key]) => !['user_image_url', 'user_image_visibility', 'has_notes', 'notes', 'visited', 'user_rating'].includes(key));
+  if (filteredCustomData.length === 0) return '';
+  const rowsHtml = filteredCustomData.map(([key, value]) => `
+<div style="display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid hsl(var(--border) / 0.4);">
+<span style="color: hsl(var(--muted-foreground)); font-size: 12px; min-width: 80px; font-weight: 500;">${key}</span>
+<span style="color: hsl(var(--foreground)); font-size: 12px; flex: 1;">${value}</span>
+</div>`).join('');
+  return `
+<details data-popup-fallback-customdata="v1" style="margin: 8px 16px 12px 16px; border-top: 1px solid hsl(var(--border) / 0.6); padding-top: 8px;">
+<summary style="cursor: pointer; font-size: 11px; color: hsl(var(--muted-foreground)); letter-spacing: 0.02em; padding: 4px 0; list-style: none;">Datos adicionales (${filteredCustomData.length})</summary>
+<div style="margin-top: 6px;">${rowsHtml}</div>
+</details>`;
+})() : ''}
+<!-- Mount point for UnenrichedRecoveryBlock (hydrated by LocationMap on popupopen).
+     Solo se monta si el POI no está enriquecido. -->
+${!isEnriched ? `<div data-recovery-root="${location.id}" style="margin: 0 16px 8px 16px;"></div>` : ''}
+${(() => {
+  const pt = (location.placeType ?? '').toString();
+  const isRouteWaypoint = pt === 'route_waypoint' || pt.startsWith('route_') || location.customData?.is_route_waypoint === 'true';
+  if (!(isOwn && canEditLocation && isRouteWaypoint)) return '';
+  // P-POPUP-13 — Route-waypoint actions en lenguaje muted P-POPUP-11.1
+  // (sin gradient amarillo, sin translateY, sin shadow).
+  const btn = (action: string, label: string, title: string, svg: string, extra: string = '') => `
+<button class="popup-action-btn" data-action="${action}" data-location-id="${location.id}" ${extra}
+style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 30px; padding: 0 8px; background: hsl(var(--muted)); color: hsl(var(--foreground)); border: none; border-radius: 6px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;"
+onmouseover="this.style.background='hsl(var(--muted) / 0.7)'" onmouseout="this.style.background='hsl(var(--muted))'"
+title="${title}">${svg}${label}</button>`;
+  return `
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 16px 8px 16px;">
+${btn('view-nearby', 'Contexto cercano', 'Explorar puntos de interés cercanos', '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/></svg>')}
+${btn('duplicate-point', 'Duplicar', 'Crear una copia de este punto', '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>', `data-location-name="${location.name}"`)}
+${btn('merge-nearby', 'Fusionar', 'Fusionar con un punto cercano', '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/></svg>')}
+${btn('reclassify-type', 'Reclasificar', 'Cambiar el tipo de lugar', '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>')}
+</div>`;
+})()}
 </div>
 </div>
 
@@ -1674,194 +1727,10 @@ ${actionButtonsHtml}
 `;
   }
 
-  // Fallback: mostrar datos originales
-  const ownershipInfo: PopupOwnership = {
-    isOwn,
-    ownerName,
-    isFollowing: ownership?.isFollowing,
-    curatorId: ownership?.curatorId,
-    curatorIcon: ownership?.curatorIcon,
-    curatorColor: ownership?.curatorColor,
-    curatorAvatar: ownership?.curatorAvatar,
-  };
-
-  // P-POPUP-7B (unificación) — single source of truth para el estado
-  // visited en la rama legacy (enriched=null intencional).
-  const visitedStateLegacy = resolveVisitedPresentationState(location, ownershipInfo, null);
-
-  const filteredCustomData = Object.entries(location.customData || {})
-    .filter(([key]) => !['user_image_url', 'user_image_visibility', 'has_notes', 'notes', 'visited', 'user_rating'].includes(key));
-
-  const customDataHtml = filteredCustomData
-    .slice(0, 6)
-    .map(([key, value]) => `
-<div style="display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid #f0f0f0;">
-<span style="color: #666; font-size: 12px; min-width: 80px; font-weight: 500;">${key}</span>
-<span style="color: #333; font-size: 12px; flex: 1;">${value}</span>
-</div>
-`).join('');
-
-  const moreDataCount = filteredCustomData.length - 6;
-
-  return `
-<div data-popup-version="${isPopupGeoCanonicalV1On() ? 'geo-canonical-v1' : 'legacy'}" data-popup-geo-canonical="${isPopupGeoCanonicalV1On() ? 'true' : 'false'}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: ${POPUP_MAX_HEIGHT}; overflow: hidden;">${isPopupDiagBadgeVisible() && isPopupGeoCanonicalV1On() ? `<div style="position: absolute; top: 4px; left: 4px; z-index: 10; padding: 2px 6px; border-radius: 4px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.85; pointer-events: none;" title="P-POPUP-2 canonical geo header + 4-bucket tag dedupe ACTIVE (preview/staging signal — will retire after ratification)">P-POPUP-2 ON</div>` : ''}
-${statusBarHtml}
-
-<div style="flex-shrink: 0;">
-${buildImageSection(location, null, ownershipInfo, visitedStateLegacy)}
-</div>
-
-<div class="popup-scroll-body" style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;">
-<div style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb;">
-<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
-<h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #1a1a1a; line-height: 1.3; flex: 1;">
-${location.name}
-</h3>
-${ownershipBadgeHtml}
-</div>
-${isPopupGeoCanonicalV1On()
-  ? buildTerritorialBreadcrumbHtml(location)
-  : `<div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
-${location.continent ? `<span class="filter-link" data-filter-type="continent" data-filter-value="${location.continent}" style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">${location.continent}</span>` : ''}
-${location.country ? `<span class="filter-link" data-filter-type="country" data-filter-value="${location.country}" style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'">${location.country}</span>` : ''}
-${location.region ? `<span class="filter-link" data-filter-type="region" data-filter-value="${location.region}" style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#fde68a'" onmouseout="this.style.background='#fef3c7'">${location.region}</span>` : ''}
-${location.zone ? `<span class="filter-link" data-filter-type="zone" data-filter-value="${location.zone}" style="background: #f3e8ff; color: #7c3aed; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">${location.zone}</span>` : ''}
-</div>`}
-
-${(!isOwn && !isCuratorPoint) ? `
-<button 
-class="popup-action-btn" 
-data-action="add-to-collection" 
-data-location-id="${location.id}"
-data-location-name="${location.name}"
-style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; background: linear-gradient(135deg, #16a34a, #22c55e); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-top: 12px; box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);"
-onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(22, 163, 74, 0.4)'"
-onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 8px rgba(22, 163, 74, 0.3)'"
-title="Añadir este punto a tu colección personal"
->
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-<path d="M12 5v14M5 12h14"/>
-</svg>
-Añadir a mi colección
-</button>
-` : ''}
-
-<!-- P-POPUP-7A: Visited + personal rating bajados al slot post-descripcion.
-     Ver buildPersonalStateBlock debajo del bloque de descripcion. -->
-</div>
-
-${location.description ? `
-<div style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; background: #fafafa;">
-<p style="margin: 0; font-size: 13px; color: #4b5563; line-height: 1.5; white-space: pre-wrap; max-height: 150px; overflow-y: auto;">
-${location.description}
-</p>
-</div>
-` : ''}
-
-${buildPersonalStateBlock(location, { isOwn, isCuratorPoint, canEditLocation, heroOverlayActive: visitedStateLegacy.showHeroOverlay })}
-
-${isNearbyPopupContext(location.id) ? '' : buildSourceHashtagsBlock(location, ownership)}
-${isNearbyPopupContext(location.id) ? '' : buildCollectionChipsPlaceholder(location)}
-${isNearbyPopupContext(location.id) ? '' : buildPersonalTagsBlock(location)}
-
-<div style="padding: 12px 16px;">
-${isNearbyPopupContext(location.id) ? '' : `
-<div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
-<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-<circle cx="12" cy="10" r="3"></circle>
-</svg>
-<span style="font-size: 12px; color: #6b7280;">
-${location.coordinates.lat.toFixed(6)}, ${location.coordinates.lng.toFixed(6)}
-</span>
-</div>
-
-${customDataHtml ? `
-<div style="margin-top: 12px;">
-<div style="font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
-Datos adicionales
-</div>
-${customDataHtml}
-${moreDataCount > 0 ? `<div style="font-size: 11px; color: #9ca3af; padding-top: 8px;">+${moreDataCount} campos más</div>` : ''}
-</div>
-` : ''}
-`}
-
-${(() => {
-  const pt = (location.placeType ?? '').toString();
-  const isRouteWaypoint = pt === 'route_waypoint' || pt.startsWith('route_') || location.customData?.is_route_waypoint === 'true';
-  return (isOwn && canEditLocation && isRouteWaypoint);
-})() ? `
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 10px; margin-bottom: 6px;">
-<button 
-class="popup-action-btn" 
-data-action="view-nearby" 
-data-location-id="${location.id}"
-style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 7px 6px; background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; border: 1px solid #fcd34d; border-radius: 6px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.15s;"
-onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 2px 8px rgba(245,158,11,0.3)'"
-onmouseout="this.style.transform='none';this.style.boxShadow='none'"
-title="Explorar puntos de interés cercanos"
->
-<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-<path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/>
-</svg>
-Contexto cercano
-</button>
-<button 
-class="popup-action-btn" 
-data-action="duplicate-point" 
-data-location-id="${location.id}"
-data-location-name="${location.name}"
-style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 7px 6px; background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
-onmouseover="this.style.transform='translateY(-1px)';this.style.background='#e5e7eb'"
-onmouseout="this.style.transform='none';this.style.background='#f3f4f6'"
-title="Crear una copia de este punto"
->
-<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
-</svg>
-Duplicar
-</button>
-<button 
-class="popup-action-btn" 
-data-action="merge-nearby" 
-data-location-id="${location.id}"
-style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 7px 6px; background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
-onmouseover="this.style.transform='translateY(-1px)';this.style.background='#e5e7eb'"
-onmouseout="this.style.transform='none';this.style.background='#f3f4f6'"
-title="Fusionar con un punto cercano"
->
-<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-<path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/>
-</svg>
-Fusionar
-</button>
-<button 
-class="popup-action-btn" 
-data-action="reclassify-type" 
-data-location-id="${location.id}"
-style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 7px 6px; background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
-onmouseover="this.style.transform='translateY(-1px)';this.style.background='#e5e7eb'"
-onmouseout="this.style.transform='none';this.style.background='#f3f4f6'"
-title="Cambiar el tipo de lugar"
->
-<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-<path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/>
-</svg>
-Reclasificar
-</button>
-</div>
-` : ''}
-
-<!-- Mount point for UnenrichedRecoveryBlock (hydrated by LocationMap on popupopen).
-     Helper único: per-POI recovery block. Solo se monta si el POI no está enriquecido. -->
-<div data-recovery-root="${location.id}" style="margin: 0 0 8px 0;"></div>
-
-${actionButtonsHtml}
-</div>
-</div>
-</div>
-`;
+  // P-POPUP-13 — La rama legacy visual fue eliminada. El shell canónico
+  // (hero → scroll-body → footer persistente) aplica a TODOS los POIs.
+  // Si llegamos aquí es por error de control de flujo: devolvemos string vacío.
+  return '';
 }
 
 // P-POPUP-7B DEV AUTODIAGNOSIS — module-level, dev-only. Removed in fix commit.
