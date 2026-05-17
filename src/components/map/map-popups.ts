@@ -1191,89 +1191,85 @@ box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 </div>
 ` : '';
 
-  const actionButtonsHtml = `
-${progressBarHtml}
-${(canEditLocation && !isOwn && !isCuratorPoint) ? adminEditWarning : ''}
-<div style="display: flex; gap: 4px;">
-${isCuratorPoint ? `
-<div style="flex: 2; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 10px; background: #f0fdf4; color: #166534; border: none; border-radius: 4px; font-size: 11px; font-weight: 500;">
-<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-<circle cx="12" cy="12" r="10"/>
-<polyline points="12 6 12 12 16 14"/>
-</svg>
-Enriquecido ${location.updatedAt ? formatRegistrationDate(location.updatedAt) : ''}
+  // P-POPUP-11.1 — Footer action hierarchy refinement.
+  // Grid 32px | 1fr | 32px → par central [Re-enriquecer][Notas] ópticamente
+  // centrado; borrar icon-only a la derecha; pie informativo "Enriquecido ·
+  // <fecha>" en segunda línea (muted, sin pill, sin border).
+  const showEnrichedFooterLine = (isEnriched || isCuratorPoint) && !!location.updatedAt;
+  const enrichedFooterLine = showEnrichedFooterLine ? `
+<div style="text-align: center; font-size: 10px; color: hsl(var(--muted-foreground)); margin-top: 6px; letter-spacing: 0.01em;">
+Enriquecido · ${formatRegistrationDate(location.updatedAt!)}
 </div>
-` : `
-${canEditLocation ? `
-${isEnriched ? `
-<!-- Enriched: date label + re-enrich button -->
-<div style="flex: 2; display: flex; align-items: center; gap: 4px;">
-<div style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 8px; background: #f0fdf4; color: #166534; border-radius: 4px; font-size: 10px; font-weight: 500;">
-<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-<polyline points="20 6 9 17 4 12"></polyline>
-</svg>
-Enriquecido ${location.updatedAt ? formatRegistrationDate(location.updatedAt) : ''}
-</div>
-<button 
-class="popup-action-btn" 
-data-action="enrich" 
+` : '';
+
+  const reEnrichBtnHtml = (!isCuratorPoint && canEditLocation && isEnriched) ? `
+<button
+class="popup-action-btn"
+data-action="enrich"
 data-location-id="${location.id}"
-style="display: flex; align-items: center; justify-content: center; gap: 3px; padding: 6px 10px; background: hsl(var(--primary) / 0.12); color: hsl(var(--primary)); border: none; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer; transition: background 0.15s; white-space: nowrap;"
-onmouseover="this.style.background='hsl(var(--primary) / 0.2)'"
-onmouseout="this.style.background='hsl(var(--primary) / 0.12)'"
+style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 28px; padding: 0 12px; background: hsl(var(--primary) / 0.10); color: hsl(var(--primary)); border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: background 0.15s; white-space: nowrap;"
+onmouseover="this.style.background='hsl(var(--primary) / 0.18)'"
+onmouseout="this.style.background='hsl(var(--primary) / 0.10)'"
 title="Regenerar ficha completa con IA"
 >
-<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/>
 </svg>
 Re-enriquecer
 </button>
-</div>
-` : `
-<!-- Not enriched: NO duplicate enrich button here.
-     The single CTA "Enriquecer" lives in <UnenrichedRecoveryBlock>, mounted in
-     [data-recovery-root] by popup-recovery-mount.ts. Avoiding the duplicate
-     keeps the contract single-source-of-truth and prevents divergent UX
-     (different focusAfter, different refresh behavior). See
-     mem://logic/content/enrichment-trigger-unified. -->
-`}
-` : ''}
-`}
-${canEditOwn ? `
-<button 
-class="popup-action-btn" 
-data-action="add-notes" 
+` : '';
+
+  const notesBtnHtml = canEditOwn ? `
+<button
+class="popup-action-btn"
+data-action="add-notes"
 data-location-id="${location.id}"
-style="flex: ${canEditLocation ? '1' : '1'}; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 4px 6px; background: ${hasNotes ? '#fef3c7' : '#f3f4f6'}; color: ${hasNotes ? '#92400e' : '#374151'}; border: none; border-radius: 3px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
-onmouseover="this.style.background='${hasNotes ? '#fde68a' : '#e5e7eb'}';this.style.transform='translateY(-1px)'"
-onmouseout="this.style.background='${hasNotes ? '#fef3c7' : '#f3f4f6'}';this.style.transform='none'"
+style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 28px; padding: 0 12px; background: hsl(var(--muted)); color: hsl(var(--foreground)); border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: background 0.15s; white-space: nowrap;"
+onmouseover="this.style.background='hsl(var(--muted) / 0.7)'"
+onmouseout="this.style.background='hsl(var(--muted))'"
 title="${hasNotes ? 'Editar notas' : 'Añadir notas'}"
 >
-<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
 <polyline points="14 2 14 8 20 8"/>
 <line x1="16" y1="13" x2="8" y2="13"/>
 <line x1="16" y1="17" x2="8" y2="17"/>
-<line x1="10" y1="9" x2="8" y2="9"/>
 </svg>
-Notas
+Notas${hasNotes ? ` <span style="width:4px; height:4px; border-radius:50%; background: hsl(var(--primary) / 0.6); display:inline-block; margin-left:2px;"></span>` : ''}
 </button>
-<button 
-class="popup-action-btn" 
-data-action="delete-location" 
+` : '';
+
+  const deleteBtnHtml = canEditOwn ? `
+<button
+class="popup-action-btn"
+data-action="delete-location"
 data-location-id="${location.id}"
 data-location-name="${location.name}"
-style="display: flex; align-items: center; justify-content: center; padding: 4px 8px; background: #fef2f2; color: #dc2626; border: none; border-radius: 3px; cursor: pointer; transition: all 0.15s;"
-onmouseover="this.style.background='#fee2e2';this.style.transform='translateY(-1px)'"
-onmouseout="this.style.background='#fef2f2';this.style.transform='none'"
+style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; background: transparent; color: hsl(var(--destructive) / 0.7); border: none; border-radius: 6px; cursor: pointer; transition: background 0.15s, color 0.15s;"
+onmouseover="this.style.background='hsl(var(--destructive) / 0.10)';this.style.color='hsl(var(--destructive))'"
+onmouseout="this.style.background='transparent';this.style.color='hsl(var(--destructive) / 0.7)'"
 title="Mover a la papelera"
 >
-<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
 </svg>
 </button>
-` : ''}
+` : '';
+
+  const actionButtonsHtml = `
+${progressBarHtml}
+${(canEditLocation && !isOwn && !isCuratorPoint) ? adminEditWarning : ''}
+<div style="display: grid; grid-template-columns: 32px 1fr 32px; align-items: center; gap: 8px;">
+<div aria-hidden="true"></div>
+<div style="display: flex; justify-content: center; align-items: center; gap: 8px;">
+${reEnrichBtnHtml}
+${notesBtnHtml}
 </div>
+<div style="display: flex; justify-content: flex-end; align-items: center;">
+${deleteBtnHtml}
+</div>
+</div>
+${enrichedFooterLine}
 `;
 
   const addToCollectionBtnHtml = (!isOwn && !isCuratorPoint) ? `
