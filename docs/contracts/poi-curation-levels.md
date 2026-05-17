@@ -25,9 +25,26 @@ inferior por prioridad descendente `10 → 9 → 5 → 3 → 1 → 0`.
 | POI-0   | Sólo coordenadas; sin nombre validado (vacío o `Sin nombre`)                    | red      | no           | `name`               |
 | POI-1   | Coords + nombre; geografía sin validar (`geoHealth ∈ {null, empty, stale_name}`) | red      | no           | `validate-geo`       |
 | POI-3   | Conflicto geográfico (`geoHealth = 'broken'`) — **tiene prioridad sobre enriched** | red      | no           | `resolve-conflict`   |
-| POI-5   | Enriquecido con deuda: rings activos, `geoHealth='partial'`, o aún no visitado  | yellow   | limited      | `heal`               |
-| POI-9   | Enriquecido + visitado + sin `user_rating`                                      | green    | yes          | `rate-experience`    |
-| POI-10  | Enriquecido + visitado + valorado                                               | green    | yes          | `none` (estado final) |
+| POI-5   | Enriquecido con **deuda objetiva**: rings activos o `geoHealth ∈ {partial, stale_name, empty}` | yellow   | limited      | `heal`               |
+| POI-9   | Enriquecido + sano (rings vacíos, `geoHealth='ok'`); sin valoración final       | green    | yes          | depende de personal (ver §3) |
+| POI-10  | Enriquecido + sano + visitado + valorado                                        | green    | yes          | `none` (estado final) |
+
+### Salud objetiva ≠ estado personal (regla DURA)
+
+`visited` y `user_rating` pertenecen al estado personal del viewer y
+NUNCA degradan `healthState`/`shareability`. Un POI enriquecido, con
+`geoHealth='ok'` y sin rings activos, está sano por definición — esté o
+no visitado. "Pendiente de visita" no equivale a "Sanar POI" y no puede
+producir `primaryAction='heal'`.
+
+El estado personal sólo modula el `primaryAction` **dentro de POI-9**:
+
+| Personal state                | primaryAction      |
+|-------------------------------|--------------------|
+| no visitado                   | `none` (sin botón) |
+| visitado + sin `user_rating`  | `rate-experience`  |
+| visitado + `user_rating > 0`  | (es POI-10 → `none`) |
+
 
 ## 2. Helpers canónicos (no duplicar predicados)
 
