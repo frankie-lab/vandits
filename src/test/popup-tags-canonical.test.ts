@@ -159,12 +159,13 @@ describe('P-POPUP-2 — getCanonicalPopupTags', () => {
 });
 
 describe('P-POPUP-2 — POPUP_TAG_CAPS', () => {
-  it('matches plan §5.4 visible limits', () => {
+  it('P-POPUP-12 — 4 familias × 5 chips, sin overflow; collections sigue en 4', () => {
     expect(POPUP_TAG_CAPS).toEqual({
-      taxonomy: 3,
+      taxonomy: 5,
       collections: 4,
       semantic: 5,
-      user: 4,
+      user: 5,
+      cultural: 5,
     });
   });
 });
