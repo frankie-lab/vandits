@@ -184,9 +184,20 @@ export function getCanonicalPopupTags(
   });
 }
 
+/**
+ * P-POPUP-12 — Canon de taxonomía editorial estructurada.
+ * Cuatro familias renderizables (taxonomy / semantic / user / cultural),
+ * límite duro 5 por familia, SIN overflow visual (`+N`). Si una familia
+ * llega con >5 entradas, el render simplemente corta. La priorización
+ * upstream es responsabilidad del enriquecimiento/normalizador.
+ *
+ * `collections` se mantiene para el helper de chips de colecciones (otro
+ * slot, fuera del bloque taxonómico).
+ */
 export const POPUP_TAG_CAPS = {
-  taxonomy: 3,
+  taxonomy: 5,
   collections: 4,
   semantic: 5,
-  user: 4,
+  user: 5,
+  cultural: 5,
 } as const;
