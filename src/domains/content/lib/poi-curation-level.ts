@@ -105,6 +105,28 @@ function isVisited(loc: GeoLocation | null | undefined): boolean {
 }
 
 /**
+ * Resuelve la acción primaria del footer combinando nivel + estado personal.
+ *
+ * El nivel define la familia de salud; el estado personal sólo discrimina
+ * dentro de POI-9 (sano sin valoración final):
+ *   - no visitado → `none` (la fila personal del rating block ya comunica
+ *     "Pendiente"; un botón "Valorar experiencia" sin visita es confuso).
+ *   - visitado sin rating → `rate-experience`.
+ * El resto delega en la tabla canónica.
+ */
+function resolvePrimaryAction(
+  level: PoiCurationLevel,
+  state: { visited: boolean; rated: boolean },
+): PoiPrimaryAction {
+  if (level === 9) {
+    if (state.visited && !state.rated) return 'rate-experience';
+    return 'none';
+  }
+  return LEVEL_ACTION[level];
+}
+
+
+/**
  * Resuelve el nivel de curación del POI.
  *
  * Salud objetiva (rings, geoHealth, enrichment) decide PRIMERO. Estado
