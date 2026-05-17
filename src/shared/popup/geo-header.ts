@@ -133,3 +133,46 @@ export function buildGeoHeaderHtml(
   }).join('');
   return `<div data-popup-geo-header="1" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">${inner}</div>`;
 }
+
+/**
+ * P-POPUP-9 — Territorial breadcrumb (canon nuevo).
+ *
+ * Sustituye los chips territoriales del header por una cadena ligera
+ * `Country › Region › Zone › Locality` (orden global → local).
+ *
+ * Contrato:
+ *   - Mismo `class="filter-link"` + `data-filter-type` + `data-filter-value`
+ *     que `buildGeoHeaderHtml` → el handler central (`map-popup-handlers.ts`)
+ *     no necesita cambios.
+ *   - Locality permanece NO clickable (handler no soporta `locality`).
+ *   - Estilo link textual discreto: muted, sin chip/background/border-radius.
+ *   - Separador `›`. Wrap natural (no scroll).
+ *
+ * Orden documentado en `docs/popups/p-popup-9-validation.md` y
+ * `mem://style/popup/territorial-breadcrumb`. Inmutable salvo nueva PR.
+ */
+export function buildTerritorialBreadcrumbHtml(loc: GeoLocation): string {
+  const chips = getCanonicalGeoChips(loc);
+  if (chips.length === 0) return '';
+  // Canonical chips llegan local→global; el breadcrumb es global→local.
+  const ordered = [...chips].reverse();
+  const linkBase = 'font-size: 11px; line-height: 1.5; color: hsl(var(--muted-foreground)); text-decoration: none; transition: color 0.15s;';
+  const sepStyle = 'margin: 0 4px; opacity: 0.6; color: hsl(var(--muted-foreground)); font-size: 11px;';
+  const parts: string[] = [];
+  ordered.forEach((c, idx) => {
+    if (idx > 0) {
+      parts.push(`<span class="popup-breadcrumb-sep" aria-hidden="true" style="${sepStyle}">›</span>`);
+    }
+    const v = esc(c.value);
+    if (c.filterType) {
+      parts.push(
+        `<a href="#" class="filter-link popup-breadcrumb-link" data-filter-type="${c.filterType}" data-filter-value="${v}" data-geo-level="${c.level}" style="${linkBase}" title="Filtrar por ${v}">${v}</a>`
+      );
+    } else {
+      parts.push(
+        `<span data-geo-level="${c.level}" style="${linkBase}">${v}</span>`
+      );
+    }
+  });
+  return `<nav data-popup-geo-breadcrumb="1" aria-label="Ubicación" style="display: flex; flex-wrap: wrap; align-items: center; row-gap: 2px;">${parts.join('')}</nav>`;
+}

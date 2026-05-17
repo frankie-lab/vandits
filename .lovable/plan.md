@@ -1,109 +1,93 @@
-# P-POPUP-7A.3 — Implementación del contrato de ratings del popup
+# P-POPUP-9 — Territorial breadcrumbs + collection metadata links
 
-Implementa el contrato documental ya ratificado en `docs/popups/p-popup-7a2-rating-contract.md`. Solo presentación en `src/components/map/map-popups.ts` + tests + docs/memoria. Sin cambios a handlers, schema, hero chrome, ownership, F2 o PopupShell.
+## Diagnóstico actual
 
-## Objetivo visual
+- **Header territorial**: `buildGeoHeaderHtml` (`src/shared/popup/geo-header.ts`) emite chips con background `hsl(var(--secondary))`, padding 2x8 y border-radius 12px. Visualmente parecen hashtags/tags. Consumido en `map-popups.ts` L1337 (own-enriched) y L1764 (otra rama legacy con chips azul/verde/ámbar/violeta hardcodeados).
+- **Colecciones en metadata**: `buildCollectionsMetadataSegment` (`map-popups.ts` L290) ya devuelve `<span class="collection-filter-chip" data-collection-id … data-collection-name …>` sin pill ni hashtag, con icono `bookmark`. Cumple ya la mayor parte del contrato de Cambio 2; sólo falta confirmar/añadir afordancia visual de link (cursor pointer + underline hover) y verificar que el handler de click filtre por colección.
+- **Contrato de filtrado existente**: `.filter-link` + `data-filter-type` + `data-filter-value` ya es consumido por el handler central (`map-popup-handlers.ts`) para `zone | region | country | continent`. NO se modifica ese contrato.
 
-Orden canónico final en el body enriched:
+## Decisión de orden (canon nuevo)
 
-```text
-description → enrichmentRating → userPersonalState → observation → secondaryFields(field_order)
-```
+**Global → Local**: `Spain › Galicia › A Coruña`.
 
-Las estrellas IA salen de la cabecera y entran al composer como slot disjunto.
+Justificación: convención editorial (breadcrumb estándar de navegación), facilita lectura "de dónde viene" antes que "qué punto". Se documenta en `mem://style/popup/territorial-breadcrumb` y en `docs/popups/p-popup-9-validation.md`. Inmutable salvo nueva PR.
 
 ## Cambios
 
-### 1. Nuevo helper único `buildEnrichmentRatingBlock`
+### 1. Nuevo helper `buildTerritorialBreadcrumbHtml(location)`
 
-Ubicación: `src/components/map/map-popups.ts`, junto a `buildPersonalStateBlock` (~L356).
+Ubicación: `src/shared/popup/geo-header.ts` (mismo módulo, reutiliza `getCanonicalGeoChips`). 
 
-Firma:
-```ts
-export function buildEnrichmentRatingBlock(
-  location: GeoLocation,
-  enriched: EnrichedData | null | undefined,
-  ownership: { isCuratorPoint: boolean },
-): string
+- Reinvierte el orden de `getCanonicalGeoChips` a `country → region → zone → locality` (global→local).
+- Render: `<nav data-popup-geo-breadcrumb="1" aria-label="Ubicación">` con elementos `<a>` (para `country/region/zone`) o `<span>` (locality, sin `filterType`) separados por `<span class="popup-breadcrumb-sep" aria-hidden="true">›</span>`.
+- Cada link clickable: `class="filter-link" data-filter-type="…" data-filter-value="…" data-geo-level="…"`. Mismo contrato que hoy → cero cambios en handler.
+- Estilo inline (sin tokens nuevos): `font-size: 11px; color: hsl(var(--muted-foreground)); text-decoration: none;` + hover `text-decoration: underline; color: hsl(var(--foreground));`. Separador `›` con `opacity: 0.6; margin: 0 4px;`. Wrap natural (`flex-wrap: wrap; row-gap: 2px;`).
+- Locality se mantiene NO clickable (mismo motivo que en geo-header actual: handler no soporta `locality`).
+
+### 2. Sustituir consumo en `map-popups.ts`
+
+- **L1337** (own-enriched header): cambiar `buildGeoHeaderHtml(...)` por `buildTerritorialBreadcrumbHtml(location)`. Mantener el wrapper `<div style="margin: 0 0 12px 0;">`.
+- **L1764** (rama legacy con chips colorizados continent/country/region/zone): reemplazar bloque entero por una sola llamada a `buildTerritorialBreadcrumbHtml(location)`. Elimina los `background: #e0f2fe / #dcfce7 / #fef3c7 / #f3e8ff` hardcodeados.
+- Marcar `buildGeoHeaderHtml` como `@deprecated` (no se borra; otros tests lo cubren y puede haber consumidores que no quiero romper en esta PR). Si el grep confirma sólo los dos consumos detectados arriba + tests, se elimina junto con su test en una PR posterior (P-POPUP-9.1, fuera de scope).
+
+### 3. Colecciones — refinamiento mínimo del link
+
+`buildCollectionsMetadataSegment` ya emite el contrato correcto. Cambios cosméticos:
+- Añadir `cursor: pointer; text-decoration: none;` y hover `text-decoration: underline;` al `<span class="collection-filter-chip" …>` (vía estilo inline o regla CSS global en `src/index.css` bajo `.collection-filter-chip`).
+- Mantener intactos: `data-collection-id`, `data-collection-name`, `title`, icono bookmark, regla "máx 2 inline + `+N`".
+- **Nota fuera de scope**: el handler de click para `.collection-filter-chip` no aparece grepable en `src/`. Se documenta como deuda en `docs/popups/p-popup-9-validation.md` (probablemente vive en un listener global pendiente). Esta PR sólo garantiza el contrato HTML, no introduce nuevo handler.
+
+### 4. Orden metadata (sin cambios estructurales)
+
+Ya implementado por `buildOwnEnrichedMetadataLineHtml`:
 ```
-
-Comportamiento:
-- `isCuratorPoint === true` → renderiza el actual `.weighted-rating-container` (curator weighted, verde, con `data-ai-rating`, valor numérico y breakdown oculto).
-- `!isCuratorPoint && enriched?.indice_interes` → renderiza el chip ámbar.
-- Ninguno de los dos → `''`.
-- Envuelve la salida en un slot semántico discreto (mismo wrapper visual que ya tenían, sin la caja gris superior `background: --surface-muted`) con `margin: 0 0 ${CARD.sectionGap}px 0`, alineado al cuerpo del popup (no centrado dentro de caja). Diseño minimalista: chip/badge inline alineado a la izquierda. No introduce label "Valoración IA" textual nuevo (los tooltips actuales se mantienen).
-- Idéntico HTML interno de estrellas que hoy, para preservar selectores `.weighted-rating-container`, `data-ai-rating`, etc.
-
-### 2. Eliminar render inline de estrellas IA en la cabecera
-
-En L1294–L1340, el bloque "Índice IA + Botones de interacción":
-- Quitar las dos ramas (curator weighted-rating-container y chip ámbar) — L1311–L1334.
-- Mantener el warning de validación (L1296–L1309) — sigue siendo cabecera válida (no es rating semántico).
-- Si tras quitar las ramas el contenedor exterior queda vacío (sólo flex wrapper sin children visibles), eliminarlo. Si queda warning, conservar wrapper sin la `<div>` interior flex de rating.
-
-### 3. Composer: añadir slot `enrichmentRating`
-
-En L1383 y siguientes:
-
-```ts
-const enrichmentRatingFragment = buildEnrichmentRatingBlock(
-  location, enriched, { isCuratorPoint }
-);
-const personalStateFragment = buildPersonalStateBlock(location, personalStateCtx);
+Añadido dd/mm/yyyy · [colección/es] · vía [source]
 ```
+Sólo se verifica en tests.
 
-Renombrar `ratingFragment` → `personalStateFragment` (eliminar nombre ambiguo).
+## Restricciones (no tocar)
 
-Actualizar el anclaje canónico (L1638–L1645) a la tripleta extendida:
+ratings, composer 7A.3, hero chrome, visited/pending, taxonomy, schema, marker grammar, F2, PopupShell. Tampoco el handler `.filter-link` ni la lógica de filtrado.
 
-```ts
-// desc + enrich + personal + obs
-// Reducciones: compactar adyacentes preservando orden 1→2→3→4
-const parts = [descFragment, enrichmentRatingFragment, personalStateFragment, obsFragment]
-  .filter(Boolean);
-const canonicalBlock = parts.join('');
-```
+## Tests
 
-Fallback (L1654–L1656, ninguna canonical key en `orderedKeys`):
-```ts
-composed.push(enrichmentRatingFragment);
-composed.push(personalStateFragment);
-```
+Nuevo archivo `src/test/popup-territorial-breadcrumb.test.ts`:
+- Emite elementos en orden `country → region → zone → locality`.
+- Cada nivel (excepto locality) lleva `class="filter-link"` y `data-filter-type` correcto.
+- Separador `›` aparece entre elementos, no al inicio ni al final.
+- Sin background azul/verde/ámbar/violeta hardcodeado (regex de hex).
+- Sin `border-radius` en los elementos del breadcrumb.
+- Wrap permitido (`flex-wrap: wrap`).
 
-`CANONICAL_KEYS` se mantiene `{'descripcion','observacion'}` (las claves que el composer "absorbe" de `orderedKeys`). `indice_interes` ya retornaba `''` en su `case` (L1607) — sigue igual: el composer es la única fuente.
+Actualizar `src/test/popup-collection-metadata-line.test.ts`:
+- Añadir aserción `cursor: pointer` en el span de colección.
 
-### 4. Documentación
+Actualizar/añadir test de integración:
+- `buildEnrichedPopupContent` ya NO contiene `buildGeoHeaderHtml` chips (regex contra `background: hsl(var(--secondary))` en zona header).
+- Contiene `data-popup-geo-breadcrumb="1"`.
 
-- `docs/popups/p-popup-7a-validation.md`: añadir sección "7A.3 — Ratificación" con evidencia (selectores movidos, tests verdes).
-- `docs/popups/p-popup-7a2-rating-contract.md`: marcar §7 Migration Impact Check como ejecutado.
-- `mem://style/popup/canonical-body-composer`: refrescar al estado implementado.
+## Documentación y memoria
 
-### 5. Tests (`src/test/popup-personal-state-hierarchy.test.ts` + nuevo archivo si se hace pesado)
+- **Crear** `docs/popups/p-popup-9-validation.md`: contrato breadcrumb + orden global→local + nota de deuda del handler de colecciones.
+- **Crear** `mem://style/popup/territorial-breadcrumb`: regla canónica (orden, contrato HTML, no-chip, link-style).
+- **Actualizar** `mem://index.md`: añadir entrada en Memories.
+- **Actualizar** `docs/contracts/popup-contract.md`: territorial = breadcrumb, no chips.
 
-Guardrails G1–G10 ya definidos en el contrato. Mínimo a añadir:
+## Archivos a editar
 
-- **G1**: la cabecera (todo lo previo a `case 'descripcion'`) no contiene `weighted-rating-container`, `data-ai-rating`, ni el chip ámbar con `★`/`☆` ligado a `indice_interes`.
-- **G2**: scan estático: `weighted-rating-container` aparece exclusivamente dentro de `buildEnrichmentRatingBlock`.
-- **G5/G6**: render del popup enriched con desc+enrich+personal+obs todos presentes → orden HTML 1→2→3→4. Cubrir las reducciones (sin enrich, sin personal, etc.).
-- **G8**: `buildPersonalStateBlock` no contiene `data-ai-rating`/`indice_interes`; `buildEnrichmentRatingBlock` no contiene `data-action="set-rating"`/`user_rating`.
-- **G9**: en el HTML completo del popup enriched, no aparece `★`/`☆` antes del marcador `>Descripción<`.
+1. `src/shared/popup/geo-header.ts` — añade `buildTerritorialBreadcrumbHtml`.
+2. `src/components/map/map-popups.ts` — sustituye dos consumos (L1337, L1764) + ajuste cosmético colección (L298 o CSS global).
+3. `src/index.css` — regla `.collection-filter-chip` + `.popup-breadcrumb-sep` (opcional si se prefiere CSS sobre inline).
+4. `src/test/popup-territorial-breadcrumb.test.ts` — nuevo.
+5. `src/test/popup-collection-metadata-line.test.ts` — añadir aserción link-style.
+6. `docs/popups/p-popup-9-validation.md` — nuevo.
+7. `mem://style/popup/territorial-breadcrumb` + `mem://index.md` + `docs/contracts/popup-contract.md`.
 
-Actualizar el test existente `P-POPUP-7A.1 — switch produces fragments only` para reflejar el nuevo nombre `personalStateFragment` y la presencia de `enrichmentRatingFragment` en el composer.
+## Criterio de aceptación
 
-## Fuera de scope
-
-Hero chrome, visited overlay, fotos, taxonomy, collections, provenance, geo header, lifecycle, schema, marker grammar, F2, React migration, PopupShell, tokens visuales nuevos.
-
-## Criterios de aceptación
-
-- Visual: no quedan estrellas arriba; estrellas IA aparecen debajo de Descripción; Valorar aparece debajo de las estrellas IA; Observación debajo de ambos.
-- Tests G1–G2, G5, G6 (reducciones), G8, G9 en verde + tests existentes 7A.1 ajustados.
-- Build limpio, sin cambios fuera de `map-popups.ts` (presentación) y archivos de test/docs/memoria.
-
-## Archivos tocados
-
-- `src/components/map/map-popups.ts` (helper nuevo + remoción cabecera + composer)
-- `src/test/popup-personal-state-hierarchy.test.ts` (actualizar 7A.1; añadir G1–G9)
-- `docs/popups/p-popup-7a-validation.md`
-- `docs/popups/p-popup-7a2-rating-contract.md`
-- `mem://style/popup/canonical-body-composer`
+- Header sin chips azules territoriales.
+- Breadcrumb `Spain › Galicia › A Coruña` visible, link-style, muted, clickable en country/region/zone.
+- Click en breadcrumb dispara filtro territorial usando contrato actual.
+- Colección clickable, sin hashtag/pill/badge color, en línea metadata.
+- Orden metadata: `Añadido dd/mm/yyyy · [colección] · vía [source]`.
+- Tests verdes (149 popup + nuevos breadcrumb).

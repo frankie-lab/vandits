@@ -35,7 +35,7 @@ import { getCollectionsForLocation } from '@/domains/content/store/location-coll
 import { getCollectionChipColors } from '@/shared/lib/collection-chip-color';
 import { filterPersonalTags } from '@/domains/content/lib/personal-tags-filter';
 import { resolvePoiSource } from '@/domains/content/lib/poi-source';
-import { buildGeoHeaderHtml } from '@/shared/popup/geo-header';
+import { buildGeoHeaderHtml, buildTerritorialBreadcrumbHtml } from '@/shared/popup/geo-header';
 import {
   getCanonicalPopupTags,
   tagSlug,
@@ -295,7 +295,7 @@ export function buildCollectionsMetadataSegment(location: GeoLocation): string {
   const nameSpans = inline.map((c) => {
     const safeName = String(c.name ?? '').replace(/"/g, '&quot;');
     const safeId = String(c.id ?? '').replace(/"/g, '&quot;');
-    return `<span class="collection-filter-chip" data-collection-id="${safeId}" data-collection-name="${safeName}" title="Colección: ${safeName}">${safeName}</span>`;
+    return `<span class="collection-filter-chip" data-collection-id="${safeId}" data-collection-name="${safeName}" title="Colección: ${safeName}" style="cursor: pointer; text-decoration: none; transition: text-decoration 0.15s;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${safeName}</span>`;
   }).join(', ');
   let overflowHtml = '';
   if (overflow.length > 0) {
@@ -1332,9 +1332,10 @@ ${locationName || 'Sin nombre'}
 ${(isOwn && isPopupOwnershipStripV1On()) ? '' : ownershipBadgeHtml}
 </div>
 
-<!-- Geo header (P-POPUP-2: canonical chips bajo flag, fallback a localizacionLinks italic legacy) -->
+<!-- P-POPUP-9 — Territorial breadcrumb (global→local) sustituye chips azules.
+     Fallback legacy: localizacionLinks italic cuando el flag canonico esta off. -->
 ${isPopupGeoCanonicalV1On()
-  ? `<div style="margin: 0 0 12px 0;">${buildGeoHeaderHtml(location, { background: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' })}</div>`
+  ? `<div style="margin: 0 0 12px 0;">${buildTerritorialBreadcrumbHtml(location)}</div>`
   : `<p style="margin: 0 0 12px 0; font-size: ${FONT.subtitle}px; line-height: 1.4; color: ${COLOR.muted}; font-style: italic;">${localizacionLinks}</p>`}
 
 <!-- Botón para añadir a colección (solo para puntos de seguidos) -->
@@ -1761,7 +1762,7 @@ ${location.name}
 ${ownershipBadgeHtml}
 </div>
 ${isPopupGeoCanonicalV1On()
-  ? buildGeoHeaderHtml(location, { background: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' })
+  ? buildTerritorialBreadcrumbHtml(location)
   : `<div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
 ${location.continent ? `<span class="filter-link" data-filter-type="continent" data-filter-value="${location.continent}" style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">${location.continent}</span>` : ''}
 ${location.country ? `<span class="filter-link" data-filter-type="country" data-filter-value="${location.country}" style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'">${location.country}</span>` : ''}
