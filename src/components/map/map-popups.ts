@@ -1476,7 +1476,14 @@ ${(() => {
   const heroOverlayActive = visitedState.showHeroOverlay;
   const personalStateCtx = { isOwn, isCuratorPoint, canEditLocation, heroOverlayActive };
   // P-POPUP-7A.3 — slots semánticos disjuntos (composer canónico).
-  const enrichmentRatingFragment = buildEnrichmentRatingBlock(location, enriched, { isCuratorPoint });
+  // P-POPUP-14 — el slot enrichmentRating ahora produce el bloque unificado
+  // de ratings (Row1 POI + Row2 "Tu valoración" si visitado). Por eso recibe
+  // también el contexto del viewer (isOwn / canEditLocation).
+  const enrichmentRatingFragment = buildEnrichmentRatingBlock(
+    location,
+    enriched,
+    { isCuratorPoint, isOwn, canEditLocation },
+  );
   const personalStateFragment = buildPersonalStateBlock(location, personalStateCtx);
 
   // Claves cuya posición decide el composer canónico (NO `field_order`).
