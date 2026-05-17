@@ -128,7 +128,8 @@ describe('P-POPUP-7A — enriched branch upper section no longer has visited tog
   // helper `buildPersonalStateBlock`, que se monta debajo de `descripcion`.
   it('removes inline visited toggle from the upper interaction section', () => {
     const lines = src.split('\n');
-    const startIdx = lines.findIndex((l) => l.includes('if (isEnriched && enriched) {'));
+    // P-POPUP-13 — Rama legacy eliminada. Anclamos al marker del shell único.
+    const startIdx = lines.findIndex((l) => l.includes('P-POPUP-13 — Renderer único'));
     expect(startIdx).toBeGreaterThan(0);
     const descIdx = lines.findIndex(
       (l, i) => i > startIdx && l.includes("case 'descripcion'"),
