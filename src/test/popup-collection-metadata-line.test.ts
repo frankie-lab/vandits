@@ -50,15 +50,18 @@ describe('P-POPUP-4E — buildCollectionsMetadataSegment', () => {
     expect(buildCollectionsMetadataSegment(poi('p0'))).toBe('');
   });
 
-  it('renderiza nombre legible (no slug) con icono bookmark', () => {
+  it('P-POPUP-10 — renderiza nombre legible sin icono bookmark (byline editorial)', () => {
     __setCollections('p1', [{ id: 'c1', name: 'Atlas Obscura España' }]);
     const html = buildCollectionsMetadataSegment(poi('p1'));
     expect(html).toContain('Atlas Obscura España');
-    expect(html).toContain('m19 21-7-4-7 4V5');
+    // P-POPUP-10 — byline sin iconos: bookmark SVG retirado.
+    expect(html).not.toContain('m19 21-7-4-7 4V5');
     // Sin pill/hashtag/color de colección.
     expect(html).not.toContain('border-radius');
     expect(html).not.toContain('#');
-    expect(html).toContain('hsl(var(--foreground))');
+    // Color muted, no foreground (registro byline editorial).
+    expect(html).toContain('hsl(var(--muted-foreground))');
+    expect(html).not.toContain('hsl(var(--foreground))');
   });
 
   it('marca el nombre como elemento filtrable con datasets canónicos', () => {
