@@ -64,9 +64,15 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLocationsStore } from '@/domains/content';
+import { useAuth } from '@/domains/identity';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { exportToKML, exportToCSV, exportToJSON } from '@/lib/kml-parser';
+import {
+  partitionForExport,
+  EXPORT_EXCLUSION_LABEL,
+  type ExportScope,
+} from '@/domains/content/lib/poi-export-eligibility';
 import {
   GeoLocation,
   ExportFormat,
@@ -125,6 +131,9 @@ export function SelectionActions() {
   const [isWorking, setIsWorking] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [tagPopoverOpen, setTagPopoverOpen] = useState(false);
+  const [exportScope, setExportScope] = useState<ExportScope>('public');
+  const { user } = useAuth();
+  const currentUserId = user?.id ?? null;
 
   if (count === 0) return null;
 
@@ -210,10 +219,24 @@ export function SelectionActions() {
     }
   };
 
-  // ---- 2. Exportar selección ----
+  // ---- 2. Exportar selección (PR-EXPORT-1: scope explícito siempre) ----
   const handleExport = (format: ExportFormat, target: ExportTarget = 'general') => {
     if (resolvedLocations.length === 0) {
       toast.error('No hay puntos para exportar');
+      return;
+    }
+    const ctx = { currentUserId };
+    const { eligible, excluded } = partitionForExport(resolvedLocations, exportScope, ctx);
+    if (eligible.length === 0) {
+      const summary = excluded
+        .slice(0, 3)
+        .map((e) => EXPORT_EXCLUSION_LABEL[e.reason])
+        .join(' · ');
+      toast.error(
+        exportScope === 'public'
+          ? `Ningún punto seleccionado es compartible. ${summary}`
+          : `Ningún punto exportable en modo interno (requiere ser del usuario actual). ${summary}`,
+      );
       return;
     }
     try {
@@ -223,25 +246,27 @@ export function SelectionActions() {
       let extension: string;
       switch (format) {
         case 'kml':
-          content = exportToKML(resolvedLocations, docName, target);
+          content = exportToKML(eligible, docName, target, exportScope, ctx, { scopeProvided: true });
           mimeType = 'application/vnd.google-earth.kml+xml';
           extension = 'kml';
           break;
         case 'csv':
-          content = exportToCSV(resolvedLocations);
+          content = exportToCSV(eligible, exportScope, ctx, { scopeProvided: true });
           mimeType = 'text/csv';
           extension = 'csv';
           break;
         case 'json':
-          content = exportToJSON(resolvedLocations);
+          content = exportToJSON(eligible, exportScope, ctx, { scopeProvided: true });
           mimeType = 'application/json';
           extension = 'json';
           break;
       }
       const targetSuffix = target !== 'general' ? `_${target}` : '';
+      const scopeSuffix = `_${exportScope}`;
       const timestamp = new Date().toISOString().split('T')[0];
-      downloadBlob(content, mimeType, `${docName}_seleccion${targetSuffix}_${timestamp}.${extension}`);
-      toast.success(`Exportados ${resolvedLocations.length} puntos en ${format.toUpperCase()}`);
+      downloadBlob(content, mimeType, `${docName}_seleccion${scopeSuffix}${targetSuffix}_${timestamp}.${extension}`);
+      const excludedNote = excluded.length > 0 ? ` (${excluded.length} excluidos)` : '';
+      toast.success(`Exportados ${eligible.length} puntos en ${format.toUpperCase()}${excludedNote}`);
     } catch (err) {
       console.error('Export error:', err);
       toast.error('Error al exportar');
@@ -463,7 +488,27 @@ export function SelectionActions() {
               Exportar
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuContent align="start" className="w-64">
+            <DropdownMenuLabel className="text-xs">Alcance</DropdownMenuLabel>
+            <div className="px-2 pb-2 flex gap-1">
+              <Button
+                size="sm"
+                variant={exportScope === 'public' ? 'default' : 'outline'}
+                className="h-7 text-xs flex-1"
+                onClick={(e) => { e.preventDefault(); setExportScope('public'); }}
+              >
+                Público
+              </Button>
+              <Button
+                size="sm"
+                variant={exportScope === 'internal' ? 'default' : 'outline'}
+                className="h-7 text-xs flex-1"
+                onClick={(e) => { e.preventDefault(); setExportScope('internal'); }}
+              >
+                Interno
+              </Button>
+            </div>
+            <DropdownMenuSeparator />
             <DropdownMenuLabel className="text-xs">Para aplicación</DropdownMenuLabel>
             <DropdownMenuItem onClick={() => handleExport('kml', 'mymaps')}>
               <MapIcon className="w-4 h-4 mr-2 text-blue-500" />
