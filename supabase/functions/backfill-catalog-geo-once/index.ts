@@ -8,6 +8,7 @@
 // Output: { iterations, total_processed, total_updated, total_failed, remaining, timedOut }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { requireCapability } from '../_shared/require-capability.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
