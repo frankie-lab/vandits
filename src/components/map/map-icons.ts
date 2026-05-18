@@ -14,7 +14,6 @@ import { getMarkerSizeConfig, getBaseSize, getHoverSize } from './useMarkerSizeC
 import { getMarkerStateRules, getStateColor, getStateShadow, getStateBorderWidth } from './useMarkerStateRules';
 import { getPointConfigKey } from '@/domains/content/lib/point-visual-state';
 import {
-  getPointHealthRings,
   getCoherenceGlyph,
   getCoherenceGlyphPath,
   RING_COLORS,
