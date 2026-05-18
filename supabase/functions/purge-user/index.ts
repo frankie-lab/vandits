@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     }
 
     // Allow self-purge only with explicit confirmation
-    if (targetUserId === user.id && !confirmSelf) {
+    if (targetUserId === callerId && !confirmSelf) {
       return new Response(
         JSON.stringify({ error: "Cannot purge your own account", requiresSelfConfirm: true }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
