@@ -475,25 +475,6 @@ export function SelectionActions() {
           Enriquecer IA
         </Button>
 
-        {/* Compartir grupo (PR-SHARE-1) — Share != Export */}
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={isWorking || resolvedLocations.length === 0}
-          onClick={() =>
-            openShareSheet({
-              kind: 'collection',
-              id: selectedDocument?.id || 'selection',
-              name: selectedDocument?.name || `Selección · ${count} puntos`,
-              locations: resolvedLocations,
-            })
-          }
-          className="h-8 text-xs justify-start gap-1.5"
-        >
-          <Share2 className="w-3.5 h-3.5" />
-          Compartir
-        </Button>
-
         {/* Exportar */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
