@@ -5,6 +5,7 @@ import {
   Search, ExternalLink, ChevronLeft, Crosshair,
   Building2, Landmark, Anchor, UtensilsCrossed, TreePine, Mountain,
   Replace, Bookmark, Fuel, Coffee, BedDouble, Eye, ParkingCircle, Armchair,
+  AlertCircle, RefreshCw,
 } from 'lucide-react';
 import { PlaceType, PLACE_TYPE_LABELS } from '@/types/location';
 import { Button } from '@/components/ui/button';
