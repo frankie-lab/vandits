@@ -1151,6 +1151,10 @@ export function createPopupContent(
   // como proxy de "enriquecido" (puede contener stubs sin `descripcion`).
   const isEnriched = isPointEnriched(location);
   const canRegenerate = canEnrich && (!isEnriched || locationUpdatedAt < criteriaTimestamp);
+  // P-POI-CURATION-2 — Verdict ÚNICO. Body y footer derivan del mismo
+  // objeto en el mismo render pass (commit visual atómico). Si cambia
+  // `bodyBlocker`, cuerpo + footer se reconstruyen consistentes.
+  const curationVerdict = getPoiCurationLevel(location);
   // P-POPUP-13 — Unified renderer: el shell canónico es el único shell.
   // `enriched` se normaliza a objeto vacío cuando el POI no está enriquecido
   // (o `enriched_data` es null) para que el composer canónico pueda emitir
