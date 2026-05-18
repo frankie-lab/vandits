@@ -383,19 +383,17 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   className="fixed inset-0 z-modal flex items-center justify-center bg-foreground/50 p-4 overlay-respect-progress"
   onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
   >
-   <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
-    className={`bg-card rounded-xl shadow-2xl w-full overflow-hidden flex flex-col h-full max-h-full ${
-     (defaultTab || 'users') === 'geography' || (defaultTab || 'users') === 'design-system' || (defaultTab || 'users') === 'image-recovery'
-       ? 'max-w-6xl'
-       : 'max-w-4xl'
-    }`}
-   >
+    <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
+     className={`bg-card rounded-xl shadow-2xl w-full overflow-hidden flex flex-col h-full max-h-full ${
+      getAdminTab(defaultTab as AdminTabKey)?.wide ? 'max-w-6xl' : 'max-w-4xl'
+     }`}
+    >
   <div className="flex items-center justify-between p-4 border-b">
   <div className="flex items-center gap-3">
   <div className="p-2 bg-primary/10 rounded-lg"><Shield className="w-5 h-5 text-primary" /></div>
   <div>
   <h2 className="text-lg font-bold">
-  {{ users: 'Gestión de usuarios', permissions: 'Permisos por rol', markers: 'Tamaños de marcadores', routes: 'Motor de rutas', icons: 'Galería de iconos', enrichment: 'Configuración de fichas', audit: 'Auditoría de preferencias', geography: 'Mantenimiento geográfico (Admin)', sources: 'Fuentes de datos', 'image-recovery': 'Recuperar imágenes faltantes', 'design-system': 'Design System' }[defaultTab || 'users'] || 'Panel de Administración'}
+  {getAdminTab((defaultTab || 'users') as AdminTabKey)?.label ?? 'Panel de Administración'}
   </h2>
   <p className="text-sm text-muted-foreground">Back Office</p>
   </div>
