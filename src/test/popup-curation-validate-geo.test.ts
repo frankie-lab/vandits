@@ -14,36 +14,45 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 
-// ── Mocks ─────────────────────────────────────────────────────────────
-const startMock = vi.fn();
-const clearLastResultMock = vi.fn();
+// ── Mocks (vi.hoisted so factories can reference them safely) ────────
+const h = vi.hoisted(() => ({
+  startMock: vi.fn(),
+  clearLastResultMock: vi.fn(),
+  toastSuccess: vi.fn(),
+  toastError: vi.fn(),
+  toastMessage: vi.fn(),
+  toastLoading: vi.fn(),
+  toastInfo: vi.fn(),
+  toastDismiss: vi.fn(),
+}));
+const {
+  startMock,
+  clearLastResultMock,
+  toastSuccess,
+  toastError,
+  toastMessage,
+  toastLoading,
+} = h;
 
 vi.mock('@/stores/geocoding-job-store', () => ({
   useGeocodingJobStore: {
     getState: () => ({
-      start: startMock,
-      clearLastResult: clearLastResultMock,
+      start: h.startMock,
+      clearLastResult: h.clearLastResultMock,
     }),
   },
 }));
 
-const toastSuccess = vi.fn();
-const toastError = vi.fn();
-const toastMessage = vi.fn();
-const toastLoading = vi.fn();
-const toastInfo = vi.fn();
-const toastDismiss = vi.fn();
-
 vi.mock('sonner', () => ({
   toast: Object.assign(
-    (msg: string) => toastMessage(msg),
+    (msg: string) => h.toastMessage(msg),
     {
-      success: toastSuccess,
-      error: toastError,
-      message: toastMessage,
-      loading: toastLoading,
-      info: toastInfo,
-      dismiss: toastDismiss,
+      success: h.toastSuccess,
+      error: h.toastError,
+      message: h.toastMessage,
+      loading: h.toastLoading,
+      info: h.toastInfo,
+      dismiss: h.toastDismiss,
     },
   ),
 }));
