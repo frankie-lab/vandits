@@ -18,6 +18,8 @@ import { renderHook } from '@testing-library/react';
 const h = vi.hoisted(() => ({
   startMock: vi.fn(),
   clearLastResultMock: vi.fn(),
+  subscribers: [] as Array<(s: any, prev: any) => void>,
+  storeState: { lastResult: null as any },
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
   toastMessage: vi.fn(),
@@ -34,12 +36,38 @@ const {
   toastLoading,
 } = h;
 
+// Helper to simulate the geocoding job finishing in tests.
+function completeGeocodingJob(status: 'completed' | 'failed' | 'canceled' = 'completed') {
+  const prev = { lastResult: h.storeState.lastResult };
+  h.storeState.lastResult = {
+    finishedAt: Date.now() + 1, // strictly after orchestrator's startedAt
+    status,
+    mode: 'reconcile',
+    totalProcessed: 1,
+    totalUpdated: 1,
+    failed: 0,
+    durationMs: 10,
+    initialPending: 1,
+  };
+  for (const cb of h.subscribers) cb({ ...h.storeState }, prev);
+}
+
 vi.mock('@/stores/geocoding-job-store', () => ({
   useGeocodingJobStore: {
     getState: () => ({
       start: h.startMock,
-      clearLastResult: h.clearLastResultMock,
+      clearLastResult: () => {
+        h.clearLastResultMock();
+        h.storeState.lastResult = null;
+      },
     }),
+    subscribe: (cb: (s: any, prev: any) => void) => {
+      h.subscribers.push(cb);
+      return () => {
+        const i = h.subscribers.indexOf(cb);
+        if (i >= 0) h.subscribers.splice(i, 1);
+      };
+    },
   },
 }));
 
