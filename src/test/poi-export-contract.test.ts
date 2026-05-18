@@ -85,10 +85,11 @@ describe('PR-EXPORT-1 · kml-parser defensive assert', () => {
   it('exportToKML scope=public descarta POI-5 colado', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const out = exportToKML([poi5(), poi9()], 'doc', 'general', 'public', ctxNone, { scopeProvided: true });
-    expect(out).toContain('poi-9' === 'poi-9' ? '>POI sano<' : '');
+    expect(out).toContain('POI sano');
     expect(out).not.toContain('POI partial');
     expect(out).toContain('export_scope');
-    expect(warn).toHaveBeenCalled();
+    // `scopeProvided: true` ⇒ no debe emitir warn defensivo.
+    expect(warn).not.toHaveBeenCalled();
   });
   it('exportToJSON scope=internal con ctx descarta ajenos', () => {
     const out = exportToJSON([poi9(OWNER_A), poi9(OWNER_B)], 'internal', ctxA, { scopeProvided: true });
