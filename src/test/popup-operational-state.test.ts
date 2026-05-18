@@ -110,7 +110,7 @@ describe('popup-operational-state', () => {
     setPopupOperationalState(POPUP_ID, 'loading');
     const overlay = body.querySelector<HTMLElement>(`.${POPUP_OPERATIONAL_OVERLAY_CLASS}`)!;
     expect(overlay.style.position).toBe('absolute');
-    expect(overlay.style.inset).toBe('0px');
+    expect(['0', '0px']).toContain(overlay.style.inset);
     // scroll body must be the positioning context
     expect(body.style.position).toBe('relative');
   });
