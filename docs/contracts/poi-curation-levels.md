@@ -4,6 +4,47 @@ Capa **operacional / lógica** que describe el estado de curación de un POI
 y deriva tres consecuencias: **salud**, **compartibilidad** y **acción
 principal de curación** del footer del popup. NO es un canon visual.
 
+## 0. Source of Truth (cierre canónico)
+
+| Concepto | SoT |
+|---|---|
+| Lógica popup (verdict canónico) | `src/domains/content/lib/poi-curation-level.ts` — `getPoiCurationLevel(loc)` devuelve `level`, `levelKey`, `bodyBlocker`, `primaryAction` |
+| Visual mapa (fill + rings del own marker) | `src/domains/content/lib/poi-visual-grammar.ts` — `resolvePoiVisualGrammar` expone `levelVisual.fillHsl` y `levelVisual.showStateRing` |
+| Tokens visuales POI-N | `src/design-system/tokens/source/poi.json` (`poi.level.{0,1a,1b,3,5,9,10}`) |
+| Rings operativos (deuda observable) | `src/domains/content/lib/point-health-rings.ts` — `getPointHealthRings(loc)` (alimenta panel salud, contadores, reparación; **no** decide pintura del marker) |
+| Contractual / documental popup | `docs/contracts/poi-curation-levels.md` (este archivo) + `docs/contracts/popup-contract.md` |
+| Contractual / documental mapa | `docs/contracts/marker-grammar-contract.md` (sección PR-MAP-CANON-3) |
+
+Terminología canónica única — usar exactamente estos nombres en código y docs:
+`level` · `levelKey` · `bodyBlocker` · `primaryAction` · `showStateRing`.
+
+## 0bis. Tabla final del popup (representación visible)
+
+Solo existen los niveles **0, 1, 3, 5, 9, 10**. `1a/1b` y `9a/9b` son
+**subestados visibles** derivados del mismo `level`, NO niveles nuevos.
+
+| level | subestado | bodyBlocker            | primaryAction       | botón | bloque visible en el cuerpo            |
+|-------|-----------|------------------------|---------------------|-------|----------------------------------------|
+| 0     | —         | `name`                 | `name`              | sí    | aviso "Sin nombre"                     |
+| 1     | 1a        | `validate-geo`         | `validate-geo`      | sí    | aviso "Sin localización clara"         |
+| 1     | 1b        | `enrich-from-context`  | `none`              | no    | recovery inline (`NearbyPanel`)        |
+| 3     | —         | `resolve-conflict`     | `resolve-conflict`  | sí    | aviso de conflicto geográfico          |
+| 5     | —         | `heal`                 | `heal`              | sí    | health rings + secciones               |
+| 9     | 9a        | `rate`                 | `none`              | no    | rating block (personal = Pendiente)    |
+| 9     | 9b        | `rate`                 | `none`              | no    | rating block (5 estrellas activas)     |
+| 10    | —         | `none`                 | `none`              | no    | rating block con estrella marcada      |
+
+Reglas duras:
+
+- `bodyBlocker` es la única fuente de verdad del bloqueo visible (R1).
+- Cuerpo y footer derivan del mismo verdict consumido una sola vez por
+  `createPopupContent` (R2).
+- `primaryAction ∈ {bodyBlocker, 'none'}`. Si el cuerpo YA es la acción
+  (1b: recovery; 9a/9b: estrellas), el footer no emite botón (R3).
+- Subestados 1a/1b se derivan exclusivamente de `geoHealth` dentro del
+  `levelKey` (`1b` ⇔ `geoHealth==='ok'`; resto ⇒ `1a`). 9a/9b derivan del
+  estado personal (`visited`).
+
 > **Renderer invariance (regla DURA)** — Los niveles de curación SÓLO
 > pueden modificar el atributo `data-curation-action` del botón principal
 > dentro del footer canónico (`data-popup-footer="v1"`). NUNCA pueden
