@@ -28,6 +28,8 @@ import { toast } from 'sonner';
 import { RenormalizeButton } from '@/shared/geography/RenormalizeButton';
 import { NearbyResultCard } from '@/shared/components/ui/nearby-result-card';
 import { setNearbyPopupContextId } from '@/domains/content/lib/nearby-popup-context';
+import { canReplaceCurrentPoi } from '@/domains/content/lib/can-replace-current-poi';
+import { Plus, X } from 'lucide-react';
 
 interface LocationRow {
   id: string;
