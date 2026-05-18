@@ -271,3 +271,48 @@ describe('P-POI-CURATION-2 — subestados + bodyBlocker', () => {
     }
   });
 });
+
+describe('PR-MAP-CANON-3 — levelKey (SoT visual del mapa)', () => {
+  it('POI-0 → poi-0', () => {
+    expect(getPoiCurationLevel(loc({ name: '', geoHealth: null })).levelKey).toBe('poi-0');
+  });
+
+  it.each(['null', 'empty', 'stale_name', 'partial'] as const)(
+    'POI-1 con geoHealth=%s → poi-1a',
+    (g) => {
+      const geo = g === 'null' ? null : (g as GeoLocation['geoHealth']);
+      expect(getPoiCurationLevel(loc({ geoHealth: geo })).levelKey).toBe('poi-1a');
+    },
+  );
+
+  it('POI-1 con geoHealth=ok → poi-1b', () => {
+    expect(getPoiCurationLevel(loc({ geoHealth: 'ok' })).levelKey).toBe('poi-1b');
+  });
+
+  it('POI-3 (broken) → poi-3', () => {
+    expect(getPoiCurationLevel(loc({ enrichedData: enriched(), geoHealth: 'broken' })).levelKey).toBe('poi-3');
+  });
+
+  it('POI-5 (enriched + partial) → poi-5', () => {
+    expect(getPoiCurationLevel(loc({ enrichedData: enriched(), geoHealth: 'partial' })).levelKey).toBe('poi-5');
+  });
+
+  it('POI-9 (enriched sano sin rating) → poi-9', () => {
+    expect(getPoiCurationLevel(loc({ enrichedData: enriched(), geoHealth: 'ok' })).levelKey).toBe('poi-9');
+  });
+
+  it('POI-10 (enriched + visited + rated) → poi-10', () => {
+    expect(
+      getPoiCurationLevel(loc({ enrichedData: enriched(), geoHealth: 'ok', customData: { visited: 'true', user_rating: '5' } })).levelKey,
+    ).toBe('poi-10');
+  });
+
+  it('levelKey NO se deriva de bodyBlocker: misma key para variantes de POI-9', () => {
+    const a = getPoiCurationLevel(loc({ enrichedData: enriched(), geoHealth: 'ok' }));
+    const b = getPoiCurationLevel(loc({ enrichedData: enriched(), geoHealth: 'ok', customData: { visited: 'true' } }));
+    expect(a.bodyBlocker).toBe('rate');
+    expect(b.bodyBlocker).toBe('rate');
+    expect(a.levelKey).toBe('poi-9');
+    expect(b.levelKey).toBe('poi-9');
+  });
+});
