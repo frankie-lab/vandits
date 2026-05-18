@@ -369,3 +369,50 @@ Shell, hero, breadcrumb, ratings, footer canónico, niveles POI,
 lógica de curación, marker grammar, health rings, variante
 `sidebar`/`dialog`/`card`, otros consumidores de
 `NearbyResultCard`, P-POI-CURATION-3.x.
+
+## P-POI-CURATION-2.6 — Mount wrapper sin carril editorial
+
+El cuello de botella de ancho útil en POI-1b no estaba en la fila ni
+en el card, sino en el wrapper de montaje React dentro del popup HTML.
+
+### Diagnóstico
+
+`src/components/map/map-popups.ts` inyectaba el mount point como:
+
+```html
+<div data-recovery-root="..." style="margin: 0 16px 8px 16px;"></div>
+```
+
+Esos 16px laterales heredaban el carril editorial del resto del popup
+(prosa, ratings, breadcrumb), pero el recovery block es grid
+interactivo y el inline `NearbyPanel` ya pide edge-to-edge vía
+`padX='px-0'`. Resultado: 32px de ancho útil sacrificados antes de
+pintar la lista.
+
+### Cambio canónico
+
+Mount lateral reducido a 4px:
+
+```html
+<div data-recovery-root="..." style="margin: 0 4px 8px 4px;"></div>
+```
+
+- Libera **24px** de ancho útil real (12px cada lado).
+- Mantiene 4px de respiro contra las esquinas redondeadas del popup
+  (`border-radius: 12px`).
+- Resto de bloques editoriales (prosa, ratings, breadcrumb) conserva
+  su carril de 16px porque son contenido de lectura.
+
+### Invariantes
+
+- Solo el mount del recovery block cambia. NO se toca:
+  `UnenrichedRecoveryBlock`, `NearbyPanel`, `NearbyResultCard`,
+  niveles POI, lógica de curación, shell, hero, breadcrumb, ratings,
+  footer canónico, variantes `dialog`/`sidebar`/`card`.
+- `.leaflet-popup-content` permanece a `margin: 0` sin padding
+  (LocationMap.tsx) — no se añade carril compensatorio en el shell.
+
+### Hook de test
+
+`src/test/popup-poi-1b-recovery-mount-margin.test.ts` verifica el
+string canónico del mount y bloquea la regresión a `16px`.
