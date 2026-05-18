@@ -54,21 +54,32 @@ describe('P-POI-CURATION-2.7 — manual search inline', () => {
     expect(SRC).toMatch(/onClick=\{\(\) => setSearchQuery\(''\)\}/);
   });
 
-  it('P-POI-CURATION-2.8 — input materializado discreto: h-7, text-[12px], bg-muted/40, rounded-md, border, focus-within primary', () => {
+  it('P-POI-CURATION-2.9 — input con jerarquía propia: h-8, text-[13px], bg-muted/60, border-border/70, rounded-md, focus-within primary', () => {
     const m = SRC.match(/<div\s+className="[^"]*"[\s\S]{0,200}?data-nearby-search-input[\s\S]{0,1600}?<\/div>\s*\)\}/);
     expect(m, 'search input block not found').toBeTruthy();
     const block = m![0];
-    expect(block).toMatch(/\bh-7\b/);
-    expect(block).toMatch(/\bpx-2\b/);
+    expect(block).toMatch(/\bh-8\b/);
+    expect(block).toMatch(/\bpx-2\.5\b/);
     expect(block).toMatch(/\brounded-md\b/);
-    expect(block).toMatch(/\bbg-muted\/40\b/);
-    expect(block).toMatch(/\bborder\s+border-border\/50\b/);
+    expect(block).toMatch(/\bbg-muted\/60\b/);
+    expect(block).toMatch(/\bborder\s+border-border\/70\b/);
     expect(block).toMatch(/focus-within:border-primary\/60/);
     expect(block).toMatch(/focus-within:bg-background/);
-    expect(block).toMatch(/text-\[12px\]/);
+    expect(block).toMatch(/text-\[13px\]/);
+    // Icono Search escalado a 16px para acompañar h-8.
+    expect(block).toMatch(/w-4 h-4/);
     // Anti-regresión: ninguna sub-card editorial (rounded-lg) dentro del input.
     expect(block).not.toMatch(/\brounded-lg\b/);
+    // Anti-regresión tamaños 2.8 (no volver a h-7 / text-[12px] / bg-muted/40).
+    expect(block).not.toMatch(/\bh-7\b/);
+    expect(block).not.toMatch(/\bbg-muted\/40\b/);
   });
+
+  it('P-POI-CURATION-2.9 — separador visual entre Radio y buscador (border-t border-border/30, mt-3 pt-3)', () => {
+    // El wrapper exterior del input debe materializar la separación del slider.
+    expect(SRC).toMatch(/mt-3 pt-3 border-t border-border\/30[\s\S]{0,400}?data-nearby-search-input/);
+  });
+
 
   it('reset al cambiar de POI: searchQuery vuelve a vacío en el efecto de location.id', () => {
     expect(SRC).toMatch(/useEffect\(\(\)\s*=>\s*\{\s*setSearchQuery\(''\);\s*setDebouncedQuery\(''\);\s*\},\s*\[location\.id\]\)/);
