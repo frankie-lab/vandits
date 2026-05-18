@@ -203,3 +203,71 @@ describe('Coherencia con isShareablePoi (frontera canónica)', () => {
     expect(isShareablePoi(l)).toBe(false);
   });
 });
+
+describe('P-POI-CURATION-2 — subestados + bodyBlocker', () => {
+  it('POI-1a (geo sin validar): bodyBlocker=validate-geo + primaryAction=validate-geo', () => {
+    for (const geo of [null, 'empty', 'stale_name'] as const) {
+      const v = getPoiCurationLevel(loc({ geoHealth: geo }));
+      expect(v.level).toBe(1);
+      expect(v.bodyBlocker).toBe('validate-geo');
+      expect(v.primaryAction).toBe('validate-geo');
+    }
+  });
+
+  it('POI-1b (geo OK, sin enrich): bodyBlocker=enrich-from-context + primaryAction=none', () => {
+    const v = getPoiCurationLevel(loc({ geoHealth: 'ok' }));
+    expect(v.level).toBe(1);
+    expect(v.bodyBlocker).toBe('enrich-from-context');
+    expect(v.primaryAction).toBe('none');
+  });
+
+  it('POI-0: bodyBlocker=name', () => {
+    const v = getPoiCurationLevel(loc({ name: '', geoHealth: null }));
+    expect(v.bodyBlocker).toBe('name');
+    expect(v.primaryAction).toBe('name');
+  });
+
+  it('POI-3: bodyBlocker=resolve-conflict', () => {
+    const v = getPoiCurationLevel(loc({ enrichedData: enriched(), geoHealth: 'broken' }));
+    expect(v.bodyBlocker).toBe('resolve-conflict');
+    expect(v.primaryAction).toBe('resolve-conflict');
+  });
+
+  it('POI-5: bodyBlocker=heal', () => {
+    const v = getPoiCurationLevel(loc({ enrichedData: enriched(), geoHealth: 'partial' }));
+    expect(v.bodyBlocker).toBe('heal');
+    expect(v.primaryAction).toBe('heal');
+  });
+
+  it('POI-9a (no visitado): bodyBlocker=rate + primaryAction=none', () => {
+    const v = getPoiCurationLevel(loc({ enrichedData: enriched(), geoHealth: 'ok' }));
+    expect(v.level).toBe(9);
+    expect(v.bodyBlocker).toBe('rate');
+    expect(v.primaryAction).toBe('none');
+  });
+
+  it('POI-10: bodyBlocker=none', () => {
+    const v = getPoiCurationLevel(
+      loc({ enrichedData: enriched(), geoHealth: 'ok', customData: { visited: 'true', user_rating: '5' } }),
+    );
+    expect(v.bodyBlocker).toBe('none');
+    expect(v.primaryAction).toBe('none');
+  });
+
+  it('invariante R3: primaryAction ∈ {bodyBlocker, "none"} para todos los niveles', () => {
+    const cases = [
+      loc({ name: '', geoHealth: null }),
+      loc({ geoHealth: null }),
+      loc({ geoHealth: 'ok' }),
+      loc({ enrichedData: enriched(), geoHealth: 'broken' }),
+      loc({ enrichedData: enriched(), geoHealth: 'partial' }),
+      loc({ enrichedData: enriched(), geoHealth: 'ok' }),
+      loc({ enrichedData: enriched(), geoHealth: 'ok', customData: { visited: 'true' } }),
+      loc({ enrichedData: enriched(), geoHealth: 'ok', customData: { visited: 'true', user_rating: '5' } }),
+    ];
+    for (const l of cases) {
+      const v = getPoiCurationLevel(l);
+      expect([v.bodyBlocker, 'none']).toContain(v.primaryAction);
+    }
+  });
+});
