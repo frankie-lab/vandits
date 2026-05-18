@@ -1790,7 +1790,7 @@ ${(!isEnriched) ? (() => {
      Solo se monta si el POI no está enriquecido.
      P-POI-CURATION-2.6 — margen lateral reducido a 4px (antes 16px) para
      liberar ~24px de ancho útil al bloque inline POI-1b. El inline NearbyPanel
-     usa `padX='px-0'` precisamente para llegar al borde útil del popup; el
+     usa padX=px-0 precisamente para llegar al borde útil del popup; el
      wrapper de montaje no debe imponer carril editorial sobre un grid
      interactivo. Resto de bloques editoriales (prosa, ratings, breadcrumb)
      mantienen su carril de 16px porque son contenido de lectura. -->
