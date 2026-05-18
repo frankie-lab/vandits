@@ -384,8 +384,27 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
     </div>
   ) : null;
 
-  // Sin conflicto: bloque simple Enriquecer + Contexto cercano.
+  // POI-1b — sin conflicto: el bloque ES la acción. Auto-launch del panel
+  // Contexto cercano al abrir el popup, sin botón intermedio. NearbyPanel
+  // dispara `searchNearby` una vez en mount; popup-recovery-mount preserva
+  // identidad del root mientras el host [data-recovery-root] no cambie, por
+  // lo que reabrir/regenerar el popup en el mismo host no produce segundo
+  // disparo. Ver P-POI-CURATION-2.1 + mem://logic/poi/curation-levels.
   if (!parsed) {
+    const autoNearby = user ? (
+      <div className="mt-0" data-nearby-autofire="1">
+        <NearbyPanel
+          location={nearbyLocationRow}
+          docId={fresh.documentId ?? null}
+          userId={user.id}
+          variant="inline"
+          mismatch={nearbyMismatch}
+          onClose={() => { /* no-op: el bloque ES el cuerpo, no se cierra */ }}
+          onLocationUpdated={() => { /* store ya se actualiza por canal canónico */ }}
+          onLocationMerged={() => { /* idem */ }}
+        />
+      </div>
+    ) : null;
     return (
       <div className="rounded-lg border bg-muted/40 border-border/60 flex flex-col">
         <div className="flex items-center gap-2 px-2 pt-2 pb-2">
@@ -393,23 +412,8 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
             <AlertCircle className="w-3.5 h-3.5" />
             Sin localización clara
           </span>
-          
         </div>
-        {!showNearby && (
-          <div className="mx-2 mb-2 flex items-center gap-1.5">
-            <Button
-              size="sm"
-              variant="default"
-              className="h-7 text-[11px] px-2 gap-1 flex-1"
-              onClick={handleOpenContext}
-              disabled={busy}
-            >
-              <Compass className="w-3 h-3" />
-              Contexto cercano
-            </Button>
-          </div>
-        )}
-        {inlineNearby}
+        {autoNearby}
       </div>
     );
   }
