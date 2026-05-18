@@ -231,8 +231,11 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
   const [replacingPoint, setReplacingPoint] = useState(false);
   const [savingPersonal, setSavingPersonal] = useState(false);
-  const [wantReplace, setWantReplace] = useState(false);
-  const [wantPersonal, setWantPersonal] = useState(false);
+  // P-POI-CURATION-2.12 — Fila seleccionada: acción primaria contextual +
+  // secundaria opcional. `extraPersonal` solo aplica cuando la primaria es
+  // "Reemplazar" (POI reparable); en ese caso, expande el category picker
+  // para guardar TAMBIÉN el candidato como POI personal independiente.
+  const [extraPersonal, setExtraPersonal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [executingActions, setExecutingActions] = useState(false);
   const [adoptingId, setAdoptingId] = useState<string | null>(null);
