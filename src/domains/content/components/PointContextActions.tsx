@@ -898,7 +898,15 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
         ) : (() => {
           // P-POI-CURATION-2.2 — cap inicial inline + "Ver más / Ver menos"
           // sustituye al scroll anidado. En variant card no se capa.
-          const allGroups = groupByCategory(nearbyPoints);
+          // P-POI-CURATION-2.7 — manual search refinement
+          const isSearchMode = debouncedQuery.length >= 2;
+          const _normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const _filtered = isSearchMode
+            ? nearbyPoints.filter(p => _normalize(p.name || '').includes(_normalize(debouncedQuery)))
+            : nearbyPoints;
+          const allGroups = isSearchMode
+            ? [{ category: '__search__' as any, meta: { label: `Resultados para "${debouncedQuery}"`, icon: <Search className="w-3 h-3" />, order: 0 }, points: _filtered.slice().sort((a, b) => a.distance_m - b.distance_m) }]
+            : groupByCategory(_filtered);
           const cap = isInline && !expandedList ? INLINE_VISIBLE_DEFAULT : Infinity;
           const cappedGroups: typeof allGroups = [];
           let shown = 0;
