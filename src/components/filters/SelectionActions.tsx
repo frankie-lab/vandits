@@ -131,6 +131,9 @@ export function SelectionActions() {
   const [isWorking, setIsWorking] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [tagPopoverOpen, setTagPopoverOpen] = useState(false);
+  const [exportScope, setExportScope] = useState<ExportScope>('public');
+  const { user } = useAuth();
+  const currentUserId = user?.id ?? null;
 
   if (count === 0) return null;
 
