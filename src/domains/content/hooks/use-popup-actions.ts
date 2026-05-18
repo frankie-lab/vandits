@@ -3,7 +3,7 @@
  * Domain: Content
  * Handles all map popup actions (enrich, delete, visited, rating, photo, adopt).
  */
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content';
 import { usePermissions } from '@/domains/identity';
@@ -20,6 +20,7 @@ import {
   isPopupOperational,
   getPopupIdForLocation,
 } from '@/components/map/popup-operational-state';
+import { subscribePopupEnrichmentPhase } from '@/components/map/popup-enrichment-phase-bus';
 
 interface UsePopupActionsOptions {
   loadFromDatabase: () => Promise<void>;
