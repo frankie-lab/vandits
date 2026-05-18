@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { resolveAllFks } from '@/shared/geography/resolve-admin-fks';
 import { enrichmentFailureStore } from '@/domains/content/hooks/use-enrichment-failure';
 import { parseEnrichmentError } from '@/domains/content/lib/enrichment-error-kind';
+import { emitEnrichmentPhase } from '@/components/map/popup-enrichment-phase-bus';
 
 export interface TriggerEnrichOptions {
   /** When true, force re-generation (semantically the popup's `regenerate`). */
@@ -32,6 +33,13 @@ export interface TriggerEnrichOptions {
   focusAfter?: boolean;
   /** When true, bypass server-side name↔coordinate coherence validation. */
   skipValidation?: boolean;
+  /**
+   * P-POPUP-17: when true, do NOT emit `location:enrichment-phase` events.
+   * Reserved for orchestrators (e.g. `advancePoiCurationUntilBlocked`) that
+   * already own the popup operational state across multiple stages and must
+   * prevent the overlay from flickering mid-pipeline.
+   */
+  silent?: boolean;
 }
 
 export async function triggerEnrichLocation(
