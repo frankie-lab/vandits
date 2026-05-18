@@ -1,75 +1,64 @@
-## P-POI-CURATION-1 fix — separar estado personal de salud objetiva
+# P-POPUP-15 — Remove hero visited overlay + hide popup debug badges
 
-### Diagnóstico confirmado
-En `getPoiCurationLevel()`, un POI enriquecido + `geoHealth='ok'` + `rings=[]` + `visited=false` cae al fallback `else if (enriched) → POI-5 / heal`. Causa = **A) falta `visited` tratada como deuda**. `visited`/`user_rating` son estado personal del viewer; no degradan la salud del POI.
+## A. Eliminar estado visited del hero
 
-### Regla canónica corregida
+**`src/components/map/map-popups.ts`** (L1167-1172, dentro de `buildImageSection`):
 
-Salud objetiva del POI (independiente del estado personal):
-- `enriched + geoHealth='ok' + rings=[]` → POI **sano**, shareability `yes`.
-- `enriched + (rings≠[] o geoHealth='partial'/'stale_name'/'empty')` → POI-5 (deuda real), `heal`.
-- `enriched + geoHealth='broken'` → POI-3, `resolve-conflict`.
-- `!enriched + nombre válido` → POI-1, `validate-geo`.
-- `!enriched + sin nombre` → POI-0, `name`.
+- Borrar la llamada `const __overlayHtml = buildVisitedHeroOverlay(...)` y el slot `${__overlayHtml}` del template del `.popup-hero`.
+- El hero queda sólo con `imageHtml` + `buttonHtml` (acciones foto, reveal-on-hover P-POPUP-7C intacto).
 
-Capa personal sólo decide entre POI-9 y POI-10 cuando el POI ya es sano:
-- sano + `visited=true` + sin rating → POI-9, `rate-experience`.
-- sano + `visited=true` + rating>0 → POI-10, `none`.
-- **sano + `visited=false` → POI-9 también** (POI sano sin acción de salud; la acción primaria pasa a ser `rate-experience`, que internamente requiere visitar primero — coherente con que "pendiente de visita" no es salud).
+**Contrato lógico (no borrar exports todavía)**:
 
-> Decisión a confirmar: para sano + no visitado, ¿`primaryAction='rate-experience'` (consistente con POI-9 actual) o `primaryAction='none'` (no mostrar botón hasta que el usuario marque visitado)? Recomiendo **`none`**: el botón "Valorar experiencia" sin haber visitado es confuso, y la fila personal del rating block ya comunica "Pendiente". Así POI-9 queda reservado a visitado-sin-rating.
+- Mantener `buildVisitedHeroOverlay` e `isVisitedHeroOverlayActive` exportados como **no-op de contrato** durante una versión: ambos devuelven `''` / `false` siempre. Esto evita romper imports externos y deja un único punto de verdad ("hero overlay desactivado por P-POPUP-15").
+- Añadir comentario de provenance arriba del helper apuntando a P-POPUP-15.
 
-Propuesta final:
-| Caso | Level | Health | Share | primaryAction |
-|---|---|---|---|---|
-| enriched sano, no visitado | **9** | green | yes | **none** |
-| enriched sano, visitado, sin rating | 9 | green | yes | rate-experience |
-| enriched sano, visitado, con rating | 10 | green | yes | none |
+**Sincronizar `buildPersonalStateBlock`**:
 
-(POI-9 = "sano, sin valoración final"; el botón sólo aparece cuando hay algo accionable.)
+- En el call-site donde se pasa `heroOverlayActive`, forzarlo a `false` (o eliminar la rama porque ya nunca está activo). El bloque de ratings P-POPUP-14.2 sigue siendo SOT del estado visited/pendiente — sin cambios funcionales.
 
-### Cambios
+## B. Ocultar badges debug P-POPUP-2 ON / P-POPUP-3 ON
 
-**`src/domains/content/lib/poi-curation-level.ts`**
-1. Reescribir el árbol de decisión por **prioridad de salud** primero, personal después:
-   ```ts
-   if (geo === 'broken') level = 3;
-   else if (!enriched && !hasValidatedName(safe)) level = 0;
-   else if (!enriched) level = 1;
-   else if (rings.length > 0 || (geo !== 'ok')) level = 5;   // deuda objetiva real
-   else if (visited && rated) level = 10;
-   else level = 9;                                            // sano (visitado o no)
-   ```
-2. `LEVEL_ACTION[9]` deja de ser fijo. Extraer `resolvePrimaryAction(level, { visited, rated })`:
-   - POI-9 + `!visited` → `'none'`
-   - POI-9 + `visited && !rated` → `'rate-experience'`
-   - resto: tabla actual.
-3. Actualizar `PoiCurationVerdict.primaryAction` desde el resolver, no desde `LEVEL_ACTION` directo.
+**`src/components/map/map-popups.ts`** (L1446, raíz del `#${popupId}`):
 
-**`src/test/poi-curation-level.test.ts`**
-- Eliminar/invertir el caso `'POI-5: enriquecido y geo ok pero NO visitado → incompletitud'` → debe ser POI-9 / green / yes / `none`.
-- Añadir casos:
-  - enriched + geo ok + rings=[] + no visitado → POI-9, healthState green, primaryAction `none`.
-  - enriched + rings activos → POI-5, `heal` (deuda real).
-  - enriched + geoHealth='partial' → POI-5, `heal`.
-- Mantener POI-9 visitado-sin-rating → `rate-experience` y POI-10 → `none`.
+- Eliminar los dos bloques inline `${isPopupDiagBadgeVisible() && ... ? '<div ...>P-POPUP-2 ON</div>' : ''}` y el equivalente `P-POPUP-3 ON`.
+- Retirar la función `isPopupDiagBadgeVisible` (L148-156) — ya no la consume nadie.
+- Los atributos `data-popup-version` / `data-popup-geo-canonical` / `data-popup-ownership-strip` del root se conservan: son hooks de test, no UI visible.
 
-**`src/test/popup-curation-primary-action.test.ts`**
-- Añadir guard: enriched sano no visitado **no** emite `data-action="curation-primary"` (igual que POI-10).
-- Mantener: POI-5 (rings/partial) sí emite `heal`.
+Resultado: nunca más badges técnicos en la esquina superior izquierda del hero, ni en preview (lovable.app), ni con `?diag=1`, ni en producción.
 
-**`docs/contracts/poi-curation-levels.md`**
-- Reescribir fila POI-5: "deuda objetiva (rings activos o geoHealth ∈ {partial, stale_name, empty})". Quitar "aún no visitado".
-- Reescribir fila POI-9: "enriquecido + sano; sin valoración final (visitado o no)".
-- Añadir sección **"Salud objetiva ≠ estado personal"**: `visited`/`user_rating` nunca degradan health/shareability; sólo modulan `primaryAction` dentro de POI-9.
-- Tabla de `primaryAction` para POI-9 según visitado.
+## C. Tests
 
-**`mem://logic/poi/curation-levels`** — actualizar regla con la separación salud/personal.
-**`mem://index.md`** — actualizar one-liner de Core para reflejar que visited no afecta salud.
+**`src/test/popup-visited-hero-overlay.test.ts`** — reescribir como contrato negativo:
 
-### No se toca
-Renderer, popup shell, ratings block (P-POPUP-14.2 sigue mostrando fila personal independiente), footer layout, marker grammar, schema, sharing pipeline, helpers `isPointEnriched` / `getPointHealthRings` / `isShareablePoi`.
+- `buildVisitedHeroOverlay(...)` SIEMPRE devuelve `''` (cualquier input).
+- `isVisitedHeroOverlayActive(...)` SIEMPRE devuelve `false`.
+- Añadir guard: el HTML de `buildImageSection` NO contiene `data-visited-hero-overlay` ni `data-action="toggle-visited"` en ningún caso (visited/pending, AI/user image, own/follower).
 
-### Verificación
-- `vitest run poi-curation-level popup-curation-primary-action popup-golden-poi-contract`
-- Inspección manual en preview del POI "Elevador del Monte de San Pedro": no debe aparecer botón "Sanar POI"; fila personal del rating block sigue diciendo "Pendiente".
+**`src/test/popup-visited-presentation-state.test.ts`** — ajustar la rama que asume `showHeroOverlay` puede ser `true`; ahora siempre `false`. El bloque de ratings sigue siendo la única fuente.
+
+**`src/test/popup-hero-chrome.test.ts`** — quitar el caso "overlay Visitado/Pendiente sigue inyectado en el hero" (ya no aplica). Mantener tests de `popup-hero` + `popup-hero-controls` + reveal-on-hover.
+
+**Nuevo test `src/test/popup-no-diag-badges.test.ts`**:
+
+- `createPopupContent(...)` nunca contiene `>P-POPUP-2 ON<` ni `>P-POPUP-3 ON<` en ningún hostname / con `?diag=1` simulado.
+
+## D. Documentación + memoria
+
+- **`docs/popups/p-popup-7d-validation.md`**: nota al final marcando la sección "badge visited/pending icon-only" como **superseded by P-POPUP-15** (hero overlay retirado; estado personal vive sólo en ratings block).
+- **`docs/contracts/popup-contract.md`** § Hero / § Ratings: aclarar que el hero NO renderiza estado personal ni badges técnicos; el estado personal vive exclusivamente en el bloque de ratings P-POPUP-14.2.
+- **Nueva memoria `mem://style/popup/hero-no-personal-state`**: regla canónica "Hero sólo imagen + photo actions. Estado personal exclusivamente en ratings block. Sin badges de debug visibles en runtime."
+- Actualizar `mem://index.md` Core con una línea referenciando la nueva regla y eliminando cualquier mención al "badge visited en hero" del bullet de P-POPUP-7D.
+
+## E. No tocar
+
+Ratings block P-POPUP-14.2, footer, composer, hero image, photo actions (reveal-on-hover), schema, marker grammar, curation levels, shell canónico, breadcrumb territorial, taxonomía.
+
+## Verificación
+
+```
+bunx vitest run popup-visited-hero-overlay popup-visited-presentation-state \
+  popup-hero-chrome popup-no-diag-badges popup-golden-poi-contract \
+  popup-curation-primary-action
+```
+
+Inspección manual en preview: abrir POI visitado + POI pendiente. Hero limpio (sólo foto + controles al hacer hover si own). Sin check verde, sin círculo blanco, sin chips "P-POPUP-2 ON" / "P-POPUP-3 ON". Bloque de ratings sigue mostrando "Pendiente" gris / "Pendiente de valoración" verde / "Tu valoración ★★★★" según corresponda.
