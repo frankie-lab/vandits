@@ -396,13 +396,83 @@ function formatEnrichedDescriptionPlain(loc: GeoLocation): string {
 
 export type KMLExportTarget = 'general' | 'mymaps' | 'gurumaps';
 
+/**
+ * PR-EXPORT-1 — Filtro defensivo del motor. Aplica el contrato canónico
+ * `evaluatePoiExport` antes de serializar. Es defensa en profundidad: la
+ * puerta primaria está en los call sites de UI (ExportPanel, SelectionActions),
+ * pero si alguien añade un call site nuevo sin filtrar, este assert evita
+ * fugas (descarte silencioso + console.warn agregado).
+ *
+ * Compat: `scope` default = `'internal'`. ExportPanel y SelectionActions
+ * pasan scope explícito SIEMPRE. Llamadas sin scope explícito emiten warn
+ * único por sesión.
+ */
+
+const warnedDefaultScope = new Set<string>();
+function maybeWarnDefaultScope(fnName: string, scopeProvided: boolean): void {
+  if (scopeProvided) return;
+  if (warnedDefaultScope.has(fnName)) return;
+  warnedDefaultScope.add(fnName);
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[kml-parser] ${fnName} invocado sin scope explícito — compat temporal (PR-EXPORT-1). Fix call site para pasar scope: 'public' | 'internal'.`,
+  );
+}
+
+function applyExportGate(
+  locations: GeoLocation[],
+  scope: ExportScope,
+  ctx: ExportContext | undefined,
+  fnName: string,
+): GeoLocation[] {
+  // Sin ctx (compat/test/legacy): NO chequeo de owner para internal.
+  // Para public siempre chequeamos elegibilidad porque no requiere ctx.
+  if (scope === 'public') {
+    const result: GeoLocation[] = [];
+    let dropped = 0;
+    for (const loc of locations) {
+      const r = evaluatePoiExport(loc, 'public', ctx ?? { currentUserId: null });
+      if (r.eligible) result.push(loc);
+      else dropped++;
+    }
+    if (dropped > 0) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[kml-parser] ${fnName} scope='public': descartados ${dropped}/${locations.length} POIs no elegibles (defensa en profundidad).`,
+      );
+    }
+    return result;
+  }
+  // scope === 'internal'
+  if (!ctx) return locations; // compat sin ctx
+  const result: GeoLocation[] = [];
+  let dropped = 0;
+  for (const loc of locations) {
+    const r = evaluatePoiExport(loc, 'internal', ctx);
+    if (r.eligible) result.push(loc);
+    else dropped++;
+  }
+  if (dropped > 0) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[kml-parser] ${fnName} scope='internal': descartados ${dropped}/${locations.length} POIs no elegibles (no-owner u otras razones).`,
+    );
+  }
+  return result;
+}
+
 export function exportToKML(
   locations: GeoLocation[],
   documentName: string,
   target: KMLExportTarget = 'general',
+  scope: ExportScope = 'internal',
+  ctx?: ExportContext,
+  options: { scopeProvided?: boolean } = {},
 ): string {
+  maybeWarnDefaultScope('exportToKML', options.scopeProvided !== false);
+  const filtered = applyExportGate(locations, scope, ctx, 'exportToKML');
   const isGuru = target === 'gurumaps';
-  const placemarks = locations
+  const placemarks = filtered
     .map((loc) => {
       const description = isGuru
         ? formatEnrichedDescriptionPlain(loc)
@@ -420,6 +490,7 @@ export function exportToKML(
     ${snippet}
     ${description ? `<description><![CDATA[${description}]]></description>` : ''}
     <ExtendedData>
+      <Data name="export_scope"><value>${scope}</value></Data>
       ${loc.continent ? `<Data name="continent"><value>${escapeXml(loc.continent)}</value></Data>` : ''}
       ${loc.country ? `<Data name="country"><value>${escapeXml(loc.country)}</value></Data>` : ''}
       ${loc.region ? `<Data name="region"><value>${escapeXml(loc.region)}</value></Data>` : ''}
@@ -438,20 +509,28 @@ export function exportToKML(
     .join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
   <Document>
     <name>${escapeXml(documentName)}</name>
+    <atom:author><atom:name>vandits-${scope}</atom:name></atom:author>
     ${placemarks}
   </Document>
 </kml>`;
 }
 
-export function exportToCSV(locations: GeoLocation[]): string {
-  const headers = ['name', 'description', 'latitude', 'longitude', 'altitude', 'continent', 'country', 'region', 'zone'];
+export function exportToCSV(
+  locations: GeoLocation[],
+  scope: ExportScope = 'internal',
+  ctx?: ExportContext,
+  options: { scopeProvided?: boolean } = {},
+): string {
+  maybeWarnDefaultScope('exportToCSV', options.scopeProvided !== false);
+  const filtered = applyExportGate(locations, scope, ctx, 'exportToCSV');
+  const headers = ['name', 'description', 'latitude', 'longitude', 'altitude', 'continent', 'country', 'region', 'zone', 'export_scope'];
   const customKeys = new Set<string>();
-  locations.forEach((loc) => Object.keys(loc.customData || {}).forEach((k) => customKeys.add(k)));
+  filtered.forEach((loc) => Object.keys(loc.customData || {}).forEach((k) => customKeys.add(k)));
   const allHeaders = [...headers, ...Array.from(customKeys)];
-  const rows = locations.map((loc) => {
+  const rows = filtered.map((loc) => {
     const baseRow = [
       loc.name,
       loc.description || '',
@@ -462,6 +541,7 @@ export function exportToCSV(locations: GeoLocation[]): string {
       loc.country || '',
       loc.region || '',
       loc.zone || '',
+      scope,
     ];
     const customRow = Array.from(customKeys).map((key) => loc.customData?.[key] || '');
     return [...baseRow, ...customRow].map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',');
@@ -469,8 +549,15 @@ export function exportToCSV(locations: GeoLocation[]): string {
   return [allHeaders.join(','), ...rows].join('\n');
 }
 
-export function exportToJSON(locations: GeoLocation[]): string {
-  return JSON.stringify(locations, null, 2);
+export function exportToJSON(
+  locations: GeoLocation[],
+  scope: ExportScope = 'internal',
+  ctx?: ExportContext,
+  options: { scopeProvided?: boolean } = {},
+): string {
+  maybeWarnDefaultScope('exportToJSON', options.scopeProvided !== false);
+  const filtered = applyExportGate(locations, scope, ctx, 'exportToJSON');
+  return JSON.stringify({ export_scope: scope, locations: filtered }, null, 2);
 }
 
 function escapeXml(text: string): string {
