@@ -138,22 +138,10 @@ export function isPopupSourceMetadataV1On(): boolean {
   return POPUP_SOURCE_METADATA_V1_DEFAULT;
 }
 
-/**
- * P2-FIX-B — Temporary deployment signal visible in preview/staging.
- * `import.meta.env.DEV` is false in Lovable preview (built like prod), so the
- * earlier badge never showed. This gate stays true on lovable.app + localhost
- * (where rollout is being validated) and on opt-in `?diag=1`. Will be
- * retired once P-POPUP-2 is fully ratified in production.
- */
-function isPopupDiagBadgeVisible(): boolean {
-  try {
-    if (typeof window === 'undefined') return false;
-    const host = window.location?.hostname ?? '';
-    if (host.includes('lovable.app') || host === 'localhost' || host === '127.0.0.1') return true;
-    if (window.location?.search?.includes('diag=1')) return true;
-  } catch { /* noop */ }
-  return false;
-}
+// P-POPUP-15 — `isPopupDiagBadgeVisible` retirada: los badges
+// `P-POPUP-2 ON` / `P-POPUP-3 ON` ya no se renderizan en runtime
+// (ni en preview, ni con ?diag=1, ni en producción). Los atributos
+// `data-popup-*` del root se conservan como hooks de test.
 
 // ─── Card Config Cache ──────────────────────────────────────────────────────
 // Source of truth: `app_settings.enrichment_card_config` always normalized
@@ -937,18 +925,17 @@ export function resolveVisitedPresentationState(
       )
     : null;
 
-  // Canon simplificado (sesión 2026-05-16):
-  //   - El overlay sobre la hero SIEMPRE se muestra cuando hay hero válida y
-  //     no es curator/nearby. Su etiqueta varía:
-  //       visited=true  → "✓ Visitado"
-  //       visited=false → "○ Pendiente"
-  //   - El bloque inferior ya no renderiza ningún control de visitado: el
-  //     overlay sustituye al pill/inline previos. Sólo queda rating.
-  //   - Si NO hay hero, fallback inferior mínimo (pill en bloque personal).
-  const showHeroOverlay = hasHero && !isCurator && !isNearby;
+  // P-POPUP-15 — Hero queda SOLO para imagen + acciones foto. El estado
+  // personal (visited/pendiente/rating) vive EXCLUSIVAMENTE en el bloque
+  // canónico de ratings (P-POPUP-14.2). Tanto el overlay sobre la hero
+  // como el pill de fallback en `buildPersonalStateBlock` quedan
+  // desactivados por contrato. Los flags se preservan en la interfaz
+  // (no-op = false) para no romper consumidores externos.
+  const showHeroOverlay = false;
   const showInlineVisited = false;
-  const showVisitedPill = !isCurator && !isNearby && !showHeroOverlay;
-  const showVerifiedOnHero = showHeroOverlay && isVisited && !!visitRelevance;
+  const showVisitedPill = false;
+  const showVerifiedOnHero = false;
+  void hasHero; void isCurator; void isNearby; void isVisited; void visitRelevance;
 
   return {
     isVisited,
@@ -975,47 +962,21 @@ export function isVisitedHeroOverlayActive(
   return resolveVisitedPresentationState(location, ownership, enriched).showHeroOverlay;
 }
 
+/**
+ * P-POPUP-15 — Contrato no-op. El overlay visited/pendiente del hero ha sido
+ * retirado: el estado personal vive exclusivamente en el bloque canónico de
+ * ratings (P-POPUP-14.2). Se mantiene el export para no romper consumidores
+ * externos. Devuelve siempre cadena vacía.
+ */
 export function buildVisitedHeroOverlay(
-  location: GeoLocation,
-  ownership?: PopupOwnership | null,
-  enriched?: any,
-  state?: VisitedPresentationState,
+  _location: GeoLocation,
+  _ownership?: PopupOwnership | null,
+  _enriched?: any,
+  _state?: VisitedPresentationState,
 ): string {
-  const st = state ?? resolveVisitedPresentationState(location, ownership, enriched);
-  if (!st.showHeroOverlay) return '';
-
-  const isVisited = st.isVisited;
-  const visitRelevance = st.visitRelevance;
-
-  // P-POPUP-7D — Badge icon-only 24x24. Sin label, sin verified visual.
-  // Verified queda diferido (ver docs/popups/p-popup-7d-validation.md).
-  const visitedColor = tk('hsl(var(--state-success))', '#16a34a');
-  const pendingColor = tk('hsl(var(--text-primary))', '#ffffff');
-  // P-POPUP-7D safe-area: contraste reforzado contra fotos claras.
-  const bg = 'rgba(0,0,0,0.5)';
-  const borderColor = 'rgba(255,255,255,0.4)';
-
-  const iconColor = isVisited ? visitedColor : pendingColor;
-  const iconHtml = isVisited
-    ? svgIcon('check', { size: 14, color: iconColor })
-    // `circle` icon (Lucide) — outlined empty ring for "Pendiente".
-    : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>`;
-
-  // Verified NO se renderiza visualmente en el hero chrome (P-POPUP-7D).
-  // Tooltip puede incluir relevance pero el badge queda icon-only.
-  let titleSuffix = '';
-  if (isVisited && visitRelevance) {
-    titleSuffix = ` · ${visitRelevance.label} (${formatTimeAgo(visitRelevance.daysAgo)})`;
-  }
-
-  const title = isVisited
-    ? `Visitado${titleSuffix} · click para quitar`
-    : 'Pendiente · click para marcar visitado';
-
-  // P-POPUP-7D — Posición delegada a .popup-hero-chrome--bl (safe-area canónica).
-  // NO añadir position/bottom/left/top/right inline aquí — guardrail anti-regresión.
-  return `<button class="popup-action-btn popup-hero-visited-badge popup-hero-chrome popup-hero-chrome--bl" data-action="toggle-visited" data-location-id="${location.id}" data-visited-hero-overlay="true" data-visited-state="${isVisited ? 'visited' : 'pending'}" aria-label="${title}" title="${title}" style="width: 24px; height: 24px; padding: 0; background: ${bg}; border: 1px solid ${borderColor}; border-radius: 9999px; cursor: pointer; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 1px 3px rgba(0,0,0,0.45); line-height: 0; justify-content: center;">${iconHtml}</button>`;
+  return '';
 }
+
 
 // ─── Image Section ───────────────────────────────────────────────────────────
 
@@ -1164,12 +1125,13 @@ title="${hasUserImage ? 'Cambiar foto' : 'Añadir foto'}"
 </div>`;
   }
 
-  const __overlayHtml = buildVisitedHeroOverlay(location, ownership, enriched, visitedState);
+  // P-POPUP-15 — Overlay visited/pendiente retirado del hero. El estado
+  // personal vive exclusivamente en el ratings block (P-POPUP-14.2).
+  void visitedState;
 
   return `<div class="popup-hero" style="margin: 0 -12px 0 -12px; position: relative;">
 ${imageHtml}
 ${buttonHtml}
-${__overlayHtml}
 </div>`;
 }
 
@@ -1443,7 +1405,7 @@ Añadir a mi colección
     const visitedState = resolveVisitedPresentationState(location, ownershipInfo, enriched);
 
     return `
-<div id="${popupId}" data-popup-version="${isPopupGeoCanonicalV1On() ? 'geo-canonical-v1' : 'legacy'}" data-popup-geo-canonical="${isPopupGeoCanonicalV1On() ? 'true' : 'false'}" data-popup-ownership-strip="${(isOwn && isPopupOwnershipStripV1On()) ? 'v1' : 'legacy'}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: ${POPUP_MAX_HEIGHT}; overflow: hidden;">${isPopupDiagBadgeVisible() && isPopupGeoCanonicalV1On() ? `<div style="position: absolute; top: 4px; left: 4px; z-index: 10; padding: 2px 6px; border-radius: 4px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.85; pointer-events: none;" title="P-POPUP-2 canonical geo header + 4-bucket tag dedupe ACTIVE (preview/staging signal — will retire after ratification)">P-POPUP-2 ON</div>` : ''}${isPopupDiagBadgeVisible() && isOwn && isPopupOwnershipStripV1On() ? `<div style="position: absolute; top: 4px; left: 88px; z-index: 10; padding: 2px 6px; border-radius: 4px; background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.85; pointer-events: none;" title="P-POPUP-3A ownership-strip ACTIVE (own enriched only; preview/staging signal — will retire after ratification)">P-POPUP-3 ON</div>` : ''}
+<div id="${popupId}" data-popup-version="${isPopupGeoCanonicalV1On() ? 'geo-canonical-v1' : 'legacy'}" data-popup-geo-canonical="${isPopupGeoCanonicalV1On() ? 'true' : 'false'}" data-popup-ownership-strip="${(isOwn && isPopupOwnershipStripV1On()) ? 'v1' : 'legacy'}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: ${POPUP_MAX_HEIGHT}; overflow: hidden;"><!-- P-POPUP-15: diag badges removed from runtime; data-popup-* remain as test hooks -->
 ${statusBarHtml}
 
 <!-- Hero (fija, no participa en el scroll) -->
