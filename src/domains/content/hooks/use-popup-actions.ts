@@ -36,7 +36,13 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
   // overlay (P-POPUP-16) for ANY enrichment mutation over the open POI,
   // regardless of entry point (batch, document tab, general list, retry,
   // realtime, in-popup action, adopt-nearby orchestrator).
-  useEffect(() => subscribePopupEnrichmentPhase(), []);
+  useEffect(() => {
+    const unsub = subscribePopupEnrichmentPhase();
+    return () => {
+      try { unsub?.(); } catch { /* noop */ }
+    };
+  }, []);
+
 
 
   const handleToggleVisited = useCallback(async (location: GeoLocation, newVisited: boolean, distance?: number) => {
