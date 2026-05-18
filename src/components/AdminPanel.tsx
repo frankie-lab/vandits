@@ -1,18 +1,12 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Shield, Users, Settings, ChevronDown, ChevronRight, Check, Loader2, Search, UserPlus, Trash2, MapPin, ExternalLink, Route as RouteIcon } from 'lucide-react';
+import { X, Shield, ChevronDown, ChevronRight, Loader2, Search, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-import { MarkerSizeManager } from './MarkerSizeManager';
-import { RouteSettingsPanelContent } from './RouteSettingsPanel';
-import { IconLibraryManager } from './IconLibraryManager';
-import { EnrichmentCardConfig } from '@/domains/content/components';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { usePermissions, AppRole, AppPermission } from '@/domains/identity';
@@ -26,12 +20,6 @@ import {
  AlertDialogHeader,
  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-
-import { AuditPanel } from './AuditPanel';
-import { GeographyBackfillPanel } from './admin/GeographyBackfillPanel';
-import { DataSourcesPanel } from './admin/DataSourcesPanel';
-import { RecoverImagesPanel } from './admin/RecoverImagesPanel';
-import { DesignSystemPanel } from './admin/DesignSystemPanel';
 
 import { ADMIN_TABS, getAdminTab, type AdminTabKey } from './admin/admin-tabs';
 import { AdminGate } from './admin/AdminGate';
@@ -130,7 +118,7 @@ const ALL_PERMISSIONS: AppPermission[] = [
 ];
 
 export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
- const { isMaster, hasPermission, loading: permissionsLoading } = usePermissions();
+ const { hasPermission, loading: permissionsLoading } = usePermissions();
  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
  const [users, setUsers] = useState<UserWithRoles[]>([]);
  const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
@@ -145,7 +133,10 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  const [purgePreview, setPurgePreview] = useState<{ targetUser: string; locations: number; documents: number; notes: number; photos: number; achievements: number } | null>(null);
  const [purgeProgress, setPurgeProgress] = useState(0);
 
- const canManageUsers = hasPermission('manage_users');
+ // PR-ADMIN-AUDIT Step 3: role-management requires manage_permissions (master-only),
+ // NOT manage_users (which admins also hold). Prevents admin → master self-escalation.
+ const canManageRoles = hasPermission('manage_permissions');
+ const canPurgeUsers = hasPermission('purge_user');
 
  const fetchData = useCallback(async () => {
  setLoading(true);
@@ -275,8 +266,8 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  };
 
  const toggleUserRole = async (userId: string, role: AppRole, hasRole: boolean) => {
- if (!canManageUsers && !isMaster()) {
- toast.error('No tienes permisos para gestionar usuarios');
+ if (!canManageRoles) {
+ toast.error('Solo los Masters pueden modificar roles');
  return;
  }
 
@@ -321,7 +312,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  };
 
  const togglePermission = async (role: AppRole, permission: AppPermission, hasPermission: boolean) => {
- if (!isMaster()) {
+ if (!canManageRoles) {
  toast.error('Solo los Masters pueden modificar permisos');
  return;
  }
@@ -368,7 +359,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  );
  }
 
- if (!hasPermission('open_back_office') && !canManageUsers) {
+ if (!hasPermission('open_back_office') && !hasPermission('manage_users')) {
  return (
  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-modal flex items-center justify-center bg-foreground/50 overlay-respect-progress" onClick={onClose}>
  <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-card rounded-xl shadow-2xl p-8 max-w-md mx-4" onClick={e => e.stopPropagation()}>
@@ -442,7 +433,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  );
  })}
  </div>
- {isMaster() && (
+ {canPurgeUsers && (
  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handlePurgePreview(user); }}
  className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0" title="Limpiar usuario">
  <Trash2 className="w-4 h-4" />

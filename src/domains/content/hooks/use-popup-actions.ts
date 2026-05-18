@@ -29,7 +29,11 @@ interface UsePopupActionsOptions {
 }
 
 export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUpload }: UsePopupActionsOptions) {
-  const { isMaster } = usePermissions();
+  const { hasPermission } = usePermissions();
+  // PR-ADMIN-AUDIT Step 3: visited-verification bypass gated by master-only capability
+  // (`delete_any_location` is the only existing master-only operational cap; semantic
+  // mismatch documented — revisit in PR-ADMIN-AUDIT-4 if a dedicated cap is added).
+  const canBypassVisitVerification = () => hasPermission('delete_any_location');
   const { documents, updateLocation } = useLocationsStore();
 
   // P-POPUP-17 — single global listener that drives popup operational
@@ -270,7 +274,7 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
             };
           }
 
-          if (isMaster()) {
+          if (canBypassVisitVerification()) {
             await handleToggleVisited(targetLocation, true);
             toast.success('Marcado como visitado (Master)');
             await loadFromDatabase();
@@ -355,7 +359,7 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
       }
 
       // Own point — normal visited logic
-      if (isMaster()) {
+      if (canBypassVisitVerification()) {
         await handleToggleVisited(location, true);
         toast.success('Marcado como visitado (Master)');
         return;
@@ -745,7 +749,7 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
         pendingLabels[curationAction ?? ''] ?? 'Acción de curación pendiente de implementar',
       );
     }
-  }, [documents, updateLocation, isMaster, handleToggleVisited, loadFromDatabase, onOpenNotes, onOpenPhotoUpload]);
+  }, [documents, updateLocation, hasPermission, handleToggleVisited, loadFromDatabase, onOpenNotes, onOpenPhotoUpload]);
 
   return { handlePopupAction };
 }

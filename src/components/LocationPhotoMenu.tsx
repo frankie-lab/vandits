@@ -12,7 +12,8 @@ interface LocationPhotoMenuProps {
  locationName: string;
  locationCoordinates: { lat: number; lng: number };
  hasUserImage: boolean;
- isAdminOrMaster: boolean;
+ /** PR-ADMIN-AUDIT Step 3: gated by `moderate_content` capability (content curation, not back-office shell). */
+ canSetOfficialImage: boolean;
  onPhotoUpdated: (imageUrl?: string) => void;
  defaultVisibility?: string;
 }
@@ -22,7 +23,7 @@ export function LocationPhotoMenu({
  locationName,
  locationCoordinates,
  hasUserImage,
- isAdminOrMaster,
+ canSetOfficialImage,
  onPhotoUpdated,
  defaultVisibility = 'private',
 }: LocationPhotoMenuProps) {
@@ -155,7 +156,7 @@ export function LocationPhotoMenu({
           </button>
 
           {/* Admin option: Set official image */}
-          {isAdminOrMaster && (
+          {canSetOfficialImage && (
           <button
             onClick={openSearchAsAdmin}
             className={cn(
