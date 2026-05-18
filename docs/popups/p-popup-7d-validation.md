@@ -162,3 +162,17 @@ Se mantiene retirado del hero chrome (decisión P-POPUP-7D base). No reaparece.
 - **Hover** sobre la hero → upload/delete aparecen en bottom-right (reveal P-POPUP-7C intacto), sin clipping.
 - POI **curator con avatar** → avatar en bottom-right, sin clipping.
 - Tap/click fuera → cierra popup (sin regresión vs P-POPUP-7D base).
+
+---
+
+## Superseded by P-POPUP-15 (2026-05-18)
+
+La sección "Badge visited/pending icon-only" descrita arriba **queda anulada**. P-POPUP-15 retira el overlay visited/pendiente del hero por completo:
+
+- `buildVisitedHeroOverlay` → no-op (`''` siempre).
+- `isVisitedHeroOverlayActive` → `false` siempre.
+- `buildImageSection` ya no inyecta hooks `data-visited-hero-overlay` / `data-action="toggle-visited"` / `popup-hero-visited-badge`.
+
+El hero sólo renderiza imagen + acciones foto. El estado personal (visited/pendiente/rating) vive exclusivamente en el ratings block canónico P-POPUP-14.2. Las clases `popup-hero-chrome` y safe-area siguen vigentes para el resto de chromes (controles foto, curator avatar). Ver `mem://style/popup/hero-no-personal-state`.
+
+Además P-POPUP-15 retira en runtime los badges debug `P-POPUP-2 ON` / `P-POPUP-3 ON` (la función `isPopupDiagBadgeVisible` ha sido eliminada). Los atributos `data-popup-*` del root permanecen como hooks de test.
