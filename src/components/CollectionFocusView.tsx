@@ -11,9 +11,8 @@
  */
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
-  ChevronLeft, MapPin, Route as RouteIcon, Loader2, Trash2, Share2,
+  ChevronLeft, MapPin, Route as RouteIcon, Loader2, Trash2,
 } from 'lucide-react';
-import { openShareSheet } from '@/domains/sharing';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PanelTabs } from '@/shared/components/ui/panel';
