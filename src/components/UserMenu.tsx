@@ -198,10 +198,12 @@ export function UserMenu({
   }, [fetchTrashCount]);
   const { modifiedCount, formatLastExportTime, lastExport } = useExportTracking();
  
-  // Check if user can access admin features
- const canAccessAdmin = hasPermission('manage_users') || isAdmin() || isMaster();
- const canManageCriteria = hasPermission('manage_criteria') || isAdmin() || isMaster();
- const canRunEnrichment = hasPermission('run_global_enrichment') || isAdmin() || isMaster();
+  // Capabilities-first gates (PR-ADMIN-AUDIT Step 3).
+  // `open_back_office` controla la visibilidad del submenu entero.
+  // Cada item dentro se filtra por su propia capability.
+ const canAccessAdmin = hasPermission('open_back_office') || hasPermission('manage_users');
+ const canManageCriteria = hasPermission('manage_criteria');
+ const canRunEnrichment = hasPermission('run_global_enrichment');
  
  const handleToggleSounds = (e: React.MouseEvent) => {
  e.preventDefault();
