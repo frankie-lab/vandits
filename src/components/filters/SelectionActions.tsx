@@ -219,10 +219,24 @@ export function SelectionActions() {
     }
   };
 
-  // ---- 2. Exportar selección ----
+  // ---- 2. Exportar selección (PR-EXPORT-1: scope explícito siempre) ----
   const handleExport = (format: ExportFormat, target: ExportTarget = 'general') => {
     if (resolvedLocations.length === 0) {
       toast.error('No hay puntos para exportar');
+      return;
+    }
+    const ctx = { currentUserId };
+    const { eligible, excluded } = partitionForExport(resolvedLocations, exportScope, ctx);
+    if (eligible.length === 0) {
+      const summary = excluded
+        .slice(0, 3)
+        .map((e) => EXPORT_EXCLUSION_LABEL[e.reason])
+        .join(' · ');
+      toast.error(
+        exportScope === 'public'
+          ? `Ningún punto seleccionado es compartible. ${summary}`
+          : `Ningún punto exportable en modo interno (requiere ser del usuario actual). ${summary}`,
+      );
       return;
     }
     try {
@@ -232,25 +246,27 @@ export function SelectionActions() {
       let extension: string;
       switch (format) {
         case 'kml':
-          content = exportToKML(resolvedLocations, docName, target);
+          content = exportToKML(eligible, docName, target, exportScope, ctx, { scopeProvided: true });
           mimeType = 'application/vnd.google-earth.kml+xml';
           extension = 'kml';
           break;
         case 'csv':
-          content = exportToCSV(resolvedLocations);
+          content = exportToCSV(eligible, exportScope, ctx, { scopeProvided: true });
           mimeType = 'text/csv';
           extension = 'csv';
           break;
         case 'json':
-          content = exportToJSON(resolvedLocations);
+          content = exportToJSON(eligible, exportScope, ctx, { scopeProvided: true });
           mimeType = 'application/json';
           extension = 'json';
           break;
       }
       const targetSuffix = target !== 'general' ? `_${target}` : '';
+      const scopeSuffix = `_${exportScope}`;
       const timestamp = new Date().toISOString().split('T')[0];
-      downloadBlob(content, mimeType, `${docName}_seleccion${targetSuffix}_${timestamp}.${extension}`);
-      toast.success(`Exportados ${resolvedLocations.length} puntos en ${format.toUpperCase()}`);
+      downloadBlob(content, mimeType, `${docName}_seleccion${scopeSuffix}${targetSuffix}_${timestamp}.${extension}`);
+      const excludedNote = excluded.length > 0 ? ` (${excluded.length} excluidos)` : '';
+      toast.success(`Exportados ${eligible.length} puntos en ${format.toUpperCase()}${excludedNote}`);
     } catch (err) {
       console.error('Export error:', err);
       toast.error('Error al exportar');
