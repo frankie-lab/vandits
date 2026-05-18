@@ -13,6 +13,13 @@ import * as React from 'react';
 import { render, cleanup } from '@testing-library/react';
 
 // ── Mocks mínimos ────────────────────────────────────────────────────
+// Radix Slider depende de ResizeObserver, ausente en jsdom.
+(globalThis as any).ResizeObserver = (globalThis as any).ResizeObserver ?? class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 vi.mock('@/domains/identity/hooks/use-auth', () => ({
   useAuth: () => ({ user: { id: 'user-1' } }),
 }));
