@@ -331,19 +331,21 @@ export const createCustomIcon = (
   const size = Math.max(6, Math.round(baseSize * modeScale));
   const hoverSize = baseHover ? Math.max(size, Math.round(baseHover * modeScale)) : baseHover;
 
-  // Anillos de salud (rojo error / amarillo cadena rota / naranja vacío),
-  // apilados de dentro hacia fuera por orden de severidad. Helper único:
-  // `getPointHealthRings`. La regla "verde nunca marca error" vive dentro
-  // de `hasEnrichmentFailure` y aquí se respeta automáticamente.
-  const healthRings = skipHealthRings ? [] : getPointHealthRings(location, currentUserId);
+  // Anillos de salud — SoT = `resolvePoiVisualGrammar` (que ya aplica el
+  // ownership guard PR-1 + el filtro por `grammar.allowHealthRings`). Sin
+  // re-cálculo aquí. Fallback al helper directo si no hay visualGrammar.
+  const healthRings = skipHealthRings
+    ? []
+    : (visualGrammar?.healthRings ?? getPointHealthRings(location, currentUserId));
   const ringCount = healthRings.length;
   const ringPad = ringCount > 0 ? ringCount * RING_GAP + 2 : 0;
   const containerSize = size + ringPad * 2;
 
+  // PR-MAP-CANON-2: animaciones tokenizadas en `poi.animation.{celebrate,pulse}`.
   const animationStyle = isRecentlyEnriched
-    ? 'animation: enriched-celebrate 3.5s ease-out;'
+    ? `animation: ${tokens.poi.animation.celebrate};`
     : isFocused
-    ? 'animation: pulse 1s ease-in-out infinite;'
+    ? `animation: ${tokens.poi.animation.pulse};`
     : '';
 
   const currentState = isRecentlyEnriched ? 'recent' : isFocused ? 'focused' : isSelected ? 'selected' : 'normal';
@@ -351,10 +353,8 @@ export const createCustomIcon = (
   // Solo aporta un halo blanco sutil + borde algo más grueso. Focused/recent
   // siguen pudiendo modular color porque actúan sobre 1 punto puntual.
   const isMassSelect = currentState === 'selected';
-  // Halo de propiedad (Ola 2): los puntos del usuario reciben un drop-shadow
-  // blanco fino (~1px) que se acumula con el shadow base. No altera color ni
-  // tamaño en compact/standard/rich — solo da prioridad visual sutil.
-  const ownHalo = isOwn && !isMassSelect ? ' drop-shadow(0 0 0 1px rgba(255,255,255,0.9))' : '';
+  // Halo de propiedad (Ola 2): PR-MAP-CANON-2 — tokenizado en `poi.halo.own`.
+  const ownHalo = isOwn && !isMassSelect ? ` ${tokens.poi.halo.own}` : '';
   const shadow = (isMassSelect
     ? 'drop-shadow(0 0 0 1.5px rgba(255,255,255,0.95)) drop-shadow(0 1px 3px rgba(0,0,0,0.35))'
     : currentState !== 'normal'
