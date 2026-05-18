@@ -477,61 +477,21 @@ export function UserMenu({
   </DropdownMenuSubTrigger>
   <DropdownMenuPortal>
   <DropdownMenuSubContent className="w-64 z-[1002]">
-  
-  <DropdownMenuItem onClick={() => onOpenAdmin?.('users')} className="cursor-pointer">
-  <Users className="w-4 h-4 mr-2 text-purple-500" />
-  Gestión de usuarios
-  </DropdownMenuItem>
+  {/* Capabilities-first: iterate declarative table, filter by hasPermission. */}
+  {ADMIN_TABS.filter(tab => hasPermission(tab.capability)).map(tab => {
+    const Icon = tab.icon;
+    return (
+      <DropdownMenuItem
+        key={tab.key}
+        onClick={() => onOpenAdmin?.(tab.key)}
+        className="cursor-pointer"
+      >
+        <Icon className={`w-4 h-4 mr-2 ${tab.iconClass}`} />
+        {tab.label}
+      </DropdownMenuItem>
+    );
+  })}
 
-  {isMaster() && (
-  <>
-  <DropdownMenuItem onClick={() => onOpenAdmin?.('permissions')} className="cursor-pointer">
-  <SlidersHorizontal className="w-4 h-4 mr-2 text-blue-500" />
-  Permisos por rol
-  </DropdownMenuItem>
-
-
-               <DropdownMenuItem onClick={() => onOpenAdmin?.('markers')} className="cursor-pointer">
-               <Ruler className="w-4 h-4 mr-2 text-orange-500" />
-               Tamaños de marcadores
-               </DropdownMenuItem>
-
-               <DropdownMenuItem onClick={() => onOpenAdmin?.('routes')} className="cursor-pointer">
-               <RouteIcon className="w-4 h-4 mr-2 text-primary" />
-               Motor de rutas
-               </DropdownMenuItem>
-
-               <DropdownMenuItem onClick={() => onOpenAdmin?.('icons')} className="cursor-pointer">
-               <Settings className="w-4 h-4 mr-2 text-indigo-500" />
-               Galería de iconos
-               </DropdownMenuItem>
-
-               <DropdownMenuItem onClick={() => onOpenAdmin?.('enrichment')} className="cursor-pointer">
-               <FileText className="w-4 h-4 mr-2 text-emerald-500" />
-               Estructura de fichas
-               </DropdownMenuItem>
-
-               <DropdownMenuItem onClick={() => onOpenAdmin?.('geography')} className="cursor-pointer">
-               <Compass className="w-4 h-4 mr-2 text-amber-500" />
-               Mantenimiento geográfico (Admin)
-               </DropdownMenuItem>
-
-               <DropdownMenuItem onClick={() => onOpenAdmin?.('sources')} className="cursor-pointer">
-               <Database className="w-4 h-4 mr-2 text-cyan-500" />
-               Fuentes de datos
-               </DropdownMenuItem>
-
-               <DropdownMenuItem onClick={() => onOpenAdmin?.('image-recovery')} className="cursor-pointer">
-               <ImageIcon className="w-4 h-4 mr-2 text-amber-500" />
-               Recuperar imágenes faltantes
-               </DropdownMenuItem>
-
-               <DropdownMenuItem onClick={() => onOpenAdmin?.('design-system')} className="cursor-pointer">
-               <Palette className="w-4 h-4 mr-2 text-fuchsia-500" />
-               Design System
-               </DropdownMenuItem>
-   </>
-   )}
 
   <DropdownMenuSeparator />
   
