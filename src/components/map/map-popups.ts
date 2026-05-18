@@ -1326,27 +1326,6 @@ title="Mover a la papelera"
 </button>
 ` : '';
 
-  // PR-SHARE-1 — Share humano/social. Entrada única para POI individual.
-  // Visible siempre que no sea curator/nearby; el ShareSheet decide si
-  // muestra URL Vandits (POI shareable) o sólo "abrir en Maps externos".
-  const shareBtnHtml = (!isCuratorPoint && !isNearbyPopupContext(location.id)) ? `
-<button
-class="popup-action-btn"
-data-action="share-poi"
-data-location-id="${location.id}"
-data-location-name="${location.name}"
-style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 28px; padding: 0 12px; background: hsl(var(--muted)); color: hsl(var(--foreground)); border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: background 0.15s; white-space: nowrap;"
-onmouseover="this.style.background='hsl(var(--muted) / 0.7)'"
-onmouseout="this.style.background='hsl(var(--muted))'"
-title="Compartir este punto"
->
-<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-<line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-</svg>
-Compartir
-</button>
-` : '';
 
   // P-POI-CURATION-2 — `curationVerdict` se hoistó al inicio de
   // `createPopupContent` para garantizar commit atómico body↔footer.
@@ -1377,7 +1356,6 @@ ${(canEditLocation && !isOwn && !isCuratorPoint) ? adminEditWarning : ''}
 <div style="display: flex; justify-content: center; align-items: center; gap: 8px;">
 ${reEnrichBtnHtml}
 ${notesBtnHtml}
-${shareBtnHtml}
 </div>
 <div style="display: flex; justify-content: flex-end; align-items: center;">
 ${deleteBtnHtml}
