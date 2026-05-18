@@ -54,7 +54,10 @@ export function NearbyResultCard({
       data-density={density}
       className={cn(
         'group flex w-full items-center border border-border/60 bg-card/40 shadow-sm transition-all hover:border-border hover:bg-muted/40 hover:shadow-md',
-        isCompact ? 'gap-2 rounded-md px-2 py-2' : 'gap-3 rounded-lg px-3 py-2',
+        // P-POI-CURATION-2.5 — compact: padding lateral mínimo + gap ajustado
+        // para maximizar ancho útil de lectura del nombre, sin alterar el
+        // ritmo vertical (py-2). Solo afecta a inline; `comfortable` intacto.
+        isCompact ? 'gap-1.5 rounded-md px-1.5 py-2' : 'gap-3 rounded-lg px-3 py-2',
         onClick && 'cursor-pointer',
         className,
       )}
