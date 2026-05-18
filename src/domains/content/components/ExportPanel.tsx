@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Download, FileJson, FileSpreadsheet, FileCode, Map, Mountain, Clock, AlertCircle, Check, ShieldAlert } from 'lucide-react';
+import { Download, FileJson, FileSpreadsheet, FileCode, Map as MapIcon, Mountain, Clock, AlertCircle, Check, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocationsStore } from '@/domains/content';
 import { useAuth } from '@/domains/identity';
