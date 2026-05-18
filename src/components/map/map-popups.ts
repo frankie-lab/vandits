@@ -1151,12 +1151,13 @@ title="${hasUserImage ? 'Cambiar foto' : 'Añadir foto'}"
 </div>`;
   }
 
-  const __overlayHtml = buildVisitedHeroOverlay(location, ownership, enriched, visitedState);
+  // P-POPUP-15 — Overlay visited/pendiente retirado del hero. El estado
+  // personal vive exclusivamente en el ratings block (P-POPUP-14.2).
+  void visitedState;
 
   return `<div class="popup-hero" style="margin: 0 -12px 0 -12px; position: relative;">
 ${imageHtml}
 ${buttonHtml}
-${__overlayHtml}
 </div>`;
 }
 
