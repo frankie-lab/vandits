@@ -167,12 +167,12 @@ function classifyExisting(loc: GeoLocation | undefined): {
 /**
  * Orchestrate `validate-geo` → enrich → recompute, in-place over the popup.
  */
-export async function advancePoiCurationUntilBlocked(
+export async function advancePoiCurationUntilBlocked(/*TRACE*/
   locationId: string,
   trigger: CurationTrigger,
   popupId: string,
 ): Promise<CurationAdvanceResult> {
-  void trigger; // fase 1: único trigger soportado
+  console.log("[orch] entry", locationId);void trigger; // fase 1: único trigger soportado
 
   const stagesRun: CurationStage[] = [];
 
@@ -181,7 +181,7 @@ export async function advancePoiCurationUntilBlocked(
   const startLevel = loc ? getPoiCurationLevel(loc).level : 0;
 
   // Si el POI ya está en un estado terminal/bloqueante, devolver sin trabajo.
-  const preCheck = classifyExisting(loc);
+  console.log("[orch] after findLocation", !!loc, "startLevel", startLevel);const preCheck = classifyExisting(loc);console.log("[orch] preCheck", preCheck);
   if (
     preCheck.level === 10 ||
     preCheck.level === 9 ||
