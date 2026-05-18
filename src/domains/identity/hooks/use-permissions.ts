@@ -32,15 +32,7 @@ export type AppPermission =
   | 'run_image_recovery'
   | 'manage_design_system'
   | 'purge_user'
-  | 'open_back_office'
-  // Resto del enum
-  | 'manage_roles'
-  | 'view_all_users'
-  | 'manage_all_documents'
-  | 'manage_app_settings'
-  | 'manage_translations'
-  | 'manage_categories'
-  | 'manage_blog';
+  | 'open_back_office';
 
 // Alias semántico: capabilities-first vocabulary.
 export type Capability = AppPermission;
