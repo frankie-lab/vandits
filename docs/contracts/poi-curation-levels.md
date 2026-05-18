@@ -227,3 +227,51 @@ Shell, hero, breadcrumb, ratings block, footer canónico, rama con
 conflicto del recovery block, niveles POI, `map-fly-to` ya existente
 en NearbyPanel, P-POI-CURATION-3.x.
 
+## P-POI-CURATION-2.2 — Un solo scroll por popup en POI-1b
+
+Refuerza la ergonomía del autolaunch: el contenido de Contexto cercano
+debe integrarse en el flujo natural del cuerpo del popup, sin generar
+un segundo scroll vertical anidado.
+
+### Canon de comportamiento
+
+- **Único owner de scroll vertical** del popup POI = el propio popup
+  (`leaflet-popup-content` con su `max-h` / `overflow-y` canónicos).
+- **`NearbyPanel variant="inline"`** NO impone `max-height`, NO usa
+  `overflow-hidden` ni `overflow-y-auto`, NO crea contexto flex acotado
+  (`flex-1 min-h-0`). Fluye como bloque normal.
+- **Variants `sidebar`** (Sheet/DocumentFocusView) conservan su scroll
+  propio — fuera de alcance.
+- **Lista larga sin scroll anidado**: cap inicial de
+  `INLINE_VISIBLE_DEFAULT = 6` candidatos visibles. Si hay más, se
+  añade un botón inline `Ver más (N restantes)` / `Ver menos` que
+  expande dentro del mismo flujo. El cap se resetea al cambiar de
+  POI (`location.id`) o de radio (`radiusMeters`).
+- **Lectura natural**: hero → ratings → "Contexto cercano" (header +
+  candidatos + acciones) se recorren con un único gesto de scroll
+  del popup, sin scroll-trapping del bloque.
+
+### Hooks observables
+
+- `data-nearby-scroll-owner="popup"` en el root inline.
+- `data-nearby-scroll-owner="self"` en el root sidebar.
+- `data-nearby-results` + `data-nearby-overflow="none" | "auto"` en
+  el contenedor de resultados.
+- `data-nearby-list` + `data-nearby-visible-count` en la lista por
+  categorías; `data-nearby-action="expand" | "collapse"` en el
+  botón Ver más / Ver menos.
+
+### Invariantes añadidas
+
+- En `variant="inline"`, el root no contiene `overflow-hidden`,
+  `overflow-y-auto` ni `style.maxHeight`.
+- En `variant="inline"`, el contenedor `[data-nearby-results]` no
+  contiene `overflow-y-auto`, `min-h-0` ni `flex-1`.
+- En `variant="sidebar"`, `[data-nearby-results]` mantiene
+  `overflow-y-auto`.
+
+### Fuera de alcance (re-confirmado)
+
+Shell del popup, hero, breadcrumb, ratings block, footer canónico,
+niveles POI, lógica de curación, marker grammar, heal-rings,
+resolve-conflict real, variant `sidebar`, P-POI-CURATION-3.x.
