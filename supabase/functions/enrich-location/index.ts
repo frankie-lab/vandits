@@ -1748,12 +1748,12 @@ serve(async (req) => {
       });
     }
 
-    const { location: rawLocation, generateImage = true, imageSources, curatorId, druidId, skipValidation = false, confirmedCandidate } = parsed as {
+    // PR-ADMIN-AUDIT-3 Fase A: `curatorId`/`druidId` retirados del contrato.
+    // Las tablas `curators`/`druids` fueron purgadas en migraciones anteriores.
+    const { location: rawLocation, generateImage = true, imageSources, skipValidation = false, confirmedCandidate } = parsed as {
       location: IncomingLocation;
       generateImage?: boolean;
       imageSources?: string[];
-      curatorId?: string;
-      druidId?: string;
       skipValidation?: boolean;
       confirmedCandidate?: string;
     };
@@ -1792,18 +1792,11 @@ serve(async (req) => {
     const globalConfig = await getGlobalEnrichmentConfig();
     console.log('Global enrichment config:', globalConfig.tone, globalConfig.min_length);
 
-    // 2. Fetch profile-specific overrides (curator or druid)
-    let profilePrefs: ProfileEnrichmentPrefs | null = null;
-    let profileType: string = 'user';
-    if (curatorId) {
-      profileType = 'curator';
-      console.log('Fetching preferences for curator:', curatorId);
-      profilePrefs = await getProfilePreferences('curator', curatorId);
-    } else if (druidId) {
-      profileType = 'druid';
-      console.log('Fetching preferences for druid:', druidId);
-      profilePrefs = await getProfilePreferences('druid', druidId);
-    }
+    // 2. Profile-specific overrides — retirado en PR-ADMIN-AUDIT-3 Fase A.
+    //    Las tablas `curators`/`druids` ya no existen; merges posteriores usan
+    //    fallback global (`profilePrefs?.<key> ?? globalConfig.<key>`).
+    const profilePrefs: ProfileEnrichmentPrefs | null = null;
+    const profileType: string = 'user';
     
     // 3. Merge: profile overrides > global config (v2 card schema)
     const activeFieldKeys = new Set(getActiveFields(globalConfig).map((f) => f.key));
