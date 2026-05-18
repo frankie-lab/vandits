@@ -55,7 +55,7 @@ describe('P-POI-CURATION-2.7 — manual search inline', () => {
   });
 
   it('P-POI-CURATION-2.8 — input materializado discreto: h-7, text-[12px], bg-muted/40, rounded-md, border, focus-within primary', () => {
-    const m = SRC.match(/data-nearby-search-input[\s\S]{0,1600}?<\/div>\s*\)\}/);
+    const m = SRC.match(/<div\s+className="[^"]*"[\s\S]{0,200}?data-nearby-search-input[\s\S]{0,1600}?<\/div>\s*\)\}/);
     expect(m, 'search input block not found').toBeTruthy();
     const block = m![0];
     expect(block).toMatch(/\bh-7\b/);
