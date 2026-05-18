@@ -1,163 +1,130 @@
-## P-POI-CURATION-3 (Fase 1) — Auto-advance validate-geo → enrich
 
-Cuando el usuario pulse **Validar geografía**, el sistema no se limita a lanzar el job: encadena automáticamente recompute → enrich → recompute y muta el popup in-place hasta el siguiente bloqueo real o estado sano. Sin heal-rings, sin nuevos jobs server-side, sin UI nueva.
+# P-POPUP-17 — Estado operacional del popup durante enriquecimiento
 
----
+## Problema
 
-### 1. Helper nuevo
+Hoy el overlay P-POPUP-16 solo se activa cuando el enriquecimiento se dispara **desde el propio popup** (`use-popup-actions.ts` → acciones `enrich/regenerate/quick-classify`) o desde el orquestador de adopción nearby (P-POI-CURATION-2.13).
 
-`src/domains/content/lib/advance-poi-curation.ts`
+El resto de entry points mutan el POI sin avisar al popup:
 
-```ts
-export type CurationStage = 'validate-geo' | 'enrich' | 'recompute';
+- `BatchEnrichmentPanel` (lote de documento)
+- `DocumentWaypointsTabs` (enriquecer desde lista de waypoints)
+- `LocationList` (enriquecer desde lista general)
+- `UnenrichedRecoveryBlock` (bloque inline “contexto cercano”)
+- `use-enrichment-failure` (reintentos automáticos)
+- realtime `location:enriched` desde otra pestaña / otro usuario
 
-export type CurationBlocker =
-  | 'geo-conflict'         // geoHealth='broken' → POI-3
-  | 'needs-identity'       // POI-0 (sin nombre validable)
-  | 'enrichment-ambiguous' // llm_unverifiable | name_coordinate_mismatch | no_match
-  | 'manual-rating'        // POI-9 visitado sin user_rating
-  | 'none';                // POI-10 / sano final
+Resultado: el popup se queda como **editable** mientras el servidor está reescribiendo `enriched_data`, `enrichment_status` y FKs. El usuario puede pulsar valoraciones, abrir nearby, regenerar, o adoptar candidatos sobre datos a punto de ser sobrescritos. Solo aparece un `toast.loading` global que no está visualmente vinculado al popup abierto.
 
-export interface CurationAdvanceResult {
-  startLevel: PoiCurationLevel;
-  endLevel:   PoiCurationLevel;
-  stagesRun:  CurationStage[];
-  blocker:    CurationBlocker;
-  message:    string;       // toast canon, ya en curación-language
-}
+## Regla canónica (UX)
 
-export async function advancePoiCurationUntilBlocked(
-  locationId: string,
-  trigger: 'validate-geo',  // fase 1: único trigger
-  popupId: string,
-): Promise<CurationAdvanceResult>;
+> **Cualquier mutación de enriquecimiento sobre el POI actualmente abierto en popup
+> activa estado operacional local (`data-popup-operational-state="loading"`),
+> sin importar quién la dispare ni desde dónde.**
+
+Esto NO sustituye al toast global — el toast sigue siendo la traza
+multi-superficie (lista, documento, lote). El overlay local cubre la
+expectativa específica del popup abierto: *“mientras el sistema esté
+mutando este POI, este popup no es editable y no miente”*.
+
+### Tabla de decisión
+
+| Origen de la mutación                              | Overlay popup local | Toast global |
+|----------------------------------------------------|---------------------|--------------|
+| Acción dentro del popup (`enrich`/`regenerate`)    | sí                  | sí (ya hoy)  |
+| Adopción nearby (P-POI-CURATION-2.13)              | sí                  | sí (ya hoy)  |
+| Lote (`BatchEnrichmentPanel`) — POI abierto incluido | **sí**            | sí           |
+| Lote — POI abierto NO incluido                     | no                  | sí           |
+| Lista general / waypoints tab — POI abierto        | **sí**              | sí           |
+| Lista general / waypoints tab — otro POI           | no                  | sí           |
+| Reintento automático (failure store)               | **sí** si popup abierto sobre ese id | sí |
+| Realtime externo (otra pestaña / otro usuario)     | **sí** si popup abierto sobre ese id | opcional |
+| Adopción manual de identidad (`UnenrichedRecoveryBlock`) | **sí**        | sí           |
+
+Criterio único: **¿el popup abierto en este cliente apunta al `locationId`
+que está siendo mutado?** Si sí → overlay. Si no → solo toast.
+
+### Qué bloquea el overlay (igual que P-POPUP-16 ya define)
+
+- Atenuación + spinner + copy de progreso (label contextual)
+- `pointer-events: auto` en el overlay → captura clicks y los engulle
+- `aria-busy="true"` en el scroll-body
+- Footer/CTA principal deshabilitado vía CSS
+  (`[data-popup-operational-state="loading"] [data-popup-footer="v1"] button { ... }`)
+- Identidad estable del root y del scroll-body (G2) → no remount, no flicker
+
+### Copy de progreso por fase
+
+El label del overlay refleja la fase actual cuando se conoce:
+
+- `'Enriqueciendo POI…'` — IA en curso, sin trunk hit
+- `'Re-enriqueciendo POI…'` — regenerate
+- `'Validando geografía…'` — validate-geo (ya usado por orquestador)
+- `'Adoptando identidad…'` — adopción nearby (P-POI-CURATION-2.13)
+- `'Actualizando ficha…'` — reintento / realtime externo (fase desconocida)
+
+## Sincronización técnica (sin implementar)
+
+Para que **todos** los entry points respeten la regla sin acoplarse
+mutuamente, la fuente de verdad es un único listener montado en
+`use-popup-actions` (o equivalente global del popup activo):
+
+```
+window.addEventListener('location:enrichment-phase', (e) => {
+  const { id, phase, label } = e.detail;
+  const popupId = getPopupIdForLocation(id);
+  if (!document.getElementById(popupId)) return; // popup no abierto
+  if (phase === 'start')  setPopupOperationalState(popupId, 'loading', { label });
+  if (phase === 'update') setPopupOperationalState(popupId, 'loading', { label });
+  if (phase === 'end')    clearPopupOperationalState(popupId);
+});
 ```
 
-Flujo fase 1:
+Y `triggerEnrichLocation` emite `location:enrichment-phase` al inicio y
+al final (start/end), reusando el evento `location:enriched` existente
+para el `end` con éxito. Los entry points ya no llaman manualmente a
+`setPopupOperationalState` — el helper lo hace por ellos.
 
-1. **Pre-recompute**: leer POI del store, calcular `startLevel = getPoiCurationLevel(loc).level`.
-2. **Stage `validate-geo`**:
-   - `setPopupOperationalState(popupId, 'loading', { label: 'Validando geografía…' })`.
-   - `useGeocodingJobStore.getState().clearLastResult()`.
-   - `start(1, { label, mode:'reconcile', locationIds:[id], source:'popup_validate_geo' })`.
-   - Esperar finalización del job — **reutilizar el mecanismo que ya tiene el store**: suscribirse a `lastResult` mediante `useGeocodingJobStore.subscribe` y resolver cuando `lastResult.finishedAt` cambie y `jobId` coincida. Timeout de seguridad: 45s → tratar como `enrichment-ambiguous` con mensaje genérico de manual.
-3. **Stage `recompute`**: tras el evento `reload-locations` que el store ya emite al completar, releer el POI del store. Si el store no se ha hidratado todavía con la nueva fila, hacer un fetch puntual a `locations` por id y aplicar `updateLocation(...)` con los nuevos campos (`continent/country/region/zone/geoHealth no se mapea en el store directamente — releer del store basta porque `reload-locations` ya lo refresca`). Recalcular nivel.
-4. **Decisión post-validate-geo**:
-   - `geoHealth === 'broken'` → STOP, `blocker = geo-conflict`, mensaje `Se requiere resolución manual: conflicto geográfico`.
-   - `level === 0` → STOP, `blocker = needs-identity`, mensaje `Se requiere resolución manual: identificar el POI`.
-   - `isPointEnriched(loc) === true` y `level ∈ {9,10}` → STOP, blocker derivado (`manual-rating` si POI-9 visitado-sin-rating; `none` en POI-10 o POI-9 no visitado).
-   - `geoHealth === 'ok'` y `!isPointEnriched(loc)` → continuar a stage `enrich`.
-   - Cualquier otro caso (incluido `geoHealth ∈ {partial, stale_name, empty}` que produciría POI-5) → STOP `blocker = none` con mensaje `Geografía validada` (heal-rings se cablea en fase 3.1, no ahora).
-5. **Stage `enrich`** (si procede):
-   - `setPopupOperationalState(popupId, 'loading', { label: 'Curando POI…' })` (muta solo `label`, P-POPUP-16 in-place, ya soportado).
-   - `const r = await triggerEnrichLocation(locationId, { regenerate: false })`.
-   - Mapear errores → blocker:
-     - `name_coordinate_mismatch`, `llm_unverifiable` → `enrichment-ambiguous`.
-     - `not_found` o `unknown` → `enrichment-ambiguous`.
-     - éxito → continuar.
-6. **Stage `recompute` final**: releer store + `getPoiCurationLevel`. Construir mensaje canon final:
-   - `endLevel === 10` → `POI completamente curado`.
-   - `endLevel === 9`  → `POI enriquecido`.
-   - `endLevel === 5`  → `Geografía validada` (la deuda de rings queda visible; fase 3.1 la abordará).
-   - `blocker !== 'none'` → mensaje específico ya definido arriba.
+Ventaja: realtime externo y reintentos automáticos también pueden emitir
+el evento (`phase: 'start' | 'end'`) y el popup reacciona sin tocar cada
+panel.
 
-**Guard anti-bucle**: máximo 1 ejecución por stage; nunca más de 1 enrich.
-**Guard anti-doble-click**: el caller ya invoca con `isPopupOperational(popupId)` previo; el helper no lo duplica.
+## Invariantes
 
----
+- I1 — El overlay **nunca** se monta si el popup del `locationId` no existe en el DOM.
+- I2 — La identidad del root y del scroll-body es estable (G1/G2 de P-POPUP-16). No remount durante el ciclo.
+- I3 — Toast global y overlay local son ortogonales: pueden coexistir, ninguno sustituye al otro.
+- I4 — `source='own'` en adopción nearby cierra el popup (merge), por tanto no entra en este contrato.
+- I5 — Failure final (`unresolved`, `name_coordinate_mismatch`, `llm_unverifiable`) → `clearPopupOperationalState` (state `idle`) + recovery block visible. El estado `'error'` queda reservado para futuro; hoy se libera a `idle` para que el recovery sea interactivo.
 
-### 2. Silenciar mensajería batch del store
+## Out of scope
 
-En `src/stores/geocoding-job-store.ts`, dentro de `applyRow`, envolver los tres `toast.success/.message/.error` del bloque terminal (líneas 146-164) con:
+- Cambios en shell, two-rail, gutter, hero, ratings, footer, marker grammar.
+- Refactor del orquestador `advance-poi-curation` (ya cumple).
+- Persistencia de progreso en BD o cross-tab broadcast vía Supabase Realtime
+  (el evento es local; realtime externo se cubrirá en una iteración aparte si hace falta).
+- Estado `'error'` visual diferenciado (queda como evolución futura).
 
-```ts
-const isPopupSource = (row.scope as any)?.source === 'popup_validate_geo';
-if (!isPopupSource) {
-  // toasts existentes
-}
-```
+## Próximo PR (cuando se apruebe este canon)
 
-También suprimir el `toast.message('Geocodificación lanzada…')` final de `start()` cuando `scope?.source === 'popup_validate_geo'`. El orquestador emite el mensaje canónico una sola vez al final.
+1. Evento canónico `location:enrichment-phase` emitido por `triggerEnrichLocation` (start/end) y por el orquestador de validate-geo.
+2. Listener único en `use-popup-actions` que mapea evento → `setPopupOperationalState` del popup activo.
+3. Remoción de llamadas dispersas a `setPopupOperationalState` en `PointContextActions` (delegadas al listener).
+4. Test contrato `popup-poi-17-operational-state-broadcast.test.ts`:
+   - Lote sobre POI abierto → overlay aparece.
+   - Lote sobre otro POI → overlay NO aparece.
+   - Reintento automático sobre POI abierto → overlay aparece y se libera.
+   - Failure final → state vuelve a `idle`, recovery interactivo.
+5. Documentación: sección “P-POPUP-17 — Operational broadcast” en `docs/contracts/popup-contract.md` y `mem://style/popup/operational-loading-state` (extender el memo existente).
 
-Los eventos `reload-locations` / `locations:refresh` / `locations:changed` se siguen emitiendo igual (los necesita el recompute).
+## Entregables del próximo PR
 
----
+- `src/domains/content/lib/enrich-location.ts` (emitir evento phase)
+- `src/domains/content/lib/advance-poi-curation.ts` (emitir evento phase)
+- `src/domains/content/hooks/use-popup-actions.ts` (listener global)
+- `src/domains/content/components/PointContextActions.tsx` (cleanup)
+- `src/test/popup-poi-17-operational-state-broadcast.test.ts` (nuevo)
+- `docs/contracts/popup-contract.md` (sección nueva)
+- `mem/style/popup/operational-loading-state.md` (extender)
 
-### 3. Cableado en `use-popup-actions.ts`
-
-Reemplazar el cuerpo actual de `curation-primary / validate-geo` (líneas 669-687) por:
-
-```ts
-if (curationAction === 'validate-geo') {
-  setPopupOperationalState(popupId, 'loading', { label: 'Validando geografía…' });
-  try {
-    const result = await advancePoiCurationUntilBlocked(locationId, 'validate-geo', popupId);
-    if (result.blocker === 'none' && result.endLevel >= 9) {
-      toast.success(result.message);
-    } else if (result.blocker === 'none') {
-      toast.success(result.message); // 'Geografía validada'
-    } else {
-      toast.message(result.message);  // resolución manual / manual-rating
-    }
-  } catch (err) {
-    console.error('[advance-poi-curation] error:', err);
-    toast.error('No se pudo curar el POI');
-  } finally {
-    clearPopupOperationalState(popupId);
-  }
-  return;
-}
-```
-
-`resolve-conflict`, `heal-poi`, `rate-experience`: **sin cambios** en esta fase. Siguen como están (toast pendiente / scroll a ratings).
-
----
-
-### 4. Tests
-
-Nuevo: `src/test/popup-curation-advance.test.ts`
-
-1. POI-1 + geo job mock que persiste `geoHealth='ok'` + `triggerEnrichLocation` mock OK → `stagesRun = ['validate-geo','recompute','enrich','recompute']`, `endLevel ∈ {9,10}`, blocker `none`, mensaje `POI enriquecido` o `POI completamente curado`.
-2. POI-1 + geo job mock → `geoHealth='broken'` → STOP, blocker `geo-conflict`, sin enrich, mensaje canónico.
-3. POI-1 + geo OK + enrich devuelve `llm_unverifiable` → blocker `enrichment-ambiguous`.
-4. POI-1 + geo OK + enrich devuelve `name_coordinate_mismatch` → blocker `enrichment-ambiguous`.
-5. POI-9 visitado sin rating al inicio → `validate-geo` corre, geo ok, no enrich (ya enriched), blocker `manual-rating`.
-6. POI-10 al inicio → STOP inmediato sin stages, blocker `none`, mensaje `POI completamente curado`.
-7. **No batch language**: spy sobre `toast.success/message` durante todo el flujo no contiene los strings `job`, `puntos revisados`, `segundo plano`, `Geocodificación`.
-8. **Overlay continuo**: `setPopupOperationalState` se llama con `loading` al menos 2 veces (validate-geo, curando) y `clearPopupOperationalState` sólo una vez al final.
-9. **Shell estable** (regresión P-POPUP-16): identidad del nodo `#${popupId}` se conserva antes/después del pipeline.
-
-Extender:
-- `popup-curation-validate-geo.test.ts`: actualizar para reflejar que el overlay persiste hasta fin del pipeline y la mensajería ahora viene del orquestador.
-
-Mantener verdes (sin tocar): `popup-golden-poi-contract`, `popup-curation-primary-action`, `poi-curation-level`, `popup-operational-state`, `popup-footer-persistent`, `popup-unified-renderer`, `popup-no-diag-badges`.
-
----
-
-### 5. Fuera de scope (explícito)
-
-- `heal-rings`, `_enqueue_geo_repair`, repair batch → **fase 3.1**.
-- Cableado de `resolve-conflict` / `heal-poi` con el orquestador → fase posterior.
-- Edge functions, RLS, schema, `geocoding-job-tick`, `_compute_location_geo_health*` → no se tocan.
-- Renderer / shell / hero / breadcrumb / composer / ratings block / footer layout / marker grammar / PopupShell → no se tocan.
-
----
-
-### 6. Memoria
-
-Añadir entrada en `mem://index.md` Memories:
-- `[Curation auto-advance (fase 1)](mem://logic/poi/curation-advance-pipeline)`
-
-Crear `mem://logic/poi/curation-advance-pipeline` (type: feature) con: helper único `advancePoiCurationUntilBlocked`, stages fase 1 = `validate-geo|enrich|recompute`, blockers canon, mensajería sin batch, P-POPUP-16 in-place, fase 3.1 pendiente para heal-rings.
-
-Actualizar `docs/contracts/poi-curation-levels.md` §3 con nota: "Fase 1 del auto-advance cubre solo `validate-geo → enrich`. Ver P-POI-CURATION-3."
-
----
-
-### Criterio de aceptación
-
-1. Click `Validar geografía` sobre POI-1 con geografía sanable y sin enriquecer → overlay `Validando geografía…` → muta a `Curando POI…` sin recrear el popup → toast final `POI enriquecido` (o `POI completamente curado`), popup en POI-9/10.
-2. Click sobre POI-1 con conflicto → toast `Se requiere resolución manual: conflicto geográfico`, popup en POI-3, sin enrich.
-3. Click sobre POI-1 que valida geo pero enrich devuelve ambiguo → toast `Se requiere resolución manual: datos ambiguos`, popup refleja estado real.
-4. Ningún toast contiene "job", "puntos revisados", "segundo plano" o "Geocodificación" durante el flujo del popup.
-5. Suite de tests popup + nuevo `popup-curation-advance.test.ts` en verde.
+Pendiente de aprobación para implementar.

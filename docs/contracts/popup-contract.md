@@ -327,3 +327,66 @@ el popup**.
 - Conservar `enriched_data` o `enrichment_status` previo tras promoción.
 
 **Test canónico:** `src/test/popup-poi-2-13-adopt-nearby-recuration.test.ts`.
+
+---
+
+## P-POPUP-17 — Operational broadcast del enriquecimiento
+
+**Regla canónica:** cualquier mutación de enriquecimiento sobre el POI
+actualmente abierto en popup activa el estado operacional local
+(`data-popup-operational-state="loading"`), sin importar quién la dispare
+ni desde dónde. El toast global sigue siendo la traza multi-superficie;
+el overlay local es la garantía específica del popup abierto: *“mientras
+el sistema esté mutando este POI, este popup no es editable y no miente”*.
+
+### Tabla de decisión
+
+| Origen de la mutación                              | Overlay popup local | Toast global |
+|----------------------------------------------------|---------------------|--------------|
+| Acción dentro del popup (`enrich`/`regenerate`)    | sí                  | sí           |
+| Adopción nearby (P-POI-CURATION-2.13)              | sí                  | sí           |
+| Lote — POI abierto incluido                        | sí                  | sí           |
+| Lote — POI abierto NO incluido                     | no                  | sí           |
+| Lista general / waypoints tab — POI abierto        | sí                  | sí           |
+| Lista general / waypoints tab — otro POI           | no                  | sí           |
+| Reintento automático sobre POI abierto             | sí                  | sí           |
+| Realtime externo sobre POI abierto                 | sí                  | opcional     |
+| Adopción manual de identidad (recovery block)      | sí                  | sí           |
+
+Criterio único: **¿el popup abierto en este cliente apunta al `locationId`
+que está siendo mutado?** Si sí → overlay. Si no → solo toast.
+
+### Contrato técnico
+
+- Event bus único: `location:enrichment-phase` con detail
+  `{ id, phase: 'start'|'update'|'end', label? }`.
+- Productores: `triggerEnrichLocation` (start/end automáticos, salvo
+  `silent:true`) y `advancePoiCurationUntilBlocked` (que pasa
+  `silent:true` al enrich interno para conservar sus labels propios:
+  `'Validando geografía…' → 'Curando POI…'`).
+- Consumidor único: listener montado en `usePopupActions` vía
+  `subscribePopupEnrichmentPhase()`. Si el popup del `id` no está en el
+  DOM, el evento es no-op (I1).
+- El listener delega en `setPopupOperationalState` /
+  `clearPopupOperationalState` — nunca crea overlays ni muta el shell
+  por su cuenta. Identidad del root y del scroll-body es estable (G1/G2
+  de P-POPUP-16).
+
+### Invariantes
+- I1 — Overlay nunca se monta si el popup del `locationId` no existe.
+- I2 — Root y scroll-body conservan identidad durante todo el ciclo.
+- I3 — Toast global y overlay local son ortogonales: ninguno sustituye al otro.
+- I4 — `source='own'` en adopción nearby cierra el popup (merge), por
+  tanto queda fuera de este contrato.
+- I5 — Fallos finales (`unresolved`, `name_coordinate_mismatch`,
+  `llm_unverifiable`) liberan a `idle` para que el recovery block sea
+  interactivo. El estado `'error'` queda reservado para futuro.
+
+### Prohibido
+- Llamar `setPopupOperationalState` desde paneles/listas/lotes en lugar
+  de emitir el evento de fase.
+- Que `triggerEnrichLocation` emita el evento cuando lo llama un
+  orquestador con `silent:true` (provocaría flicker mid-pipeline).
+
+**Test canónico:** `src/test/popup-poi-17-operational-state-broadcast.test.ts`.
+

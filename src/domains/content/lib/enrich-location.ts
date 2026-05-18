@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { resolveAllFks } from '@/shared/geography/resolve-admin-fks';
 import { enrichmentFailureStore } from '@/domains/content/hooks/use-enrichment-failure';
 import { parseEnrichmentError } from '@/domains/content/lib/enrichment-error-kind';
+import { emitEnrichmentPhase } from '@/components/map/popup-enrichment-phase-bus';
 
 export interface TriggerEnrichOptions {
   /** When true, force re-generation (semantically the popup's `regenerate`). */
@@ -32,13 +33,20 @@ export interface TriggerEnrichOptions {
   focusAfter?: boolean;
   /** When true, bypass server-side name↔coordinate coherence validation. */
   skipValidation?: boolean;
+  /**
+   * P-POPUP-17: when true, do NOT emit `location:enrichment-phase` events.
+   * Reserved for orchestrators (e.g. `advancePoiCurationUntilBlocked`) that
+   * already own the popup operational state across multiple stages and must
+   * prevent the overlay from flickering mid-pipeline.
+   */
+  silent?: boolean;
 }
 
 export async function triggerEnrichLocation(
   locationId: string,
   opts: TriggerEnrichOptions = {},
 ): Promise<{ success: boolean; error?: string }> {
-  const { focusAfter = false, regenerate = false, skipValidation = false } = opts;
+  const { focusAfter = false, regenerate = false, skipValidation = false, silent = false } = opts;
 
   // 1. Resolve the location from the store.
   const documents = useLocationsStore.getState().documents;
@@ -71,6 +79,17 @@ export async function triggerEnrichLocation(
   const verb = regenerate ? 'Re-enriqueciendo' : 'Enriqueciendo';
   const successMsg = regenerate ? 'Ficha re-enriquecida' : 'Ficha enriquecida';
   const toastId = toast.loading(`${verb} ${location.name}...`);
+
+  // P-POPUP-17 — broadcast start. Listener mounts the popup overlay only
+  // if the popup of this id is currently in the DOM. `silent:true` callers
+  // (orchestrators) skip this and own the operational state themselves.
+  if (!silent) {
+    emitEnrichmentPhase({
+      id: locationId,
+      phase: 'start',
+      label: regenerate ? 'Re-enriqueciendo POI…' : 'Enriqueciendo POI…',
+    });
+  }
 
   try {
     let enrichedData: any = null;
@@ -308,5 +327,11 @@ export async function triggerEnrichLocation(
     console.error('[triggerEnrichLocation] error:', error);
     toast.error('Error al enriquecer', { id: toastId });
     return { success: false, error: error instanceof Error ? error.message : 'unknown' };
+  } finally {
+    // P-POPUP-17 — always release the operational overlay paired with the
+    // `start` we emitted above, regardless of success / failure / branch.
+    if (!silent) {
+      emitEnrichmentPhase({ id: locationId, phase: 'end' });
+    }
   }
 }

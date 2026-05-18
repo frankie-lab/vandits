@@ -283,7 +283,7 @@ export async function advancePoiCurationUntilBlocked(
     stagesRun.push('enrich');
     let enrichResult: { success: boolean; error?: string };
     try {
-      enrichResult = await triggerEnrichLocation(locationId, { regenerate: false });
+      enrichResult = await triggerEnrichLocation(locationId, { regenerate: false, silent: true });
     } catch {
       enrichResult = { success: false, error: 'unknown' };
     }

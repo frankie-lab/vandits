@@ -3,7 +3,7 @@
  * Domain: Content
  * Handles all map popup actions (enrich, delete, visited, rating, photo, adopt).
  */
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content';
 import { usePermissions } from '@/domains/identity';
@@ -20,6 +20,7 @@ import {
   isPopupOperational,
   getPopupIdForLocation,
 } from '@/components/map/popup-operational-state';
+import { subscribePopupEnrichmentPhase } from '@/components/map/popup-enrichment-phase-bus';
 
 interface UsePopupActionsOptions {
   loadFromDatabase: () => Promise<void>;
@@ -30,6 +31,13 @@ interface UsePopupActionsOptions {
 export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUpload }: UsePopupActionsOptions) {
   const { isMaster } = usePermissions();
   const { documents, updateLocation } = useLocationsStore();
+
+  // P-POPUP-17 — single global listener that drives popup operational
+  // overlay (P-POPUP-16) for ANY enrichment mutation over the open POI,
+  // regardless of entry point (batch, document tab, general list, retry,
+  // realtime, in-popup action, adopt-nearby orchestrator).
+  useEffect(() => subscribePopupEnrichmentPhase(), []);
+
 
   const handleToggleVisited = useCallback(async (location: GeoLocation, newVisited: boolean, distance?: number) => {
     try {
