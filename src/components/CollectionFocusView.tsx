@@ -220,22 +220,6 @@ export function CollectionFocusView({ collection, onBack }: Props) {
             <Icon className="w-4 h-4" style={{ color: getReadableForeground(tint) }} />
           </span>
           <h3 className="font-bold text-sm truncate flex-1">{collection.name}</h3>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0"
-            title="Compartir colección"
-            onClick={() =>
-              openShareSheet({
-                kind: 'collection',
-                id: collection.id,
-                name: collection.name,
-                locations: places,
-              })
-            }
-          >
-            <Share2 className="w-4 h-4" />
-          </Button>
         </div>
         {!loading && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
