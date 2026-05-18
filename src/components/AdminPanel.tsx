@@ -498,41 +498,17 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   </div>
   )}
 
-  {isMaster() && defaultTab === 'markers' && (
-  <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><MarkerSizeManager /></div>
-  )}
-
-  {isMaster() && defaultTab === 'routes' && (
-  <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><RouteSettingsPanelContent /></div>
-  )}
-
-   {isMaster() && defaultTab === 'icons' && (
-   <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><IconLibraryManager /></div>
-   )}
-
-   {isMaster() && defaultTab === 'enrichment' && (
-    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><EnrichmentCardConfig /></div>
-    )}
-
-    {isMaster() && defaultTab === 'audit' && (
-    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><AuditPanel /></div>
-    )}
-
-    {isMaster() && defaultTab === 'geography' && (
-    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><GeographyBackfillPanel /></div>
-    )}
-
-    {isMaster() && defaultTab === 'sources' && (
-    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><DataSourcesPanel /></div>
-    )}
-
-    {isMaster() && defaultTab === 'image-recovery' && (
-    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><RecoverImagesPanel /></div>
-    )}
-
-    {isMaster() && defaultTab === 'design-system' && (
-    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><DesignSystemPanel /></div>
-    )}
+  {/* Declarative tab bodies — gated per-tab by capability (PR-ADMIN-AUDIT Step 3). */}
+  {ADMIN_TABS.filter(tab => tab.Component && tab.key === defaultTab).map(tab => {
+    const Body = tab.Component!;
+    return (
+      <AdminGate key={tab.key} capability={tab.capability}>
+        <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
+          <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><Body /></div>
+        </Suspense>
+      </AdminGate>
+    );
+  })}
    </div>
  </motion.div>
 
