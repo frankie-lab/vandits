@@ -28,6 +28,8 @@ import { toast } from 'sonner';
 import { RenormalizeButton } from '@/shared/geography/RenormalizeButton';
 import { NearbyResultCard } from '@/shared/components/ui/nearby-result-card';
 import { setNearbyPopupContextId } from '@/domains/content/lib/nearby-popup-context';
+import { canReplaceCurrentPoi } from '@/domains/content/lib/can-replace-current-poi';
+import { Plus, X } from 'lucide-react';
 
 interface LocationRow {
   id: string;
@@ -231,8 +233,11 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
   const [replacingPoint, setReplacingPoint] = useState(false);
   const [savingPersonal, setSavingPersonal] = useState(false);
-  const [wantReplace, setWantReplace] = useState(false);
-  const [wantPersonal, setWantPersonal] = useState(false);
+  // P-POI-CURATION-2.12 — Fila seleccionada: acción primaria contextual +
+  // secundaria opcional. `extraPersonal` solo aplica cuando la primaria es
+  // "Reemplazar" (POI reparable); en ese caso, expande el category picker
+  // para guardar TAMBIÉN el candidato como POI personal independiente.
+  const [extraPersonal, setExtraPersonal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [executingActions, setExecutingActions] = useState(false);
   const [adoptingId, setAdoptingId] = useState<string | null>(null);
@@ -631,17 +636,26 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
     }
   };
 
-  // Execute all selected actions for a point
+  // P-POI-CURATION-2.12 — Ejecuta la decisión de la fila seleccionada.
+  // La acción primaria depende de si el POI actual es reparable:
+  //   reparable  → replace (+ opcional: guardar personal si extraPersonal).
+  //   no rep.    → guardar personal (única primaria posible).
   const handleExecuteActions = async (nearbyPoint: NearbyPoint) => {
+    const replaceable = canReplaceCurrentPoi(location, { mismatch });
     setExecutingActions(true);
     try {
-      if (wantReplace) await handleReplaceWithPoint(nearbyPoint);
-      if (wantPersonal && selectedCategory) {
-        const preset = PERSONAL_CATEGORY_PRESETS.find(p => p.label === selectedCategory);
-        if (preset) await handleSaveAsPersonal(nearbyPoint, preset.label, preset.defaultPlaceType);
-      }
-      if (!wantReplace) {
-        // If we didn't replace (which already closes), just show success
+      if (replaceable) {
+        await handleReplaceWithPoint(nearbyPoint);
+        if (extraPersonal && selectedCategory) {
+          const preset = PERSONAL_CATEGORY_PRESETS.find(p => p.label === selectedCategory);
+          if (preset) await handleSaveAsPersonal(nearbyPoint, preset.label, preset.defaultPlaceType);
+        }
+        // handleReplaceWithPoint ya hace clearMapMarkers + onClose
+      } else {
+        if (selectedCategory) {
+          const preset = PERSONAL_CATEGORY_PRESETS.find(p => p.label === selectedCategory);
+          if (preset) await handleSaveAsPersonal(nearbyPoint, preset.label, preset.defaultPlaceType);
+        }
         clearMapMarkers();
         onClose();
       }
@@ -654,15 +668,13 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
     // Toggle: si la fila ya estaba seleccionada, deselecciona y limpia foco.
     if (selectedPointId === point.id) {
       setSelectedPointId(null);
-      setWantReplace(false);
-      setWantPersonal(false);
+      setExtraPersonal(false);
       setSelectedCategory(null);
       setNearbyPopupContextId(null);
       return;
     }
     setSelectedPointId(point.id);
-    setWantReplace(false);
-    setWantPersonal(false);
+    setExtraPersonal(false);
     setSelectedCategory(null);
     // Marca el id como "abierto desde Contexto cercano" ANTES de focar,
     // para que el popup se renderice ya en su variante reducida.
@@ -674,6 +686,8 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
       detail: { lat: point.latitude, lng: point.longitude, zoom: 17 },
     }));
   };
+
+
 
   const selectedPoint = nearbyPoints.find(p => p.id === selectedPointId) || null;
   const suggestedCategory = selectedPoint ? suggestCategory(selectedPoint.place_type) : null;
@@ -967,66 +981,108 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
                         disabled={adoptingId !== null}
                         onEnrich={(e) => { e.stopPropagation(); handleAdoptNearby(p); }}
                       />
-                      {selectedPointId === p.id && (
-                        <div className="space-y-2 px-3 pb-3">
-                          <div className="flex items-center gap-1 text-[10px] text-primary">
-                            <Crosshair className="w-3 h-3" />
-                            <span>Seleccionado en mapa</span>
-                          </div>
-                          {/* Actions as inline checkboxes */}
-                          <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-                            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-foreground hover:text-primary transition-colors">
-                              <input
-                                type="checkbox"
-                                className="h-3.5 w-3.5 rounded border-border accent-primary"
-                                checked={wantReplace}
-                                onChange={() => setWantReplace(!wantReplace)}
-                              />
-                              <Replace className="w-3 h-3 shrink-0" />
-                              <span>Reemplazar importado</span>
-                            </label>
-                            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-foreground hover:text-primary transition-colors">
-                              <input
-                                type="checkbox"
-                                className="h-3.5 w-3.5 rounded border-border accent-primary"
-                                checked={wantPersonal}
-                                onChange={() => { setWantPersonal(!wantPersonal); if (wantPersonal) setSelectedCategory(null); }}
-                              />
-                              <Bookmark className="w-3 h-3 shrink-0" />
-                              <span>Punto personal</span>
-                            </label>
-                          </div>
-                          {/* Category picker when "Punto personal" is checked */}
-                          {wantPersonal && (
-                            <div className="flex flex-wrap gap-1 rounded-md border border-border bg-muted/30 p-2" onClick={(e) => e.stopPropagation()}>
-                              {PERSONAL_CATEGORY_PRESETS.map((preset) => (
-                                <Button
-                                  key={preset.label}
-                                  variant={selectedCategory === preset.label ? 'default' : 'outline'}
-                                  size="sm"
-                                  className="h-6 text-[10px] gap-1 px-2"
-                                  onClick={() => setSelectedCategory(selectedCategory === preset.label ? null : preset.label)}
-                                >
-                                  {preset.icon}
-                                  {preset.label}
-                                </Button>
-                              ))}
+                      {selectedPointId === p.id && (() => {
+                        // P-POI-CURATION-2.12 — Canon de decisión:
+                        // primaria contextual (replace si reparable, si no
+                        // personal) + secundaria opcional (solo en replace).
+                        const replaceable = canReplaceCurrentPoi(location, { mismatch });
+                        const showExtra = replaceable && extraPersonal;
+                        const needsCategory = (replaceable && extraPersonal) || !replaceable;
+                        const ctaDisabled =
+                          executingActions || (needsCategory && !selectedCategory);
+                        const primaryLabel = replaceable
+                          ? (showExtra && selectedCategory
+                              ? 'Reemplazar y guardar personal'
+                              : 'Usar como este punto')
+                          : 'Guardar como punto personal';
+                        const PrimaryIcon = replaceable ? Replace : Bookmark;
+                        return (
+                          <div
+                            className="flex flex-col gap-2 px-3 pb-3"
+                            data-selected-row-actions="v1"
+                            data-replaceable={replaceable ? 'true' : 'false'}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center gap-1 text-[10px] text-primary">
+                              <Crosshair className="w-3 h-3" />
+                              <span>Seleccionado en mapa</span>
                             </div>
-                          )}
-                          {/* Save button */}
-                          {(wantReplace || (wantPersonal && selectedCategory)) && (
+
+                            {/* PRIMARIA — botón sólido, full-width. Acción única. */}
                             <Button
                               size="sm"
-                              className="w-full h-7 text-[11px] gap-1.5"
-                              disabled={executingActions || (wantPersonal && !selectedCategory)}
+                              className="h-8 w-full gap-1.5 text-[12px]"
+                              disabled={ctaDisabled}
+                              data-selected-row-primary={replaceable ? 'replace' : 'personal'}
                               onClick={(e) => { e.stopPropagation(); handleExecuteActions(p); }}
                             >
-                              {executingActions ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                              Guardar{wantReplace && wantPersonal ? ' ambas acciones' : ''}
+                              {executingActions
+                                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                : <PrimaryIcon className="w-3.5 h-3.5" />}
+                              {primaryLabel}
                             </Button>
-                          )}
-                        </div>
-                      )}
+
+                            {/* SECUNDARIA — solo cuando la primaria es replace.
+                                Link discreto que expande el category picker. */}
+                            {replaceable && !extraPersonal && (
+                              <button
+                                type="button"
+                                className="self-start inline-flex items-center gap-1 text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                                data-selected-row-secondary="expand-personal"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExtraPersonal(true);
+                                }}
+                              >
+                                <Plus className="w-3 h-3" />
+                                Guardar también como punto personal
+                              </button>
+                            )}
+
+                            {/* Category picker — para primaria personal
+                                (siempre) o para secundaria expandida. */}
+                            {needsCategory && (
+                              <div className="flex flex-col gap-1.5" data-personal-category-picker>
+                                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                                  <span>Categoría</span>
+                                  {replaceable && extraPersonal && (
+                                    <button
+                                      type="button"
+                                      className="inline-flex items-center gap-0.5 hover:text-foreground"
+                                      data-selected-row-secondary="cancel-personal"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExtraPersonal(false);
+                                        setSelectedCategory(null);
+                                      }}
+                                      aria-label="Cancelar guardar personal"
+                                    >
+                                      <X className="w-3 h-3" />
+                                      cancelar
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {PERSONAL_CATEGORY_PRESETS.map((preset) => (
+                                    <Button
+                                      key={preset.label}
+                                      variant={selectedCategory === preset.label ? 'default' : 'outline'}
+                                      size="sm"
+                                      className="h-6 gap-1 px-2 text-[10px]"
+                                      onClick={() => setSelectedCategory(
+                                        selectedCategory === preset.label ? null : preset.label,
+                                      )}
+                                    >
+                                      {preset.icon}
+                                      {preset.label}
+                                    </Button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>
