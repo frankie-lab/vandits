@@ -1356,7 +1356,7 @@ ${(canEditLocation && !isOwn && !isCuratorPoint) ? adminEditWarning : ''}
 <div style="display: flex; justify-content: center; align-items: center; gap: 8px;">
 ${reEnrichBtnHtml}
 ${notesBtnHtml}
-${shareBtnHtml}
+${notesBtnHtml}
 </div>
 <div style="display: flex; justify-content: flex-end; align-items: center;">
 ${deleteBtnHtml}
