@@ -212,6 +212,7 @@ function NearbyPointCard({
 export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', onClose, onLocationUpdated, onLocationMerged }: NearbyPanelProps) {
   const [nearbyPoints, setNearbyPoints] = useState<NearbyPoint[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(true);
+  const [errorNearby, setErrorNearby] = useState(false);
   const [enriching, setEnriching] = useState(false);
   const [mergeMode, setMergeMode] = useState(false);
   const [radiusMeters, setRadiusMeters] = useState(500);
