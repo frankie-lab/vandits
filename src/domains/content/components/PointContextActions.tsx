@@ -187,17 +187,24 @@ function NearbyPointCard({
   enriching: boolean;
   disabled: boolean;
 }) {
+  // P-POI-CURATION-2.3 — meta limpia: solo place_type visible (coords ya las
+  // tiene la tarjeta del POI actual y son ruido en la lista). Las coords
+  // quedan disponibles vía title/aria para QA/accesibilidad.
+  const placeTypeMeta = point.place_type || undefined;
+  const ariaLabel = `${point.name} · ${point.distance_m}m · ${point.latitude.toFixed(4)}, ${point.longitude.toFixed(4)}`;
   return (
     <NearbyResultCard
       name={point.name}
+      density="compact"
       distanceLabel={`${point.distance_m}m`}
-      metaLabel={`${point.latitude.toFixed(4)}, ${point.longitude.toFixed(4)}`}
+      metaLabel={placeTypeMeta}
+      ariaLabel={ariaLabel}
       actionAlwaysVisible={enriching}
       action={
         <Button
           size="icon"
-          variant="default"
-          className="h-8 w-8 rounded-md p-0 shadow-sm"
+          variant={enriching ? 'default' : 'ghost'}
+          className="h-7 w-7 rounded-md p-0"
           disabled={disabled}
           onClick={onEnrich}
           title="Enriquecer aquí"
@@ -205,7 +212,7 @@ function NearbyPointCard({
         >
           {enriching
             ? <Loader2 className="w-4 h-4 animate-spin" />
-            : <Sparkles className="w-4 h-4" />}
+            : <Sparkles className="w-3.5 h-3.5" />}
         </Button>
       }
     />
@@ -693,7 +700,11 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
     ? 'flex w-full min-w-0 flex-col border-t border-border/60 bg-background'
     : 'flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overflow-x-hidden';
   const inlineRootStyle = undefined;
-  const padX = isInline ? 'px-1.5' : 'px-3';
+  // P-POI-CURATION-2.3 — Inline edge-to-edge: el bloque ocupa todo el ancho útil
+  // del popup-content (sin padding horizontal propio). El popup-shell ya define
+  // su propio padding para hero/breadcrumb; aquí maximizamos área de lectura
+  // para nombres largos sin tocar `CARD.maxWidth`.
+  const padX = isInline ? 'px-0' : 'px-3';
 
   return (
     <div
