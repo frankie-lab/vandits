@@ -1405,7 +1405,7 @@ Añadir a mi colección
     const visitedState = resolveVisitedPresentationState(location, ownershipInfo, enriched);
 
     return `
-<div id="${popupId}" data-popup-version="${isPopupGeoCanonicalV1On() ? 'geo-canonical-v1' : 'legacy'}" data-popup-geo-canonical="${isPopupGeoCanonicalV1On() ? 'true' : 'false'}" data-popup-ownership-strip="${(isOwn && isPopupOwnershipStripV1On()) ? 'v1' : 'legacy'}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: ${POPUP_MAX_HEIGHT}; overflow: hidden;"><!-- P-POPUP-15: diag badges removed from runtime; data-popup-* remain as test hooks -->
+<div id="${popupId}" data-popup-version="${isPopupGeoCanonicalV1On() ? 'geo-canonical-v1' : 'legacy'}" data-popup-geo-canonical="${isPopupGeoCanonicalV1On() ? 'true' : 'false'}" data-popup-ownership-strip="${(isOwn && isPopupOwnershipStripV1On()) ? 'v1' : 'legacy'}" data-popup-operational-state="idle" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: ${POPUP_MAX_HEIGHT}; overflow: hidden;"><!-- P-POPUP-15: diag badges removed from runtime; data-popup-* remain as test hooks --><style>@keyframes popup-op-spin{to{transform:rotate(360deg)}}[data-popup-operational-state="loading"] [data-popup-scroll-body="v1"] > *:not(.popup-operational-overlay){opacity:var(--popup-loading-opacity,0.5);pointer-events:none;user-select:none;transition:opacity 120ms ease;}[data-popup-operational-state="loading"] [data-popup-footer="v1"] button{pointer-events:none;opacity:0.6;}</style>
 ${statusBarHtml}
 
 <!-- Hero (fija, no participa en el scroll) -->
@@ -1414,7 +1414,7 @@ ${buildImageSection(location, enriched, ownershipInfo, visitedState)}
 </div>
 
 <!-- Cuerpo desplazable -->
-<div class="popup-scroll-body" style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;">
+<div class="popup-scroll-body" data-popup-scroll-body="v1" style="position: relative; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;">
 <div style="padding: 16px 16px 8px 16px;">
 <!-- Nombre + Badge propiedad -->
 <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
