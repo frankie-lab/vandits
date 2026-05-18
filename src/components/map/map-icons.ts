@@ -316,7 +316,6 @@ export const createCustomIcon = (
   // En `standard` (z9–11) vuelven gradiente + doble sombra.
   // En `rich` (z≥12) se añade polaroid hero.
   // Followed/app/source: NUNCA muestran rings ni tint (curated-only sharing).
-  const skipHealthRings = grammar ? !grammar.allowHealthRings : isFollowedPoi;
   const skipGradient = renderMode === 'compact' || isNonOwnShape;
 
 
@@ -335,12 +334,20 @@ export const createCustomIcon = (
   const size = Math.max(6, Math.round(baseSize * modeScale));
   const hoverSize = baseHover ? Math.max(size, Math.round(baseHover * modeScale)) : baseHover;
 
-  // Anillos de salud — SoT = `resolvePoiVisualGrammar` (que ya aplica el
-  // ownership guard PR-1 + el filtro por `grammar.allowHealthRings`). Sin
-  // re-cálculo aquí. Fallback al helper directo si no hay visualGrammar.
-  const healthRings = skipHealthRings
-    ? []
-    : (visualGrammar?.healthRings ?? getPointHealthRings(location, currentUserId));
+  // Anillos de salud — PR-MAP-CANON-3.1.
+  // Camino canónico: `visualGrammar.levelVisual.showStateRing` decide si se
+  // pintan rings. En V1 sólo `poi-5` activa contorno; el resto de niveles
+  // (incluidos `poi-1a`/`poi-3` con deuda objetiva) NO pintan rings aunque
+  // `getPointHealthRings` los compute (la deuda sigue alimentando panel
+  // salud / repair / contadores — solo cambia la representación visual).
+  //
+  // Compat temporal: si llega un call-site sin `visualGrammar` (no debería
+  // tras PR-MAP-CANON-1/2), el fallback es "sin rings". No es contrato
+  // estable — el camino normal exige `visualGrammar`.
+  const levelAllowsRings = visualGrammar?.levelVisual?.showStateRing === true;
+  const healthRings = levelAllowsRings
+    ? (visualGrammar?.healthRings ?? [])
+    : [];
   const ringCount = healthRings.length;
   const ringPad = ringCount > 0 ? ringCount * RING_GAP + 2 : 0;
   const containerSize = size + ringPad * 2;
