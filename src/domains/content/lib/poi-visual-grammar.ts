@@ -50,7 +50,27 @@ import {
 import {
   getPoiCurationLevel,
   type PoiCurationVerdict,
+  type PoiVisualLevelKey,
 } from './poi-curation-level';
+import { tokens } from '@/design-system/tokens';
+
+/**
+ * PR-MAP-CANON-3 — Decisión visual derivada del nivel canónico POI-N.
+ * Sólo se computa cuando `paletteScope === 'state'` (POI propio); para
+ * followed/app/source es `null` y el pipeline de esos orígenes no cambia.
+ *
+ * - `fill`: color HSL ya resuelto desde tokens (`poi.level.<N>`), listo
+ *   para inyectar en `hsl(...)`. Cero literal en el renderer.
+ * - `showStateRing`: true sólo para `poi-5` (único nivel con deuda
+ *   objetiva que requiere capa de health rings como señal operativa
+ *   secundaria). El resto de niveles no debe pintar rings.
+ */
+export interface PoiLevelVisual {
+  levelKey: PoiVisualLevelKey;
+  /** Triplete HSL (sin wrapper `hsl(...)`) — mismo formato que los demás tokens. */
+  fillHsl: string;
+  showStateRing: boolean;
+}
 
 export interface PoiVisualGrammar {
   /** Shape + paletteScope + decoration flags (own/followed/app/source). */
@@ -61,6 +81,11 @@ export interface PoiVisualGrammar {
   healthRings: HealthRing[];
   /** Curation verdict (POI-0…POI-10). Always computed; renderer may ignore. */
   curation: PoiCurationVerdict;
+  /**
+   * PR-MAP-CANON-3 — Decisión visual canónica del marker propio. `null`
+   * para followed/app/source (su pipeline no consume nivel POI).
+   */
+  levelVisual: PoiLevelVisual | null;
 }
 
 export interface ResolvePoiVisualGrammarOptions {
