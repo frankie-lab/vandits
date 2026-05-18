@@ -117,9 +117,19 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
     }
 
     if (action === 'enrich' || action === 'quick-classify' || action === 'regenerate') {
-      // Delegate to the centralized helper so popup, doc-list and general-list
-      // all share identical behavior. See src/domains/content/lib/enrich-location.ts
-      await triggerEnrichLocation(locationId, { regenerate: action === 'regenerate' });
+      // P-POPUP-16: operational loading state (in-place, no remount).
+      const popupId = getPopupIdForLocation(locationId);
+      if (isPopupOperational(popupId)) return;
+      setPopupOperationalState(popupId, 'loading', {
+        label: action === 'regenerate' ? 'Re-enriqueciendo POI…' : 'Enriqueciendo POI…',
+      });
+      try {
+        // Delegate to the centralized helper so popup, doc-list and general-list
+        // all share identical behavior. See src/domains/content/lib/enrich-location.ts
+        await triggerEnrichLocation(locationId, { regenerate: action === 'regenerate' });
+      } finally {
+        clearPopupOperationalState(popupId);
+      }
     } else if (action === 'delete-location') {
       const locationName = (event.detail as any).locationName || location.name;
       const toastId = toast.loading(`Moviendo "${locationName}" a la papelera...`);
