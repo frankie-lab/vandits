@@ -828,9 +828,25 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
               </button>
             ))}
           </div>
-        ) : (
-          <div className="min-w-0 space-y-2 pb-8">
-            {groupByCategory(nearbyPoints).map(group => (
+        ) : (() => {
+          // P-POI-CURATION-2.2 — cap inicial inline + "Ver más / Ver menos"
+          // sustituye al scroll anidado. En variant card no se capa.
+          const allGroups = groupByCategory(nearbyPoints);
+          const cap = isInline && !expandedList ? INLINE_VISIBLE_DEFAULT : Infinity;
+          const cappedGroups: typeof allGroups = [];
+          let shown = 0;
+          for (const g of allGroups) {
+            if (shown >= cap) break;
+            const remaining = cap - shown;
+            const pts = remaining >= g.points.length ? g.points : g.points.slice(0, remaining);
+            cappedGroups.push({ ...g, points: pts });
+            shown += pts.length;
+          }
+          const hidden = nearbyPoints.length - shown;
+          const showToggle = isInline && (hidden > 0 || expandedList);
+          return (
+          <div className="min-w-0 space-y-2 pb-2" data-nearby-list data-nearby-visible-count={shown}>
+            {cappedGroups.map(group => (
               <div key={group.category} className="min-w-0">
                 <div className="mb-2 flex min-w-0 items-center gap-1.5 text-muted-foreground">
                   {group.meta.icon}
@@ -916,8 +932,22 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
                 </div>
               </div>
             ))}
+            {showToggle && (
+              <div className="pt-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-full text-[11px] text-muted-foreground hover:text-foreground"
+                  onClick={() => setExpandedList(v => !v)}
+                  data-nearby-action={expandedList ? 'collapse' : 'expand'}
+                >
+                  {expandedList ? 'Ver menos' : `Ver más (${hidden} restantes)`}
+                </Button>
+              </div>
+            )}
           </div>
-        )}
+          );
+        })()}
         </div>
 
       {/* Footer */}
