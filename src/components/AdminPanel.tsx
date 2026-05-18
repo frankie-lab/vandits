@@ -51,7 +51,6 @@ const ROLE_LABELS: Record<AppRole, string> = {
  moderator: 'Moderador',
  editor: 'Editor',
  supervisor: 'Supervisor',
- user: 'Usuario',
 };
 
 const ROLE_COLORS: Record<AppRole, string> = {
@@ -60,7 +59,6 @@ const ROLE_COLORS: Record<AppRole, string> = {
  moderator: 'bg-orange-500',
  editor: 'bg-blue-500',
  supervisor: 'bg-cyan-500',
- user: 'bg-muted-foreground',
 };
 
 const PERMISSION_LABELS: Record<AppPermission, string> = {
@@ -90,7 +88,8 @@ const PERMISSION_LABELS: Record<AppPermission, string> = {
  open_back_office: 'Acceder al Back Office',
 };
 
-const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'supervisor', 'user'];
+// Canon RBAC PR-ADMIN-AUDIT-3: 'curator' y 'user' purgados del catálogo asignable.
+const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'supervisor'];
 const ALL_PERMISSIONS: AppPermission[] = [
  'manage_users',
  'manage_criteria',

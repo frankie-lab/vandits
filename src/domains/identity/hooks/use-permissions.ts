@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 // Tipos de roles y permisos (deben coincidir con el enum de la base de datos)
-export type AppRole = 'master' | 'admin' | 'moderator' | 'editor' | 'supervisor' | 'user';
+// Canon RBAC (PR-ADMIN-AUDIT-3 Fase A): catálogo activo. Ver `src/domains/identity/types.ts`.
+export type AppRole = 'master' | 'admin' | 'moderator' | 'editor' | 'supervisor';
 
 // AppPermission: compat temporal — mirror manual del enum `public.app_permission`
 // (SoT real = base de datos). El edge helper `supabase/functions/_shared/require-capability.ts`
@@ -70,9 +71,10 @@ export function usePermissions() {
 
  const roles = (rolesData || []).map(r => r.role as AppRole);
 
-      // Si no tiene roles, asignar 'user' por defecto
+      // Sin roles asignados = usuario base sin capabilities (canon RBAC PR-ADMIN-AUDIT-3).
+      // Antes se asignaba 'user' implícito; ahora se devuelve roles=[] explícito.
  if (roles.length === 0) {
- setState({ roles: ['user'], permissions: [], loading: false, error: null });
+ setState({ roles: [], permissions: [], loading: false, error: null });
  return;
  }
 

@@ -93,7 +93,6 @@ const roleColors: Record<string, string> = {
  editor: 'bg-green-500/20 text-green-400 border-green-500/30',
  moderator: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
  supervisor: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
- user: 'bg-muted text-muted-foreground border-border',
 };
 
 export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
@@ -457,11 +456,14 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  }, [users, searchTerm, currentUser?.id, relationFilter]);
 
  const getPrimaryRole = (roles: string[]): string => {
- const priority = ['master', 'admin', 'moderator', 'supervisor', 'editor', 'user'];
+  // Canon RBAC PR-ADMIN-AUDIT-3: catálogo activo (sin 'user' como rol explícito).
+  // Si el usuario no tiene rol asignado, se devuelve cadena vacía y el render
+  // muestra el badge neutro/sin rol.
+ const priority = ['master', 'admin', 'moderator', 'supervisor', 'editor'];
  for (const role of priority) {
  if (roles.includes(role)) return role;
  }
- return 'user';
+ return '';
  };
 
   const getFollowButton = (user: UserWithStats) => {
