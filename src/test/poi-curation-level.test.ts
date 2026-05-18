@@ -100,14 +100,17 @@ describe('getPoiCurationLevel — 6 niveles canónicos', () => {
     expect(v.primaryAction).toBe('none');
   });
 
-  it('POI-9: enriched + visited + sin rating', () => {
+  it('POI-9: enriched + visited + sin rating → primaryAction=none (no botón redundante)', () => {
+    // P-POI-CURATION-2: las 5 estrellas SON la acción; el footer no
+    // emite "Valorar experiencia". `bodyBlocker='rate'`.
     const v = getPoiCurationLevel(
       loc({ enrichedData: enriched(), geoHealth: 'ok', customData: { visited: 'true' } }),
     );
     expect(v.level).toBe(9);
     expect(v.healthState).toBe('green');
     expect(v.shareability).toBe('yes');
-    expect(v.primaryAction).toBe('rate-experience');
+    expect(v.primaryAction).toBe('none');
+    expect(v.bodyBlocker).toBe('rate');
   });
 
   it('POI-10: enriched + visited + rated → estado final', () => {
