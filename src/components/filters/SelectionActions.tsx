@@ -488,7 +488,27 @@ export function SelectionActions() {
               Exportar
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuContent align="start" className="w-64">
+            <DropdownMenuLabel className="text-xs">Alcance</DropdownMenuLabel>
+            <div className="px-2 pb-2 flex gap-1">
+              <Button
+                size="sm"
+                variant={exportScope === 'public' ? 'default' : 'outline'}
+                className="h-7 text-xs flex-1"
+                onClick={(e) => { e.preventDefault(); setExportScope('public'); }}
+              >
+                Público
+              </Button>
+              <Button
+                size="sm"
+                variant={exportScope === 'internal' ? 'default' : 'outline'}
+                className="h-7 text-xs flex-1"
+                onClick={(e) => { e.preventDefault(); setExportScope('internal'); }}
+              >
+                Interno
+              </Button>
+            </div>
+            <DropdownMenuSeparator />
             <DropdownMenuLabel className="text-xs">Para aplicación</DropdownMenuLabel>
             <DropdownMenuItem onClick={() => handleExport('kml', 'mymaps')}>
               <MapIcon className="w-4 h-4 mr-2 text-blue-500" />
