@@ -40,11 +40,28 @@ export type PoiPrimaryAction =
   | 'heal'
   | 'rate-experience'
   | 'none';
+/**
+ * P-POI-CURATION-2 — bloqueo real activo del POI. Es la ÚNICA verdad que
+ * gobierna a la vez el bloque del cuerpo y la acción del footer. Renderer
+ * y handlers leen siempre el mismo verdict: si `bodyBlocker` cambia, el
+ * cuerpo y el footer cambian en el mismo render pass (commit atómico).
+ */
+export type PoiBodyBlocker =
+  | 'name'
+  | 'validate-geo'
+  | 'enrich-from-context'
+  | 'resolve-conflict'
+  | 'heal'
+  | 'rate'
+  | 'none';
 
 export interface PoiCurationVerdict {
   level: PoiCurationLevel;
   healthState: PoiCurationHealth;
   shareability: PoiCurationShareability;
+  /** Bloqueo real visible en el cuerpo del popup. Una sola verdad. */
+  bodyBlocker: PoiBodyBlocker;
+  /** Acción del footer. Invariante: `primaryAction ∈ {bodyBlocker, 'none'}`. */
   primaryAction: PoiPrimaryAction;
 }
 
