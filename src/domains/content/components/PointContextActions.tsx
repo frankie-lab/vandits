@@ -84,8 +84,12 @@ export interface NearbyPanelProps {
     nameLocation?: { lat: number; lng: number; title: string; url: string; distanceKm: number };
   } | null;
   /**
-   * 'sidebar' = ocupa toda la altura disponible (Sheet/DocumentFocusView).
-   * 'inline'  = bloque acotado (~60vh) dentro del popup del POI.
+   * 'sidebar' = ocupa toda la altura disponible (Sheet/DocumentFocusView) y
+   *             gestiona su propio scroll vertical.
+   * 'inline'  = bloque en flujo natural dentro del popup del POI. El popup
+   *             es el ÚNICO owner del scroll vertical; este modo NO impone
+   *             max-h ni overflow propios y usa cap + "Ver más / Ver menos"
+   *             en lugar de scroll anidado. Ver P-POI-CURATION-2.2.
    *             Por defecto 'sidebar' para no romper consumidores existentes.
    */
   variant?: 'sidebar' | 'inline';
@@ -225,6 +229,12 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [executingActions, setExecutingActions] = useState(false);
   const [adoptingId, setAdoptingId] = useState<string | null>(null);
+  // P-POI-CURATION-2.2 — cap inicial inline para evitar listas largas que
+  // generen presión visual sin recurrir a scroll anidado.
+  const [expandedList, setExpandedList] = useState(false);
+  const INLINE_VISIBLE_DEFAULT = 6;
+  // Reset cap on POI change / radius change para no heredar "Ver más" entre POIs.
+  useEffect(() => { setExpandedList(false); }, [location.id, radiusMeters]);
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
   const documents = useLocationsStore(state => state.documents);
   const selectedRef = useRef<HTMLDivElement | null>(null);
@@ -675,20 +685,22 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
   };
 
   const isInline = variant === 'inline';
-  // Inline: el popup-root (popup-scroll-body) gestiona el ÚNICO scroll. No
-  // imponer max-h ni overflow aquí — ver mem://ui/map/popup-dimensions-and-scrolling.
+  // P-POI-CURATION-2.2 — Inline: el popup-scroll-body es el ÚNICO owner del
+  // scroll vertical. Aquí NO se impone max-h ni overflow-y; el bloque fluye
+  // como contenido natural del cuerpo del popup. Ver
+  // mem://ui/map/popup-dimensions-and-scrolling y docs/contracts/poi-curation-levels.md.
   const rootClass = isInline
-    ? 'flex min-h-0 w-full min-w-0 flex-col overflow-hidden border-t border-border/60 bg-background'
+    ? 'flex w-full min-w-0 flex-col border-t border-border/60 bg-background'
     : 'flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overflow-x-hidden';
-  const inlineRootStyle = isInline
-    ? {
-        maxHeight: 'calc(100dvh - var(--top-header-h, 72px) - var(--bottom-overlay-safe-h, 0px) - 24px)',
-      }
-    : undefined;
+  const inlineRootStyle = undefined;
   const padX = isInline ? 'px-1.5' : 'px-3';
 
   return (
-    <div className={rootClass} style={inlineRootStyle}>
+    <div
+      className={rootClass}
+      style={inlineRootStyle}
+      data-nearby-scroll-owner={isInline ? 'popup' : 'self'}
+    >
       {/* Header */}
       <div className={`space-y-1 overflow-x-hidden border-b bg-muted/30 ${padX} py-2`}>
 
@@ -768,8 +780,17 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
         </div>
       )}
 
-      {/* Results — inline: scroll interno para no desbordar el alto visible del popup; card: scroll propio */}
-      <div className={`flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden ${padX} pb-8 pt-3`} style={isInline ? { overscrollBehavior: 'contain' } : undefined}>
+      {/* Results — inline: flujo natural sin scroll propio (popup es único owner);
+          card: scroll propio dentro del Sheet/Dialog. Ver P-POI-CURATION-2.2. */}
+      <div
+        className={
+          isInline
+            ? `w-full min-w-0 overflow-x-hidden ${padX} pb-4 pt-3`
+            : `flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden ${padX} pb-8 pt-3`
+        }
+        data-nearby-results
+        data-nearby-overflow={isInline ? 'none' : 'auto'}
+      >
         {loadingNearby ? (
           <div className="flex items-center justify-center py-8 gap-2" data-nearby-state="loading">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -813,9 +834,25 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
               </button>
             ))}
           </div>
-        ) : (
-          <div className="min-w-0 space-y-2 pb-8">
-            {groupByCategory(nearbyPoints).map(group => (
+        ) : (() => {
+          // P-POI-CURATION-2.2 — cap inicial inline + "Ver más / Ver menos"
+          // sustituye al scroll anidado. En variant card no se capa.
+          const allGroups = groupByCategory(nearbyPoints);
+          const cap = isInline && !expandedList ? INLINE_VISIBLE_DEFAULT : Infinity;
+          const cappedGroups: typeof allGroups = [];
+          let shown = 0;
+          for (const g of allGroups) {
+            if (shown >= cap) break;
+            const remaining = cap - shown;
+            const pts = remaining >= g.points.length ? g.points : g.points.slice(0, remaining);
+            cappedGroups.push({ ...g, points: pts });
+            shown += pts.length;
+          }
+          const hidden = nearbyPoints.length - shown;
+          const showToggle = isInline && (hidden > 0 || expandedList);
+          return (
+          <div className="min-w-0 space-y-2 pb-2" data-nearby-list data-nearby-visible-count={shown}>
+            {cappedGroups.map(group => (
               <div key={group.category} className="min-w-0">
                 <div className="mb-2 flex min-w-0 items-center gap-1.5 text-muted-foreground">
                   {group.meta.icon}
@@ -901,8 +938,22 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
                 </div>
               </div>
             ))}
+            {showToggle && (
+              <div className="pt-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-full text-[11px] text-muted-foreground hover:text-foreground"
+                  onClick={() => setExpandedList(v => !v)}
+                  data-nearby-action={expandedList ? 'collapse' : 'expand'}
+                >
+                  {expandedList ? 'Ver menos' : `Ver más (${hidden} restantes)`}
+                </Button>
+              </div>
+            )}
           </div>
-        )}
+          );
+        })()}
         </div>
 
       {/* Footer */}
