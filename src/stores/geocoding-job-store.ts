@@ -347,9 +347,14 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
     // Trigger a tick immediately so the user sees progress without waiting for cron.
     void supabase.functions.invoke('geocoding-job-tick', { body: {} }).catch(() => { /* noop */ });
 
-    toast.message(
-      `Geocodificación lanzada. Continúa en segundo plano${scope?.label ? ` (${scope.label})` : ''}.`,
-    );
+    // P-POI-CURATION-3 (Fase 1): para jobs originados en el popup, el toast
+    // canónico lo emite `advancePoiCurationUntilBlocked` al finalizar el
+    // pipeline. No anunciar mensajería batch aquí.
+    if (scope?.source !== 'popup_validate_geo') {
+      toast.message(
+        `Geocodificación lanzada. Continúa en segundo plano${scope?.label ? ` (${scope.label})` : ''}.`,
+      );
+    }
   },
   attachToJob: async (jobId: string) => {
     if (!jobId) return;
