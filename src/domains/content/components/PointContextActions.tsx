@@ -744,6 +744,34 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
           />
           <span className="text-[10px] font-medium tabular-nums w-10 text-right shrink-0">{radiusMeters}m</span>
         </div>
+
+        {/* P-POI-CURATION-2.7 — Buscador manual inline. Vive en el header,
+            misma superficie plana, sin caja extra. Vacío => modo automático.
+            >=2 chars => modo búsqueda (filtra nearbyPoints client-side). */}
+        {!loadingNearby && !errorNearby && (
+          <div className="flex items-center gap-1.5 px-1 pt-1.5" data-nearby-search-input>
+            <Search className="w-3 h-3 text-muted-foreground/60 shrink-0" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar por nombre…"
+              className="flex-1 min-w-0 h-6 bg-transparent border-0 border-b border-border/30 px-0 text-[11px] placeholder:text-muted-foreground/50 focus:outline-none focus:border-border/60"
+              aria-label="Buscar puntos cercanos por nombre"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="shrink-0 text-muted-foreground/60 hover:text-foreground text-[10px] leading-none px-1"
+                aria-label="Limpiar búsqueda"
+                data-nearby-search-clear
+              >
+                ×
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Current point — renglón editorial sin caja. P-POI-CURATION-2.4:
