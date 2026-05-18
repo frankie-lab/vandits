@@ -78,5 +78,22 @@ Orden inmutable. Clasificación física (`resolveLayerGroupKey`) y visibilidad (
 - mem://style/map/health-rings-rule
 - mem://style/map/poi-zoom-canon
 - mem://style/map/followed-poi-grammar
+- mem://style/map/poi-visual-grammar-composition (PR-MAP-CANON-1)
 - mem://logic/poi/source-pipeline-canonical
 - mem://constraints/poi-icon-single-source-of-truth
+
+## PR-MAP-CANON-1 — Single composition point
+
+`createCustomIcon` consume `resolvePoiVisualGrammar(viewerUid, loc)` que
+combina marker grammar + visual state + health rings (con ownership guard) +
+curation level (POI-0…POI-10) en un único objeto declarativo. El renderer
+NO compone — sólo pinta. La paleta por nivel POI-N queda reservada para
+PR-MAP-CANON-3.
+
+## PR-MAP-CANON-2 — Tokens (hardcodes eliminados)
+
+Tokenizados en `src/design-system/tokens/source/poi.json`:
+`poi.neutral.{app,source}.{fill,stroke}`, `poi.halo.own`,
+`poi.animation.{celebrate,pulse}`, `poi.microDot.byZoom.*`. Sin literales HSL
+ni `drop-shadow(...)` ni `animation: ...` en `map-icons.ts`.
+
