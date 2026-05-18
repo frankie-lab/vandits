@@ -77,9 +77,12 @@ describe('P-POI-CURATION-2.2 — un solo scroll por popup', () => {
     const { container } = render(
       <NearbyPanel
         location={baseLocation}
+        docId={null}
+        userId="user-1"
         variant="inline"
         onClose={() => {}}
         onLocationUpdated={() => {}}
+        onLocationMerged={() => {}}
       />,
     );
 
@@ -98,13 +101,16 @@ describe('P-POI-CURATION-2.2 — un solo scroll por popup', () => {
     expect(results!.className).not.toMatch(/flex-1/);
   });
 
-  it('card: mantiene scroll interno propio (fuera de alcance del cambio)', () => {
+  it('sidebar: mantiene scroll interno propio (fuera de alcance del cambio)', () => {
     const { container } = render(
       <NearbyPanel
         location={baseLocation}
-        variant="card"
+        docId={null}
+        userId="user-1"
+        variant="sidebar"
         onClose={() => {}}
         onLocationUpdated={() => {}}
+        onLocationMerged={() => {}}
       />,
     );
     const root = container.querySelector('[data-nearby-scroll-owner="self"]') as HTMLElement | null;
