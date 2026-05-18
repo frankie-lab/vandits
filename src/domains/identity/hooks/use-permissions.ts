@@ -165,3 +165,14 @@ export function useHasRole(role: AppRole): boolean {
  const { hasRole, loading } = usePermissions();
  return !loading && hasRole(role);
 }
+
+/**
+ * Capabilities-first gate. Returns { allowed, loading }.
+ * Canon RBAC PR-ADMIN-AUDIT (Step 3): frontend admin surfaces deben consumir
+ * capabilities, no roles. Equivalente cliente del predicado server-side
+ * `public.has_permission(uid, cap)`.
+ */
+export function useCapability(capability: Capability): { allowed: boolean; loading: boolean } {
+  const { hasPermission, loading } = usePermissions();
+  return { allowed: !loading && hasPermission(capability), loading };
+}
