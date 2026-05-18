@@ -327,3 +327,45 @@ nombre por la misma fila.
 block, footer canónico, niveles POI, lógica de curación, marker
 grammar, heal-rings, variant `sidebar` (mantiene `comfortable` por
 defecto), otros consumidores de `NearbyResultCard`, P-POI-CURATION-3.x.
+
+## P-POI-CURATION-2.5 — Ancho útil en filas compact
+
+Ajuste fino de layout horizontal sobre el primitive
+`NearbyResultCard` (modo `density="compact"`) y la celda inline de
+acción en `NearbyPointCard`. Mantiene el ritmo vertical y la
+materialización borde + sombra suave; solo libera píxeles
+horizontales hacia el nombre del candidato.
+
+### Reglas canónicas
+
+- `NearbyResultCard` (`density="compact"`):
+  - Padding lateral del card: `px-1.5` (antes `px-2`).
+  - Gap entre columna texto y acción: `gap-1.5` (antes `gap-2`).
+  - Padding vertical: `py-2` (sin cambios — ritmo intacto).
+  - `comfortable` permanece exactamente igual (`px-3 gap-3`).
+- `NearbyPointCard` (inline POI-1b):
+  - Botón de acción: `h-7 w-6` (antes `h-7 w-7`). Touch target ≥24px.
+- `UnenrichedRecoveryBlock` (lista de candidatos de búsqueda):
+  - Fila clickable: `px-0` (antes `px-1`). El hover bg se conserva
+    vía `rounded` y `hover:bg-muted/40`.
+
+### Hooks de test
+
+- Selector único: `[data-density="compact"]` en `NearbyResultCard`.
+- Test de regresión: `src/test/popup-poi-1b-row-width.test.tsx`.
+
+### Invariantes
+
+- `comfortable` intacto → sin regresión para otros consumidores.
+- Sin cambios en tipografía, `line-clamp-2`, meta `text-[10px]`,
+  border ni shadow del card compact.
+- `CARD.maxWidth = 360` sin tocar.
+- Sin reintroducir caja exterior alrededor del bloque inline
+  (la flat surface de 2.4 se preserva).
+
+### Fuera de alcance (re-confirmado)
+
+Shell, hero, breadcrumb, ratings, footer canónico, niveles POI,
+lógica de curación, marker grammar, health rings, variante
+`sidebar`/`dialog`/`card`, otros consumidores de
+`NearbyResultCard`, P-POI-CURATION-3.x.
