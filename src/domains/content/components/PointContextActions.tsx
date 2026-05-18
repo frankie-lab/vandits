@@ -771,9 +771,24 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
       {/* Results — inline: scroll interno para no desbordar el alto visible del popup; card: scroll propio */}
       <div className={`flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden ${padX} pb-8 pt-3`} style={isInline ? { overscrollBehavior: 'contain' } : undefined}>
         {loadingNearby ? (
-          <div className="flex items-center justify-center py-8 gap-2">
+          <div className="flex items-center justify-center py-8 gap-2" data-nearby-state="loading">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Buscando cercanos...</span>
+            <span className="text-sm text-muted-foreground">Buscando puntos cercanos…</span>
+          </div>
+        ) : errorNearby ? (
+          <div className="text-center py-6 space-y-2" data-nearby-state="error">
+            <AlertCircle className="w-7 h-7 mx-auto text-amber-600" />
+            <p className="text-sm text-muted-foreground">No se pudo cargar el contexto cercano.</p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-[11px] gap-1.5"
+              onClick={() => searchNearby()}
+              data-nearby-action="retry"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Reintentar
+            </Button>
           </div>
         ) : nearbyPoints.length === 0 ? (
           <div className="text-center py-8 space-y-2">
