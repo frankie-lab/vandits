@@ -240,3 +240,55 @@ Está prohibido volver a `margin: 0 0 8px 0` (full-bleed 2.10) o subir a
 - Sin márgenes negativos.
 - Slot `data-route-waypoint-actions="v1"` presente.
 
+### Fila seleccionada — primaria + secundaria (P-POI-CURATION-2.12)
+
+Cuando el usuario selecciona un candidato en Contexto cercano, la fila
+expandida ofrece **una sola decisión visible**, no dos checkboxes paralelos.
+
+**La pregunta:** *¿qué hacemos con este candidato?* — implícita, no rotulada.
+
+**Acción primaria (única, contextual):**
+
+| Estado del POI abierto | Primaria | Slug |
+|---|---|---|
+| Reparable (`canReplaceCurrentPoi(loc, { mismatch }) === true`) | "Usar como este punto" | `replace` |
+| No reparable (enriquecido sano sin mismatch) | "Guardar como punto personal" | `personal` |
+
+La primaria se renderiza como **botón sólido full-width** del rail
+interactivo. Nunca como checkbox.
+
+**Acción secundaria (opcional, solo cuando primaria = `replace`):**
+
+Link discreto con underline persistente (touch affordance) debajo del
+botón primario:
+`+ Guardar también como punto personal`
+
+Al expandirla:
+- Aparece el category picker inline (sin caja `border + bg-muted/30`).
+- La primaria muta a CTA combinado: **"Reemplazar y guardar personal"**.
+- Aparece micro-link `× cancelar` que colapsa la secundaria.
+
+Si la primaria ya es `personal`, **no se renderiza secundaria** — el
+category picker es obligatorio para habilitar el CTA.
+
+**Helper único:** `canReplaceCurrentPoi(loc, { mismatch })` en
+`src/domains/content/lib/can-replace-current-poi.ts`. Criterio:
+
+- `mismatch != null` → siempre `true`.
+- `!isPointEnriched(loc)` → `true`.
+- En caso contrario → `false`.
+
+Prohibido:
+- Dos `<input type="checkbox">` paralelos (`Reemplazar importado`, `Punto personal`).
+- Permitir personal sin replace mediante un toggle independiente cuando el POI es reparable.
+- CTA "Guardar ambas acciones" (literal eliminado).
+- Duplicar la lógica de reparabilidad fuera del helper.
+
+**Marcadores estables:**
+- `data-selected-row-actions="v1"` — contenedor del slot interactivo.
+- `data-selected-row-primary="replace|personal"` — primaria.
+- `data-selected-row-secondary="expand-personal|cancel-personal"` — secundaria.
+- `data-replaceable="true|false"` — espejo del helper.
+
+**Test canónico:** `src/test/popup-poi-2-12-selected-row-action-canon.test.ts`.
+
