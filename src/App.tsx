@@ -62,7 +62,7 @@ const App = () => (
       <EditModeBar />
         <SourceFilterBridge />
         <CameraFitQaPanel />
-        <ShareSheet />
+        
  <BrowserRouter>
  <Routes>
  <Route path="/auth" element={<Auth />} />
