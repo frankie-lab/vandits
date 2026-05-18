@@ -29,7 +29,7 @@ import { advancePoiCurationUntilBlocked } from '@/domains/content/lib/advance-po
 
 describe('debug', () => {
   it('runs', async () => {
-    console.log('BEFORE CALL');
+    console.log("BEFORE CALL", typeof advancePoiCurationUntilBlocked);
     const r = await advancePoiCurationUntilBlocked('x', 'validate-geo', 'p');
     console.log('AFTER CALL', r);
   });
