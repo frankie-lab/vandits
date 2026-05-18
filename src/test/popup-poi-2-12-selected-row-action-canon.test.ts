@@ -37,9 +37,10 @@ describe('canReplaceCurrentPoi — helper único', () => {
   });
 
   it('POI enriquecido (con enriched_data.descripcion) sin mismatch → false', () => {
+    const longDesc = 'Esta es una descripción enriquecida real, suficientemente larga para superar el umbral mínimo de verificabilidad del helper canónico de enrichment-state.';
     const loc = {
-      enriched_data: { descripcion: 'Texto generado por IA.' },
-      description: 'Texto generado por IA.',
+      enriched_data: { descripcion: longDesc },
+      description: longDesc,
     };
     expect(canReplaceCurrentPoi(loc)).toBe(false);
   });
@@ -50,9 +51,10 @@ describe('canReplaceCurrentPoi — helper único', () => {
   });
 
   it('mismatch presente → true incluso si el POI está enriquecido', () => {
+    const longDesc = 'Esta es una descripción enriquecida real, suficientemente larga para superar el umbral mínimo de verificabilidad del helper canónico.';
     const loc = {
-      enriched_data: { descripcion: 'OK' },
-      description: 'OK',
+      enriched_data: { descripcion: longDesc },
+      description: longDesc,
     };
     expect(canReplaceCurrentPoi(loc, { mismatch: { providedName: 'X' } })).toBe(true);
   });
