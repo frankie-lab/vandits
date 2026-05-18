@@ -3911,6 +3911,18 @@ export type Database = {
         | "moderate_content"
         | "upload_files"
         | "add_locations"
+        | "manage_permissions"
+        | "manage_marker_config"
+        | "manage_route_engine"
+        | "manage_icon_library"
+        | "manage_enrichment_config"
+        | "view_audit_log"
+        | "manage_geo_maintenance"
+        | "manage_data_sources"
+        | "run_image_recovery"
+        | "manage_design_system"
+        | "purge_user"
+        | "open_back_office"
       app_role:
         | "master"
         | "admin"
@@ -4116,6 +4128,18 @@ export const Constants = {
         "moderate_content",
         "upload_files",
         "add_locations",
+        "manage_permissions",
+        "manage_marker_config",
+        "manage_route_engine",
+        "manage_icon_library",
+        "manage_enrichment_config",
+        "view_audit_log",
+        "manage_geo_maintenance",
+        "manage_data_sources",
+        "run_image_recovery",
+        "manage_design_system",
+        "purge_user",
+        "open_back_office",
       ],
       app_role: [
         "master",
