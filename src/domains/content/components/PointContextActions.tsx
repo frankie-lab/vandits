@@ -84,8 +84,12 @@ export interface NearbyPanelProps {
     nameLocation?: { lat: number; lng: number; title: string; url: string; distanceKm: number };
   } | null;
   /**
-   * 'sidebar' = ocupa toda la altura disponible (Sheet/DocumentFocusView).
-   * 'inline'  = bloque acotado (~60vh) dentro del popup del POI.
+   * 'sidebar' = ocupa toda la altura disponible (Sheet/DocumentFocusView) y
+   *             gestiona su propio scroll vertical.
+   * 'inline'  = bloque en flujo natural dentro del popup del POI. El popup
+   *             es el ÚNICO owner del scroll vertical; este modo NO impone
+   *             max-h ni overflow propios y usa cap + "Ver más / Ver menos"
+   *             en lugar de scroll anidado. Ver P-POI-CURATION-2.2.
    *             Por defecto 'sidebar' para no romper consumidores existentes.
    */
   variant?: 'sidebar' | 'inline';
