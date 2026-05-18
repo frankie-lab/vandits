@@ -421,7 +421,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  <div className="text-sm text-muted-foreground truncate">@{user.username}</div>
  </div>
  <div className="flex items-center gap-2 flex-wrap justify-end">
- {ALL_ROLES.filter(r => r !== 'user').map(role => {
+  {ALL_ROLES.map(role => {
  const hasRole = user.roles.includes(role);
  const isSaving = savingRole === `${user.id}-${role}`;
  return (
@@ -450,7 +450,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   <div className="flex-1 overflow-hidden min-h-0 flex flex-col p-4">
  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-8">
  <div className="space-y-4 pr-4">
- {ALL_ROLES.filter(r => r !== 'user').map(role => {
+ {ALL_ROLES.map(role => {
  const isExpanded = expandedRoles.has(role);
  return (
  <div key={role} className="border rounded-lg overflow-hidden">
