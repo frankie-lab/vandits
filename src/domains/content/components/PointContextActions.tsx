@@ -774,8 +774,17 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
         </div>
       )}
 
-      {/* Results — inline: scroll interno para no desbordar el alto visible del popup; card: scroll propio */}
-      <div className={`flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden ${padX} pb-8 pt-3`} style={isInline ? { overscrollBehavior: 'contain' } : undefined}>
+      {/* Results — inline: flujo natural sin scroll propio (popup es único owner);
+          card: scroll propio dentro del Sheet/Dialog. Ver P-POI-CURATION-2.2. */}
+      <div
+        className={
+          isInline
+            ? `w-full min-w-0 overflow-x-hidden ${padX} pb-4 pt-3`
+            : `flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden ${padX} pb-8 pt-3`
+        }
+        data-nearby-results
+        data-nearby-overflow={isInline ? 'none' : 'auto'}
+      >
         {loadingNearby ? (
           <div className="flex items-center justify-center py-8 gap-2" data-nearby-state="loading">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
