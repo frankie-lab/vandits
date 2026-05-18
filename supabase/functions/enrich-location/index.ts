@@ -1665,7 +1665,10 @@ async function getGlobalEnrichmentConfig(): Promise<EnrichmentCardConfigV2> {
   }
 }
 
-// Profile-specific enrichment preferences (curator or druid overrides)
+// Profile-specific enrichment preferences (placeholder — PR-ADMIN-AUDIT-3 Fase A).
+// Las tablas `curators`/`druids` fueron purgadas en migraciones anteriores y los
+// `curatorId`/`druidId` se eliminaron del contrato de entrada. Mantenemos el tipo
+// con shape vacío para no romper los merges posteriores `profilePrefs?.<key>`.
 interface ProfileEnrichmentPrefs {
   enrichment_expected_nature?: string;
   enrichment_search_radius_meters?: number;
@@ -1683,44 +1686,7 @@ interface ProfileEnrichmentPrefs {
   enrichment_exclude_keywords?: string[];
 }
 
-// Fetch profile-specific preferences (curator or druid)
-async function getProfilePreferences(profileType: 'curator' | 'druid', profileId: string): Promise<ProfileEnrichmentPrefs | null> {
-  try {
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      console.log('Supabase credentials not available for profile lookup');
-      return null;
-    }
-    
-    const table = profileType === 'curator' ? 'curators' : 'druids';
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${profileId}&select=enrichment_expected_nature,enrichment_search_radius_meters,enrichment_include_contact,enrichment_show_sources,enrichment_correct_coordinates,enrichment_tone,enrichment_min_length,enrichment_custom_prompt,enrichment_include_image,enrichment_include_web,enrichment_include_tags,enrichment_include_interest_index,enrichment_focus_keywords,enrichment_exclude_keywords`, {
-      headers: {
-        'apikey': SUPABASE_SERVICE_ROLE_KEY,
-        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      },
-    });
-    
-    if (!response.ok) {
-      console.error(`Failed to fetch ${profileType} preferences:`, response.status);
-      return null;
-    }
-    
-    const data = await response.json();
-    if (data && data.length > 0) {
-      console.log(`${profileType} preferences loaded:`, data[0]);
-      return data[0] as ProfileEnrichmentPrefs;
-    }
-    
-    return null;
-  } catch (error) {
-    console.error(`Error fetching ${profileType} preferences:`, error);
-    return null;
-  }
-}
-
-// Build tone instructions based on curator preference
+// Build tone instructions
 function getToneInstructions(tone: string): string {
   const toneMap: Record<string, string> = {
     'tecnico': `TONO TÉCNICO:
