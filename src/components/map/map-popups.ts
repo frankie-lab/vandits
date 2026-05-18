@@ -1798,7 +1798,7 @@ ${(!isEnriched) ? (() => {
      LocationMap on popupopen). Solo se monta si el POI no está enriquecido.
      Edge-to-edge del scroll-body; el NearbyPanel inline (padX=px-0,
      rootClass con border-t superior) está preparado para esta posición. -->
-${curationVerdict.bodyBlocker === 'enrich-from-context' ? `<div data-recovery-root="${location.id}" style="margin: 0 0 8px 0;"></div>` : ''}
+${curationVerdict.bodyBlocker === 'enrich-from-context' ? `<div data-recovery-root="${location.id}" style="margin: 0 8px 8px 8px;"></div>` : ''}
 ${(() => {
   const pt = (location.placeType ?? '').toString();
   const isRouteWaypoint = pt === 'route_waypoint' || pt.startsWith('route_') || location.customData?.is_route_waypoint === 'true';
