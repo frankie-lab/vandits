@@ -962,47 +962,21 @@ export function isVisitedHeroOverlayActive(
   return resolveVisitedPresentationState(location, ownership, enriched).showHeroOverlay;
 }
 
+/**
+ * P-POPUP-15 — Contrato no-op. El overlay visited/pendiente del hero ha sido
+ * retirado: el estado personal vive exclusivamente en el bloque canónico de
+ * ratings (P-POPUP-14.2). Se mantiene el export para no romper consumidores
+ * externos. Devuelve siempre cadena vacía.
+ */
 export function buildVisitedHeroOverlay(
-  location: GeoLocation,
-  ownership?: PopupOwnership | null,
-  enriched?: any,
-  state?: VisitedPresentationState,
+  _location: GeoLocation,
+  _ownership?: PopupOwnership | null,
+  _enriched?: any,
+  _state?: VisitedPresentationState,
 ): string {
-  const st = state ?? resolveVisitedPresentationState(location, ownership, enriched);
-  if (!st.showHeroOverlay) return '';
-
-  const isVisited = st.isVisited;
-  const visitRelevance = st.visitRelevance;
-
-  // P-POPUP-7D — Badge icon-only 24x24. Sin label, sin verified visual.
-  // Verified queda diferido (ver docs/popups/p-popup-7d-validation.md).
-  const visitedColor = tk('hsl(var(--state-success))', '#16a34a');
-  const pendingColor = tk('hsl(var(--text-primary))', '#ffffff');
-  // P-POPUP-7D safe-area: contraste reforzado contra fotos claras.
-  const bg = 'rgba(0,0,0,0.5)';
-  const borderColor = 'rgba(255,255,255,0.4)';
-
-  const iconColor = isVisited ? visitedColor : pendingColor;
-  const iconHtml = isVisited
-    ? svgIcon('check', { size: 14, color: iconColor })
-    // `circle` icon (Lucide) — outlined empty ring for "Pendiente".
-    : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>`;
-
-  // Verified NO se renderiza visualmente en el hero chrome (P-POPUP-7D).
-  // Tooltip puede incluir relevance pero el badge queda icon-only.
-  let titleSuffix = '';
-  if (isVisited && visitRelevance) {
-    titleSuffix = ` · ${visitRelevance.label} (${formatTimeAgo(visitRelevance.daysAgo)})`;
-  }
-
-  const title = isVisited
-    ? `Visitado${titleSuffix} · click para quitar`
-    : 'Pendiente · click para marcar visitado';
-
-  // P-POPUP-7D — Posición delegada a .popup-hero-chrome--bl (safe-area canónica).
-  // NO añadir position/bottom/left/top/right inline aquí — guardrail anti-regresión.
-  return `<button class="popup-action-btn popup-hero-visited-badge popup-hero-chrome popup-hero-chrome--bl" data-action="toggle-visited" data-location-id="${location.id}" data-visited-hero-overlay="true" data-visited-state="${isVisited ? 'visited' : 'pending'}" aria-label="${title}" title="${title}" style="width: 24px; height: 24px; padding: 0; background: ${bg}; border: 1px solid ${borderColor}; border-radius: 9999px; cursor: pointer; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 1px 3px rgba(0,0,0,0.45); line-height: 0; justify-content: center;">${iconHtml}</button>`;
+  return '';
 }
+
 
 // ─── Image Section ───────────────────────────────────────────────────────────
 
