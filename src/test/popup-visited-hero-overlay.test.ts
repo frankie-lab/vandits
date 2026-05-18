@@ -1,10 +1,10 @@
 /**
- * P-POPUP-7B (canon simplificado 2026-05-16) — Visited/Pendiente hero overlay.
+ * P-POPUP-15 — Visited hero overlay retirado.
  *
- * - Visible SIEMPRE que haya hero image y no sea curator/nearby.
- * - Etiqueta: "Visitado" (visited=true) o "Pendiente" (visited=false).
- * - data-action="toggle-visited" + data-visited-hero-overlay="true".
- * - Cuando overlay activo, `buildPersonalStateBlock` NO renderiza visited.
+ * El hero queda SOLO para imagen + acciones foto. El estado personal
+ * (visitado/pendiente/rating) vive exclusivamente en el bloque canónico
+ * de ratings (P-POPUP-14.2). `buildVisitedHeroOverlay` y
+ * `isVisitedHeroOverlayActive` se preservan como no-op de contrato.
  */
 import { describe, it, expect, vi } from 'vitest';
 import type { GeoLocation } from '@/types/location';
@@ -20,7 +20,7 @@ vi.mock('@/domains/content/lib/personal-tags-filter', () => ({
 import {
   isVisitedHeroOverlayActive,
   buildVisitedHeroOverlay,
-  buildPersonalStateBlock,
+  buildImageSection,
 } from '@/components/map/map-popups';
 
 function poi(
@@ -37,154 +37,36 @@ function poi(
   } as unknown as GeoLocation;
 }
 
-const OWN_VIEWER = { isOwn: true, isFollowing: false };
+const OWN = { isOwn: true, isFollowing: false };
 
-describe('P-POPUP-7B — isVisitedHeroOverlayActive (canon simplificado)', () => {
-  it('true when hero exists even if not visited (renders Pendiente)', () => {
-    expect(isVisitedHeroOverlayActive(poi('a', {}, { imagen: 'http://x/y.jpg' }), OWN_VIEWER)).toBe(true);
+describe('P-POPUP-15 — overlay visited del hero retirado', () => {
+  it('isVisitedHeroOverlayActive siempre false', () => {
+    expect(isVisitedHeroOverlayActive(poi('a', {}, { imagen: 'http://x/y.jpg' }), OWN)).toBe(false);
+    expect(isVisitedHeroOverlayActive(poi('a', { visited: 'true' }, { imagen: 'http://x/y.jpg' }), OWN)).toBe(false);
+    expect(isVisitedHeroOverlayActive(poi('a', { visited: 'true' }), OWN)).toBe(false);
+    expect(isVisitedHeroOverlayActive(poi('nearby-id', { visited: 'true' }, { imagen: 'http://x/y.jpg' }), OWN)).toBe(false);
   });
 
-  it('false when no hero image at all', () => {
-    expect(isVisitedHeroOverlayActive(poi('a', { visited: 'true' }), OWN_VIEWER)).toBe(false);
+  it('buildVisitedHeroOverlay siempre devuelve ""', () => {
+    expect(buildVisitedHeroOverlay(poi('a'), OWN)).toBe('');
+    expect(buildVisitedHeroOverlay(poi('a', { visited: 'true' }, { imagen: 'http://x.jpg' }), OWN)).toBe('');
+    expect(buildVisitedHeroOverlay(poi('a', { visited: 'true', visited_verified_at: new Date().toISOString() }, { imagen: 'http://x.jpg' }), OWN)).toBe('');
   });
 
-  it('false for curator points', () => {
-    const out = isVisitedHeroOverlayActive(
-      poi('a', { visited: 'true' }, { imagen: 'http://x/y.jpg' }),
-      { ...OWN_VIEWER, curatorId: 'cur-1' } as any,
-    );
-    expect(out).toBe(false);
-  });
-
-  it('false in nearby popup context', () => {
-    expect(isVisitedHeroOverlayActive(
-      poi('nearby-id', { visited: 'true' }, { imagen: 'http://x/y.jpg' }),
-      OWN_VIEWER,
-    )).toBe(false);
-  });
-
-  it('true with AI image + visited', () => {
-    expect(isVisitedHeroOverlayActive(
-      poi('a', { visited: 'true' }, { imagen: 'http://x/y.jpg' }),
-      OWN_VIEWER,
-    )).toBe(true);
-  });
-
-  it('true with own user image (visibilidad privada permitida si isOwn)', () => {
-    expect(isVisitedHeroOverlayActive(
-      poi('a', { user_image_url: 'http://x/u.jpg' }),
-      OWN_VIEWER,
-    )).toBe(true);
-  });
-
-  it('legacy branch: enriched=null suprime AI image, sin user image → off', () => {
-    expect(isVisitedHeroOverlayActive(
-      poi('a', { visited: 'true' }, { imagen: 'http://x/y.jpg' }),
-      OWN_VIEWER,
-      null,
-    )).toBe(false);
-  });
-});
-
-describe('P-POPUP-7D — buildVisitedHeroOverlay (icon-only badge)', () => {
-  it('returns empty when no hero (inactive)', () => {
-    expect(buildVisitedHeroOverlay(poi('a'), OWN_VIEWER)).toBe('');
-  });
-
-  it('renders visited check icon-only (no label) when visited=true', () => {
-    const out = buildVisitedHeroOverlay(
-      poi('a', { visited: 'true' }, { imagen: 'http://x.jpg' }),
-      OWN_VIEWER,
-    );
-    expect(out).toContain('data-action="toggle-visited"');
-    expect(out).toContain('data-visited-hero-overlay="true"');
-    expect(out).toContain('data-visited-state="visited"');
-    // Sin label visible
-    expect(out).not.toContain('<span>Visitado</span>');
-    expect(out).not.toContain('<span>Pendiente</span>');
-    // Tooltip / a11y
-    expect(out).toContain('aria-label="Visitado');
-    expect(out).toContain('click para quitar');
-    // P-POPUP-7D safe-area: posición vía clase canónica, NO inline.
-    expect(out).toContain('popup-hero-chrome');
-    expect(out).toContain('popup-hero-chrome--bl');
-    expect(out).not.toMatch(/style="[^"]*position:\s*absolute/);
-    expect(out).not.toMatch(/style="[^"]*\bbottom:\s*\d/);
-    expect(out).not.toMatch(/style="[^"]*\bleft:\s*\d/);
-    expect(out).toContain('width: 24px');
-    expect(out).toContain('height: 24px');
-    expect(out).toContain('popup-hero-visited-badge');
-  });
-
-  it('renders pending circle icon-only (no label) when visited=false', () => {
-    const out = buildVisitedHeroOverlay(
-      poi('a', {}, { imagen: 'http://x.jpg' }),
-      OWN_VIEWER,
-    );
-    expect(out).toContain('data-action="toggle-visited"');
-    expect(out).toContain('data-visited-state="pending"');
-    expect(out).not.toContain('<span>Pendiente</span>');
-    expect(out).toContain('aria-label="Pendiente · click para marcar visitado"');
-  });
-
-  it('check SVG stroke usa un color resoluble (token o hex fallback)', () => {
-    const out = buildVisitedHeroOverlay(
-      poi('a', { visited: 'true' }, { imagen: 'http://x.jpg' }),
-      OWN_VIEWER,
-    );
-    expect(out).toMatch(/stroke="(hsl\(var\(--state-success\)\)|#16a34a)"/);
-  });
-
-  it('verified NO se renderiza visualmente en el badge icon-only (P-POPUP-7D)', () => {
-    const out = buildVisitedHeroOverlay(
-      poi('a', { visited: 'true', visited_verified_at: new Date().toISOString() }, { imagen: 'http://x.jpg' }),
-      OWN_VIEWER,
-    );
-    // Sólo 1 SVG (check). Sin verified badge inyectado.
-    const svgCount = (out.match(/<svg /g) ?? []).length;
-    expect(svgCount).toBe(1);
-    // Tooltip puede mencionar relevance pero sin renderizar icon adicional.
-    expect(out).toContain('aria-label="Visitado');
-  });
-
-  it('pending tampoco renderiza verified aunque haya visited_verified_at', () => {
-    const out = buildVisitedHeroOverlay(
-      poi('a', { visited_verified_at: new Date().toISOString() }, { imagen: 'http://x.jpg' }),
-      OWN_VIEWER,
-    );
-    const svgCount = (out.match(/<svg /g) ?? []).length;
-    expect(svgCount).toBe(1);
-    expect(out).toContain('data-visited-state="pending"');
-  });
-});
-
-describe('P-POPUP-7B — buildPersonalStateBlock (canon simplificado)', () => {
-  it('NO renderiza visited cuando heroOverlayActive=true (sólo rating)', () => {
-    const out = buildPersonalStateBlock(
-      poi('a', { visited: 'true', visited_verified_at: new Date().toISOString() }, { imagen: 'http://x.jpg' }),
-      { isOwn: true, isCuratorPoint: false, canEditLocation: true, heroOverlayActive: true },
-    );
-    expect(out).not.toContain('data-action="toggle-visited"');
-    expect(out).not.toContain('<span>Visitado</span>');
-    expect(out).not.toContain('<span>Pendiente</span>');
-  });
-
-  it('cuando heroOverlayActive=false, renderiza pill "Visitado" si visited', () => {
-    const out = buildPersonalStateBlock(
-      poi('a', { visited: 'true' }),
-      { isOwn: true, isCuratorPoint: false, canEditLocation: true, heroOverlayActive: false },
-    );
-    expect(out).toContain('data-action="toggle-visited"');
-    expect(out).toContain('hsl(var(--state-success) / 0.10)');
-    expect(out).toContain('<span>Visitado</span>');
-  });
-
-  it('cuando heroOverlayActive=false y no visited, renderiza pill "Pendiente"', () => {
-    const out = buildPersonalStateBlock(
-      poi('a', {}),
-      { isOwn: true, isCuratorPoint: false, canEditLocation: true, heroOverlayActive: false },
-    );
-    expect(out).toContain('data-action="toggle-visited"');
-    expect(out).toContain('<span>Pendiente</span>');
+  it('buildImageSection nunca inyecta hooks de overlay visited', () => {
+    const cases: Array<[GeoLocation, any]> = [
+      [poi('a', { visited: 'true' }, { imagen: 'http://x.jpg' }), { imagen: 'http://x.jpg' }],
+      [poi('a', {}, { imagen: 'http://x.jpg' }), { imagen: 'http://x.jpg' }],
+      [poi('a', { user_image_url: 'http://u.jpg' }), null],
+      [poi('a', { visited: 'true', user_image_url: 'http://u.jpg' }), null],
+    ];
+    for (const [loc, enriched] of cases) {
+      const html = buildImageSection(loc, enriched, OWN);
+      expect(html).not.toContain('data-visited-hero-overlay');
+      expect(html).not.toContain('data-action="toggle-visited"');
+      expect(html).not.toContain('popup-hero-visited-badge');
+      expect(html).not.toContain('>Visitado<');
+      expect(html).not.toContain('>Pendiente<');
+    }
   });
 });
