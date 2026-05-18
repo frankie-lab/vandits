@@ -937,18 +937,17 @@ export function resolveVisitedPresentationState(
       )
     : null;
 
-  // Canon simplificado (sesión 2026-05-16):
-  //   - El overlay sobre la hero SIEMPRE se muestra cuando hay hero válida y
-  //     no es curator/nearby. Su etiqueta varía:
-  //       visited=true  → "✓ Visitado"
-  //       visited=false → "○ Pendiente"
-  //   - El bloque inferior ya no renderiza ningún control de visitado: el
-  //     overlay sustituye al pill/inline previos. Sólo queda rating.
-  //   - Si NO hay hero, fallback inferior mínimo (pill en bloque personal).
-  const showHeroOverlay = hasHero && !isCurator && !isNearby;
+  // P-POPUP-15 — Hero queda SOLO para imagen + acciones foto. El estado
+  // personal (visited/pendiente/rating) vive EXCLUSIVAMENTE en el bloque
+  // canónico de ratings (P-POPUP-14.2). Tanto el overlay sobre la hero
+  // como el pill de fallback en `buildPersonalStateBlock` quedan
+  // desactivados por contrato. Los flags se preservan en la interfaz
+  // (no-op = false) para no romper consumidores externos.
+  const showHeroOverlay = false;
   const showInlineVisited = false;
-  const showVisitedPill = !isCurator && !isNearby && !showHeroOverlay;
-  const showVerifiedOnHero = showHeroOverlay && isVisited && !!visitRelevance;
+  const showVisitedPill = false;
+  const showVerifiedOnHero = false;
+  void hasHero; void isCurator; void isNearby; void isVisited; void visitRelevance;
 
   return {
     isVisited,
