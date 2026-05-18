@@ -449,3 +449,45 @@ footer) conserva la flat surface.
 Sticky positioning del input, footer fijo del popup, shell, hero,
 breadcrumb, ratings, niveles POI, lógica de curación, marker grammar,
 variantes `dialog`/`sidebar`/`card`, P-POI-CURATION-3.x.
+
+## P-POI-CURATION-2.9 — Jerarquía del buscador dentro del header
+
+Ajuste fino sobre 2.8: el input se leía como sub-elemento del slider de
+Radio. 2.9 le da presencia vertical, contraste y un separador propio para
+que el bloque se lea como **tres pasos secuenciales**:
+`Radio → Buscar/refinar → Resultados`.
+
+No mueve el input de sitio, no añade sticky, no toca lógica.
+
+### Reglas canónicas (sobreescriben 2.8 en los valores que cambian)
+
+- Wrapper exterior del input (separación del slider): `mt-3 pt-3 border-t border-border/30`. **No** introduce caja: sin background, sin radius.
+- Caja del input (`data-nearby-search-input`):
+  - Altura `h-8` (antes `h-7`).
+  - Padding `px-2.5` (antes `px-2`), `gap-2` (antes `gap-1.5`).
+  - `rounded-md`, `bg-muted/60` (antes `/40`), `border border-border/70` (antes `/50`).
+  - `focus-within:border-primary/60 focus-within:bg-background` (sin cambios).
+  - Sin `mx`/`mt`/`mb` propios: el wrapper exterior define la separación.
+- Icono `Search` a `w-4 h-4` (antes `w-3.5 h-3.5`).
+- Input: `text-[13px]` (antes `text-[12px]`), `placeholder:text-muted-foreground/70`.
+- Botón clear `×`: `h-6 w-6 rounded`, `text-[14px]` (antes `h-5 w-5 text-[12px]`).
+- Bloque del slider Radio compactado para reducir tensión visual:
+  - Header sin `space-y-1`, `pt-2 pb-2.5` (antes `py-2`).
+  - Label `Radio`: `text-[11px] uppercase tracking-wide text-muted-foreground/80` (meta-label).
+  - Valor `{radius}m`: `text-[10px] text-muted-foreground tabular-nums` (dato secundario, sin `font-medium`).
+  - Slider sin `pt-1` redundante.
+
+### Anti-regresiones (tests `popup-poi-1b-manual-search.test.ts`)
+
+- `data-nearby-search-input` debe contener `h-8`, `px-2.5`, `bg-muted/60`,
+  `border-border/70`, `text-[13px]`, `w-4 h-4` (icono).
+- No debe contener `h-7`, `bg-muted/40`, `rounded-lg`.
+- El source debe matchear `mt-3 pt-3 border-t border-border/30` justo
+  antes del wrapper `data-nearby-search-input`.
+
+### Fuera de alcance
+
+Sticky, footer fijo del popup, shell, hero, breadcrumb, ratings, niveles
+POI, lógica de curación, lógica de búsqueda (debounce/filtrado), marker
+grammar, variantes `dialog`/`sidebar`/`card`, P-POI-CURATION-3.x.
+
