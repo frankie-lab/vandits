@@ -131,6 +131,13 @@ describe('P-POI-CURATION-1 — renderer invariance (BLINDAJE)', () => {
     }
   });
 
+  it('P-POPUP-16: todos los niveles renderean con `data-popup-operational-state="idle"`', () => {
+    for (const html of Object.values(htmlByLevel)) {
+      expect(html).toContain('data-popup-operational-state="idle"');
+      expect(html).not.toContain('data-popup-operational-state="loading"');
+    }
+  });
+
   it('ningún nivel introduce atributos/clases de variantes legacy', () => {
     for (const html of Object.values(htmlByLevel)) {
       expect(html).not.toContain('data-popup-variant');
