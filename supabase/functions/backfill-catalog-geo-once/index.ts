@@ -25,37 +25,9 @@ Deno.serve(async (req) => {
   const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
-  // Authorization: only masters can launch this.
-  const authHeader = req.headers.get('Authorization') ?? '';
-  const accessToken = authHeader.toLowerCase().startsWith('bearer ')
-    ? authHeader.slice(7).trim()
-    : '';
-  if (!accessToken) {
-    return new Response(JSON.stringify({ error: 'unauthorized' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-  const { data: userData } = await admin.auth.getUser(accessToken);
-  const callerId = userData?.user?.id;
-  if (!callerId) {
-    return new Response(JSON.stringify({ error: 'unauthorized' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-  const { data: roleRow } = await admin
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', callerId)
-    .eq('role', 'master')
-    .maybeSingle();
-  if (!roleRow) {
-    return new Response(JSON.stringify({ error: 'forbidden: master role required' }), {
-      status: 403,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
+  // Capability gate: `manage_geo_maintenance`.
+  const gate = await requireCapability(req, 'manage_geo_maintenance');
+  if (gate instanceof Response) return gate;
 
   const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
   const limitPerChunk = Math.min(Math.max(Number(body.limit_per_chunk ?? 50), 1), 200);
