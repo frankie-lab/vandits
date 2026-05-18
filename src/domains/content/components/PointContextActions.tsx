@@ -634,17 +634,26 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
     }
   };
 
-  // Execute all selected actions for a point
+  // P-POI-CURATION-2.12 — Ejecuta la decisión de la fila seleccionada.
+  // La acción primaria depende de si el POI actual es reparable:
+  //   reparable  → replace (+ opcional: guardar personal si extraPersonal).
+  //   no rep.    → guardar personal (única primaria posible).
   const handleExecuteActions = async (nearbyPoint: NearbyPoint) => {
+    const replaceable = canReplaceCurrentPoi(location, { mismatch });
     setExecutingActions(true);
     try {
-      if (wantReplace) await handleReplaceWithPoint(nearbyPoint);
-      if (wantPersonal && selectedCategory) {
-        const preset = PERSONAL_CATEGORY_PRESETS.find(p => p.label === selectedCategory);
-        if (preset) await handleSaveAsPersonal(nearbyPoint, preset.label, preset.defaultPlaceType);
-      }
-      if (!wantReplace) {
-        // If we didn't replace (which already closes), just show success
+      if (replaceable) {
+        await handleReplaceWithPoint(nearbyPoint);
+        if (extraPersonal && selectedCategory) {
+          const preset = PERSONAL_CATEGORY_PRESETS.find(p => p.label === selectedCategory);
+          if (preset) await handleSaveAsPersonal(nearbyPoint, preset.label, preset.defaultPlaceType);
+        }
+        // handleReplaceWithPoint ya hace clearMapMarkers + onClose
+      } else {
+        if (selectedCategory) {
+          const preset = PERSONAL_CATEGORY_PRESETS.find(p => p.label === selectedCategory);
+          if (preset) await handleSaveAsPersonal(nearbyPoint, preset.label, preset.defaultPlaceType);
+        }
         clearMapMarkers();
         onClose();
       }
@@ -657,15 +666,13 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
     // Toggle: si la fila ya estaba seleccionada, deselecciona y limpia foco.
     if (selectedPointId === point.id) {
       setSelectedPointId(null);
-      setWantReplace(false);
-      setWantPersonal(false);
+      setExtraPersonal(false);
       setSelectedCategory(null);
       setNearbyPopupContextId(null);
       return;
     }
     setSelectedPointId(point.id);
-    setWantReplace(false);
-    setWantPersonal(false);
+    setExtraPersonal(false);
     setSelectedCategory(null);
     // Marca el id como "abierto desde Contexto cercano" ANTES de focar,
     // para que el popup se renderice ya en su variante reducida.
@@ -677,6 +684,8 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
       detail: { lat: point.latitude, lng: point.longitude, zoom: 17 },
     }));
   };
+
+
 
   const selectedPoint = nearbyPoints.find(p => p.id === selectedPointId) || null;
   const suggestedCategory = selectedPoint ? suggestCategory(selectedPoint.place_type) : null;
