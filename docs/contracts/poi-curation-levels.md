@@ -185,3 +185,45 @@ del mismo `getPoiCurationLevel(loc)` en el mismo render pass**.
 
 Shell, hero, breadcrumb, ratings block (salvo eliminar redundancia
 9b), marker grammar, heal-rings, resolve-conflict real, P-POI-CURATION-3.1.
+
+## P-POI-CURATION-2.1 — Autolaunch POI-1b
+
+Refuerza R3 ("sin redundancia") en POI-1b: si "Contexto cercano" es la
+única salida posible, no debe haber botón intermedio y el bloque ES la
+acción desde el primer render del popup.
+
+### Canon de comportamiento
+
+- **Autolaunch**: en POI-1b (sin coherence conflict), `UnenrichedRecoveryBlock`
+  monta `<NearbyPanel variant="inline">` directamente en su primer render.
+  No existe botón intermedio "Contexto cercano".
+- **Loading inline**: `NearbyPanel` arranca con `loadingNearby=true` y
+  dispara `searchNearby()` una vez en mount. Mientras carga muestra
+  "Buscando puntos cercanos…" + spinner en el cuerpo del popup
+  (`data-nearby-state="loading"`).
+- **Resultados**: render normal de la lista por categoría.
+- **Error**: si `searchNearby` lanza, el bloque entra en
+  `data-nearby-state="error"` con badge "No se pudo cargar el contexto
+  cercano." y botón `[Reintentar]` (`data-nearby-action="retry"`). Cero
+  resultados legítimos NO es error — se muestra el empty-state habitual.
+- **Anti doble disparo**: `popup-recovery-mount` preserva la identidad
+  del root React mientras el host `[data-recovery-root]` no cambie, por
+  lo que regeneraciones del popup que no remplazan el host no remontan
+  `NearbyPanel` ni re-disparan `searchNearby`. Resultado: una sola
+  llamada por apertura real del popup.
+- **Hook observable**: el wrapper del autolaunch lleva
+  `data-nearby-autofire="1"` para tests/QA.
+
+### Invariantes añadidas
+
+- POI-1b nunca renderiza un botón intermedio "Contexto cercano".
+- `NearbyPanel` se monta exactamente una vez por apertura del popup
+  POI-1b.
+- Estado `error` ⇒ existe `[data-nearby-action="retry"]` visible.
+
+### Fuera de alcance (re-confirmado)
+
+Shell, hero, breadcrumb, ratings block, footer canónico, rama con
+conflicto del recovery block, niveles POI, `map-fly-to` ya existente
+en NearbyPanel, P-POI-CURATION-3.x.
+
