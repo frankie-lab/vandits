@@ -95,22 +95,25 @@ vi.mock('@/domains/content/lib/enrich-location', () => ({
   triggerEnrichLocation: vi.fn().mockResolvedValue(undefined),
 }));
 
-const fakeLocation = {
-  id: 'loc-validate-1',
-  name: 'POI bajo prueba',
-  coordinates: { lat: 0, lng: 0 },
-  customData: {} as Record<string, string>,
-};
+const loc = vi.hoisted(() => ({
+  fakeLocation: {
+    id: 'loc-validate-1',
+    name: 'POI bajo prueba',
+    coordinates: { lat: 0, lng: 0 },
+    customData: {} as Record<string, string>,
+  },
+}));
+const fakeLocation = loc.fakeLocation;
 
 vi.mock('@/domains/content', () => ({
   useLocationsStore: Object.assign(
     () => ({
-      documents: [{ id: 'doc-1', locations: [fakeLocation] }],
+      documents: [{ id: 'doc-1', locations: [loc.fakeLocation] }],
       updateLocation: vi.fn(),
     }),
     {
       getState: () => ({
-        documents: [{ id: 'doc-1', locations: [fakeLocation] }],
+        documents: [{ id: 'doc-1', locations: [loc.fakeLocation] }],
         updateLocation: vi.fn(),
         setFocusedLocation: vi.fn(),
         getLocationOwnership: () => ({ isOwn: true }),
