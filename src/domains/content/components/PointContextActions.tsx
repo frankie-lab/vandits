@@ -904,8 +904,9 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
           const _filtered = isSearchMode
             ? nearbyPoints.filter(p => _normalize(p.name || '').includes(_normalize(debouncedQuery)))
             : nearbyPoints;
-          const allGroups = isSearchMode
-            ? [{ category: '__search__' as any, meta: { label: `Resultados para "${debouncedQuery}"`, icon: <Search className="w-3 h-3" />, order: 0 }, points: _filtered.slice().sort((a, b) => a.distance_m - b.distance_m) }]
+          type GroupRow = ReturnType<typeof groupByCategory>[number];
+          const allGroups: GroupRow[] = isSearchMode
+            ? [{ category: '__search__' as any, meta: { label: 'Resultados para "' + debouncedQuery + '"', icon: <Search className="w-3 h-3" />, order: 0 } as any, points: _filtered.slice().sort((a, b) => a.distance_m - b.distance_m) }]
             : groupByCategory(_filtered);
           const cap = isInline && !expandedList ? INLINE_VISIBLE_DEFAULT : Infinity;
           const cappedGroups: typeof allGroups = [];
