@@ -181,7 +181,7 @@ export async function advancePoiCurationUntilBlocked(/*TRACE*/
   const startLevel = loc ? getPoiCurationLevel(loc).level : 0;
 
   // Si el POI ya está en un estado terminal/bloqueante, devolver sin trabajo.
-  console.log("[orch] after findLocation", !!loc, "startLevel", startLevel);const preCheck = classifyExisting(loc);console.log("[orch] preCheck", preCheck);
+  console.log("[orch] loc=", JSON.stringify(loc));console.log("[orch] after findLocation", !!loc, "startLevel", startLevel);const preCheck = classifyExisting(loc);console.log("[orch] preCheck", preCheck);
   if (
     preCheck.level === 10 ||
     preCheck.level === 9 ||
