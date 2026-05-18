@@ -25,7 +25,7 @@ const SRC = readFileSync(FILE, 'utf-8');
 describe('P-POI-CURATION-2.7 — manual search inline', () => {
   it('NearbyPanel inline header renders search input with data-nearby-search-input hook', () => {
     expect(SRC).toContain('data-nearby-search-input');
-    expect(SRC).toContain('placeholder="Buscar por nombre');
+    expect(SRC).toContain('placeholder="Buscar otro punto cercano…"');
     expect(SRC).toContain('!loadingNearby && !errorNearby');
   });
 
