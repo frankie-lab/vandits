@@ -521,13 +521,25 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
     } catch { toast.error('Error al fusionar'); }
   };
 
-  // Replace the original imported point with a nearby point's real data
+  // P-POI-CURATION-2.13 — Adopción nearby + re-curación canónica.
+  //
+  // Para `own`: sigue siendo merge con soft-delete + onClose (el POI abierto
+  // deja de existir, no aplica re-curación).
+  //
+  // Para `osm` / `followed`: promoción de identidad in-place. El popup
+  // permanece abierto durante TODO el pipeline y se re-cura sobre la nueva
+  // identidad reutilizando `advancePoiCurationUntilBlocked`:
+  //   1. UPDATE name/lat/lng/place_type + reset enriched_data + status=pending
+  //   2. updateLocation(store) in-place — sin remount del popup
+  //   3. enrichmentFailureStore.invalidate(id)
+  //   4. setNearbyPopupContextId(null) — ya somos el POI, no la vista de vecino
+  //   5. advancePoiCurationUntilBlocked → validate-geo → enrich → recompute
+  //   6. Toast final según blocker
   const handleReplaceWithPoint = async (nearbyPoint: NearbyPoint) => {
     setReplacingPoint(true);
     try {
       if (nearbyPoint.source === 'own') {
-        // The nearby point already exists in user's collection — merge by soft-deleting original
-        // Transfer enrichment data if the original has it and the target doesn't
+        // Merge clásico — el POI abierto deja de existir.
         const mergedData: Record<string, any> = {};
         if (!nearbyPoint.enriched_data && location.enriched_data) {
           mergedData.enriched_data = location.enriched_data;
@@ -536,46 +548,76 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
         if (Object.keys(mergedData).length > 0) {
           await supabase.from('locations').update(mergedData).eq('id', nearbyPoint.id);
         }
-        // Soft-delete the original
         await supabase.from('locations').update({ deleted_at: new Date().toISOString() }).eq('id', location.id);
         onLocationMerged(nearbyPoint.id, location.id);
         toast.success(`Fusionado con "${nearbyPoint.name}" (original eliminado)`);
-      } else {
-        // OSM/followed — update the original point with the nearby data
-        const { error } = await supabase.from('locations').update({
-          name: nearbyPoint.name,
-          latitude: nearbyPoint.latitude,
-          longitude: nearbyPoint.longitude,
-          description: nearbyPoint.description || location.description,
-          place_type: nearbyPoint.place_type || location.place_type,
-          updated_at: new Date().toISOString(),
-        }).eq('id', location.id);
-        if (error) throw error;
-
-        const updated = {
-          ...location,
-          name: nearbyPoint.name,
-          latitude: nearbyPoint.latitude,
-          longitude: nearbyPoint.longitude,
-          description: nearbyPoint.description || location.description,
-          place_type: nearbyPoint.place_type || location.place_type,
-        };
-        onLocationUpdated(updated);
-        useLocationsStore.getState().updateLocation(location.id, {
-          name: nearbyPoint.name,
-          coordinates: { lat: nearbyPoint.latitude, lng: nearbyPoint.longitude },
-          description: nearbyPoint.description || location.description || undefined,
-        });
-        toast.success(`Punto reemplazado por "${nearbyPoint.name}"`);
-
-        // OSM identity → trigger AI enrichment now that we have a real name
-        if (nearbyPoint.source === 'osm') {
-          const { triggerEnrichLocation } = await import('@/domains/content/lib/enrich-location');
-          triggerEnrichLocation(location.id).catch(() => {});
-        }
+        clearMapMarkers();
+        onClose();
+        return;
       }
-      clearMapMarkers();
-      onClose();
+
+      // ── osm / followed: promoción de identidad + re-curación in-place ──
+      const { error } = await supabase.from('locations').update({
+        name: nearbyPoint.name,
+        latitude: nearbyPoint.latitude,
+        longitude: nearbyPoint.longitude,
+        description: null,
+        place_type: nearbyPoint.place_type || location.place_type,
+        enriched_data: null,
+        enrichment_status: 'pending',
+        updated_at: new Date().toISOString(),
+      }).eq('id', location.id);
+      if (error) throw error;
+
+      const updated = {
+        ...location,
+        name: nearbyPoint.name,
+        latitude: nearbyPoint.latitude,
+        longitude: nearbyPoint.longitude,
+        description: null,
+        place_type: nearbyPoint.place_type || location.place_type,
+        enriched_data: null,
+        enrichment_status: 'pending',
+      };
+      onLocationUpdated(updated);
+      useLocationsStore.getState().updateLocation(location.id, {
+        name: nearbyPoint.name,
+        coordinates: { lat: nearbyPoint.latitude, lng: nearbyPoint.longitude },
+        description: undefined,
+        enrichedData: undefined,
+        enrichmentStatus: 'pending' as any,
+        placeType: (nearbyPoint.place_type || location.place_type) as any,
+      });
+
+      // Invalidar caches relacionadas antes de relanzar curación.
+      enrichmentFailureStore.invalidate(location.id);
+      setNearbyPopupContextId(null);
+
+      // Re-curación end-to-end. El popup NO se cierra, queda con overlay
+      // P-POPUP-16 hasta el final del pipeline.
+      const { getPopupIdForLocation } = await import('@/components/map/popup-operational-state');
+      const { advancePoiCurationUntilBlocked } = await import(
+        '@/domains/content/lib/advance-poi-curation'
+      );
+      const popupId = getPopupIdForLocation(location.id);
+      try {
+        const result = await advancePoiCurationUntilBlocked(
+          location.id,
+          'validate-geo',
+          popupId,
+        );
+        if (result.blocker === 'none') {
+          toast.success(`POI re-curado como "${nearbyPoint.name}"`);
+        } else {
+          toast.message(result.message);
+        }
+      } catch (e) {
+        console.error('[adopt-nearby-recuration] error:', e);
+        toast.error('No se pudo re-curar el POI');
+      } finally {
+        const { clearPopupOperationalState } = await import('@/components/map/popup-operational-state');
+        clearPopupOperationalState(popupId);
+      }
     } catch {
       toast.error('Error al reemplazar punto');
     } finally {
