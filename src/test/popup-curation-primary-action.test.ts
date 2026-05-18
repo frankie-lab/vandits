@@ -86,7 +86,7 @@ const ALL_LEVELS: Array<{ level: number; loc: GeoLocation; action: string | null
   { level: 1, loc: POI_1, action: 'validate-geo' },
   { level: 3, loc: POI_3, action: 'resolve-conflict' },
   { level: 5, loc: POI_5, action: 'heal' },
-  { level: 9, loc: POI_9, action: 'rate-experience' },
+  { level: 9, loc: POI_9, action: null }, // POI-9b: estrellas son la acción
   { level: 10, loc: POI_10, action: null }, // POI-10 no emite botón
 ];
 
