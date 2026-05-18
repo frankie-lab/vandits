@@ -918,10 +918,24 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
             cappedGroups.push({ ...g, points: pts });
             shown += pts.length;
           }
-          const hidden = nearbyPoints.length - shown;
-          const showToggle = isInline && (hidden > 0 || expandedList);
+          const hidden = _filtered.length - shown;
+          const showToggle = isInline && !isSearchMode && (hidden > 0 || expandedList);
+          if (isSearchMode && _filtered.length === 0) {
+            return (
+              <div className="min-w-0 text-center py-6 space-y-1" data-nearby-search-results="1" data-nearby-search-empty="1">
+                <p className="text-[12px] text-muted-foreground">Sin resultados para "{debouncedQuery}" en {radiusMeters}m</p>
+                <p className="text-[10px] text-muted-foreground/70">Prueba ampliar el radio o cambiar el termino.</p>
+              </div>
+            );
+          }
           return (
-          <div className="min-w-0 space-y-2 pb-2" data-nearby-list data-nearby-visible-count={shown}>
+          <div
+            className="min-w-0 space-y-2 pb-2"
+            data-nearby-list
+            data-nearby-visible-count={shown}
+            data-nearby-mode={isSearchMode ? 'search' : 'auto'}
+            {...(isSearchMode ? { 'data-nearby-search-results': '1' } : {})}
+          >
             {cappedGroups.map(group => (
               <div key={group.category} className="min-w-0">
                 <div className="mb-2 flex min-w-0 items-center gap-1.5 text-muted-foreground">
