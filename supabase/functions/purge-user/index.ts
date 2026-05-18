@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireCapability } from "../_shared/require-capability.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,49 +12,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const {
-      data: { user },
-      error: authError,
-    } = await userClient.auth.getUser();
-
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Invalid authentication" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const { data: roles } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id);
-
-    const isAdminOrMaster = roles?.some(
-      (r: { role: string }) => r.role === "master" || r.role === "admin"
-    );
-
-    if (!isAdminOrMaster) {
-      return new Response(JSON.stringify({ error: "Forbidden: admin role required" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const gate = await requireCapability(req, "purge_user");
+    if (gate instanceof Response) return gate;
+    const { userId: callerId, adminClient } = gate;
 
     const { targetUserId, mode, confirmSelf } = await req.json();
     if (!targetUserId || typeof targetUserId !== "string") {
