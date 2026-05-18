@@ -225,6 +225,10 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [executingActions, setExecutingActions] = useState(false);
   const [adoptingId, setAdoptingId] = useState<string | null>(null);
+  // P-POI-CURATION-2.2 — cap inicial inline para evitar listas largas que
+  // generen presión visual sin recurrir a scroll anidado.
+  const [expandedList, setExpandedList] = useState(false);
+  const INLINE_VISIBLE_DEFAULT = 6;
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
   const documents = useLocationsStore(state => state.documents);
   const selectedRef = useRef<HTMLDivElement | null>(null);
