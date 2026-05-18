@@ -11,8 +11,9 @@
  */
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
-  ChevronLeft, MapPin, Route as RouteIcon, Loader2, Trash2,
+  ChevronLeft, MapPin, Route as RouteIcon, Loader2, Trash2, Share2,
 } from 'lucide-react';
+import { openShareSheet } from '@/domains/sharing';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PanelTabs } from '@/shared/components/ui/panel';
@@ -220,6 +221,22 @@ export function CollectionFocusView({ collection, onBack }: Props) {
             <Icon className="w-4 h-4" style={{ color: getReadableForeground(tint) }} />
           </span>
           <h3 className="font-bold text-sm truncate flex-1">{collection.name}</h3>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            title="Compartir colección"
+            onClick={() =>
+              openShareSheet({
+                kind: 'collection',
+                id: collection.id,
+                name: collection.name,
+                locations: places,
+              })
+            }
+          >
+            <Share2 className="w-4 h-4" />
+          </Button>
         </div>
         {!loading && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
