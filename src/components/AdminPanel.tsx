@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Shield, Users, Settings, ChevronDown, ChevronRight, Check, Loader2, Search, UserPlus, Trash2, MapPin, ExternalLink, Route as RouteIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,10 @@ import { DataSourcesPanel } from './admin/DataSourcesPanel';
 import { RecoverImagesPanel } from './admin/RecoverImagesPanel';
 import { DesignSystemPanel } from './admin/DesignSystemPanel';
 
-type AdminTab = 'users' | 'permissions' | 'markers' | 'routes' | 'icons' | 'enrichment' | 'audit' | 'geography' | 'sources' | 'image-recovery' | 'design-system';
+import { ADMIN_TABS, getAdminTab, type AdminTabKey } from './admin/admin-tabs';
+import { AdminGate } from './admin/AdminGate';
+
+type AdminTab = AdminTabKey;
 
 interface AdminPanelProps {
  onClose: () => void;
@@ -84,6 +87,19 @@ const PERMISSION_LABELS: Record<AppPermission, string> = {
  moderate_content: 'Moderar contenido',
  upload_files: 'Subir archivos masivos',
  add_locations: 'Añadir ubicaciones',
+ // Operacionales (PR-ADMIN-AUDIT)
+ manage_permissions: 'Gestionar permisos',
+ manage_marker_config: 'Configurar marcadores',
+ manage_route_engine: 'Configurar motor de rutas',
+ manage_icon_library: 'Gestionar galería de iconos',
+ manage_enrichment_config: 'Configurar fichas',
+ view_audit_log: 'Ver auditoría',
+ manage_geo_maintenance: 'Mantenimiento geográfico',
+ manage_data_sources: 'Gestionar fuentes de datos',
+ run_image_recovery: 'Recuperar imágenes',
+ manage_design_system: 'Gestionar Design System',
+ purge_user: 'Limpiar usuarios',
+ open_back_office: 'Acceder al Back Office',
 };
 
 const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'supervisor', 'user'];
@@ -99,6 +115,18 @@ const ALL_PERMISSIONS: AppPermission[] = [
  'moderate_content',
  'upload_files',
  'add_locations',
+ 'manage_permissions',
+ 'manage_marker_config',
+ 'manage_route_engine',
+ 'manage_icon_library',
+ 'manage_enrichment_config',
+ 'view_audit_log',
+ 'manage_geo_maintenance',
+ 'manage_data_sources',
+ 'run_image_recovery',
+ 'manage_design_system',
+ 'purge_user',
+ 'open_back_office',
 ];
 
 export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
@@ -340,7 +368,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  );
  }
 
- if (!canManageUsers && !isMaster()) {
+ if (!hasPermission('open_back_office') && !canManageUsers) {
  return (
  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-modal flex items-center justify-center bg-foreground/50 overlay-respect-progress" onClick={onClose}>
  <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-card rounded-xl shadow-2xl p-8 max-w-md mx-4" onClick={e => e.stopPropagation()}>
@@ -358,19 +386,17 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   className="fixed inset-0 z-modal flex items-center justify-center bg-foreground/50 p-4 overlay-respect-progress"
   onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
   >
-   <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
-    className={`bg-card rounded-xl shadow-2xl w-full overflow-hidden flex flex-col h-full max-h-full ${
-     (defaultTab || 'users') === 'geography' || (defaultTab || 'users') === 'design-system' || (defaultTab || 'users') === 'image-recovery'
-       ? 'max-w-6xl'
-       : 'max-w-4xl'
-    }`}
-   >
+    <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
+     className={`bg-card rounded-xl shadow-2xl w-full overflow-hidden flex flex-col h-full max-h-full ${
+      getAdminTab(defaultTab as AdminTabKey)?.wide ? 'max-w-6xl' : 'max-w-4xl'
+     }`}
+    >
   <div className="flex items-center justify-between p-4 border-b">
   <div className="flex items-center gap-3">
   <div className="p-2 bg-primary/10 rounded-lg"><Shield className="w-5 h-5 text-primary" /></div>
   <div>
   <h2 className="text-lg font-bold">
-  {{ users: 'Gestión de usuarios', permissions: 'Permisos por rol', markers: 'Tamaños de marcadores', routes: 'Motor de rutas', icons: 'Galería de iconos', enrichment: 'Configuración de fichas', audit: 'Auditoría de preferencias', geography: 'Mantenimiento geográfico (Admin)', sources: 'Fuentes de datos', 'image-recovery': 'Recuperar imágenes faltantes', 'design-system': 'Design System' }[defaultTab || 'users'] || 'Panel de Administración'}
+  {getAdminTab((defaultTab || 'users') as AdminTabKey)?.label ?? 'Panel de Administración'}
   </h2>
   <p className="text-sm text-muted-foreground">Back Office</p>
   </div>
@@ -430,7 +456,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   </div>
   )}
 
-  {isMaster() && defaultTab === 'permissions' && (
+  {hasPermission('manage_permissions') && defaultTab === 'permissions' && (
   <div className="flex-1 overflow-hidden min-h-0 flex flex-col p-4">
  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-8">
  <div className="space-y-4 pr-4">
@@ -472,41 +498,17 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   </div>
   )}
 
-  {isMaster() && defaultTab === 'markers' && (
-  <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><MarkerSizeManager /></div>
-  )}
-
-  {isMaster() && defaultTab === 'routes' && (
-  <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><RouteSettingsPanelContent /></div>
-  )}
-
-   {isMaster() && defaultTab === 'icons' && (
-   <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><IconLibraryManager /></div>
-   )}
-
-   {isMaster() && defaultTab === 'enrichment' && (
-    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><EnrichmentCardConfig /></div>
-    )}
-
-    {isMaster() && defaultTab === 'audit' && (
-    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><AuditPanel /></div>
-    )}
-
-    {isMaster() && defaultTab === 'geography' && (
-    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><GeographyBackfillPanel /></div>
-    )}
-
-    {isMaster() && defaultTab === 'sources' && (
-    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><DataSourcesPanel /></div>
-    )}
-
-    {isMaster() && defaultTab === 'image-recovery' && (
-    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><RecoverImagesPanel /></div>
-    )}
-
-    {isMaster() && defaultTab === 'design-system' && (
-    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><DesignSystemPanel /></div>
-    )}
+  {/* Declarative tab bodies — gated per-tab by capability (PR-ADMIN-AUDIT Step 3). */}
+  {ADMIN_TABS.filter(tab => tab.Component && tab.key === defaultTab).map(tab => {
+    const Body = tab.Component!;
+    return (
+      <AdminGate key={tab.key} capability={tab.capability}>
+        <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
+          <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><Body /></div>
+        </Suspense>
+      </AdminGate>
+    );
+  })}
    </div>
  </motion.div>
 

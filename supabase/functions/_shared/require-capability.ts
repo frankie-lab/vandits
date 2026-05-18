@@ -20,6 +20,18 @@
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 export type Capability =
+  // Clásicas
+  | "manage_users"
+  | "manage_criteria"
+  | "run_global_enrichment"
+  | "view_all_locations"
+  | "edit_all_locations"
+  | "delete_any_location"
+  | "manage_documents"
+  | "view_analytics"
+  | "moderate_content"
+  | "upload_files"
+  | "add_locations"
   // Operacionales (migration PR-ADMIN-AUDIT-1b)
   | "manage_permissions"
   | "manage_marker_config"
@@ -32,18 +44,7 @@ export type Capability =
   | "run_image_recovery"
   | "manage_design_system"
   | "purge_user"
-  | "open_back_office"
-  // Clásicas
-  | "manage_users"
-  | "manage_roles"
-  | "view_all_users"
-  | "manage_all_documents"
-  | "view_all_locations"
-  | "manage_app_settings"
-  | "manage_translations"
-  | "manage_categories"
-  | "view_analytics"
-  | "manage_blog";
+  | "open_back_office";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
