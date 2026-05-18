@@ -1791,8 +1791,8 @@ ${(!isEnriched) ? (() => {
      Los slots interactivos (recovery-root, route-waypoint actions) se emiten
      como hijos DIRECTOS del popup-scroll-body, full-width, sin gutter
      editorial heredado y SIN márgenes negativos. Ver
-     `docs/contracts/popup-contract.md` § Two-rail body y
-     `mem://style/popup/two-rail-body`. -->
+     docs/contracts/popup-contract.md (Two-rail body) y
+     mem://style/popup/two-rail-body. -->
 </div>
 <!-- Slot interactivo full-width: UnenrichedRecoveryBlock (hydrated by
      LocationMap on popupopen). Solo se monta si el POI no está enriquecido.
