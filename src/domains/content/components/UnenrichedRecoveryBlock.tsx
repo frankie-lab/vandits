@@ -482,7 +482,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
                   type="button"
                   onClick={() => handleAdoptCandidate(c)}
                   disabled={busy || searching}
-                  className="group w-full text-left flex items-start gap-2 py-1.5 px-1 hover:bg-muted/40 transition-colors disabled:opacity-50 rounded"
+                  className="group w-full text-left flex items-start gap-2 py-1.5 px-0 hover:bg-muted/40 transition-colors disabled:opacity-50 rounded"
                   title="Usar este lugar y enriquecer"
                 >
                   <div className="flex-1 min-w-0">
