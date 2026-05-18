@@ -416,3 +416,36 @@ Mount lateral reducido a 4px:
 
 `src/test/popup-poi-1b-recovery-mount-margin.test.ts` verifica el
 string canónico del mount y bloquea la regresión a `16px`.
+
+## P-POI-CURATION-2.8 — Buscador inline materializado
+
+Refuerzo de affordance sobre el input introducido en 2.7. El buscador
+permanece en el header del `NearbyPanel` inline, pero pasa de underline
+minimalista a campo materializado discreto para que se reconozca como
+herramienta de refinamiento y no como metadata.
+
+### Reglas canónicas
+
+- Wrapper del input (único en POI-1b con `data-nearby-search-input`):
+  - `h-7`, `px-2`, `rounded-md`.
+  - `bg-muted/40`, `border border-border/50`.
+  - `focus-within:border-primary/60 focus-within:bg-background`.
+  - Margins: `mx-1 mt-2.5 mb-1` (separa del slider Radio y de la lista).
+- Icono `Search` a `w-3.5 h-3.5 text-muted-foreground` (no `/60`).
+- Input: `text-[12px]`, `placeholder:text-muted-foreground/70`,
+  `bg-transparent`, sin `border` propio (ya lo aporta el wrapper).
+- Placeholder canónico: `"Buscar otro punto cercano…"`.
+- Botón clear `×`: `h-5 w-5 rounded`, visible solo con query.
+
+### Excepción justificada a flat surface (2.4)
+
+El input es la **única** materialización con caja dentro del header del
+bloque inline. Justificación: affordance de control activo (no sub-card
+editorial). El resto del bloque (current-point, mismatch banner, lista,
+footer) conserva la flat surface.
+
+### Fuera de alcance
+
+Sticky positioning del input, footer fijo del popup, shell, hero,
+breadcrumb, ratings, niveles POI, lógica de curación, marker grammar,
+variantes `dialog`/`sidebar`/`card`, P-POI-CURATION-3.x.
