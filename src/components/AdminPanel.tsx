@@ -365,7 +365,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  );
  }
 
- if (!canManageUsers && !isMaster()) {
+ if (!hasPermission('open_back_office') && !canManageUsers) {
  return (
  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-modal flex items-center justify-center bg-foreground/50 overlay-respect-progress" onClick={onClose}>
  <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-card rounded-xl shadow-2xl p-8 max-w-md mx-4" onClick={e => e.stopPropagation()}>
