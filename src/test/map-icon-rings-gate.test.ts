@@ -8,7 +8,7 @@
  * Regresión directa del bug reportado: POIs `poi-1a` y `poi-3`
  * heredaban contorno antiguo aunque el canon nuevo no lo permite.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 vi.mock('@/integrations/supabase/client', () => {
   const chain: any = {
@@ -20,7 +20,6 @@ vi.mock('@/integrations/supabase/client', () => {
   return { supabase: { from: () => chain } };
 });
 
-import { vi } from 'vitest';
 import type { GeoLocation } from '@/types/location';
 import { createCustomIcon, setCurrentZoom } from '@/components/map/map-icons';
 import { clearPoiSourceCache } from '@/domains/content/lib/poi-source';
