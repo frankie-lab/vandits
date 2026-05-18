@@ -581,3 +581,19 @@ body.is-blocking-load .leaflet-container {
     opacity: 1;
   }
 }
+
+/* P-POPUP-16 — Operational loading state (in-place overlay).
+   Canon: data-popup-operational-state="idle|loading|error" on popup root.
+   G1: overlay is absolute over scroll body; siblings dim via opacity only.
+   G2: never mutates root/body identity nor their innerHTML structure. */
+@keyframes popup-op-spin { to { transform: rotate(360deg); } }
+[data-popup-operational-state="loading"] [data-popup-scroll-body="v1"] > *:not(.popup-operational-overlay) {
+  opacity: var(--popup-loading-opacity, 0.5);
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 120ms ease;
+}
+[data-popup-operational-state="loading"] [data-popup-footer="v1"] button {
+  pointer-events: none;
+  opacity: 0.6;
+}
