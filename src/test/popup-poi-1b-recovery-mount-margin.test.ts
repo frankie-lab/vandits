@@ -28,9 +28,9 @@ describe('P-POI-CURATION-2.10 — two-rail popup body', () => {
     expect(source).toContain('<div style="padding: 16px 16px 8px 16px;">');
   });
 
-  it('data-recovery-root es slot full-width (margin lateral = 0, sin gutter)', () => {
+  it('data-recovery-root usa gutter ligero propio del rail interactivo (8px laterales, canon 2.11)', () => {
     expect(source).toContain(
-      'data-recovery-root="${location.id}" style="margin: 0 0 8px 0;"',
+      'data-recovery-root="${location.id}" style="margin: 0 8px 8px 8px;"',
     );
   });
 
@@ -43,6 +43,18 @@ describe('P-POI-CURATION-2.10 — two-rail popup body', () => {
   it('data-recovery-root NO usa el margen reducido del canon 2.6 (4px)', () => {
     expect(source).not.toContain(
       'data-recovery-root="${location.id}" style="margin: 0 4px 8px 4px;"',
+    );
+  });
+
+  it('data-recovery-root NO vuelve al full-bleed absoluto del canon 2.10 (margin lateral 0)', () => {
+    expect(source).not.toContain(
+      'data-recovery-root="${location.id}" style="margin: 0 0 8px 0;"',
+    );
+  });
+
+  it('data-recovery-root NO usa márgenes negativos como parche (anti 2.10-A)', () => {
+    expect(source).not.toMatch(
+      /data-recovery-root="\$\{location\.id\}"\s+style="[^"]*margin:[^"]*-\d/,
     );
   });
 

@@ -213,13 +213,30 @@ hijos directos**, no intercambiables:
 - Hero, breadcrumb, ratings y descripción NO cambian visualmente al
   aplicar este canon: siguen dentro del wrapper editorial intacto.
 
+### Gutter del rail interactivo (P-POI-CURATION-2.11)
+
+El rail interactivo NO usa full-bleed absoluto. Tiene un gutter propio
+ligero (`margin: 0 8px 8px 8px` para `data-recovery-root`) que da
+respiración a buscador, filas y badges sin reintroducir la sensación de
+caja editorial. Jerarquía visual canónica:
+
+- Rail editorial → 16px laterales (lectura).
+- Rail interactivo → 8px laterales (densidad funcional, mitad del editorial).
+- `route-waypoint-actions` mantiene `margin: 8px 16px` porque es grid de
+  botones, no lista densa.
+
+Está prohibido volver a `margin: 0 0 8px 0` (full-bleed 2.10) o subir a
+16px (gutter editorial).
+
 ### Test canónico
 
 `src/test/popup-poi-1b-recovery-mount-margin.test.ts` verifica:
 
 - Wrapper editorial presente con padding 16px.
-- `data-recovery-root` con `margin: 0 0 8px 0;` (sin gutter, sin negativos).
+- `data-recovery-root` con `margin: 0 8px 8px 8px;` (gutter ligero 2.11).
 - `data-recovery-root` emitido DESPUÉS del cierre del wrapper editorial.
-- Ausencia de regresiones a canon 2.5 (`margin: 0 16px`) o 2.6
-  (`margin: 0 4px`).
+- Ausencia de regresiones a canon 2.5 (`margin: 0 16px`), 2.6
+  (`margin: 0 4px`) o 2.10 (`margin: 0 0`).
+- Sin márgenes negativos.
 - Slot `data-route-waypoint-actions="v1"` presente.
+
