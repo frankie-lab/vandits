@@ -118,7 +118,7 @@ const ALL_PERMISSIONS: AppPermission[] = [
 ];
 
 export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
- const { isMaster, hasPermission, loading: permissionsLoading } = usePermissions();
+ const { hasPermission, loading: permissionsLoading } = usePermissions();
  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
  const [users, setUsers] = useState<UserWithRoles[]>([]);
  const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
@@ -133,7 +133,10 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  const [purgePreview, setPurgePreview] = useState<{ targetUser: string; locations: number; documents: number; notes: number; photos: number; achievements: number } | null>(null);
  const [purgeProgress, setPurgeProgress] = useState(0);
 
- const canManageUsers = hasPermission('manage_users');
+ // PR-ADMIN-AUDIT Step 3: role-management requires manage_permissions (master-only),
+ // NOT manage_users (which admins also hold). Prevents admin → master self-escalation.
+ const canManageRoles = hasPermission('manage_permissions');
+ const canPurgeUsers = hasPermission('purge_user');
 
  const fetchData = useCallback(async () => {
  setLoading(true);
