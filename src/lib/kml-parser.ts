@@ -12,6 +12,11 @@ import {
   stripGeoMetaAndDateKeys,
   toKMLDocument,
 } from './parsers/shared';
+import {
+  evaluatePoiExport,
+  type ExportScope,
+  type ExportContext,
+} from '@/domains/content/lib/poi-export-eligibility';
 import { splitDescriptionParagraphs } from '@/shared/enrichment/format-description';
 
 function extractCoordinatesPair(coordString: string): { lat: number; lng: number; altitude?: number } | null {
