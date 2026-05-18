@@ -262,7 +262,11 @@ export const createCustomIcon = (
       currentZoom <= 3 ? Number(microByZoom?.z3OrLess ?? 2) :
       currentZoom === 4 ? Number(microByZoom?.z4 ?? 3) :
       Number(microByZoom?.z5 ?? 4);
-    const dot = entry.fill_color;
+    // PR-MAP-CANON-3 — own micro dot: fill desde nivel canónico cuando
+    // existe `levelVisual` (paletteScope='state'); fallback a `entry.fill_color`.
+    const dot = visualGrammar?.levelVisual
+      ? `hsl(${visualGrammar.levelVisual.fillHsl})`
+      : entry.fill_color;
     const haloStyle = isOwn ? '' : 'opacity:0.85;';
     // Followed micro: triángulo invertido CSS, fill = identidad (sin borde).
     if (isFollowedPoi) {
