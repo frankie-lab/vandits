@@ -55,8 +55,31 @@ export type PoiBodyBlocker =
   | 'rate'
   | 'none';
 
+/**
+ * PR-MAP-CANON-3 — Identificador canónico explícito del nivel visual del
+ * POI. Es la SoT que consume el mapa (`resolvePoiVisualGrammar` →
+ * `createCustomIcon`) para decidir el fill del marker propio. NO se
+ * deriva de `bodyBlocker` (señal de interacción/popup). Vive pegado al
+ * verdict para evitar divergencia futura entre mapa y popup.
+ *
+ * Subniveles de POI-1 (no son niveles canónicos nuevos; sólo discriminan
+ * variantes visuales del mismo nivel 1):
+ *   - poi-1a → geo sin validar/parcial (`null` | 'empty' | 'stale_name' | 'partial')
+ *   - poi-1b → geo OK (`'ok'`) pero sin enrich
+ */
+export type PoiVisualLevelKey =
+  | 'poi-0'
+  | 'poi-1a'
+  | 'poi-1b'
+  | 'poi-3'
+  | 'poi-5'
+  | 'poi-9'
+  | 'poi-10';
+
 export interface PoiCurationVerdict {
   level: PoiCurationLevel;
+  /** Identificador estable del nivel visual. Consumido por el mapa. */
+  levelKey: PoiVisualLevelKey;
   healthState: PoiCurationHealth;
   shareability: PoiCurationShareability;
   /** Bloqueo real visible en el cuerpo del popup. Una sola verdad. */
