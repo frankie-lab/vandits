@@ -1,18 +1,12 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Shield, Users, Settings, ChevronDown, ChevronRight, Check, Loader2, Search, UserPlus, Trash2, MapPin, ExternalLink, Route as RouteIcon } from 'lucide-react';
+import { X, Shield, ChevronDown, ChevronRight, Loader2, Search, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-import { MarkerSizeManager } from './MarkerSizeManager';
-import { RouteSettingsPanelContent } from './RouteSettingsPanel';
-import { IconLibraryManager } from './IconLibraryManager';
-import { EnrichmentCardConfig } from '@/domains/content/components';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { usePermissions, AppRole, AppPermission } from '@/domains/identity';
@@ -26,12 +20,6 @@ import {
  AlertDialogHeader,
  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-
-import { AuditPanel } from './AuditPanel';
-import { GeographyBackfillPanel } from './admin/GeographyBackfillPanel';
-import { DataSourcesPanel } from './admin/DataSourcesPanel';
-import { RecoverImagesPanel } from './admin/RecoverImagesPanel';
-import { DesignSystemPanel } from './admin/DesignSystemPanel';
 
 import { ADMIN_TABS, getAdminTab, type AdminTabKey } from './admin/admin-tabs';
 import { AdminGate } from './admin/AdminGate';
