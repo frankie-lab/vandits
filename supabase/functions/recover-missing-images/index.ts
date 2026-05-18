@@ -33,6 +33,7 @@ import {
   isAttemptComplete,
   type ImageSourceCode,
 } from "../_shared/image-search.ts";
+import { requireCapability } from "../_shared/require-capability.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
