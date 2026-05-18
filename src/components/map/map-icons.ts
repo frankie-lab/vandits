@@ -27,16 +27,15 @@ import { getOwnerIdentityColor } from './owner-stroke';
 import { getOwnerIdentityOklch } from '@/stores/owner-identity-store';
 import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
 import { resolveMarkerGrammar } from '@/domains/content/lib/poi-marker-grammar';
+import { resolvePoiVisualGrammar } from '@/domains/content/lib/poi-visual-grammar';
 
 // ── Neutral palettes for non-owner / non-followed shapes ───────────────
-// PR-POI-SOURCE-5: app POIs (diamond) y source POIs (hexagon) usan paletas
-// neutras — la paleta de estado (verde/gris/naranja) está reservada a
-// `own`. Tokens preliminares hasta exponer `--poi-app-*` y `--poi-source-*`
-// en `design-system/tokens/source/poi.json`.
-const APP_NEUTRAL_FILL = 'hsl(220 13% 46%)';
-const APP_NEUTRAL_STROKE = 'hsl(220 13% 88%)';
-const SOURCE_NEUTRAL_FILL = 'hsl(220 9% 38%)';
-const SOURCE_NEUTRAL_STROKE = 'hsl(220 9% 86%)';
+// PR-MAP-CANON-2: tokens en `design-system/tokens/source/poi.json` →
+// `poi.neutral.{app,source}.{fill,stroke}`. Cero literal HSL aquí.
+const APP_NEUTRAL_FILL = `hsl(${tokens.poi.neutral.app.fill})`;
+const APP_NEUTRAL_STROKE = `hsl(${tokens.poi.neutral.app.stroke})`;
+const SOURCE_NEUTRAL_FILL = `hsl(${tokens.poi.neutral.source.fill})`;
+const SOURCE_NEUTRAL_STROKE = `hsl(${tokens.poi.neutral.source.stroke})`;
 
 // ── Followed POI debug helpers ──────────────────────────────────────────
 // Activos solo en DEV o si la URL incluye `?debug=poi-icon`. En producción
