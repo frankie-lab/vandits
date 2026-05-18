@@ -1347,6 +1347,9 @@ title="Compartir este punto"
 Compartir
 </button>
 ` : '';
+
+  // P-POI-CURATION-2 — `curationVerdict` se hoistó al inicio de
+  // `createPopupContent` para garantizar commit atómico body↔footer.
   const showCurationPrimary =
     !isCuratorPoint &&
     !isNearbyPopupContext(location.id) &&
@@ -1374,6 +1377,7 @@ ${(canEditLocation && !isOwn && !isCuratorPoint) ? adminEditWarning : ''}
 <div style="display: flex; justify-content: center; align-items: center; gap: 8px;">
 ${reEnrichBtnHtml}
 ${notesBtnHtml}
+${shareBtnHtml}
 </div>
 <div style="display: flex; justify-content: flex-end; align-items: center;">
 ${deleteBtnHtml}
