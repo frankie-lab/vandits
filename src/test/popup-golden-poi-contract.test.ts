@@ -226,12 +226,13 @@ describe('P-POI-CURATION-1 — los niveles de curación NO bifurcan el renderer'
     }
   });
 
-  it('el único marker nuevo admisible es `data-curation-action` dentro del footer', () => {
-    // El golden (POI-10, rated) NO emite botón principal: estado final.
+  it('P-POI-CURATION-2: ni POI-10 ni POI-9b emiten botón "Valorar experiencia"', () => {
+    // POI-10 (golden, rated) → estado final, sin botón.
     expect(goldenHtml).not.toContain('data-action="curation-primary"');
-    // El visited-unrated (POI-9) sí emite el botón con la acción correcta.
-    expect(visitedUnratedHtml).toContain('data-action="curation-primary"');
-    expect(visitedUnratedHtml).toContain('data-curation-action="rate-experience"');
+    // POI-9b (visited-unrated) → las estrellas SON la acción; sin botón redundante.
+    expect(visitedUnratedHtml).not.toContain('data-action="curation-primary"');
+    expect(visitedUnratedHtml).not.toContain('data-curation-action="rate-experience"');
+    expect(visitedUnratedHtml).toContain('data-popup-active-blocker="rate"');
   });
 });
 

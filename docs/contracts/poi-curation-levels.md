@@ -122,3 +122,66 @@ Esta sección es **norma de blindaje**. Cualquier PR que afecte
 - `mem://logic/poi/curation-levels` — regla operativa + literal de
   renderer invariance.
 - Entrada en `mem://index.md` (Core).
+
+---
+
+## P-POI-CURATION-2 — Una sola verdad visible
+
+Amplía P-POI-CURATION-1 sin crear niveles nuevos. Añade el campo
+`bodyBlocker` al verdict y subdivide POI-1 (1a/1b) y POI-9 (9a/9b) en
+representación. La regla central: **el cuerpo y el footer derivan SIEMPRE
+del mismo `getPoiCurationLevel(loc)` en el mismo render pass**.
+
+### Tabla final (representación visible)
+
+| Nivel | Problema actual              | Bloque visible en cuerpo            | Botón | Texto del botón     |
+|-------|------------------------------|-------------------------------------|-------|---------------------|
+| POI-0 | Sin nombre validado          | Aviso "Sin nombre"                  | Sí    | Nombrar             |
+| POI-1a| Geografía sin validar        | Aviso "Sin localización clara"      | Sí    | Validar geografía   |
+| POI-1b| Geo OK pero sin enriquecer   | Contexto cercano (recovery inline)  | No    | —                   |
+| POI-3 | Conflicto geográfico         | Aviso de conflicto                  | Sí    | Resolver conflicto  |
+| POI-5 | Enriquecido con deuda        | Health rings + secciones            | Sí    | Sanar POI           |
+| POI-9a| Enriched sano, no visitado   | Rating block (personal = Pendiente) | No    | —                   |
+| POI-9b| Visitado sin rating          | Rating block (5 estrellas activas)  | No    | —                   |
+| POI-10| Estado final                 | Rating block con estrella marcada   | No    | —                   |
+
+### Reglas R1–R3
+
+- **R1 (una sola verdad)** — `bodyBlocker` es la ÚNICA fuente de verdad
+  del bloqueo visible.
+- **R2 (body = footer)** — cuerpo y footer derivan del mismo verdict
+  consumido una sola vez por `createPopupContent`.
+- **R3 (sin redundancia)** — `primaryAction ∈ {bodyBlocker, 'none'}`. Si
+  el cuerpo YA es la acción (POI-1b: recovery; POI-9a/9b: estrellas), el
+  footer no emite botón.
+
+### Implementación
+
+- `PoiCurationVerdict.bodyBlocker: 'name'|'validate-geo'|'enrich-from-context'|'resolve-conflict'|'heal'|'rate'|'none'`.
+- Subestados POI-1 resueltos por `geoHealth` (`ok` ⇒ 1b, resto ⇒ 1a).
+- Subestados POI-9 colapsados en `primaryAction='none'` (sin botón
+  "Valorar experiencia").
+- `createPopupContent` hoistea `const curationVerdict = getPoiCurationLevel(location)`
+  ANTES del shell, y lo consume tanto en el footer como en el recovery
+  mount.
+- Recovery mount gobernado por `curationVerdict.bodyBlocker === 'enrich-from-context'`
+  (NO por `!isPointEnriched`).
+- Hook verificable: `data-popup-active-blocker="${bodyBlocker}"` +
+  `data-popup-curation-level` en el root del popup.
+
+### Invariantes blindadas por tests
+
+- `popup-curation-primary-action.test.ts` → POI-1a emite `validate-geo`
+  sin `data-recovery-root`; POI-1b emite `data-recovery-root` sin botón;
+  POI-9b sin botón "Valorar experiencia".
+- INVARIANTE GLOBAL: ningún nivel coexiste `data-curation-action="validate-geo"`
+  con `data-recovery-root`.
+- `poi-curation-level.test.ts` → R3 (`primaryAction ∈ {bodyBlocker, 'none'}`)
+  para todos los niveles.
+- `popup-golden-poi-contract.test.ts` → POI-10 y POI-9b nunca emiten
+  `curation-primary`.
+
+### Fuera de alcance
+
+Shell, hero, breadcrumb, ratings block (salvo eliminar redundancia
+9b), marker grammar, heal-rings, resolve-conflict real, P-POI-CURATION-3.1.

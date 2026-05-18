@@ -86,7 +86,7 @@ const ALL_LEVELS: Array<{ level: number; loc: GeoLocation; action: string | null
   { level: 1, loc: POI_1, action: 'validate-geo' },
   { level: 3, loc: POI_3, action: 'resolve-conflict' },
   { level: 5, loc: POI_5, action: 'heal' },
-  { level: 9, loc: POI_9, action: 'rate-experience' },
+  { level: 9, loc: POI_9, action: null }, // POI-9b: estrellas son la acción
   { level: 10, loc: POI_10, action: null }, // POI-10 no emite botón
 ];
 
@@ -192,5 +192,72 @@ describe('P-POI-CURATION-1 — POI-10 estado final', () => {
     expect(html).toContain('data-popup-version="geo-canonical-v1"');
     expect(html).toContain('data-popup-ratings-block="v1"');
     expect(html).toContain('data-popup-footer="v1"');
+  });
+});
+
+/**
+ * P-POI-CURATION-2 — Una sola verdad visible.
+ *
+ * El cuerpo (recovery block) y el footer (botón principal) DEBEN derivar
+ * del mismo verdict en el mismo render pass. Nunca pueden coexistir
+ * `data-curation-action="validate-geo"` y `data-recovery-root` en el
+ * mismo popup. `data-popup-active-blocker` es el hook verificable.
+ */
+const POI_1A: GeoLocation = fromGolden({
+  id: 'lvl-1a',
+  name: 'POI sin geo',
+  enrichedData: undefined,
+  enrichmentStatus: undefined,
+  geoHealth: 'empty',
+  customData: { visited: 'false' },
+});
+const POI_1B: GeoLocation = fromGolden({
+  id: 'lvl-1b',
+  name: 'POI geo OK sin enrich',
+  enrichedData: undefined,
+  enrichmentStatus: undefined,
+  geoHealth: 'ok',
+  customData: { visited: 'false' },
+});
+const POI_9B: GeoLocation = fromGolden({
+  id: 'lvl-9b',
+  enrichedData: makeEnriched(),
+  geoHealth: 'ok',
+  customData: { visited: 'true', user_rating: '' },
+});
+
+describe('P-POI-CURATION-2 — una sola verdad visible (body vs footer)', () => {
+  it('POI-1a (geo sin validar): emite botón validate-geo y NO emite data-recovery-root', () => {
+    const html = createPopupContent(POI_1A, 0, OWN, true);
+    expect(html).toContain('data-popup-active-blocker="validate-geo"');
+    expect(html).toContain('data-popup-curation-level="1"');
+    expect(html).toContain('data-curation-action="validate-geo"');
+    expect(html).not.toContain('data-recovery-root=');
+  });
+
+  it('POI-1b (geo OK sin enrich): NO emite botón y SÍ monta data-recovery-root', () => {
+    const html = createPopupContent(POI_1B, 0, OWN, true);
+    expect(html).toContain('data-popup-active-blocker="enrich-from-context"');
+    expect(html).toContain('data-popup-curation-level="1"');
+    expect(html).not.toContain('data-action="curation-primary"');
+    expect(html).not.toContain('data-curation-action="validate-geo"');
+    expect(html).toContain(`data-recovery-root="${POI_1B.id}"`);
+  });
+
+  it('POI-9b (visitado, sin rating): bodyBlocker=rate, sin botón "Valorar experiencia"', () => {
+    const html = createPopupContent(POI_9B, 0, OWN, true);
+    expect(html).toContain('data-popup-active-blocker="rate"');
+    expect(html).not.toContain('data-action="curation-primary"');
+    expect(html).not.toContain('Valorar experiencia');
+  });
+
+  it('INVARIANTE GLOBAL: ningún nivel coexiste validate-geo + data-recovery-root', () => {
+    const ALL = [POI_0, POI_1A, POI_1B, POI_3, POI_5, POI_9, POI_9B, POI_10];
+    for (const l of ALL) {
+      const html = createPopupContent(l, 0, OWN, true);
+      const hasValidateGeoBtn = html.includes('data-curation-action="validate-geo"');
+      const hasRecoveryRoot = html.includes('data-recovery-root=');
+      expect(hasValidateGeoBtn && hasRecoveryRoot).toBe(false);
+    }
   });
 });

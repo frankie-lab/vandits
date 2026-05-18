@@ -1151,6 +1151,10 @@ export function createPopupContent(
   // como proxy de "enriquecido" (puede contener stubs sin `descripcion`).
   const isEnriched = isPointEnriched(location);
   const canRegenerate = canEnrich && (!isEnriched || locationUpdatedAt < criteriaTimestamp);
+  // P-POI-CURATION-2 — Verdict ÚNICO. Body y footer derivan del mismo
+  // objeto en el mismo render pass (commit visual atómico). Si cambia
+  // `bodyBlocker`, cuerpo + footer se reconstruyen consistentes.
+  const curationVerdict = getPoiCurationLevel(location);
   // P-POPUP-13 — Unified renderer: el shell canónico es el único shell.
   // `enriched` se normaliza a objeto vacío cuando el POI no está enriquecido
   // (o `enriched_data` es null) para que el composer canónico pueda emitir
@@ -1322,12 +1326,8 @@ title="Mover a la papelera"
 </button>
 ` : '';
 
-  // P-POI-CURATION-1 — Botón principal contextual de curación. Capa LÓGICA
-  // pura: NO cambia shell, layouts ni variantes del renderer. Sólo emite un
-  // atributo `data-curation-action` distinto según el nivel del POI. Se
-  // omite para curator/nearby (igual que el bloque de ratings) y para
-  // POI-10 (estado final, sin deuda). Ver `mem://logic/poi/curation-levels`.
-  const curationVerdict = getPoiCurationLevel(location);
+  // P-POI-CURATION-2 — `curationVerdict` se hoistó al inicio de
+  // `createPopupContent` para garantizar commit atómico body↔footer.
   const showCurationPrimary =
     !isCuratorPoint &&
     !isNearbyPopupContext(location.id) &&
@@ -1405,7 +1405,7 @@ Añadir a mi colección
     const visitedState = resolveVisitedPresentationState(location, ownershipInfo, enriched);
 
     return `
-<div id="${popupId}" data-popup-version="${isPopupGeoCanonicalV1On() ? 'geo-canonical-v1' : 'legacy'}" data-popup-geo-canonical="${isPopupGeoCanonicalV1On() ? 'true' : 'false'}" data-popup-ownership-strip="${(isOwn && isPopupOwnershipStripV1On()) ? 'v1' : 'legacy'}" data-popup-operational-state="idle" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: ${POPUP_MAX_HEIGHT}; overflow: hidden;"><!-- P-POPUP-15: diag badges removed from runtime; data-popup-* remain as test hooks -->
+<div id="${popupId}" data-popup-version="${isPopupGeoCanonicalV1On() ? 'geo-canonical-v1' : 'legacy'}" data-popup-geo-canonical="${isPopupGeoCanonicalV1On() ? 'true' : 'false'}" data-popup-ownership-strip="${(isOwn && isPopupOwnershipStripV1On()) ? 'v1' : 'legacy'}" data-popup-operational-state="idle" data-popup-active-blocker="${curationVerdict.bodyBlocker}" data-popup-curation-level="${curationVerdict.level}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: ${POPUP_MAX_HEIGHT}; overflow: hidden;"><!-- P-POPUP-15: diag badges removed from runtime; data-popup-* remain as test hooks -->
 ${statusBarHtml}
 
 <!-- Hero (fija, no participa en el scroll) -->
@@ -1788,7 +1788,7 @@ ${(!isEnriched) ? (() => {
 })() : ''}
 <!-- Mount point for UnenrichedRecoveryBlock (hydrated by LocationMap on popupopen).
      Solo se monta si el POI no está enriquecido. -->
-${!isEnriched ? `<div data-recovery-root="${location.id}" style="margin: 0 16px 8px 16px;"></div>` : ''}
+${curationVerdict.bodyBlocker === 'enrich-from-context' ? `<div data-recovery-root="${location.id}" style="margin: 0 16px 8px 16px;"></div>` : ''}
 ${(() => {
   const pt = (location.placeType ?? '').toString();
   const isRouteWaypoint = pt === 'route_waypoint' || pt.startsWith('route_') || location.customData?.is_route_waypoint === 'true';

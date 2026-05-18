@@ -40,11 +40,28 @@ export type PoiPrimaryAction =
   | 'heal'
   | 'rate-experience'
   | 'none';
+/**
+ * P-POI-CURATION-2 — bloqueo real activo del POI. Es la ÚNICA verdad que
+ * gobierna a la vez el bloque del cuerpo y la acción del footer. Renderer
+ * y handlers leen siempre el mismo verdict: si `bodyBlocker` cambia, el
+ * cuerpo y el footer cambian en el mismo render pass (commit atómico).
+ */
+export type PoiBodyBlocker =
+  | 'name'
+  | 'validate-geo'
+  | 'enrich-from-context'
+  | 'resolve-conflict'
+  | 'heal'
+  | 'rate'
+  | 'none';
 
 export interface PoiCurationVerdict {
   level: PoiCurationLevel;
   healthState: PoiCurationHealth;
   shareability: PoiCurationShareability;
+  /** Bloqueo real visible en el cuerpo del popup. Una sola verdad. */
+  bodyBlocker: PoiBodyBlocker;
+  /** Acción del footer. Invariante: `primaryAction ∈ {bodyBlocker, 'none'}`. */
   primaryAction: PoiPrimaryAction;
 }
 
@@ -105,24 +122,51 @@ function isVisited(loc: GeoLocation | null | undefined): boolean {
 }
 
 /**
- * Resuelve la acción primaria del footer combinando nivel + estado personal.
+ * P-POI-CURATION-2 — Resuelve `bodyBlocker` (bloqueo real visible en el
+ * cuerpo) y `primaryAction` (acción del footer) a partir del nivel + geo +
+ * estado personal. Una sola verdad: el cuerpo y el footer derivan SIEMPRE
+ * del mismo verdict.
  *
- * El nivel define la familia de salud; el estado personal sólo discrimina
- * dentro de POI-9 (sano sin valoración final):
- *   - no visitado → `none` (la fila personal del rating block ya comunica
- *     "Pendiente"; un botón "Valorar experiencia" sin visita es confuso).
- *   - visitado sin rating → `rate-experience`.
- * El resto delega en la tabla canónica.
+ * Subestados POI-1 (sin crear niveles nuevos):
+ *   - POI-1a → geo sin validar (`null`/`empty`/`stale_name`):
+ *       bodyBlocker='validate-geo', primaryAction='validate-geo'.
+ *   - POI-1b → geo OK pero sin enrich:
+ *       bodyBlocker='enrich-from-context' (recovery block ES la acción),
+ *       primaryAction='none' (sin botón redundante).
+ *
+ * Subestados POI-9:
+ *   - POI-9a (no visitado): bodyBlocker='rate', primaryAction='none' —
+ *     la fila personal del rating block ya comunica "Pendiente".
+ *   - POI-9b (visitado, sin rating): bodyBlocker='rate',
+ *     primaryAction='none' — las 5 estrellas SON la acción; un botón
+ *     "Valorar experiencia" duplicaría la affordance.
+ *
+ * Invariante R3: `primaryAction ∈ {bodyBlocker, 'none'}`.
  */
-function resolvePrimaryAction(
+function resolveVerdictExtras(
   level: PoiCurationLevel,
-  state: { visited: boolean; rated: boolean },
-): PoiPrimaryAction {
-  if (level === 9) {
-    if (state.visited && !state.rated) return 'rate-experience';
-    return 'none';
+  geo: GeoLocation['geoHealth'] | null,
+  _state: { visited: boolean; rated: boolean },
+): { bodyBlocker: PoiBodyBlocker; primaryAction: PoiPrimaryAction } {
+  switch (level) {
+    case 0:
+      return { bodyBlocker: 'name', primaryAction: 'name' };
+    case 1: {
+      if (geo === 'ok') {
+        return { bodyBlocker: 'enrich-from-context', primaryAction: 'none' };
+      }
+      return { bodyBlocker: 'validate-geo', primaryAction: 'validate-geo' };
+    }
+    case 3:
+      return { bodyBlocker: 'resolve-conflict', primaryAction: 'resolve-conflict' };
+    case 5:
+      return { bodyBlocker: 'heal', primaryAction: 'heal' };
+    case 9:
+      return { bodyBlocker: 'rate', primaryAction: 'none' };
+    case 10:
+    default:
+      return { bodyBlocker: 'none', primaryAction: 'none' };
   }
-  return LEVEL_ACTION[level];
 }
 
 
@@ -145,27 +189,26 @@ export function getPoiCurationLevel(loc: GeoLocation | null | undefined): PoiCur
   let level: PoiCurationLevel;
 
   if (geo === 'broken') {
-    // POI-3 — conflicto geográfico siempre prevalece (incluso enriched).
     level = 3;
   } else if (!enriched && !hasValidatedName(safe)) {
     level = 0;
   } else if (!enriched) {
     level = 1;
   } else if (rings.length > 0 || geo !== 'ok') {
-    // Deuda OBJETIVA: rings activos o geoHealth ∈ {partial, stale_name, empty, null}.
     level = 5;
   } else if (visited && rated) {
     level = 10;
   } else {
-    // Enriched + sano (rings=[], geo=ok). Visitado o no, sin valoración final.
     level = 9;
   }
 
+  const { bodyBlocker, primaryAction } = resolveVerdictExtras(level, geo, { visited, rated });
   return {
     level,
     healthState: LEVEL_HEALTH[level],
     shareability: LEVEL_SHAREABILITY[level],
-    primaryAction: resolvePrimaryAction(level, { visited, rated }),
+    bodyBlocker,
+    primaryAction,
   };
 }
 
