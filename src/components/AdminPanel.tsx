@@ -33,7 +33,10 @@ import { DataSourcesPanel } from './admin/DataSourcesPanel';
 import { RecoverImagesPanel } from './admin/RecoverImagesPanel';
 import { DesignSystemPanel } from './admin/DesignSystemPanel';
 
-type AdminTab = 'users' | 'permissions' | 'markers' | 'routes' | 'icons' | 'enrichment' | 'audit' | 'geography' | 'sources' | 'image-recovery' | 'design-system';
+import { ADMIN_TABS, getAdminTab, type AdminTabKey } from './admin/admin-tabs';
+import { AdminGate } from './admin/AdminGate';
+
+type AdminTab = AdminTabKey;
 
 interface AdminPanelProps {
  onClose: () => void;
