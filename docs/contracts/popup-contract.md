@@ -292,3 +292,38 @@ Prohibido:
 
 **Test canónico:** `src/test/popup-poi-2-12-selected-row-action-canon.test.ts`.
 
+
+## Adopción nearby + re-curación (P-POI-CURATION-2.13)
+
+Cuando el usuario confirma la acción primaria **"Usar como este punto"**
+sobre un candidato nearby con `source ∈ {osm, followed}`, el POI abierto
+se promociona a la nueva identidad y se re-cura end-to-end **sin cerrar
+el popup**.
+
+### Flujo canónico
+1. `UPDATE locations SET name, latitude, longitude, place_type,
+   description=NULL, enriched_data=NULL, enrichment_status='pending'`.
+2. `updateLocation` en store, in-place (sin remount).
+3. `enrichmentFailureStore.invalidate(id)`.
+4. `setNearbyPopupContextId(null)` — el popup deja de ser vista de vecino.
+5. `advancePoiCurationUntilBlocked(id, 'validate-geo', popupId)` reusa el
+   pipeline existente: validate-geo → recompute → enrich → recompute.
+6. Toast final según `result.blocker`.
+
+### Invariantes
+- `osm` y `followed` convergen en el **mismo** flujo de re-curación
+  (sin rama exclusiva osm que llame `triggerEnrichLocation` paralelo).
+- Popup nunca se cierra ni se desmonta durante el pipeline. Overlay
+  P-POPUP-16 cubre todo el flujo con label mutante.
+- `enriched_data` previo se descarta antes de relanzar — la regeneración
+  editorial es coherente con la nueva identidad.
+- `source='own'` queda fuera: sigue siendo merge clásico (soft-delete del
+  POI abierto + `onClose()`).
+
+### Prohibido
+- `triggerEnrichLocation(id).catch(() => {})` fire-and-forget en este path.
+- Pipeline ad-hoc validate-geo o enrich fuera del orquestador único.
+- Cerrar el popup tras adoptar (osm/followed).
+- Conservar `enriched_data` o `enrichment_status` previo tras promoción.
+
+**Test canónico:** `src/test/popup-poi-2-13-adopt-nearby-recuration.test.ts`.
