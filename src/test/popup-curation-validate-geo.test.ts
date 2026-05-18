@@ -230,18 +230,23 @@ describe('P-POI-CURATION-2/3 Fase 1 — validate-geo (pipeline)', () => {
   it('overlay covers the whole pipeline with "Validando geografía…" label', async () => {
     const popupId = mountPopupDom(fakeLocation.id);
     let resolveStart: () => void;
-    startMock.mockReturnValue(new Promise<void>((res) => { resolveStart = res; }));
+    startMock.mockImplementation(
+      () => new Promise<void>((res) => { resolveStart = () => { res(); }; }),
+    );
     const handler = getHandler();
 
     const pending = handler(makeEvent('validate-geo'));
-    await Promise.resolve();
+    // Flush dynamic import + sync orchestrator entry.
+    await new Promise((r) => setTimeout(r, 0));
     const root = document.getElementById(popupId)!;
     expect(root.getAttribute('data-popup-operational-state')).toBe('loading');
     const label = root.querySelector('.popup-operational-label')?.textContent ?? '';
     expect(label).toBe('Validando geografía…');
 
+    // Resolve start, then fire the job-complete signal (subscriber is registered before start).
     resolveStart!();
-    queueMicrotask(() => completeGeocodingJob('completed'));
+    await new Promise((r) => setTimeout(r, 0));
+    completeGeocodingJob('completed');
     await pending;
     expect(root.getAttribute('data-popup-operational-state')).toBe('idle');
   });
@@ -249,17 +254,21 @@ describe('P-POI-CURATION-2/3 Fase 1 — validate-geo (pipeline)', () => {
   it('double-click does NOT duplicate the job (isPopupOperational guard)', async () => {
     mountPopupDom(fakeLocation.id);
     let resolveStart: () => void;
-    startMock.mockReturnValue(new Promise<void>((res) => { resolveStart = res; }));
+    startMock.mockImplementation(
+      () => new Promise<void>((res) => { resolveStart = () => { res(); }; }),
+    );
     const handler = getHandler();
 
     const first = handler(makeEvent('validate-geo'));
-    await Promise.resolve();
+    // Flush dynamic import + start() call.
+    await new Promise((r) => setTimeout(r, 0));
     // Second click while still loading — must be ignored.
     await handler(makeEvent('validate-geo'));
     expect(startMock).toHaveBeenCalledTimes(1);
 
     resolveStart!();
-    queueMicrotask(() => completeGeocodingJob('completed'));
+    await new Promise((r) => setTimeout(r, 0));
+    completeGeocodingJob('completed');
     await first;
   });
 
