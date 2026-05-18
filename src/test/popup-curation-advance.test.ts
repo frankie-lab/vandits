@@ -125,11 +125,15 @@ beforeEach(() => {
   resetLoc({});
 });
 
+// Long, plausible enriched descripcion (>= 60 chars, not unverifiable).
+const LONG_DESC =
+  'Castillo medieval del siglo XII situado sobre un promontorio rocoso con vistas al valle del río y restos de murallas romanas adyacentes.';
+
 describe('advancePoiCurationUntilBlocked — short-circuits', () => {
   it('POI-10 (enriched + ok + visited + rated) → stopped immediately', async () => {
     resetLoc({
       geoHealth: 'ok',
-      enrichedData: { descripcion: 'rich' },
+      enrichedData: { descripcion: LONG_DESC },
       customData: { visited: 'true', user_rating: '5' },
     });
     const result = await advancePoiCurationUntilBlocked(h.fakeLoc.id, 'validate-geo', 'popup-x');
@@ -144,7 +148,7 @@ describe('advancePoiCurationUntilBlocked — short-circuits', () => {
   it('POI-9 visited without rating → blocker=manual-rating, no stages', async () => {
     resetLoc({
       geoHealth: 'ok',
-      enrichedData: { descripcion: 'rich' },
+      enrichedData: { descripcion: LONG_DESC },
       customData: { visited: 'true' },
     });
     const result = await advancePoiCurationUntilBlocked(h.fakeLoc.id, 'validate-geo', 'popup-x');
@@ -157,7 +161,7 @@ describe('advancePoiCurationUntilBlocked — short-circuits', () => {
   it('POI-9 not visited (already healthy) → blocker=none, no stages', async () => {
     resetLoc({
       geoHealth: 'ok',
-      enrichedData: { descripcion: 'rich' },
+      enrichedData: { descripcion: LONG_DESC },
       customData: {},
     });
     const result = await advancePoiCurationUntilBlocked(h.fakeLoc.id, 'validate-geo', 'popup-x');
@@ -186,7 +190,7 @@ describe('advancePoiCurationUntilBlocked — POI-1 pipeline', () => {
     h.enrichResult = { success: true };
     const enrichMock = (await import('@/domains/content/lib/enrich-location')).triggerEnrichLocation as any;
     enrichMock.mockImplementation(async () => {
-      h.fakeLoc.enrichedData = { descripcion: 'AI text' };
+      h.fakeLoc.enrichedData = { descripcion: LONG_DESC };
       h.fakeLoc.geoHealth = 'ok';
       return { success: true };
     });
