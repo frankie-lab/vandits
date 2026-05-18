@@ -327,5 +327,11 @@ export async function triggerEnrichLocation(
     console.error('[triggerEnrichLocation] error:', error);
     toast.error('Error al enriquecer', { id: toastId });
     return { success: false, error: error instanceof Error ? error.message : 'unknown' };
+  } finally {
+    // P-POPUP-17 — always release the operational overlay paired with the
+    // `start` we emitted above, regardless of success / failure / branch.
+    if (!silent) {
+      emitEnrichmentPhase({ id: locationId, phase: 'end' });
+    }
   }
 }
