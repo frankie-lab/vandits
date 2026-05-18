@@ -25,7 +25,7 @@ const SRC = readFileSync(FILE, 'utf-8');
 describe('P-POI-CURATION-2.7 — manual search inline', () => {
   it('NearbyPanel inline header renders search input with data-nearby-search-input hook', () => {
     expect(SRC).toContain('data-nearby-search-input');
-    expect(SRC).toContain('placeholder="Buscar por nombre');
+    expect(SRC).toContain('placeholder="Buscar otro punto cercano…"');
     expect(SRC).toContain('!loadingNearby && !errorNearby');
   });
 
@@ -54,16 +54,20 @@ describe('P-POI-CURATION-2.7 — manual search inline', () => {
     expect(SRC).toMatch(/onClick=\{\(\) => setSearchQuery\(''\)\}/);
   });
 
-  it('search input wrapper stays flat: no bg-muted, no rounded-lg, no border on the input row', () => {
-    // Extract the search input block.
-    const m = SRC.match(/data-nearby-search-input[\s\S]{0,1200}?<\/div>/);
+  it('P-POI-CURATION-2.8 — input materializado discreto: h-7, text-[12px], bg-muted/40, rounded-md, border, focus-within primary', () => {
+    const m = SRC.match(/<div\s+className="[^"]*"[\s\S]{0,200}?data-nearby-search-input[\s\S]{0,1600}?<\/div>\s*\)\}/);
     expect(m, 'search input block not found').toBeTruthy();
     const block = m![0];
-    expect(block).not.toMatch(/\bbg-muted\b/);
+    expect(block).toMatch(/\bh-7\b/);
+    expect(block).toMatch(/\bpx-2\b/);
+    expect(block).toMatch(/\brounded-md\b/);
+    expect(block).toMatch(/\bbg-muted\/40\b/);
+    expect(block).toMatch(/\bborder\s+border-border\/50\b/);
+    expect(block).toMatch(/focus-within:border-primary\/60/);
+    expect(block).toMatch(/focus-within:bg-background/);
+    expect(block).toMatch(/text-\[12px\]/);
+    // Anti-regresión: ninguna sub-card editorial (rounded-lg) dentro del input.
     expect(block).not.toMatch(/\brounded-lg\b/);
-    // Allowed: a thin border-b on the input itself (underline affordance), but
-    // not a full box-border on the wrapper.
-    expect(block).not.toMatch(/border\s+border-border\b/);
   });
 
   it('reset al cambiar de POI: searchQuery vuelve a vacío en el efecto de location.id', () => {
