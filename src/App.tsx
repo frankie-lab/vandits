@@ -17,7 +17,7 @@ import { DesignSystemThemeProvider } from "@/design-system/runtime/theme-provide
 import { EditModeBar } from "@/components/admin/design-system/EditModeBar";
 import { SourceFilterBridge } from "@/components/poi/SourceFilterBridge";
 import { CameraFitQaPanel } from "@/components/debug/CameraFitQaPanel";
-import { ShareSheet } from "@/domains/sharing";
+
 
 
 const queryClient = new QueryClient();
@@ -62,7 +62,7 @@ const App = () => (
       <EditModeBar />
         <SourceFilterBridge />
         <CameraFitQaPanel />
-        <ShareSheet />
+        
  <BrowserRouter>
  <Routes>
  <Route path="/auth" element={<Auth />} />
