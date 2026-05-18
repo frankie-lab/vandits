@@ -242,6 +242,19 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
   const INLINE_VISIBLE_DEFAULT = 6;
   // Reset cap on POI change / radius change para no heredar "Ver más" entre POIs.
   useEffect(() => { setExpandedList(false); }, [location.id, radiusMeters]);
+
+  // P-POI-CURATION-2.7 — Buscador manual inline: refinamiento sin remount.
+  // Vacío => modo automático (grupos). >=2 chars => modo búsqueda (lista plana
+  // filtrada client-side sobre nearbyPoints). El header (radio + input + punto
+  // actual) permanece estable; solo cambia la zona de resultados.
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+  // Reset query al cambiar de POI; no al cambiar radio (la query sobrevive).
+  useEffect(() => { setSearchQuery(''); setDebouncedQuery(''); }, [location.id]);
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
   const documents = useLocationsStore(state => state.documents);
   const selectedRef = useRef<HTMLDivElement | null>(null);
