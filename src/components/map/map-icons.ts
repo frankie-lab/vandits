@@ -262,7 +262,11 @@ export const createCustomIcon = (
       currentZoom <= 3 ? Number(microByZoom?.z3OrLess ?? 2) :
       currentZoom === 4 ? Number(microByZoom?.z4 ?? 3) :
       Number(microByZoom?.z5 ?? 4);
-    const dot = entry.fill_color;
+    // PR-MAP-CANON-3 — own micro dot: fill desde nivel canónico cuando
+    // existe `levelVisual` (paletteScope='state'); fallback a `entry.fill_color`.
+    const dot = visualGrammar?.levelVisual
+      ? `hsl(${visualGrammar.levelVisual.fillHsl})`
+      : entry.fill_color;
     const haloStyle = isOwn ? '' : 'opacity:0.85;';
     // Followed micro: triángulo invertido CSS, fill = identidad (sin borde).
     if (isFollowedPoi) {
@@ -375,8 +379,17 @@ export const createCustomIcon = (
   //   La antigua `focused-thumbnail-rule` queda deprecada.
 
 
-  const baseColor = entry.fill_color;
-  const baseColorLight = entry.fill_color_light || adjustHslLightness(baseColor, 15);
+  // PR-MAP-CANON-3 — Cuando `paletteScope === 'state'` (POI propio),
+  // el fill principal sale del nivel canónico POI-N (SoT compartida con
+  // el popup vía `getPoiCurationLevel.levelKey`). `marker_size_config.
+  // fill_color` deja de gobernar el color en esta rama: queda como
+  // fallback para no-state y para tamaño/hover/border (que sí lo siguen
+  // leyendo a través de `entry`).
+  const levelVisual = visualGrammar?.levelVisual ?? null;
+  const baseColor = levelVisual ? `hsl(${levelVisual.fillHsl})` : entry.fill_color;
+  const baseColorLight = levelVisual
+    ? adjustHslLightness(baseColor, 15)
+    : (entry.fill_color_light || adjustHslLightness(baseColor, 15));
   const scaleRatio = hoverSize ? hoverSize / size : 1;
   const hoverAttr = scaleRatio > 1
     ? `onmouseenter="this.style.transform='scale(${scaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'"`
@@ -420,7 +433,7 @@ export const createCustomIcon = (
       ? `<div style="position:absolute; top:-4px; right:-4px; width:14px; height:14px; border-radius:50%; background:hsl(var(--poi-health-review) / 0.95); display:flex; align-items:center; justify-content:center; pointer-events:none; box-shadow:0 0 0 1.5px hsl(var(--background));"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${getCoherenceGlyphPath(glyph)}</svg></div>`
       : '';
     polaroidHtml = `
-      <div class="poi-hero-marker poi-hero-marker--addon${ownClass}" style="position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%); width:${polaroidW}px; height:${polaroidH}px; pointer-events:none; --marker-state-color:${entry.fill_color};">
+      <div class="poi-hero-marker poi-hero-marker--addon${ownClass}" style="position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%); width:${polaroidW}px; height:${polaroidH}px; pointer-events:none; --marker-state-color:${baseColor};">
         <div class="poi-hero-marker__card">
           <div class="poi-hero-marker__photo">
             <div class="poi-hero-marker__placeholder">${placeholderSvg}</div>

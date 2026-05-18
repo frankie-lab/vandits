@@ -50,7 +50,27 @@ import {
 import {
   getPoiCurationLevel,
   type PoiCurationVerdict,
+  type PoiVisualLevelKey,
 } from './poi-curation-level';
+import { tokens } from '@/design-system/tokens';
+
+/**
+ * PR-MAP-CANON-3 — Decisión visual derivada del nivel canónico POI-N.
+ * Sólo se computa cuando `paletteScope === 'state'` (POI propio); para
+ * followed/app/source es `null` y el pipeline de esos orígenes no cambia.
+ *
+ * - `fill`: color HSL ya resuelto desde tokens (`poi.level.<N>`), listo
+ *   para inyectar en `hsl(...)`. Cero literal en el renderer.
+ * - `showStateRing`: true sólo para `poi-5` (único nivel con deuda
+ *   objetiva que requiere capa de health rings como señal operativa
+ *   secundaria). El resto de niveles no debe pintar rings.
+ */
+export interface PoiLevelVisual {
+  levelKey: PoiVisualLevelKey;
+  /** Triplete HSL (sin wrapper `hsl(...)`) — mismo formato que los demás tokens. */
+  fillHsl: string;
+  showStateRing: boolean;
+}
 
 export interface PoiVisualGrammar {
   /** Shape + paletteScope + decoration flags (own/followed/app/source). */
@@ -61,6 +81,11 @@ export interface PoiVisualGrammar {
   healthRings: HealthRing[];
   /** Curation verdict (POI-0…POI-10). Always computed; renderer may ignore. */
   curation: PoiCurationVerdict;
+  /**
+   * PR-MAP-CANON-3 — Decisión visual canónica del marker propio. `null`
+   * para followed/app/source (su pipeline no consume nivel POI).
+   */
+  levelVisual: PoiLevelVisual | null;
 }
 
 export interface ResolvePoiVisualGrammarOptions {
@@ -90,5 +115,26 @@ export function resolvePoiVisualGrammar(
     ? getPointHealthRings(poi, viewerUid ?? null)
     : [];
   const curation = getPoiCurationLevel(poi);
-  return { grammar, visualState, healthRings, curation };
+  const levelVisual = grammar.paletteScope === 'state'
+    ? resolveLevelVisual(curation.levelKey)
+    : null;
+  return { grammar, visualState, healthRings, curation, levelVisual };
+}
+
+/**
+ * PR-MAP-CANON-3 — Lookup canónico nivel → token. Sin lógica de negocio:
+ * el verdict ya decidió el `levelKey`; aquí solo resolvemos el color y
+ * la regla "rings sólo en POI-5".
+ */
+function resolveLevelVisual(levelKey: PoiVisualLevelKey): PoiLevelVisual {
+  const levelTokens = (tokens as any).poi.level as Record<string, string>;
+  // El verdict mapea 1:1 con las keys del token (`poi.level.0`, `1a`, `1b`,
+  // `3`, `5`, `9`, `10`). El sufijo `poi-` se quita para indexar.
+  const tokenKey = levelKey.replace(/^poi-/, '');
+  const fillHsl = levelTokens[tokenKey];
+  return {
+    levelKey,
+    fillHsl,
+    showStateRing: levelKey === 'poi-5',
+  };
 }
