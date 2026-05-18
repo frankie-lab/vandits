@@ -242,6 +242,19 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
   const INLINE_VISIBLE_DEFAULT = 6;
   // Reset cap on POI change / radius change para no heredar "Ver más" entre POIs.
   useEffect(() => { setExpandedList(false); }, [location.id, radiusMeters]);
+
+  // P-POI-CURATION-2.7 — Buscador manual inline: refinamiento sin remount.
+  // Vacío => modo automático (grupos). >=2 chars => modo búsqueda (lista plana
+  // filtrada client-side sobre nearbyPoints). El header (radio + input + punto
+  // actual) permanece estable; solo cambia la zona de resultados.
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+  // Reset query al cambiar de POI; no al cambiar radio (la query sobrevive).
+  useEffect(() => { setSearchQuery(''); setDebouncedQuery(''); }, [location.id]);
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
   const documents = useLocationsStore(state => state.documents);
   const selectedRef = useRef<HTMLDivElement | null>(null);
@@ -731,6 +744,34 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
           />
           <span className="text-[10px] font-medium tabular-nums w-10 text-right shrink-0">{radiusMeters}m</span>
         </div>
+
+        {/* P-POI-CURATION-2.7 — Buscador manual inline. Vive en el header,
+            misma superficie plana, sin caja extra. Vacío => modo automático.
+            >=2 chars => modo búsqueda (filtra nearbyPoints client-side). */}
+        {!loadingNearby && !errorNearby && (
+          <div className="flex items-center gap-1.5 px-1 pt-1.5" data-nearby-search-input>
+            <Search className="w-3 h-3 text-muted-foreground/60 shrink-0" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar por nombre…"
+              className="flex-1 min-w-0 h-6 bg-transparent border-0 border-b border-border/30 px-0 text-[11px] placeholder:text-muted-foreground/50 focus:outline-none focus:border-border/60"
+              aria-label="Buscar puntos cercanos por nombre"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="shrink-0 text-muted-foreground/60 hover:text-foreground text-[10px] leading-none px-1"
+                aria-label="Limpiar búsqueda"
+                data-nearby-search-clear
+              >
+                ×
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Current point — renglón editorial sin caja. P-POI-CURATION-2.4:
@@ -857,9 +898,18 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
         ) : (() => {
           // P-POI-CURATION-2.2 — cap inicial inline + "Ver más / Ver menos"
           // sustituye al scroll anidado. En variant card no se capa.
-          const allGroups = groupByCategory(nearbyPoints);
-          const cap = isInline && !expandedList ? INLINE_VISIBLE_DEFAULT : Infinity;
-          const cappedGroups: typeof allGroups = [];
+          // P-POI-CURATION-2.7 — manual search refinement
+          const isSearchMode = debouncedQuery.length >= 2;
+          const _normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const _filtered = isSearchMode
+            ? nearbyPoints.filter(p => _normalize(p.name || '').includes(_normalize(debouncedQuery)))
+            : nearbyPoints;
+          type GroupRow = ReturnType<typeof groupByCategory>[number];
+          const allGroups: GroupRow[] = isSearchMode
+            ? [{ category: '__search__' as any, meta: { label: 'Resultados para "' + debouncedQuery + '"', icon: <Search className="w-3 h-3" />, order: 0 } as any, points: _filtered.slice().sort((a, b) => a.distance_m - b.distance_m) }]
+            : groupByCategory(_filtered);
+          const cap = (isInline && !expandedList && !isSearchMode) ? INLINE_VISIBLE_DEFAULT : Infinity;
+          const cappedGroups: GroupRow[] = [];
           let shown = 0;
           for (const g of allGroups) {
             if (shown >= cap) break;
@@ -868,10 +918,24 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
             cappedGroups.push({ ...g, points: pts });
             shown += pts.length;
           }
-          const hidden = nearbyPoints.length - shown;
-          const showToggle = isInline && (hidden > 0 || expandedList);
+          const hidden = _filtered.length - shown;
+          const showToggle = isInline && !isSearchMode && (hidden > 0 || expandedList);
+          if (isSearchMode && _filtered.length === 0) {
+            return (
+              <div className="min-w-0 text-center py-6 space-y-1" data-nearby-search-results="1" data-nearby-search-empty="1">
+                <p className="text-[12px] text-muted-foreground">Sin resultados para "{debouncedQuery}" en {radiusMeters}m</p>
+                <p className="text-[10px] text-muted-foreground/70">Prueba ampliar el radio o cambiar el termino.</p>
+              </div>
+            );
+          }
           return (
-          <div className="min-w-0 space-y-2 pb-2" data-nearby-list data-nearby-visible-count={shown}>
+          <div
+            className="min-w-0 space-y-2 pb-2"
+            data-nearby-list
+            data-nearby-visible-count={shown}
+            data-nearby-mode={isSearchMode ? 'search' : 'auto'}
+            {...(isSearchMode ? { 'data-nearby-search-results': '1' } : {})}
+          >
             {cappedGroups.map(group => (
               <div key={group.category} className="min-w-0">
                 <div className="mb-2 flex min-w-0 items-center gap-1.5 text-muted-foreground">
