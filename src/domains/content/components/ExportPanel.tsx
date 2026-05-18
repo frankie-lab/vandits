@@ -242,7 +242,7 @@ export function ExportPanel() {
             disabled={!selectedDocument || isExporting || eligibleCount === 0 || internalDisabled}
             className="justify-start gap-3 h-auto py-3"
           >
-            <Map className="w-5 h-5 text-blue-500" />
+            <MapIcon className="w-5 h-5 text-blue-500" />
             <div className="text-left">
               <div className="font-medium">Google My Maps</div>
               <div className="text-xs text-muted-foreground">KML optimizado · {eligibleCount} puntos</div>
