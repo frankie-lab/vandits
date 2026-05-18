@@ -10,9 +10,15 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 
-vi.mock('@/integrations/supabase/client', () => ({
-  supabase: { from: () => ({ select: () => Promise.resolve({ data: [], error: null }) }) },
-}));
+vi.mock('@/integrations/supabase/client', () => {
+  const chain: any = {
+    select: () => chain,
+    eq: () => chain,
+    maybeSingle: () => Promise.resolve({ data: null, error: null }),
+    then: (cb: any) => Promise.resolve({ data: [], error: null }).then(cb),
+  };
+  return { supabase: { from: () => chain } };
+});
 
 import { vi } from 'vitest';
 import type { GeoLocation } from '@/types/location';
