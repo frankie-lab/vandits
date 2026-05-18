@@ -679,20 +679,22 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
   };
 
   const isInline = variant === 'inline';
-  // Inline: el popup-root (popup-scroll-body) gestiona el ÚNICO scroll. No
-  // imponer max-h ni overflow aquí — ver mem://ui/map/popup-dimensions-and-scrolling.
+  // P-POI-CURATION-2.2 — Inline: el popup-scroll-body es el ÚNICO owner del
+  // scroll vertical. Aquí NO se impone max-h ni overflow-y; el bloque fluye
+  // como contenido natural del cuerpo del popup. Ver
+  // mem://ui/map/popup-dimensions-and-scrolling y docs/contracts/poi-curation-levels.md.
   const rootClass = isInline
-    ? 'flex min-h-0 w-full min-w-0 flex-col overflow-hidden border-t border-border/60 bg-background'
+    ? 'flex w-full min-w-0 flex-col border-t border-border/60 bg-background'
     : 'flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overflow-x-hidden';
-  const inlineRootStyle = isInline
-    ? {
-        maxHeight: 'calc(100dvh - var(--top-header-h, 72px) - var(--bottom-overlay-safe-h, 0px) - 24px)',
-      }
-    : undefined;
+  const inlineRootStyle = undefined;
   const padX = isInline ? 'px-1.5' : 'px-3';
 
   return (
-    <div className={rootClass} style={inlineRootStyle}>
+    <div
+      className={rootClass}
+      style={inlineRootStyle}
+      data-nearby-scroll-owner={isInline ? 'popup' : 'self'}
+    >
       {/* Header */}
       <div className={`space-y-1 overflow-x-hidden border-b bg-muted/30 ${padX} py-2`}>
 
