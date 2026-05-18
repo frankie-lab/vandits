@@ -1796,7 +1796,7 @@ ${(!isEnriched) ? (() => {
 </div>
 <!-- Slot interactivo full-width: UnenrichedRecoveryBlock (hydrated by
      LocationMap on popupopen). Solo se monta si el POI no está enriquecido.
-     Edge-to-edge del scroll-body; el `NearbyPanel` inline (padX=px-0,
+     Edge-to-edge del scroll-body; el NearbyPanel inline (padX=px-0,
      rootClass con border-t superior) está preparado para esta posición. -->
 ${curationVerdict.bodyBlocker === 'enrich-from-context' ? `<div data-recovery-root="${location.id}" style="margin: 0 0 8px 0;"></div>` : ''}
 ${(() => {
