@@ -667,19 +667,30 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
       if (isPopupOperational(popupId)) return;
 
       if (curationAction === 'validate-geo') {
+        // P-POI-CURATION-3 (Fase 1): el botón "Validar geografía" arranca el
+        // pipeline continuo validate-geo → recompute → enrich → recompute
+        // hasta el siguiente bloqueo real o estado sano. El overlay
+        // P-POPUP-16 cubre TODO el pipeline; el orquestador muta el `label`
+        // in-place ("Validando geografía…" → "Curando POI…"). El toast final
+        // es el ÚNICO mensaje que ve el usuario para este flujo.
         setPopupOperationalState(popupId, 'loading', { label: 'Validando geografía…' });
         try {
-          useGeocodingJobStore.getState().clearLastResult();
-          await useGeocodingJobStore.getState().start(1, {
-            label: `Validar geografía · ${location.name}`,
-            mode: 'reconcile',
-            locationIds: [locationId],
-            source: 'popup_validate_geo',
-          });
-          toast.success('Validación de geografía lanzada');
+          const { advancePoiCurationUntilBlocked } = await import(
+            '@/domains/content/lib/advance-poi-curation'
+          );
+          const result = await advancePoiCurationUntilBlocked(
+            locationId,
+            'validate-geo',
+            popupId,
+          );
+          if (result.blocker === 'none') {
+            toast.success(result.message);
+          } else {
+            toast.message(result.message);
+          }
         } catch (err) {
-          console.error('[validate-geo] error:', err);
-          toast.error('No se pudo validar la geografía');
+          console.error('[advance-poi-curation] error:', err);
+          toast.error('No se pudo curar el POI');
         } finally {
           clearPopupOperationalState(popupId);
         }
