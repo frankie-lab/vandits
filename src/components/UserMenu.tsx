@@ -108,6 +108,7 @@ import { useExportTracking } from '@/hooks/use-export-tracking';
 import { useDuplicateCount } from '@/hooks/use-duplicate-count';
 import { supabase } from '@/integrations/supabase/client';
 import { APP_VERSION, APP_BUILD_DATE } from '@/lib/version';
+import { ADMIN_TABS } from '@/components/admin/admin-tabs';
 
 
 interface UserMenuProps {
