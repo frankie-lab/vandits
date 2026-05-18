@@ -1786,35 +1786,39 @@ ${(!isEnriched) ? (() => {
 <div style="margin-top: 6px;">${rowsHtml}</div>
 </details>`;
 })() : ''}
-<!-- Mount point for UnenrichedRecoveryBlock (hydrated by LocationMap on popupopen).
-     Solo se monta si el POI no está enriquecido.
-     P-POI-CURATION-2.6 — margen lateral reducido a 4px (antes 16px) para
-     liberar ~24px de ancho útil al bloque inline POI-1b. El inline NearbyPanel
-     usa padX=px-0 precisamente para llegar al borde útil del popup; el
-     wrapper de montaje no debe imponer carril editorial sobre un grid
-     interactivo. Resto de bloques editoriales (prosa, ratings, breadcrumb)
-     mantienen su carril de 16px porque son contenido de lectura. -->
-${curationVerdict.bodyBlocker === 'enrich-from-context' ? `<div data-recovery-root="${location.id}" style="margin: 0 4px 8px 4px;"></div>` : ''}
+<!-- P-POI-CURATION-2.10 — Two-rail body. Cierra AQUÍ el wrapper editorial
+     (padding: 16px) que envuelve prosa/hero/breadcrumb/ratings/descripción.
+     Los slots interactivos (recovery-root, route-waypoint actions) se emiten
+     como hijos DIRECTOS del popup-scroll-body, full-width, sin gutter
+     editorial heredado y SIN márgenes negativos. Ver
+     `docs/contracts/popup-contract.md` § Two-rail body y
+     `mem://style/popup/two-rail-body`. -->
+</div>
+<!-- Slot interactivo full-width: UnenrichedRecoveryBlock (hydrated by
+     LocationMap on popupopen). Solo se monta si el POI no está enriquecido.
+     Edge-to-edge del scroll-body; el `NearbyPanel` inline (padX=px-0,
+     rootClass con border-t superior) está preparado para esta posición. -->
+${curationVerdict.bodyBlocker === 'enrich-from-context' ? `<div data-recovery-root="${location.id}" style="margin: 0 0 8px 0;"></div>` : ''}
 ${(() => {
   const pt = (location.placeType ?? '').toString();
   const isRouteWaypoint = pt === 'route_waypoint' || pt.startsWith('route_') || location.customData?.is_route_waypoint === 'true';
   if (!(isOwn && canEditLocation && isRouteWaypoint)) return '';
-  // P-POPUP-13 — Route-waypoint actions en lenguaje muted P-POPUP-11.1
-  // (sin gradient amarillo, sin translateY, sin shadow).
+  // P-POPUP-13 — Route-waypoint actions en lenguaje muted P-POPUP-11.1.
+  // P-POI-CURATION-2.10 — Slot interactivo full-width: ya autocontenido con
+  // `margin: 8px 16px` propio (su carril es de botones, no editorial).
   const btn = (action: string, label: string, title: string, svg: string, extra: string = '') => `
 <button class="popup-action-btn" data-action="${action}" data-location-id="${location.id}" ${extra}
 style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 30px; padding: 0 8px; background: hsl(var(--muted)); color: hsl(var(--foreground)); border: none; border-radius: 6px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;"
 onmouseover="this.style.background='hsl(var(--muted) / 0.7)'" onmouseout="this.style.background='hsl(var(--muted))'"
 title="${title}">${svg}${label}</button>`;
   return `
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 16px 8px 16px;">
+<div data-route-waypoint-actions="v1" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 16px 8px 16px;">
 ${btn('view-nearby', 'Contexto cercano', 'Explorar puntos de interés cercanos', '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/></svg>')}
 ${btn('duplicate-point', 'Duplicar', 'Crear una copia de este punto', '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>', `data-location-name="${location.name}"`)}
 ${btn('merge-nearby', 'Fusionar', 'Fusionar con un punto cercano', '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/></svg>')}
 ${btn('reclassify-type', 'Reclasificar', 'Cambiar el tipo de lugar', '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>')}
 </div>`;
 })()}
-</div>
 </div>
 
 <!-- P-POPUP-11 — Footer persistente: estado IA + acciones técnicas. Sibling
