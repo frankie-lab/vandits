@@ -219,17 +219,20 @@ export const createCustomIcon = (
   // sync defensivo desde call-sites paralelos).
   const renderMode: MarkerRenderMode = isFocused ? 'rich' : getRenderModeForZoom(currentZoom);
 
-  // ── Pipeline canónico (PR-POI-SOURCE-5) ────────────────────────────────
-  // Single source of truth para FORMA + DECORACIONES = `resolveMarkerGrammar`.
-  // El renderer NO decide forma por heurística (owner === viewer); lee la
-  // gramática resuelta y la pinta. Mantiene comportamiento legacy para
-  // own/followed; añade diamond (app) y hexagon (source).
+  // ── Pipeline canónico (PR-MAP-CANON-1) ─────────────────────────────────
+  // Single source of truth para FORMA + DECORACIONES + ESTADO + RINGS +
+  // CURATION = `resolvePoiVisualGrammar`. El renderer NO compone; lee la
+  // gramática resuelta y la pinta. PR-MAP-CANON-3 introducirá diferenciación
+  // visual por nivel POI-N — hoy `visualGrammar.curation` se computa pero
+  // no se pinta para preservar comportamiento (no-op visual).
   const ownerUid = location
     ? getLocationOwnerUserId(location as { ownerUserId?: string | null; _docUserId?: string | null })
     : null;
-  const grammar = location
-    ? resolveMarkerGrammar(currentUserId, location)
+  const visualGrammar = location
+    ? resolvePoiVisualGrammar(currentUserId, location)
     : null;
+  const grammar = visualGrammar?.grammar
+    ?? (location ? resolveMarkerGrammar(currentUserId, location) : null);
   const grammarShape = grammar?.shape ?? 'circle';
   const isFollowedPoi = grammarShape === 'inverted-triangle';
   const isAppPoi = grammarShape === 'diamond';
