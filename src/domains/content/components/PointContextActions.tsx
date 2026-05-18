@@ -204,7 +204,7 @@ function NearbyPointCard({
         <Button
           size="icon"
           variant={enriching ? 'default' : 'ghost'}
-          className="h-7 w-7 rounded-md p-0"
+          className="h-7 w-6 rounded-md p-0"
           disabled={disabled}
           onClick={onEnrich}
           title="Enriquecer aquí"
