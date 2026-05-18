@@ -27,16 +27,15 @@ import { getOwnerIdentityColor } from './owner-stroke';
 import { getOwnerIdentityOklch } from '@/stores/owner-identity-store';
 import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
 import { resolveMarkerGrammar } from '@/domains/content/lib/poi-marker-grammar';
+import { resolvePoiVisualGrammar } from '@/domains/content/lib/poi-visual-grammar';
 
 // ── Neutral palettes for non-owner / non-followed shapes ───────────────
-// PR-POI-SOURCE-5: app POIs (diamond) y source POIs (hexagon) usan paletas
-// neutras — la paleta de estado (verde/gris/naranja) está reservada a
-// `own`. Tokens preliminares hasta exponer `--poi-app-*` y `--poi-source-*`
-// en `design-system/tokens/source/poi.json`.
-const APP_NEUTRAL_FILL = 'hsl(220 13% 46%)';
-const APP_NEUTRAL_STROKE = 'hsl(220 13% 88%)';
-const SOURCE_NEUTRAL_FILL = 'hsl(220 9% 38%)';
-const SOURCE_NEUTRAL_STROKE = 'hsl(220 9% 86%)';
+// PR-MAP-CANON-2: tokens en `design-system/tokens/source/poi.json` →
+// `poi.neutral.{app,source}.{fill,stroke}`. Cero literal HSL aquí.
+const APP_NEUTRAL_FILL = `hsl(${tokens.poi.neutral.app.fill})`;
+const APP_NEUTRAL_STROKE = `hsl(${tokens.poi.neutral.app.stroke})`;
+const SOURCE_NEUTRAL_FILL = `hsl(${tokens.poi.neutral.source.fill})`;
+const SOURCE_NEUTRAL_STROKE = `hsl(${tokens.poi.neutral.source.stroke})`;
 
 // ── Followed POI debug helpers ──────────────────────────────────────────
 // Activos solo en DEV o si la URL incluye `?debug=poi-icon`. En producción
@@ -78,14 +77,13 @@ const getModeScaleForZoom = (zoom: number, mode: MarkerRenderMode): number => {
 
 /**
  * Sombra base por modo. Doble capa SOLO en standard/rich; compact mantiene
- * sombra simple para no ensuciar vistas de densidad. Tokenizado en
- * `poi.shadow.{compact,standard,rich}`.
+ * sombra simple. PR-MAP-CANON-2: única SoT = `poi.shadow.{compact,standard,
+ * rich}` en `poi.json`. Sin fallback literal.
  */
 const getShadowForMode = (mode: MarkerRenderMode): string => {
-  const shadowTokens = (tokens as any)?.poi?.shadow;
-  if (mode === 'rich') return shadowTokens?.rich ?? 'drop-shadow(0 1px 1px rgba(0,0,0,0.35)) drop-shadow(0 3px 6px rgba(0,0,0,0.22))';
-  if (mode === 'standard') return shadowTokens?.standard ?? 'drop-shadow(0 1px 1px rgba(0,0,0,0.35)) drop-shadow(0 3px 6px rgba(0,0,0,0.22))';
-  return shadowTokens?.compact ?? 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
+  if (mode === 'rich') return tokens.poi.shadow.rich;
+  if (mode === 'standard') return tokens.poi.shadow.standard;
+  return tokens.poi.shadow.compact;
 };
 
 /**
@@ -221,17 +219,20 @@ export const createCustomIcon = (
   // sync defensivo desde call-sites paralelos).
   const renderMode: MarkerRenderMode = isFocused ? 'rich' : getRenderModeForZoom(currentZoom);
 
-  // ── Pipeline canónico (PR-POI-SOURCE-5) ────────────────────────────────
-  // Single source of truth para FORMA + DECORACIONES = `resolveMarkerGrammar`.
-  // El renderer NO decide forma por heurística (owner === viewer); lee la
-  // gramática resuelta y la pinta. Mantiene comportamiento legacy para
-  // own/followed; añade diamond (app) y hexagon (source).
+  // ── Pipeline canónico (PR-MAP-CANON-1) ─────────────────────────────────
+  // Single source of truth para FORMA + DECORACIONES + ESTADO + RINGS +
+  // CURATION = `resolvePoiVisualGrammar`. El renderer NO compone; lee la
+  // gramática resuelta y la pinta. PR-MAP-CANON-3 introducirá diferenciación
+  // visual por nivel POI-N — hoy `visualGrammar.curation` se computa pero
+  // no se pinta para preservar comportamiento (no-op visual).
   const ownerUid = location
     ? getLocationOwnerUserId(location as { ownerUserId?: string | null; _docUserId?: string | null })
     : null;
-  const grammar = location
-    ? resolveMarkerGrammar(currentUserId, location)
+  const visualGrammar = location
+    ? resolvePoiVisualGrammar(currentUserId, location)
     : null;
+  const grammar = visualGrammar?.grammar
+    ?? (location ? resolveMarkerGrammar(currentUserId, location) : null);
   const grammarShape = grammar?.shape ?? 'circle';
   const isFollowedPoi = grammarShape === 'inverted-triangle';
   const isAppPoi = grammarShape === 'diamond';
@@ -253,13 +254,14 @@ export const createCustomIcon = (
     });
   }
   if (renderMode === 'micro') {
-    // Rampa explícita por zoom (z≤3→2, z4→3, z5→4). Cap micro = 4px en
-    // z5 antes de saltar a SVG compact en z6. La pertenencia (`isOwn`)
-    // se diferencia solo por halo más marcado, nunca por diámetro.
+    // Rampa explícita por zoom. SoT = `poi.microDot.byZoom` en `poi.json`.
+    // Cap micro = z5 antes de saltar a SVG compact en z6. La pertenencia
+    // (`isOwn`) se diferencia solo por halo, nunca por diámetro.
+    const microByZoom = (tokens as any)?.poi?.microDot?.byZoom;
     const microSize =
-      currentZoom <= 3 ? 2 :
-      currentZoom === 4 ? 3 :
-      4; // z5 — último escalón micro antes de compact
+      currentZoom <= 3 ? Number(microByZoom?.z3OrLess ?? 2) :
+      currentZoom === 4 ? Number(microByZoom?.z4 ?? 3) :
+      Number(microByZoom?.z5 ?? 4);
     const dot = entry.fill_color;
     const haloStyle = isOwn ? '' : 'opacity:0.85;';
     // Followed micro: triángulo invertido CSS, fill = identidad (sin borde).
@@ -329,19 +331,21 @@ export const createCustomIcon = (
   const size = Math.max(6, Math.round(baseSize * modeScale));
   const hoverSize = baseHover ? Math.max(size, Math.round(baseHover * modeScale)) : baseHover;
 
-  // Anillos de salud (rojo error / amarillo cadena rota / naranja vacío),
-  // apilados de dentro hacia fuera por orden de severidad. Helper único:
-  // `getPointHealthRings`. La regla "verde nunca marca error" vive dentro
-  // de `hasEnrichmentFailure` y aquí se respeta automáticamente.
-  const healthRings = skipHealthRings ? [] : getPointHealthRings(location, currentUserId);
+  // Anillos de salud — SoT = `resolvePoiVisualGrammar` (que ya aplica el
+  // ownership guard PR-1 + el filtro por `grammar.allowHealthRings`). Sin
+  // re-cálculo aquí. Fallback al helper directo si no hay visualGrammar.
+  const healthRings = skipHealthRings
+    ? []
+    : (visualGrammar?.healthRings ?? getPointHealthRings(location, currentUserId));
   const ringCount = healthRings.length;
   const ringPad = ringCount > 0 ? ringCount * RING_GAP + 2 : 0;
   const containerSize = size + ringPad * 2;
 
+  // PR-MAP-CANON-2: animaciones tokenizadas en `poi.animation.{celebrate,pulse}`.
   const animationStyle = isRecentlyEnriched
-    ? 'animation: enriched-celebrate 3.5s ease-out;'
+    ? `animation: ${tokens.poi.animation.celebrate};`
     : isFocused
-    ? 'animation: pulse 1s ease-in-out infinite;'
+    ? `animation: ${tokens.poi.animation.pulse};`
     : '';
 
   const currentState = isRecentlyEnriched ? 'recent' : isFocused ? 'focused' : isSelected ? 'selected' : 'normal';
@@ -349,10 +353,8 @@ export const createCustomIcon = (
   // Solo aporta un halo blanco sutil + borde algo más grueso. Focused/recent
   // siguen pudiendo modular color porque actúan sobre 1 punto puntual.
   const isMassSelect = currentState === 'selected';
-  // Halo de propiedad (Ola 2): los puntos del usuario reciben un drop-shadow
-  // blanco fino (~1px) que se acumula con el shadow base. No altera color ni
-  // tamaño en compact/standard/rich — solo da prioridad visual sutil.
-  const ownHalo = isOwn && !isMassSelect ? ' drop-shadow(0 0 0 1px rgba(255,255,255,0.9))' : '';
+  // Halo de propiedad (Ola 2): PR-MAP-CANON-2 — tokenizado en `poi.halo.own`.
+  const ownHalo = isOwn && !isMassSelect ? ` ${tokens.poi.halo.own}` : '';
   const shadow = (isMassSelect
     ? 'drop-shadow(0 0 0 1.5px rgba(255,255,255,0.95)) drop-shadow(0 1px 3px rgba(0,0,0,0.35))'
     : currentState !== 'normal'
