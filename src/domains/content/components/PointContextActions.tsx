@@ -981,66 +981,108 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
                         disabled={adoptingId !== null}
                         onEnrich={(e) => { e.stopPropagation(); handleAdoptNearby(p); }}
                       />
-                      {selectedPointId === p.id && (
-                        <div className="space-y-2 px-3 pb-3">
-                          <div className="flex items-center gap-1 text-[10px] text-primary">
-                            <Crosshair className="w-3 h-3" />
-                            <span>Seleccionado en mapa</span>
-                          </div>
-                          {/* Actions as inline checkboxes */}
-                          <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-                            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-foreground hover:text-primary transition-colors">
-                              <input
-                                type="checkbox"
-                                className="h-3.5 w-3.5 rounded border-border accent-primary"
-                                checked={wantReplace}
-                                onChange={() => setWantReplace(!wantReplace)}
-                              />
-                              <Replace className="w-3 h-3 shrink-0" />
-                              <span>Reemplazar importado</span>
-                            </label>
-                            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-foreground hover:text-primary transition-colors">
-                              <input
-                                type="checkbox"
-                                className="h-3.5 w-3.5 rounded border-border accent-primary"
-                                checked={wantPersonal}
-                                onChange={() => { setWantPersonal(!wantPersonal); if (wantPersonal) setSelectedCategory(null); }}
-                              />
-                              <Bookmark className="w-3 h-3 shrink-0" />
-                              <span>Punto personal</span>
-                            </label>
-                          </div>
-                          {/* Category picker when "Punto personal" is checked */}
-                          {wantPersonal && (
-                            <div className="flex flex-wrap gap-1 rounded-md border border-border bg-muted/30 p-2" onClick={(e) => e.stopPropagation()}>
-                              {PERSONAL_CATEGORY_PRESETS.map((preset) => (
-                                <Button
-                                  key={preset.label}
-                                  variant={selectedCategory === preset.label ? 'default' : 'outline'}
-                                  size="sm"
-                                  className="h-6 text-[10px] gap-1 px-2"
-                                  onClick={() => setSelectedCategory(selectedCategory === preset.label ? null : preset.label)}
-                                >
-                                  {preset.icon}
-                                  {preset.label}
-                                </Button>
-                              ))}
+                      {selectedPointId === p.id && (() => {
+                        // P-POI-CURATION-2.12 — Canon de decisión:
+                        // primaria contextual (replace si reparable, si no
+                        // personal) + secundaria opcional (solo en replace).
+                        const replaceable = canReplaceCurrentPoi(location, { mismatch });
+                        const showExtra = replaceable && extraPersonal;
+                        const needsCategory = (replaceable && extraPersonal) || !replaceable;
+                        const ctaDisabled =
+                          executingActions || (needsCategory && !selectedCategory);
+                        const primaryLabel = replaceable
+                          ? (showExtra && selectedCategory
+                              ? 'Reemplazar y guardar personal'
+                              : 'Usar como este punto')
+                          : 'Guardar como punto personal';
+                        const PrimaryIcon = replaceable ? Replace : Bookmark;
+                        return (
+                          <div
+                            className="flex flex-col gap-2 px-3 pb-3"
+                            data-selected-row-actions="v1"
+                            data-replaceable={replaceable ? 'true' : 'false'}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center gap-1 text-[10px] text-primary">
+                              <Crosshair className="w-3 h-3" />
+                              <span>Seleccionado en mapa</span>
                             </div>
-                          )}
-                          {/* Save button */}
-                          {(wantReplace || (wantPersonal && selectedCategory)) && (
+
+                            {/* PRIMARIA — botón sólido, full-width. Acción única. */}
                             <Button
                               size="sm"
-                              className="w-full h-7 text-[11px] gap-1.5"
-                              disabled={executingActions || (wantPersonal && !selectedCategory)}
+                              className="h-8 w-full gap-1.5 text-[12px]"
+                              disabled={ctaDisabled}
+                              data-selected-row-primary={replaceable ? 'replace' : 'personal'}
                               onClick={(e) => { e.stopPropagation(); handleExecuteActions(p); }}
                             >
-                              {executingActions ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                              Guardar{wantReplace && wantPersonal ? ' ambas acciones' : ''}
+                              {executingActions
+                                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                : <PrimaryIcon className="w-3.5 h-3.5" />}
+                              {primaryLabel}
                             </Button>
-                          )}
-                        </div>
-                      )}
+
+                            {/* SECUNDARIA — solo cuando la primaria es replace.
+                                Link discreto que expande el category picker. */}
+                            {replaceable && !extraPersonal && (
+                              <button
+                                type="button"
+                                className="self-start inline-flex items-center gap-1 text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                                data-selected-row-secondary="expand-personal"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExtraPersonal(true);
+                                }}
+                              >
+                                <Plus className="w-3 h-3" />
+                                Guardar también como punto personal
+                              </button>
+                            )}
+
+                            {/* Category picker — para primaria personal
+                                (siempre) o para secundaria expandida. */}
+                            {needsCategory && (
+                              <div className="flex flex-col gap-1.5" data-personal-category-picker>
+                                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                                  <span>Categoría</span>
+                                  {replaceable && extraPersonal && (
+                                    <button
+                                      type="button"
+                                      className="inline-flex items-center gap-0.5 hover:text-foreground"
+                                      data-selected-row-secondary="cancel-personal"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExtraPersonal(false);
+                                        setSelectedCategory(null);
+                                      }}
+                                      aria-label="Cancelar guardar personal"
+                                    >
+                                      <X className="w-3 h-3" />
+                                      cancelar
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {PERSONAL_CATEGORY_PRESETS.map((preset) => (
+                                    <Button
+                                      key={preset.label}
+                                      variant={selectedCategory === preset.label ? 'default' : 'outline'}
+                                      size="sm"
+                                      className="h-6 gap-1 px-2 text-[10px]"
+                                      onClick={() => setSelectedCategory(
+                                        selectedCategory === preset.label ? null : preset.label,
+                                      )}
+                                    >
+                                      {preset.icon}
+                                      {preset.label}
+                                    </Button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>
