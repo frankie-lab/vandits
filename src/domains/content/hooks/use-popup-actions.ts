@@ -32,6 +32,13 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
   const { isMaster } = usePermissions();
   const { documents, updateLocation } = useLocationsStore();
 
+  // P-POPUP-17 — single global listener that drives popup operational
+  // overlay (P-POPUP-16) for ANY enrichment mutation over the open POI,
+  // regardless of entry point (batch, document tab, general list, retry,
+  // realtime, in-popup action, adopt-nearby orchestrator).
+  useEffect(() => subscribePopupEnrichmentPhase(), []);
+
+
   const handleToggleVisited = useCallback(async (location: GeoLocation, newVisited: boolean, distance?: number) => {
     try {
       const { data: dbLocation, error: fetchError } = await supabase
