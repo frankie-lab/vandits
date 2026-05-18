@@ -278,6 +278,7 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
 
   const searchNearby = useCallback(async () => {
     setLoadingNearby(true);
+    setErrorNearby(false);
     setNearbyPoints([]);
     try {
       const degRadius = (radiusMeters / 111320) * 1.2; // approximate, with margin
