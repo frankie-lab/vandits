@@ -1326,12 +1326,12 @@ title="Mover a la papelera"
 </button>
 ` : '';
 
-  // P-POI-CURATION-1 — Botón principal contextual de curación. Capa LÓGICA
-  // pura: NO cambia shell, layouts ni variantes del renderer. Sólo emite un
-  // atributo `data-curation-action` distinto según el nivel del POI. Se
-  // omite para curator/nearby (igual que el bloque de ratings) y para
-  // POI-10 (estado final, sin deuda). Ver `mem://logic/poi/curation-levels`.
-  const curationVerdict = getPoiCurationLevel(location);
+  // P-POI-CURATION-2 — `curationVerdict` se hoistó al inicio de
+  // `createPopupContent` para garantizar commit atómico body↔footer.
+  const showCurationPrimary =
+    !isCuratorPoint &&
+    !isNearbyPopupContext(location.id) &&
+    curationVerdict.primaryAction !== 'none';
   const showCurationPrimary =
     !isCuratorPoint &&
     !isNearbyPopupContext(location.id) &&
