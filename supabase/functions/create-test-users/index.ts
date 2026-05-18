@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireCapability } from "../_shared/require-capability.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -114,50 +115,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verificar autenticación del usuario que llama
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'No autorizado' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Cliente con service role para crear usuarios
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
-
-    // Cliente con token del usuario para verificar permisos
-    const supabaseUser = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    // Verificar que el usuario es master
-    const { data: { user } } = await supabaseUser.auth.getUser();
-    if (!user) {
-      return new Response(JSON.stringify({ error: 'Usuario no autenticado' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    const { data: roles } = await supabaseAdmin
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'master');
-
-    if (!roles || roles.length === 0) {
-      return new Response(JSON.stringify({ error: 'Solo usuarios master pueden crear usuarios de prueba' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
+    // Capability gate: `manage_permissions` (master-tier fixture seeding).
+    const gate = await requireCapability(req, 'manage_permissions');
+    if (gate instanceof Response) return gate;
+    const supabaseAdmin = gate.adminClient;
 
     const results = [];
     const timestamp = Date.now();

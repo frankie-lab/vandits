@@ -33,6 +33,7 @@ import {
   isAttemptComplete,
   type ImageSourceCode,
 } from "../_shared/image-search.ts";
+import { requireCapability } from "../_shared/require-capability.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,7 +43,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+
 
 type RecoveryMode = "missing" | "refresh" | "full";
 
@@ -107,7 +108,7 @@ serve(async (req) => {
     });
   }
 
-  // --- auth: admin/master via JWT, OR trusted internal caller (service role) ---
+  // --- auth: capability `run_image_recovery` via JWT, OR trusted internal caller (service role) ---
   const authHeader = req.headers.get("Authorization") ?? "";
   if (!authHeader.startsWith("Bearer ")) {
     return new Response(JSON.stringify({ error: "auth required" }), {
@@ -117,43 +118,16 @@ serve(async (req) => {
   }
   const bearer = authHeader.slice("Bearer ".length).trim();
 
-  // Service role for actual DB work + role check.
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-
   const apiKeyHeader = req.headers.get("apikey") ?? req.headers.get("x-internal-key") ?? "";
   const isInternalCall = bearer === SERVICE_ROLE || apiKeyHeader === SERVICE_ROLE;
-  if (!isInternalCall) {
-    console.log("[recover-missing-images] auth-debug", {
-      bearerLen: bearer.length,
-      bearerHead: bearer.slice(0, 12),
-      svcLen: SERVICE_ROLE.length,
-      svcHead: SERVICE_ROLE.slice(0, 12),
-      apiKeyLen: apiKeyHeader.length,
-    });
-  }
-  if (!isInternalCall) {
-    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: userRes, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !userRes.user) {
-      return new Response(JSON.stringify({ error: "invalid token" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const callerId = userRes.user.id;
-    const { data: roles } = await admin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", callerId);
-    const isAdmin = !!roles?.some((r: any) => r.role === "admin" || r.role === "master");
-    if (!isAdmin) {
-      return new Response(JSON.stringify({ error: "forbidden" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+
+  let admin;
+  if (isInternalCall) {
+    admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+  } else {
+    const gate = await requireCapability(req, "run_image_recovery");
+    if (gate instanceof Response) return gate;
+    admin = gate.adminClient;
   }
 
   let body: Body;

@@ -12,6 +12,7 @@
 // Solo masters. POST { dryRun?: boolean }.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { requireCapability } from '../_shared/require-capability.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -63,32 +64,18 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-  // Master-only
+  // Auth: trusted internal call (service role bearer) bypasses gate;
+  // otherwise require capability `manage_geo_maintenance`.
   const authHeader = req.headers.get('Authorization') ?? '';
   const accessToken = authHeader.toLowerCase().startsWith('bearer ')
     ? authHeader.slice(7).trim()
     : '';
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-  let isMaster = !!accessToken && accessToken === serviceRoleKey;
-  let userId: string | null = null;
-  if (!isMaster && accessToken) {
-    const { data: ud } = await admin.auth.getUser(accessToken);
-    userId = ud?.user?.id ?? null;
-    if (userId) {
-      const { data: roleRow } = await admin
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('role', 'master')
-        .maybeSingle();
-      isMaster = !!roleRow;
-    }
-  }
-  if (!isMaster) {
-    return new Response(JSON.stringify({ error: 'forbidden' }), {
-      status: 403,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+  const isInternalCall = !!accessToken && accessToken === serviceRoleKey;
+
+  if (!isInternalCall) {
+    const gate = await requireCapability(req, 'manage_geo_maintenance');
+    if (gate instanceof Response) return gate;
   }
 
   const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
