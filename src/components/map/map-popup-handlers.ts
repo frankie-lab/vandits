@@ -92,10 +92,14 @@ export function setupActionClickHandler(): () => void {
       const locationId = button.dataset.locationId;
       const rating = button.dataset.rating;
       const locationName = button.dataset.locationName;
+      // P-POI-CURATION-2: propagate `data-curation-action` so the handler
+      // can dispatch the real sub-action (validate-geo, resolve-conflict,
+      // heal-poi, rate-experience) under the umbrella `curation-primary`.
+      const curationAction = button.dataset.curationAction;
       if (action && locationId) {
         window.dispatchEvent(
           new CustomEvent('popup-action', {
-            detail: { action, locationId, rating, locationName },
+            detail: { action, locationId, rating, locationName, curationAction },
           }),
         );
       }
