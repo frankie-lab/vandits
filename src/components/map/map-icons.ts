@@ -375,8 +375,17 @@ export const createCustomIcon = (
   //   La antigua `focused-thumbnail-rule` queda deprecada.
 
 
-  const baseColor = entry.fill_color;
-  const baseColorLight = entry.fill_color_light || adjustHslLightness(baseColor, 15);
+  // PR-MAP-CANON-3 — Cuando `paletteScope === 'state'` (POI propio),
+  // el fill principal sale del nivel canónico POI-N (SoT compartida con
+  // el popup vía `getPoiCurationLevel.levelKey`). `marker_size_config.
+  // fill_color` deja de gobernar el color en esta rama: queda como
+  // fallback para no-state y para tamaño/hover/border (que sí lo siguen
+  // leyendo a través de `entry`).
+  const levelVisual = visualGrammar?.levelVisual ?? null;
+  const baseColor = levelVisual ? `hsl(${levelVisual.fillHsl})` : entry.fill_color;
+  const baseColorLight = levelVisual
+    ? adjustHslLightness(baseColor, 15)
+    : (entry.fill_color_light || adjustHslLightness(baseColor, 15));
   const scaleRatio = hoverSize ? hoverSize / size : 1;
   const hoverAttr = scaleRatio > 1
     ? `onmouseenter="this.style.transform='scale(${scaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'"`
