@@ -84,6 +84,19 @@ const PERMISSION_LABELS: Record<AppPermission, string> = {
  moderate_content: 'Moderar contenido',
  upload_files: 'Subir archivos masivos',
  add_locations: 'Añadir ubicaciones',
+ // Operacionales (PR-ADMIN-AUDIT)
+ manage_permissions: 'Gestionar permisos',
+ manage_marker_config: 'Configurar marcadores',
+ manage_route_engine: 'Configurar motor de rutas',
+ manage_icon_library: 'Gestionar galería de iconos',
+ manage_enrichment_config: 'Configurar fichas',
+ view_audit_log: 'Ver auditoría',
+ manage_geo_maintenance: 'Mantenimiento geográfico',
+ manage_data_sources: 'Gestionar fuentes de datos',
+ run_image_recovery: 'Recuperar imágenes',
+ manage_design_system: 'Gestionar Design System',
+ purge_user: 'Limpiar usuarios',
+ open_back_office: 'Acceder al Back Office',
 };
 
 const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'supervisor', 'user'];
@@ -99,6 +112,18 @@ const ALL_PERMISSIONS: AppPermission[] = [
  'moderate_content',
  'upload_files',
  'add_locations',
+ 'manage_permissions',
+ 'manage_marker_config',
+ 'manage_route_engine',
+ 'manage_icon_library',
+ 'manage_enrichment_config',
+ 'view_audit_log',
+ 'manage_geo_maintenance',
+ 'manage_data_sources',
+ 'run_image_recovery',
+ 'manage_design_system',
+ 'purge_user',
+ 'open_back_office',
 ];
 
 export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
