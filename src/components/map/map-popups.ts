@@ -1332,10 +1332,6 @@ title="Mover a la papelera"
     !isCuratorPoint &&
     !isNearbyPopupContext(location.id) &&
     curationVerdict.primaryAction !== 'none';
-  const showCurationPrimary =
-    !isCuratorPoint &&
-    !isNearbyPopupContext(location.id) &&
-    curationVerdict.primaryAction !== 'none';
   const curationPrimaryBtnHtml = showCurationPrimary ? `
 <button
 class="popup-action-btn"
