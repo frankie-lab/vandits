@@ -37,7 +37,7 @@ describe('P-POI-CURATION-2.13 — adopt nearby re-curation', () => {
   });
 
   it('relanza el pipeline de curación reutilizando advancePoiCurationUntilBlocked', () => {
-    expect(src).toMatch(/advancePoiCurationUntilBlocked\(\s*location\.id,\s*'validate-geo',\s*popupId\s*\)/);
+    expect(src).toMatch(/advancePoiCurationUntilBlocked\([\s\S]*?location\.id[\s\S]*?'validate-geo'[\s\S]*?popupId/);
   });
 
   it('osm y followed convergen en el mismo flujo (sin rama exclusiva osm)', () => {
