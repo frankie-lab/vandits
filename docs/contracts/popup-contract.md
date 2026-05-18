@@ -182,3 +182,44 @@ hsl(var(--muted-foreground) / 0.35)`) o equivalente. Hover y `:focus-visible`
 pueden reforzar la señal, nunca sustituirla. Aplica a touch y a accesibilidad
 por teclado. Norma transversal: cualquier nuevo link clicable dentro del popup
 debe cumplirla.
+
+## Two-rail body (P-POI-CURATION-2.10)
+
+El `popup-scroll-body` (`data-popup-scroll-body="v1"`) admite **dos tipos de
+hijos directos**, no intercambiables:
+
+1. **Carril editorial** — `<div style="padding: 16px 16px 8px 16px;">` que
+   envuelve hero, breadcrumb, ratings (P-POPUP-14.2), descripción,
+   observación y custom-data. Padding de 16px laterales para ritmo de
+   lectura.
+2. **Slots interactivos full-width** — emitidos como hijos directos del
+   `popup-scroll-body`, sin gutter editorial heredado:
+   - `data-recovery-root` (mount de `UnenrichedRecoveryBlock`, POI-1b
+     Contexto cercano).
+   - `data-route-waypoint-actions="v1"` (grid de acciones para waypoints
+     de ruta editables; mantiene su propio `margin: 8px 16px` autocontenido
+     porque su carril es de botones, no editorial).
+
+### Reglas duras
+
+- **Prohibido** envolver slots interactivos dentro del wrapper editorial:
+  reintroduce gutter de prosa sobre grids interactivas.
+- **Prohibido** compensar el gutter heredado con `margin` negativo en el
+  slot. La solución correcta es estructural (sacar el slot del wrapper),
+  no de layout.
+- El renderer del slot interactivo (`NearbyPanel` inline) ya está preparado
+  para vivir edge-to-edge: usa `padX='px-0'` y `rootClass` con `border-t`
+  superior como separador del bloque previo.
+- Hero, breadcrumb, ratings y descripción NO cambian visualmente al
+  aplicar este canon: siguen dentro del wrapper editorial intacto.
+
+### Test canónico
+
+`src/test/popup-poi-1b-recovery-mount-margin.test.ts` verifica:
+
+- Wrapper editorial presente con padding 16px.
+- `data-recovery-root` con `margin: 0 0 8px 0;` (sin gutter, sin negativos).
+- `data-recovery-root` emitido DESPUÉS del cierre del wrapper editorial.
+- Ausencia de regresiones a canon 2.5 (`margin: 0 16px`) o 2.6
+  (`margin: 0 4px`).
+- Slot `data-route-waypoint-actions="v1"` presente.
