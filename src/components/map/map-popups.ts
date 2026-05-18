@@ -1788,7 +1788,7 @@ ${(!isEnriched) ? (() => {
 })() : ''}
 <!-- Mount point for UnenrichedRecoveryBlock (hydrated by LocationMap on popupopen).
      Solo se monta si el POI no está enriquecido. -->
-${!isEnriched ? `<div data-recovery-root="${location.id}" style="margin: 0 16px 8px 16px;"></div>` : ''}
+${curationVerdict.bodyBlocker === 'enrich-from-context' ? `<div data-recovery-root="${location.id}" style="margin: 0 16px 8px 16px;"></div>` : ''}
 ${(() => {
   const pt = (location.placeType ?? '').toString();
   const isRouteWaypoint = pt === 'route_waypoint' || pt.startsWith('route_') || location.customData?.is_route_waypoint === 'true';
