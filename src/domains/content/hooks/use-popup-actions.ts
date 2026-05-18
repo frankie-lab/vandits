@@ -135,6 +135,19 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
       return;
     }
 
+    // PR-SHARE-1 — Share humano/social del POI individual. Entrada única
+    // desde el popup. Abre el ShareSheet global; no exporta ni muta nada.
+    if (action === 'share-poi') {
+      const { openShareSheet } = await import('@/domains/sharing');
+      openShareSheet({
+        kind: 'poi',
+        id: location.id,
+        name: location.name,
+        poi: location,
+      });
+      return;
+    }
+
     if (action === 'enrich' || action === 'quick-classify' || action === 'regenerate') {
       // P-POPUP-16: operational loading state (in-place, no remount).
       const popupId = getPopupIdForLocation(locationId);
