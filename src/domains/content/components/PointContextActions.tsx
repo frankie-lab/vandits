@@ -373,6 +373,7 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
       dispatchMapMarkers(results, { lat: location.latitude, lng: location.longitude }, radiusMeters);
     } catch (e) {
       console.error('Error searching nearby:', e);
+      setErrorNearby(true);
       toast.error('Error buscando puntos cercanos');
     } finally {
       setLoadingNearby(false);
