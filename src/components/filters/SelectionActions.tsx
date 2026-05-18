@@ -79,7 +79,6 @@ import {
   PLACE_TYPE_LABELS,
   PlaceType,
 } from '@/types/location';
-import { openShareSheet } from '@/domains/sharing';
 
 type ExportTarget = 'mymaps' | 'gurumaps' | 'general';
 
