@@ -254,13 +254,14 @@ export const createCustomIcon = (
     });
   }
   if (renderMode === 'micro') {
-    // Rampa explícita por zoom (z≤3→2, z4→3, z5→4). Cap micro = 4px en
-    // z5 antes de saltar a SVG compact en z6. La pertenencia (`isOwn`)
-    // se diferencia solo por halo más marcado, nunca por diámetro.
+    // Rampa explícita por zoom. SoT = `poi.microDot.byZoom` en `poi.json`.
+    // Cap micro = z5 antes de saltar a SVG compact en z6. La pertenencia
+    // (`isOwn`) se diferencia solo por halo, nunca por diámetro.
+    const microByZoom = (tokens as any)?.poi?.microDot?.byZoom;
     const microSize =
-      currentZoom <= 3 ? 2 :
-      currentZoom === 4 ? 3 :
-      4; // z5 — último escalón micro antes de compact
+      currentZoom <= 3 ? Number(microByZoom?.z3OrLess ?? 2) :
+      currentZoom === 4 ? Number(microByZoom?.z4 ?? 3) :
+      Number(microByZoom?.z5 ?? 4);
     const dot = entry.fill_color;
     const haloStyle = isOwn ? '' : 'opacity:0.85;';
     // Followed micro: triángulo invertido CSS, fill = identidad (sin borde).
