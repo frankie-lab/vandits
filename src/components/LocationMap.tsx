@@ -698,9 +698,9 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
   const getLayersRef = useRef(layerVis.getLayers);
   getLayersRef.current = layerVis.getLayers;
   
-   // Get admin status for enrichment permissions (only master/admin can enrich)
-  const { isAdmin } = usePermissions();
-  const canEnrichLocations = isAdmin();
+   // PR-ADMIN-AUDIT Step 3: capability-gated (replaces isAdmin() role check)
+  const { hasPermission } = usePermissions();
+  const canEnrichLocations = hasPermission('run_global_enrichment');
   
   const [userDisplayName, setUserDisplayName] = useState<string | null>(null);
   const [lastSeenAt, setLastSeenAt] = useState<Date | null>(null);

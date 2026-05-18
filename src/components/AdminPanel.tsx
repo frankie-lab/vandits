@@ -266,8 +266,8 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  };
 
  const toggleUserRole = async (userId: string, role: AppRole, hasRole: boolean) => {
- if (!canManageUsers && !isMaster()) {
- toast.error('No tienes permisos para gestionar usuarios');
+ if (!canManageRoles) {
+ toast.error('Solo los Masters pueden modificar roles');
  return;
  }
 
@@ -312,7 +312,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  };
 
  const togglePermission = async (role: AppRole, permission: AppPermission, hasPermission: boolean) => {
- if (!isMaster()) {
+ if (!canManageRoles) {
  toast.error('Solo los Masters pueden modificar permisos');
  return;
  }
@@ -359,7 +359,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  );
  }
 
- if (!hasPermission('open_back_office') && !canManageUsers) {
+ if (!hasPermission('open_back_office') && !hasPermission('manage_users')) {
  return (
  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-modal flex items-center justify-center bg-foreground/50 overlay-respect-progress" onClick={onClose}>
  <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-card rounded-xl shadow-2xl p-8 max-w-md mx-4" onClick={e => e.stopPropagation()}>
@@ -433,7 +433,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  );
  })}
  </div>
- {isMaster() && (
+ {canPurgeUsers && (
  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handlePurgePreview(user); }}
  className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0" title="Limpiar usuario">
  <Trash2 className="w-4 h-4" />

@@ -29,7 +29,11 @@ interface UsePopupActionsOptions {
 }
 
 export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUpload }: UsePopupActionsOptions) {
-  const { isMaster } = usePermissions();
+  const { hasPermission } = usePermissions();
+  // PR-ADMIN-AUDIT Step 3: visited-verification bypass gated by master-only capability
+  // (`delete_any_location` is the only existing master-only operational cap; semantic
+  // mismatch documented — revisit in PR-ADMIN-AUDIT-4 if a dedicated cap is added).
+  const canBypassVisitVerification = () => hasPermission('delete_any_location');
   const { documents, updateLocation } = useLocationsStore();
 
   // P-POPUP-17 — single global listener that drives popup operational
