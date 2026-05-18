@@ -229,6 +229,8 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
   // generen presión visual sin recurrir a scroll anidado.
   const [expandedList, setExpandedList] = useState(false);
   const INLINE_VISIBLE_DEFAULT = 6;
+  // Reset cap on POI change / radius change para no heredar "Ver más" entre POIs.
+  useEffect(() => { setExpandedList(false); }, [location.id, radiusMeters]);
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
   const documents = useLocationsStore(state => state.documents);
   const selectedRef = useRef<HTMLDivElement | null>(null);
