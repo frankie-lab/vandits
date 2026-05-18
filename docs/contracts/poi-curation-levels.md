@@ -275,3 +275,55 @@ un segundo scroll vertical anidado.
 Shell del popup, hero, breadcrumb, ratings block, footer canónico,
 niveles POI, lógica de curación, marker grammar, heal-rings,
 resolve-conflict real, variant `sidebar`, P-POI-CURATION-3.x.
+
+## P-POI-CURATION-2.3 — Legibilidad y ancho útil en POI-1b
+
+### Problema
+
+Las filas de candidatos quedaban encajonadas dentro del popup
+(`CARD.maxWidth = 360`) por la suma de `padX=px-1.5` del bloque inline,
+`px-3` de cada card, `gap-3` y un botón `h-8 w-8`. Los nombres largos
+caían en `truncate` y la metadata de coordenadas crudas competía con el
+nombre por la misma fila.
+
+### Reglas canónicas
+
+- **Inline edge-to-edge**: `padX = 'px-0'` en `variant="inline"`.
+  Header, current-point card, mismatch banner, results y footer del
+  bloque comparten ancho con los bordes internos del
+  `leaflet-popup-content`.
+- **Densidad compact** en `NearbyResultCard` (prop `density`):
+  - `comfortable` (default, **sin cambios** para otros consumidores).
+  - `compact`: `px-2`, `gap-2`, `rounded-md`, nombre
+    `text-sm font-semibold leading-snug line-clamp-2`, meta
+    `text-[10px] text-muted-foreground/80`.
+- **Meta sin coordenadas** en `NearbyPointCard`: visible solo
+  `distance · place_type`. Las coords completas quedan accesibles vía
+  `title`/`aria-label` del row.
+- **Acción más ligera**: botón `h-7 w-7` (28×28, sigue cumpliendo
+  target táctil), `variant="ghost"` en idle y `variant="default"`
+  cuando `enriching`.
+
+### Hooks observables
+
+- `data-density="comfortable" | "compact"` en el root de
+  `NearbyResultCard`.
+- `title` / `aria-label` del row contienen siempre nombre + distancia
+  + coordenadas (regresión-guard para a11y/QA aunque el meta visible
+  se simplifique).
+
+### Invariantes añadidas
+
+- En `variant="inline"`, ningún subcontenedor del bloque expone
+  `px-1.5` ni `px-3` como padding horizontal raíz.
+- En density `compact`, el nombre usa `line-clamp-2`, **nunca**
+  `truncate`.
+- En `NearbyPointCard`, el meta visible no contiene
+  `latitude.toFixed(4)` ni `longitude.toFixed(4)`.
+
+### Fuera de alcance (re-confirmado)
+
+`CARD.maxWidth = 360`, shell del popup, hero, breadcrumb, ratings
+block, footer canónico, niveles POI, lógica de curación, marker
+grammar, heal-rings, variant `sidebar` (mantiene `comfortable` por
+defecto), otros consumidores de `NearbyResultCard`, P-POI-CURATION-3.x.
