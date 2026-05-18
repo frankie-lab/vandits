@@ -77,14 +77,13 @@ const getModeScaleForZoom = (zoom: number, mode: MarkerRenderMode): number => {
 
 /**
  * Sombra base por modo. Doble capa SOLO en standard/rich; compact mantiene
- * sombra simple para no ensuciar vistas de densidad. Tokenizado en
- * `poi.shadow.{compact,standard,rich}`.
+ * sombra simple. PR-MAP-CANON-2: única SoT = `poi.shadow.{compact,standard,
+ * rich}` en `poi.json`. Sin fallback literal.
  */
 const getShadowForMode = (mode: MarkerRenderMode): string => {
-  const shadowTokens = (tokens as any)?.poi?.shadow;
-  if (mode === 'rich') return shadowTokens?.rich ?? 'drop-shadow(0 1px 1px rgba(0,0,0,0.35)) drop-shadow(0 3px 6px rgba(0,0,0,0.22))';
-  if (mode === 'standard') return shadowTokens?.standard ?? 'drop-shadow(0 1px 1px rgba(0,0,0,0.35)) drop-shadow(0 3px 6px rgba(0,0,0,0.22))';
-  return shadowTokens?.compact ?? 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
+  if (mode === 'rich') return tokens.poi.shadow.rich;
+  if (mode === 'standard') return tokens.poi.shadow.standard;
+  return tokens.poi.shadow.compact;
 };
 
 /**
