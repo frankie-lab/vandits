@@ -143,24 +143,40 @@ function applyRow(row: Record<string, any>) {
         },
       });
     }
+    // P-POI-CURATION-3 (Fase 1): cuando el job se originó en el popup
+    // (`scope.source === 'popup_validate_geo'`), el orquestador
+    // `advancePoiCurationUntilBlocked` es el ÚNICO emisor de mensajes en
+    // lenguaje de curación. El store no debe emitir mensajería batch
+    // ("Geocodificación completada…", "puntos revisados", "segundo plano",
+    // "Geocodificación detenida…") para esa fuente.
+    const popupSourced =
+      row.scope && typeof row.scope === 'object' &&
+      (row.scope as Record<string, unknown>).source === 'popup_validate_geo';
+
     if (status === 'completed' && !lastNotifiedComplete) {
       lastNotifiedComplete = true;
       const updated = row.updated ?? 0;
       const processed = row.processed ?? 0;
-      toast.success(
-        updated > 0
-          ? `Geocodificación completada: ${updated} de ${processed} puntos actualizados. La jerarquía se ha refrescado en el mapa y en "Buscar y Filtrar".`
-          : `Geocodificación completada: ${processed} puntos revisados, ninguno necesitaba cambios.`,
-        { duration: 6000 },
-      );
+      if (!popupSourced) {
+        toast.success(
+          updated > 0
+            ? `Geocodificación completada: ${updated} de ${processed} puntos actualizados. La jerarquía se ha refrescado en el mapa y en "Buscar y Filtrar".`
+            : `Geocodificación completada: ${processed} puntos revisados, ninguno necesitaba cambios.`,
+          { duration: 6000 },
+        );
+      }
       window.dispatchEvent(new CustomEvent('reload-locations'));
       window.dispatchEvent(new CustomEvent('locations:refresh'));
       window.dispatchEvent(new CustomEvent('locations:changed'));
     } else if (status === 'canceled') {
-      toast.message(`Geocodificación detenida. ${row.updated ?? 0} actualizados.`);
+      if (!popupSourced) {
+        toast.message(`Geocodificación detenida. ${row.updated ?? 0} actualizados.`);
+      }
       window.dispatchEvent(new CustomEvent('reload-locations'));
     } else if (status === 'failed') {
-      toast.error('La geocodificación falló. Revisa el panel de geografía.');
+      if (!popupSourced) {
+        toast.error('La geocodificación falló. Revisa el panel de geografía.');
+      }
     }
     unsubscribe();
   }
