@@ -14,15 +14,6 @@ export interface UserProfile {
 
 export type AppRole = 'master' | 'admin' | 'moderator' | 'editor' | 'supervisor' | 'user';
 
-export type AppPermission =
-  | 'manage_users'
-  | 'manage_criteria'
-  | 'run_global_enrichment'
-  | 'view_all_locations'
-  | 'edit_all_locations'
-  | 'delete_any_location'
-  | 'manage_documents'
-  | 'view_analytics'
-  | 'moderate_content'
-  | 'upload_files'
-  | 'add_locations';
+// AppPermission: re-exportado desde el hook para mantener un único catálogo
+// (mirror del enum `public.app_permission`). Ver `use-permissions.ts`.
+export type { AppPermission } from './hooks/use-permissions';
