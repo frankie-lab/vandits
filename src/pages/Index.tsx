@@ -61,7 +61,7 @@ const UsersSidebar = lazy(() => import('@/components/UsersSidebar').then(m => ({
 const Index = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { isMaster } = usePermissions();
+  const { hasPermission } = usePermissions();
 
   // ─── Right panel registry (mutual exclusion) ─────────────────────────────
   const { isOpen, open, close, toggle, payload } = useRightPanel();
@@ -389,7 +389,7 @@ const Index = () => {
           locationName={photoUploadLocation.name}
           locationCoordinates={photoUploadLocation.coordinates}
           hasUserImage={false}
-          isAdminOrMaster={isMaster()}
+          canSetOfficialImage={hasPermission('moderate_content')}
           onPhotoUpdated={() => setPhotoUploadLocation(null)}
           defaultVisibility="private"
         />
