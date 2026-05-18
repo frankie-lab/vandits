@@ -299,11 +299,13 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
     if (existing) {
       applyRow(existing);
       subscribeToJob(existing.id);
-      toast.message(
-        isCrossUser
-          ? 'Ese usuario ya tiene una geocodificación en curso. Mostrando progreso.'
-          : 'Ya hay una geocodificación en curso. Mostrando progreso.',
-      );
+      if (scope?.source !== 'popup_validate_geo') {
+        toast.message(
+          isCrossUser
+            ? 'Ese usuario ya tiene una geocodificación en curso. Mostrando progreso.'
+            : 'Ya hay una geocodificación en curso. Mostrando progreso.',
+        );
+      }
       return;
     }
 
