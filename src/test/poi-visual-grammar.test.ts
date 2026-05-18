@@ -131,5 +131,83 @@ describe('resolvePoiVisualGrammar', () => {
     expect(a.curation.level).toBe(b.curation.level);
     expect(a.healthRings).toEqual(b.healthRings);
     expect(a.visualState).toBe(b.visualState);
+    expect(a.levelVisual?.fillHsl).toBe(b.levelVisual?.fillHsl);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// PR-MAP-CANON-3 — `levelVisual` como SoT del fill del marker propio.
+// ────────────────────────────────────────────────────────────────────────
+describe('PR-MAP-CANON-3 — levelVisual', () => {
+  beforeEach(() => clearPoiSourceCache());
+
+  const LONG_DESC = 'x'.repeat(120);
+  const enrichedData = {
+    verified: true,
+    verification_notes: 'ok',
+    categoria: 'Monumento',
+    nombre_lugar: 'L',
+    localizacion: 'x',
+    descripcion: LONG_DESC,
+    punto_destacado: 'x',
+    etiquetas: [],
+    datos_clave: { tipo: 'monument', coordenadas: '0,0' },
+    fuentes: [],
+  } as unknown;
+
+  // (levelKey, geo, name, enriched?, visited?, rated?)
+  const cases: Array<[string, Record<string, unknown>]> = [
+    ['poi-0',  { ownerUserId: VIEWER, name: '', geoHealth: null }],
+    ['poi-1a', { ownerUserId: VIEWER, geoHealth: null }],
+    ['poi-1a', { ownerUserId: VIEWER, geoHealth: 'partial' }],
+    ['poi-1a', { ownerUserId: VIEWER, geoHealth: 'empty' }],
+    ['poi-1a', { ownerUserId: VIEWER, geoHealth: 'stale_name' }],
+    ['poi-1b', { ownerUserId: VIEWER, geoHealth: 'ok' }],
+    ['poi-3',  { ownerUserId: VIEWER, geoHealth: 'broken' }],
+    ['poi-5',  { ownerUserId: VIEWER, geoHealth: 'partial', enrichedData }],
+    ['poi-9',  { ownerUserId: VIEWER, geoHealth: 'ok', enrichedData }],
+    ['poi-10', { ownerUserId: VIEWER, geoHealth: 'ok', enrichedData, customData: { visited: 'true', user_rating: '5' } }],
+  ];
+
+  it.each(cases)('%s → levelKey matches and fillHsl is non-empty', (expected, extra) => {
+    const out = resolvePoiVisualGrammar(VIEWER, poi(extra));
+    expect(out.curation.levelKey).toBe(expected);
+    expect(out.levelVisual).not.toBeNull();
+    expect(out.levelVisual!.levelKey).toBe(expected);
+    expect(out.levelVisual!.fillHsl).toMatch(/\d+\s+\d+%\s+\d+%/);
+  });
+
+  it('showStateRing === true ONLY for poi-5', () => {
+    for (const [expected, extra] of cases) {
+      const out = resolvePoiVisualGrammar(VIEWER, poi(extra));
+      expect(out.levelVisual!.showStateRing).toBe(expected === 'poi-5');
+    }
+  });
+
+  it('followed/app/source: levelVisual === null (curated-only sharing intact)', () => {
+    const samples = [
+      poi({ ownerUserId: OTHER }),
+      poi({ sourceKind: 'app', sourceId: 'vandits-app', groupId: 'g' }),
+      poi({ sourceKind: 'external', sourceId: 'osm' }),
+    ];
+    for (const s of samples) {
+      const out = resolvePoiVisualGrammar(VIEWER, s);
+      expect(out.levelVisual).toBeNull();
+    }
+  });
+
+  it('viewer ajeno sobre POI propio del owner: levelVisual === null', () => {
+    // Viewer != owner → source = 'followed' → paletteScope != 'state'.
+    const out = resolvePoiVisualGrammar(VIEWER, poi({ ownerUserId: OTHER, enrichedData }));
+    expect(out.grammar.paletteScope).not.toBe('state');
+    expect(out.levelVisual).toBeNull();
+  });
+
+  it('poi-9 y poi-10 comparten fill en V1 (delta visual opcional NO bloquea PR)', () => {
+    const nine = resolvePoiVisualGrammar(VIEWER, poi({ ownerUserId: VIEWER, geoHealth: 'ok', enrichedData }));
+    const ten = resolvePoiVisualGrammar(VIEWER, poi({ ownerUserId: VIEWER, geoHealth: 'ok', enrichedData, customData: { visited: 'true', user_rating: '5' } }));
+    expect(nine.curation.levelKey).toBe('poi-9');
+    expect(ten.curation.levelKey).toBe('poi-10');
+    expect(nine.levelVisual!.fillHsl).toBe(ten.levelVisual!.fillHsl);
   });
 });
