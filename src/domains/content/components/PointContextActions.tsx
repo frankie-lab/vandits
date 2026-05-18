@@ -713,7 +713,7 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
       data-nearby-scroll-owner={isInline ? 'popup' : 'self'}
     >
       {/* Header */}
-      <div className={`space-y-1 overflow-x-hidden border-b bg-muted/30 ${padX} py-2`}>
+      <div className={`space-y-1 overflow-x-hidden border-b border-border/40 ${padX} py-2`}>
 
 
         {/* Radius slider */}
@@ -733,22 +733,31 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
         </div>
       </div>
 
-      {/* Current point card */}
+      {/* Current point — renglón editorial sin caja. P-POI-CURATION-2.4:
+          el POI activo es la referencia principal, reconocible por eyebrow
+          + tipografía + icono en color primary, no por un contenedor card. */}
       <div className={`min-w-0 shrink-0 ${padX} pt-3`}>
-        <div className="w-full min-w-0 overflow-hidden rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <Navigation className="w-3.5 h-3.5 text-primary" />
-            <span className="min-w-0 truncate text-[12px] font-semibold">{location.name}</span>
-            {location.place_type && <Badge variant="secondary" className="h-4 shrink-0 text-[9px]">{location.place_type}</Badge>}
+        <div
+          className="flex flex-col gap-0.5 border-l-2 border-primary/60 pl-2"
+          data-current-point-surface="flat"
+        >
+          <span className="text-[9px] font-semibold uppercase tracking-wider text-primary/80">
+            Punto actual
+          </span>
+          <div className="flex min-w-0 items-baseline gap-2">
+            <Navigation className="w-3.5 h-3.5 text-primary shrink-0 self-center" />
+            <span className="min-w-0 truncate text-[13px] font-semibold text-foreground">
+              {location.name}
+            </span>
+            {location.place_type && (
+              <span className="shrink-0 text-[10px] text-muted-foreground">
+                · {location.place_type}
+              </span>
+            )}
+            <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/80">
+              {hasRealEnrichment(location) ? 'Ya enriquecido' : 'Sin enriquecer'}
+            </span>
           </div>
-          <p className="text-[10px] text-muted-foreground pl-5">
-            {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
-          </p>
-          {hasRealEnrichment(location) ? (
-            <p className="text-[10px] text-amber-600 pl-5 flex items-center gap-1"><Sparkles className="w-2.5 h-2.5" /> Ya enriquecido</p>
-          ) : (
-            <p className="text-[10px] text-muted-foreground pl-5">Sin enriquecer</p>
-          )}
         </div>
       </div>
 
