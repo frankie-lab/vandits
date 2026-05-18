@@ -1665,7 +1665,10 @@ async function getGlobalEnrichmentConfig(): Promise<EnrichmentCardConfigV2> {
   }
 }
 
-// Profile-specific enrichment preferences (curator or druid overrides)
+// Profile-specific enrichment preferences (placeholder — PR-ADMIN-AUDIT-3 Fase A).
+// Las tablas `curators`/`druids` fueron purgadas en migraciones anteriores y los
+// `curatorId`/`druidId` se eliminaron del contrato de entrada. Mantenemos el tipo
+// con shape vacío para no romper los merges posteriores `profilePrefs?.<key>`.
 interface ProfileEnrichmentPrefs {
   enrichment_expected_nature?: string;
   enrichment_search_radius_meters?: number;
@@ -1683,44 +1686,7 @@ interface ProfileEnrichmentPrefs {
   enrichment_exclude_keywords?: string[];
 }
 
-// Fetch profile-specific preferences (curator or druid)
-async function getProfilePreferences(profileType: 'curator' | 'druid', profileId: string): Promise<ProfileEnrichmentPrefs | null> {
-  try {
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      console.log('Supabase credentials not available for profile lookup');
-      return null;
-    }
-    
-    const table = profileType === 'curator' ? 'curators' : 'druids';
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${profileId}&select=enrichment_expected_nature,enrichment_search_radius_meters,enrichment_include_contact,enrichment_show_sources,enrichment_correct_coordinates,enrichment_tone,enrichment_min_length,enrichment_custom_prompt,enrichment_include_image,enrichment_include_web,enrichment_include_tags,enrichment_include_interest_index,enrichment_focus_keywords,enrichment_exclude_keywords`, {
-      headers: {
-        'apikey': SUPABASE_SERVICE_ROLE_KEY,
-        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      },
-    });
-    
-    if (!response.ok) {
-      console.error(`Failed to fetch ${profileType} preferences:`, response.status);
-      return null;
-    }
-    
-    const data = await response.json();
-    if (data && data.length > 0) {
-      console.log(`${profileType} preferences loaded:`, data[0]);
-      return data[0] as ProfileEnrichmentPrefs;
-    }
-    
-    return null;
-  } catch (error) {
-    console.error(`Error fetching ${profileType} preferences:`, error);
-    return null;
-  }
-}
-
-// Build tone instructions based on curator preference
+// Build tone instructions
 function getToneInstructions(tone: string): string {
   const toneMap: Record<string, string> = {
     'tecnico': `TONO TÉCNICO:
@@ -1782,12 +1748,12 @@ serve(async (req) => {
       });
     }
 
-    const { location: rawLocation, generateImage = true, imageSources, curatorId, druidId, skipValidation = false, confirmedCandidate } = parsed as {
+    // PR-ADMIN-AUDIT-3 Fase A: `curatorId`/`druidId` retirados del contrato.
+    // Las tablas `curators`/`druids` fueron purgadas en migraciones anteriores.
+    const { location: rawLocation, generateImage = true, imageSources, skipValidation = false, confirmedCandidate } = parsed as {
       location: IncomingLocation;
       generateImage?: boolean;
       imageSources?: string[];
-      curatorId?: string;
-      druidId?: string;
       skipValidation?: boolean;
       confirmedCandidate?: string;
     };
@@ -1826,18 +1792,11 @@ serve(async (req) => {
     const globalConfig = await getGlobalEnrichmentConfig();
     console.log('Global enrichment config:', globalConfig.tone, globalConfig.min_length);
 
-    // 2. Fetch profile-specific overrides (curator or druid)
-    let profilePrefs: ProfileEnrichmentPrefs | null = null;
-    let profileType: string = 'user';
-    if (curatorId) {
-      profileType = 'curator';
-      console.log('Fetching preferences for curator:', curatorId);
-      profilePrefs = await getProfilePreferences('curator', curatorId);
-    } else if (druidId) {
-      profileType = 'druid';
-      console.log('Fetching preferences for druid:', druidId);
-      profilePrefs = await getProfilePreferences('druid', druidId);
-    }
+    // 2. Profile-specific overrides — retirado en PR-ADMIN-AUDIT-3 Fase A.
+    //    Las tablas `curators`/`druids` ya no existen; merges posteriores usan
+    //    fallback global (`profilePrefs?.<key> ?? globalConfig.<key>`).
+    const profilePrefs: ProfileEnrichmentPrefs | null = null;
+    const profileType: string = 'user';
     
     // 3. Merge: profile overrides > global config (v2 card schema)
     const activeFieldKeys = new Set(getActiveFields(globalConfig).map((f) => f.key));

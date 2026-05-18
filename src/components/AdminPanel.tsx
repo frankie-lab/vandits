@@ -51,7 +51,6 @@ const ROLE_LABELS: Record<AppRole, string> = {
  moderator: 'Moderador',
  editor: 'Editor',
  supervisor: 'Supervisor',
- user: 'Usuario',
 };
 
 const ROLE_COLORS: Record<AppRole, string> = {
@@ -60,7 +59,6 @@ const ROLE_COLORS: Record<AppRole, string> = {
  moderator: 'bg-orange-500',
  editor: 'bg-blue-500',
  supervisor: 'bg-cyan-500',
- user: 'bg-muted-foreground',
 };
 
 const PERMISSION_LABELS: Record<AppPermission, string> = {
@@ -90,7 +88,8 @@ const PERMISSION_LABELS: Record<AppPermission, string> = {
  open_back_office: 'Acceder al Back Office',
 };
 
-const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'supervisor', 'user'];
+// Canon RBAC PR-ADMIN-AUDIT-3: 'curator' y 'user' purgados del catálogo asignable.
+const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'supervisor'];
 const ALL_PERMISSIONS: AppPermission[] = [
  'manage_users',
  'manage_criteria',
@@ -422,7 +421,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  <div className="text-sm text-muted-foreground truncate">@{user.username}</div>
  </div>
  <div className="flex items-center gap-2 flex-wrap justify-end">
- {ALL_ROLES.filter(r => r !== 'user').map(role => {
+  {ALL_ROLES.map(role => {
  const hasRole = user.roles.includes(role);
  const isSaving = savingRole === `${user.id}-${role}`;
  return (
@@ -451,7 +450,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   <div className="flex-1 overflow-hidden min-h-0 flex flex-col p-4">
  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-8">
  <div className="space-y-4 pr-4">
- {ALL_ROLES.filter(r => r !== 'user').map(role => {
+ {ALL_ROLES.map(role => {
  const isExpanded = expandedRoles.has(role);
  return (
  <div key={role} className="border rounded-lg overflow-hidden">
