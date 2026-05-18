@@ -191,6 +191,8 @@ beforeEach(() => {
   toastError.mockReset();
   toastMessage.mockReset();
   toastLoading.mockReset();
+  h.subscribers.length = 0;
+  h.storeState.lastResult = null;
   fakeLocation.customData = {};
   document.body.innerHTML = '';
 });
@@ -199,69 +201,81 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-describe('P-POI-CURATION-2 — validate-geo', () => {
-  it('launches a real geocoding job with mode=reconcile + locationIds + source', async () => {
-    startMock.mockResolvedValue(undefined);
+describe('P-POI-CURATION-2/3 Fase 1 — validate-geo (pipeline)', () => {
+  it('launches the geocoding job with mode=reconcile + locationIds + source', async () => {
+    startMock.mockImplementation(async () => {
+      // Simulate the server-side job finishing synchronously after start().
+      queueMicrotask(() => completeGeocodingJob('completed'));
+    });
     const popupId = mountPopupDom(fakeLocation.id);
     const handler = getHandler();
 
     await handler(makeEvent('validate-geo'));
 
-    expect(clearLastResultMock).toHaveBeenCalledTimes(1);
+    expect(clearLastResultMock).toHaveBeenCalled();
     expect(startMock).toHaveBeenCalledTimes(1);
     const [total, scope] = startMock.mock.calls[0];
     expect(total).toBe(1);
     expect(scope.mode).toBe('reconcile');
     expect(scope.locationIds).toEqual([fakeLocation.id]);
     expect(scope.source).toBe('popup_validate_geo');
+    // Pipeline toast is curation-language, never batch.
     expect(toastSuccess).toHaveBeenCalled();
-    // Loading state cleared in finally
+    const msg = toastSuccess.mock.calls[0]?.[0] ?? '';
+    expect(msg).not.toMatch(/job|Geocodificación|puntos revisados|segundo plano/i);
+    // Loading state cleared in finally.
     expect(document.getElementById(popupId)?.getAttribute('data-popup-operational-state')).toBe('idle');
   });
 
-  it('enters loading state with "Validando geografía…" label while job runs', async () => {
+  it('overlay covers the whole pipeline with "Validando geografía…" label', async () => {
     const popupId = mountPopupDom(fakeLocation.id);
-    let resolveJob: () => void;
-    startMock.mockReturnValue(new Promise<void>((res) => { resolveJob = res; }));
+    let resolveStart: () => void;
+    startMock.mockReturnValue(new Promise<void>((res) => { resolveStart = res; }));
     const handler = getHandler();
 
     const pending = handler(makeEvent('validate-geo'));
-    // Give microtask a tick to set state
     await Promise.resolve();
     const root = document.getElementById(popupId)!;
     expect(root.getAttribute('data-popup-operational-state')).toBe('loading');
     const label = root.querySelector('.popup-operational-label')?.textContent ?? '';
     expect(label).toBe('Validando geografía…');
 
-    resolveJob!();
+    resolveStart!();
+    queueMicrotask(() => completeGeocodingJob('completed'));
     await pending;
     expect(root.getAttribute('data-popup-operational-state')).toBe('idle');
   });
 
   it('double-click does NOT duplicate the job (isPopupOperational guard)', async () => {
     mountPopupDom(fakeLocation.id);
-    let resolveJob: () => void;
-    startMock.mockReturnValue(new Promise<void>((res) => { resolveJob = res; }));
+    let resolveStart: () => void;
+    startMock.mockReturnValue(new Promise<void>((res) => { resolveStart = res; }));
     const handler = getHandler();
 
     const first = handler(makeEvent('validate-geo'));
     await Promise.resolve();
-    // Second click while still loading — must be ignored
+    // Second click while still loading — must be ignored.
     await handler(makeEvent('validate-geo'));
     expect(startMock).toHaveBeenCalledTimes(1);
 
-    resolveJob!();
+    resolveStart!();
+    queueMicrotask(() => completeGeocodingJob('completed'));
     await first;
   });
 
-  it('error clears the loading state and shows error toast', async () => {
+  it('job failure clears loading + surfaces curation-language "manual" toast (never silent, never batch)', async () => {
     const popupId = mountPopupDom(fakeLocation.id);
-    startMock.mockRejectedValue(new Error('boom'));
+    startMock.mockImplementation(async () => {
+      queueMicrotask(() => completeGeocodingJob('failed'));
+    });
     const handler = getHandler();
 
     await handler(makeEvent('validate-geo'));
 
-    expect(toastError).toHaveBeenCalled();
+    // Orchestrator catches failure → blocker='enrichment-ambiguous' → toast.message.
+    expect(toastMessage).toHaveBeenCalled();
+    const msg = toastMessage.mock.calls[0]?.[0] ?? '';
+    expect(msg).not.toMatch(/Geocodificación|job|segundo plano/i);
     expect(document.getElementById(popupId)?.getAttribute('data-popup-operational-state')).toBe('idle');
   });
 });
