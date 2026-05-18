@@ -13,6 +13,7 @@ import { dualWriteVisited, dualWriteRating, dualWriteAdopt } from '@/domains/v2/
 import { userPlaceService } from '@/services/user-place.service';
 import { getV2Flags } from '@/hooks/use-v2-flags';
 import { triggerEnrichLocation } from '@/domains/content/lib/enrich-location';
+import { useGeocodingJobStore } from '@/stores/geocoding-job-store';
 import {
   setPopupOperationalState,
   clearPopupOperationalState,
@@ -656,6 +657,68 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
       window.dispatchEvent(new CustomEvent('open-reclassify', {
         detail: { locationId, location }
       }));
+    } else if (action === 'curation-primary') {
+      // P-POI-CURATION-2 — Real wiring for the unified curation primary button.
+      // Sub-action comes from `data-curation-action` propagated by the
+      // dispatcher in `setupActionClickHandler` (map-popup-handlers.ts).
+      // No silent no-op: every branch produces real work or explicit feedback.
+      const curationAction = (event.detail as any).curationAction as string | undefined;
+      const popupId = getPopupIdForLocation(locationId);
+      if (isPopupOperational(popupId)) return;
+
+      if (curationAction === 'validate-geo') {
+        setPopupOperationalState(popupId, 'loading', { label: 'Validando geografía…' });
+        try {
+          useGeocodingJobStore.getState().clearLastResult();
+          await useGeocodingJobStore.getState().start(1, {
+            label: `Validar geografía · ${location.name}`,
+            mode: 'reconcile',
+            locationIds: [locationId],
+            source: 'popup_validate_geo',
+          });
+          toast.success('Validación de geografía lanzada');
+        } catch (err) {
+          console.error('[validate-geo] error:', err);
+          toast.error('No se pudo validar la geografía');
+        } finally {
+          clearPopupOperationalState(popupId);
+        }
+        return;
+      }
+
+      if (curationAction === 'rate-experience') {
+        // Scroll/focus visible ratings block when present; otherwise prompt
+        // user to mark as visited first.
+        const visited = location.customData?.visited === 'true';
+        const block = document.querySelector<HTMLElement>(
+          `[data-popup-ratings-block="v1"][data-popup-enrichment-rating="${locationId}"]`,
+        ) ?? document.querySelector<HTMLElement>('[data-popup-ratings-block="v1"]');
+        if (block) {
+          try {
+            block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } catch { /* jsdom */ }
+          block.setAttribute('data-popup-ratings-focus', 'pulse');
+          setTimeout(() => block.removeAttribute('data-popup-ratings-focus'), 1500);
+          if (!visited) {
+            toast.message('Primero marca el POI como visitado para valorar tu experiencia.');
+          }
+        } else {
+          toast.message(
+            visited
+              ? 'Bloque de valoración no disponible en este popup.'
+              : 'Primero marca el POI como visitado para valorar tu experiencia.',
+          );
+        }
+        return;
+      }
+
+      const pendingLabels: Record<string, string> = {
+        'resolve-conflict': 'Resolver conflicto: acción pendiente de implementar',
+        'heal-poi': 'Sanar POI: acción pendiente de implementar',
+      };
+      toast.message(
+        pendingLabels[curationAction ?? ''] ?? 'Acción de curación pendiente de implementar',
+      );
     }
   }, [documents, updateLocation, isMaster, handleToggleVisited, loadFromDatabase, onOpenNotes, onOpenPhotoUpload]);
 
