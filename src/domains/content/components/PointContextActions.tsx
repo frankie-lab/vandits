@@ -726,12 +726,12 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
       data-nearby-scroll-owner={isInline ? 'popup' : 'self'}
     >
       {/* Header */}
-      <div className={`space-y-1 overflow-x-hidden border-b border-border/40 ${padX} py-2`}>
+      <div className={`overflow-x-hidden border-b border-border/40 ${padX} pt-2 pb-2.5`}>
 
-
-        {/* Radius slider */}
-        <div className="flex items-center gap-2 px-1 pt-1 overflow-hidden">
-          <span className="text-[10px] text-muted-foreground whitespace-nowrap">Radio</span>
+        {/* Radius slider — compactado para reducir tensión visual y dejar
+            que el buscador respire abajo. */}
+        <div className="flex items-center gap-2 px-1 overflow-hidden">
+          <span className="text-[11px] uppercase tracking-wide text-muted-foreground/80 whitespace-nowrap">Radio</span>
           <Slider
             value={[radiusMeters]}
             onValueChange={([v]) => setRadiusMeters(v)}
@@ -742,39 +742,44 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
             trackClassName="h-[3px]"
             thumbClassName="h-3.5 w-3.5 border"
           />
-          <span className="text-[10px] font-medium tabular-nums w-10 text-right shrink-0">{radiusMeters}m</span>
+          <span className="text-[10px] tabular-nums w-10 text-right shrink-0 text-muted-foreground">{radiusMeters}m</span>
         </div>
 
-        {/* P-POI-CURATION-2.8 — Buscador manual inline materializado.
-            Única excepción a la flat surface dentro del header: affordance
-            de control activo (input), no sub-card editorial. Refuerza el
-            flujo Radio → Buscar/refinar → Resultados con foco visible.
+        {/* P-POI-CURATION-2.9 — Buscador manual inline con jerarquía propia.
+            Sub-bloque separado del slider de Radio por divisor sutil
+            (border-t border-border/30). Input con presencia vertical
+            (h-8, text-[13px]) y contraste reforzado (bg-muted/60). Sigue
+            siendo única excepción a la flat surface dentro del header:
+            affordance de control activo, no sub-card editorial.
+            Flujo legible: Radio → Buscar/refinar → Resultados.
             Vacío => modo automático. >=2 chars => modo búsqueda. */}
         {!loadingNearby && !errorNearby && (
-          <div
-            className="flex items-center gap-1.5 mx-1 mt-2.5 mb-1 h-7 px-2 rounded-md bg-muted/40 border border-border/50 focus-within:border-primary/60 focus-within:bg-background transition-colors"
-            data-nearby-search-input
-          >
-            <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar otro punto cercano…"
-              className="flex-1 min-w-0 bg-transparent border-0 p-0 text-[12px] placeholder:text-muted-foreground/70 focus:outline-none focus:ring-0"
-              aria-label="Buscar otro punto cercano"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="shrink-0 h-5 w-5 rounded inline-flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground text-[12px] leading-none"
-                aria-label="Limpiar búsqueda"
-                data-nearby-search-clear
-              >
-                ×
-              </button>
-            )}
+          <div className="mt-3 pt-3 border-t border-border/30">
+            <div
+              className="flex items-center gap-2 h-8 px-2.5 rounded-md bg-muted/60 border border-border/70 focus-within:border-primary/60 focus-within:bg-background transition-colors"
+              data-nearby-search-input
+            >
+              <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar otro punto cercano…"
+                className="flex-1 min-w-0 bg-transparent border-0 p-0 text-[13px] placeholder:text-muted-foreground/70 focus:outline-none focus:ring-0"
+                aria-label="Buscar otro punto cercano"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="shrink-0 h-6 w-6 rounded inline-flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground text-[14px] leading-none"
+                  aria-label="Limpiar búsqueda"
+                  data-nearby-search-clear
+                >
+                  ×
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
