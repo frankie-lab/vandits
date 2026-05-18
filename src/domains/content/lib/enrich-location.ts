@@ -46,7 +46,7 @@ export async function triggerEnrichLocation(
   locationId: string,
   opts: TriggerEnrichOptions = {},
 ): Promise<{ success: boolean; error?: string }> {
-  const { focusAfter = false, regenerate = false, skipValidation = false } = opts;
+  const { focusAfter = false, regenerate = false, skipValidation = false, silent = false } = opts;
 
   // 1. Resolve the location from the store.
   const documents = useLocationsStore.getState().documents;
@@ -79,6 +79,17 @@ export async function triggerEnrichLocation(
   const verb = regenerate ? 'Re-enriqueciendo' : 'Enriqueciendo';
   const successMsg = regenerate ? 'Ficha re-enriquecida' : 'Ficha enriquecida';
   const toastId = toast.loading(`${verb} ${location.name}...`);
+
+  // P-POPUP-17 — broadcast start. Listener mounts the popup overlay only
+  // if the popup of this id is currently in the DOM. `silent:true` callers
+  // (orchestrators) skip this and own the operational state themselves.
+  if (!silent) {
+    emitEnrichmentPhase({
+      id: locationId,
+      phase: 'start',
+      label: regenerate ? 'Re-enriqueciendo POI…' : 'Enriqueciendo POI…',
+    });
+  }
 
   try {
     let enrichedData: any = null;
