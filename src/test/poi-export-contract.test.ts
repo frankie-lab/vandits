@@ -88,8 +88,8 @@ describe('PR-EXPORT-1 · kml-parser defensive assert', () => {
     expect(out).toContain('POI sano');
     expect(out).not.toContain('POI partial');
     expect(out).toContain('export_scope');
-    // `scopeProvided: true` ⇒ no debe emitir warn defensivo.
-    expect(warn).not.toHaveBeenCalled();
+    // Warn defensivo por descarte (NO es el warn de scope ausente).
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('descartados'));
   });
   it('exportToJSON scope=internal con ctx descarta ajenos', () => {
     const out = exportToJSON([poi9(OWNER_A), poi9(OWNER_B)], 'internal', ctxA, { scopeProvided: true });
