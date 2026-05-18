@@ -115,5 +115,26 @@ export function resolvePoiVisualGrammar(
     ? getPointHealthRings(poi, viewerUid ?? null)
     : [];
   const curation = getPoiCurationLevel(poi);
-  return { grammar, visualState, healthRings, curation };
+  const levelVisual = grammar.paletteScope === 'state'
+    ? resolveLevelVisual(curation.levelKey)
+    : null;
+  return { grammar, visualState, healthRings, curation, levelVisual };
+}
+
+/**
+ * PR-MAP-CANON-3 — Lookup canónico nivel → token. Sin lógica de negocio:
+ * el verdict ya decidió el `levelKey`; aquí solo resolvemos el color y
+ * la regla "rings sólo en POI-5".
+ */
+function resolveLevelVisual(levelKey: PoiVisualLevelKey): PoiLevelVisual {
+  const levelTokens = (tokens as any).poi.level as Record<string, string>;
+  // El verdict mapea 1:1 con las keys del token (`poi.level.0`, `1a`, `1b`,
+  // `3`, `5`, `9`, `10`). El sufijo `poi-` se quita para indexar.
+  const tokenKey = levelKey.replace(/^poi-/, '');
+  const fillHsl = levelTokens[tokenKey];
+  return {
+    levelKey,
+    fillHsl,
+    showStateRing: levelKey === 'poi-5',
+  };
 }
