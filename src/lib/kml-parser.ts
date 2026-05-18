@@ -469,7 +469,7 @@ export function exportToKML(
   ctx?: ExportContext,
   options: { scopeProvided?: boolean } = {},
 ): string {
-  maybeWarnDefaultScope('exportToKML', options.scopeProvided !== false);
+  maybeWarnDefaultScope('exportToKML', options.scopeProvided === true);
   const filtered = applyExportGate(locations, scope, ctx, 'exportToKML');
   const isGuru = target === 'gurumaps';
   const placemarks = filtered
@@ -524,7 +524,7 @@ export function exportToCSV(
   ctx?: ExportContext,
   options: { scopeProvided?: boolean } = {},
 ): string {
-  maybeWarnDefaultScope('exportToCSV', options.scopeProvided !== false);
+  maybeWarnDefaultScope('exportToCSV', options.scopeProvided === true);
   const filtered = applyExportGate(locations, scope, ctx, 'exportToCSV');
   const headers = ['name', 'description', 'latitude', 'longitude', 'altitude', 'continent', 'country', 'region', 'zone', 'export_scope'];
   const customKeys = new Set<string>();
@@ -555,7 +555,7 @@ export function exportToJSON(
   ctx?: ExportContext,
   options: { scopeProvided?: boolean } = {},
 ): string {
-  maybeWarnDefaultScope('exportToJSON', options.scopeProvided !== false);
+  maybeWarnDefaultScope('exportToJSON', options.scopeProvided === true);
   const filtered = applyExportGate(locations, scope, ctx, 'exportToJSON');
   return JSON.stringify({ export_scope: scope, locations: filtered }, null, 2);
 }
