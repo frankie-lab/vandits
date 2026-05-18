@@ -54,6 +54,7 @@ const CANON_MARKERS = [
   'data-popup-geo-breadcrumb="1"',
   'data-popup-ratings-block="v1"',
   'data-popup-footer="v1"',
+  'data-popup-operational-state="idle"',
 ];
 
 describe('P-POPUP-15 — Golden POI: shell canónico completo', () => {
