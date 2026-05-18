@@ -3857,7 +3857,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      is_curator: { Args: { _user_id: string }; Returns: boolean }
       locations_with_broken_geo_chain: {
         Args: { _limit?: number; _offset?: number; _user_id: string }
         Returns: {
