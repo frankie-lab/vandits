@@ -24,7 +24,13 @@ function makeBase(overrides: Partial<GeoLocation>): GeoLocation {
   } as GeoLocation;
 }
 
-function enriched(descripcion = 'Descripción canónica IA'): EnrichedLocationData {
+// Descripción canónica suficientemente larga para superar el umbral de
+// `isUnverifiableDescription` (≥60 chars tras strip markdown). Sin frases
+// evasivas tipo "no se puede generar", "información no disponible", etc.
+const CANONICAL_DESC =
+  'Edificio histórico construido en el siglo XVIII, declarado bien de interés cultural y referencia patrimonial de la comarca.';
+
+function enriched(descripcion: string = CANONICAL_DESC): EnrichedLocationData {
   return {
     verified: true,
     verification_notes: '',
