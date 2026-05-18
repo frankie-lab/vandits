@@ -226,13 +226,39 @@ export function getPoiCurationLevel(loc: GeoLocation | null | undefined): PoiCur
   }
 
   const { bodyBlocker, primaryAction } = resolveVerdictExtras(level, geo, { visited, rated });
+  const levelKey = resolveLevelKey(level, geo);
   return {
     level,
+    levelKey,
     healthState: LEVEL_HEALTH[level],
     shareability: LEVEL_SHAREABILITY[level],
     bodyBlocker,
     primaryAction,
   };
+}
+
+/**
+ * PR-MAP-CANON-3 — Deriva el `levelKey` SIN tocar `bodyBlocker`. Vive
+ * pegado al verdict canónico para evitar divergencia futura entre la
+ * semántica visual del mapa y la semántica de interacción del popup.
+ *
+ * Subniveles de POI-1: cualquier geoHealth distinto de 'ok' (incluido
+ * 'partial') califica como `poi-1a` ("nombre validado pero geografía no
+ * resuelta/validada del todo"). Solo `geoHealth === 'ok'` cae en `poi-1b`.
+ */
+function resolveLevelKey(
+  level: PoiCurationLevel,
+  geo: GeoLocation['geoHealth'] | null,
+): PoiVisualLevelKey {
+  switch (level) {
+    case 0:  return 'poi-0';
+    case 1:  return geo === 'ok' ? 'poi-1b' : 'poi-1a';
+    case 3:  return 'poi-3';
+    case 5:  return 'poi-5';
+    case 9:  return 'poi-9';
+    case 10:
+    default: return 'poi-10';
+  }
 }
 
 /** Acción principal de curación dado un nivel. */
