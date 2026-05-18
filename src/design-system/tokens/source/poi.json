@@ -86,6 +86,15 @@
         "z4":       { "value": 3, "_css": "--poi-micro-dot-z4" },
         "z5":       { "value": 4, "_css": "--poi-micro-dot-z5" }
       }
+    },
+    "level": {
+      "0":  { "value": "0 65% 50%",   "_css": "--poi-level-0" },
+      "1a": { "value": "24 95% 53%",  "_css": "--poi-level-1a" },
+      "1b": { "value": "38 92% 50%",  "_css": "--poi-level-1b" },
+      "3":  { "value": "0 80% 38%",   "_css": "--poi-level-3" },
+      "5":  { "value": "75 55% 42%",  "_css": "--poi-level-5" },
+      "9":  { "value": "142 71% 45%", "_css": "--poi-level-9" },
+      "10": { "value": "142 71% 45%", "_css": "--poi-level-10" }
     }
   }
 }
