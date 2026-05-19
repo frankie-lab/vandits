@@ -1366,7 +1366,7 @@ ${reEnrichBtnHtml}
 ${notesBtnHtml}
 </div>
 <div style="display: flex; justify-content: flex-end; align-items: center;">
-${deleteBtnHtml}
+${overflowBtnHtml}
 </div>
 </div>
 ${enrichedFooterLine}
