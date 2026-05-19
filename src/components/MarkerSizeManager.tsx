@@ -11,6 +11,7 @@ import { updateMarkerSizeConfig, type MarkerSizeMap } from '@/components/map/use
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MarkerStateRulesPanel } from './MarkerStateRulesPanel';
+import { EffectBadge } from '@/shared/components/ui/effect-badge';
 
 interface MarkerConfig {
   id: string;
