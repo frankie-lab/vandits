@@ -282,10 +282,21 @@ export function MarkerSizeManager() {
   const stop = (e: React.SyntheticEvent) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); };
   return (
     <Tabs defaultValue="sizes" className="flex flex-col h-full min-h-0" onValueChange={() => {}}>
-      <TabsList className="shrink-0 mx-4 mt-2" onClick={stop} onPointerDown={stop} onMouseDown={stop}>
-        <TabsTrigger value="sizes" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}><Ruler className="w-3 h-3 mr-1" /> Tamaños</TabsTrigger>
-        <TabsTrigger value="states" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}><Palette className="w-3 h-3 mr-1" /> Norma de estados</TabsTrigger>
-      </TabsList>
+      <div className="shrink-0 px-4 pt-2 pb-1 border-b border-border">
+        <p className="text-[10px] text-muted-foreground leading-snug mb-1.5">
+          Dos modelos distintos: <strong className="text-foreground">tamaños/colores por tipo</strong> (qué dibujamos) y
+          {' '}<strong className="text-foreground">reglas de estado visual</strong> (paleta canónica enriched/imported/empty).
+          Ambos efecto inmediato; aplican a TODOS los usuarios.
+        </p>
+        <TabsList onClick={stop} onPointerDown={stop} onMouseDown={stop}>
+          <TabsTrigger value="sizes" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}>
+            <Ruler className="w-3 h-3 mr-1" /> Tamaños y colores por tipo
+          </TabsTrigger>
+          <TabsTrigger value="states" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}>
+            <Palette className="w-3 h-3 mr-1" /> Reglas de estado visual
+          </TabsTrigger>
+        </TabsList>
+      </div>
       <TabsContent value="sizes" className="flex-1 min-h-0 overflow-y-auto mt-0">
         <MarkerSizeList />
       </TabsContent>
