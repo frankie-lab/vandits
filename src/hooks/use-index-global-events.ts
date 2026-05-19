@@ -10,15 +10,12 @@
  * - `lovable:follow-changed`      → recarga datos del mapa con 500ms de gracia
  * - `popup-action`                → delega en `handlePopupAction(e)`
  *
- * Restricciones (contrato invariante):
- * - NO renombra eventos.
- * - NO cambia payloads.
- * - NO cambia contratos de popup.
- * - SOLO mueve la lógica fuera de Index.tsx para reducir su responsabilidad.
- *
- * Ver `docs/tech-debt.md` ítem 5.
+ * Migrado en v1.2.7 al helper tipado `addGlobalEventListener`
+ * (`src/lib/global-events.ts`). Sin cambios de nombres de eventos, payloads,
+ * delays, `console.log` ni contratos de popup.
  */
 import { useEffect } from 'react';
+import { addGlobalEventListener } from '@/lib/global-events';
 
 interface UseIndexGlobalEventsParams {
   setCriteriaVersion: (updater: (v: number) => number) => void;
@@ -34,31 +31,33 @@ export function useIndexGlobalEvents({
   handlePopupAction,
 }: UseIndexGlobalEventsParams): void {
   useEffect(() => {
-    const handleCriteriaChange = () => setCriteriaVersion(v => v + 1);
-    window.addEventListener('enrichment-criteria-changed', handleCriteriaChange);
-    return () => window.removeEventListener('enrichment-criteria-changed', handleCriteriaChange);
+    const off = addGlobalEventListener('enrichment-criteria-changed', () => {
+      setCriteriaVersion((v) => v + 1);
+    });
+    return off;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    const handleOpenCategories = () => open('categories');
-    window.addEventListener('import:open-categories', handleOpenCategories);
-    return () => window.removeEventListener('import:open-categories', handleOpenCategories);
+    const off = addGlobalEventListener('import:open-categories', () => {
+      open('categories');
+    });
+    return off;
   }, [open]);
 
   useEffect(() => {
-    const handleFollowChanged = async () => {
+    const off = addGlobalEventListener('lovable:follow-changed', async () => {
       console.log('[Index] Follow changed, refreshing map data...');
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
       await loadFromDatabase();
-    };
-    window.addEventListener('lovable:follow-changed', handleFollowChanged);
-    return () => window.removeEventListener('lovable:follow-changed', handleFollowChanged);
+    });
+    return off;
   }, [loadFromDatabase]);
 
   useEffect(() => {
-    const handler = (e: Event) => handlePopupAction(e as CustomEvent);
-    window.addEventListener('popup-action', handler);
-    return () => window.removeEventListener('popup-action', handler);
+    const off = addGlobalEventListener('popup-action', (_detail, event) => {
+      handlePopupAction(event as CustomEvent);
+    });
+    return off;
   }, [handlePopupAction]);
 }

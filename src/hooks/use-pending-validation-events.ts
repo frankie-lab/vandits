@@ -6,18 +6,14 @@
  * pendientes y su estado local:
  *
  * - Evento: `pending-validations-updated`
- * - Payload: `{ count: number; names: string[] }`
+ * - Payload: `{ count: number; names?: string[] }`
  * - Consumido por `FloatingToolbar` (badge + tooltip).
  *
- * Restricciones (contrato invariante):
- * - NO renombra el evento.
- * - NO cambia el payload.
- * - NO cambia el comportamiento observable.
- * - SOLO traslada el `useEffect` + `useState` fuera de `Index.tsx`.
- *
- * Ver `docs/tech-debt.md` ítem 5 y `docs/architecture/global-events.md`.
+ * Migrado en v1.2.7 al helper tipado `addGlobalEventListener`
+ * (`src/lib/global-events.ts`). Sin cambios de contrato, payload o efectos.
  */
 import { useEffect, useState } from 'react';
+import { addGlobalEventListener } from '@/lib/global-events';
 
 export interface PendingValidationEvents {
   pendingValidationsCount: number;
@@ -29,19 +25,11 @@ export function usePendingValidationEvents(): PendingValidationEvents {
   const [pendingValidationNames, setPendingValidationNames] = useState<string[]>([]);
 
   useEffect(() => {
-    const handleValidationsUpdate = (e: CustomEvent<{ count: number; names: string[] }>) => {
-      setPendingValidationsCount(e.detail.count);
-      setPendingValidationNames(e.detail.names || []);
-    };
-    window.addEventListener(
-      'pending-validations-updated',
-      handleValidationsUpdate as EventListener,
-    );
-    return () =>
-      window.removeEventListener(
-        'pending-validations-updated',
-        handleValidationsUpdate as EventListener,
-      );
+    const off = addGlobalEventListener('pending-validations-updated', (detail) => {
+      setPendingValidationsCount(detail.count);
+      setPendingValidationNames(detail.names ?? []);
+    });
+    return off;
   }, []);
 
   return { pendingValidationsCount, pendingValidationNames };
