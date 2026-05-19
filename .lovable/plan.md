@@ -244,3 +244,27 @@ Cierre semántico del BackOffice — sin schema, sin lógica core.
 ### Out of scope (deuda aceptada)
 - Cron tools (`geocoding-job-tick`, `image-recovery-job-tick`) no son ejecutables manualmente desde el panel — solo declaradas; trigger manual sería un PR separado.
 - `EffectBadge` no cubre aún `DataSourcesPanel` (4 grupos heterogéneos) — pendiente PR-6 si se requiere.
+
+---
+
+## 12 · PR-RBAC-MATRIX-1 · DONE
+
+Sustituye el accordion-por-rol por la representación canónica del RBAC: **matriz capability × role** agrupada por dominio operativo. Sin schema, sin cambios en capabilities, sin RLS.
+
+### Cambios
+- **Metadata canónica**: `src/components/admin/permissions/capability-metadata.ts` declara para cada capability del SoT:
+  - `domain` (governance, content, geo, runtime-config, data-providers, design-system, recovery, audit, internal, destructive)
+  - `description` corta (gobernanza), `risk`, `runtime`, `masterOnly`, `destructive`, `internal`.
+- **Nuevo panel**: `src/components/admin/PermissionsMatrixPanel.tsx`
+  - Matriz vertical (capabilities agrupadas por dominio) × horizontal (master/admin/moderator/editor/supervisor).
+  - Celda ✓ / —; toggle exige `DestructiveConfirmDialog` token `MODIFICAR` (mantiene canon F3).
+  - Filtros: búsqueda libre, `master-only`, `destructive`, `internal`, `unused`.
+  - Collapse por dominio. Tooltip por capability con descripción + riesgo + runtime.
+  - Conteo por rol en header; **Supervisor con ≤1 capability marca aviso `legacy?` visible** (no se oculta).
+  - Inconsistencia visible: si una capability `masterOnly` está asignada a otro rol, su celda muestra ring ámbar y tooltip explícito.
+- **AdminPanel integración**: la tab `permissions` ahora monta `<PermissionsMatrixPanel/>` vía `Suspense` lazy. El accordion legacy fue eliminado del cuerpo principal.
+
+### Out of scope (deuda aceptada)
+- Diff visual entre roles (preview "qué pasa si X tuviera permisos de Y") — diferido.
+- No se mueve el panel a ruta dedicada todavía; sigue como modal. Migración a `/admin/permissions` quedaría para PR-3 extendido.
+- No se valida masterOnly server-side desde este PR (sigue gobernado por RLS + has_permission). La marca masterOnly es UX/governance, no enforcement.
