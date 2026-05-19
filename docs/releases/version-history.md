@@ -37,7 +37,8 @@ publicados; algunas son hitos **reconstructed** para fijar memoria histórica.
   1.2.0        Rutas e itinerarios                  (stable / formalized from reconstructed history)
   1.2.1        Refinamiento rutas/intermodal/persistencia (stable / formalized from reconstructed history)
   1.2.2        Gobernanza de versiones              (stable)
-  1.2.3        Tests gramática visual de puntos     ← versión actual (stable / current)
+  1.2.3        Tests gramática visual de puntos     (stable)
+  1.2.4        Extracción inicial Index.tsx (useWelcomeCardEvents)  ← versión actual (stable / current)
   1.3.0        Architecture baseline                (planned)
 
 2.x — Futuro
