@@ -69,4 +69,33 @@ describe('global-events typed helper baseline', () => {
     expect(received).toEqual([{ tab: 'map' }, {}]);
     off();
   });
+
+  it('duplicate-threshold-changed entrega { threshold }', () => {
+    const handler = vi.fn();
+    const off = addGlobalEventListener('duplicate-threshold-changed', (detail) => {
+      handler(detail.threshold);
+    });
+    dispatchGlobalEvent('duplicate-threshold-changed', { threshold: 250 });
+    expect(handler).toHaveBeenCalledWith(250);
+    off();
+  });
+
+  it('icon-library-changed entrega { library }', () => {
+    const handler = vi.fn();
+    const off = addGlobalEventListener('icon-library-changed', (detail) => {
+      handler(detail.library);
+    });
+    dispatchGlobalEvent('icon-library-changed', { library: 'phosphor' });
+    expect(handler).toHaveBeenCalledWith('phosphor');
+    off();
+  });
+
+  it('personal-categories:reload funciona sin payload', () => {
+    const handler = vi.fn();
+    const off = addGlobalEventListener('personal-categories:reload', handler);
+    dispatchGlobalEvent('personal-categories:reload');
+    dispatchGlobalEvent('personal-categories:reload');
+    expect(handler).toHaveBeenCalledTimes(2);
+    off();
+  });
 });
