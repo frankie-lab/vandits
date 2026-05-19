@@ -39,7 +39,8 @@ publicados; algunas son hitos **reconstructed** para fijar memoria histórica.
   1.2.2        Gobernanza de versiones              (stable)
   1.2.3        Tests gramática visual de puntos     (stable)
   1.2.4        Extracción inicial Index.tsx (useWelcomeCardEvents)  (stable)
-  1.2.5        Segunda extracción Index.tsx (usePendingValidationEvents)  ← versión actual (stable / current)
+  1.2.5        Segunda extracción Index.tsx (usePendingValidationEvents)  (stable)
+  1.2.6        Tercera extracción Index.tsx (useIndexGlobalEvents + useRoutePanelBridge)  ← versión actual (stable / current)
   1.3.0        Architecture baseline                (planned)
 
 2.x — Futuro
@@ -58,7 +59,8 @@ Las versiones estables deben poder usarse como puntos de retorno.
 - `v1.2.2`: gobernanza de versiones y árbol histórico.
 - `v1.2.3`: tests de gramática visual de puntos.
 - `v1.2.4`: primera extracción incremental desde `Index.tsx` (`useWelcomeCardEvents`).
-- `v1.2.5`: versión actual; segunda extracción incremental desde `Index.tsx` (`usePendingValidationEvents`).
+- `v1.2.5`: segunda extracción incremental desde `Index.tsx` (`usePendingValidationEvents`).
+- `v1.2.6`: versión actual; tercera extracción incremental desde `Index.tsx` (`useIndexGlobalEvents` + `useRoutePanelBridge`); deuda técnica ítem 5 cerrada.
 
 Regla:
 
@@ -66,11 +68,11 @@ Si una versión nueva falla, no se borra del histórico. Se vuelve operativament
 
 Ejemplo:
 
-Si `v1.2.5` falla, volver a `v1.2.4` o publicar `v1.2.6` con corrección.
+Si `v1.2.6` falla, volver a `v1.2.5` o publicar `v1.2.7` con corrección.
 
 Nota operativa:
 
-Los anchors documentados requieren tags Git reales para funcionar como rollback operativo. Hasta que existan los tags `v1.1.1`, `v1.2.0`, `v1.2.1`, `v1.2.2`, `v1.2.3`, `v1.2.4` y `v1.2.5` en GitHub, el rollback está definido documentalmente pero no materializado como mecanismo técnico.
+Los anchors documentados requieren tags Git reales para funcionar como rollback operativo. Hasta que existan los tags `v1.1.1`, `v1.2.0`, `v1.2.1`, `v1.2.2`, `v1.2.3`, `v1.2.4`, `v1.2.5` y `v1.2.6` en GitHub, el rollback está definido documentalmente pero no materializado como mecanismo técnico.
 
 ### Tags Git pendientes de crear
 
@@ -81,8 +83,9 @@ Los anchors documentados requieren tags Git reales para funcionar como rollback 
 - [ ] `v1.2.3`
 - [ ] `v1.2.4`
 - [ ] `v1.2.5`
+- [ ] `v1.2.6`
 
-Esta lista no debe marcarse como completada hasta verificar que los tags existen realmente en GitHub. Lovable no crea tags Git; deben crearse desde GitHub o git local. La versión actual `v1.2.5` también requiere un tag Git real para que el rollback sea operativo.
+Esta lista no debe marcarse como completada hasta verificar que los tags existen realmente en GitHub. Lovable no crea tags Git; deben crearse desde GitHub o git local. La versión actual `v1.2.6` también requiere un tag Git real para que el rollback sea operativo.
 
 Estado de cierre: la gobernanza de rollback queda documentada y auditada. La materialización técnica de tags Git queda pendiente de acción externa fuera de Lovable.
 
