@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense, lazy } from 'react';
+const PermissionsMatrixPanel = lazy(() => import('./admin/PermissionsMatrixPanel').then(m => ({ default: m.PermissionsMatrixPanel })));
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Shield, ChevronDown, ChevronRight, Loader2, Search, Trash2 } from 'lucide-react';
