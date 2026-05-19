@@ -362,18 +362,33 @@ export function GeographyBackfillPanel() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-4 p-4 overflow-hidden">
-      {/* Subheader: framing del panel como consola admin */}
-      <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 text-xs text-muted-foreground leading-relaxed">
-        <p>
-          Operaciones <strong className="text-foreground">globales y masivas</strong> sobre jerarquías administrativas.
-          {' '}Para reparaciones puntuales usa <strong className="text-foreground">Salud</strong> en el mapa
-          (chips bajo el filtro principal).
+      {/* Subheader: 3-section taxonomy (PR-BACKOFFICE-UX-CANON-5) */}
+      <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 text-xs text-muted-foreground leading-relaxed space-y-1.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground/80">
+          Tres modelos operativos distintos
         </p>
+        <ul className="space-y-0.5 list-disc list-inside ml-1">
+          <li>
+            <strong className="text-foreground">Mantenimiento rutinario</strong>: chips de salud bajo el filtro principal del mapa (reparación punto a punto).
+          </li>
+          <li>
+            <strong className="text-foreground">Operaciones masivas</strong> (este panel): repair / fill / review sobre universos por usuario.
+          </li>
+          <li>
+            <strong className="text-foreground">Canonicalize one-shot</strong> (debajo): dedupe destructivo de admin_areas — master-only.
+          </li>
+        </ul>
       </div>
+
+      <CanonicalizeOneShotCard />
 
       {/* PASO 1 — Modo de normalización (3 tarjetas a ancho completo) */}
       <section className="rounded-lg border bg-muted/10">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3">
+        <div className="px-3 pt-3 pb-1 flex items-center justify-between">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Operaciones masivas · paso 1: modo
+          </p>
+        </div>
           {(Object.keys(MODE_META) as Mode[]).map((m) => {
             const meta = MODE_META[m];
             const Icon = meta.icon;
