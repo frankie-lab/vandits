@@ -91,10 +91,17 @@ Ejemplos:
 Toda versión publicada debe estar reflejada de forma consistente en:
 
 - `package.json` (`"version"`).
+- `src/lib/app-version.ts` (`APP_VERSION` / `APP_VERSION_LABEL`).
 - `README.md` (título, badges y sección de estado).
 - README changelog section or `CHANGELOG.md` if/when extracted.
 - `docs/releases/version-history.md`.
 - `docs/tech-debt.md` cuando el release resuelva o cree deuda.
+
+La versión visible en el UX principal se muestra debajo del logo VANDITS y
+debe salir de `src/lib/app-version.ts`. En cualquier release real,
+`APP_VERSION`, `package.json`, README y `docs/releases/version-history.md`
+deben actualizarse juntos. No se permite hardcodear `vX.Y.Z` en componentes
+de UI: deben consumir `APP_VERSION` / `APP_VERSION_LABEL`.
 
 Divergencia entre estas fuentes es deuda técnica documentada en
 `docs/tech-debt.md` (ítem 1).
