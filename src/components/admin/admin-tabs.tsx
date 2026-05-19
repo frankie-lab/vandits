@@ -56,44 +56,34 @@ export type AdminTabKey =
   | 'internal-tools';
 
 /**
- * BackOffice Information Architecture (PR-BACKOFFICE-UX-CLOSURE-1 Sec. 2).
+ * BackOffice Information Architecture (PR-BACKOFFICE-CLEANUP-REALITY-1).
  *
- * Agrupa los tabs por dominio operativo (ownership), no por orden histórico.
- * Es independiente de `CapabilityDomain` aunque normalmente coinciden:
- * `CapabilityDomain` describe la capability, `AdminDomain` describe la
- * superficie BackOffice donde vive su mini-app.
+ * 4 grupos humanos. Reemplaza el reparto técnico previo (governance/content/
+ * geo-ops/runtime-config/providers/recovery/audit/internal) por una taxonomía
+ * que el operador entiende a primera vista.
+ *
+ *   admin       → quién entra y qué puede tocar (usuarios + RBAC)
+ *   config      → ajustes persistentes que cambian comportamiento global
+ *   ops         → ejecutar trabajo masivo / jobs en background
+ *   diagnostics → inspección, debug, herramientas internas (no operación)
+ *
+ * `diagnostics` lleva además un badge "DIAG" en el sidebar/index para que
+ * NUNCA se confunda con una feature de producto.
  */
-export type AdminDomain =
-  | 'governance'
-  | 'content'
-  | 'geo-ops'
-  | 'runtime-config'
-  | 'providers'
-  | 'recovery'
-  | 'audit'
-  | 'internal';
+export type AdminDomain = 'admin' | 'config' | 'ops' | 'diagnostics';
 
 export const ADMIN_DOMAIN_LABELS: Record<AdminDomain, string> = {
-  governance: 'Governance',
-  content: 'Editorial / Content',
-  'geo-ops': 'Geo Ops',
-  'runtime-config': 'Runtime Config',
-  providers: 'Providers',
-  recovery: 'Recovery / Batch Ops',
-  audit: 'Audit / Debug',
-  internal: 'Internal Tools',
+  admin: 'Administración',
+  config: 'Configuración',
+  ops: 'Operaciones',
+  diagnostics: 'Diagnóstico / DevTools',
 };
 
-export const ADMIN_DOMAIN_ORDER: AdminDomain[] = [
-  'governance',
-  'content',
-  'geo-ops',
-  'runtime-config',
-  'providers',
-  'recovery',
-  'audit',
-  'internal',
-];
+export const ADMIN_DOMAIN_ORDER: AdminDomain[] = ['admin', 'config', 'ops', 'diagnostics'];
+
+export function isDiagnosticDomain(domain: AdminDomain): boolean {
+  return domain === 'diagnostics';
+}
 
 export interface AdminTabSpec {
   key: AdminTabKey;
