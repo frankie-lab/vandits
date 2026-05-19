@@ -243,6 +243,18 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  }
  }
 
+ // F3 — Asignar/revocar master exige typed-token. Diferimos al diálogo.
+ if (role === 'master') {
+ const user = users.find(u => u.id === userId);
+ if (!user) return;
+ setPendingMasterToggle({ user, hasRole });
+ return;
+ }
+
+ await executeRoleToggle(userId, role, hasRole);
+ };
+
+ const executeRoleToggle = async (userId: string, role: AppRole, hasRole: boolean) => {
  setSavingRole(`${userId}-${role}`);
  try {
  if (hasRole) {
@@ -280,6 +292,11 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  toast.error('Solo los Masters pueden modificar permisos');
  return;
  }
+ // F3 — toda mutación del matrix exige typed-token.
+ setPendingPermissionToggle({ role, permission, hasPermission });
+ };
+
+ const executePermissionToggle = async (role: AppRole, permission: AppPermission, hasPermission: boolean) => {
  setSavingRole(`${role}-${permission}`);
  try {
  if (hasPermission) {
