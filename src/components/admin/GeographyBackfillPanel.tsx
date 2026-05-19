@@ -389,6 +389,7 @@ export function GeographyBackfillPanel() {
             Operaciones masivas · paso 1: modo
           </p>
         </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 pt-1">
           {(Object.keys(MODE_META) as Mode[]).map((m) => {
             const meta = MODE_META[m];
             const Icon = meta.icon;
