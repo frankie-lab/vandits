@@ -126,12 +126,13 @@ Las versiones patch reconstruidas agrupan bloques coherentes de fixes/estabiliza
 | 1.2.3 | 2026-05-19 | stable | Tests de gramática visual de puntos (`point-visual-state`) | high | `src/test/point-visual-state.test.ts` (11 casos), `docs/tech-debt.md` ítem 3 resuelto. |
 | 1.2.4 | 2026-05-19 | stable | Primera extracción incremental de orquestación desde `Index.tsx` (`useWelcomeCardEvents`) | high | `src/hooks/use-welcome-card-events.ts`, `src/pages/Index.tsx`. |
 | 1.2.5 | 2026-05-19 | stable | Segunda extracción incremental de orquestación desde `Index.tsx` (`usePendingValidationEvents`) | high | `src/hooks/use-pending-validation-events.ts`, `src/pages/Index.tsx`. |
-| 1.2.6 | 2026-05-19 | stable / current | Tercera extracción incremental de orquestación desde `Index.tsx` (`useIndexGlobalEvents` + `useRoutePanelBridge`); ítem 5 cerrado | high | `src/hooks/use-index-global-events.ts`, `src/hooks/use-route-panel-bridge.ts`, `src/pages/Index.tsx`. `docs/tech-debt.md` ítem 5 marcado como resuelto. |
+| 1.2.6 | 2026-05-19 | stable | Tercera extracción incremental de orquestación desde `Index.tsx` (`useIndexGlobalEvents` + `useRoutePanelBridge`); ítem 5 cerrado | high | `src/hooks/use-index-global-events.ts`, `src/hooks/use-route-panel-bridge.ts`, `src/pages/Index.tsx`. |
+| 1.2.7 | 2026-05-19 | stable / current | Helper tipado inicial para eventos globales (`src/lib/global-events.ts`); migración de los 3 hooks extraídos de `Index.tsx`; deuda técnica ítem 2 en progreso | high | `src/lib/global-events.ts`, `src/test/global-events.test.ts` (6 casos), hooks `useWelcomeCardEvents` / `usePendingValidationEvents` / `useIndexGlobalEvents` migrados. |
 | 1.3.0 | TBD | planned minor | Architecture baseline | planned | Requiere tests visuales, foto arquitectura, tipado inicial eventos y reducción de deuda. |
 
 Decisión de gobernanza: no se crea una patch version por commit. Solo se documentan patches cuando agrupan un bloque coherente de correcciones o estabilización con valor histórico.
 
-La versión oficial actual es **1.2.6**. Entradas marcadas como `TBD`, `candidate patch` o `planned minor` son hitos propuestos, no versiones publicadas.
+La versión oficial actual es **1.2.7**. Entradas marcadas como `TBD`, `candidate patch` o `planned minor` son hitos propuestos, no versiones publicadas.
 
 ---
 
@@ -159,7 +160,8 @@ La versión oficial actual es **1.2.6**. Entradas marcadas como `TBD`, `candidat
 | 1.2.3   | 2026-05-19  | stable                                          | Tests de gramática visual de puntos               | high           | `src/test/point-visual-state.test.ts` (11 casos), `docs/tech-debt.md` ítem 3 resuelto. |
 | 1.2.4   | 2026-05-19  | stable                                          | Primera extracción incremental de orquestación desde `Index.tsx` (`useWelcomeCardEvents`) | high | `src/hooks/use-welcome-card-events.ts`, `src/pages/Index.tsx` (welcome-card CTAs delegados al hook). |
 | 1.2.5   | 2026-05-19  | stable                                          | Segunda extracción incremental de orquestación desde `Index.tsx` (`usePendingValidationEvents`) | high | `src/hooks/use-pending-validation-events.ts`, `src/pages/Index.tsx` (listener pending-validations-updated + estado local delegados al hook). |
-| 1.2.6   | 2026-05-19  | stable / current                                | Tercera extracción incremental de orquestación desde `Index.tsx` (`useIndexGlobalEvents` + `useRoutePanelBridge`); deuda técnica ítem 5 cerrada | high | `src/hooks/use-index-global-events.ts`, `src/hooks/use-route-panel-bridge.ts`, `src/pages/Index.tsx` (sin `window.addEventListener` inline; puente routes panel encapsulado). |
+| 1.2.6   | 2026-05-19  | stable                                          | Tercera extracción incremental de orquestación desde `Index.tsx` (`useIndexGlobalEvents` + `useRoutePanelBridge`); deuda técnica ítem 5 cerrada | high | `src/hooks/use-index-global-events.ts`, `src/hooks/use-route-panel-bridge.ts`, `src/pages/Index.tsx` (sin `window.addEventListener` inline; puente routes panel encapsulado). |
+| 1.2.7   | 2026-05-19  | stable / current                                | Helper tipado inicial para eventos globales (`global-events.ts`); migración de los 3 hooks extraídos de `Index.tsx`; ítem 2 en progreso | high | `src/lib/global-events.ts`, `src/test/global-events.test.ts` (6 casos), hooks `useWelcomeCardEvents` / `usePendingValidationEvents` / `useIndexGlobalEvents` migrados al helper tipado. |
 | 1.3.0   | TBD         | planned                                         | Architecture baseline                             | planned        | Requiere versioning policy, version history, tech debt, global events, tests visuales y foto de arquitectura. |
 
 ---
