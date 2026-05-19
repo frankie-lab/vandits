@@ -1,123 +1,59 @@
-# PR-BACKOFFICE-DISCOVERY-DOSSIER-1 — Discovery sistémico definitivo (revisado)
+## PR-BACKOFFICE-UX-USEFULNESS-ROADMAP-1 — plan listo para implementar
 
-**Propósito**: producir un dossier maestro + diagramas que modelen el BackOffice en 19 ejes, basados en **evidencia trazable del código**. Sin rediseño, sin runtime, sin RLS, sin schema, sin capabilities, sin migraciones. Las recomendaciones son **diagnóstico**, no autorización de cambios.
+Crear **un único** archivo: `docs/audits/backoffice-ux-usefulness-roadmap.md`. Cero cambios fuera del documento (no `admin-tabs.tsx`, no menú, labels, capabilities, rutas, componentes, paneles, primitives, runtime, backend, schema, RLS). Cada PR listado es **candidato** con `implementation_allowed: no`.
 
-## Cambios incorporados respecto a la versión previa
+### Estructura del documento (secciones 0–7)
 
-1. Sección de inventario renombrada a **"Inventario inicial verificable"**. Toda surface descubierta durante la lectura se marca `discovered_during_audit: true`.
-2. Cada surface lleva **bloque de evidencia obligatorio**.
-3. Baseline de 24 surfaces se **valida contra código** (no se asume cerrado).
-4. Vocabulario permitido para campos sin evidencia: `unknown` | `inferred` (con justificación). **`TBD` prohibido.**
-5. Matriz final añade columnas `evidence_summary` y `reason`.
-6. Diagramas se guardan en **`docs/audits/diagrams/*.mmd`** (repo). `/mnt/documents/` solo como copia opcional para preview.
-7. Memoria `mem://governance/backoffice-discovery-dossier` es **entregable secundario**, no sustituto del doc en repo.
-8. **Profundidad proporcional**: audit completo para tabs complejos y operaciones; audit resumido para confirms y wrappers simples. Todos aparecen en inventario y matriz.
-9. Recomendaciones son **diagnóstico**. Set permitido: `KEEP | SPLIT | DOWNGRADE | MOVE | REMOVE | DEBUG_ONLY | MERGE | NEEDS_DECISION`. Ninguna implica ejecución.
+**0. Contrato del propio roadmap** — restricciones, vocabulario cerrado (familias `IA | COPY | LAYOUT | RUNTIME` con RUNTIME fuera de alcance), `decision_status: open | blocked | ready_candidate`, `implementation_allowed: no` permanente.
 
-## Bloque de evidencia obligatorio (por surface)
+**1. Decisiones humanas D-1..D-5** — listadas como decisiones reales con opciones y consecuencias; el documento NO elige:
+- **D-1** Apariencia del mapa (icons+markers): aprobar / no.
+- **D-2** Rename audit → "Diagnóstico de preferencias runtime".
+- **D-3** Split design-system Inspector vs Editor/Publish. Opciones a/b/c/d con nota explícita: opciones (c) y (d) implicarían cambios futuros de capability; **este roadmap no autoriza ningún cambio de capability**.
+- **D-4** Split DIAG en routes ("Verificar conexiones"): embebido con distinción visual / split físico / status quo.
+- **D-5** Visibility policy `internal-tools` con **3 opciones**: (a) siempre visible para master, (b) tras toggle "Modo desarrollo", (c) sólo en entorno dev / flag de build / query param.
 
-```text
-evidence:
-  file:           src/...           # ruta exacta verificada
-  route:          /admin/<key>      # o "embedded in <parent>" | "none"
-  component:      <ExportedName>
-  capability:     <cap | none | inferred:<cap>>
-  imports:        [hook/service/store relevantes]
-  reads:          [tablas, edge fns, stores]
-  writes:         [tablas, RPCs, edge fns, stores]
-  source_of_truth: <tabla|app_settings|store|edge fn|unknown>
-  anchor:         <ref a memoria/contrato existente | none>
-  discovered_during_audit: <true|false>
-```
+**2. Familias de layout** (conceptuales, sin nuevas primitives): `MANAGE`, `CONFIGURE`, `OPERATE + OBSERVE`, `INSPECT`. Mapeo surface→familia como input.
 
-Campos sin evidencia directa → `unknown` o `inferred:<motivo corto>`. Nunca `TBD`.
+**3. Roadmap de PRs candidatos** — tabla maestra con columnas `familia | surfaces | decisiones requeridas | dependencias | decision_status | implementation_allowed`. Todos `no`.
 
-## Baseline de surfaces (24 — a validar contra código)
+- PR-A — cerrar D-1..D-5 (IA decisión).
+- PR-B — **quick win candidate** transversal de microcopy en `PanelEffectHeader` para las 12 tabs. Redactado como *"Evaluar e implementar, en PR separado, microcopy de propósito/impacto por surface si se aprueba."* No es quick win aprobado.
+- PR-C — rename `audit` (COPY, dep. D-2).
+- PR-D — distinción visual sub-bloque DIAG en `routes` (COPY, dep. D-4=a).
+- PR-E — visibility policy `internal-tools` (familia según D-5).
+- PR-F — degradar `icons` a subgrupo "Avanzado" (IA, dep. D-1).
+- PR-G — surface "Apariencia del mapa" (IA, dep. D-1).
+  - **PR-F y PR-G son mutuamente dependientes/alternativos**: si D-1 aprueba, PR-F puede absorberse o quedar como paso intermedio; si D-1 rechaza, PR-G queda cancelado.
+- PR-H — separar Inspector vs Editor/Publish en `design-system` (IA, dep. D-3). Nota: cambios de capability NO autorizados aquí.
+- PR-I — LAYOUT `OPERATE + OBSERVE` a `geography` + `image-recovery`.
+- PR-J — LAYOUT `CONFIGURE` a `sources` con bloque "Observabilidad" secundario read-only.
+- **PR-K** — dividido en **K1/K2/K3** para NO mezclar autoridades:
+  - K1: `INSPECT` puro a `audit` (read-only inspector). Dep. PR-C.
+  - K2: `INSPECT` al **modo inspector** de `design-system`; el modo Editor/Publish requiere tratamiento de alta autoridad (dep. PR-H).
+  - K3: `INSPECT` al **índice** de `internal-tools` conservando affordance de acción one-shot por fila.
+- PR-L — LAYOUT `CONFIGURE` a `markers` (o "Apariencia").
+- PR-M — LAYOUT `MANAGE` a `users` + `permissions`.
 
-Fuente verificada: `src/components/admin/admin-tabs.tsx` (12 tabs), `src/pages/admin/AdminShell.tsx`, `src/pages/admin/AdminRoutePage.tsx`, `src/components/AdminPanel.tsx`. Si la lectura descubre más, se añaden con `discovered_during_audit: true`.
+Cada PR lleva ficha: objetivo, familia, surfaces, riesgo, valor UX, criterio de aceptación, qué NO tocar, decision_status, implementation_allowed=no.
 
-**Principales (12 tabs)**: users, permissions, markers, routes, icons, enrichment, sources, geography, image-recovery, audit, design-system, internal-tools.
+**4. Evaluación explícita de los 6 ejes pedidos** — tabla por eje (icons+markers, audit rename, design-system split, routes split, sources+observabilidad, geography+image-recovery) con: estado actual, propuesta candidata, PRs que la materializarían, decisiones requeridas, qué pasa si la decisión es "no".
 
-**Secundarias/chrome (9 candidatas)**: `AdminShell`, `AdminShellIndex`, `AdminGate`/`AdminGateDenied`, `AdminBrokenUsersList`, `PanelEffectHeader` + `EffectBadgeRow`, `OperationStatusCard`, `EditModeBar` (design-system), `RouteSettingsPanel` modal-wrapper legacy, `CameraFitQaGate` (overlay `?qa=1` relacionado con `view_audit_log`).
+**5. Reglas del roadmap** (R-1..R-7): monofamilia salvo PR-A y PR-B; LAYOUT necesita sección 2 cerrada; IA necesita D-n cerrada; cada PR es su propio dossier; cero eliminación; cero cambios de capability; `implementation_allowed:no` para todos; distinguir IA/COPY/LAYOUT/RUNTIME.
 
-**Confirms (3 dialogs)**: purge-user, permissions-toggle, geo-canonicalize.
+**6. Resumen ejecutivo** — bloqueo principal (D-1..D-5 en PR-A), quick win candidates, ganancia mayor IA (PR-G, PR-H), ganancia mayor layout (PR-I, PR-J), coste cero hasta decisiones.
 
-Total baseline: **24**. Final puede crecer.
+**7. Criterios de aceptación del propio documento** — checklist marcando los 9 ajustes obligatorios cumplidos.
 
-## Profundidad por categoría
+### Restricciones cumplidas
 
-| Categoría | Profundidad |
-|---|---|
-| Tabs complejos (geography, image-recovery, enrichment, permissions, design-system, users) | **Audit completo** (19 secciones aplicables, ASCII anatomy, journeys) |
-| Tabs medios (sources, routes, markers, icons, audit, internal-tools) | **Audit completo** sin ASCII denso; journeys cortos |
-| Chrome (AdminShell, AdminShellIndex, AdminGate, PanelEffectHeader, OperationStatusCard, EffectBadgeRow) | **Audit resumido**: rol estructural, no operacional |
-| Wrappers/embebidos (AdminBrokenUsersList, RouteSettingsPanel modal-wrapper, EditModeBar, CameraFitQaGate) | **Audit resumido** |
-| Confirms (3) | **Audit resumido**: typed-token, scope, irreversibilidad |
-
-Todas aparecen en inventario y en la matriz final, completas o resumidas.
-
-## Entregable principal — documento maestro
-
-`docs/audits/backoffice-discovery-dossier.md` con las 19 secciones del brief en orden:
-
-1. Inventario inicial verificable (tabla con bloque de evidencia por surface)
-2. Functional surface audit (CONFIG/OPERATION/DATA/OBSERVABILITY/INSPECTOR/DEBUG/CONFIRM/HYBRID)
-3. Visual anatomy (ASCII + conteos: cards/CTAs/badges/toggles/tablas/collapsibles/inputs/scrolls)
-4. Operational usage (`unknown` permitido si no hay telemetría)
-5. User journeys por rol (master/admin/moderator/editor)
-6. Action hierarchy
-7. Error / failure states
-8. Empty / loading states
-9. Dependency / causality map
-10. Ownership / authority map
-11. Permission visibility (matriz rol×surface)
-12. Design system compliance
-13. Telemetry / auditability
-14. Responsive / viewport
-15. Copy / terminology
-16. Growth / lifecycle canon
-17. Family system (7 familias × estructura/layout/density/scroll/footer/header/action/responsive)
-18. **Matriz final** con columnas: `surface | family | ownership | runtime | risk | frequency | complexity | recommendation | evidence_summary | reason`
-19. Restricciones (eco literal del brief)
-
-## Diagramas (en repo)
-
-`docs/audits/diagrams/`:
-- `backoffice-family-system.mmd`
-- `backoffice-ownership-map.mmd`
-- `backoffice-dependency-graph.mmd`
-- `backoffice-navigation-graph.mmd`
-- `backoffice-lifecycle.mmd`
-- `backoffice-causality-cascades.mmd`
-
-Copia opcional en `/mnt/documents/` solo para que el usuario pueda abrirlos como artifacts en la preview (no es la ubicación primaria).
-
-## Entregables secundarios
-
-- `mem://governance/backoffice-discovery-dossier` — puntero al doc + regla: *"Toda surface nueva del BackOffice debe declarar `family`, `ownership_domain`, `runtime_semantics` e `interaction_type` y registrar evidencia ANTES de diseñar layout."*
-- Añadir línea en `mem://index.md` (Memorias, no Core), sin tocar el resto del archivo.
-
-## Método de trabajo
-
-1. **Lectura verificadora** (sólo `code--view`/`rg`): admin-tabs, AdminShell, AdminRoutePage, AdminPanel, 12 panels, 3 confirms, chrome candidato. Cada lectura confirma o descubre surfaces.
-2. **Rellenar evidencia** por surface antes de juzgar interacción/familia.
-3. **Generar 6 diagramas** en `docs/audits/diagrams/`.
-4. **Compilar** `docs/audits/backoffice-discovery-dossier.md` en una pasada.
-5. **Crear memoria secundaria** y actualizar `mem://index.md`.
-
-## Criterio de aceptación
-
-- 100% de surfaces del baseline + descubiertas presentes en inventario y matriz.
-- Bloque de evidencia completo para cada una; sin `TBD`.
-- 19 secciones presentes; cada celda sin datos marcada `unknown` o `inferred:<motivo>`.
-- 6 diagramas `.mmd` versionados en `docs/audits/diagrams/`.
-- Matriz final con `evidence_summary` y `reason` para cada surface.
-- Recomendaciones diagnósticas en el set permitido; ninguna acción ejecutada.
-
-## Fuera de alcance (explícito)
-
-- No rediseño, no nuevos componentes, no nuevos tamaños/cards/layouts.
-- No runtime, RLS, schema, capabilities, migraciones, refactors visuales grandes.
-- Las recomendaciones **no abren PRs** ni autorizan cambios. Sirven como backlog priorizable posterior.
-
-¿Apruebas para redactar?
+- Sólo crea `docs/audits/backoffice-ux-usefulness-roadmap.md`.
+- No autoriza ningún PR; todos `implementation_allowed: no`.
+- PR-B como candidato, no como aprobado.
+- D-1..D-5 como decisiones humanas reales con opciones.
+- D-5 con 3 opciones.
+- D-3 marca explícitamente que cambios de capability son decisión humana fuera del alcance.
+- PR-F/PR-G mutuamente dependientes/alternativos según D-1.
+- PR-K dividido en K1/K2/K3 para no mezclar autoridades.
+- Tabla con columnas `implementation_allowed` y `decision_status`.
+- Distinción IA / COPY / LAYOUT / RUNTIME (fuera de alcance) explícita.
