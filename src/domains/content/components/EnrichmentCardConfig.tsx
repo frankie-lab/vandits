@@ -1032,7 +1032,6 @@ export function EnrichmentCardConfig() {
           </section>
 
         </div>
-        </div>
       </div>
     </div>
   );
