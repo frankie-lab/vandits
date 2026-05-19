@@ -190,41 +190,16 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
     }
     setBusy(true);
     try {
-      // Si el candidato viene de Google Places (Places API New) y trae un
-      // placeId estructurado, persistimos external_refs.maps.google EN EL
-      // MISMO update que el rename/move. Identidad externa = aceptación
-      // explícita del usuario (Fase A — PR-SHARE-EXT-MAPS-3). NO escribir
-      // placeId desde el pipeline automático de enrich-location.
-      // Activa la rama high-confidence de buildExternalMapLink en el popup.
-      const writeGooglePlaceId =
-        c.provider === 'google' && typeof c.placeId === 'string' && c.placeId.length > 0;
-
-      let mergedExternalRefs: Record<string, unknown> | undefined;
-      if (writeGooglePlaceId) {
-        const prev = (location.externalRefs ?? {}) as Record<string, unknown>;
-        const prevMaps = (prev.maps ?? {}) as Record<string, unknown>;
-        const prevGoogle = (prevMaps.google ?? {}) as Record<string, unknown>;
-        mergedExternalRefs = {
-          ...prev,
-          maps: {
-            ...prevMaps,
-            google: {
-              ...prevGoogle,
-              placeId: c.placeId,
-              source: 'places-api-new-text-search',
-              resolvedAt: new Date().toISOString(),
-            },
-          },
-        };
-      }
-
-      const updatePayload: Record<string, unknown> = {
-        name,
-        latitude: c.lat,
-        longitude: c.lng,
-        updated_at: new Date().toISOString(),
-      };
-      if (mergedExternalRefs) updatePayload.external_refs = mergedExternalRefs;
+      // Helper puro centraliza la política Fase A: external_refs SOLO cuando
+      // el candidato es Google con placeId. Ver mem://logic/sharing/external-maps-url
+      // y src/domains/content/lib/adopt-candidate-payload.ts
+      const { update: updatePayload, wroteGooglePlaceId } = buildAdoptUpdatePayload({
+        prevExternalRefs: (location.externalRefs ?? null) as Record<string, unknown> | null,
+        candidate: c,
+      });
+      const mergedExternalRefs = wroteGooglePlaceId
+        ? (updatePayload.external_refs as Record<string, unknown>)
+        : undefined;
 
       const { error } = await supabase
         .from('locations')
