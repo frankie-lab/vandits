@@ -158,7 +158,7 @@ El sistema de rutas e itinerarios fue reconstruido desde commits y
 documentación. En la formalización de versiones de 2026-05-19 se promueven a
 **stable / formalized from reconstructed history**: existen como anchors
 estables del árbol aunque no se hubieran publicado como release formal en su
-momento. La versión vigente y publicada es **1.2.2**.
+momento. La versión vigente y publicada es **1.2.3**.
 
 ## Nota sobre 1.3.0
 
