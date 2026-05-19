@@ -1,5 +1,5 @@
 /**
- * Typed global events baseline (v1.2.7)
+ * Typed global events baseline (v1.2.8)
  *
  * Helper tipado inicial para un subconjunto del bus global de `window` usado
  * por Vandits. Coexiste con el resto del catálogo no migrado descrito en
@@ -16,6 +16,18 @@
  *
  * Ver `docs/tech-debt.md` ítem 2.
  */
+
+/**
+ * Tipo mínimo compatible con `IconLibrary` declarado en
+ * `src/contexts/IconLibraryContext.tsx`. Se duplica inline a propósito para
+ * mantener este módulo libre de dependencias React/context.
+ */
+export type GlobalIconLibraryName =
+  | 'lucide'
+  | 'fontawesome'
+  | 'heroicons'
+  | 'phosphor'
+  | 'tabler';
 
 export interface GlobalEventMap {
   'vandits:open-upload': void;
