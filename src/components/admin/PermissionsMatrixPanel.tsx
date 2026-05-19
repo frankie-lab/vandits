@@ -147,6 +147,11 @@ export function PermissionsMatrixPanel() {
   }, [search, filters, grantCount]);
 
   const requestToggle = (role: AppRole, cap: Capability) => {
+    // PR-MASTER-BYPASS-1 — Master es supercap implícita (bypass SQL en
+    // has_permission). La columna master no es editable desde la matriz:
+    // todo cambio aquí sería inerte (master pasa el bypass igual) y
+    // engañoso. Silently no-op; el cell ya está disabled visualmente.
+    if (role === 'master') return;
     const key = `${role}::${cap}`;
     setPendingToggle({ role, cap, current: grants.has(key) });
   };
@@ -310,13 +315,14 @@ export function PermissionsMatrixPanel() {
             <div className="flex items-center gap-4 flex-wrap">
               <span className="inline-flex items-center gap-1.5"><CellMark allowed /> permitido</span>
               <span className="inline-flex items-center gap-1.5"><CellMark allowed={false} /> denegado</span>
-              <span className="inline-flex items-center gap-1.5"><Lock className="w-3 h-3" /> master-only (no asignable a otros roles)</span>
+              <span className="inline-flex items-center gap-1.5"><Lock className="w-3 h-3 text-purple-600 dark:text-purple-400" /> master: bypass implícito (no editable)</span>
               <span className="inline-flex items-center gap-1.5"><AlertTriangle className="w-3 h-3 text-destructive" /> destructive / crítico</span>
               <span className="inline-flex items-center gap-1.5"><Wrench className="w-3 h-3" /> internal tooling</span>
             </div>
             <div>
               SoT autorización = <code className="px-1 rounded bg-muted text-foreground">public.has_permission(uid, cap)</code>.
-              Esta matriz refleja el estado de <code className="px-1 rounded bg-muted text-foreground">role_permissions</code>.
+              Master es <strong>supercap implícita</strong> (bypass SQL vía <code className="px-1 rounded bg-muted text-foreground">has_role(uid,'master')</code>),
+              independiente de <code className="px-1 rounded bg-muted text-foreground">role_permissions</code>. El resto de roles depende de la matriz.
               Toda mutación exige confirmación tipada (canon F3).
             </div>
           </div>
@@ -423,6 +429,22 @@ function DomainRows({ domain, caps, collapsed, onToggleDomain, grants, savingCel
               const allowed = grants.has(key);
               const saving = savingCell === key;
               const masterOnlyViolation = meta?.masterOnly && r !== 'master' && allowed;
+              // PR-MASTER-BYPASS-1 — Master = supercap implícita. Render
+              // read-only: siempre permitido, no clicable, ícono Lock.
+              if (r === 'master') {
+                return (
+                  <td key={r} className="px-2 py-2 text-center">
+                    <div
+                      role="img"
+                      aria-label="Master: bypass implícito (no editable)"
+                      title="Master tiene bypass implícito en has_permission(). No depende de role_permissions y no es editable."
+                      className="inline-flex items-center justify-center w-7 h-7 rounded text-purple-600 dark:text-purple-400 opacity-90"
+                    >
+                      <Lock className="w-3.5 h-3.5" />
+                    </div>
+                  </td>
+                );
+              }
               return (
                 <td key={r} className="px-2 py-2 text-center">
                   <button
