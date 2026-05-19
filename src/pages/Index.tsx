@@ -47,6 +47,8 @@ import { useRouteFocusBus } from '@/domains/routes/hooks/use-route-focus-bus';
 import { useRightPanel } from '@/hooks/use-right-panel';
 import { useWelcomeCardEvents } from '@/hooks/use-welcome-card-events';
 import { usePendingValidationEvents } from '@/hooks/use-pending-validation-events';
+import { useIndexGlobalEvents } from '@/hooks/use-index-global-events';
+import { useRoutePanelBridge } from '@/hooks/use-route-panel-bridge';
 
 // Discovery orchestrator
 import { DiscoveryOrchestrator, type DiscoveryControls } from '@/domains/discovery/components/DiscoveryOrchestrator';
@@ -125,25 +127,17 @@ const Index = () => {
   const routeOrch = useRouteOrchestration(allRoutes);
 
   // Route panels (routes list & builder) live in the right-panel registry.
-  // Bridge their open/close to the orchestration hook to keep its internal
-  // logic untouched.
+  // Puente extraído a `useRoutePanelBridge` (deuda técnica ítem 5, tercera
+  // extracción incremental). Contratos sin cambios.
   const routesPanelOpen = isOpen('routes');
   const routeBuilderOpen = isOpen('routeBuilder');
-  useEffect(() => {
-    if (routesPanelOpen !== routeOrch.showRoutesPanel) {
-      routeOrch.setShowRoutesPanel(routesPanelOpen);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routesPanelOpen]);
-  useEffect(() => {
-    // When orchestration opens the builder programmatically, reflect in registry
-    if (routeOrch.showRouteBuilder && !routeBuilderOpen) {
-      open('routeBuilder');
-    } else if (!routeOrch.showRouteBuilder && routeBuilderOpen) {
-      close('routeBuilder');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeOrch.showRouteBuilder]);
+  useRoutePanelBridge({
+    routesPanelOpen,
+    routeBuilderOpen,
+    routeOrch,
+    open,
+    close,
+  });
 
   const { handlePopupAction } = usePopupActions({
     loadFromDatabase,
@@ -162,37 +156,15 @@ const Index = () => {
   }, [user, authLoading, navigate]);
 
   // ─── Event listeners ──────────────────────────────────────────────────────
-  useEffect(() => {
-    const handleCriteriaChange = () => setCriteriaVersion(v => v + 1);
-    window.addEventListener('enrichment-criteria-changed', handleCriteriaChange);
-    return () => window.removeEventListener('enrichment-criteria-changed', handleCriteriaChange);
-  }, []);
-
-  useEffect(() => {
-    const handleOpenCategories = () => open('categories');
-    window.addEventListener('import:open-categories', handleOpenCategories);
-    return () => window.removeEventListener('import:open-categories', handleOpenCategories);
-  }, [open]);
-
-  useEffect(() => {
-    const handleFollowChanged = async () => {
-      console.log('[Index] Follow changed, refreshing map data...');
-      await new Promise(resolve => setTimeout(resolve, 500));
-      await loadFromDatabase();
-    };
-    window.addEventListener('lovable:follow-changed', handleFollowChanged);
-    return () => window.removeEventListener('lovable:follow-changed', handleFollowChanged);
-  }, [loadFromDatabase]);
-
-  // pending-validations-updated listener → ver `usePendingValidationEvents`.
-
-
-
-  useEffect(() => {
-    const handler = (e: Event) => handlePopupAction(e as CustomEvent);
-    window.addEventListener('popup-action', handler);
-    return () => window.removeEventListener('popup-action', handler);
-  }, [handlePopupAction]);
+  // Listeners globales extraídos a `useIndexGlobalEvents` (deuda técnica
+  // ítem 5, tercera extracción incremental). Contratos de eventos y payloads
+  // sin cambios. `pending-validations-updated` vive en `usePendingValidationEvents`.
+  useIndexGlobalEvents({
+    setCriteriaVersion,
+    open,
+    loadFromDatabase,
+    handlePopupAction,
+  });
 
   // Document focus + route focus delegated to dedicated hooks
   useDocumentFocus({
