@@ -35,7 +35,7 @@ Criterio de auditoría:
 - Severidad: baja
 - Facilidad: alta
 - Riesgo de cambio: bajo
-- Estado: resuelto formalizado (2026-05-19) — `package.json` y README quedan alineados en **1.2.2**. `1.2.0` y `1.2.1` se formalizan desde el histórico reconstruido como anchors estables; `1.2.2` pasa a ser la versión actual. A partir de ahora cada PR debe declarar `Version impact` (none/patch/minor/major) según [`docs/versioning.md`](./versioning.md). Las versiones estables deben poder usarse como rollback anchors mediante tags Git `vX.Y.Z` (ver "Release / rollback anchors" en [`docs/releases/version-history.md`](./releases/version-history.md)).
+- Estado: resuelto formalizado (2026-05-19) — `package.json` y README quedan alineados en **1.2.9**. `1.2.0` y `1.2.1` se formalizan desde el histórico reconstruido como anchors estables; `1.2.9` pasa a ser la versión actual. A partir de ahora cada PR debe declarar `Version impact` (none/patch/minor/major) según [`docs/versioning.md`](./versioning.md). Las versiones estables deben poder usarse como rollback anchors mediante tags Git `vX.Y.Z` (ver "Release / rollback anchors" en [`docs/releases/version-history.md`](./releases/version-history.md)).
 
 `package.json`, README y documentación técnica deben contar la misma historia sobre la versión y el estado actual del proyecto.
 
