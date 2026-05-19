@@ -89,6 +89,9 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.2.5 (2026-05-19)
+- ✅ Segunda extracción incremental de orquestación desde Index.tsx (`usePendingValidationEvents`).
+
 ### v1.2.4 (2026-05-19)
 - ✅ Primera extracción incremental de orquestación desde Index.tsx (`useWelcomeCardEvents`).
 
