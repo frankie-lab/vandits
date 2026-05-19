@@ -188,17 +188,21 @@ export function AdminShellIndex() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {visibleTabs.map(tab => {
             const Icon = tab.icon;
+            const diag = isDiagnosticDomain(tab.domain);
             return (
               <Link
                 key={tab.key}
                 to={`/admin/${tab.key}`}
-                className="flex items-start gap-3 p-4 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
+                className={`flex items-start gap-3 p-4 rounded-lg border bg-card hover:bg-muted/30 transition-colors ${diag ? 'opacity-90 border-dashed' : ''}`}
               >
-                <div className="p-2 rounded-md bg-muted/50 shrink-0">
-                  <Icon className={`w-5 h-5 ${tab.iconClass}`} />
+                <div className={`p-2 rounded-md shrink-0 ${diag ? 'bg-muted/30' : 'bg-muted/50'}`}>
+                  <Icon className={`w-5 h-5 ${diag ? 'text-muted-foreground' : tab.iconClass}`} />
                 </div>
-                <div className="min-w-0">
-                  <div className="font-medium text-sm truncate">{tab.label}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className="font-medium text-sm truncate">{tab.label}</div>
+                    {diag && <DiagBadge />}
+                  </div>
                   <code className="text-[10px] text-muted-foreground">/admin/{tab.key}</code>
                 </div>
               </Link>
