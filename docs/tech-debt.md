@@ -15,7 +15,7 @@ La prioridad debe combinar impacto en producto, riesgo operativo y facilidad de 
 | Ítem | Estado | Tipo | Comentario |
 |---|---|---|---|
 | 1. Versionado y documentación de estado | Resuelto formalizado | Gobernanza | `package.json`, README, UX y documentación quedan alineados en `1.2.2`. |
-| 1.1. Materializar rollback anchors con tags Git | Pendiente operativo | Release management | Faltan tags reales `v1.1.1`, `v1.2.0`, `v1.2.1`, `v1.2.2`, `v1.2.3`. |
+| 1.1. Materializar rollback anchors con tags Git | Pendiente operativo | Release management | Rollback anchors documentados; faltan tags Git reales `v1.1.1`, `v1.2.0`, `v1.2.1`, `v1.2.2`, `v1.2.3`. |
 | 2. Catálogo de eventos globales | Abierto | Arquitectura | Inventario inicial existe; faltan tipado, prefijos y reducción de catch-alls. |
 | 3. Tests de gramática visual de puntos | Resuelto | Testing | Cubierto por `src/test/point-visual-state.test.ts` (11 casos para `enriched`, `imported`, `empty`). |
 | 4. Foto de arquitectura actual | Resuelto | Documentación técnica | Cubierto por `docs/architecture/current-architecture.md`. |
@@ -59,6 +59,8 @@ Hasta crear esos tags, el rollback está definido documentalmente pero no materi
 No crear los tags desde Lovable si no existe soporte explícito para operaciones Git.
 
 Los documentos pueden definir los anchors, pero el cierre de esta deuda requiere crear los tags reales en GitHub o por git local. No basta con actualizar documentación.
+
+Cierre documental: completo. Cierre operativo: pendiente. La creación de tags Git reales queda fuera de Lovable y debe hacerse desde GitHub o git local.
 
 ### 2. Catálogo de eventos globales
 
