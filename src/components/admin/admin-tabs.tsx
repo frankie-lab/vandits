@@ -55,12 +55,54 @@ export type AdminTabKey =
   | 'design-system'
   | 'internal-tools';
 
+/**
+ * BackOffice Information Architecture (PR-BACKOFFICE-UX-CLOSURE-1 Sec. 2).
+ *
+ * Agrupa los tabs por dominio operativo (ownership), no por orden histórico.
+ * Es independiente de `CapabilityDomain` aunque normalmente coinciden:
+ * `CapabilityDomain` describe la capability, `AdminDomain` describe la
+ * superficie BackOffice donde vive su mini-app.
+ */
+export type AdminDomain =
+  | 'governance'
+  | 'content'
+  | 'geo-ops'
+  | 'runtime-config'
+  | 'providers'
+  | 'recovery'
+  | 'audit'
+  | 'internal';
+
+export const ADMIN_DOMAIN_LABELS: Record<AdminDomain, string> = {
+  governance: 'Governance',
+  content: 'Editorial / Content',
+  'geo-ops': 'Geo Ops',
+  'runtime-config': 'Runtime Config',
+  providers: 'Providers',
+  recovery: 'Recovery / Batch Ops',
+  audit: 'Audit / Debug',
+  internal: 'Internal Tools',
+};
+
+export const ADMIN_DOMAIN_ORDER: AdminDomain[] = [
+  'governance',
+  'content',
+  'geo-ops',
+  'runtime-config',
+  'providers',
+  'recovery',
+  'audit',
+  'internal',
+];
+
 export interface AdminTabSpec {
   key: AdminTabKey;
   label: string;
   icon: LucideIcon;
   iconClass: string;
   capability: Capability;
+  /** Ownership operativo dentro del BackOffice (sidebar grouping). */
+  domain: AdminDomain;
   /** Wider modal (max-w-6xl) when true. Only meaningful for routeMode='modal'. */
   wide?: boolean;
   /**
@@ -85,6 +127,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: Users,
     iconClass: 'text-purple-500',
     capability: 'manage_users',
+    domain: 'governance',
     Component: null,
   },
   {
@@ -93,6 +136,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: SlidersHorizontal,
     iconClass: 'text-blue-500',
     capability: 'manage_permissions',
+    domain: 'governance',
     Component: null,
   },
   {
@@ -101,6 +145,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: Ruler,
     iconClass: 'text-orange-500',
     capability: 'manage_marker_config',
+    domain: 'runtime-config',
     Component: MarkerSizeManager as LazyExoticComponent<ComponentType<unknown>>,
   },
   {
@@ -109,6 +154,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: RouteIcon,
     iconClass: 'text-primary',
     capability: 'manage_route_engine',
+    domain: 'runtime-config',
     Component: RouteSettingsPanelContent as LazyExoticComponent<ComponentType<unknown>>,
   },
   {
@@ -117,6 +163,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: Settings,
     iconClass: 'text-indigo-500',
     capability: 'manage_icon_library',
+    domain: 'runtime-config',
     Component: IconLibraryManager as LazyExoticComponent<ComponentType<unknown>>,
   },
   {
@@ -125,6 +172,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: FileText,
     iconClass: 'text-emerald-500',
     capability: 'manage_enrichment_config',
+    domain: 'content',
     routeMode: 'route',
     Component: EnrichmentCardConfig as LazyExoticComponent<ComponentType<unknown>>,
   },
@@ -134,6 +182,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: ShieldAlert,
     iconClass: 'text-amber-500',
     capability: 'view_audit_log',
+    domain: 'audit',
     routeMode: 'route',
     Component: AuditPanel as LazyExoticComponent<ComponentType<unknown>>,
   },
@@ -143,6 +192,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: Compass,
     iconClass: 'text-amber-500',
     capability: 'view_geo_maintenance',
+    domain: 'geo-ops',
     routeMode: 'route',
     Component: GeographyBackfillPanel as LazyExoticComponent<ComponentType<unknown>>,
   },
@@ -152,6 +202,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: Database,
     iconClass: 'text-cyan-500',
     capability: 'manage_data_sources',
+    domain: 'providers',
     routeMode: 'route',
     Component: DataSourcesPanel as LazyExoticComponent<ComponentType<unknown>>,
   },
@@ -161,6 +212,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: ImageIcon,
     iconClass: 'text-amber-500',
     capability: 'run_image_recovery',
+    domain: 'recovery',
     routeMode: 'route',
     Component: RecoverImagesPanel as LazyExoticComponent<ComponentType<unknown>>,
   },
@@ -170,6 +222,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: Palette,
     iconClass: 'text-fuchsia-500',
     capability: 'inspect_design_system',
+    domain: 'internal',
     routeMode: 'route',
     Component: DesignSystemPanel as LazyExoticComponent<ComponentType<unknown>>,
   },
@@ -179,6 +232,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: Terminal,
     iconClass: 'text-slate-500',
     capability: 'run_internal_tooling',
+    domain: 'internal',
     routeMode: 'route',
     Component: InternalToolsPanel as LazyExoticComponent<ComponentType<unknown>>,
   },
@@ -187,6 +241,16 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
 export function getAdminTab(key: AdminTabKey | undefined): AdminTabSpec | undefined {
   if (!key) return undefined;
   return ADMIN_TABS.find(t => t.key === key);
+}
+
+/** Agrupa los tabs por dominio operativo (sidebar BackOffice). */
+export function groupAdminTabsByDomain(tabs: readonly AdminTabSpec[]): Array<{ domain: AdminDomain; tabs: AdminTabSpec[] }> {
+  const byDomain = new Map<AdminDomain, AdminTabSpec[]>();
+  ADMIN_DOMAIN_ORDER.forEach(d => byDomain.set(d, []));
+  tabs.forEach(t => byDomain.get(t.domain)!.push(t));
+  return ADMIN_DOMAIN_ORDER
+    .map(domain => ({ domain, tabs: byDomain.get(domain)! }))
+    .filter(g => g.tabs.length > 0);
 }
 
 /** Resolución canónica de la URL `/admin/<key>` para un tab en routeMode='route'. */

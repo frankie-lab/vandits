@@ -1,23 +1,23 @@
 /**
- * PermissionsMatrixPanel (PR-RBAC-MATRIX-1).
+ * PermissionsMatrixPanel (PR-RBAC-MATRIX-1 + PR-BACKOFFICE-UX-CLOSURE-1).
  *
  * Vista canónica del modelo RBAC: matriz capability × role agrupada por
  * dominio operativo. Sustituye al accordion por rol como vista principal.
  *
  * - Eje vertical: capabilities (agrupadas por CapabilityDomain).
- * - Eje horizontal: roles activos (master, admin, moderator, editor, supervisor).
+ * - Eje horizontal: 4 roles activos (master, admin, moderator, editor).
+ *   `user`/`supervisor`/`curator` purgados del enum app_role en
+ *   PR-BACKOFFICE-UX-CLOSURE-1 — ya no aparecen como columna.
  * - Celda: ✓ permitido / — denegado. Toggle requiere typed-token (canon F3).
  *
  * Filtros: búsqueda libre, master-only, destructive, internal, unused.
+ * Detección visual de roles vacíos / casi vacíos (banner ámbar).
  * Cada capability expone descripción, riesgo, runtime y ownership en tooltip
- * y leyenda lateral. Supervisor se muestra siempre (no se oculta aunque sea
- * un rol con 1 capability — el panel DEBE hacerlo visible).
+ * y leyenda lateral.
  */
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { Loader2, Search, ChevronDown, ChevronRight, Shield, AlertTriangle, Lock, Wrench, Filter, Check } from 'lucide-react';
+import { Loader2, Search, ChevronDown, ChevronRight, AlertTriangle, Lock, Wrench, Filter, Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
@@ -35,15 +35,15 @@ import {
   RUNTIME_LABEL,
   type CapabilityDomain,
 } from './permissions/capability-metadata';
+import { EffectBadgeRow, effectsForCapability } from './EffectBadge';
 
-const ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'supervisor'];
+const ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor'];
 
 const ROLE_LABELS: Record<AppRole, string> = {
   master: 'Master',
   admin: 'Admin',
   moderator: 'Moderator',
   editor: 'Editor',
-  supervisor: 'Supervisor',
 };
 
 const ROLE_TONES: Record<AppRole, string> = {
@@ -51,7 +51,6 @@ const ROLE_TONES: Record<AppRole, string> = {
   admin: 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30',
   moderator: 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30',
   editor: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30',
-  supervisor: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30',
 };
 
 interface MatrixCell {
@@ -115,7 +114,7 @@ export function PermissionsMatrixPanel() {
 
   // Conteo por rol (para barra superior).
   const countsByRole = useMemo(() => {
-    const c: Record<AppRole, number> = { master: 0, admin: 0, moderator: 0, editor: 0, supervisor: 0 };
+    const c: Record<AppRole, number> = { master: 0, admin: 0, moderator: 0, editor: 0 };
     grants.forEach(k => {
       const [role] = k.split('::') as [AppRole, Capability];
       if (role in c) c[role]++;
@@ -194,8 +193,9 @@ export function PermissionsMatrixPanel() {
     );
   }
 
-  const supervisorCount = countsByRole.supervisor;
-  const supervisorWarn = supervisorCount <= 1;
+  // Detección genérica de roles vacíos / casi vacíos.
+  const emptyRoles = ROLES.filter(r => countsByRole[r] === 0);
+  const sparseRoles = ROLES.filter(r => countsByRole[r] > 0 && countsByRole[r] < 2);
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -221,26 +221,31 @@ export function PermissionsMatrixPanel() {
             </div>
           </div>
 
-          {/* Barra de roles: conteo + warning supervisor */}
+          {/* Barra de roles: conteo + detección de roles vacíos/casi vacíos. */}
           <div className="flex items-center gap-2 flex-wrap">
             {ROLES.map(r => {
-              const isSupervisor = r === 'supervisor';
               const count = countsByRole[r];
+              const isEmpty = count === 0;
+              const isSparse = !isEmpty && count < 2;
               return (
                 <div key={r} className={cn('inline-flex items-center gap-2 px-2.5 py-1 rounded-md border text-xs font-medium', ROLE_TONES[r])}>
                   <span>{ROLE_LABELS[r]}</span>
                   <span className="opacity-70">·</span>
                   <span className="tabular-nums">{count} caps</span>
-                  {isSupervisor && supervisorWarn && (
+                  {(isEmpty || isSparse) && (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className="ml-1 inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-amber-700 dark:text-amber-300">
-                          <AlertTriangle className="w-3 h-3" /> legacy?
+                        <span className={cn(
+                          'ml-1 inline-flex items-center gap-1 text-[10px] uppercase tracking-wide',
+                          isEmpty ? 'text-destructive' : 'text-amber-700 dark:text-amber-300',
+                        )}>
+                          <AlertTriangle className="w-3 h-3" /> {isEmpty ? 'vacío' : 'casi vacío'}
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="max-w-xs">
-                        Rol con ≤1 capability asignada. Posible candidato legacy/zombi —
-                        revisar si sigue teniendo sentido operativo.
+                        {isEmpty
+                          ? 'Este rol no tiene ninguna capability asignada — no puede hacer nada en el sistema.'
+                          : 'Rol con menos de 2 capabilities. Posible candidato a revisar (¿zombi o legacy?).'}
                       </TooltipContent>
                     </Tooltip>
                   )}
@@ -248,7 +253,18 @@ export function PermissionsMatrixPanel() {
               );
             })}
           </div>
+
+          {(emptyRoles.length > 0) && (
+            <div className="flex items-start gap-2 px-3 py-2 rounded-md border border-destructive/30 bg-destructive/5 text-[12px] text-destructive">
+              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <span>
+                Roles sin capabilities: <strong>{emptyRoles.map(r => ROLE_LABELS[r]).join(', ')}</strong>.
+                Decide si deben recibir asignaciones o purgarse del enum.
+              </span>
+            </div>
+          )}
         </div>
+
 
         {/* Matriz */}
         <div className="flex-1 overflow-auto overscroll-contain">

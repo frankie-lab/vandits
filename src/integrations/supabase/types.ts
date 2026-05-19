@@ -3225,19 +3225,6 @@ export type Database = {
       }
     }
     Views: {
-      v_geo_coverage: {
-        Row: {
-          avg_confidence: number | null
-          resolved: number | null
-          total: number | null
-          user_id: string | null
-          with_admin1: number | null
-          with_country: number | null
-          with_postal: number | null
-          with_timezone: number | null
-        }
-        Relationships: []
-      }
       v_location_geo_health: {
         Row: {
           admin_level_3: string | null
@@ -3925,14 +3912,7 @@ export type Database = {
         | "view_geo_maintenance"
         | "run_geo_backfill"
         | "run_geo_canonicalize"
-      app_role:
-        | "master"
-        | "admin"
-        | "user"
-        | "moderator"
-        | "editor"
-        | "supervisor"
-        | "curator"
+      app_role: "master" | "admin" | "moderator" | "editor"
       collection_item_type: "place" | "waypoint" | "route"
       data_source_kind: "search" | "enrichment" | "scraper"
       document_import_status:
@@ -4141,15 +4121,7 @@ export const Constants = {
         "run_geo_backfill",
         "run_geo_canonicalize",
       ],
-      app_role: [
-        "master",
-        "admin",
-        "user",
-        "moderator",
-        "editor",
-        "supervisor",
-        "curator",
-      ],
+      app_role: ["master", "admin", "moderator", "editor"],
       collection_item_type: ["place", "waypoint", "route"],
       data_source_kind: ["search", "enrichment", "scraper"],
       document_import_status: [

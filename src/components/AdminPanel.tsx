@@ -50,26 +50,24 @@ interface RolePermission {
 }
 
 const ROLE_LABELS: Record<AppRole, string> = {
- master: 'Master',
- admin: 'Administrador',
- moderator: 'Moderador',
- editor: 'Editor',
- supervisor: 'Supervisor',
+  master: 'Master',
+  admin: 'Administrador',
+  moderator: 'Moderador',
+  editor: 'Editor',
 };
 
 const ROLE_COLORS: Record<AppRole, string> = {
- master: 'bg-purple-500',
- admin: 'bg-red-500',
- moderator: 'bg-orange-500',
- editor: 'bg-blue-500',
- supervisor: 'bg-cyan-500',
+  master: 'bg-purple-500',
+  admin: 'bg-red-500',
+  moderator: 'bg-orange-500',
+  editor: 'bg-blue-500',
 };
 
 // Etiquetas de permisos vienen del SoT único (`capabilities.ts`).
 const PERMISSION_LABELS = CAPABILITY_LABELS;
 
-// Canon RBAC PR-ADMIN-AUDIT-3: 'curator' y 'user' purgados del catálogo asignable.
-const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'supervisor'];
+// Canon RBAC PR-BACKOFFICE-UX-CLOSURE-1: 4 roles activos. `user`/`supervisor`/`curator` purgados del enum.
+const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor'];
 // Lista completa de capabilities en orden canónico (SoT único).
 const ALL_PERMISSIONS: AppPermission[] = [...CAPABILITIES];
 
