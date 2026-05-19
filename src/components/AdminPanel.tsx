@@ -226,6 +226,12 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  return;
  }
 
+ // PR-BACKOFFICE-GOVERNANCE F2: el rol master requiere assign_master.
+ if (role === 'master' && !canAssignMaster) {
+ toast.error('No tienes capability "assign_master" para tocar el rol Master');
+ return;
+ }
+
  if (role === 'master' && hasRole) {
  const masterCount = users.filter(u => u.roles.includes('master')).length;
  if (masterCount <= 1) {
