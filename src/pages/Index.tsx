@@ -127,25 +127,17 @@ const Index = () => {
   const routeOrch = useRouteOrchestration(allRoutes);
 
   // Route panels (routes list & builder) live in the right-panel registry.
-  // Bridge their open/close to the orchestration hook to keep its internal
-  // logic untouched.
+  // Puente extraído a `useRoutePanelBridge` (deuda técnica ítem 5, tercera
+  // extracción incremental). Contratos sin cambios.
   const routesPanelOpen = isOpen('routes');
   const routeBuilderOpen = isOpen('routeBuilder');
-  useEffect(() => {
-    if (routesPanelOpen !== routeOrch.showRoutesPanel) {
-      routeOrch.setShowRoutesPanel(routesPanelOpen);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routesPanelOpen]);
-  useEffect(() => {
-    // When orchestration opens the builder programmatically, reflect in registry
-    if (routeOrch.showRouteBuilder && !routeBuilderOpen) {
-      open('routeBuilder');
-    } else if (!routeOrch.showRouteBuilder && routeBuilderOpen) {
-      close('routeBuilder');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeOrch.showRouteBuilder]);
+  useRoutePanelBridge({
+    routesPanelOpen,
+    routeBuilderOpen,
+    routeOrch,
+    open,
+    close,
+  });
 
   const { handlePopupAction } = usePopupActions({
     loadFromDatabase,
