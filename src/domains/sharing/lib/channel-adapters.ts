@@ -7,6 +7,7 @@
  */
 import type { GeoLocation } from '@/types/location';
 import type { SharePayload } from '../types';
+import { resolveGoogleMapsUrl, resolveAppleMapsUrl } from './external-maps-url';
 
 function openInNewTab(url: string): void {
   try {
