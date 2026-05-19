@@ -131,3 +131,38 @@ Tras los dos renames, el catálogo restante se considera **canon-coherente**:
 - SoT TS/Deno: byte-identical (verificado por `capabilities-sot-parity.test.ts`).
 - Hygiene contract: PR-HYGIENE-2 + PR-HYGIENE-4 verde.
 - Matriz RBAC UI: muestra los nuevos nombres con labels actualizados; gates intactos (`useCapability('inspect_design_system')` para el panel Design System, `useCapability('manage_editorial_criteria')` para Criterios).
+
+---
+
+## PR-HYGIENE-5 — Purga del alias legacy `manage_geo_maintenance`
+
+`manage_geo_maintenance` quedó como alias del catálogo geo desde antes del split canónico (`view_geo_maintenance` / `run_geo_backfill` / `run_geo_canonicalize`, PR-BACKOFFICE-GOVERNANCE F2). Auditoría confirma: cero consumidores funcionales.
+
+### Auditoría de uso real
+
+- Cliente (`hasPermission` / `useCapability`): 0 referencias en `src/`.
+- Edge functions (`requireCapability`): 0 — `canonicalize-admin-areas` ya usa `run_geo_canonicalize`; un comentario obsoleto mencionaba el alias y se actualiza en este PR.
+- RLS / SQL functions / RPCs: 0 referencias.
+- `role_permissions`: 2 filas (`admin`, `master`) — papel-derecho sin efecto runtime; se borran en la migración.
+- Metadata RBAC: 1 entrada marcada como deprecated, se elimina.
+- Geography admin panel: usa `view_geo_maintenance` (sin cambio).
+
+### Cambios aplicados
+
+1. **Migración** `20260519_*_pr-hygiene-5-purge-manage-geo-maintenance.sql`:
+   - DROP funciones `has_permission` / `get_user_permissions` (dependen del enum).
+   - DELETE filas zombie en `role_permissions`.
+   - RENAME enum viejo → recreación sin el alias → recast columna `permission` → DROP enum viejo.
+   - Recrear funciones canónicas (firma idéntica).
+2. **SoT cliente** (`src/domains/identity/capabilities.ts`): eliminado del array y de `CAPABILITY_LABELS`.
+3. **Espejo Deno** (`supabase/functions/_shared/capabilities.ts`): eliminado en paralelo (contract test `capabilities-sot-parity` lo verifica).
+4. **Metadata RBAC** (`src/components/admin/permissions/capability-metadata.ts`): entrada sustituida por comentario que apunta al split canónico.
+5. **Edge function** (`supabase/functions/canonicalize-admin-areas/index.ts`): comentario actualizado para reflejar el gate real (`run_geo_canonicalize`).
+6. **Contract test** (`src/test/capabilities-hygiene-2-contract.test.ts`): añadido a `PURGED_ZOMBIES` — cualquier reintroducción falla en CI.
+
+### Verificación
+
+- DB: `manage_geo_maintenance` no aparece en `pg_enum` para `app_permission`. `role_permissions` ya no contiene la fila.
+- Permisos efectivos de admin y master: intactos (siguen teniendo `view_geo_maintenance` y `run_geo_backfill`; master además `run_geo_canonicalize`).
+- Geography panel sigue funcionando; canonicalize sigue funcionando; backfills siguen funcionando — todo vía las capabilities canónicas.
+- Sin cambios de UX, RLS ni runtime.
