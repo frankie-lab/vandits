@@ -39,6 +39,25 @@ Deno.serve(async (req) => {
       .eq("id", targetUserId)
       .single();
 
+    // PR-BACKOFFICE-GOVERNANCE F2 — last-master guard: refuse to purge the only master.
+    {
+      const { data: targetRoles } = await adminClient
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", targetUserId);
+      const targetIsMaster = (targetRoles ?? []).some((r: { role: string }) => r.role === "master");
+      if (targetIsMaster) {
+        const { data: countData, error: countErr } = await adminClient.rpc("count_masters");
+        const masters = typeof countData === "number" ? countData : 0;
+        if (countErr || masters <= 1) {
+          return new Response(
+            JSON.stringify({ error: "Cannot remove the last master operator", lastMaster: true }),
+            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+
     // Get documents
     const { data: docs, error: docsError } = await adminClient
       .from("documents")
