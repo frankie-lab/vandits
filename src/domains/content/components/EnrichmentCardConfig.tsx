@@ -902,9 +902,8 @@ export function EnrichmentCardConfig() {
                 <Wand2 className="w-4 h-4 text-amber-500" />
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">Política editorial IA</h4>
               </div>
-              <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-700 dark:text-amber-400">
-                Solo nuevos enriquecimientos
-              </Badge>
+              <EffectBadge kind="future-only" detail="POIs ya enriquecidos no cambian" />
+
             </div>
             <div className="flex items-start gap-2 px-2 py-2 rounded bg-amber-500/5 border border-amber-500/20">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
