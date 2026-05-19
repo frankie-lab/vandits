@@ -1,7 +1,7 @@
 {
   "name": "vandits",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.1",
   "description": "VANDITS - Geographic location manager with AI enrichment, visit verification, and social features",
   "type": "module",
   "scripts": {
