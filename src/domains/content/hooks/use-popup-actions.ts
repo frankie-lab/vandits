@@ -244,7 +244,7 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
       openAppleMaps(location);
     } else if (action === 'export-poi') {
       try {
-        const isOwn = useLocationsStore.getState().getLocationOwnership(locationId, currentUserId)?.kind === 'own';
+        const isOwn = useLocationsStore.getState().getLocationOwnership(locationId, currentUserId)?.isOwn === true;
         const exportScope: 'internal' | 'public' = isOwn ? 'internal' : 'public';
         const ctx = { currentUserId };
         const evalRes = evaluatePoiExport(location, exportScope, ctx);
