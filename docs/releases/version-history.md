@@ -41,7 +41,8 @@ publicados; algunas son hitos **reconstructed** para fijar memoria histórica.
   1.2.4        Extracción inicial Index.tsx (useWelcomeCardEvents)  (stable)
   1.2.5        Segunda extracción Index.tsx (usePendingValidationEvents)  (stable)
   1.2.6        Tercera extracción Index.tsx (useIndexGlobalEvents + useRoutePanelBridge)  (stable)
-  1.2.7        Helper tipado inicial eventos globales (global-events.ts)  ← versión actual (stable / current)
+  1.2.7        Helper tipado inicial eventos globales (global-events.ts)  (stable)
+  1.2.8        Segunda tanda eventos globales tipados (duplicate/icon/personal-categories)  ← versión actual (stable / current)
   1.3.0        Architecture baseline                (planned)
 
 2.x — Futuro
