@@ -449,47 +449,13 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   </div>
   )}
 
-  {hasPermission('manage_permissions') && defaultTab === 'permissions' && (
-  <div className="flex-1 overflow-hidden min-h-0 flex flex-col p-4">
- <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-8">
- <div className="space-y-4 pr-4">
- {ALL_ROLES.map(role => {
- const isExpanded = expandedRoles.has(role);
- return (
- <div key={role} className="border rounded-lg overflow-hidden">
- <button onClick={() => { setExpandedRoles(prev => { const next = new Set(prev); if (next.has(role)) next.delete(role); else next.add(role); return next; }); }}
- className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
- <div className="flex items-center gap-3">
- <Badge className={`${ROLE_COLORS[role]} text-primary-foreground`}>{ROLE_LABELS[role]}</Badge>
- <span className="text-sm text-muted-foreground">{rolePermissions.filter(rp => rp.role === role).length} permisos</span>
- </div>
- {isExpanded ? <ChevronDown className="w-5 h-5 text-muted-foreground" /> : <ChevronRight className="w-5 h-5 text-muted-foreground" />}
- </button>
- <AnimatePresence>
- {isExpanded && (
- <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="border-t overflow-hidden">
- <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
- {ALL_PERMISSIONS.map(permission => {
- const hasPerm = roleHasPermission(role, permission);
- const isSaving = savingRole === `${role}-${permission}`;
- return (
- <label key={permission} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/30 cursor-pointer">
- {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Checkbox checked={hasPerm} onCheckedChange={() => togglePermission(role, permission, hasPerm)} />}
- <span className="text-sm">{PERMISSION_LABELS[permission]}</span>
- </label>
- );
- })}
- </div>
- </motion.div>
- )}
- </AnimatePresence>
- </div>
- );
- })}
- </div>
- </div>
-  </div>
-  )}
+   {hasPermission('manage_permissions') && defaultTab === 'permissions' && (
+   <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+     <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
+       <PermissionsMatrixPanel />
+     </Suspense>
+   </div>
+   )}
 
   {/* Declarative tab bodies — gated per-tab by capability (PR-ADMIN-AUDIT Step 3). */}
   {ADMIN_TABS.filter(tab => tab.Component && tab.key === defaultTab).map(tab => {
