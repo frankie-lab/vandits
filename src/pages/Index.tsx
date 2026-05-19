@@ -82,8 +82,9 @@ const Index = () => {
   const [criteriaVersion, setCriteriaVersion] = useState(0);
   const [notesLocation, setNotesLocation] = useState<GeoLocation | null>(null);
   const [showNotesEditor, setShowNotesEditor] = useState(false);
-  const [pendingValidationsCount, setPendingValidationsCount] = useState(0);
-  const [pendingValidationNames, setPendingValidationNames] = useState<string[]>([]);
+  // pendingValidations: estado + listener extraídos a `usePendingValidationEvents`
+  // (deuda técnica ítem 5, segunda extracción incremental).
+  const { pendingValidationsCount, pendingValidationNames } = usePendingValidationEvents();
   const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string; coordinates: { lat: number; lng: number } } | null>(null);
 
   // ─── Itineraries / Collections panel sub-tabs ───────────────────────────
