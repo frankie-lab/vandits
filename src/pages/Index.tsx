@@ -115,26 +115,9 @@ const Index = () => {
   useLinkedLocationIds();
 
   // ─── Welcome-card CTAs (emitted by LocationMap empty-state) ──────────────
-  useEffect(() => {
-    const onOpenUpload = () => open('importedContent', { tab: 'upload' });
-    const onOpenProfile = (e: Event) => {
-      const tab = (e as CustomEvent<{ tab?: string }>).detail?.tab ?? 'map';
-      open('profileEditor', { tab });
-    };
-    // PR-BACKOFFICE-UX-CANON-3: geography e image-recovery viven en /admin/*.
-    const onOpenGeography = () => navigate('/admin/geography');
-    const onOpenDataSources = () => navigate('/admin/image-recovery');
-    window.addEventListener('vandits:open-upload', onOpenUpload);
-    window.addEventListener('vandits:open-profile', onOpenProfile as EventListener);
-    window.addEventListener('admin:open-geography', onOpenGeography);
-    window.addEventListener('admin:open-data-sources', onOpenDataSources);
-    return () => {
-      window.removeEventListener('vandits:open-upload', onOpenUpload);
-      window.removeEventListener('vandits:open-profile', onOpenProfile as EventListener);
-      window.removeEventListener('admin:open-geography', onOpenGeography);
-      window.removeEventListener('admin:open-data-sources', onOpenDataSources);
-    };
-  }, [open, navigate]);
+  // Extraído a `useWelcomeCardEvents` (deuda técnica ítem 5, primera extracción
+  // incremental). Mantiene contratos de eventos globales sin cambios.
+  useWelcomeCardEvents();
 
   // ─── Domain hooks ─────────────────────────────────────────────────────────
   const routeOrch = useRouteOrchestration(allRoutes);
