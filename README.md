@@ -89,6 +89,9 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.2.4 (2026-05-19)
+- ✅ Primera extracción incremental de orquestación desde Index.tsx (`useWelcomeCardEvents`).
+
 ### v1.2.3 (2026-05-19)
 - ✅ Tests unitarios para gramática visual de puntos (enriched/imported/empty).
 - ✅ Deuda técnica de point visual state marcada como resuelta.
