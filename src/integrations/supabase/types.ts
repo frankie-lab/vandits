@@ -3907,14 +3907,8 @@ export type Database = {
         | "manage_users"
         | "manage_criteria"
         | "run_global_enrichment"
-        | "view_all_locations"
-        | "edit_all_locations"
         | "delete_any_location"
-        | "manage_documents"
-        | "view_analytics"
         | "moderate_content"
-        | "upload_files"
-        | "add_locations"
         | "manage_permissions"
         | "manage_marker_config"
         | "manage_route_engine"
@@ -4129,14 +4123,8 @@ export const Constants = {
         "manage_users",
         "manage_criteria",
         "run_global_enrichment",
-        "view_all_locations",
-        "edit_all_locations",
         "delete_any_location",
-        "manage_documents",
-        "view_analytics",
         "moderate_content",
-        "upload_files",
-        "add_locations",
         "manage_permissions",
         "manage_marker_config",
         "manage_route_engine",

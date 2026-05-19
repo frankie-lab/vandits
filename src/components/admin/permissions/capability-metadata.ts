@@ -110,36 +110,14 @@ export const CAPABILITY_META: Record<Capability, CapabilityMeta> = {
   },
 
   // Content / Editorial
-  add_locations: {
-    domain: 'content',
-    description: 'Añadir nuevas ubicaciones al catálogo.',
-    risk: 'low',
-    runtime: 'immediate',
-  },
-  view_all_locations: {
-    domain: 'content',
-    description: 'Ver ubicaciones de cualquier usuario (bypass de privacidad).',
-    risk: 'medium',
-    runtime: 'immediate',
-  },
-  edit_all_locations: {
-    domain: 'content',
-    description: 'Editar ubicaciones de cualquier usuario.',
-    risk: 'high',
-    runtime: 'immediate',
-  },
+  // PR-HYGIENE-2: purgadas add_locations, view_all_locations, edit_all_locations,
+  // manage_documents, upload_files (sin consumidores reales).
   delete_any_location: {
     domain: 'destructive',
     description: 'Borrar ubicaciones de cualquier usuario.',
     risk: 'high',
     runtime: 'immediate',
     destructive: true,
-  },
-  manage_documents: {
-    domain: 'content',
-    description: 'Gestionar documentos (importados/itinerarios) globales.',
-    risk: 'medium',
-    runtime: 'immediate',
   },
   manage_criteria: {
     domain: 'content',
@@ -151,12 +129,6 @@ export const CAPABILITY_META: Record<Capability, CapabilityMeta> = {
     domain: 'content',
     description: 'Aprobar/rechazar contenido enviado por usuarios.',
     risk: 'medium',
-    runtime: 'immediate',
-  },
-  upload_files: {
-    domain: 'content',
-    description: 'Subir archivos masivos (KML/GPX/CSV).',
-    risk: 'low',
     runtime: 'immediate',
   },
 
@@ -252,12 +224,7 @@ export const CAPABILITY_META: Record<Capability, CapabilityMeta> = {
     risk: 'low',
     runtime: 'none',
   },
-  view_analytics: {
-    domain: 'audit',
-    description: 'Ver métricas y analíticas globales.',
-    risk: 'low',
-    runtime: 'none',
-  },
+  // PR-HYGIENE-2: view_analytics purgada (sin consumidores).
 
   // Internal tooling
   run_internal_tooling: {

@@ -90,7 +90,25 @@ legacy/deprecated  → manage_geo_maintenance
 5. **PR-HYGIENE-6 (rol supervisor)**: decidir KEEP+propósito real o DROP del enum `app_role`.
 6. **PR-HYGIENE-7 (run_geo_backfill)**: cablear botón explícito o REMOVE.
 
-### Out of scope (este PR)
+### Out of scope (PR-RBAC-CAPABILITY-HYGIENE-1)
 
 - No tocar enum DB, SoT TS/Deno, RLS, edges ni UI.
 - Entregable = este informe. Cada recomendación se materializa como PR independiente.
+
+---
+
+## PR-HYGIENE-2 — Purga de capabilities zombie (DONE)
+
+Eliminadas 6 capabilities sin consumidores reales:
+`view_all_locations`, `edit_all_locations`, `manage_documents`,
+`view_analytics`, `upload_files`, `add_locations`.
+
+Cambios aplicados:
+- **DB**: `role_permissions` purgadas (5 filas de las 6, `manage_documents` ya estaba a 0); enum `app_permission` recreado sin las 6 etiquetas; funciones `has_permission` y `get_user_permissions` recreadas idénticas.
+- **SoT cliente** (`src/domains/identity/capabilities.ts`): removidas de `CAPABILITIES` y `CAPABILITY_LABELS`.
+- **Espejo Deno** (`supabase/functions/_shared/capabilities.ts`): removidas del array.
+- **Metadata RBAC** (`src/components/admin/permissions/capability-metadata.ts`): entradas eliminadas (matriz RBAC se autorrecorta).
+- **Contract test**: `src/test/capabilities-hygiene-2-contract.test.ts` prohíbe resurrección.
+
+Sin impacto runtime para usuarios — ninguna gate dependía de estas capabilities.
+Catálogo activo pasa de 28 → 22 capabilities.
