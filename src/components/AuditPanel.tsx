@@ -46,13 +46,15 @@ export function AuditPanel() {
 
   // PR-BACKOFFICE-UX-CANON-5: separar visualmente runtime audit (lo que la
   // app está usando AHORA) de debug técnico (event tracing + escenarios).
-  const RUNTIME_TABS = [
-    { id: 'resolution' as const, label: 'Estado resuelto', icon: Eye, hint: 'Qué preferencias está usando la app ahora' },
-    { id: 'sync' as const, label: 'Runtime vs DB', icon: RefreshCw, hint: 'Diff memoria vs persistencia' },
+  type SectionId = 'resolution' | 'trace' | 'sync' | 'scenarios';
+  type TabSpec = { id: SectionId; label: string; icon: typeof Eye; hint: string };
+  const RUNTIME_TABS: TabSpec[] = [
+    { id: 'resolution', label: 'Estado resuelto', icon: Eye, hint: 'Qué preferencias está usando la app ahora' },
+    { id: 'sync', label: 'Runtime vs DB', icon: RefreshCw, hint: 'Diff memoria vs persistencia' },
   ];
-  const DEBUG_TABS = [
-    { id: 'trace' as const, label: 'Trazas', icon: Clock, hint: 'Event tracing de cambios (últimos 20)' },
-    { id: 'scenarios' as const, label: 'Escenarios', icon: Play, hint: 'Verificación scripted' },
+  const DEBUG_TABS: TabSpec[] = [
+    { id: 'trace', label: 'Trazas', icon: Clock, hint: 'Event tracing de cambios (últimos 20)' },
+    { id: 'scenarios', label: 'Escenarios', icon: Play, hint: 'Verificación scripted' },
   ];
 
   const renderGroup = (
