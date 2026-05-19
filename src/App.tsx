@@ -12,6 +12,8 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
 import DuplicatePolicy from "./pages/DuplicatePolicy";
+import { AdminShell, AdminShellIndex } from "./pages/admin/AdminShell";
+import { AdminRoutePage } from "./pages/admin/AdminRoutePage";
 import { GlobalLoadingBar } from "@/shared/loading";
 import { DesignSystemThemeProvider } from "@/design-system/runtime/theme-provider";
 import { EditModeBar } from "@/components/admin/design-system/EditModeBar";
