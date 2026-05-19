@@ -39,6 +39,7 @@ const GeographyBackfillPanel = lazy(() => import('@/components/admin/GeographyBa
 const DataSourcesPanel = lazy(() => import('@/components/admin/DataSourcesPanel').then(m => ({ default: m.DataSourcesPanel })));
 const RecoverImagesPanel = lazy(() => import('@/components/admin/RecoverImagesPanel').then(m => ({ default: m.RecoverImagesPanel })));
 const DesignSystemPanel = lazy(() => import('@/components/admin/DesignSystemPanel').then(m => ({ default: m.DesignSystemPanel })));
+const InternalToolsPanel = lazy(() => import('@/components/admin/InternalToolsPanel').then(m => ({ default: m.InternalToolsPanel })));
 
 export type AdminTabKey =
   | 'users'
