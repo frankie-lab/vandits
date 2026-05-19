@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/domains/identity';
 import { useDuplicateCount } from '@/hooks/use-duplicate-count';
 import { useDuplicateStore, DuplicatePair } from '@/stores/duplicate-store';
+import { dispatchGlobalEvent } from '@/lib/global-events';
 
 interface ConflictAction {
   pairId: string;
