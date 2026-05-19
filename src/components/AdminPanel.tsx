@@ -9,7 +9,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { usePermissions, AppRole, AppPermission } from '@/domains/identity';
+import { usePermissions, type AppRole, type AppPermission } from '@/domains/identity';
+import { CAPABILITIES, CAPABILITY_LABELS } from '@/domains/identity/capabilities';
 import {
  AlertDialog,
  AlertDialogAction,
@@ -61,60 +62,13 @@ const ROLE_COLORS: Record<AppRole, string> = {
  supervisor: 'bg-cyan-500',
 };
 
-const PERMISSION_LABELS: Record<AppPermission, string> = {
- manage_users: 'Gestionar usuarios',
- manage_criteria: 'Gestionar criterios',
- run_global_enrichment: 'Enriquecimiento global',
- view_all_locations: 'Ver todas las ubicaciones',
- edit_all_locations: 'Editar ubicaciones',
- delete_any_location: 'Eliminar ubicaciones',
- manage_documents: 'Gestionar documentos',
- view_analytics: 'Ver estadísticas',
- moderate_content: 'Moderar contenido',
- upload_files: 'Subir archivos masivos',
- add_locations: 'Añadir ubicaciones',
- // Operacionales (PR-ADMIN-AUDIT)
- manage_permissions: 'Gestionar permisos',
- manage_marker_config: 'Configurar marcadores',
- manage_route_engine: 'Configurar motor de rutas',
- manage_icon_library: 'Gestionar galería de iconos',
- manage_enrichment_config: 'Configurar fichas',
- view_audit_log: 'Ver auditoría',
- manage_geo_maintenance: 'Mantenimiento geográfico',
- manage_data_sources: 'Gestionar fuentes de datos',
- run_image_recovery: 'Recuperar imágenes',
- manage_design_system: 'Gestionar Design System',
- purge_user: 'Limpiar usuarios',
- open_back_office: 'Acceder al Back Office',
-};
+// Etiquetas de permisos vienen del SoT único (`capabilities.ts`).
+const PERMISSION_LABELS = CAPABILITY_LABELS;
 
 // Canon RBAC PR-ADMIN-AUDIT-3: 'curator' y 'user' purgados del catálogo asignable.
 const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'supervisor'];
-const ALL_PERMISSIONS: AppPermission[] = [
- 'manage_users',
- 'manage_criteria',
- 'run_global_enrichment',
- 'view_all_locations',
- 'edit_all_locations',
- 'delete_any_location',
- 'manage_documents',
- 'view_analytics',
- 'moderate_content',
- 'upload_files',
- 'add_locations',
- 'manage_permissions',
- 'manage_marker_config',
- 'manage_route_engine',
- 'manage_icon_library',
- 'manage_enrichment_config',
- 'view_audit_log',
- 'manage_geo_maintenance',
- 'manage_data_sources',
- 'run_image_recovery',
- 'manage_design_system',
- 'purge_user',
- 'open_back_office',
-];
+// Lista completa de capabilities en orden canónico (SoT único).
+const ALL_PERMISSIONS: AppPermission[] = [...CAPABILITIES];
 
 export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  const { hasPermission, loading: permissionsLoading } = usePermissions();
