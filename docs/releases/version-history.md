@@ -62,6 +62,17 @@ Ejemplo:
 
 Si `v1.2.3` falla, volver a `v1.2.2` o publicar `v1.2.4` con corrección.
 
+Nota operativa:
+
+Los anchors documentados requieren tags Git reales para funcionar como rollback operativo. Hasta que existan los tags `v1.1.1`, `v1.2.0`, `v1.2.1` y `v1.2.2` en GitHub, el rollback está definido documentalmente pero no materializado como mecanismo técnico.
+
+### Tags pendientes
+
+- [ ] `v1.1.1`
+- [ ] `v1.2.0`
+- [ ] `v1.2.1`
+- [ ] `v1.2.2`
+
 ---
 
 ## Patch History
