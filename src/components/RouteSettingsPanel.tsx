@@ -180,13 +180,17 @@ export function RouteSettingsPanelContent() {
               className="h-6 px-2 text-[10px] gap-1"
               onClick={checkServices}
               disabled={checkingServices}
+              title="Diagnóstico (read-only): comprueba el estado de los servicios sin modificar nada."
             >
               {checkingServices ? (
                 <Loader2 className="w-3 h-3 animate-spin" />
               ) : (
                 <RefreshCw className="w-3 h-3" />
               )}
-              {servicesChecked ? 'Verificar de nuevo' : 'Verificar conexiones'}
+              <span className="inline-flex items-center gap-1">
+                <span className="px-1 py-0 rounded bg-muted/60 text-foreground/70 text-[9px] font-semibold uppercase tracking-wide">Diag</span>
+                {servicesChecked ? 'Verificar de nuevo' : 'Verificar conexiones'}
+              </span>
             </Button>
           </div>
 

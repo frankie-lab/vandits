@@ -770,8 +770,9 @@ export function EnrichmentCardConfig() {
           <p className="text-[11px] text-muted-foreground">Campos, orden, tono y configuración del enriquecimiento</p>
         </div>
         <div className="flex gap-1.5">
-          <Button variant="outline" size="sm" onClick={handleTestEnrich} disabled={enriching || hasChanges} className="h-7 px-2 text-xs" title={hasChanges ? 'Guarda primero los cambios' : 'Enriquecer ficha de ejemplo con la config actual'}>
-            {enriching ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <FlaskConical className="w-3 h-3 mr-1" />}
+          <Button variant="outline" size="sm" onClick={handleTestEnrich} disabled={enriching || hasChanges} className="h-7 px-2 text-xs gap-1" title={hasChanges ? 'Guarda primero los cambios' : 'Diagnóstico (no persistente): enriquece una ficha de ejemplo con la config actual y muestra el resultado en el preview.'}>
+            {enriching ? <Loader2 className="w-3 h-3 animate-spin" /> : <FlaskConical className="w-3 h-3" />}
+            <span className="px-1 py-0 rounded bg-muted/60 text-foreground/70 text-[9px] font-semibold uppercase tracking-wide">Diag</span>
             Probar
           </Button>
           <Button variant="ghost" size="sm" onClick={handleReset} disabled={!hasChanges || saving} className="h-7 px-2 text-xs">
