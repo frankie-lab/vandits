@@ -31,6 +31,12 @@ export const CAPABILITIES = [
   "manage_design_system",
   "purge_user",
   "open_back_office",
+  // PR-BACKOFFICE-GOVERNANCE F2 — split de capabilities críticas
+  "assign_master",
+  "run_internal_tooling",
+  "view_geo_maintenance",
+  "run_geo_backfill",
+  "run_geo_canonicalize",
 ] as const;
 
 export type Capability = typeof CAPABILITIES[number];
