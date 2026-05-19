@@ -43,6 +43,7 @@ import {
 import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
 import { useLocationsStore } from '@/domains/content';
 import { searchWikiCandidates } from '@/domains/content/lib/wiki-name-search';
+import { buildAdoptUpdatePayload } from '@/domains/content/lib/adopt-candidate-payload';
 import { useAuth } from '@/domains/identity/hooks/use-auth';
 import { NearbyPanel } from './PointContextActions';
 
