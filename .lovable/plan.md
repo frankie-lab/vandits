@@ -1,191 +1,170 @@
-# PR-BACKOFFICE-GOVERNANCE — Implementación priorizada
 
-Cierre del backlog aprobado. 5 fases atómicas, ordenadas por dependencia (cada una compila y despliega sola). Fuera de scope: lazy extraction, versionado/rollback, refactors cosméticos.
+# PR-BACKOFFICE-UX-CANON-1 · Auditoría operativa del BackOffice
 
----
+Auditoría **read-only**. No tocaré código. Resultado: trazabilidad UI → settings → runtime → efecto observable, panel por panel, con recomendación canónica.
 
-## Fase 1 — SoT único de capabilities (foundation)
+## Alcance
 
-**Por qué primero**: los siguientes splits añaden capabilities nuevas; sin SoT único divergirán entre `use-permissions.ts`, `require-capability.ts`, `AdminPanel.tsx`.
+Surface inventariada: `AdminPanel` (modal único con 11 tabs declarados en `src/components/admin/admin-tabs.tsx`).
 
-### Cambios
+```
+users · permissions · markers · routes · icons · enrichment ·
+audit · geography · sources · image-recovery · design-system
+```
 
-- **Nuevo**: `src/domains/identity/capabilities.ts` exporta `CAPABILITIES` (array literal `as const`), `CAPABILITY_LABELS`, tipo `Capability` derivado.
-- **Nuevo**: `supabase/functions/_shared/capabilities.ts` espejo del catálogo (Deno).
-- **Refactor**: `use-permissions.ts` re-exporta desde el SoT; elimina `AppPermission` duplicado.
-- **Refactor**: `AdminPanel.tsx` consume `CAPABILITIES` + `CAPABILITY_LABELS`; elimina `ALL_PERMISSIONS` y `PERMISSION_LABELS` locales.
-- **Refactor**: `require-capability.ts` consume el SoT Deno; elimina unión literal local.
-- Test: contract test que verifica que cliente y Deno exportan el mismo set (snapshot).
-
-### Migración DB
-Ninguna en esta fase. El enum `public.app_permission` ya es SoT real; este PR sólo elimina las copias TS divergentes.
-
-### Riesgo
-Bajo. Pure refactor sin cambio de comportamiento.
+Todo cuelga del mismo `<dialog max-w-4xl|6xl>`; no hay rutas dedicadas, ni layout shell, ni breadcrumbs.
 
 ---
 
-## Fase 2 — Split de capabilities críticas
+## 1 · Inventario funcional real
 
-### Nuevas capabilities (enum DB + SoT TS)
+| panel | capability | purpose | writes_to | runtime_effect | recompute | edge fns | destructive | preview | history | rollback | status |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| **users** | manage_users (+assign_master / purge_user) | CRUD roles + purga total | `user_roles`, RPC vía edge | inmediato (RLS) | no | `purge-user` | sí (purge) | sí (purge preview) | no | no | active |
+| **permissions** | manage_permissions (master-only) | matrix role × capability | `role_permissions` | inmediato (siguiente `has_permission`) | no | — | sí (cambia gates) | no | no | no | active |
+| **markers** (tamaños) | manage_marker_config | tamaños/colores por tipo + reglas estado | `marker_size_config`, `marker_state_rules` | inmediato vía `updateMarkerSizeConfig` / `updateMarkerStateRules` (broadcast a `LocationMap`, `map-icons`, `map-popups`, `MiniMarker`) | no | — | no | parcial (mini swatch) | no | no | active |
+| **routes** (motor) | manage_route_engine | engine config + health check | `app_settings.route_engine_config` (per-user fallback) | aplica al próximo cálculo de ruta | no | `check-route-services`, `calculate-route` | no | no (status check sí) | no | no | active |
+| **icons** | manage_icon_library | librería global Lucide vs alterna | `app_settings.icon_library` | inmediato vía `IconLibraryContext` | no | — | no | no | no | no | active |
+| **enrichment** (fichas) | manage_enrichment_config | tono IA, sources imagen, orden campos, `field_order`, secciones colapsables | `app_settings.enrichment_card_config` | mixto: orden/visibilidad **inmediato** vía `invalidateCardConfig` (popups), tono/min_length/image_sources **solo nuevos enriquecimientos** | sí (re-enrich para que afecte POIs ya enriquecidos) | `enrich-location`, `batch-enrich` (consumen config en server-side al enriquecer) | no directamente | no | no | no | **partial** (UI no avisa que parte solo afecta futuros) |
+| **audit** | view_audit_log | inspecciona resolved prefs + traza bus + sync runtime/DB + escenarios | — (read-only) | ninguno | no | — | no | n/a | sí (in-memory 20) | n/a | active (debug) |
+| **geography** | view_geo_maintenance / run_geo_backfill / run_geo_canonicalize | scope tree por salud + lanzar job universal (fill/reconcile/overwrite/repair) cross-user, ver canonicalize | `geocoding_jobs`, `admin_areas`, `locations.*_id/geo_health` | deferred (job cron tick) | sí (cron `geocoding-job-tick` + triggers `_compute_location_geo_health_lookup`) | `geocoding-job-tick`, `backfill-admin-fks`, `resolve-admin-area`, `canonicalize-admin-areas` | sí (overwrite, canonicalize) | sí (contadores por salud, scope tree) | sí (`geocoding_jobs.history`) | no (irreversible) | active |
+| **sources** | manage_data_sources | toggle/priority de búsqueda·enrichment·scrapers + estado credencial | `data_sources` | aplica en ≤60s vía cache `_shared/data-sources.ts` en edge fns | no (afecta próximas llamadas) | indirecto: `enrich-location`, `recover-missing-images`, `search-candidates`, `scrape-*` | no | no | no | no | active |
+| **image-recovery** | run_image_recovery | recuperación masiva imágenes faltantes por scope geo | `image_recovery_jobs`, `locations.enriched_data.media` | deferred (cron tick) | no (idempotente) | `image-recovery-job-tick`, `recover-missing-images` | parcial (sobreescribe `media` con `_force`) | sí (recuento candidatos) | sí (jobs en DB) | no | active |
+| **design-system** | manage_design_system (master) | Inspector tokens (read-only) + History tab | — (lee `src/design-system/tokens/source/*.json` estáticos) | ninguno (no escribe) | n/a | — | no | n/a | sí (HistoryTab) | n/a | **placebo de "configurar"** (es Inspector, no Editor; el nombre Design System genera expectativa de edición que no existe) |
 
-| Nueva | Reemplaza/separa | Asignación inicial |
+Notas de hallazgo durante el inventario:
+
+- `EnrichmentCardConfig` mezcla **3 dominios** en un mismo formulario: (a) renderizado de la ficha (orden de campos, secciones colapsables → inmediato vía `invalidateCardConfig` en `map-popups`), (b) política editorial IA (tono, min_length, include_*  → solo afecta nuevos enriquecimientos), (c) selección de proveedores de imagen (overlap directo con `DataSourcesPanel kind=enrichment`).
+- `MarkerSizeManager` empotra `MarkerStateRulesPanel` como segunda tab "Norma de estados". Son dos modelos distintos (tamaños/colores por tipo vs reglas globales de mezcla por estado). El usuario lo percibe como un único panel "marcadores".
+- `RouteSettingsPanel` lee `app_settings.route_engine_config` pero `RouteEngineSettings` también persiste preferencias **per-user**. La capa de override no está documentada en UI.
+- `IconLibraryManager` escribe `app_settings.icon_library` con un `update` simple (sin `upsert`); si la row no existe el save falla silenciosamente — riesgo de placebo bajo entornos limpios.
+- `users` panel: la columna `email` se inicializa a `''` (no se pinta) — vestigio del antiguo listado con email.
+
+---
+
+## 2 · Auditoría de realidad (placebo / dead / partial)
+
+| ítem | clasificación | razón |
 |---|---|---|
-| `assign_master` | sub-acción hoy implícita en `manage_users` | master únicamente |
-| `run_internal_tooling` | hoy mezclada en `manage_permissions` | master únicamente |
-| `view_geo_maintenance` | parte de `manage_geo_maintenance` | admin + master |
-| `run_geo_backfill` | parte de `manage_geo_maintenance` | admin + master |
-| `run_geo_canonicalize` | parte de `manage_geo_maintenance` (destructivo) | master únicamente |
+| `DesignSystemPanel` botón "edit mode" / `EditModeBar` / `EditableTokenSurface` | **partial / placebo** | infraestructura de edición en `src/design-system/runtime/edit-mode-store.ts` existe pero el panel se anuncia explícitamente "Nivel 1 DS Inspector (read-only)" en el JSDoc. No persiste cambios. |
+| `EnrichmentCardConfig` campos `tone`, `min_length`, `include_*`, `image_sources` | **partial** | solo aplica a **futuros enriquecimientos**. No hay re-enrich masivo expuesto. UI no lo indica → percepción placebo. |
+| `EnrichmentCardConfig.image_sources` vs `DataSourcesPanel kind=enrichment` | **overlap** | dos UIs distintas escribiendo en dos sitios distintos (`app_settings.enrichment_card_config.image_sources` vs `data_sources.enabled`). Ambos consumidos por `enrich-location` con precedencia no documentada. |
+| `RouteEngineSettings` per-user overrides vs `app_settings.route_engine_config` global | **partial** | precedencia oculta; el admin no sabe si su edición global será pisada por settings de usuario. |
+| `IconLibraryManager` update sin upsert | **fragile** | si falta seed inicial, no persiste. |
+| `users` panel `email: ''` | **dead code** | siempre vacío. |
+| `MarkerStateRulesPanel.SAMPLE_COLORS` y previews | **active** pero acoplado | sirve solo para preview; ok. |
+| `AuditPanel` escenarios | **active (debug-only)** | útil para Master, sin uso operativo de día a día. |
+| Edge functions ya no expuestas (auditoría F5 anterior): `migrate-v2`, `backfill-catalog-geo-once` | **dead** (ya eliminadas) | — |
+| `create-test-users`, `seed-iso-geography` | **internal_tooling** sin panel | accesibles vía `run_internal_tooling` pero sin entrada de UI clara. |
+| `scan-onedrive-geo`, `browse-onedrive` | **partial / disconnected** desde BackOffice | viven en flujo importer, no en admin; mencionar para mapa de ownership. |
 
-`manage_geo_maintenance` queda como **alias compuesto** (deprecated) → se mantiene para no romper edges aún, pero el panel se gatea por las 3 nuevas.
+---
 
-### Migración DB (un solo PR)
+## 3 · Auditoría de overlap (mapa de ownership real)
 
-```sql
-ALTER TYPE public.app_permission ADD VALUE 'assign_master';
-ALTER TYPE public.app_permission ADD VALUE 'run_internal_tooling';
-ALTER TYPE public.app_permission ADD VALUE 'view_geo_maintenance';
-ALTER TYPE public.app_permission ADD VALUE 'run_geo_backfill';
-ALTER TYPE public.app_permission ADD VALUE 'run_geo_canonicalize';
+```
+                 ┌─ orden/visibilidad campos ficha ──► EnrichmentCardConfig (popups)
+ENRICHMENT ──────┤
+                 ├─ tono / min_length / include_* ───► EnrichmentCardConfig (server, futuros)
+                 ├─ proveedores imagen ──────────────► EnrichmentCardConfig  ╲ overlap
+                 │                                                            ►── 2 UIs
+                 └─ kind=enrichment toggles ─────────► DataSourcesPanel       ╱
 
--- Seed asignaciones iniciales
-INSERT INTO public.role_permissions (role, permission) VALUES
-  ('master', 'assign_master'),
-  ('master', 'run_internal_tooling'),
-  ('master', 'view_geo_maintenance'),
-  ('admin',  'view_geo_maintenance'),
-  ('master', 'run_geo_backfill'),
-  ('admin',  'run_geo_backfill'),
-  ('master', 'run_geo_canonicalize')
-ON CONFLICT DO NOTHING;
+GEO MAINT  ──────┬─ scope tree + jobs (fill/reconcile/overwrite/repair) ────► GeographyBackfillPanel
+                 └─ canonicalize-admin-areas (master) ───────────────────────► GeographyBackfillPanel (mismo botón)
+
+IMAGE      ──────┬─ recovery masiva por scope ───────────────────────────────► RecoverImagesPanel
+                 └─ providers de imagen ────────────────────────────────────► DataSourcesPanel (kind=enrichment) + EnrichmentCardConfig.image_sources
+
+MARKERS    ──────┬─ tamaño/color por tipo ──────────────────────────────────► MarkerSizeManager tab "sizes"
+                 └─ reglas mezcla por estado ───────────────────────────────► MarkerSizeManager tab "states" (= MarkerStateRulesPanel)
+
+ROUTES     ──────┬─ engine config global ───────────────────────────────────► RouteSettingsPanel (app_settings)
+                 └─ engine config per-user ────────────────────────────────► RouteEngineSettings (preferences) ← precedencia opaca
 ```
 
-### Cambios cliente
-
-- **`AdminPanel` (users)**: botón "Asignar role master" gateado por `useCapability('assign_master')`; checkbox `master` deshabilitado si no allowed.
-- **`AdminPanel` (users)**: botón "Purgar usuario" gateado adicionalmente por `useCapability('purge_user')` (defensa en profundidad cliente; el edge ya lo exige).
-- **`GeographyBackfillPanel`**:
-  - Apertura del panel: `view_geo_maintenance`.
-  - Botones de backfill (`backfill-admin-fks`, `backfill-catalog-geo-once`): `run_geo_backfill`.
-  - Botón de canonicalize: `run_geo_canonicalize` (master-only).
-- **`admin-tabs.tsx`**: tab `geography` cambia su `capability` a `view_geo_maintenance`.
-
-### Cambios edges
-
-- `canonicalize-admin-areas`: `requireCapability(req, 'run_geo_canonicalize')`.
-- `backfill-admin-fks`, `backfill-catalog-geo-once`: `requireCapability(req, 'run_geo_backfill')`.
-- `migrate-v2`, `create-test-users`: `requireCapability(req, 'run_internal_tooling')`.
-- `purge-user`: además del `purge_user` ya exigido, añadir guard "no degradar al último master" (ver Fase 3).
-
-### Guard "último master" (server-side)
-
-```sql
--- helper SECURITY DEFINER
-CREATE OR REPLACE FUNCTION public.count_masters() RETURNS int
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT count(*)::int FROM public.user_roles WHERE role = 'master';
-$$;
-```
-
-`purge-user` y `manage_users` (revoke role) consultan `count_masters()` antes de remover el último master → 409 explícito.
-
-### Riesgo
-Medio. Mitigado: caps nuevas son aditivas, `manage_geo_maintenance` permanece como puente; tests de capability contract; un master existente sigue funcionando sin tocar.
+Overlaps detectados (3):
+1. **Proveedores de imagen** = `EnrichmentCardConfig.image_sources` × `DataSourcesPanel kind=enrichment`.
+2. **Canonicalize geo** dentro de `GeographyBackfillPanel` mezcla operación masiva multi-usuario con acción master-only one-shot.
+3. **Engine de rutas** global vs per-user sin UI que muestre la pila.
 
 ---
 
-## Fase 3 — Confirmaciones fuertes destructivas
+## 4 · Taxonomía operativa
 
-Patrón único reutilizable: `<DestructiveConfirmDialog>` con typed-token ("escribe CANONICALIZE para continuar") + preview obligatorio cuando aplica.
-
-### Acciones a confirmar (con typed-token)
-
-| Acción | Panel | Token | Preview previo |
-|---|---|---|---|
-| Mutar `role_permissions` (toggle de capability) | Permisos | "MODIFICAR" | snapshot del diff |
-| Asignar/revocar `master` | Usuarios | "MASTER" | n/a |
-| Purgar usuario | Usuarios | "PURGAR <username>" | counts (ya existe `mode:preview`) — sólo añadir typed-token al execute |
-| Canonicalize admin areas | Geo | "CANONICALIZE" | conteo de filas afectadas (dry-run nuevo, ver abajo) |
-| Toggle `data_sources.enabled` | Fuentes | confirm simple (no destructivo permanente) | n/a |
-
-### Dry-run canonicalize
-
-`canonicalize-admin-areas` añade `mode: 'preview' | 'execute'` (paridad con `purge-user`); preview devuelve `{ affected: number, sampleNames: string[] }` sin escribir.
-
-### Riesgo
-Bajo. Sólo añade fricción + endpoints opcionales.
+| categoría | panels | mezcla incorrecta |
+|---|---|---|
+| governance | users, permissions | — |
+| runtime_config | markers, routes (motor), icons | — |
+| editorial_policy | enrichment (orden/visibilidad) | mezclado con runtime_config (orden=runtime) y con provider_orchestration (image_sources) |
+| batch_operation | geography, image-recovery | — |
+| geo_maintenance | geography | canonicalize-admin-areas escondida dentro |
+| provider_orchestration | sources | image_sources duplicado en enrichment |
+| design_system | design-system | etiquetado como "config" pero es **audit/inspector** |
+| audit/debug | audit, (design-system real) | — |
+| recovery_tooling | image-recovery | — |
+| internal_tooling | (sin UI) `create-test-users`, `seed-iso-geography` | — |
 
 ---
 
-## Fase 4 — Master-only restrictions
+## 5 · Escalado UX (modal → ruta dedicada)
 
-- `manage_permissions` ya es master-only por canon → verificar (no asignar a `admin` aunque exista capability). Test de seed.
-- `manage_design_system` → **revocar de roles ≠ master**:
-  ```sql
-  DELETE FROM public.role_permissions
-   WHERE permission = 'manage_design_system' AND role <> 'master';
-  INSERT INTO public.role_permissions(role, permission)
-   VALUES ('master','manage_design_system') ON CONFLICT DO NOTHING;
-  ```
-- `run_internal_tooling`, `assign_master`, `run_geo_canonicalize` → seed master-only (ya cubierto en Fase 2).
+Candidatos a salir del modal `max-w-4xl/6xl`:
 
-### Riesgo
-Bajo. Restricción aditiva; admins pierden Design System, lo cual coincide con el dictamen.
-
----
-
-## Fase 5 — Hygiene / tooling residual
-
-### Acciones
-
-- **`migrate-v2`**: comprobar uso real → si V2 ya activa y `migrate-v2` no se invoca desde UI, **eliminar** la función edge y su entrada en `supabase/config.toml` si existiera. Documentar en `docs/audits/backlog.md`.
-- **`backfill-catalog-geo-once`**: validar idempotencia y last-run; si one-shot histórico ya completado, **eliminar**.
-- **`create-test-users`**: mantener, pero re-gatear a `run_internal_tooling` (ya en Fase 2). Documentar uso (sandbox fixture).
-- **`CameraFitQaPanel`** (`src/components/debug/`): gate detrás de query `?qa=1` AND `useCapability('view_audit_log')` (mínimo) — hoy es accesible sin gate.
-
-### Riesgo
-Bajo. Eliminación de edges no usadas; el panel QA queda visible sólo para personal autorizado.
+| panel | razón | recomendación |
+|---|---|---|
+| **design-system** | Inspector con 5 secciones (tokens/primitives/patterns/memories/history), browseable, no hay flujo "OK/Cancel" | `MOVE_TO_ROUTE` → `/admin/design-system` |
+| **geography** | 805 LoC, scope tree + lista usuarios + job runner + ETA + canonicalize; modal incómodo y oculta el mapa | `MOVE_TO_ROUTE` → `/admin/geo` con sub-tabs (Mantenimiento / Canonicalize / Coverage) |
+| **sources** | tabla con 3 grupos + estado credenciales + priorización; encaja como settings page | `MOVE_TO_ROUTE` → `/admin/sources` |
+| **enrichment** (fichas) | 1040 LoC, formularios largos, requiere previews; ya rompe el modal | `MOVE_TO_ROUTE` → `/admin/fichas` y **SPLIT** (ver §6) |
+| **image-recovery** | 955 LoC, scope geo + jobs deferred, vive bien junto a geography | `MOVE_TO_ROUTE` → `/admin/operaciones/imagenes` |
+| **audit** | console técnica con 4 secciones | `MOVE_TO_ROUTE` → `/admin/audit` |
+| users / permissions | flujos cortos, mantienen sentido en modal | `KEEP` (modal) — o `MOVE_TO_ROUTE` si se hace shell |
+| markers / routes / icons | settings cortos y comunes | `KEEP` (modal) |
 
 ---
 
-## Orden de ejecución y dependencias
+## 6 · Tabla final · recomendaciones
 
-```text
-Fase 1 (SoT)
-   └─ Fase 2 (split caps + migración enum + edges)
-         ├─ Fase 3 (confirmaciones)
-         ├─ Fase 4 (master-only)
-         └─ Fase 5 (hygiene)
-```
+| panel | estado_real | riesgo | ownership | runtime_real | deuda | recomendación |
+|---|---|---|---|---|---|---|
+| users | active | high | governance | inmediato | columna `email` muerta | KEEP |
+| permissions | active | high | governance | inmediato | — | KEEP |
+| markers (sizes) | active | low | runtime_config | inmediato (broadcast) | tabs implícitas con states | SPLIT (sizes ↔ states) |
+| markers (states) | active | low | runtime_config | inmediato | empotrado dentro de sizes | SPLIT (sacar a entrada propia) |
+| routes (motor) | active | medium | runtime_config | próximo cálculo | precedencia global↔user opaca | SIMPLIFY (mostrar pila resuelta) |
+| icons | active | low | runtime_config | inmediato | update sin upsert | KEEP + fix upsert (fuera de scope canon) |
+| enrichment (fichas) | partial | medium | editorial_policy + runtime_config + provider_orchestration | mixto (parte inmediata, parte solo nuevos) | mezcla 3 dominios, sin re-enrich masivo | SPLIT en 3: (a) **render-ficha** runtime_config, (b) **política editorial IA** + re-enrich, (c) **proveedores imagen** → MERGE en DataSources |
+| audit | active (debug) | low | audit/debug | none | — | MOVE_TO_ROUTE |
+| geography | active | high | geo_maintenance + batch_operation | deferred | canonicalize empotrada, sin rollback | SPLIT (Mantenimiento masivo ≠ Canonicalize one-shot) + MOVE_TO_ROUTE |
+| sources | active | medium | provider_orchestration | ≤60s cache | overlap con enrichment.image_sources | MERGE image_sources aquí + MOVE_TO_ROUTE |
+| image-recovery | active | medium | recovery_tooling | deferred | — | MOVE_TO_ROUTE (junto a geography) |
+| design-system | placebo de "configurar" | low | audit/debug | none | nombre engaña; capability `manage_design_system` sugiere edición | RENAME → "Design System Inspector" + recategorize a audit/debug + MOVE_TO_ROUTE; capability real debería ser `view_design_system` (deferir si requiere migración) |
 
-Fases 3/4/5 son paralelas entre sí tras Fase 2.
-
----
-
-## Verificación por fase
-
-- **F1**: typecheck verde; snapshot test caps cliente == Deno; AdminPanel renderiza idéntico.
-- **F2**: caps aparecen en panel Permisos; geography panel reacciona a los 3 gates nuevos; edges devuelven 403 si falta cap específica; bypass master sigue funcionando.
-- **F3**: ningún destructivo se ejecuta sin typed-token (test E2E sobre Permisos + Purge).
-- **F4**: usuario `admin` no ve Design System; pierde `manage_permissions` y `manage_design_system`.
-- **F5**: ruta a `migrate-v2` devuelve 404 (o gate); `CameraFitQaPanel` no monta sin `?qa=1`.
+Leyenda: KEEP · SIMPLIFY · SPLIT · MERGE · REMOVE · MOVE_TO_ROUTE · DEPRECATE.
 
 ---
 
-## Actualizaciones de memoria/contratos al cierre
+## 7 · Inconsistencias explícitas (placebo / dead / solo-futuros / requiere-recompute)
 
-- `mem://governance/rbac-canon`: extender catálogo con nuevas caps y reglas master-only.
-- `mem://index.md` Core: actualizar línea "manage_permissions master-only" → añadir `manage_design_system`, `assign_master`, `run_geo_canonicalize`, `run_internal_tooling`.
-- `docs/contracts/canon-change-policy.md`: añadir típica de "destructive action requires typed-token".
-- `docs/audits/backlog.md`: cerrar items hygiene.
+- `EnrichmentCardConfig.{tone, min_length, include_*, image_sources}` → **solo afecta futuros POIs**. Hoy no hay UI de re-enrich masivo asociada. Inconsistencia: el usuario edita y no ve cambios.
+- `EnrichmentCardConfig.image_sources` × `data_sources.kind=enrichment` → **overlap funcional**. Precedencia no canónica.
+- `DesignSystemPanel` capability `manage_design_system` → **placebo de mutación**. Panel es read-only.
+- `RouteSettingsPanel` global vs per-user → **precedencia oculta**. No es placebo, pero el admin no puede razonar sobre el efecto real sin abrir el código.
+- `IconLibraryManager` `update` sin `upsert` → **fragile**, posible placebo silencioso en entornos sin seed.
+- `users.email: ''` → **dead field**.
+- Capabilities `run_internal_tooling` activa pero **sin panel** (`create-test-users`, `seed-iso-geography`) → operaciones no descubribles desde la UI.
 
 ---
 
-## Fuera de scope (deuda explícita anotada)
+## 8 · Próximo PR sugerido (no incluido en este audit)
 
-- Extracción lazy de `users`/`permissions` bodies fuera de `AdminPanel.tsx`.
-- Versionado/rollback de `app_settings` y Design System overrides.
-- Tope por sesión para `recover-missing-images`.
-- Refactor cosmético del panel Permisos.
+Orden propuesto si apruebas:
 
-¿Procedo con Fase 1?
+1. **PR-BACKOFFICE-UX-CANON-2 · SPLIT enrichment** (render-ficha vs política editorial vs providers) + MERGE providers de imagen en `DataSources`.
+2. **PR-BACKOFFICE-UX-CANON-3 · MOVE_TO_ROUTE** de design-system, geography, sources, image-recovery, audit, enrichment dentro de un shell `/admin/*`.
+3. **PR-BACKOFFICE-UX-CANON-4 · SIMPLIFY routes** (mostrar pila global↔user resuelta) y **SPLIT markers** (sizes vs states).
+4. **PR-BACKOFFICE-UX-CANON-5 · RENAME design-system** → Inspector + recategorize.
+5. Deuda fuera de scope: `users.email` cleanup, `IconLibraryManager` upsert, surface para `run_internal_tooling`.
+
+Aprueba para que arranque por PR-2 (o reordena).
