@@ -129,6 +129,38 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     domain: 'admin',
     Component: null,
   },
+  // Orden dentro de config (PR-BACKOFFICE-MENU-ORDER-1): providers/data →
+  // estructura editorial → representación visual → runtime auxiliar.
+  // Ver docs/audits/backoffice-discovery-dossier.md.
+  {
+    key: 'sources',
+    label: 'Fuentes de datos',
+    icon: Database,
+    iconClass: 'text-cyan-500',
+    capability: 'manage_data_sources',
+    domain: 'config',
+    routeMode: 'route',
+    Component: DataSourcesPanel as LazyExoticComponent<ComponentType<unknown>>,
+  },
+  {
+    key: 'enrichment',
+    label: 'Estructura de fichas',
+    icon: FileText,
+    iconClass: 'text-emerald-500',
+    capability: 'manage_enrichment_config',
+    domain: 'config',
+    routeMode: 'route',
+    Component: EnrichmentCardConfig as LazyExoticComponent<ComponentType<unknown>>,
+  },
+  {
+    key: 'icons',
+    label: 'Galería de iconos',
+    icon: Settings,
+    iconClass: 'text-indigo-500',
+    capability: 'manage_icon_library',
+    domain: 'config',
+    Component: IconLibraryManager as LazyExoticComponent<ComponentType<unknown>>,
+  },
   {
     key: 'markers',
     label: 'Marcadores (tamaños + estados)',
@@ -146,37 +178,6 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     capability: 'manage_route_engine',
     domain: 'config',
     Component: RouteSettingsPanelContent as LazyExoticComponent<ComponentType<unknown>>,
-  },
-  {
-    key: 'icons',
-    label: 'Galería de iconos',
-    icon: Settings,
-    iconClass: 'text-indigo-500',
-    capability: 'manage_icon_library',
-    domain: 'config',
-    Component: IconLibraryManager as LazyExoticComponent<ComponentType<unknown>>,
-  },
-  {
-    key: 'enrichment',
-    label: 'Estructura de fichas',
-    icon: FileText,
-    iconClass: 'text-emerald-500',
-    capability: 'manage_enrichment_config',
-    domain: 'config',
-    routeMode: 'route',
-    Component: EnrichmentCardConfig as LazyExoticComponent<ComponentType<unknown>>,
-  },
-  {
-    // Sources NO es Operaciones: define providers/prioridades/toggles
-    // (config persistente). No ejecuta jobs. (PR-BACKOFFICE-CLEANUP-REALITY-1)
-    key: 'sources',
-    label: 'Fuentes de datos',
-    icon: Database,
-    iconClass: 'text-cyan-500',
-    capability: 'manage_data_sources',
-    domain: 'config',
-    routeMode: 'route',
-    Component: DataSourcesPanel as LazyExoticComponent<ComponentType<unknown>>,
   },
   {
     key: 'geography',
