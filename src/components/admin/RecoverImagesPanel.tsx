@@ -44,6 +44,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { GeographyScopeTree } from './GeographyScopeTree';
 import type { BrokenUser } from './AdminBrokenUsersList';
+import { useOperationHistory, type OperationHandle } from './observability/useOperationHistory';
+import { operationKeyForCapability } from './PanelEffectHeader';
 import {
   useImageRecoveryJobStore,
   type ImageRecoveryItemLog,
@@ -130,6 +132,25 @@ export function RecoverImagesPanel() {
   const [mode, setMode] = useState<ImageRecoveryMode>('missing');
   const job = useImageRecoveryJobStore();
   const running = job.running;
+
+  // Observabilidad mínima (PR-BACKOFFICE-UX-CLOSURE-1 Sec. 4).
+  const opHistory = useOperationHistory(operationKeyForCapability('run_image_recovery'));
+  const opHandleRef = useRef<OperationHandle | null>(null);
+  const prevRunningRef = useRef(false);
+  useEffect(() => {
+    if (!prevRunningRef.current && running && opHandleRef.current === null) {
+      // Caso edge: started por otra superficie. No abrimos handle.
+    }
+    if (prevRunningRef.current && !running && opHandleRef.current) {
+      const stopped = job.stopping;
+      opHandleRef.current.complete({
+        status: stopped ? 'cancelled' : (job.failed > 0 && job.updated === 0 ? 'error' : 'ok'),
+        summary: `scanned=${job.scanned} updated=${job.updated} failed=${job.failed}`,
+      });
+      opHandleRef.current = null;
+    }
+    prevRunningRef.current = running;
+  }, [running, job.stopping, job.scanned, job.updated, job.failed]);
 
   // Admin / target user
   const [isAdmin, setIsAdmin] = useState(false);
