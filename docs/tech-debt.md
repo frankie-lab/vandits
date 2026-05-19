@@ -76,6 +76,7 @@ Antes de refactorizarlos, documentar nombre, payload, emisor y consumidor.
 - Severidad: media
 - Facilidad: alta
 - Riesgo de cambio: bajo
+- Estado: resuelto (2026-05-19) — cubierto por `src/test/point-visual-state.test.ts`.
 
 Blindar `src/domains/content/lib/point-visual-state.ts` con tests unitarios para los estados `enriched`, `imported` y `empty`.
 
