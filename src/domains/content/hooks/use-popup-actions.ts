@@ -7,6 +7,7 @@ import { useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content';
 import { usePermissions } from '@/domains/identity';
+import { useAuth } from '@/domains/identity/hooks/use-auth';
 import { GeoLocation } from '@/types/location';
 import { toast } from 'sonner';
 import { dualWriteVisited, dualWriteRating, dualWriteAdopt } from '@/domains/v2/dual-write-user-place';
@@ -21,6 +22,14 @@ import {
   getPopupIdForLocation,
 } from '@/components/map/popup-operational-state';
 import { subscribePopupEnrichmentPhase } from '@/components/map/popup-enrichment-phase-bus';
+import {
+  openPopupOverflowMenu,
+  closePopupOverflowMenu,
+  type OverflowMenuItem,
+} from '@/components/map/popup-overflow-menu';
+import { openGoogleMaps, openAppleMaps } from '@/domains/sharing/lib/channel-adapters';
+import { exportToKML } from '@/lib/kml-parser';
+import { evaluatePoiExport } from '@/domains/content/lib/poi-export-eligibility';
 
 interface UsePopupActionsOptions {
   loadFromDatabase: () => Promise<void>;
