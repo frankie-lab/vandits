@@ -11,6 +11,7 @@
  *   - `supabase.from('locations').update(...).in('id', ids)` para bulk updates.
  */
 import React, { useMemo, useState } from 'react';
+import { dispatchGlobalEvent } from '@/lib/global-events';
 import {
   Sparkles,
   Download,

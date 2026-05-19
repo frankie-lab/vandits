@@ -4,6 +4,7 @@
  * Handles all map popup actions (enrich, delete, visited, rating, photo, adopt).
  */
 import { useCallback, useEffect } from 'react';
+import { dispatchGlobalEvent } from '@/lib/global-events';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content';
 import { usePermissions } from '@/domains/identity';
