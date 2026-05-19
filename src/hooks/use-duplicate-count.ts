@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { useLocationsStore } from '@/domains/content';
 import { useAuth } from '@/domains/identity';
 import { useDuplicateStore } from '@/stores/duplicate-store';
+import { addGlobalEventListener } from '@/lib/global-events';
+
 
 /**
  * Single source of truth for duplicate pair count + full pairs list.
