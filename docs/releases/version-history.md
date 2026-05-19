@@ -112,12 +112,13 @@ Las versiones patch reconstruidas agrupan bloques coherentes de fixes/estabiliza
 | 1.2.0 | 2026-04-04 | stable / formalized from reconstructed history | Rutas e itinerarios base | medium-high | routes schema, route_waypoints, calculate-route, RouteBuilder, RoutesListPanel, renderizado en mapa y eventos de rutas. |
 | 1.2.1 | 2026-04-06 | stable / formalized from reconstructed history | Refinamiento rutas/intermodal/persistencia | medium | stages, ida/vuelta, colores, persistencia, ferry_routes, alternativas driving/ferry/flight, selección en mapa, agrupación padre/hijo, skeleton, paradas/jornadas. |
 | 1.2.2 | 2026-05-19 | stable | Gobernanza de versiones y árbol histórico | high | README changelog + `package.json` (1.2.2), `docs/versioning.md`, `docs/releases/version-history.md`. |
-| 1.2.3 | 2026-05-19 | stable / current | Tests de gramática visual de puntos (`point-visual-state`) | high | `src/test/point-visual-state.test.ts` (11 casos), `docs/tech-debt.md` ítem 3 resuelto. |
+| 1.2.3 | 2026-05-19 | stable | Tests de gramática visual de puntos (`point-visual-state`) | high | `src/test/point-visual-state.test.ts` (11 casos), `docs/tech-debt.md` ítem 3 resuelto. |
+| 1.2.4 | 2026-05-19 | stable / current | Primera extracción incremental de orquestación desde `Index.tsx` (`useWelcomeCardEvents`) | high | `src/hooks/use-welcome-card-events.ts`, `src/pages/Index.tsx` (welcome-card CTAs delegados al hook), `docs/tech-debt.md` ítem 5 en progreso. |
 | 1.3.0 | TBD | planned minor | Architecture baseline | planned | Requiere tests visuales, foto arquitectura, tipado inicial eventos y reducción de deuda. |
 
 Decisión de gobernanza: no se crea una patch version por commit. Solo se documentan patches cuando agrupan un bloque coherente de correcciones o estabilización con valor histórico.
 
-La versión oficial actual es **1.2.3**. Entradas marcadas como `TBD`, `candidate patch` o `planned minor` son hitos propuestos, no versiones publicadas.
+La versión oficial actual es **1.2.4**. Entradas marcadas como `TBD`, `candidate patch` o `planned minor` son hitos propuestos, no versiones publicadas.
 
 ---
 
