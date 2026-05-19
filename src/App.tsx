@@ -61,7 +61,7 @@ const App = () => (
      <GlobalLoadingBar />
       <EditModeBar />
         <SourceFilterBridge />
-        <CameraFitQaPanel />
+        <CameraFitQaGate />
         
  <BrowserRouter>
  <Routes>
