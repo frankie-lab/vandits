@@ -816,9 +816,8 @@ export function EnrichmentCardConfig() {
                 <Eye className="w-4 h-4 text-emerald-500" />
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">Render de ficha</h4>
               </div>
-              <Badge variant="outline" className="text-[9px] border-emerald-500/40 text-emerald-700 dark:text-emerald-400">
-                Efecto inmediato
-              </Badge>
+              <EffectBadge kind="immediate" detail="popups recargan al guardar" />
+
             </div>
             <p className="text-[10px] text-muted-foreground leading-snug">
               Afecta cómo se pintan los popups del mapa. Al guardar, todos los POIs ya enriquecidos reflejan los cambios sin re-enriquecer.
