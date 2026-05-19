@@ -66,7 +66,7 @@ Si una versión nueva falla, no se borra del histórico. Se vuelve operativament
 
 Ejemplo:
 
-Si `v1.2.4` falla, volver a `v1.2.3` o publicar `v1.2.5` con corrección.
+Si `v1.2.5` falla, volver a `v1.2.4` o publicar `v1.2.6` con corrección.
 
 Nota operativa:
 
