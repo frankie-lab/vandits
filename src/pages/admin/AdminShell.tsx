@@ -21,9 +21,33 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { Loader2, Shield, X, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePermissions } from '@/domains/identity';
-import { ADMIN_TABS, ADMIN_DOMAIN_LABELS, getAdminTab, groupAdminTabsByDomain, isRouteModeTab, type AdminTabKey } from '@/components/admin/admin-tabs';
+import {
+  ADMIN_TABS,
+  ADMIN_DOMAIN_LABELS,
+  getAdminTab,
+  groupAdminTabsByDomain,
+  isRouteModeTab,
+  isDiagnosticDomain,
+  type AdminTabKey,
+} from '@/components/admin/admin-tabs';
 
 const ROUTE_TABS = ADMIN_TABS.filter(isRouteModeTab);
+
+/**
+ * PR-BACKOFFICE-CLEANUP-REALITY-1 — badge DIAG.
+ * Marca visualmente toda surface del dominio `diagnostics` para que no se
+ * confunda con feature de producto. Texto plano, sin emojis (regla global).
+ */
+function DiagBadge({ className = '' }: { className?: string }) {
+  return (
+    <span
+      className={`shrink-0 px-1 py-px rounded text-[8.5px] font-semibold uppercase tracking-wider bg-muted text-muted-foreground border border-border/60 ${className}`}
+      title="Herramienta de diagnóstico / DevTools — no es una feature de producto"
+    >
+      DIAG
+    </span>
+  );
+}
 
 export function AdminShell() {
   const { hasPermission, loading } = usePermissions();
