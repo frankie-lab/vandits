@@ -55,7 +55,8 @@ Las versiones estables deben poder usarse como puntos de retorno.
 - `v1.2.0`: rutas e itinerarios base.
 - `v1.2.1`: refinamiento de rutas/intermodal/persistencia.
 - `v1.2.2`: gobernanza de versiones y árbol histórico.
-- `v1.2.3`: versión actual; tests de gramática visual de puntos.
+- `v1.2.3`: tests de gramática visual de puntos.
+- `v1.2.4`: versión actual; primera extracción incremental desde `Index.tsx` (`useWelcomeCardEvents`).
 
 Regla:
 
