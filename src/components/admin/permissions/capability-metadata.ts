@@ -153,12 +153,8 @@ export const CAPABILITY_META: Record<Capability, CapabilityMeta> = {
     masterOnly: true,
     destructive: true,
   },
-  manage_geo_maintenance: {
-    domain: 'geo',
-    description: 'Alias legacy. Deprecated — usar view_geo_maintenance / run_geo_backfill.',
-    risk: 'low',
-    runtime: 'none',
-  },
+  // PR-HYGIENE-5: `manage_geo_maintenance` purgado (alias legacy sin consumidores).
+  // Split canónico: view_geo_maintenance / run_geo_backfill / run_geo_canonicalize.
 
   // Runtime config
   manage_marker_config: {

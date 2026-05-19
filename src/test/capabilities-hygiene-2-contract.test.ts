@@ -19,6 +19,9 @@ const PURGED_ZOMBIES = [
   'view_analytics',
   'upload_files',
   'add_locations',
+  // PR-HYGIENE-5: alias legacy purgado (split canónico = view_geo_maintenance /
+  // run_geo_backfill / run_geo_canonicalize).
+  'manage_geo_maintenance',
 ] as const;
 
 // PR-HYGIENE-4 — renames semánticos. Los nombres viejos NO pueden volver.

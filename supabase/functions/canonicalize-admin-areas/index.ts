@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
   );
 
   // Auth: trusted internal call (service role bearer) bypasses gate;
-  // otherwise require capability `manage_geo_maintenance`.
+  // otherwise require capability `run_geo_canonicalize` (PR-BACKOFFICE-GOVERNANCE F2).
   const authHeader = req.headers.get('Authorization') ?? '';
   const accessToken = authHeader.toLowerCase().startsWith('bearer ')
     ? authHeader.slice(7).trim()

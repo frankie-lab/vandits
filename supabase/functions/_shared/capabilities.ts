@@ -19,7 +19,6 @@ export const CAPABILITIES = [
   "manage_icon_library",
   "manage_enrichment_config",
   "view_audit_log",
-  "manage_geo_maintenance",
   "manage_data_sources",
   "run_image_recovery",
   "inspect_design_system",
