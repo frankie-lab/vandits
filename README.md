@@ -1,8 +1,8 @@
-# VANDITS v1.2.7
+# VANDITS v1.2.8
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.2.7-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.2.8-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -88,6 +88,11 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 - [Deuda técnica priorizada](./docs/tech-debt.md)
 
 ## 📝 Changelog
+
+### v1.2.8 (2026-05-19)
+- ✅ Segunda tanda de eventos globales tipados de bajo riesgo.
+- ✅ Migración de `duplicate-threshold-changed`, `icon-library-changed` y `personal-categories:reload`.
+- ✅ Deuda de eventos globales continúa en progreso con cobertura ampliada.
 
 ### v1.2.7 (2026-05-19)
 - ✅ Helper tipado inicial para eventos globales (`src/lib/global-events.ts`).

@@ -30,6 +30,7 @@ import {
 import { IconPickerGrid } from '@/components/IconPickerGrid';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/domains/identity';
+import { addGlobalEventListener, dispatchGlobalEvent } from '@/lib/global-events';
 import { toast } from 'sonner';
 
 interface PersonalCategory {
@@ -112,10 +113,9 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
 
   // Reload categories on custom event
   useEffect(() => {
-    const handler = () => loadCategories();
-    window.addEventListener('personal-categories:reload', handler);
-    return () => window.removeEventListener('personal-categories:reload', handler);
+    return addGlobalEventListener('personal-categories:reload', () => loadCategories());
   }, [loadCategories]);
+
 
   const resetForm = () => {
     setFormName('');
@@ -170,7 +170,7 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
       }
       closeDialog();
       await loadCategories();
-      window.dispatchEvent(new CustomEvent('personal-categories:reload'));
+      dispatchGlobalEvent('personal-categories:reload');
     } catch (e: any) {
       console.error('Error saving category:', e);
       toast.error('Error al guardar categoría');

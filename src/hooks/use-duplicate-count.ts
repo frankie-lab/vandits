@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { useLocationsStore } from '@/domains/content';
 import { useAuth } from '@/domains/identity';
 import { useDuplicateStore } from '@/stores/duplicate-store';
+import { addGlobalEventListener } from '@/lib/global-events';
+
 
 /**
  * Single source of truth for duplicate pair count + full pairs list.
@@ -29,13 +31,11 @@ export function useDuplicateCount() {
 
   // Listen for panel threshold changes
   useEffect(() => {
-    const handler = (e: Event) => {
-      const t = (e as CustomEvent<{ threshold: number }>).detail?.threshold;
-      if (t) setThreshold(t);
-    };
-    window.addEventListener('duplicate-threshold-changed', handler);
-    return () => window.removeEventListener('duplicate-threshold-changed', handler);
+    return addGlobalEventListener('duplicate-threshold-changed', (detail) => {
+      if (detail?.threshold) setThreshold(detail.threshold);
+    });
   }, [setThreshold]);
+
 
   // Trigger recompute when dependencies change
   useEffect(() => {

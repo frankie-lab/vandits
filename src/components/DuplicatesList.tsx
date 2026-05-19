@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/domains/identity';
 import { useDuplicateCount } from '@/hooks/use-duplicate-count';
 import { useDuplicateStore, DuplicatePair } from '@/stores/duplicate-store';
+import { dispatchGlobalEvent } from '@/lib/global-events';
 
 interface ConflictAction {
   pairId: string;
@@ -490,9 +491,8 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                     setDistanceThreshold(newThreshold);
                     setThreshold(newThreshold);
                     
-                    window.dispatchEvent(new CustomEvent('duplicate-threshold-changed', { 
-                      detail: { threshold: newThreshold } 
-                    }));
+                    dispatchGlobalEvent('duplicate-threshold-changed', { threshold: newThreshold });
+
 
                     if (user?.id) {
                       try {
