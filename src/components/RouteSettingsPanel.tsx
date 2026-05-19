@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { EffectBadge } from '@/shared/components/ui/effect-badge';
 
 interface ServiceStatus {
   id: string;
