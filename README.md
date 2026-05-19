@@ -81,6 +81,12 @@ Para detalle vivo ver `docs/audits/` y las memorias del proyecto. Para deuda té
 
 Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para documentación técnica completa.
 
+### Documentación de gobernanza
+
+- [Política de versionado](./docs/versioning.md)
+- [Histórico reconstruido de versiones](./docs/releases/version-history.md)
+- [Deuda técnica priorizada](./docs/tech-debt.md)
+
 ## 📝 Changelog
 
 ### v1.1.1 (2026-04-19)
