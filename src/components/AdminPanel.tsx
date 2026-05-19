@@ -429,19 +429,9 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
    </div>
  </motion.div>
 
- {/* Confirmación de eliminación */}
- <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
- <AlertDialogContent>
- <AlertDialogHeader>
- <AlertDialogTitle>¿Eliminar todos los roles?</AlertDialogTitle>
- <AlertDialogDescription>Esto eliminará todos los roles de {userToDelete?.display_name || userToDelete?.username}. El usuario quedará como usuario básico.</AlertDialogDescription>
- </AlertDialogHeader>
- <AlertDialogFooter>
- <AlertDialogCancel>Cancelar</AlertDialogCancel>
- <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Eliminar roles</AlertDialogAction>
- </AlertDialogFooter>
- </AlertDialogContent>
- </AlertDialog>
+  {/* PR-BACKOFFICE-CLEANUP-REALITY-1 — diálogo legacy "eliminar todos los roles"
+      removido: `userToDelete` nunca llegó a setearse en runtime, era dead UI. */}
+
 
  {/* Confirmación de limpieza de usuario */}
  <AlertDialog open={!!userToPurge} onOpenChange={() => { if (purgeStep !== 'executing') { setUserToPurge(null); setPurgeStep('idle'); setPurgePreview(null); setPurgeProgress(0); } }}>
