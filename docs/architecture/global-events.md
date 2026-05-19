@@ -152,3 +152,39 @@ Para cada evento se indica nombre, payload conocido, emisor(es), consumidor(es) 
 - No sustituye eventos por stores.
 
 Cualquiera de esos pasos es trabajo futuro (ítem 2 de `docs/tech-debt.md`).
+
+---
+
+## Typed helper baseline (v1.2.7)
+
+Estado: **base inicial tipada** — 2026-05-19.
+
+Existe `src/lib/global-events.ts` con un helper tipado parcial para un subconjunto del bus global. Coexiste con el resto del catálogo no migrado y NO sustituye al bus runtime: los wrappers internos siguen llamando a `window.addEventListener`, `window.removeEventListener` y `window.dispatchEvent`.
+
+Eventos cubiertos (9):
+
+- `vandits:open-upload` — void
+- `vandits:open-profile` — `{ tab?: string }`
+- `admin:open-geography` — void
+- `admin:open-data-sources` — void
+- `pending-validations-updated` — `{ count: number; names?: string[] }`
+- `enrichment-criteria-changed` — void
+- `import:open-categories` — void
+- `lovable:follow-changed` — void
+- `popup-action` — `unknown` (compatible con el `CustomEvent` existente; payload amplio sin restringir)
+
+API:
+
+- `addGlobalEventListener(name, handler)` — devuelve `() => void` para des-suscribirse.
+- `removeGlobalEventListener(name, handler)` — alternativa equivalente con identidad de handler.
+- `dispatchGlobalEvent(name, detail?)` — para eventos `void` crea `new CustomEvent(name)` sin `detail`; para eventos con payload crea `new CustomEvent(name, { detail })`.
+
+Invariantes:
+
+- No renombra eventos.
+- No cambia payloads.
+- No cambia comportamiento runtime.
+- Sólo migra los 3 hooks ya extraídos de `src/pages/Index.tsx`: `useWelcomeCardEvents`, `usePendingValidationEvents`, `useIndexGlobalEvents`.
+- El resto del catálogo descrito arriba sigue usando `window.*` directo hasta migración posterior.
+
+Tests: `src/test/global-events.test.ts` (6 casos: void, payload, unsubscribe, removeGlobalEventListener, `pending-validations-updated`, `vandits:open-profile`).

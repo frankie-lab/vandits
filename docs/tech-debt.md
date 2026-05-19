@@ -15,8 +15,8 @@ La prioridad debe combinar impacto en producto, riesgo operativo y facilidad de 
 | Ítem | Estado | Tipo | Comentario |
 |---|---|---|---|
 | 1. Versionado y documentación de estado | Resuelto formalizado | Gobernanza | `package.json`, README, UX y documentación quedan alineados en `1.2.2`. |
-| 1.1. Materializar rollback anchors con tags Git | Pendiente operativo | Release management | Rollback anchors documentados; faltan tags Git reales `v1.1.1`, `v1.2.0`, `v1.2.1`, `v1.2.2`, `v1.2.3`, `v1.2.4`, `v1.2.5`, `v1.2.6`. |
-| 2. Catálogo de eventos globales | Abierto | Arquitectura | Inventario inicial existe; faltan tipado, prefijos y reducción de catch-alls. |
+| 1.1. Materializar rollback anchors con tags Git | Pendiente operativo | Release management | Rollback anchors documentados; faltan tags Git reales `v1.1.1`, `v1.2.0`, `v1.2.1`, `v1.2.2`, `v1.2.3`, `v1.2.4`, `v1.2.5`, `v1.2.6`, `v1.2.7`. |
+| 2. Catálogo de eventos globales | En progreso | Arquitectura | Inventario inicial + helper tipado parcial para eventos de Index/welcome/pending validations; faltan prefijos, catch-alls y cobertura completa. |
 | 3. Tests de gramática visual de puntos | Resuelto | Testing | Cubierto por `src/test/point-visual-state.test.ts` (11 casos para `enriched`, `imported`, `empty`). |
 | 4. Foto de arquitectura actual | Resuelto | Documentación técnica | Cubierto por `docs/architecture/current-architecture.md`. |
 | 5. Reducir responsabilidad de `Index.tsx` | Resuelto (2026-05-19) — tercera extracción incremental completada en v1.2.6 | Refactor | `v1.2.4` extrae `useWelcomeCardEvents`; `v1.2.5` extrae `usePendingValidationEvents`; `v1.2.6` extrae `useIndexGlobalEvents` + `useRoutePanelBridge`. Sin `window.addEventListener` inline en `Index.tsx`; puente routes panel encapsulado. |
@@ -56,6 +56,7 @@ La documentación de versionado ya define rollback anchors, pero faltan los tags
 - `v1.2.4`
 - `v1.2.5`
 - `v1.2.6`
+- `v1.2.7`
 
 Hasta crear esos tags, el rollback está definido documentalmente pero no materializado como mecanismo técnico.
 
@@ -70,7 +71,7 @@ Cierre documental: completo. Cierre operativo: pendiente. La creación de tags G
 - Severidad: media
 - Facilidad: media
 - Riesgo de cambio: bajo si se empieza documentando
-- Estado: documentación inicial (2026-05-19) — ver [`docs/architecture/global-events.md`](./architecture/global-events.md). Inventario inicial de ~75 eventos `CustomEvent` agrupados por dominio (mapa, itinerarios, toolbar/filtros, contenido, popups, social, admin) con emisor/consumidor/payload conocido y riesgos. Pendiente: tipado (`WindowEventMap`), unificación de prefijos, sustitución de catch-alls (`store-updated`, `reload-locations`).
+- Estado: en progreso — helper tipado inicial creado (2026-05-19, v1.2.7). Ver [`docs/architecture/global-events.md`](./architecture/global-events.md) sección "Typed helper baseline" y `src/lib/global-events.ts`. Cubre 9 eventos iniciales (subset del catálogo) y los 3 hooks ya extraídos de `Index.tsx` (`useWelcomeCardEvents`, `usePendingValidationEvents`, `useIndexGlobalEvents`). Pendiente: tipado completo (`WindowEventMap` u homólogo), unificación de prefijos, sustitución de catch-alls (`store-updated`, `reload-locations`) y migración del resto del bus.
 
 Vandits usa varios eventos globales vía `window.dispatchEvent` / `window.addEventListener`.
 
