@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { dispatchGlobalEvent } from '@/lib/global-events';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, RotateCcw, AlertTriangle, X, Clock, MapPin, Sparkles, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -46,7 +47,7 @@ export function TrashPanel({ isOpen, onClose }: TrashPanelProps) {
  const [processingId, setProcessingId] = useState<string | null>(null);
 
   const notifyTrashUpdated = useCallback(() => {
-  window.dispatchEvent(new CustomEvent('trash-updated'));
+  dispatchGlobalEvent('trash-updated');
   }, []);
 
   // Fetch deleted locations

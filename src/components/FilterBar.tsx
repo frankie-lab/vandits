@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { dispatchGlobalEvent } from '@/lib/global-events';
 import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, Trash2, Loader2, HeartPulse, CheckSquare } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { AppEmptyState } from '@/shared/components/ui';
@@ -134,7 +135,7 @@ export function FilterBar() {
  
       // Clear filters and refresh data
  setFilters({});
- window.dispatchEvent(new CustomEvent('trash-updated'));
+ dispatchGlobalEvent('trash-updated');
  window.dispatchEvent(new CustomEvent('store-updated'));
  } catch (error) {
  console.error('Bulk delete error:', error);

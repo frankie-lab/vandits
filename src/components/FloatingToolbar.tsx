@@ -1,6 +1,7 @@
 // FloatingToolbar — unified duplicates counter
 import React, { useState, useEffect, useCallback } from 'react';
 import { useCoalescedRealtimeTick } from '@/components/map/use-coalesced-realtime-tick';
+import { dispatchGlobalEvent } from '@/lib/global-events';
 import { motion } from 'framer-motion';
 import { 
  Filter, 
@@ -531,7 +532,7 @@ export function FloatingToolbar({
  toast.success(`${locationsToDelete.length.toLocaleString()} ubicaciones movidas a la papelera`);
 
       // Let other UI pieces refresh counts, etc.
- window.dispatchEvent(new CustomEvent('trash-updated'));
+ dispatchGlobalEvent('trash-updated');
  window.dispatchEvent(new CustomEvent('store-updated'));
  } catch (error: any) {
  console.error('Error deleting locations:', error);

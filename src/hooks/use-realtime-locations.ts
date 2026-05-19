@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useMemo, useRef } from 'react';
+import { dispatchGlobalEvent } from '@/lib/global-events';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content/store/locations-store';
 import { GeoLocation, EnrichedLocationData } from '@/types/location';
@@ -61,7 +62,7 @@ export function useRealtimeLocations() {
  });
  }
 
-  window.dispatchEvent(new CustomEvent('trash-updated'));
+  dispatchGlobalEvent('trash-updated');
  window.dispatchEvent(new CustomEvent('location-realtime-update', { detail: { locationId: updatedRecord.id, kind: 'delete' } }));
  } catch (e) {
  console.warn('Failed to apply realtime delete locally', e);

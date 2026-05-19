@@ -16,7 +16,7 @@ La prioridad debe combinar impacto en producto, riesgo operativo y facilidad de 
 |---|---|---|---|
 | 1. Versionado y documentación de estado | Resuelto formalizado | Gobernanza | `package.json`, README, UX y documentación quedan alineados en `1.2.2`. |
 | 1.1. Materializar rollback anchors con tags Git | Pendiente operativo externo | Release management externo | Rollback anchors documentados; tags Git reales pendientes fuera de Lovable. No bloquea deuda técnica resoluble desde Lovable. |
-| 2. Catálogo de eventos globales | En progreso | Arquitectura | Inventario inicial + helper tipado ampliado (12 eventos cubiertos); migrados eventos de bajo riesgo (`duplicate-threshold-changed`, `icon-library-changed`, `personal-categories:reload`). Pendientes: eventos con consumidor en `LocationMap.tsx` (`layer-visibility-changed`, `measurement-units-changed`, etc.), catch-alls (`store-updated`, `reload-locations`, `trash-updated`) y cobertura completa del bus. |
+| 2. Catálogo de eventos globales | En progreso | Arquitectura | Inventario inicial + helper tipado ampliado (13 eventos cubiertos); migrados eventos de bajo riesgo en v1.2.8 (`duplicate-threshold-changed`, `icon-library-changed`, `personal-categories:reload`) y v1.2.9 (`trash-updated`). Pendientes: eventos con consumidor en `LocationMap.tsx` (`layer-visibility-changed`, `measurement-units-changed`), catch-alls fan-out alto (`store-updated`, `reload-locations`) y cobertura completa del bus. |
 | 3. Tests de gramática visual de puntos | Resuelto | Testing | Cubierto por `src/test/point-visual-state.test.ts` (11 casos para `enriched`, `imported`, `empty`). |
 | 4. Foto de arquitectura actual | Resuelto | Documentación técnica | Cubierto por `docs/architecture/current-architecture.md`. |
 | 5. Reducir responsabilidad de `Index.tsx` | Resuelto (2026-05-19) — tercera extracción incremental completada en v1.2.6 | Refactor | `v1.2.4` extrae `useWelcomeCardEvents`; `v1.2.5` extrae `usePendingValidationEvents`; `v1.2.6` extrae `useIndexGlobalEvents` + `useRoutePanelBridge`. Sin `window.addEventListener` inline en `Index.tsx`; puente routes panel encapsulado. |
@@ -60,6 +60,7 @@ La documentación de versionado ya define rollback anchors, pero faltan los tags
 - `v1.2.6`
 - `v1.2.7`
 - `v1.2.8`
+- `v1.2.9`
 
 Hasta crear esos tags, el rollback está definido documentalmente pero no materializado como mecanismo técnico.
 
@@ -74,7 +75,7 @@ Cierre documental: completo. Cierre operativo: pendiente. La creación de tags G
 - Severidad: media
 - Facilidad: media
 - Riesgo de cambio: bajo si se empieza documentando
-- Estado: en progreso — helper tipado ampliado (2026-05-19, v1.2.8). Ver [`docs/architecture/global-events.md`](./architecture/global-events.md) sección "Typed helper baseline" y `src/lib/global-events.ts`. Cubre 12 eventos del bus global (9 iniciales en v1.2.7 + segunda tanda de bajo riesgo en v1.2.8: `duplicate-threshold-changed`, `icon-library-changed`, `personal-categories:reload`). Pendientes: eventos cuyo consumidor principal es `LocationMap.tsx` (intocable en esta fase): `layer-visibility-changed`, `measurement-units-changed`; catch-alls/fan-out alto: `store-updated`, `reload-locations`, `trash-updated`; tipado completo (`WindowEventMap` u homólogo); unificación de prefijos; cobertura del resto del bus.
+- Estado: en progreso — helper tipado ampliado (2026-05-19, v1.2.9). Ver [`docs/architecture/global-events.md`](./architecture/global-events.md) sección "Typed helper baseline" y `src/lib/global-events.ts`. Cubre 13 eventos del bus global (9 iniciales en v1.2.7 + 3 en v1.2.8 + 1 en v1.2.9: `trash-updated`, void, 8 emisores / 2 consumidores, sin consumidor en `LocationMap.tsx`). Pendientes: eventos cuyo consumidor principal es `LocationMap.tsx` (intocable en esta fase): `layer-visibility-changed`, `measurement-units-changed`; catch-alls fan-out alto: `store-updated`, `reload-locations`; tipado completo (`WindowEventMap` u homólogo); unificación de prefijos; cobertura del resto del bus.
 
 Vandits usa varios eventos globales vía `window.dispatchEvent` / `window.addEventListener`.
 

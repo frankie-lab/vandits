@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense, lazy } from 'react';
+import { addGlobalEventListener } from '@/lib/global-events';
 import {
   ChevronLeft, MapPin, Check, CheckCheck, CheckCircle, X, Sparkles, GripVertical,
   Pencil, Save, Loader2, Eye, EyeOff, Route as RouteIcon, Car,
@@ -312,10 +313,10 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
   // Refresh list when locations are trashed or restored
   useEffect(() => {
     const refresh = () => fetchData();
-    window.addEventListener('trash-updated', refresh);
+    const offTrash = addGlobalEventListener('trash-updated', refresh);
     window.addEventListener('locations-updated', refresh);
     return () => {
-      window.removeEventListener('trash-updated', refresh);
+      offTrash();
       window.removeEventListener('locations-updated', refresh);
     };
   }, [fetchData]);

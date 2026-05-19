@@ -4,6 +4,7 @@
  * Handles all map popup actions (enrich, delete, visited, rating, photo, adopt).
  */
 import { useCallback, useEffect } from 'react';
+import { dispatchGlobalEvent } from '@/lib/global-events';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content';
 import { usePermissions } from '@/domains/identity';
@@ -175,7 +176,7 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
 
         toast.success(`"${locationName}" movido a la papelera`, { id: toastId });
         await loadFromDatabase();
-        window.dispatchEvent(new CustomEvent('trash-updated'));
+        dispatchGlobalEvent('trash-updated');
       } catch (error) {
         console.error('Delete location error:', error);
         toast.error('Error al eliminar', { id: toastId });

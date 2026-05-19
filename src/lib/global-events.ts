@@ -1,5 +1,5 @@
 /**
- * Typed global events baseline (v1.2.8)
+ * Typed global events baseline (v1.2.9)
  *
  * Helper tipado inicial para un subconjunto del bus global de `window` usado
  * por Vandits. Coexiste con el resto del catálogo no migrado descrito en
@@ -42,6 +42,7 @@ export interface GlobalEventMap {
   'duplicate-threshold-changed': { threshold: number };
   'icon-library-changed': { library: GlobalIconLibraryName };
   'personal-categories:reload': void;
+  'trash-updated': void;
 }
 
 export type GlobalEventName = keyof GlobalEventMap;

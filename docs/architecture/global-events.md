@@ -155,13 +155,13 @@ Cualquiera de esos pasos es trabajo futuro (ítem 2 de `docs/tech-debt.md`).
 
 ---
 
-## Typed helper baseline (v1.2.8)
+## Typed helper baseline (v1.2.9)
 
-Estado: **helper tipado ampliado a segunda tanda de bajo riesgo** — 2026-05-19.
+Estado: **helper tipado ampliado a tercera tanda de bajo riesgo** — 2026-05-19.
 
 Existe `src/lib/global-events.ts` con un helper tipado parcial para un subconjunto del bus global. Coexiste con el resto del catálogo no migrado y NO sustituye al bus runtime: los wrappers internos siguen llamando a `window.addEventListener`, `window.removeEventListener` y `window.dispatchEvent`.
 
-Cobertura: **12 eventos** (9 iniciales en v1.2.7 + 3 añadidos en v1.2.8).
+Cobertura: **13 eventos** (9 iniciales en v1.2.7 + 3 añadidos en v1.2.8 + 1 añadido en v1.2.9).
 
 Eventos cubiertos (9 iniciales — v1.2.7):
 
@@ -181,11 +181,16 @@ Eventos añadidos en v1.2.8 (segunda tanda — bajo riesgo, sin consumidor en `L
 - `icon-library-changed` — `{ library: GlobalIconLibraryName }` (emisor + consumidor: `IconLibraryContext.tsx`).
 - `personal-categories:reload` — void (emisor + consumidor: `PersonalCategoriesPanel.tsx`).
 
-Eventos **explícitamente fuera de esta tanda** (no migrados en v1.2.8):
+Eventos añadidos en v1.2.9 (tercera tanda — bajo riesgo, sin consumidor en `LocationMap.tsx`):
+
+- `trash-updated` — void. Emisores (8): `FloatingToolbar.tsx`, `FilterBar.tsx`, `LocationList.tsx`, `TrashPanel.tsx`, `use-realtime-locations.ts`, `SelectionActions.tsx`, `use-popup-actions.ts`, y refresco interno consumido por `DocumentFocusView.tsx`. Consumidores (2): `UserMenu.tsx` (contador papelera), `DocumentFocusView.tsx` (refresh lista al borrar/restaurar). Payload `void`; `src/domains/events.ts` ya declaraba `'content:trash-updated': void`.
+
+Eventos **explícitamente fuera de esta tanda** (no migrados en v1.2.9):
 
 - `layer-visibility-changed` — consumidor en `LocationMap.tsx`, intocable en esta fase.
 - `measurement-units-changed` — único consumidor real es `LocationMap.tsx`.
-- `trash-updated` — catch-all con fan-out alto (7 emisores), pendiente de revisión arquitectónica.
+- `store-updated` — catch-all fan-out 9, requiere tanda dedicada con auditoría de invalidaciones.
+- `reload-locations` — fan-out 10+ emisores, tanda propia pendiente.
 
 API:
 
@@ -201,4 +206,4 @@ Invariantes:
 - No toca `LocationMap.tsx` ni eventos cuyo consumidor principal sea `LocationMap.tsx`.
 - El resto del catálogo descrito arriba sigue usando `window.*` directo hasta migración posterior.
 
-Tests: `src/test/global-events.test.ts` (9 casos: void, payload, unsubscribe, removeGlobalEventListener, `pending-validations-updated`, `vandits:open-profile`, `duplicate-threshold-changed`, `icon-library-changed`, `personal-categories:reload`).
+Tests: `src/test/global-events.test.ts` (10 casos: void, payload, unsubscribe, removeGlobalEventListener, `pending-validations-updated`, `vandits:open-profile`, `duplicate-threshold-changed`, `icon-library-changed`, `personal-categories:reload`, `trash-updated`).
