@@ -24,7 +24,6 @@ import {
 import { subscribePopupEnrichmentPhase } from '@/components/map/popup-enrichment-phase-bus';
 import {
   openPopupOverflowMenu,
-  closePopupOverflowMenu,
   type OverflowMenuItem,
 } from '@/components/map/popup-overflow-menu';
 import { openGoogleMaps, openAppleMaps } from '@/domains/sharing/lib/channel-adapters';
