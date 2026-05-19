@@ -282,7 +282,7 @@ function MarkerSizeList() {
 export function MarkerSizeManager() {
   const stop = (e: React.SyntheticEvent) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); };
   return (
-    <Tabs defaultValue="sizes" className="flex flex-col h-full min-h-0" onValueChange={() => {}}>
+    <Tabs defaultValue="sizes" className="flex flex-col h-full min-h-0">
       <div className="shrink-0 px-4 pt-2 pb-1 border-b border-border">
         <div className="flex items-center gap-2 mb-1.5 flex-wrap">
           <EffectBadge kind="cache-delay" detail="~5s para todos los usuarios" />

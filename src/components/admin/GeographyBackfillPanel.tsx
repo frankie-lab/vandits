@@ -22,7 +22,7 @@
 // `created_by = admin.uid` y `user_id = target.uid`; el cron sigue
 // procesando con permisos de service role como hasta ahora.
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Loader2, Play, Square, Wrench, RotateCcw, Plus, AlertTriangle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,6 +33,9 @@ import { GeographyScopeTree } from './GeographyScopeTree';
 import { AdminBrokenUsersList, type BrokenUser } from './AdminBrokenUsersList';
 import { cn } from '@/lib/utils';
 import type { GeoLocation } from '@/types/location';
+// PR-BACKOFFICE-DEAD-SURFACES-1 H4 — observabilidad por capability (localStorage).
+import { useOperationHistory, type OperationHandle } from './observability/useOperationHistory';
+import { operationKeyForCapability } from './PanelEffectHeader';
 
 // UI-level mode. "review" colapsa los antiguos reconcile/overwrite; un toggle
 // secundario decide si se fuerza la reescritura.
@@ -124,6 +127,31 @@ export function GeographyBackfillPanel() {
   const [mode, setMode] = useState<Mode>('repair');
   const [, forceTick] = useState(0);
   const job = useGeocodingJobStore();
+
+  // PR-BACKOFFICE-DEAD-SURFACES-1 H4 — observability del job de backfill.
+  const opHistory = useOperationHistory(operationKeyForCapability('run_geo_backfill'));
+  const opHandleRef = useRef<OperationHandle | null>(null);
+  const prevRunningRef = useRef(false);
+  useEffect(() => {
+    const running = job.running;
+    if (prevRunningRef.current && !running && opHandleRef.current) {
+      const stopped = job.stopping;
+      const last = job.lastResult;
+      const failed = last?.failed ?? job.failedThisBatch ?? 0;
+      const processed = last?.totalProcessed ?? job.totalProcessed ?? 0;
+      const updated = last?.totalUpdated ?? job.totalUpdated ?? 0;
+      opHandleRef.current.complete({
+        status: stopped
+          ? 'cancelled'
+          : last?.status === 'failed'
+            ? 'error'
+            : 'ok',
+        summary: `processed=${processed} updated=${updated} failed=${failed}`,
+      });
+      opHandleRef.current = null;
+    }
+    prevRunningRef.current = running;
+  }, [job.running, job.stopping, job.lastResult, job.totalProcessed, job.totalUpdated, job.failedThisBatch]);
 
   // Admin detection ---------------------------------------------------------
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
@@ -342,6 +370,12 @@ export function GeographyBackfillPanel() {
         // recalcule el universo entero del modo.
         healthFilter: useExplicit ? undefined : healthFilter,
       });
+
+      // PR-BACKOFFICE-DEAD-SURFACES-1 H4 — abre handle de observability;
+      // se cierra en el useEffect al transicionar running=false.
+      opHandleRef.current = opHistory.start(
+        `${toBackendMode(mode, forceOverwrite)} · ${useExplicit ? `${total} ids` : userLabel} · n=${total}`,
+      );
     } catch (err) {
       console.error('[backfill-start]', err);
       toast.error('No se pudo lanzar el backfill');
@@ -834,11 +868,14 @@ function CanonicalizeOneShotCard() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [lastResult, setLastResult] = useState<{ merged: number; dryRun: boolean } | null>(null);
   const [dryRun, setDryRun] = useState(true);
+  // PR-BACKOFFICE-DEAD-SURFACES-1 H4 — observability del one-shot.
+  const opHistory = useOperationHistory(operationKeyForCapability('run_geo_canonicalize'));
 
   if (!canRun) return null;
 
   const run = async () => {
     setBusy(true);
+    const handle = opHistory.start(dryRun ? 'dry-run' : 'destructive');
     try {
       const { data, error } = await supabase.functions.invoke('canonicalize-admin-areas', {
         body: { dryRun },
@@ -846,6 +883,10 @@ function CanonicalizeOneShotCard() {
       if (error) throw error;
       const merged = (data as { merged?: number })?.merged ?? 0;
       setLastResult({ merged, dryRun });
+      handle.complete({
+        status: 'ok',
+        summary: `${dryRun ? 'dry-run' : 'executed'} · merged=${merged}`,
+      });
       toast.success(
         dryRun
           ? `Dry-run: ${merged} fusiones detectadas (sin escribir)`
@@ -853,6 +894,10 @@ function CanonicalizeOneShotCard() {
       );
     } catch (e) {
       console.error('[canonicalize-admin-areas]', e);
+      handle.complete({
+        status: 'error',
+        summary: e instanceof Error ? e.message : String(e),
+      });
       toast.error('No se pudo ejecutar canonicalize');
     } finally {
       setBusy(false);

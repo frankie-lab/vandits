@@ -11,8 +11,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { usePermissions, type AppRole, type AppPermission } from '@/domains/identity';
-import { CAPABILITIES, CAPABILITY_LABELS } from '@/domains/identity/capabilities';
+import { usePermissions, type AppRole } from '@/domains/identity';
+// PR-BACKOFFICE-DEAD-SURFACES-1 H2 — CAPABILITIES/CAPABILITY_LABELS no se usan
+// aquí. La matriz canon vive en PermissionsMatrixPanel.
 import {
  AlertDialog,
  AlertDialogAction,
@@ -45,10 +46,8 @@ interface UserWithRoles {
  roles: AppRole[];
 }
 
-interface RolePermission {
- role: AppRole;
- permission: AppPermission;
-}
+// PR-BACKOFFICE-DEAD-SURFACES-1 H2 — `RolePermission`, `ALL_PERMISSIONS`,
+// `PERMISSION_LABELS` removed. La matriz canon vive en PermissionsMatrixPanel.
 
 const ROLE_LABELS: Record<AppRole, string> = {
   master: 'Master',
@@ -64,13 +63,8 @@ const ROLE_COLORS: Record<AppRole, string> = {
   editor: 'bg-blue-500',
 };
 
-// Etiquetas de permisos vienen del SoT único (`capabilities.ts`).
-const PERMISSION_LABELS = CAPABILITY_LABELS;
-
 // Canon RBAC PR-BACKOFFICE-UX-CLOSURE-1: 4 roles activos. `user`/`supervisor`/`curator` purgados del enum.
 const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor'];
-// Lista completa de capabilities en orden canónico (SoT único).
-const ALL_PERMISSIONS: AppPermission[] = [...CAPABILITIES];
 
 export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  const navigate = useNavigate();
@@ -89,7 +83,8 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  }, [defaultTab]);
  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
  const [users, setUsers] = useState<UserWithRoles[]>([]);
- const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
+ // PR-BACKOFFICE-DEAD-SURFACES-1 H2 — `rolePermissions` legacy state removed.
+ // La matriz canon vive en `PermissionsMatrixPanel` con su propio fetch.
  const [loading, setLoading] = useState(true);
  const [searchTerm, setSearchTerm] = useState('');
  const [expandedRoles, setExpandedRoles] = useState<Set<AppRole>>(new Set());
@@ -99,9 +94,9 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  const [purgeStep, setPurgeStep] = useState<'idle' | 'loading-preview' | 'preview' | 'executing' | 'done'>('idle');
  const [purgePreview, setPurgePreview] = useState<{ targetUser: string; locations: number; documents: number; notes: number; photos: number; achievements: number } | null>(null);
  const [purgeProgress, setPurgeProgress] = useState(0);
- // PR-BACKOFFICE-GOVERNANCE F3 — confirmaciones tipadas para acciones destructivas.
+ // PR-BACKOFFICE-GOVERNANCE F3 — confirmación tipada para asignar/revocar master.
  const [pendingMasterToggle, setPendingMasterToggle] = useState<{ user: UserWithRoles; hasRole: boolean } | null>(null);
- const [pendingPermissionToggle, setPendingPermissionToggle] = useState<{ role: AppRole; permission: AppPermission; hasPermission: boolean } | null>(null);
+ // PR-BACKOFFICE-DEAD-SURFACES-1 H2 — `pendingPermissionToggle` legacy removed.
 
  // PR-ADMIN-AUDIT Step 3: role-management requires manage_permissions (master-only),
  // NOT manage_users (which admins also hold). Prevents admin → master self-escalation.
@@ -138,16 +133,8 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
 
  setUsers(usersWithRoles);
 
-      const { data: permissions, error: permError } = await supabase
- .from('role_permissions')
- .select('role, permission');
-
- if (permError) throw permError;
-
- setRolePermissions((permissions || []).map(p => ({
- role: p.role as AppRole,
- permission: p.permission as AppPermission,
- })));
+  // PR-BACKOFFICE-DEAD-SURFACES-1 H2 — role_permissions fetch removed.
+  // PermissionsMatrixPanel hace su propio fetch dedicado.
  } catch (error: any) {
  console.error('Error fetching admin data:', error);
  toast.error('Error al cargar datos');
@@ -301,47 +288,14 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  }
  };
 
- const togglePermission = async (role: AppRole, permission: AppPermission, hasPermission: boolean) => {
- if (!canManageRoles) {
- toast.error('Solo los Masters pueden modificar permisos');
- return;
- }
- // F3 — toda mutación del matrix exige typed-token.
- setPendingPermissionToggle({ role, permission, hasPermission });
- };
-
- const executePermissionToggle = async (role: AppRole, permission: AppPermission, hasPermission: boolean) => {
- setSavingRole(`${role}-${permission}`);
- try {
- if (hasPermission) {
- const { error } = await supabase.from('role_permissions').delete().eq('role', role).eq('permission', permission);
- if (error) throw error;
- toast.success('Permiso eliminado');
- } else {
- const { error } = await supabase.from('role_permissions').insert({ role, permission });
- if (error) throw error;
- toast.success('Permiso añadido');
- }
- setRolePermissions(prev => {
- if (hasPermission) return prev.filter(rp => !(rp.role === role && rp.permission === permission));
- return [...prev, { role, permission }];
- });
- } catch (error: any) {
- console.error('Error toggling permission:', error);
- toast.error('Error al modificar permiso');
- } finally {
- setSavingRole(null);
- }
- };
+ // PR-BACKOFFICE-DEAD-SURFACES-1 H2 — togglePermission/executePermissionToggle/
+ // roleHasPermission removed. La matriz canon (PermissionsMatrixPanel) es la
+ // única ruta para mutar role_permissions. Evita doble fuente de verdad.
 
  const filteredUsers = users.filter(u =>
  u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
  u.display_name?.toLowerCase().includes(searchTerm.toLowerCase())
  );
-
- const roleHasPermission = (role: AppRole, permission: AppPermission): boolean => {
- return rolePermissions.some(rp => rp.role === role && rp.permission === permission);
- };
 
  // PR-BACKOFFICE-UX-CANON-3: no montar UI si el tab vive en ruta dedicada;
  // el useEffect superior ya disparó la navegación + onClose.
@@ -565,29 +519,8 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  }}
  />
 
- {/* F3 — Mutar role_permissions con typed-token. */}
- <DestructiveConfirmDialog
- open={!!pendingPermissionToggle}
- onOpenChange={(next) => { if (!next) setPendingPermissionToggle(null); }}
- title={pendingPermissionToggle?.hasPermission ? '¿Revocar permiso?' : '¿Asignar permiso?'}
- description={pendingPermissionToggle ? (
- <p>
- {pendingPermissionToggle.hasPermission ? 'Vas a revocar' : 'Vas a asignar'} la capability{' '}
- <code className="px-1 py-0.5 rounded bg-muted text-foreground font-mono text-[11px]">
- {pendingPermissionToggle.permission}
- </code>{' '}
- al rol <strong>{ROLE_LABELS[pendingPermissionToggle.role]}</strong>.
- </p>
- ) : null}
- token="MODIFICAR"
- confirmLabel={pendingPermissionToggle?.hasPermission ? 'Revocar permiso' : 'Asignar permiso'}
- onConfirm={async () => {
- if (!pendingPermissionToggle) return;
- const { role, permission, hasPermission } = pendingPermissionToggle;
- setPendingPermissionToggle(null);
- await executePermissionToggle(role, permission, hasPermission);
- }}
- />
+ {/* PR-BACKOFFICE-DEAD-SURFACES-1 H2 — Diálogo legacy de permission-toggle eliminado.
+     La matriz canon (PermissionsMatrixPanel) tiene su propio DestructiveConfirmDialog. */}
    </motion.div>
    );
 }
