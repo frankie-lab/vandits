@@ -193,8 +193,9 @@ export function PermissionsMatrixPanel() {
     );
   }
 
-  const supervisorCount = countsByRole.supervisor;
-  const supervisorWarn = supervisorCount <= 1;
+  // Detección genérica de roles vacíos / casi vacíos.
+  const emptyRoles = ROLES.filter(r => countsByRole[r] === 0);
+  const sparseRoles = ROLES.filter(r => countsByRole[r] > 0 && countsByRole[r] < 2);
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -220,26 +221,31 @@ export function PermissionsMatrixPanel() {
             </div>
           </div>
 
-          {/* Barra de roles: conteo + warning supervisor */}
+          {/* Barra de roles: conteo + detección de roles vacíos/casi vacíos. */}
           <div className="flex items-center gap-2 flex-wrap">
             {ROLES.map(r => {
-              const isSupervisor = r === 'supervisor';
               const count = countsByRole[r];
+              const isEmpty = count === 0;
+              const isSparse = !isEmpty && count < 2;
               return (
                 <div key={r} className={cn('inline-flex items-center gap-2 px-2.5 py-1 rounded-md border text-xs font-medium', ROLE_TONES[r])}>
                   <span>{ROLE_LABELS[r]}</span>
                   <span className="opacity-70">·</span>
                   <span className="tabular-nums">{count} caps</span>
-                  {isSupervisor && supervisorWarn && (
+                  {(isEmpty || isSparse) && (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className="ml-1 inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-amber-700 dark:text-amber-300">
-                          <AlertTriangle className="w-3 h-3" /> legacy?
+                        <span className={cn(
+                          'ml-1 inline-flex items-center gap-1 text-[10px] uppercase tracking-wide',
+                          isEmpty ? 'text-destructive' : 'text-amber-700 dark:text-amber-300',
+                        )}>
+                          <AlertTriangle className="w-3 h-3" /> {isEmpty ? 'vacío' : 'casi vacío'}
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="max-w-xs">
-                        Rol con ≤1 capability asignada. Posible candidato legacy/zombi —
-                        revisar si sigue teniendo sentido operativo.
+                        {isEmpty
+                          ? 'Este rol no tiene ninguna capability asignada — no puede hacer nada en el sistema.'
+                          : 'Rol con menos de 2 capabilities. Posible candidato a revisar (¿zombi o legacy?).'}
                       </TooltipContent>
                     </Tooltip>
                   )}
@@ -247,7 +253,18 @@ export function PermissionsMatrixPanel() {
               );
             })}
           </div>
+
+          {(emptyRoles.length > 0) && (
+            <div className="flex items-start gap-2 px-3 py-2 rounded-md border border-destructive/30 bg-destructive/5 text-[12px] text-destructive">
+              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <span>
+                Roles sin capabilities: <strong>{emptyRoles.map(r => ROLE_LABELS[r]).join(', ')}</strong>.
+                Decide si deben recibir asignaciones o purgarse del enum.
+              </span>
+            </div>
+          )}
         </div>
+
 
         {/* Matriz */}
         <div className="flex-1 overflow-auto overscroll-contain">
