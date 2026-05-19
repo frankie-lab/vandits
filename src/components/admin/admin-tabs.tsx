@@ -166,12 +166,21 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
   },
   {
     key: 'design-system',
-    label: 'Design System',
+    label: 'Design System Inspector',
     icon: Palette,
     iconClass: 'text-fuchsia-500',
     capability: 'manage_design_system',
     routeMode: 'route',
     Component: DesignSystemPanel as LazyExoticComponent<ComponentType<unknown>>,
+  },
+  {
+    key: 'internal-tools',
+    label: 'Internal tooling',
+    icon: Terminal,
+    iconClass: 'text-slate-500',
+    capability: 'run_internal_tooling',
+    routeMode: 'route',
+    Component: InternalToolsPanel as LazyExoticComponent<ComponentType<unknown>>,
   },
 ];
 
