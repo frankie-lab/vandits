@@ -21,7 +21,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { Loader2, Shield, X, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePermissions } from '@/domains/identity';
-import { ADMIN_TABS, getAdminTab, isRouteModeTab, type AdminTabKey } from '@/components/admin/admin-tabs';
+import { ADMIN_TABS, ADMIN_DOMAIN_LABELS, getAdminTab, groupAdminTabsByDomain, isRouteModeTab, type AdminTabKey } from '@/components/admin/admin-tabs';
 
 const ROUTE_TABS = ADMIN_TABS.filter(isRouteModeTab);
 
