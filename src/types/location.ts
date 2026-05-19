@@ -279,6 +279,17 @@ export interface GeoLocation {
   ownerUserId?: string | null;
   /** Whether this location is approved for the general map */
   isApproved?: boolean;
+  /**
+   * Optional, opt-in external references namespaced by provider. Read-only
+   * in v1; no writer is wired yet. Consumed by the maps URL resolver
+   * (`src/domains/sharing/lib/external-maps-url.ts`).
+   */
+  externalRefs?: {
+    maps?: {
+      google?: { placeId?: string; url?: string; verifiedAt?: string };
+      apple?: { url?: string; verifiedAt?: string };
+    };
+  };
  createdAt: Date;
  updatedAt: Date;
 }
