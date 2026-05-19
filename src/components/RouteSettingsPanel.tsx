@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { X, Save, Loader2, Route as RouteIcon, RefreshCw, CheckCircle2, XCircle, AlertCircle, Info } from 'lucide-react';
+import { X, Save, Loader2, Route as RouteIcon, RefreshCw, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RouteEngineSettings } from '@/components/RouteEngineSettings';
 import { EngineConfig, DEFAULT_ENGINE_CONFIG } from '@/lib/route-engine';
 import { useAuth } from '@/domains/identity';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { EffectBadge } from '@/shared/components/ui/effect-badge';
 
