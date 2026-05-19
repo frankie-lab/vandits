@@ -89,7 +89,10 @@ describe('point-visual-state — gramática visual de puntos', () => {
       const empty: EnrichableLocation = {};
       const imported: EnrichableLocation = { description: 'importado' };
       const enriched: EnrichableLocation = {
-        enriched_data: { descripcion: 'Monasterio cisterciense del siglo XIII.' },
+        enriched_data: {
+          descripcion:
+            'Monasterio cisterciense del siglo XIII con claustro de planta cuadrada y sala capitular abovedada sobre columnas centrales.',
+        },
       };
 
       for (const loc of [empty, imported, enriched, null, undefined] as const) {
