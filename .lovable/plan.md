@@ -1,46 +1,43 @@
-## Objetivo
+# Inspección de eventos globales pendientes (v1.2.9 candidato)
 
-Reclasificar la deuda "Materializar rollback anchors con tags Git" como **pendiente operativo externo no bloqueante**, separándola de la deuda técnica activa resoluble desde Lovable. Cambios sólo documentales.
+Sin modificar archivos. Foco: payload real, emisores, consumidores, riesgo.
 
-## Archivos a modificar
+## Tabla
 
-1. `docs/tech-debt.md`
-2. `docs/releases/version-history.md`
+| Evento | Payload real | Emisores | Consumidores | Riesgo | Recomendación |
+|---|---|---|---|---|---|
+| `layer-visibility-changed` | `{ layerId, visible, ... }` (ver `use-layer-visibility.ts:108`) | `use-layer-visibility.ts` | `LocationMap.tsx` + `src/test/layer-visibility.test.ts` | Alto: consumidor único es `LocationMap.tsx` (excluido por norma) | **Aplazar** |
+| `measurement-units-changed` | `{ units: 'metric' \| 'imperial' }` (`UserProfileEditor.tsx:724`) | `UserProfileEditor.tsx` (1) | `LocationMap.tsx` (1, líneas 357/531) | Alto: único consumidor es `LocationMap.tsx` | **Aplazar** |
+| `trash-updated` | `void` (sin detail) | 8 emisores: `FloatingToolbar`, `FilterBar`, `LocationList`, `TrashPanel`, `use-realtime-locations`, `SelectionActions`, `use-popup-actions`, `DocumentFocusView` (refresca tras emit propio) | `UserMenu.tsx`, `DocumentFocusView.tsx` | **Bajo**: payload `void`, ya declarado en `src/domains/events.ts` como `'content:trash-updated': void`, sin consumidor en `LocationMap.tsx` | **Migrar ahora** |
+| `store-updated` | `void` | 9 emisores (Index, FloatingToolbar, FilterBar, LocationPhotoUpload, duplicate-store, LocationList, SelectionActions, DocumentContentManager) | `use-coalesced-realtime-tick.ts`; referencias documentales en `LocationMap.tsx` (comentarios + lógica de invalidación) | Medio-alto: `LocationMap.tsx` documenta semántica en comentarios; aunque no añade listener directo a `store-updated`, alto fan-out de emisores. Migrar requiere tocar muchos archivos | **Aplazar** (fan-out 9; mejor tanda dedicada) |
+| `reload-locations` | `void` (todos usan `CustomEvent('reload-locations')` o `Event(...)` sin detail) | 10+ emisores (renormalize, geocoding-job-store ×2, use-realtime-locations ×2, AdminPanel, GeographyBackfillPanel, DocumentsPanel ×2, use-database-sync, document-approval) | `use-database-sync.ts` (handler único) | Medio: payload `void` y consumidor único limpio, pero alto fan-out de emisores (10+) y dependencia operativa crítica (recarga global) | **Aplazar** a tanda propia |
 
-No se toca: `package.json`, `README.md`, `src/**`, `supabase/**`, `tests/**`, `docs/versioning.md`, `docs/architecture/**`, ni configuración de build/lint. No hay bump de versión.
+## Recomendación
 
-## Cambios
+**Siguiente evento a migrar: `trash-updated`** (único candidato seguro).
 
-### 1. `docs/tech-debt.md`
+Motivos:
+- Payload `void` — sin riesgo de tipado divergente.
+- Ya declarado en `src/domains/events.ts` (`'content:trash-updated': void`), confirma intención previa.
+- Cero consumidores en `LocationMap.tsx` (cumple restricción dura).
+- Consumidores acotados (2): `UserMenu.tsx`, `DocumentFocusView.tsx`.
+- Fan-out de emisores (8) manejable en una sola tanda.
 
-**Tabla "Estado auditado", fila 1.1** — actualizar tres columnas:
+## Eventos a aplazar y por qué
 
-- Estado: `Pendiente operativo externo`
-- Tipo: `Release management externo`
-- Comentario: `Rollback anchors documentados; tags Git reales pendientes fuera de Lovable. No bloquea deuda técnica resoluble desde Lovable.`
+- `layer-visibility-changed`, `measurement-units-changed`: consumidor único es `LocationMap.tsx`. Imposible migrar consumidor sin tocar el archivo excluido. **Aplazar indefinidamente** mientras la restricción siga vigente.
+- `store-updated`: fan-out 9 + semántica documentada en `LocationMap.tsx` (aunque no escucha directo). Requiere tanda dedicada con auditoría de invalidaciones.
+- `reload-locations`: fan-out 10+ emisores en stores, hooks realtime y paneles admin. Bajo riesgo técnico pero gran superficie; merece su propia tanda.
 
-**Bloque detallado "1.1. Materializar rollback anchors con tags Git"**:
+## Si se aprueba migración de `trash-updated`
 
-- Cambiar `Estado: pendiente operativo (2026-05-19)` → `Estado: pendiente operativo externo no bloqueante (2026-05-19)`.
-- Añadir frase explícita: *"Esta deuda no se considera bloqueante para continuar con deuda técnica resoluble desde Lovable, porque Lovable no tiene capacidad de crear tags Git reales. El cierre documental está completo; el cierre operativo requiere GitHub o git local."*
-- Mantener la lista de 10 tags pendientes (`v1.1.1` … `v1.2.8`) **intacta y sin marcar ninguno como creado**.
+- Versión propuesta: **v1.2.9**.
+- Archivos a tocar (10): `src/lib/global-events.ts` (añadir clave), 8 emisores listados, 2 consumidores (`UserMenu.tsx`, `DocumentFocusView.tsx`), test `src/test/global-events.test.ts` (+1 caso), `package.json`, `src/lib/app-version.ts`, `README.md`, `docs/architecture/global-events.md` (12 → 13), `docs/tech-debt.md`, `docs/releases/version-history.md`.
+- `LocationMap.tsx` NO se toca.
+- `src/domains/events.ts` ya tiene la entrada; verificar alineación de nombres sin renombrar.
 
-### 2. `docs/releases/version-history.md`
+## Confirmaciones
 
-**Sección "Release / rollback anchors"**:
-
-- Mantener la lista "Tags Git pendientes de crear" intacta (10 entradas `[ ]`, ninguna marcada).
-- Añadir al final de esa sección la nota: *"Nota de ejecución: los tags Git reales son una acción operativa externa. Lovable no puede crearlos desde este entorno. Por tanto, esta lista queda auditada como pendiente externo y no bloquea el avance de deuda técnica resoluble en Lovable."*
-
-## Version impact
-
-`none` — sólo reclasificación documental.
-
-## Validación
-
-Tests/lint no se ejecutan (`docs-only operational classification`). Reporte final confirmará:
-
-- archivos modificados (los 2 listados);
-- `package.json`, `README.md` y código no tocados;
-- ningún tag marcado como creado;
-- deuda 1.1 queda como `Pendiente operativo externo no bloqueante`.
+- No se modificó ningún archivo en esta inspección.
+- No se ejecutaron tests ni bump.
+- No se renombran eventos ni cambian payloads.
