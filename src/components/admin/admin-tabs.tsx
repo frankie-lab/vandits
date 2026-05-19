@@ -58,8 +58,15 @@ export interface AdminTabSpec {
   icon: LucideIcon;
   iconClass: string;
   capability: Capability;
-  /** Wider modal (max-w-6xl) when true. */
+  /** Wider modal (max-w-6xl) when true. Only meaningful for routeMode='modal'. */
   wide?: boolean;
+  /**
+   * Where this surface lives in the BackOffice UX (PR-BACKOFFICE-UX-CANON-3).
+   *   - 'modal' (default): legacy modal, body rendered inside AdminPanel.
+   *   - 'route': dedicated `/admin/<key>` page rendered by AdminShell.
+   * Capability gate is identical in both modes; only the container changes.
+   */
+  routeMode?: 'modal' | 'route';
   /**
    * Lazy component. `null` for tabs whose body still lives inline inside
    * AdminPanel (users / permissions) — those render via the legacy switch
