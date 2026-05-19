@@ -85,6 +85,7 @@ Blindar `src/domains/content/lib/point-visual-state.ts` con tests unitarios para
 - Severidad: media
 - Facilidad: media
 - Riesgo de cambio: bajo
+- Estado: resuelto (2026-05-19) — cubierto por `docs/architecture/current-architecture.md`.
 
 Crear documentación breve de dominios, stores, mapa, popups, Supabase, rutas, colecciones, back office y eventos globales.
 
