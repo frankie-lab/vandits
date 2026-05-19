@@ -1,114 +1,37 @@
-## PR-RBAC-CAPABILITY-HYGIENE-1 — Auditoría RBAC (read-only)
+## PR-HYGIENE-3 — Ratificación del REMOVE de `view_all_locations` y `edit_all_locations`
 
-Sin cambios de código. Catálogo trazado contra uso real: cliente (`useCapability`/`hasPermission`), edge (`requireCapability`), RLS (`has_permission`) y mapping `role_permissions` en DB.
+PR-HYGIENE-2 ya purgó ambas capabilities del enum DB (`app_permission`), del SoT cliente (`src/domains/identity/capabilities.ts`), del espejo Deno (`supabase/functions/_shared/capabilities.ts`), de la metadata RBAC (`src/components/admin/permissions/capability-metadata.ts`) y de `role_permissions`. Existe contract test (`src/test/capabilities-hygiene-2-contract.test.ts`) que impide su resurrección.
 
-### Hallazgos sistémicos
+Este PR no toca código ni DB. Su entregable único es **dejar formalizada la decisión** en `.lovable/plan.md` para que cualquier futura tentación de reintroducirlas tenga que pasar primero por reabrir este análisis.
 
-1. **Cero RLS usa `has_permission`** (43 policies usan `has_role`). Toda capability que sólo "vive" en `role_permissions` sin gate cliente ni gate edge es **paper-right**: no gobierna nada.
-2. **Sólo 3 titulares reales**: master=1, editor=2. Roles `admin`, `moderator`, `supervisor` tienen 0 titulares → matriz capability×role es mayormente teórica.
-3. **Supervisor** = 1 capability (`view_all_locations`) sin gate real → **zombie confirmado**.
-4. **`role_permissions` y SoT TS/Deno están desincronizados**: `manage_permissions`, `manage_marker_config`, `manage_route_engine`, `manage_icon_library`, `manage_enrichment_config`, `view_audit_log`, `assign_master`, `run_internal_tooling`, `run_geo_canonicalize` sólo aparecen en master — no admin. Coherente con master-only canon, pero `admin` queda sin gobernanza de varios paneles que técnicamente debería ver.
+### Análisis cerrado (a documentar en plan.md)
 
-### Inventario completo (28 capabilities)
+**Semántica esperada (modelo teórico)**
+- `view_all_locations`: bypass del owner-scoping de SELECT sobre `public.locations` — permitiría a un rol no-master ver POIs `private`/`followers` ajenos sin estar siguiendo al owner.
+- `edit_all_locations`: bypass del owner-scoping de UPDATE sobre `public.locations` — permitiría editar metadata (descripción, tags, fotos, enriched_data, geo FKs) de POIs ajenos.
 
-| capability | roles_db | client gate | edge gate | RLS | runtime real | riesgo | dominio | estado | recomendación |
-|---|---|---|---|---|---|---|---|---|---|
-| `manage_users` | master, admin | AdminPanel users tab | — | 0 | abre tab modal users | high | governance | **active** | KEEP |
-| `manage_permissions` | master | AdminPanel + PermissionsMatrix | — | 0 | edita matriz RBAC | critical | governance | **active** | KEEP, MASTER_ONLY |
-| `assign_master` | master | AdminPanel | — | 0 | promoción a master | critical | destructive | **active** | KEEP, MASTER_ONLY |
-| `open_back_office` | master, admin | App.tsx, AdminShell, AdminPanel, UserMenu | — | 0 | acceso superficie admin | low | governance | **active** | KEEP |
-| `purge_user` | master, admin | AdminPanel | purge-user edge | 0 | borrado total user | critical | destructive | **active** | KEEP |
-| `run_global_enrichment` | master | LocationMap, UserMenu | — | 0 | dispara enrichment masivo | high | recovery | **active** | KEEP |
-| `run_image_recovery` | master, admin | admin-tabs (image-recovery) | recover-missing-images edge | 0 | batch recovery | medium | recovery | **active** | KEEP |
-| `moderate_content` | master, admin, moderator | Index.tsx, LocationPhotoMenu | — | 0 | aprobar fotos | medium | editorial | **active** | KEEP |
-| `delete_any_location` | master | use-popup-actions | — | 0 | borrar POI ajeno | high | destructive | **active** | KEEP |
-| `manage_marker_config` | master | admin-tabs (markers) | — | 0 | edita app_settings marker | low | runtime_config | **active** | KEEP |
-| `manage_route_engine` | master | admin-tabs (routes) | — | 0 | edita profile defaults | low | runtime_config | **active** | KEEP (ojo drift) |
-| `manage_icon_library` | master | admin-tabs (icons) | — | 0 | edita app_settings iconos | low | runtime_config | **active** | KEEP |
-| `manage_enrichment_config` | master | admin-tabs (enrichment) | — | 0 | edita app_settings cards | medium | runtime_config | **active** | KEEP |
-| `manage_data_sources` | master, admin | admin-tabs (sources) | — | 0 | edita providers | medium | provider_orchestration | **active** | KEEP |
-| `view_audit_log` | master | admin-tabs (audit) + CameraFitQaGate | — | 0 | abre AuditPanel | low | audit | **active** | KEEP |
-| `manage_design_system` | master | admin-tabs (design-system) | — | 0 | inspector read-only | medium | audit | **drift semántico** | **RENAME → `view_design_system_inspector`** |
-| `view_geo_maintenance` | master, admin | admin-tabs (geography) | — | 0 | abre panel geo | low | geo_ops | **active** | KEEP |
-| `run_geo_canonicalize` | master | GeographyBackfillPanel | canonicalize-admin-areas edge | 0 | one-shot canonicalize | critical | destructive | **active** | KEEP, MASTER_ONLY |
-| `run_internal_tooling` | master | InternalToolsPanel | create-test-users edge | 0 | tooling interno | high | internal_tooling | **active** | KEEP, INTERNAL_ONLY |
-| `manage_geo_maintenance` | master, admin | — | comentario legacy en canonicalize edge | 0 | alias deprecated | low | geo_ops | **legacy alias** | **DEPRECATE** (ya marcado, planificar REMOVE post-grace) |
-| `manage_criteria` | master | UserMenu "Criterios de actualización" | — | 0 | abre dialog criterios fuera del BackOffice canon | medium | editorial | **drift ownership** | **MOVE a `/admin/criteria` + RENAME `manage_editorial_criteria`** (overlap con `manage_enrichment_config`) |
-| `run_geo_backfill` | master, admin | — | — | 0 | nada | high | geo_ops | **zombie (paper-right)** | **KEEP pero cablear** (split ya hecho en SoT — falta wiring) o REMOVE si no se reactiva |
-| `view_all_locations` | master, admin, moderator, editor, supervisor | — | — | 0 | nada | medium | editorial | **zombie** | **REMOVE** o cablear a RLS (hoy bypass = master role check) |
-| `edit_all_locations` | master, admin, editor | — | — | 0 | nada | high | editorial | **zombie** | **REMOVE** o cablear RLS |
-| `manage_documents` | — | — | — | 0 | nada (ni en role_permissions) | medium | editorial | **dead** | **REMOVE** |
-| `view_analytics` | master, admin, moderator | — | — | 0 | nada | low | audit | **zombie** | **REMOVE** o cablear panel real |
-| `upload_files` | master, admin, editor | — | — | 0 | nada (import lo hace cualquier user) | low | editorial | **zombie** | **REMOVE** |
-| `add_locations` | master, admin, moderator, editor | — | — | 0 | nada (alta de POIs no gateada por capability) | low | editorial | **zombie** | **REMOVE** |
+**Auditoría de uso real (estado pre-PR-HYGIENE-2)**
+- Client gates (`useCapability`, `hasPermission`): 0 referencias en `src/`.
+- Edge functions (`requireCapability`): 0 referencias en `supabase/functions/`.
+- RLS policies (`pg_policies`): 0 — `locations` usa `can_view_location()` + `owner_user_id = auth.uid()` + bypass por `has_role('admin'|'master')`.
+- SQL functions / RPCs / loaders / map rendering / popup actions / selección / export / batch ops: ninguno consulta estas capabilities.
+- Conclusión: paper-rights puras. Cablearlas exigiría diseñar desde cero qué tablas y operaciones cubren.
 
-### Overlaps detectados
+**Mapa RLS (por qué REMOVE no abre huecos)**
+- `locations` SELECT: ya hay bypass master (visibilidad por `can_view_location` + role-check). Admin sigue editando vía `Admins can update any location` (UPDATE policy con `has_role admin|master`). El paper-right no añadía nada que no estuviera ya gobernado por role bypass.
+- Ningún flow de moderación, popup action, destructive action ni export dependía de estas capabilities.
 
-- **`manage_criteria` ↔ `manage_enrichment_config`**: ambos tocan políticas editoriales/cards. `manage_criteria` vive fuera del BackOffice canon (UserMenu). Candidato a fusión o split explícito (criteria=qué se considera enriched; enrichment_config=cómo se renderiza).
-- **`manage_geo_maintenance` ↔ {`view_geo_maintenance`, `run_geo_backfill`, `run_geo_canonicalize`}**: el split ya existe; el alias legacy debe morir.
-- **`view_all_locations` ↔ master bypass `has_role`**: hoy todo el bypass real lo hace `has_role(uid,'master')` en RLS. La capability es decorativa.
+**Riesgos por opción**
+- KEEP + cablear: alto. Exige decidir scope (¿solo `locations`? ¿también `documents`/`location_photos`/`location_notes`?), reescribir 4–6 policies por tabla, introducir un segundo eje de autorización paralelo al `has_role` master bypass y migrar al canon `has_permission` en RLS — trabajo grande que hoy no resuelve ningún problema de producto real.
+- No cablear (statu quo previo): mantiene drift permanente entre matriz RBAC y semántica real, contradice el RBAC canon ("toda capability gobierna runtime real").
+- REMOVE (elegido): cero impacto runtime (no había consumidores), elimina dos paper-rights del catálogo, libera la matriz RBAC de filas engañosas. Reversible vía nueva migración si el producto algún día necesita un rol "auditor cross-user".
 
-### Naming drift
+**Recomendación cerrada: Opción B — REMOVE (ya aplicada en PR-HYGIENE-2)**
 
-- `manage_design_system` → es **inspector read-only**. Verbo `manage_` promete editor. Rename: `view_design_system_inspector` (o `inspect_design_system`).
-- `manage_criteria` → ambiguo (¿criterios de qué?). Rename: `manage_editorial_criteria`.
-- `manage_geo_maintenance` → DEPRECATED, mantener como alias durante grace, luego REMOVE.
-- Verbos canónicos sugeridos: `view_*` (lectura), `manage_*` (CRUD config), `run_*` (job/edge), `assign_*` (governance escalation), `inspect_*` (read-only forense).
+Si en el futuro se necesita un rol con acceso cross-user real (auditor de contenido, soporte avanzado), debe diseñarse como una capability nueva con scope explícito (ej. `view_other_user_locations_for_moderation`) cableada SIMULTÁNEAMENTE a RLS + UI + edge desde el primer commit. Reintroducir los nombres genéricos `view_all_locations` / `edit_all_locations` queda explícitamente prohibido.
 
-### Taxonomía canónica propuesta
+### Cambios a aplicar (este PR)
 
-```text
-governance         → manage_users, manage_permissions, open_back_office, assign_master
-editorial          → moderate_content, manage_editorial_criteria
-                     (REMOVE: view_all_locations, edit_all_locations,
-                              manage_documents, upload_files, add_locations)
-geo_ops            → view_geo_maintenance, run_geo_backfill
-runtime_config     → manage_marker_config, manage_route_engine,
-                     manage_icon_library, manage_enrichment_config
-provider_orch.     → manage_data_sources
-recovery           → run_image_recovery, run_global_enrichment
-audit              → view_audit_log, inspect_design_system
-                     (REMOVE: view_analytics si no se cablea)
-internal_tooling   → run_internal_tooling
-destructive        → delete_any_location, purge_user, run_geo_canonicalize
-legacy/deprecated  → manage_geo_maintenance
-```
+1. Añadir sección **PR-HYGIENE-3 — Ratificación** a `.lovable/plan.md` con el resumen anterior (semántica, auditoría, mapa RLS, riesgos, decisión cerrada y guardarraíl para el futuro).
 
-### Resumen ejecutivo
-
-- **28 capabilities** declaradas, **~13 con runtime real**, **9 zombie/dead/paper-right**, **2 con drift semántico**, **1 alias legacy**.
-- **RLS no usa capabilities** — toda autorización de datos hoy se apoya en `has_role` (master bypass) y owner-scoping. La promesa "capability gobierna acceso a datos" es **falsa** para todo `*_all_locations`, `manage_documents`, `upload_files`, `add_locations`.
-- **Matriz capability×role es ornamental** para roles sin titulares (admin/moderator/supervisor).
-- **Supervisor** es un rol fantasma con una sola capability paper-right.
-
-### Recomendaciones priorizadas (para PRs siguientes, no en este)
-
-1. **PR-HYGIENE-2 (limpieza)**: REMOVE `manage_documents`, `upload_files`, `add_locations`, `view_analytics` del enum DB + SoT (migración destructiva). Decidir antes si se cablean.
-2. **PR-HYGIENE-3 (zombies con valor potencial)**: decidir entre cablear `view_all_locations` / `edit_all_locations` a RLS real (sustituir bypass `has_role` por `has_permission`) o REMOVE.
-3. **PR-HYGIENE-4 (drift semántico)**: RENAME `manage_design_system → inspect_design_system`; mover `manage_criteria` al BackOffice canon como `manage_editorial_criteria` (o MERGE con `manage_enrichment_config`).
-4. **PR-HYGIENE-5 (legacy)**: REMOVE `manage_geo_maintenance` tras confirmar 0 consumidores; sustituir el comentario en `canonicalize-admin-areas` por referencia al split nuevo.
-5. **PR-HYGIENE-6 (rol supervisor)**: decidir KEEP+propósito real o DROP del enum `app_role`.
-6. **PR-HYGIENE-7 (run_geo_backfill)**: cablear botón explícito o REMOVE.
-
-### Out of scope (PR-RBAC-CAPABILITY-HYGIENE-1)
-
-- No tocar enum DB, SoT TS/Deno, RLS, edges ni UI.
-- Entregable = este informe. Cada recomendación se materializa como PR independiente.
-
----
-
-## PR-HYGIENE-2 — Purga de capabilities zombie (DONE)
-
-Eliminadas 6 capabilities sin consumidores reales:
-`view_all_locations`, `edit_all_locations`, `manage_documents`,
-`view_analytics`, `upload_files`, `add_locations`.
-
-Cambios aplicados:
-- **DB**: `role_permissions` purgadas (5 filas de las 6, `manage_documents` ya estaba a 0); enum `app_permission` recreado sin las 6 etiquetas; funciones `has_permission` y `get_user_permissions` recreadas idénticas.
-- **SoT cliente** (`src/domains/identity/capabilities.ts`): removidas de `CAPABILITIES` y `CAPABILITY_LABELS`.
-- **Espejo Deno** (`supabase/functions/_shared/capabilities.ts`): removidas del array.
-- **Metadata RBAC** (`src/components/admin/permissions/capability-metadata.ts`): entradas eliminadas (matriz RBAC se autorrecorta).
-- **Contract test**: `src/test/capabilities-hygiene-2-contract.test.ts` prohíbe resurrección.
-
-Sin impacto runtime para usuarios — ninguna gate dependía de estas capabilities.
-Catálogo activo pasa de 28 → 22 capabilities.
+Sin cambios de código, migración, tests ni UI. El contract test de PR-HYGIENE-2 ya bloquea la resurrección.
