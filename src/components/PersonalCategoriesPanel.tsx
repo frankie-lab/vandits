@@ -30,6 +30,7 @@ import {
 import { IconPickerGrid } from '@/components/IconPickerGrid';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/domains/identity';
+import { addGlobalEventListener, dispatchGlobalEvent } from '@/lib/global-events';
 import { toast } from 'sonner';
 
 interface PersonalCategory {
