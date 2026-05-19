@@ -89,6 +89,11 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.2.9 (2026-05-19)
+- ✅ Tercera tanda de eventos globales tipados (`trash-updated`, void).
+- ✅ Migrados 8 emisores y 2 consumidores; `LocationMap.tsx` intacto.
+- ✅ Cobertura del helper tipado: 12 → 13 eventos.
+
 ### v1.2.8 (2026-05-19)
 - ✅ Segunda tanda de eventos globales tipados de bajo riesgo.
 - ✅ Migración de `duplicate-threshold-changed`, `icon-library-changed` y `personal-categories:reload`.
