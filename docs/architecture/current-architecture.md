@@ -320,7 +320,8 @@ Según `docs/tech-debt.md`, tras v1.2.3:
 Resuelto:
 
 - versionado y documentación de estado;
-- tests de gramática visual de puntos.
+- tests de gramática visual de puntos;
+- foto de arquitectura actual.
 
 Pendiente operativo:
 
@@ -329,7 +330,6 @@ Pendiente operativo:
 Abierto:
 
 - tipado y racionalización de eventos globales;
-- foto de arquitectura actual;
 - reducción de responsabilidad de `Index.tsx`;
 - reducción de responsabilidad de `LocationMap.tsx`.
 
