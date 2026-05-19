@@ -76,7 +76,7 @@ Si `v1.2.8` falla, volver a `v1.2.7` o publicar `v1.2.9` con corrección.
 
 Nota operativa:
 
-Los anchors documentados requieren tags Git reales para funcionar como rollback operativo. Hasta que existan los tags `v1.1.1`, `v1.2.0`, `v1.2.1`, `v1.2.2`, `v1.2.3`, `v1.2.4`, `v1.2.5`, `v1.2.6` y `v1.2.7` en GitHub, el rollback está definido documentalmente pero no materializado como mecanismo técnico.
+Los anchors documentados requieren tags Git reales para funcionar como rollback operativo. Hasta que existan los tags `v1.1.1`, `v1.2.0`, `v1.2.1`, `v1.2.2`, `v1.2.3`, `v1.2.4`, `v1.2.5`, `v1.2.6`, `v1.2.7` y `v1.2.8` en GitHub, el rollback está definido documentalmente pero no materializado como mecanismo técnico.
 
 ### Tags Git pendientes de crear
 
