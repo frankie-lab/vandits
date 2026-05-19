@@ -39,14 +39,20 @@ describe('point-visual-state — gramática visual de puntos', () => {
     it('enriched_data.descripcion real (snake_case) → enriched', () => {
       const loc: EnrichableLocation = {
         description: 'algo',
-        enriched_data: { descripcion: 'Castillo medieval del siglo XII situado sobre roca.' },
+        enriched_data: {
+          descripcion:
+            'Castillo medieval del siglo XII situado sobre una roca caliza, con torre del homenaje cuadrada y patio de armas restaurado en el siglo XIX.',
+        },
       };
       expect(getPointVisualState(loc)).toBe('enriched');
     });
 
     it('enrichedData.descripcion real (camelCase) → enriched', () => {
       const loc: EnrichableLocation = {
-        enrichedData: { descripcion: 'Iglesia románica con ábside semicircular.' },
+        enrichedData: {
+          descripcion:
+            'Iglesia románica del siglo XI con ábside semicircular decorado con arquillos lombardos y portada sur de tres arquivoltas sobre columnas.',
+        },
       };
       expect(getPointVisualState(loc)).toBe('enriched');
     });
@@ -60,7 +66,12 @@ describe('point-visual-state — gramática visual de puntos', () => {
       expect(isPointEnriched({ description: 'texto importado' })).toBe(false);
       expect(isPointEnriched({ enriched_data: { descripcion: '' } })).toBe(false);
       expect(
-        isPointEnriched({ enriched_data: { descripcion: 'Descripción IA real verificable.' } }),
+        isPointEnriched({
+          enriched_data: {
+            descripcion:
+              'Monasterio cisterciense fundado en el siglo XII con claustro de planta cuadrada, sala capitular abovedada y refectorio de dos naves.',
+          },
+        }),
       ).toBe(true);
     });
   });
