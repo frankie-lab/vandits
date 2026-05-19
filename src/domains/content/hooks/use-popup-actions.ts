@@ -39,6 +39,8 @@ interface UsePopupActionsOptions {
 
 export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUpload }: UsePopupActionsOptions) {
   const { hasPermission } = usePermissions();
+  const { user } = useAuth();
+  const currentUserId = user?.id ?? null;
   // PR-ADMIN-AUDIT Step 3: visited-verification bypass gated by master-only capability
   // (`delete_any_location` is the only existing master-only operational cap; semantic
   // mismatch documented — revisit in PR-ADMIN-AUDIT-4 if a dedicated cap is added).
