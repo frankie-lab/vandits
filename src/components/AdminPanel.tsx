@@ -82,10 +82,12 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  const [savingRole, setSavingRole] = useState<string | null>(null);
  const [userToDelete, setUserToDelete] = useState<UserWithRoles | null>(null);
  const [userToPurge, setUserToPurge] = useState<UserWithRoles | null>(null);
- const [purging, setPurging] = useState(false);
  const [purgeStep, setPurgeStep] = useState<'idle' | 'loading-preview' | 'preview' | 'executing' | 'done'>('idle');
  const [purgePreview, setPurgePreview] = useState<{ targetUser: string; locations: number; documents: number; notes: number; photos: number; achievements: number } | null>(null);
  const [purgeProgress, setPurgeProgress] = useState(0);
+ // PR-BACKOFFICE-GOVERNANCE F3 — confirmaciones tipadas para acciones destructivas.
+ const [pendingMasterToggle, setPendingMasterToggle] = useState<{ user: UserWithRoles; hasRole: boolean } | null>(null);
+ const [pendingPermissionToggle, setPendingPermissionToggle] = useState<{ role: AppRole; permission: AppPermission; hasPermission: boolean } | null>(null);
 
  // PR-ADMIN-AUDIT Step 3: role-management requires manage_permissions (master-only),
  // NOT manage_users (which admins also hold). Prevents admin → master self-escalation.
