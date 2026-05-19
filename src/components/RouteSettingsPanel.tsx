@@ -238,8 +238,62 @@ export function RouteSettingsPanelContent() {
 
         <Separator className="mb-5" />
 
+        {/* ── Stack de resolución (modelo real) ── */}
+        <div className="mb-5 rounded-xl border border-border bg-muted/30 p-3 space-y-2">
+          <div className="flex items-start gap-2">
+            <Info className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
+            <div className="text-[11px] text-muted-foreground leading-snug">
+              <p className="font-medium text-foreground mb-1">Stack de resolución por usuario</p>
+              <p>
+                <code>calculate-route</code> aplica, para cada usuario:
+                <strong className="text-foreground"> default del sistema</strong> →
+                <strong className="text-foreground"> override personal de ese usuario</strong> →
+                <strong className="text-foreground"> ajustes por-ruta en el RouteBuilder</strong>.
+              </p>
+              <p className="mt-1">
+                Lo que guardes aquí <strong className="text-foreground">solo afecta a tus propios cálculos</strong>.
+                No pisa overrides de otros usuarios ni ajustes guardados en rutas concretas.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-[10px]">
+            <div className="rounded-lg bg-card border px-2 py-1.5">
+              <div className="font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Default</div>
+              <div className="text-foreground/80">Hardcoded · read-only</div>
+            </div>
+            <div className="rounded-lg bg-card border px-2 py-1.5">
+              <div className="font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Tu override</div>
+              <div className="text-foreground/80">
+                {override ? `${stackDiff.length} campo${stackDiff.length === 1 ? '' : 's'} sobrescrito${stackDiff.length === 1 ? '' : 's'}` : 'Sin override'}
+              </div>
+            </div>
+            <div className="rounded-lg bg-card border px-2 py-1.5">
+              <div className="font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Efectivo (tú)</div>
+              <div className="text-foreground/80">Lo que ves abajo</div>
+            </div>
+          </div>
+          {stackDiff.length > 0 && (
+            <details className="text-[10px]">
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                Ver diff de tu override ({stackDiff.length})
+              </summary>
+              <ul className="mt-1.5 space-y-0.5 font-mono">
+                {stackDiff.map(d => (
+                  <li key={String(d.key)} className="flex items-center gap-2">
+                    <span className="text-foreground">{String(d.key)}</span>
+                    <span className="text-muted-foreground/60">{String(d.def)}</span>
+                    <span className="text-muted-foreground">→</span>
+                    <span className="text-primary">{String(d.ov)}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+
         <p className="text-xs text-muted-foreground mb-4">
-          Estos valores se aplicarán como predeterminados en todos los itinerarios nuevos. Puedes sobreescribirlos individualmente en cada ruta.
+          Efecto: <strong className="text-foreground">inmediato</strong> en tus próximos cálculos de ruta.
+          Itinerarios ya guardados conservan sus ajustes por-ruta.
         </p>
         <RouteEngineSettings
           config={config}
