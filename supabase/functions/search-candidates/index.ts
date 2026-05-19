@@ -41,6 +41,15 @@ interface Candidate {
   locality?: string;
   region?: string;
   country?: string;
+  /**
+   * Identidad externa estructurada cuando la fuente la expone.
+   * Hoy sólo poblado por `google-places` (Places API New) → `places.id`.
+   * Otras fuentes lo dejan undefined.
+   * Consumido por <UnenrichedRecoveryBlock> para persistir
+   * `external_refs.maps.google.placeId` al adoptar el candidato.
+   */
+  placeId?: string;
+  provider?: 'google';
 }
 
 interface Body {
