@@ -176,3 +176,18 @@ Próximo PR sugerido (pendiente aprobación):
 2. **PR-BACKOFFICE-UX-CANON-4 · SIMPLIFY routes** (mostrar pila global↔user resuelta) y **SPLIT markers** (sizes vs states).
 3. **PR-BACKOFFICE-UX-CANON-5 · RENAME design-system** → Inspector + recategorize.
 4. Deuda fuera de scope: `users.email` cleanup, `IconLibraryManager` upsert, surface para `run_internal_tooling`.
+
+---
+
+## 9 · PR-BACKOFFICE-UX-CANON-3 · DONE
+
+MOVE_TO_ROUTE de 6 panels a `/admin/*` bajo shell común.
+
+- `AdminTabSpec.routeMode: 'modal' | 'route'`. Tabs route: `enrichment`, `audit`, `geography`, `sources`, `image-recovery`, `design-system`. Tabs modal: `users`, `permissions`, `markers`, `routes`, `icons`.
+- Nuevos: `src/pages/admin/AdminShell.tsx` (header + breadcrumb + sidebar nav + Outlet, capability gate `open_back_office || manage_users`), `AdminShellIndex` (cards), `src/pages/admin/AdminRoutePage.tsx` (resuelve `:tab` → spec → `AdminGate(capability)` → lazy Component).
+- Rutas en `App.tsx`: `/admin` (index) + `/admin/:tab`. Deep-link directo válido.
+- `UserMenu`: tabs route navegan vía `navigate(getAdminTabPath)`; tabs modal mantienen `onOpenAdmin`.
+- `AdminPanel`: si `defaultTab` es route-mode, `useEffect` navega + `onClose` y render devuelve `null` (evita flash).
+- `Index.tsx`: eventos `admin:open-geography` / `admin:open-data-sources` ahora navegan a `/admin/geography` y `/admin/image-recovery`.
+- Tests: `src/test/admin-route-tabs-contract.test.ts` (los 6 keys exactos, capability en CAPABILITIES, Component lazy presente, path canónico).
+- Capability gates conservados. Sin cambios funcionales en panels, schema o edges.
