@@ -89,6 +89,11 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.2.8 (2026-05-19)
+- ✅ Segunda tanda de eventos globales tipados de bajo riesgo.
+- ✅ Migración de `duplicate-threshold-changed`, `icon-library-changed` y `personal-categories:reload`.
+- ✅ Deuda de eventos globales continúa en progreso con cobertura ampliada.
+
 ### v1.2.7 (2026-05-19)
 - ✅ Helper tipado inicial para eventos globales (`src/lib/global-events.ts`).
 - ✅ Migración de hooks extraídos de `Index.tsx` al helper tipado.
