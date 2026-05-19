@@ -52,13 +52,17 @@ npm run dev
 | IA | Google Gemini via Lovable AI |
 | Animaciones | Framer Motion |
 
-## 📊 Estadísticas del Proyecto
+## 📊 Estado actual
 
-- **14 tablas** en base de datos
-- **5 Edge Functions** serverless
-- **28 componentes** principales
-- **7 hooks** personalizados
-- **9 parsers/utilidades**
+Proyecto en evolución activa. En lugar de contar tablas, componentes o edge functions —cifras frágiles que envejecen mal entre PRs—, mantenemos una foto cualitativa:
+
+- Arquitectura por dominios (Identity, Content, Privacy, Social Graph, Routes, Discovery).
+- Backend gestionado vía Lovable Cloud (Supabase) con RLS y edge functions desplegadas automáticamente.
+- BackOffice con sidebar agrupado por dominio y matriz RBAC canónica por capability × rol.
+- Mapa con pipeline POI canónico (`resolvePoiSource → … → createCustomIcon`) y popup canónico único.
+- Importación multi-formato (KML/GPX/GeoJSON/CSV + scrapers) con lifecycle por canal.
+
+Para detalle vivo ver `docs/audits/` y las memorias del proyecto. Para deuda técnica priorizada ver [`docs/tech-debt.md`](./docs/tech-debt.md).
 
 ## 🔐 Sistema de Visitas Verificadas
 

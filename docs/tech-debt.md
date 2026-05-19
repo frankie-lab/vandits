@@ -15,7 +15,7 @@ La prioridad debe combinar impacto en producto, riesgo operativo y facilidad de 
 - Severidad: baja
 - Facilidad: alta
 - Riesgo de cambio: bajo
-- Estado: en curso
+- Estado: resuelto (2026-05-19) — `package.json` alineado a `1.1.1` (coincide con README + changelog); sección "Estadísticas del Proyecto" reemplazada por "Estado actual" cualitativo menos frágil.
 
 `package.json`, README y documentación técnica deben contar la misma historia sobre la versión y el estado actual del proyecto.
 
