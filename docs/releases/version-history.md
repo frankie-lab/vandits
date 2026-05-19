@@ -130,12 +130,13 @@ Las versiones patch reconstruidas agrupan bloques coherentes de fixes/estabiliza
 | 1.2.4 | 2026-05-19 | stable | Primera extracción incremental de orquestación desde `Index.tsx` (`useWelcomeCardEvents`) | high | `src/hooks/use-welcome-card-events.ts`, `src/pages/Index.tsx`. |
 | 1.2.5 | 2026-05-19 | stable | Segunda extracción incremental de orquestación desde `Index.tsx` (`usePendingValidationEvents`) | high | `src/hooks/use-pending-validation-events.ts`, `src/pages/Index.tsx`. |
 | 1.2.6 | 2026-05-19 | stable | Tercera extracción incremental de orquestación desde `Index.tsx` (`useIndexGlobalEvents` + `useRoutePanelBridge`); ítem 5 cerrado | high | `src/hooks/use-index-global-events.ts`, `src/hooks/use-route-panel-bridge.ts`, `src/pages/Index.tsx`. |
-| 1.2.7 | 2026-05-19 | stable / current | Helper tipado inicial para eventos globales (`src/lib/global-events.ts`); migración de los 3 hooks extraídos de `Index.tsx`; deuda técnica ítem 2 en progreso | high | `src/lib/global-events.ts`, `src/test/global-events.test.ts` (6 casos), hooks `useWelcomeCardEvents` / `usePendingValidationEvents` / `useIndexGlobalEvents` migrados. |
+| 1.2.7 | 2026-05-19 | stable | Helper tipado inicial para eventos globales (`src/lib/global-events.ts`); migración de los 3 hooks extraídos de `Index.tsx`; deuda técnica ítem 2 en progreso | high | `src/lib/global-events.ts`, `src/test/global-events.test.ts` (6 casos), hooks migrados. |
+| 1.2.8 | 2026-05-19 | stable / current | Segunda tanda de eventos globales tipados (`duplicate-threshold-changed`, `icon-library-changed`, `personal-categories:reload`); cobertura 9 → 12 eventos; ítem 2 continúa en progreso | high | `src/lib/global-events.ts` (12 eventos), `src/test/global-events.test.ts` (9 casos), `DuplicatesList.tsx`, `use-duplicate-count.ts`, `IconLibraryContext.tsx`, `PersonalCategoriesPanel.tsx` migrados. |
 | 1.3.0 | TBD | planned minor | Architecture baseline | planned | Requiere tests visuales, foto arquitectura, tipado inicial eventos y reducción de deuda. |
 
 Decisión de gobernanza: no se crea una patch version por commit. Solo se documentan patches cuando agrupan un bloque coherente de correcciones o estabilización con valor histórico.
 
-La versión oficial actual es **1.2.7**. Entradas marcadas como `TBD`, `candidate patch` o `planned minor` son hitos propuestos, no versiones publicadas.
+La versión oficial actual es **1.2.8**. Entradas marcadas como `TBD`, `candidate patch` o `planned minor` son hitos propuestos, no versiones publicadas.
 
 ---
 
