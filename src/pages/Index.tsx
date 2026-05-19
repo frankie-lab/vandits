@@ -46,6 +46,7 @@ import { useRouteOrchestration } from '@/domains/routes/hooks/use-route-orchestr
 import { useRouteFocusBus } from '@/domains/routes/hooks/use-route-focus-bus';
 import { useRightPanel } from '@/hooks/use-right-panel';
 import { useWelcomeCardEvents } from '@/hooks/use-welcome-card-events';
+import { usePendingValidationEvents } from '@/hooks/use-pending-validation-events';
 
 // Discovery orchestrator
 import { DiscoveryOrchestrator, type DiscoveryControls } from '@/domains/discovery/components/DiscoveryOrchestrator';
