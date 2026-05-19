@@ -30,7 +30,8 @@ Deno.serve(async (req) => {
 
   try {
     // Capability gate: `manage_permissions` (master-tier).
-    const gate = await requireCapability(req, 'manage_permissions');
+    // PR-BACKOFFICE-GOVERNANCE F2: tooling interno → master-only.
+    const gate = await requireCapability(req, 'run_internal_tooling');
     if (gate instanceof Response) return gate;
     const supabase = gate.adminClient;
 
