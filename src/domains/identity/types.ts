@@ -12,10 +12,10 @@ export interface UserProfile {
   updated_at: string;
 }
 
-// Canon RBAC (PR-ADMIN-AUDIT-3 Fase A): 4 roles activos + supervisor en revisión.
-// 'curator' y 'user' purgados del catálogo UI (zombi: 0 titulares, 0 capabilities).
-// Aún viven en el enum `public.app_role` — se purgarán en Fase B (migración destructiva).
-export type AppRole = 'master' | 'admin' | 'moderator' | 'editor' | 'supervisor';
+// Canon RBAC (PR-BACKOFFICE-UX-CLOSURE-1): 4 roles activos. Final.
+// Purgados del enum `public.app_role`: `user`, `supervisor`, `curator` (Sec. 5 del PR).
+// El SoT es el enum SQL — este tipo es el espejo cliente. Cambiar uno exige cambiar el otro.
+export type AppRole = 'master' | 'admin' | 'moderator' | 'editor';
 
 // AppPermission: re-exportado desde el hook para mantener un único catálogo
 // (mirror del enum `public.app_permission`). Ver `use-permissions.ts`.
