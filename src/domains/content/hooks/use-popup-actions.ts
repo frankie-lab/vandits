@@ -180,6 +180,95 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
         console.error('Delete location error:', error);
         toast.error('Error al eliminar', { id: toastId });
       }
+    } else if (action === 'popup-overflow') {
+      // Footer overflow menu (Re-enriquecer · Notas · ...).
+      // Items: Abrir en Google Maps, Abrir en Apple Maps, Exportar este POI,
+      // Borrar POI (destructive, separator). `Borrar` solo visible para owner.
+      const trigger = document.querySelector<HTMLElement>(
+        `button[data-action="popup-overflow"][data-location-id="${locationId}"]`,
+      );
+      if (!trigger) return;
+
+      const coords = location.coordinates;
+      const hasCoords = !!coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng);
+      const ownership = useLocationsStore.getState().getLocationOwnership(locationId, currentUserId);
+      const isOwn = ownership?.kind === 'own';
+      const canEditOwn = isOwn;
+
+      // Export gating: internal (owner) o public (POI compartible).
+      const exportScope: 'internal' | 'public' = isOwn ? 'internal' : 'public';
+      const exportEval = evaluatePoiExport(location, exportScope, { currentUserId });
+      const canExport = exportEval.eligible;
+
+      const icon = (svg: string) =>
+        `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">${svg}</svg>`;
+
+      const items: OverflowMenuItem[] = [
+        {
+          action: 'open-google-maps',
+          label: 'Abrir en Google Maps',
+          icon: icon('<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>'),
+          visible: hasCoords,
+        },
+        {
+          action: 'open-apple-maps',
+          label: 'Abrir en Apple Maps',
+          icon: icon('<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>'),
+          visible: hasCoords,
+        },
+        {
+          action: 'export-poi',
+          label: 'Exportar este POI',
+          icon: icon('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'),
+          visible: canExport,
+        },
+        {
+          action: 'delete-location',
+          label: 'Borrar POI',
+          icon: icon('<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'),
+          visible: canEditOwn,
+          destructive: true,
+          separatorBefore: true,
+        },
+      ];
+
+      openPopupOverflowMenu({
+        trigger,
+        items,
+        locationId,
+        locationName: location.name,
+      });
+    } else if (action === 'open-google-maps') {
+      openGoogleMaps(location);
+    } else if (action === 'open-apple-maps') {
+      openAppleMaps(location);
+    } else if (action === 'export-poi') {
+      try {
+        const isOwn = useLocationsStore.getState().getLocationOwnership(locationId, currentUserId)?.kind === 'own';
+        const exportScope: 'internal' | 'public' = isOwn ? 'internal' : 'public';
+        const ctx = { currentUserId };
+        const evalRes = evaluatePoiExport(location, exportScope, ctx);
+        if (!evalRes.eligible) {
+          toast.error('Este POI no es exportable en este modo');
+          return;
+        }
+        const content = exportToKML([location], location.name || 'poi', 'general', exportScope, ctx, { scopeProvided: true });
+        const blob = new Blob([content], { type: 'application/vnd.google-earth.kml+xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const safeName = (location.name || 'poi').replace(/[^\w\-]+/g, '_').slice(0, 40);
+        const ts = new Date().toISOString().split('T')[0];
+        a.href = url;
+        a.download = `${safeName}_${exportScope}_${ts}.kml`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success('POI exportado a KML');
+      } catch (err) {
+        console.error('Export POI error:', err);
+        toast.error('Error al exportar');
+      }
     } else if (action === 'add-notes') {
       onOpenNotes(location);
     } else if (action === 'toggle-visited') {
