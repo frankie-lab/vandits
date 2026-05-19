@@ -292,10 +292,12 @@ export function RouteSettingsPanelContent() {
           )}
         </div>
 
-        <p className="text-xs text-muted-foreground mb-4">
-          Efecto: <strong className="text-foreground">inmediato</strong> en tus próximos cálculos de ruta.
-          Itinerarios ya guardados conservan sus ajustes por-ruta.
-        </p>
+        <div className="mb-4 flex items-center gap-2 flex-wrap">
+          <EffectBadge kind="immediate" detail="Próximos cálculos de ruta del usuario actual" />
+          <span className="text-[11px] text-muted-foreground">
+            Itinerarios ya guardados conservan sus ajustes por-ruta.
+          </span>
+        </div>
         <RouteEngineSettings
           config={config}
           onChange={(partial) => setConfig(prev => ({ ...prev, ...partial }))}
