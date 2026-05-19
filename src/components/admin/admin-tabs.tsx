@@ -50,7 +50,8 @@ export type AdminTabKey =
   | 'geography'
   | 'sources'
   | 'image-recovery'
-  | 'design-system';
+  | 'design-system'
+  | 'internal-tools';
 
 export interface AdminTabSpec {
   key: AdminTabKey;
