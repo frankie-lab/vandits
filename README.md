@@ -1,8 +1,8 @@
-# VANDITS v1.2.2
+# VANDITS v1.2.3
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.2.2-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.2.3-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -88,6 +88,10 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 - [Deuda técnica priorizada](./docs/tech-debt.md)
 
 ## 📝 Changelog
+
+### v1.2.3 (2026-05-19)
+- ✅ Tests unitarios para gramática visual de puntos (enriched/imported/empty).
+- ✅ Deuda técnica de point visual state marcada como resuelta.
 
 ### v1.2.2 (2026-05-19)
 - ✅ Gobernanza de versiones formalizada.

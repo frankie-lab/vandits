@@ -36,7 +36,8 @@ publicados; algunas son hitos **reconstructed** para fijar memoria histórica.
   1.1.1        Welcome card + fix conteo catálogo   (stable, previous pre-routes baseline)
   1.2.0        Rutas e itinerarios                  (stable / formalized from reconstructed history)
   1.2.1        Refinamiento rutas/intermodal/persistencia (stable / formalized from reconstructed history)
-  1.2.2        Gobernanza de versiones              ← versión actual (stable / current)
+  1.2.2        Gobernanza de versiones              (stable)
+  1.2.3        Tests gramática visual de puntos     ← versión actual (stable / current)
   1.3.0        Architecture baseline                (planned)
 
 2.x — Futuro
@@ -52,7 +53,8 @@ Las versiones estables deben poder usarse como puntos de retorno.
 - `v1.1.1`: último punto estable antes de formalizar rutas.
 - `v1.2.0`: rutas e itinerarios base.
 - `v1.2.1`: refinamiento de rutas/intermodal/persistencia.
-- `v1.2.2`: versión actual; gobernanza de versiones y árbol histórico.
+- `v1.2.2`: gobernanza de versiones y árbol histórico.
+- `v1.2.3`: versión actual; tests de gramática visual de puntos.
 
 Regla:
 
@@ -72,6 +74,7 @@ Los anchors documentados requieren tags Git reales para funcionar como rollback 
 - [ ] `v1.2.0`
 - [ ] `v1.2.1`
 - [ ] `v1.2.2`
+- [ ] `v1.2.3`
 
 Esta lista no debe marcarse como completada hasta verificar que los tags existen realmente en GitHub.
 
@@ -105,12 +108,13 @@ Las versiones patch reconstruidas agrupan bloques coherentes de fixes/estabiliza
 | 1.1.2 | TBD | candidate patch | Estabilización social/fotos/delete/markers posterior a 1.1.1 | medium | Users sidebar, photo update flow, duplicate threshold, delete workflow, soft-deleted locations, curator marker fallback, map scale guard, marker interaction, dialog close guard. |
 | 1.2.0 | 2026-04-04 | stable / formalized from reconstructed history | Rutas e itinerarios base | medium-high | routes schema, route_waypoints, calculate-route, RouteBuilder, RoutesListPanel, renderizado en mapa y eventos de rutas. |
 | 1.2.1 | 2026-04-06 | stable / formalized from reconstructed history | Refinamiento rutas/intermodal/persistencia | medium | stages, ida/vuelta, colores, persistencia, ferry_routes, alternativas driving/ferry/flight, selección en mapa, agrupación padre/hijo, skeleton, paradas/jornadas. |
-| 1.2.2 | 2026-05-19 | stable / current | Gobernanza de versiones y árbol histórico | high | README changelog + `package.json` (1.2.2), `docs/versioning.md`, `docs/releases/version-history.md`. |
+| 1.2.2 | 2026-05-19 | stable | Gobernanza de versiones y árbol histórico | high | README changelog + `package.json` (1.2.2), `docs/versioning.md`, `docs/releases/version-history.md`. |
+| 1.2.3 | 2026-05-19 | stable / current | Tests de gramática visual de puntos (`point-visual-state`) | high | `src/test/point-visual-state.test.ts` (11 casos), `docs/tech-debt.md` ítem 3 resuelto. |
 | 1.3.0 | TBD | planned minor | Architecture baseline | planned | Requiere tests visuales, foto arquitectura, tipado inicial eventos y reducción de deuda. |
 
 Decisión de gobernanza: no se crea una patch version por commit. Solo se documentan patches cuando agrupan un bloque coherente de correcciones o estabilización con valor histórico.
 
-La versión oficial actual es **1.2.2**. Entradas marcadas como `TBD`, `candidate patch` o `planned minor` son hitos propuestos, no versiones publicadas.
+La versión oficial actual es **1.2.3**. Entradas marcadas como `TBD`, `candidate patch` o `planned minor` son hitos propuestos, no versiones publicadas.
 
 ---
 
@@ -134,7 +138,8 @@ La versión oficial actual es **1.2.2**. Entradas marcadas como `TBD`, `candidat
 | 1.1.1   | 2026-04-19  | stable, previous pre-routes baseline            | Welcome card + fix conteo catálogo                | high           | README changelog + `package.json` histórico. |
 | 1.2.0   | 2026-04-04  | stable / formalized from reconstructed history  | Rutas e itinerarios                               | medium-high    | Commits `Routed: added itineraries system`, `Rewrite RouteBuilder with stages`, alternativas intermodales y persistencia. |
 | 1.2.1   | 2026-04-06  | stable / formalized from reconstructed history  | Refinamiento rutas/intermodal/persistencia        | medium         | Commits de fixes y mejoras sobre rutas: selección en mapa, agrupación padre/hijo, skeleton, persistencia de paradas/jornadas. |
-| 1.2.2   | 2026-05-19  | stable / current                                | Gobernanza de versiones y árbol histórico         | high           | README changelog + `package.json` (1.2.2), `docs/versioning.md`, `docs/releases/version-history.md`. |
+| 1.2.2   | 2026-05-19  | stable                                          | Gobernanza de versiones y árbol histórico         | high           | README changelog + `package.json` (1.2.2), `docs/versioning.md`, `docs/releases/version-history.md`. |
+| 1.2.3   | 2026-05-19  | stable / current                                | Tests de gramática visual de puntos               | high           | `src/test/point-visual-state.test.ts` (11 casos), `docs/tech-debt.md` ítem 3 resuelto. |
 | 1.3.0   | TBD         | planned                                         | Architecture baseline                             | planned        | Requiere versioning policy, version history, tech debt, global events, tests visuales y foto de arquitectura. |
 
 ---
@@ -153,7 +158,7 @@ El sistema de rutas e itinerarios fue reconstruido desde commits y
 documentación. En la formalización de versiones de 2026-05-19 se promueven a
 **stable / formalized from reconstructed history**: existen como anchors
 estables del árbol aunque no se hubieran publicado como release formal en su
-momento. La versión vigente y publicada es **1.2.2**.
+momento. La versión vigente y publicada es **1.2.3**.
 
 ## Nota sobre 1.3.0
 

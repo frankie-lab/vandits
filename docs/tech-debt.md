@@ -17,7 +17,7 @@ La prioridad debe combinar impacto en producto, riesgo operativo y facilidad de 
 | 1. Versionado y documentación de estado | Resuelto formalizado | Gobernanza | `package.json`, README, UX y documentación quedan alineados en `1.2.2`. |
 | 1.1. Materializar rollback anchors con tags Git | Pendiente operativo | Release management | Faltan tags reales `v1.1.1`, `v1.2.0`, `v1.2.1`, `v1.2.2`. |
 | 2. Catálogo de eventos globales | Abierto | Arquitectura | Inventario inicial existe; faltan tipado, prefijos y reducción de catch-alls. |
-| 3. Tests de gramática visual de puntos | Abierto | Testing | Falta cubrir `enriched`, `imported` y `empty`. |
+| 3. Tests de gramática visual de puntos | Resuelto | Testing | Cubierto por `src/test/point-visual-state.test.ts` (11 casos para `enriched`, `imported`, `empty`). |
 | 4. Foto de arquitectura actual | Abierto | Documentación técnica | Falta documento breve de arquitectura actual. |
 | 5. Reducir responsabilidad de `Index.tsx` | Abierto | Refactor | Extraer orquestación progresivamente a hooks o domain shells. |
 | 6. Reducir responsabilidad de `LocationMap.tsx` | Abierto | Refactor alto riesgo | Extraer incrementalmente sin reescritura. |
@@ -76,6 +76,7 @@ Antes de refactorizarlos, documentar nombre, payload, emisor y consumidor.
 - Severidad: media
 - Facilidad: alta
 - Riesgo de cambio: bajo
+- Estado: resuelto (2026-05-19) — cubierto por `src/test/point-visual-state.test.ts`.
 
 Blindar `src/domains/content/lib/point-visual-state.ts` con tests unitarios para los estados `enriched`, `imported` y `empty`.
 
