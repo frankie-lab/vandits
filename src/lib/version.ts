@@ -1,9 +1,11 @@
 // VANDITS Application Version
-// v1.1.1 - April 2026
+// Canonical version SoT lives in `src/lib/app-version.ts`; this module
+// re-exports it and provides legacy metadata (build date, feature list).
 
-export const APP_VERSION = '1.1.1';
+export { APP_VERSION, APP_VERSION_LABEL } from './app-version';
+import { APP_VERSION } from './app-version';
 export const APP_NAME = 'VANDITS';
-export const APP_BUILD_DATE = '2026-04-19';
+export const APP_BUILD_DATE = '2026-05-19';
 
 export const VERSION_INFO = {
   version: APP_VERSION,
