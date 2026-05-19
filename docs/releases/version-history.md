@@ -95,6 +95,8 @@ Esta lista no debe marcarse como completada hasta verificar que los tags existen
 
 Estado de cierre: la gobernanza de rollback queda documentada y auditada. La materialización técnica de tags Git queda pendiente de acción externa fuera de Lovable.
 
+Nota de ejecución: los tags Git reales son una acción operativa externa. Lovable no puede crearlos desde este entorno. Por tanto, esta lista queda auditada como pendiente externo y no bloquea el avance de deuda técnica resoluble en Lovable.
+
 ---
 
 ## Patch History
