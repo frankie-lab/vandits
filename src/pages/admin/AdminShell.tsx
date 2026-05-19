@@ -122,32 +122,36 @@ export function AdminShell() {
         {/* Sidebar nav agrupado por dominio (PR-BACKOFFICE-UX-CLOSURE-1 Sec. 2). */}
         <aside className="w-64 shrink-0 border-r bg-card/50 overflow-y-auto pb-8">
           <nav className="p-2 space-y-3">
-            {groupAdminTabsByDomain(visibleTabs).map(({ domain, tabs }) => (
-              <div key={domain} className="space-y-0.5">
-                <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70">
-                  {ADMIN_DOMAIN_LABELS[domain]}
+            {groupAdminTabsByDomain(visibleTabs).map(({ domain, tabs }) => {
+              const diag = isDiagnosticDomain(domain);
+              return (
+                <div key={domain} className={`space-y-0.5 ${diag ? 'pt-2 mt-2 border-t border-border/40' : ''}`}>
+                  <div className="px-3 pt-2 pb-1 flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70">
+                    <span>{ADMIN_DOMAIN_LABELS[domain]}</span>
+                    {diag && <DiagBadge />}
+                  </div>
+                  {tabs.map(tab => {
+                    const Icon = tab.icon;
+                    return (
+                      <NavLink
+                        key={tab.key}
+                        to={`/admin/${tab.key}`}
+                        className={({ isActive }) =>
+                          `flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${
+                            isActive
+                              ? 'bg-primary/10 text-foreground font-medium'
+                              : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                          } ${diag ? 'opacity-80' : ''}`
+                        }
+                      >
+                        <Icon className={`w-4 h-4 shrink-0 ${diag ? 'text-muted-foreground' : tab.iconClass}`} />
+                        <span className="truncate">{tab.label}</span>
+                      </NavLink>
+                    );
+                  })}
                 </div>
-                {tabs.map(tab => {
-                  const Icon = tab.icon;
-                  return (
-                    <NavLink
-                      key={tab.key}
-                      to={`/admin/${tab.key}`}
-                      className={({ isActive }) =>
-                        `flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${
-                          isActive
-                            ? 'bg-primary/10 text-foreground font-medium'
-                            : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                        }`
-                      }
-                    >
-                      <Icon className={`w-4 h-4 shrink-0 ${tab.iconClass}`} />
-                      <span className="truncate">{tab.label}</span>
-                    </NavLink>
-                  );
-                })}
-              </div>
-            ))}
+              );
+            })}
             {visibleTabs.length === 0 && (
               <p className="px-3 py-4 text-xs text-muted-foreground">
                 No tienes capabilities para ninguna sección con ruta dedicada.
