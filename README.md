@@ -1,8 +1,8 @@
-# VANDITS v1.1.1
+# VANDITS v1.2.2
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.1.1-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.2.2-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -88,6 +88,29 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 - [Deuda técnica priorizada](./docs/tech-debt.md)
 
 ## 📝 Changelog
+
+### v1.2.2 (2026-05-19)
+- ✅ Gobernanza de versiones formalizada.
+- ✅ Política SemVer propia de Vandits añadida en `docs/versioning.md`.
+- ✅ Árbol histórico reconstruido añadido en `docs/releases/version-history.md`.
+- ✅ Deuda técnica de versionado actualizada.
+- ✅ Se establece que cada PR debe declarar impacto de versión: none, patch, minor o major.
+
+### v1.2.1 (2026-04-06)
+- ✅ Refinamiento de rutas e itinerarios.
+- ✅ Mejoras de alternativas intermodales.
+- ✅ Persistencia de configuración de itinerarios, paradas y jornadas.
+- ✅ Mejoras de selección de rutas en mapa.
+- ✅ Agrupación padre/hijo de rutas.
+- ✅ Skeleton de carga para itinerarios guardados.
+
+### v1.2.0 (2026-04-04)
+- ✅ Sistema de rutas e itinerarios.
+- ✅ `RouteBuilder` y `RoutesListPanel`.
+- ✅ Schema de rutas y waypoints.
+- ✅ Edge function `calculate-route`.
+- ✅ Renderizado de rutas en mapa mediante eventos.
+- ✅ Alternativas intermodales iniciales.
 
 ### v1.1.1 (2026-04-19)
 - ✅ Welcome card adaptativa: onboarding para usuarios nuevos · resumen para usuarios con catálogo

@@ -121,3 +121,45 @@ Divergencia entre estas fuentes es deuda técnica documentada en
           sí → MINOR
           no → PATCH
 ```
+
+---
+
+## Version impact en cada PR
+
+Cada PR debe declarar una de estas opciones:
+
+- Version impact: none
+- Version impact: patch
+- Version impact: minor
+- Version impact: major
+
+Reglas:
+
+- **none**: cambios internos que no justifican release ni cambio público.
+- **patch**: fixes, tests, documentación relevante o estabilización sin nueva capacidad.
+- **minor**: nueva capacidad compatible.
+- **major**: ruptura de contrato, arquitectura o expectativa funcional.
+
+Si `Version impact` no es `none`, actualizar:
+
+- `package.json`
+- README (título + badge + sección de estado si aplica)
+- README changelog section or `CHANGELOG.md` if/when extracted
+- `docs/releases/version-history.md`
+- `docs/tech-debt.md` si aplica
+
+---
+
+## Rollback
+
+Una versión estable debe estar asociada a un tag Git `vX.Y.Z`.
+
+Si una nueva versión falla:
+
+- no se edita ni se borra el histórico;
+- se vuelve al tag estable anterior si hace falta;
+- o se publica una nueva patch version con el arreglo.
+
+Los anchors actuales viven en
+[`docs/releases/version-history.md`](./releases/version-history.md) sección
+"Release / rollback anchors".
