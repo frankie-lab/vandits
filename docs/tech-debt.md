@@ -44,7 +44,9 @@ Criterio de auditoría:
 - Severidad: media
 - Facilidad: alta
 - Riesgo de cambio: bajo
-- Estado: pendiente operativo (2026-05-19)
+- Estado: pendiente operativo externo no bloqueante (2026-05-19)
+
+Esta deuda no se considera bloqueante para continuar con deuda técnica resoluble desde Lovable, porque Lovable no tiene capacidad de crear tags Git reales. El cierre documental está completo; el cierre operativo requiere GitHub o git local.
 
 La documentación de versionado ya define rollback anchors, pero faltan los tags Git reales:
 
