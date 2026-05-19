@@ -243,6 +243,16 @@ export function getAdminTab(key: AdminTabKey | undefined): AdminTabSpec | undefi
   return ADMIN_TABS.find(t => t.key === key);
 }
 
+/** Agrupa los tabs por dominio operativo (sidebar BackOffice). */
+export function groupAdminTabsByDomain(tabs: readonly AdminTabSpec[]): Array<{ domain: AdminDomain; tabs: AdminTabSpec[] }> {
+  const byDomain = new Map<AdminDomain, AdminTabSpec[]>();
+  ADMIN_DOMAIN_ORDER.forEach(d => byDomain.set(d, []));
+  tabs.forEach(t => byDomain.get(t.domain)!.push(t));
+  return ADMIN_DOMAIN_ORDER
+    .map(domain => ({ domain, tabs: byDomain.get(domain)! }))
+    .filter(g => g.tabs.length > 0);
+}
+
 /** Resolución canónica de la URL `/admin/<key>` para un tab en routeMode='route'. */
 export function getAdminTabPath(key: AdminTabKey): string {
   return `/admin/${key}`;
