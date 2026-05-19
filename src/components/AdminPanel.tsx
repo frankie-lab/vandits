@@ -343,6 +343,13 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  return rolePermissions.some(rp => rp.role === role && rp.permission === permission);
  };
 
+ // PR-BACKOFFICE-UX-CANON-3: no montar UI si el tab vive en ruta dedicada;
+ // el useEffect superior ya disparó la navegación + onClose.
+ const _redirectSpec = getAdminTab(defaultTab as AdminTabKey | undefined);
+ if (_redirectSpec && isRouteModeTab(_redirectSpec)) {
+   return null;
+ }
+
  if (permissionsLoading) {
  return (
  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-modal flex items-center justify-center bg-foreground/50 overlay-respect-progress" onClick={onClose}>
