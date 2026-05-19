@@ -98,4 +98,13 @@ describe('global-events typed helper baseline', () => {
     expect(handler).toHaveBeenCalledTimes(2);
     off();
   });
+
+  it('trash-updated funciona sin payload', () => {
+    const handler = vi.fn();
+    const off = addGlobalEventListener('trash-updated', handler);
+    dispatchGlobalEvent('trash-updated');
+    dispatchGlobalEvent('trash-updated');
+    expect(handler).toHaveBeenCalledTimes(2);
+    off();
+  });
 });
