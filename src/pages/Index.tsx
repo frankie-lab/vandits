@@ -45,6 +45,7 @@ import { useDocumentFocus } from '@/domains/content/hooks/use-document-focus';
 import { useRouteOrchestration } from '@/domains/routes/hooks/use-route-orchestration';
 import { useRouteFocusBus } from '@/domains/routes/hooks/use-route-focus-bus';
 import { useRightPanel } from '@/hooks/use-right-panel';
+import { useWelcomeCardEvents } from '@/hooks/use-welcome-card-events';
 
 // Discovery orchestrator
 import { DiscoveryOrchestrator, type DiscoveryControls } from '@/domains/discovery/components/DiscoveryOrchestrator';
