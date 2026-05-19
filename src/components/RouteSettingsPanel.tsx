@@ -152,10 +152,15 @@ export function RouteSettingsPanelContent() {
     <div className="flex flex-col h-full min-h-0 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Motor de rutas</h3>
-          <p className="text-xs text-muted-foreground">Configuración global y servicios conectados</p>
+          <h3 className="text-sm font-semibold text-foreground">Motor de rutas — mis defaults</h3>
+          <p className="text-xs text-muted-foreground">No existe configuración global escribible. Editas tu override personal.</p>
         </div>
         <div className="flex gap-2">
+          {override && (
+            <Button size="sm" variant="ghost" onClick={handleClearOverride} disabled={saving} className="text-xs">
+              Quitar mi override
+            </Button>
+          )}
           <Button size="sm" onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Save className="w-3.5 h-3.5 mr-1" />}
             Guardar
