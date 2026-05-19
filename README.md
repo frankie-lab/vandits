@@ -89,6 +89,10 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.2.3 (2026-05-19)
+- ✅ Tests unitarios para gramática visual de puntos (enriched/imported/empty).
+- ✅ Deuda técnica de point visual state marcada como resuelta.
+
 ### v1.2.2 (2026-05-19)
 - ✅ Gobernanza de versiones formalizada.
 - ✅ Política SemVer propia de Vandits añadida en `docs/versioning.md`.
