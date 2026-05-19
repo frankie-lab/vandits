@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { addGlobalEventListener } from '@/lib/global-events';
 import { 
   User, 
   Settings, 
@@ -190,10 +191,10 @@ export function UserMenu({
 
   useEffect(() => {
     const handleTrashUpdate = () => fetchTrashCount();
-    window.addEventListener('trash-updated', handleTrashUpdate);
+    const offTrash = addGlobalEventListener('trash-updated', handleTrashUpdate);
     window.addEventListener('focus', handleTrashUpdate);
     return () => {
-      window.removeEventListener('trash-updated', handleTrashUpdate);
+      offTrash();
       window.removeEventListener('focus', handleTrashUpdate);
     };
   }, [fetchTrashCount]);

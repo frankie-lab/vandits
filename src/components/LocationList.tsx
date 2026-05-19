@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { dispatchGlobalEvent } from '@/lib/global-events';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, Eye, ImageOff, Trash2, Loader2, Sparkles } from 'lucide-react';
 import { useLocationsStore, getLocationEnrichmentStatus } from '@/domains/content';
@@ -69,7 +70,7 @@ export function LocationList() {
   toast.success(`"${location.name}" movido a la papelera`);
  
       // Dispatch events to update UI
- window.dispatchEvent(new CustomEvent('trash-updated'));
+ dispatchGlobalEvent('trash-updated');
  window.dispatchEvent(new CustomEvent('store-updated'));
  } catch (error) {
  console.error('Delete location error:', error);
