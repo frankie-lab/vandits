@@ -100,13 +100,42 @@ export function RouteSettingsPanelContent() {
         .eq('id', user.id);
       if (error) throw error;
       localStorage.setItem('vandits-route-engine-defaults', JSON.stringify(config));
-      toast.success('Configuración de rutas guardada');
+      setOverride(config);
+      toast.success('Tus defaults del motor de rutas se han guardado');
     } catch (e) {
       toast.error('Error al guardar la configuración');
     } finally {
       setSaving(false);
     }
   };
+
+  const handleClearOverride = async () => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('profiles')
+        .update({ route_engine_defaults: null } as any)
+        .eq('id', user.id);
+      if (error) throw error;
+      localStorage.removeItem('vandits-route-engine-defaults');
+      setOverride(null);
+      setConfig({ ...DEFAULT_ENGINE_CONFIG });
+      toast.success('Override eliminado — vuelves al default del sistema');
+    } catch {
+      toast.error('No se pudo eliminar el override');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Stack resuelto: default → tu override → efectivo (lo que ve calculate-route para TI)
+  const stackDiff = useMemo(() => {
+    if (!override) return [] as Array<{ key: keyof EngineConfig; def: unknown; ov: unknown }>;
+    const keys = Object.keys(DEFAULT_ENGINE_CONFIG) as Array<keyof EngineConfig>;
+    return keys
+      .filter(k => override[k] !== undefined && override[k] !== DEFAULT_ENGINE_CONFIG[k])
+      .map(k => ({ key: k, def: DEFAULT_ENGINE_CONFIG[k], ov: override[k] }));
+  }, [override]);
 
   const connectedCount = services.filter(s => s.status === 'connected').length;
   const totalCount = services.length;
