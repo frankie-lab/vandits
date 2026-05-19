@@ -15,11 +15,11 @@ La prioridad debe combinar impacto en producto, riesgo operativo y facilidad de 
 | Ítem | Estado | Tipo | Comentario |
 |---|---|---|---|
 | 1. Versionado y documentación de estado | Resuelto formalizado | Gobernanza | `package.json`, README, UX y documentación quedan alineados en `1.2.2`. |
-| 1.1. Materializar rollback anchors con tags Git | Pendiente operativo | Release management | Rollback anchors documentados; faltan tags Git reales `v1.1.1`, `v1.2.0`, `v1.2.1`, `v1.2.2`, `v1.2.3`, `v1.2.4`. |
+| 1.1. Materializar rollback anchors con tags Git | Pendiente operativo | Release management | Rollback anchors documentados; faltan tags Git reales `v1.1.1`, `v1.2.0`, `v1.2.1`, `v1.2.2`, `v1.2.3`, `v1.2.4`, `v1.2.5`. |
 | 2. Catálogo de eventos globales | Abierto | Arquitectura | Inventario inicial existe; faltan tipado, prefijos y reducción de catch-alls. |
 | 3. Tests de gramática visual de puntos | Resuelto | Testing | Cubierto por `src/test/point-visual-state.test.ts` (11 casos para `enriched`, `imported`, `empty`). |
 | 4. Foto de arquitectura actual | Resuelto | Documentación técnica | Cubierto por `docs/architecture/current-architecture.md`. |
-| 5. Reducir responsabilidad de `Index.tsx` | En progreso — extracción inicial realizada | Refactor | `v1.2.4` extrae `useWelcomeCardEvents` (`src/hooks/use-welcome-card-events.ts`). Faltan más extracciones (listeners, paneles, admin/profile). |
+| 5. Reducir responsabilidad de `Index.tsx` | En progreso — segunda extracción incremental realizada | Refactor | `v1.2.4` extrae `useWelcomeCardEvents`; `v1.2.5` extrae `usePendingValidationEvents`. Quedan inline 4 listeners triviales y el puente `routesPanelOpen`/`routeBuilderOpen` con `routeOrch`. |
 | 6. Reducir responsabilidad de `LocationMap.tsx` | Abierto | Refactor alto riesgo | Extraer incrementalmente sin reescritura. |
 
 Criterio de auditoría:
