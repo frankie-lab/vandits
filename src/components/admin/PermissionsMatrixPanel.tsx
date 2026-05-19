@@ -1,23 +1,23 @@
 /**
- * PermissionsMatrixPanel (PR-RBAC-MATRIX-1).
+ * PermissionsMatrixPanel (PR-RBAC-MATRIX-1 + PR-BACKOFFICE-UX-CLOSURE-1).
  *
  * Vista canónica del modelo RBAC: matriz capability × role agrupada por
  * dominio operativo. Sustituye al accordion por rol como vista principal.
  *
  * - Eje vertical: capabilities (agrupadas por CapabilityDomain).
- * - Eje horizontal: roles activos (master, admin, moderator, editor, supervisor).
+ * - Eje horizontal: 4 roles activos (master, admin, moderator, editor).
+ *   `user`/`supervisor`/`curator` purgados del enum app_role en
+ *   PR-BACKOFFICE-UX-CLOSURE-1 — ya no aparecen como columna.
  * - Celda: ✓ permitido / — denegado. Toggle requiere typed-token (canon F3).
  *
  * Filtros: búsqueda libre, master-only, destructive, internal, unused.
+ * Detección visual de roles vacíos / casi vacíos (banner ámbar).
  * Cada capability expone descripción, riesgo, runtime y ownership en tooltip
- * y leyenda lateral. Supervisor se muestra siempre (no se oculta aunque sea
- * un rol con 1 capability — el panel DEBE hacerlo visible).
+ * y leyenda lateral.
  */
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { Loader2, Search, ChevronDown, ChevronRight, Shield, AlertTriangle, Lock, Wrench, Filter, Check } from 'lucide-react';
+import { Loader2, Search, ChevronDown, ChevronRight, AlertTriangle, Lock, Wrench, Filter, Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
@@ -35,15 +35,15 @@ import {
   RUNTIME_LABEL,
   type CapabilityDomain,
 } from './permissions/capability-metadata';
+import { EffectBadgeRow, effectsForCapability } from './EffectBadge';
 
-const ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'supervisor'];
+const ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor'];
 
 const ROLE_LABELS: Record<AppRole, string> = {
   master: 'Master',
   admin: 'Admin',
   moderator: 'Moderator',
   editor: 'Editor',
-  supervisor: 'Supervisor',
 };
 
 const ROLE_TONES: Record<AppRole, string> = {
@@ -51,7 +51,6 @@ const ROLE_TONES: Record<AppRole, string> = {
   admin: 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30',
   moderator: 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30',
   editor: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30',
-  supervisor: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30',
 };
 
 interface MatrixCell {
