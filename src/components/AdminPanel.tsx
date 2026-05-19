@@ -597,6 +597,51 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  await executePermissionToggle(role, permission, hasPermission);
  }}
  />
-  </motion.div>
-  );
+   </motion.div>
+   );
+}
+
+/**
+ * F3 — Footer del diálogo de purge con typed-token "PURGAR <username>".
+ * Se separa para no romper la accesibilidad del AlertDialog cuando el step cambia.
+ */
+function PurgeTokenFooter({
+ username,
+ disabled,
+ onConfirm,
+}: {
+ username: string;
+ disabled: boolean;
+ onConfirm: () => void;
+}) {
+ const token = `PURGAR ${username}`;
+ const [typed, setTyped] = useState('');
+ const matches = typed === token;
+ return (
+ <div className="space-y-2">
+ <label className="text-xs text-muted-foreground block">
+ Para continuar, escribe{' '}
+ <code className="px-1 py-0.5 rounded bg-muted text-foreground font-mono text-[11px]">{token}</code>{' '}
+ exactamente.
+ </label>
+ <Input
+ value={typed}
+ onChange={(e) => setTyped(e.target.value)}
+ placeholder={token}
+ autoFocus
+ className="font-mono"
+ data-testid="purge-token-input"
+ />
+ <AlertDialogFooter>
+ <AlertDialogCancel>Cancelar</AlertDialogCancel>
+ <Button
+ variant="destructive"
+ disabled={disabled || !matches}
+ onClick={onConfirm}
+ >
+ Sí, limpiar usuario
+ </Button>
+ </AlertDialogFooter>
+ </div>
+ );
 }
