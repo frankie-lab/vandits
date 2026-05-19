@@ -39,6 +39,9 @@ export interface GlobalEventMap {
   'import:open-categories': void;
   'lovable:follow-changed': void;
   'popup-action': unknown;
+  'duplicate-threshold-changed': { threshold: number };
+  'icon-library-changed': { library: GlobalIconLibraryName };
+  'personal-categories:reload': void;
 }
 
 export type GlobalEventName = keyof GlobalEventMap;
