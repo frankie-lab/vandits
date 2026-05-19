@@ -15,11 +15,11 @@ La prioridad debe combinar impacto en producto, riesgo operativo y facilidad de 
 | Ítem | Estado | Tipo | Comentario |
 |---|---|---|---|
 | 1. Versionado y documentación de estado | Resuelto formalizado | Gobernanza | `package.json`, README, UX y documentación quedan alineados en `1.2.2`. |
-| 1.1. Materializar rollback anchors con tags Git | Pendiente operativo | Release management | Rollback anchors documentados; faltan tags Git reales `v1.1.1`, `v1.2.0`, `v1.2.1`, `v1.2.2`, `v1.2.3`. |
+| 1.1. Materializar rollback anchors con tags Git | Pendiente operativo | Release management | Rollback anchors documentados; faltan tags Git reales `v1.1.1`, `v1.2.0`, `v1.2.1`, `v1.2.2`, `v1.2.3`, `v1.2.4`. |
 | 2. Catálogo de eventos globales | Abierto | Arquitectura | Inventario inicial existe; faltan tipado, prefijos y reducción de catch-alls. |
 | 3. Tests de gramática visual de puntos | Resuelto | Testing | Cubierto por `src/test/point-visual-state.test.ts` (11 casos para `enriched`, `imported`, `empty`). |
 | 4. Foto de arquitectura actual | Resuelto | Documentación técnica | Cubierto por `docs/architecture/current-architecture.md`. |
-| 5. Reducir responsabilidad de `Index.tsx` | Abierto | Refactor | Extraer orquestación progresivamente a hooks o domain shells. |
+| 5. Reducir responsabilidad de `Index.tsx` | En progreso — extracción inicial realizada | Refactor | `v1.2.4` extrae `useWelcomeCardEvents` (`src/hooks/use-welcome-card-events.ts`). Faltan más extracciones (listeners, paneles, admin/profile). |
 | 6. Reducir responsabilidad de `LocationMap.tsx` | Abierto | Refactor alto riesgo | Extraer incrementalmente sin reescritura. |
 
 Criterio de auditoría:
@@ -53,6 +53,7 @@ La documentación de versionado ya define rollback anchors, pero faltan los tags
 - `v1.2.1`
 - `v1.2.2`
 - `v1.2.3`
+- `v1.2.4`
 
 Hasta crear esos tags, el rollback está definido documentalmente pero no materializado como mecanismo técnico.
 
@@ -97,8 +98,19 @@ Crear documentación breve de dominios, stores, mapa, popups, Supabase, rutas, c
 - Severidad: media
 - Facilidad: media
 - Riesgo de cambio: medio
+- Estado: en progreso — extracción inicial realizada (2026-05-19, `v1.2.4`).
 
 `Index.tsx` actúa como hub de muchos subsistemas. Extraer progresivamente orquestación a hooks o domain shells.
+
+Extracciones realizadas:
+
+- `v1.2.4`: `useWelcomeCardEvents` (`src/hooks/use-welcome-card-events.ts`) — listeners de `vandits:open-upload`, `vandits:open-profile`, `admin:open-geography`, `admin:open-data-sources`. Sin cambios de contrato; sólo mueve lógica fuera de `Index.tsx`.
+
+Pendiente (no exhaustivo):
+
+- listeners restantes (`enrichment-criteria-changed`, `import:open-categories`, `lovable:follow-changed`, `pending-validations-updated`, `popup-action`);
+- puente `routesPanelOpen`/`routeBuilderOpen` ↔ `routeOrch`;
+- orquestación de paneles admin/profile/upload (`open`/`close` agrupados).
 
 ### 6. Reducir responsabilidad de `src/components/LocationMap.tsx`
 
