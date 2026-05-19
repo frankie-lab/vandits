@@ -130,7 +130,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     label: 'Mantenimiento geográfico (Admin)',
     icon: Compass,
     iconClass: 'text-amber-500',
-    capability: 'manage_geo_maintenance',
+    capability: 'view_geo_maintenance',
     wide: true,
     Component: GeographyBackfillPanel as LazyExoticComponent<ComponentType<unknown>>,
   },

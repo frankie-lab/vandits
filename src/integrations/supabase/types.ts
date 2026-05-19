@@ -3781,6 +3781,7 @@ export type Database = {
         Args: { _user_id: string }
         Returns: number
       }
+      count_masters: { Args: never; Returns: number }
       enqueue_health_repair: {
         Args: { _action: string; _location_ids: string[]; _scope_mode: string }
         Returns: {
@@ -3926,6 +3927,11 @@ export type Database = {
         | "manage_design_system"
         | "purge_user"
         | "open_back_office"
+        | "assign_master"
+        | "run_internal_tooling"
+        | "view_geo_maintenance"
+        | "run_geo_backfill"
+        | "run_geo_canonicalize"
       app_role:
         | "master"
         | "admin"
@@ -4143,6 +4149,11 @@ export const Constants = {
         "manage_design_system",
         "purge_user",
         "open_back_office",
+        "assign_master",
+        "run_internal_tooling",
+        "view_geo_maintenance",
+        "run_geo_backfill",
+        "run_geo_canonicalize",
       ],
       app_role: [
         "master",

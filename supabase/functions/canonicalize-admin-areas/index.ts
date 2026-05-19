@@ -74,7 +74,8 @@ Deno.serve(async (req) => {
   const isInternalCall = !!accessToken && accessToken === serviceRoleKey;
 
   if (!isInternalCall) {
-    const gate = await requireCapability(req, 'manage_geo_maintenance');
+    // PR-BACKOFFICE-GOVERNANCE F2: canonicalize sobrescribe nombres → master-only.
+    const gate = await requireCapability(req, 'run_geo_canonicalize');
     if (gate instanceof Response) return gate;
   }
 

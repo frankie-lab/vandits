@@ -26,7 +26,8 @@ Deno.serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
   // Capability gate: `manage_geo_maintenance`.
-  const gate = await requireCapability(req, 'manage_geo_maintenance');
+  // PR-BACKOFFICE-GOVERNANCE F2: backfill granular.
+  const gate = await requireCapability(req, 'run_geo_backfill');
   if (gate instanceof Response) return gate;
 
   const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
