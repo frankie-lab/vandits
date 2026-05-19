@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { addGlobalEventListener, dispatchGlobalEvent } from '@/lib/global-events';
 
 export type IconLibrary = 'lucide' | 'fontawesome' | 'heroicons' | 'phosphor' | 'tabler';
 
