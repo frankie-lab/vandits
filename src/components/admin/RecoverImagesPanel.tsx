@@ -459,6 +459,11 @@ export function RecoverImagesPanel() {
       createdBefore: null,
       createdAfter: null,
     }, total);
+
+    // Observabilidad: abrir handle. Se cierra en el useEffect al terminar.
+    opHandleRef.current = opHistory.start(
+      `${mode} · ${useExplicit ? `${selectedIds.size} ids` : `user=${activeUserId}`} · n=${total}`,
+    );
   };
 
   const stop = () => useImageRecoveryJobStore.getState().stop();
