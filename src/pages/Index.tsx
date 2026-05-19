@@ -184,14 +184,9 @@ const Index = () => {
     return () => window.removeEventListener('lovable:follow-changed', handleFollowChanged);
   }, [loadFromDatabase]);
 
-  useEffect(() => {
-    const handleValidationsUpdate = (e: CustomEvent<{ count: number; names: string[] }>) => {
-      setPendingValidationsCount(e.detail.count);
-      setPendingValidationNames(e.detail.names || []);
-    };
-    window.addEventListener('pending-validations-updated', handleValidationsUpdate as EventListener);
-    return () => window.removeEventListener('pending-validations-updated', handleValidationsUpdate as EventListener);
-  }, []);
+  // pending-validations-updated listener → ver `usePendingValidationEvents`.
+
+
 
   useEffect(() => {
     const handler = (e: Event) => handlePopupAction(e as CustomEvent);
