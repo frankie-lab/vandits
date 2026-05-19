@@ -8,6 +8,26 @@ Mantener una lista pequeña, accionable y priorizada de deuda técnica de Vandit
 
 La prioridad debe combinar impacto en producto, riesgo operativo y facilidad de resolución.
 
+## Estado auditado
+
+Última revisión: 2026-05-19
+
+| Ítem | Estado | Tipo | Comentario |
+|---|---|---|---|
+| 1. Versionado y documentación de estado | Resuelto formalizado | Gobernanza | `package.json`, README, UX y documentación quedan alineados en `1.2.2`. |
+| 1.1. Materializar rollback anchors con tags Git | Pendiente operativo | Release management | Faltan tags reales `v1.1.1`, `v1.2.0`, `v1.2.1`, `v1.2.2`. |
+| 2. Catálogo de eventos globales | Abierto | Arquitectura | Inventario inicial existe; faltan tipado, prefijos y reducción de catch-alls. |
+| 3. Tests de gramática visual de puntos | Abierto | Testing | Falta cubrir `enriched`, `imported` y `empty`. |
+| 4. Foto de arquitectura actual | Abierto | Documentación técnica | Falta documento breve de arquitectura actual. |
+| 5. Reducir responsabilidad de `Index.tsx` | Abierto | Refactor | Extraer orquestación progresivamente a hooks o domain shells. |
+| 6. Reducir responsabilidad de `LocationMap.tsx` | Abierto | Refactor alto riesgo | Extraer incrementalmente sin reescritura. |
+
+Criterio de auditoría:
+
+- `Resuelto formalizado`: completado y alineado con documentación/versionado actual.
+- `Pendiente operativo`: documentado, pero falta una acción externa o de release.
+- `Abierto`: deuda conocida, priorizada y aún no ejecutada.
+
 ## Deuda priorizada
 
 ### 1. Versionado y documentación de estado
