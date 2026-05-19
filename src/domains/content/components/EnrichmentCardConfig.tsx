@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { invalidateCardConfig } from '@/components/map/map-popups';
+import { EffectBadge } from '@/shared/components/ui/effect-badge';
 
 /* ── Types ── */
 interface CardField {
