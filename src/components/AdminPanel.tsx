@@ -26,6 +26,7 @@ import {
 import { DestructiveConfirmDialog } from '@/shared/components/ui/destructive-confirm-dialog';
 
 import { ADMIN_TABS, getAdminTab, isRouteModeTab, getAdminTabPath, type AdminTabKey } from './admin/admin-tabs';
+import { PanelEffectHeader } from './admin/PanelEffectHeader';
 import { AdminGate } from './admin/AdminGate';
 
 type AdminTab = AdminTabKey;
@@ -450,6 +451,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
 
    {hasPermission('manage_permissions') && defaultTab === 'permissions' && (
    <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+     <PanelEffectHeader capability="manage_permissions" label="Permisos por rol" />
      <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
        <PermissionsMatrixPanel />
      </Suspense>
@@ -462,7 +464,10 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
     return (
       <AdminGate key={tab.key} capability={tab.capability}>
         <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
-          <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><Body /></div>
+          <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+            <PanelEffectHeader capability={tab.capability} label={tab.label} />
+            <Body />
+          </div>
         </Suspense>
       </AdminGate>
     );

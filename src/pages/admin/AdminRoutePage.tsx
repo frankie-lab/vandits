@@ -17,6 +17,7 @@ import { Navigate, useParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { AdminGate, AdminGateDenied } from '@/components/admin/AdminGate';
 import { getAdminTab, isRouteModeTab, type AdminTabKey } from '@/components/admin/admin-tabs';
+import { PanelEffectHeader } from '@/components/admin/PanelEffectHeader';
 
 export function AdminRoutePage() {
   const { tab } = useParams<{ tab: AdminTabKey }>();
@@ -45,6 +46,7 @@ export function AdminRoutePage() {
         }
       >
         <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+          <PanelEffectHeader capability={spec.capability} label={spec.label} />
           <Body />
         </div>
       </Suspense>
