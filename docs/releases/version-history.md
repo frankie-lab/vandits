@@ -114,7 +114,7 @@ Las versiones patch reconstruidas agrupan bloques coherentes de fixes/estabiliza
 
 Decisión de gobernanza: no se crea una patch version por commit. Solo se documentan patches cuando agrupan un bloque coherente de correcciones o estabilización con valor histórico.
 
-La versión oficial actual es **1.2.2**. Entradas marcadas como `TBD`, `candidate patch` o `planned minor` son hitos propuestos, no versiones publicadas.
+La versión oficial actual es **1.2.3**. Entradas marcadas como `TBD`, `candidate patch` o `planned minor` son hitos propuestos, no versiones publicadas.
 
 ---
 
