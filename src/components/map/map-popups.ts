@@ -1309,22 +1309,30 @@ Notas${hasNotes ? ` <span style="width:4px; height:4px; border-radius:50%; backg
 </button>
 ` : '';
 
-  const deleteBtnHtml = canEditOwn ? `
+  // Overflow menu trigger ("..."): agrupa acciones de salida (Abrir en Google
+  // Maps, Abrir en Apple Maps, Exportar este POI) y `Borrar POI` al fondo
+  // como destructive. Sustituye al botón aislado de borrar — `Borrar` sigue
+  // existiendo, descubrible dentro del menú "...". Ver
+  // `src/components/map/popup-overflow-menu.ts`.
+  const overflowBtnHtml = `
 <button
 class="popup-action-btn"
-data-action="delete-location"
+data-action="popup-overflow"
 data-location-id="${location.id}"
 data-location-name="${location.name}"
-style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; background: transparent; color: hsl(var(--destructive) / 0.7); border: none; border-radius: 6px; cursor: pointer; transition: background 0.15s, color 0.15s;"
-onmouseover="this.style.background='hsl(var(--destructive) / 0.10)';this.style.color='hsl(var(--destructive))'"
-onmouseout="this.style.background='transparent';this.style.color='hsl(var(--destructive) / 0.7)'"
-title="Mover a la papelera"
+aria-label="Más acciones"
+style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; background: transparent; color: hsl(var(--muted-foreground)); border: none; border-radius: 6px; cursor: pointer; transition: background 0.15s, color 0.15s;"
+onmouseover="this.style.background='hsl(var(--muted))';this.style.color='hsl(var(--foreground))'"
+onmouseout="this.style.background='transparent';this.style.color='hsl(var(--muted-foreground))'"
+title="Más acciones"
 >
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="12" cy="12" r="1"/>
+<circle cx="19" cy="12" r="1"/>
+<circle cx="5" cy="12" r="1"/>
 </svg>
 </button>
-` : '';
+`;
 
 
   // P-POI-CURATION-2 — `curationVerdict` se hoistó al inicio de
@@ -1358,7 +1366,7 @@ ${reEnrichBtnHtml}
 ${notesBtnHtml}
 </div>
 <div style="display: flex; justify-content: flex-end; align-items: center;">
-${deleteBtnHtml}
+${overflowBtnHtml}
 </div>
 </div>
 ${enrichedFooterLine}
