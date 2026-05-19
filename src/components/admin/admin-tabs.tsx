@@ -55,12 +55,54 @@ export type AdminTabKey =
   | 'design-system'
   | 'internal-tools';
 
+/**
+ * BackOffice Information Architecture (PR-BACKOFFICE-UX-CLOSURE-1 Sec. 2).
+ *
+ * Agrupa los tabs por dominio operativo (ownership), no por orden histórico.
+ * Es independiente de `CapabilityDomain` aunque normalmente coinciden:
+ * `CapabilityDomain` describe la capability, `AdminDomain` describe la
+ * superficie BackOffice donde vive su mini-app.
+ */
+export type AdminDomain =
+  | 'governance'
+  | 'content'
+  | 'geo-ops'
+  | 'runtime-config'
+  | 'providers'
+  | 'recovery'
+  | 'audit'
+  | 'internal';
+
+export const ADMIN_DOMAIN_LABELS: Record<AdminDomain, string> = {
+  governance: 'Governance',
+  content: 'Editorial / Content',
+  'geo-ops': 'Geo Ops',
+  'runtime-config': 'Runtime Config',
+  providers: 'Providers',
+  recovery: 'Recovery / Batch Ops',
+  audit: 'Audit / Debug',
+  internal: 'Internal Tools',
+};
+
+export const ADMIN_DOMAIN_ORDER: AdminDomain[] = [
+  'governance',
+  'content',
+  'geo-ops',
+  'runtime-config',
+  'providers',
+  'recovery',
+  'audit',
+  'internal',
+];
+
 export interface AdminTabSpec {
   key: AdminTabKey;
   label: string;
   icon: LucideIcon;
   iconClass: string;
   capability: Capability;
+  /** Ownership operativo dentro del BackOffice (sidebar grouping). */
+  domain: AdminDomain;
   /** Wider modal (max-w-6xl) when true. Only meaningful for routeMode='modal'. */
   wide?: boolean;
   /**
