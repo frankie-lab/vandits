@@ -99,19 +99,22 @@ Crear documentación breve de dominios, stores, mapa, popups, Supabase, rutas, c
 - Severidad: media
 - Facilidad: media
 - Riesgo de cambio: medio
-- Estado: en progreso — extracción inicial realizada (2026-05-19, `v1.2.4`).
+- Estado: en progreso — segunda extracción incremental realizada (2026-05-19, `v1.2.5`).
 
 `Index.tsx` actúa como hub de muchos subsistemas. Extraer progresivamente orquestación a hooks o domain shells.
 
 Extracciones realizadas:
 
 - `v1.2.4`: `useWelcomeCardEvents` (`src/hooks/use-welcome-card-events.ts`) — listeners de `vandits:open-upload`, `vandits:open-profile`, `admin:open-geography`, `admin:open-data-sources`. Sin cambios de contrato; sólo mueve lógica fuera de `Index.tsx`.
+- `v1.2.5`: `usePendingValidationEvents` (`src/hooks/use-pending-validation-events.ts`) — listener `pending-validations-updated` + estado local `pendingValidationsCount` / `pendingValidationNames`. Mismo payload, mismo consumidor (`FloatingToolbar`).
 
 Pendiente (no exhaustivo):
 
-- listeners restantes (`enrichment-criteria-changed`, `import:open-categories`, `lovable:follow-changed`, `pending-validations-updated`, `popup-action`);
+- listeners restantes (`enrichment-criteria-changed`, `import:open-categories`, `lovable:follow-changed`, `popup-action`);
 - puente `routesPanelOpen`/`routeBuilderOpen` ↔ `routeOrch`;
 - orquestación de paneles admin/profile/upload (`open`/`close` agrupados).
+
+Criterio de cierre: el ítem 5 se marcará como `resuelto` cuando no queden listeners globales triviales inline en `Index.tsx` ni puentes manuales hacia `routeOrch`, y la página actúe sólo como composición/wiring de alto nivel.
 
 ### 6. Reducir responsabilidad de `src/components/LocationMap.tsx`
 
