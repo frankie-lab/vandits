@@ -15,7 +15,7 @@ La prioridad debe combinar impacto en producto, riesgo operativo y facilidad de 
 - Severidad: baja
 - Facilidad: alta
 - Riesgo de cambio: bajo
-- Estado: resuelto ampliado (2026-05-19) — `package.json` sigue alineado a `1.1.1` (coincide con README + changelog) y la sección frágil "Estadísticas del Proyecto" fue reemplazada por "Estado actual" cualitativo. Se amplía con política formal de versionado en [`docs/versioning.md`](./versioning.md) y árbol histórico reconstruido en [`docs/releases/version-history.md`](./releases/version-history.md). README sigue alineado a **1.1.1**; no se hace bump de versión en este PR.
+- Estado: resuelto formalizado (2026-05-19) — `package.json` y README quedan alineados en **1.2.2**. `1.2.0` y `1.2.1` se formalizan desde el histórico reconstruido como anchors estables; `1.2.2` pasa a ser la versión actual. A partir de ahora cada PR debe declarar `Version impact` (none/patch/minor/major) según [`docs/versioning.md`](./versioning.md). Las versiones estables deben poder usarse como rollback anchors mediante tags Git `vX.Y.Z` (ver "Release / rollback anchors" en [`docs/releases/version-history.md`](./releases/version-history.md)).
 
 `package.json`, README y documentación técnica deben contar la misma historia sobre la versión y el estado actual del proyecto.
 
