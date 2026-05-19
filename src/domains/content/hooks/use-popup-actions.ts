@@ -192,7 +192,7 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
       const coords = location.coordinates;
       const hasCoords = !!coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng);
       const ownership = useLocationsStore.getState().getLocationOwnership(locationId, currentUserId);
-      const isOwn = ownership?.kind === 'own';
+      const isOwn = ownership?.isOwn === true;
       const canEditOwn = isOwn;
 
       // Export gating: internal (owner) o public (POI compartible).
