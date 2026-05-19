@@ -114,7 +114,7 @@ export function PermissionsMatrixPanel() {
 
   // Conteo por rol (para barra superior).
   const countsByRole = useMemo(() => {
-    const c: Record<AppRole, number> = { master: 0, admin: 0, moderator: 0, editor: 0, supervisor: 0 };
+    const c: Record<AppRole, number> = { master: 0, admin: 0, moderator: 0, editor: 0 };
     grants.forEach(k => {
       const [role] = k.split('::') as [AppRole, Capability];
       if (role in c) c[role]++;
