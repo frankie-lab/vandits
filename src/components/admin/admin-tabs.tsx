@@ -24,6 +24,7 @@ import {
   Palette,
   Route as RouteIcon,
   ShieldAlert,
+  Terminal,
   type LucideIcon,
 } from 'lucide-react';
 import type { Capability } from '@/domains/identity';
