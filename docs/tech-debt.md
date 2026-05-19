@@ -72,7 +72,7 @@ Cierre documental: completo. Cierre operativo: pendiente. La creación de tags G
 - Severidad: media
 - Facilidad: media
 - Riesgo de cambio: bajo si se empieza documentando
-- Estado: en progreso — helper tipado inicial creado (2026-05-19, v1.2.7). Ver [`docs/architecture/global-events.md`](./architecture/global-events.md) sección "Typed helper baseline" y `src/lib/global-events.ts`. Cubre 9 eventos iniciales (subset del catálogo) y los 3 hooks ya extraídos de `Index.tsx` (`useWelcomeCardEvents`, `usePendingValidationEvents`, `useIndexGlobalEvents`). Pendiente: tipado completo (`WindowEventMap` u homólogo), unificación de prefijos, sustitución de catch-alls (`store-updated`, `reload-locations`) y migración del resto del bus.
+- Estado: en progreso — helper tipado ampliado (2026-05-19, v1.2.8). Ver [`docs/architecture/global-events.md`](./architecture/global-events.md) sección "Typed helper baseline" y `src/lib/global-events.ts`. Cubre 12 eventos del bus global (9 iniciales en v1.2.7 + segunda tanda de bajo riesgo en v1.2.8: `duplicate-threshold-changed`, `icon-library-changed`, `personal-categories:reload`). Pendientes: eventos cuyo consumidor principal es `LocationMap.tsx` (intocable en esta fase): `layer-visibility-changed`, `measurement-units-changed`; catch-alls/fan-out alto: `store-updated`, `reload-locations`, `trash-updated`; tipado completo (`WindowEventMap` u homólogo); unificación de prefijos; cobertura del resto del bus.
 
 Vandits usa varios eventos globales vía `window.dispatchEvent` / `window.addEventListener`.
 
