@@ -156,37 +156,15 @@ const Index = () => {
   }, [user, authLoading, navigate]);
 
   // ─── Event listeners ──────────────────────────────────────────────────────
-  useEffect(() => {
-    const handleCriteriaChange = () => setCriteriaVersion(v => v + 1);
-    window.addEventListener('enrichment-criteria-changed', handleCriteriaChange);
-    return () => window.removeEventListener('enrichment-criteria-changed', handleCriteriaChange);
-  }, []);
-
-  useEffect(() => {
-    const handleOpenCategories = () => open('categories');
-    window.addEventListener('import:open-categories', handleOpenCategories);
-    return () => window.removeEventListener('import:open-categories', handleOpenCategories);
-  }, [open]);
-
-  useEffect(() => {
-    const handleFollowChanged = async () => {
-      console.log('[Index] Follow changed, refreshing map data...');
-      await new Promise(resolve => setTimeout(resolve, 500));
-      await loadFromDatabase();
-    };
-    window.addEventListener('lovable:follow-changed', handleFollowChanged);
-    return () => window.removeEventListener('lovable:follow-changed', handleFollowChanged);
-  }, [loadFromDatabase]);
-
-  // pending-validations-updated listener → ver `usePendingValidationEvents`.
-
-
-
-  useEffect(() => {
-    const handler = (e: Event) => handlePopupAction(e as CustomEvent);
-    window.addEventListener('popup-action', handler);
-    return () => window.removeEventListener('popup-action', handler);
-  }, [handlePopupAction]);
+  // Listeners globales extraídos a `useIndexGlobalEvents` (deuda técnica
+  // ítem 5, tercera extracción incremental). Contratos de eventos y payloads
+  // sin cambios. `pending-validations-updated` vive en `usePendingValidationEvents`.
+  useIndexGlobalEvents({
+    setCriteriaVersion,
+    open,
+    loadFromDatabase,
+    handlePopupAction,
+  });
 
   // Document focus + route focus delegated to dedicated hooks
   useDocumentFocus({
