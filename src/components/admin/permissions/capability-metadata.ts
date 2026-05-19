@@ -119,9 +119,9 @@ export const CAPABILITY_META: Record<Capability, CapabilityMeta> = {
     runtime: 'immediate',
     destructive: true,
   },
-  manage_criteria: {
+  manage_editorial_criteria: {
     domain: 'content',
-    description: 'Editar criterios editoriales y políticas de catálogo.',
+    description: 'Editar criterios editoriales IA (freshness, thresholds, políticas de enrichment).',
     risk: 'medium',
     runtime: 'future-only',
   },
@@ -194,14 +194,14 @@ export const CAPABILITY_META: Record<Capability, CapabilityMeta> = {
     runtime: 'immediate',
   },
 
-  // Design system
-  manage_design_system: {
+  // Design system (PR-HYGIENE-4: rename a inspect_*; el panel es read-only).
+  inspect_design_system: {
     domain: 'design-system',
-    description: 'Inspector + overrides del design system (tokens, motion).',
-    risk: 'medium',
-    runtime: 'cache-delay' as RuntimeImpact extends string ? RuntimeImpact : never extends never ? RuntimeImpact : never,
+    description: 'Inspector read-only del design system (tokens, motion). No edita tokens persistentes.',
+    risk: 'low',
+    runtime: 'none',
     masterOnly: true,
-  } as CapabilityMeta,
+  },
 
   // Recovery / batch ops
   run_image_recovery: {
@@ -235,15 +235,6 @@ export const CAPABILITY_META: Record<Capability, CapabilityMeta> = {
     masterOnly: true,
     internal: true,
   },
-};
-
-// Normaliza el runtime (corrige el hack de cast del manage_design_system).
-(CAPABILITY_META as Record<string, CapabilityMeta>).manage_design_system = {
-  domain: 'design-system',
-  description: 'Inspector + overrides del design system (tokens, motion).',
-  risk: 'medium',
-  runtime: 'immediate',
-  masterOnly: true,
 };
 
 export const RISK_TONE: Record<RiskLevel, string> = {

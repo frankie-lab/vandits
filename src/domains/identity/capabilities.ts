@@ -12,7 +12,7 @@
 export const CAPABILITIES = [
   // Clásicas
   'manage_users',
-  'manage_criteria',
+  'manage_editorial_criteria',
   'run_global_enrichment',
   'delete_any_location',
   'moderate_content',
@@ -26,7 +26,7 @@ export const CAPABILITIES = [
   'manage_geo_maintenance',
   'manage_data_sources',
   'run_image_recovery',
-  'manage_design_system',
+  'inspect_design_system',
   'purge_user',
   'open_back_office',
   // PR-BACKOFFICE-GOVERNANCE F2 — split de capabilities críticas
@@ -38,13 +38,16 @@ export const CAPABILITIES = [
 ] as const;
 // PR-HYGIENE-2: purgadas capabilities zombie sin consumidores (view_all_locations,
 // edit_all_locations, manage_documents, view_analytics, upload_files, add_locations).
+// PR-HYGIENE-4: rename semántico — manage_design_system -> inspect_design_system
+// (panel read-only) y manage_criteria -> manage_editorial_criteria
+// (ownership editorial IA). Sin cambio de scope, gating ni runtime.
 
 export type Capability = typeof CAPABILITIES[number];
 
 /** Etiquetas humanas para UI admin. */
 export const CAPABILITY_LABELS: Record<Capability, string> = {
   manage_users: 'Gestionar usuarios',
-  manage_criteria: 'Gestionar criterios',
+  manage_editorial_criteria: 'Gestionar criterios editoriales',
   run_global_enrichment: 'Enriquecimiento global',
   delete_any_location: 'Eliminar ubicaciones',
   moderate_content: 'Moderar contenido',
@@ -57,7 +60,7 @@ export const CAPABILITY_LABELS: Record<Capability, string> = {
   manage_geo_maintenance: 'Mantenimiento geográfico (legacy alias)',
   manage_data_sources: 'Gestionar fuentes de datos',
   run_image_recovery: 'Recuperar imágenes',
-  manage_design_system: 'Gestionar Design System',
+  inspect_design_system: 'Inspeccionar Design System',
   purge_user: 'Limpiar usuarios',
   open_back_office: 'Acceder al Back Office',
   // PR-BACKOFFICE-GOVERNANCE F2
