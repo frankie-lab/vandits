@@ -12,7 +12,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { usePermissions, type AppRole } from '@/domains/identity';
-import { CAPABILITIES, CAPABILITY_LABELS } from '@/domains/identity/capabilities';
+// PR-BACKOFFICE-DEAD-SURFACES-1 H2 — CAPABILITIES/CAPABILITY_LABELS no se usan
+// aquí. La matriz canon vive en PermissionsMatrixPanel.
 import {
  AlertDialog,
  AlertDialogAction,
