@@ -57,6 +57,8 @@ Hasta crear esos tags, el rollback está definido documentalmente pero no materi
 
 No crear los tags desde Lovable si no existe soporte explícito para operaciones Git.
 
+Los documentos pueden definir los anchors, pero el cierre de esta deuda requiere crear los tags reales en GitHub o por git local. No basta con actualizar documentación.
+
 ### 2. Catálogo de eventos globales
 
 - Severidad: media
