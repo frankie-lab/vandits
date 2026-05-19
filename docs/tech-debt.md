@@ -60,6 +60,8 @@ No crear los tags desde Lovable si no existe soporte explícito para operaciones
 
 Los documentos pueden definir los anchors, pero el cierre de esta deuda requiere crear los tags reales en GitHub o por git local. No basta con actualizar documentación.
 
+Cierre documental: completo. Cierre operativo: pendiente. La creación de tags Git reales queda fuera de Lovable y debe hacerse desde GitHub o git local.
+
 ### 2. Catálogo de eventos globales
 
 - Severidad: media
