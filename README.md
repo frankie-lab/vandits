@@ -89,6 +89,11 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.2.7 (2026-05-19)
+- ✅ Helper tipado inicial para eventos globales (`src/lib/global-events.ts`).
+- ✅ Migración de hooks extraídos de `Index.tsx` al helper tipado.
+- ✅ Deuda de eventos globales pasa a estado en progreso.
+
 ### v1.2.6 (2026-05-19)
 - ✅ Tercera extracción incremental de orquestación desde `Index.tsx` (`useIndexGlobalEvents` + `useRoutePanelBridge`).
 - ✅ Deuda técnica de responsabilidad de `Index.tsx` marcada como resuelta.
