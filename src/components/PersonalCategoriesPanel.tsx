@@ -113,10 +113,9 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
 
   // Reload categories on custom event
   useEffect(() => {
-    const handler = () => loadCategories();
-    window.addEventListener('personal-categories:reload', handler);
-    return () => window.removeEventListener('personal-categories:reload', handler);
+    return addGlobalEventListener('personal-categories:reload', () => loadCategories());
   }, [loadCategories]);
+
 
   const resetForm = () => {
     setFormName('');
