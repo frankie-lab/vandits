@@ -21,6 +21,17 @@ const PURGED_ZOMBIES = [
   'add_locations',
 ] as const;
 
+// PR-HYGIENE-4 — renames semánticos. Los nombres viejos NO pueden volver.
+const RENAMED_LEGACY = [
+  'manage_design_system', // -> inspect_design_system
+  'manage_criteria',      // -> manage_editorial_criteria
+] as const;
+
+const RENAMED_CANON = [
+  'inspect_design_system',
+  'manage_editorial_criteria',
+] as const;
+
 describe('PR-HYGIENE-2 — capabilities zombie purgadas', () => {
   it('ninguna capability zombie sigue en el SoT cliente', () => {
     for (const cap of PURGED_ZOMBIES) {
@@ -37,6 +48,34 @@ describe('PR-HYGIENE-2 — capabilities zombie purgadas', () => {
   it('ninguna capability zombie tiene metadata RBAC', () => {
     for (const cap of PURGED_ZOMBIES) {
       expect(Object.keys(CAPABILITY_META)).not.toContain(cap);
+    }
+  });
+});
+
+describe('PR-HYGIENE-4 — capabilities renombradas (drift semántico corregido)', () => {
+  it('los nombres legacy NO existen en el SoT cliente', () => {
+    for (const cap of RENAMED_LEGACY) {
+      expect(CLIENT_CAPS as readonly string[]).not.toContain(cap);
+    }
+  });
+
+  it('los nombres legacy NO existen en el espejo Deno', () => {
+    for (const cap of RENAMED_LEGACY) {
+      expect(DENO_CAPS as readonly string[]).not.toContain(cap);
+    }
+  });
+
+  it('los nombres legacy NO tienen metadata RBAC', () => {
+    for (const cap of RENAMED_LEGACY) {
+      expect(Object.keys(CAPABILITY_META)).not.toContain(cap);
+    }
+  });
+
+  it('los nombres canon SÍ existen en SoT cliente, Deno y metadata', () => {
+    for (const cap of RENAMED_CANON) {
+      expect(CLIENT_CAPS as readonly string[]).toContain(cap);
+      expect(DENO_CAPS as readonly string[]).toContain(cap);
+      expect(Object.keys(CAPABILITY_META)).toContain(cap);
     }
   });
 });
