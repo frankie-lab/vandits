@@ -49,6 +49,7 @@ function ServiceStatusBadge({ status }: { status: ServiceStatus['status'] }) {
 export function RouteSettingsPanelContent() {
   const { user } = useAuth();
   const [config, setConfig] = useState<EngineConfig>({ ...DEFAULT_ENGINE_CONFIG });
+  const [override, setOverride] = useState<Partial<EngineConfig> | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -57,7 +58,7 @@ export function RouteSettingsPanelContent() {
   const [checkingServices, setCheckingServices] = useState(false);
   const [servicesChecked, setServicesChecked] = useState(false);
 
-  // Load saved defaults
+  // Load saved defaults (ESTE usuario — NO existe storage global)
   useEffect(() => {
     if (!user) return;
     supabase.from('profiles')
@@ -65,8 +66,12 @@ export function RouteSettingsPanelContent() {
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data }) => {
-        if ((data as any)?.route_engine_defaults) {
-          setConfig(prev => ({ ...prev, ...(data as any).route_engine_defaults }));
+        const raw = (data as any)?.route_engine_defaults as Partial<EngineConfig> | null;
+        if (raw) {
+          setOverride(raw);
+          setConfig(prev => ({ ...prev, ...raw }));
+        } else {
+          setOverride(null);
         }
         setLoading(false);
       });
