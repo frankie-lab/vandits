@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { CAPABILITIES, type Capability, type AppPermission } from '@/domains/identity/capabilities';
 
 // Tipos de roles (catálogo activo PR-ADMIN-AUDIT-3 Fase A). Ver `src/domains/identity/types.ts`.
-export type AppRole = 'master' | 'admin' | 'moderator' | 'editor' | 'supervisor';
+export type AppRole = 'master' | 'admin' | 'moderator' | 'editor';
 
 // Re-export del SoT único de capabilities (PR-BACKOFFICE-GOVERNANCE F1).
 // SoT real = enum `public.app_permission`. Mirror TS = `capabilities.ts`.
