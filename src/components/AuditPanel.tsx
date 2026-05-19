@@ -60,7 +60,7 @@ export function AuditPanel() {
   const renderGroup = (
     title: string,
     subtitle: string,
-    tabs: typeof RUNTIME_TABS,
+    tabs: TabSpec[],
   ) => (
     <div className="space-y-1.5">
       <div className="flex items-baseline gap-2">
