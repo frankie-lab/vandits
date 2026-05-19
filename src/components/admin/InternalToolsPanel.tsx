@@ -16,7 +16,7 @@
  * (script directo). NO se permiten edges runtime sin ownership UX.
  */
 import { useState } from 'react';
-import { Terminal, Play, Loader2, ExternalLink, Info } from 'lucide-react';
+import { Play, Loader2, ExternalLink, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
