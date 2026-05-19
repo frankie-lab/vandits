@@ -323,8 +323,8 @@ export function RouteSettingsPanel({ onClose }: RouteSettingsPanelProps) {
           <div className="flex items-center gap-2">
             <RouteIcon className="w-5 h-5 text-primary" />
             <div>
-              <h2 className="text-base font-semibold">Motor de rutas</h2>
-              <p className="text-xs text-muted-foreground">Configuración global y servicios conectados</p>
+              <h2 className="text-base font-semibold">Motor de rutas — mis defaults</h2>
+              <p className="text-xs text-muted-foreground">Override personal · stack default→tú→por-ruta</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
