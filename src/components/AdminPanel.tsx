@@ -90,6 +90,8 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  // NOT manage_users (which admins also hold). Prevents admin → master self-escalation.
  const canManageRoles = hasPermission('manage_permissions');
  const canPurgeUsers = hasPermission('purge_user');
+ // PR-BACKOFFICE-GOVERNANCE F2: assigning/revoking 'master' is a separate gate.
+ const canAssignMaster = hasPermission('assign_master');
 
  const fetchData = useCallback(async () => {
  setLoading(true);
