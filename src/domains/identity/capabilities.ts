@@ -14,14 +14,8 @@ export const CAPABILITIES = [
   'manage_users',
   'manage_criteria',
   'run_global_enrichment',
-  'view_all_locations',
-  'edit_all_locations',
   'delete_any_location',
-  'manage_documents',
-  'view_analytics',
   'moderate_content',
-  'upload_files',
-  'add_locations',
   // Operacionales (PR-ADMIN-AUDIT-1b)
   'manage_permissions',
   'manage_marker_config',
@@ -42,6 +36,8 @@ export const CAPABILITIES = [
   'run_geo_backfill',
   'run_geo_canonicalize',
 ] as const;
+// PR-HYGIENE-2: purgadas capabilities zombie sin consumidores (view_all_locations,
+// edit_all_locations, manage_documents, view_analytics, upload_files, add_locations).
 
 export type Capability = typeof CAPABILITIES[number];
 
@@ -50,14 +46,8 @@ export const CAPABILITY_LABELS: Record<Capability, string> = {
   manage_users: 'Gestionar usuarios',
   manage_criteria: 'Gestionar criterios',
   run_global_enrichment: 'Enriquecimiento global',
-  view_all_locations: 'Ver todas las ubicaciones',
-  edit_all_locations: 'Editar ubicaciones',
   delete_any_location: 'Eliminar ubicaciones',
-  manage_documents: 'Gestionar documentos',
-  view_analytics: 'Ver estadísticas',
   moderate_content: 'Moderar contenido',
-  upload_files: 'Subir archivos masivos',
-  add_locations: 'Añadir ubicaciones',
   manage_permissions: 'Gestionar permisos',
   manage_marker_config: 'Configurar marcadores',
   manage_route_engine: 'Configurar motor de rutas',
