@@ -53,6 +53,7 @@ La documentación de versionado ya define rollback anchors, pero faltan los tags
 - `v1.2.1`
 - `v1.2.2`
 - `v1.2.3`
+- `v1.2.4`
 
 Hasta crear esos tags, el rollback está definido documentalmente pero no materializado como mecanismo técnico.
 
