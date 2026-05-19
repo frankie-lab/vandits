@@ -1,0 +1,30 @@
+%% Navigation graph — entry, shell, tabs, confirms.
+graph TD
+  UserMenu --> AdminShell[/admin · AdminShell]
+  AdminPanelModal[AdminPanel modal] -.legacy.-> tab_modal_users
+  AdminShell --> AdminShellIndex[/admin index cards]
+  AdminShell --> AdminGate
+  AdminGate -->|denied| AdminGateDenied
+  AdminGate -->|granted| AdminRoutePage
+  AdminRoutePage --> PanelEffectHeader
+  PanelEffectHeader --> EffectBadgeRow
+  PanelEffectHeader --> OperationStatusCard
+  AdminRoutePage --> tab_users(users)
+  AdminRoutePage --> tab_permissions(permissions)
+  AdminRoutePage --> tab_markers(markers)
+  AdminRoutePage --> tab_routes(routes)
+  AdminRoutePage --> tab_icons(icons)
+  AdminRoutePage --> tab_enrichment(enrichment)
+  AdminRoutePage --> tab_sources(sources)
+  AdminRoutePage --> tab_geography(geography)
+  AdminRoutePage --> tab_image_recovery(image-recovery)
+  AdminRoutePage --> tab_audit(audit)
+  AdminRoutePage --> tab_design_system(design-system)
+  AdminRoutePage --> tab_internal_tools(internal-tools)
+  tab_users --> AdminBrokenUsersList
+  tab_users --> confirm_purge[[DestructiveConfirmDialog · PURGAR]]
+  tab_permissions --> confirm_perm[[DestructiveConfirmDialog · MODIFICAR]]
+  tab_geography --> GeographyScopeTree
+  tab_geography --> confirm_canon[[DestructiveConfirmDialog · CANONICALIZE]]
+  tab_design_system --> EditModeBar
+  Overlay_qa[?qa=1 overlay] --> CameraFitQaGate

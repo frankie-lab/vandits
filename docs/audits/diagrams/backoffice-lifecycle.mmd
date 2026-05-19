@@ -1,0 +1,18 @@
+%% Lifecycle of a BackOffice surface — diagnosis vertices only.
+flowchart TD
+  start([New need]) --> declare{Declare family / ownership / runtime / interaction?}
+  declare -- no --> reject[Reject: no panel without dossier entry]
+  declare -- yes --> classify{Operational vs Diagnostic?}
+  classify -- operational --> ops[Add under config / ops / admin]
+  classify -- diagnostic --> diag[Add under diagnostics + DIAG badge]
+  ops --> live[KEEP]
+  diag --> live
+  live --> review{Recurring review}
+  review -->|stable| KEEP
+  review -->|two interactions in one| SPLIT
+  review -->|oversized for action| DOWNGRADE
+  review -->|wrong domain| MOVE
+  review -->|two surfaces, one job| MERGE
+  review -->|no real users| REMOVE
+  review -->|only for devs| DEBUG_ONLY
+  review -->|ambiguous evidence| NEEDS_DECISION
