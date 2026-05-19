@@ -34,6 +34,14 @@ export interface CoherenceCandidate {
   region?: string;
   locality?: string;
   extract?: string;
+  /**
+   * Identidad externa estructurada (Fase A — PR-SHARE-EXT-MAPS-3).
+   * Hoy sólo lo expone Places API New vía `search-candidates`.
+   * Cuando el usuario adopta el candidato, se persiste en
+   * `locations.external_refs.maps.{provider}.placeId`.
+   */
+  placeId?: string;
+  provider?: 'google';
 }
 
 export interface ParsedEnrichmentError {

@@ -43,6 +43,11 @@ export async function searchWikiCandidates(
       locality: c.locality,
       region: c.region,
       country: c.country,
+      // Identidad externa estructurada (Fase A). Sólo `google-places` la
+      // expone hoy. Propagada sin transformar para que el consumer la
+      // pueda persistir en `external_refs.maps.google.placeId` al adoptar.
+      placeId: typeof c.placeId === 'string' && c.placeId.length > 0 ? c.placeId : undefined,
+      provider: c.provider === 'google' ? 'google' : undefined,
     }));
   } catch (err) {
     console.warn('[search-candidates] threw', err);

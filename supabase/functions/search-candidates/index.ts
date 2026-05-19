@@ -41,6 +41,15 @@ interface Candidate {
   locality?: string;
   region?: string;
   country?: string;
+  /**
+   * Identidad externa estructurada cuando la fuente la expone.
+   * Hoy sólo poblado por `google-places` (Places API New) → `places.id`.
+   * Otras fuentes lo dejan undefined.
+   * Consumido por <UnenrichedRecoveryBlock> para persistir
+   * `external_refs.maps.google.placeId` al adoptar el candidato.
+   */
+  placeId?: string;
+  provider?: 'google';
 }
 
 interface Body {
@@ -258,6 +267,8 @@ async function searchGooglePlaces(
         country: p.formattedAddress,
         url: p.websiteUri || `https://www.google.com/maps/place/?q=place_id:${p.id}`,
         source: 'google-places' as const,
+        placeId: typeof p.id === 'string' && p.id.length > 0 ? p.id : undefined,
+        provider: 'google' as const,
       }));
   } catch {
     return [];

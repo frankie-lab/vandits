@@ -41,10 +41,20 @@ type: feature
 - Mapeo: `mode ∈ {place_id, name_coords}` → `'canonical'`; `mode === 'coords'` → `'coords-fallback'`.
 - Consumidos por `channel-adapters.ts` (`openGoogleMaps`/`openAppleMaps`).
 
-**Fuera de alcance v2** (deuda explícita):
-- Escritura de `placeId` desde el pipeline de enrichment (Places API New).
+**Escritura de placeId — Fase A (PR-SHARE-EXT-MAPS-3)**:
+- ÚNICO writer activo de `external_refs.maps.google.placeId` = `<UnenrichedRecoveryBlock>.handleAdoptCandidate`.
+- Disparo: el usuario adopta explícitamente un candidato cuyo `provider === 'google'` (Places API New, Text Search v1, edge `search-candidates`).
+- Payload escrito: `{ placeId, source: 'places-api-new-text-search', resolvedAt: <ISO> }` dentro del mismo UPDATE que renombra/mueve el POI.
+- PROHIBIDO escribir placeId automáticamente desde `enrich-location` / `batch-enrich` / scrapers.
+- PROHIBIDO backfill masivo.
+- Pipeline candidatos: `search-candidates` (`Candidate.placeId/provider`) → `wiki-name-search.searchWikiCandidates` → `CoherenceCandidate.placeId/provider` → `handleAdoptCandidate` → DB.
+
+**Fuera de alcance — Fase B+ (deuda explícita)**:
+- Place Details (`places/v1/places/{placeId}`) para enriquecer con datos canónicos Google (horarios, rating oficial). Requiere decisión de coste API + TTL/refresh.
+- Resolución automática de placeId durante `enrich-location` cuando Wikipedia confirma identidad.
 - UI admin para pegar manualmente placeId/URL.
 - Apple `placeId` estructurado (no existe campo público equivalente hoy).
 - Otros providers (`osm`, `wikidata`, `here`, `waze`) — namespace `external_refs.{provider}` abierto pero no implementado.
 - Backfill masivo: POIs existentes siguen 100% en `name_coords` o `coords` (compat total).
 - Parsear URLs largas de Google Maps para extraer CID/placeId (rechazado: frágil).
+

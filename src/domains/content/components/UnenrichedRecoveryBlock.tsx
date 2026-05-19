@@ -190,19 +190,51 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
     }
     setBusy(true);
     try {
+      // Si el candidato viene de Google Places (Places API New) y trae un
+      // placeId estructurado, persistimos external_refs.maps.google EN EL
+      // MISMO update que el rename/move. Identidad externa = aceptación
+      // explícita del usuario (Fase A — PR-SHARE-EXT-MAPS-3). NO escribir
+      // placeId desde el pipeline automático de enrich-location.
+      // Activa la rama high-confidence de buildExternalMapLink en el popup.
+      const writeGooglePlaceId =
+        c.provider === 'google' && typeof c.placeId === 'string' && c.placeId.length > 0;
+
+      let mergedExternalRefs: Record<string, unknown> | undefined;
+      if (writeGooglePlaceId) {
+        const prev = (location.externalRefs ?? {}) as Record<string, unknown>;
+        const prevMaps = (prev.maps ?? {}) as Record<string, unknown>;
+        const prevGoogle = (prevMaps.google ?? {}) as Record<string, unknown>;
+        mergedExternalRefs = {
+          ...prev,
+          maps: {
+            ...prevMaps,
+            google: {
+              ...prevGoogle,
+              placeId: c.placeId,
+              source: 'places-api-new-text-search',
+              resolvedAt: new Date().toISOString(),
+            },
+          },
+        };
+      }
+
+      const updatePayload: Record<string, unknown> = {
+        name,
+        latitude: c.lat,
+        longitude: c.lng,
+        updated_at: new Date().toISOString(),
+      };
+      if (mergedExternalRefs) updatePayload.external_refs = mergedExternalRefs;
+
       const { error } = await supabase
         .from('locations')
-        .update({
-          name,
-          latitude: c.lat,
-          longitude: c.lng,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', location.id);
       if (error) throw error;
       useLocationsStore.getState().updateLocation(location.id, {
         name,
         coordinates: { ...location.coordinates, lat: c.lat, lng: c.lng },
+        ...(mergedExternalRefs ? { externalRefs: mergedExternalRefs as GeoLocation['externalRefs'] } : {}),
         updatedAt: new Date(),
       });
       const result = await triggerEnrichLocation(location.id, {
