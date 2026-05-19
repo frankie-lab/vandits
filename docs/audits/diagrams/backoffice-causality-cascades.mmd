@@ -1,0 +1,13 @@
+%% Global side effects triggered from BackOffice surfaces.
+graph LR
+  perm_toggle[[permissions toggle]] -->|role_permissions row| has_permission
+  has_permission --> all_clients[All clients re-evaluate gates]
+  has_permission --> all_edges[All edges re-evaluate requireCapability]
+  geo_canon[[canonicalize-admin-areas]] -->|rewrites canonical_admin_areas| every_location[Every location FK may shift]
+  every_location --> resolved_view[v_locations_resolved consumers]
+  sources_toggle[[data_sources.enabled]] --> enrich_pipeline[enrich-location chooses providers]
+  enrich_pipeline --> new_pois[New enrichments use new mix]
+  ds_publish[[design-system publish]] --> theme_runtime[Theme tokens swap live]
+  purge_user[[purge-user]] --> hard_delete[Cascades across user_places, collections, follows]
+  markers_save[[markers save]] --> app_settings_marker[app_settings.marker_config]
+  app_settings_marker --> map_repaint[LocationMap repaints]
