@@ -909,7 +909,7 @@ function CanonicalizeOneShotCard() {
         onOpenChange={setConfirmOpen}
         title="Canonicalize destructivo"
         description="Vas a fusionar admin_areas duplicadas y repuntear FKs en locations. Operación no reversible."
-        confirmToken="CANONICALIZE"
+        token="CANONICALIZE"
         onConfirm={async () => {
           setConfirmOpen(false);
           await run();
