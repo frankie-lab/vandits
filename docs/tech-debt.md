@@ -15,8 +15,8 @@ La prioridad debe combinar impacto en producto, riesgo operativo y facilidad de 
 | Ítem | Estado | Tipo | Comentario |
 |---|---|---|---|
 | 1. Versionado y documentación de estado | Resuelto formalizado | Gobernanza | `package.json`, README, UX y documentación quedan alineados en `1.2.2`. |
-| 1.1. Materializar rollback anchors con tags Git | Pendiente operativo | Release management | Rollback anchors documentados; faltan tags Git reales `v1.1.1`, `v1.2.0`, `v1.2.1`, `v1.2.2`, `v1.2.3`, `v1.2.4`, `v1.2.5`, `v1.2.6`, `v1.2.7`. |
-| 2. Catálogo de eventos globales | En progreso | Arquitectura | Inventario inicial + helper tipado parcial para eventos de Index/welcome/pending validations; faltan prefijos, catch-alls y cobertura completa. |
+| 1.1. Materializar rollback anchors con tags Git | Pendiente operativo | Release management | Rollback anchors documentados; faltan tags Git reales `v1.1.1`, `v1.2.0`, `v1.2.1`, `v1.2.2`, `v1.2.3`, `v1.2.4`, `v1.2.5`, `v1.2.6`, `v1.2.7`, `v1.2.8`. |
+| 2. Catálogo de eventos globales | En progreso | Arquitectura | Inventario inicial + helper tipado ampliado (12 eventos cubiertos); migrados eventos de bajo riesgo (`duplicate-threshold-changed`, `icon-library-changed`, `personal-categories:reload`). Pendientes: eventos con consumidor en `LocationMap.tsx` (`layer-visibility-changed`, `measurement-units-changed`, etc.), catch-alls (`store-updated`, `reload-locations`, `trash-updated`) y cobertura completa del bus. |
 | 3. Tests de gramática visual de puntos | Resuelto | Testing | Cubierto por `src/test/point-visual-state.test.ts` (11 casos para `enriched`, `imported`, `empty`). |
 | 4. Foto de arquitectura actual | Resuelto | Documentación técnica | Cubierto por `docs/architecture/current-architecture.md`. |
 | 5. Reducir responsabilidad de `Index.tsx` | Resuelto (2026-05-19) — tercera extracción incremental completada en v1.2.6 | Refactor | `v1.2.4` extrae `useWelcomeCardEvents`; `v1.2.5` extrae `usePendingValidationEvents`; `v1.2.6` extrae `useIndexGlobalEvents` + `useRoutePanelBridge`. Sin `window.addEventListener` inline en `Index.tsx`; puente routes panel encapsulado. |
