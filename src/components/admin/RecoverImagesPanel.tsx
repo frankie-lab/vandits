@@ -144,13 +144,13 @@ export function RecoverImagesPanel() {
     if (prevRunningRef.current && !running && opHandleRef.current) {
       const stopped = job.stopping;
       opHandleRef.current.complete({
-        status: stopped ? 'cancelled' : (job.failed > 0 && job.updated === 0 ? 'error' : 'ok'),
-        summary: `scanned=${job.scanned} updated=${job.updated} failed=${job.failed}`,
+        status: stopped ? 'cancelled' : (job.failedTransient > 0 && job.updated === 0 ? 'error' : 'ok'),
+        summary: `scanned=${job.scanned} updated=${job.updated} failed=${job.failedTransient}`,
       });
       opHandleRef.current = null;
     }
     prevRunningRef.current = running;
-  }, [running, job.stopping, job.scanned, job.updated, job.failed]);
+  }, [running, job.stopping, job.scanned, job.updated, job.failedTransient]);
 
   // Admin / target user
   const [isAdmin, setIsAdmin] = useState(false);
