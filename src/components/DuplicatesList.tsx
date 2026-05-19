@@ -491,9 +491,8 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                     setDistanceThreshold(newThreshold);
                     setThreshold(newThreshold);
                     
-                    window.dispatchEvent(new CustomEvent('duplicate-threshold-changed', { 
-                      detail: { threshold: newThreshold } 
-                    }));
+                    dispatchGlobalEvent('duplicate-threshold-changed', { threshold: newThreshold });
+
 
                     if (user?.id) {
                       try {
