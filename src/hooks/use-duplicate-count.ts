@@ -31,13 +31,11 @@ export function useDuplicateCount() {
 
   // Listen for panel threshold changes
   useEffect(() => {
-    const handler = (e: Event) => {
-      const t = (e as CustomEvent<{ threshold: number }>).detail?.threshold;
-      if (t) setThreshold(t);
-    };
-    window.addEventListener('duplicate-threshold-changed', handler);
-    return () => window.removeEventListener('duplicate-threshold-changed', handler);
+    return addGlobalEventListener('duplicate-threshold-changed', (detail) => {
+      if (detail?.threshold) setThreshold(detail.threshold);
+    });
   }, [setThreshold]);
+
 
   // Trigger recompute when dependencies change
   useEffect(() => {
