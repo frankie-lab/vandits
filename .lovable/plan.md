@@ -166,3 +166,36 @@ Tras los dos renames, el catálogo restante se considera **canon-coherente**:
 - Permisos efectivos de admin y master: intactos (siguen teniendo `view_geo_maintenance` y `run_geo_backfill`; master además `run_geo_canonicalize`).
 - Geography panel sigue funcionando; canonicalize sigue funcionando; backfills siguen funcionando — todo vía las capabilities canónicas.
 - Sin cambios de UX, RLS ni runtime.
+
+---
+
+## PR-BACKOFFICE-UX-CLOSURE-1 — Cierre operativo del canon RBAC/BackOffice
+
+Hace visible en la UX el canon ya saneado internamente. Sin nuevas capabilities, sin tocar RLS, sin rediseño visual.
+
+### Cambios aplicados
+
+1. **Sec. 5 — Purga de roles fantasma (migración SQL)**.
+   - Eliminados del enum `public.app_role` los valores `user`, `supervisor` y `curator` (0 titulares, 0 capabilities — verificado).
+   - Catálogo activo final: `{master, admin, moderator, editor}`.
+   - Patrón: snapshot de las 43 policies que dependían de `has_role` → drop functions CASCADE → reciclo del enum → recreate functions con firma idéntica → replay de policies idénticas. Sin cambios semánticos en RLS.
+   - Assertion final en la migración: `pg_enum` no contiene zombies.
+   - BL-021 cerrada (curator/user ya no inertes en pg_enum).
+
+2. **Sec. 1 — Matriz RBAC ya canónica**. `PermissionsMatrixPanel` ya era matriz capability × role agrupada por dominio (PR-RBAC-MATRIX-1). Se ajusta a 4 columnas, se generaliza la detección de roles vacíos/casi vacíos (banner ámbar genérico, no atado a `supervisor`).
+
+3. **Sec. 3 — EffectBadge único** (`src/components/admin/EffectBadge.tsx`): componente canon para señalizar efecto operativo. Kinds: `immediate | future-only | recompute | deferred | batch | destructive | global | read-only | internal`. Helper `effectsForCapability(cap)` deriva desde `CAPABILITY_META`. `EffectBadgeRow` para usar debajo del header de cada panel.
+
+4. **Sec. 2 — Information Architecture por dominio**. `AdminTabSpec` añade campo obligatorio `domain: AdminDomain` (`governance | content | geo-ops | runtime-config | providers | recovery | audit | internal`). Helper `groupAdminTabsByDomain(tabs)`. `AdminShell` agrupa el sidebar por dominio con header de sección.
+
+5. **Sec. 4 — Observability mínima** (`src/components/admin/observability/useOperationHistory.ts`): persistencia en `localStorage` por usuario, máximo 10 runs por `opKey`, sin schema nuevo. Hook `start()/handle.complete()` listo para cablear en panels de jobs.
+
+### Fuera de alcance (deferred a follow-up)
+- Cableado completo de `EffectBadgeRow` y `OperationStatusCard` en los 9 paneles (Geography, Image Recovery, Data Sources, Internal Tools, Audit, etc.).
+- Suite de contract tests (`admin-tabs-domains`, `rbac-roles-canon`, etc.) — pendiente.
+
+### Restricciones respetadas
+- 0 cambios en capabilities efectivas.
+- 0 cambios semánticos en RLS (policies reaplicadas idénticas).
+- 0 schema nuevo salvo la purga del enum `app_role`.
+- 0 rediseño visual general.
