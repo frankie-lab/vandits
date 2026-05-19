@@ -19,6 +19,24 @@ La prioridad debe combinar impacto en producto, riesgo operativo y facilidad de 
 
 `package.json`, README y documentación técnica deben contar la misma historia sobre la versión y el estado actual del proyecto.
 
+### 1.1. Materializar rollback anchors con tags Git
+
+- Severidad: media
+- Facilidad: alta
+- Riesgo de cambio: bajo
+- Estado: pendiente operativo (2026-05-19)
+
+La documentación de versionado ya define rollback anchors, pero faltan los tags Git reales:
+
+- `v1.1.1`
+- `v1.2.0`
+- `v1.2.1`
+- `v1.2.2`
+
+Hasta crear esos tags, el rollback está definido documentalmente pero no materializado como mecanismo técnico.
+
+No crear los tags desde Lovable si no existe soporte explícito para operaciones Git.
+
 ### 2. Catálogo de eventos globales
 
 - Severidad: media
