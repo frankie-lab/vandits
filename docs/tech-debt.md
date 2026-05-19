@@ -24,10 +24,12 @@ La prioridad debe combinar impacto en producto, riesgo operativo y facilidad de 
 - Severidad: media
 - Facilidad: media
 - Riesgo de cambio: bajo si se empieza documentando
+- Estado: documentación inicial (2026-05-19) — ver [`docs/architecture/global-events.md`](./architecture/global-events.md). Inventario inicial de ~75 eventos `CustomEvent` agrupados por dominio (mapa, itinerarios, toolbar/filtros, contenido, popups, social, admin) con emisor/consumidor/payload conocido y riesgos. Pendiente: tipado (`WindowEventMap`), unificación de prefijos, sustitución de catch-alls (`store-updated`, `reload-locations`).
 
 Vandits usa varios eventos globales vía `window.dispatchEvent` / `window.addEventListener`.
 
 Antes de refactorizarlos, documentar nombre, payload, emisor y consumidor.
+
 
 ### 3. Tests de gramática visual de puntos
 
