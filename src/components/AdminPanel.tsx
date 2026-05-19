@@ -73,7 +73,20 @@ const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'supervi
 const ALL_PERMISSIONS: AppPermission[] = [...CAPABILITIES];
 
 export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
+ const navigate = useNavigate();
  const { hasPermission, loading: permissionsLoading } = usePermissions();
+
+ // PR-BACKOFFICE-UX-CANON-3: si el tab solicitado vive ahora en una ruta
+ // dedicada `/admin/<key>`, redirige y cierra el modal en lugar de montarlo
+ // dentro de AdminPanel. Deep-link de cualquier call site sigue funcionando.
+ useEffect(() => {
+   const spec = getAdminTab(defaultTab as AdminTabKey | undefined);
+   if (spec && isRouteModeTab(spec)) {
+     navigate(getAdminTabPath(spec.key));
+     onClose();
+   }
+   // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [defaultTab]);
  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
  const [users, setUsers] = useState<UserWithRoles[]>([]);
  const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
