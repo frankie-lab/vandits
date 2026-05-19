@@ -541,17 +541,62 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  </AlertDialogDescription>
  </AlertDialogHeader>
  {purgeStep === 'preview' && (
- <AlertDialogFooter>
- <AlertDialogCancel>Cancelar</AlertDialogCancel>
- <Button variant="destructive" onClick={handlePurgeExecute}
- disabled={!purgePreview || (purgePreview.locations === 0 && purgePreview.documents === 0 && purgePreview.notes === 0 && purgePreview.photos === 0 && purgePreview.achievements === 0)}>
- Sí, limpiar usuario
- </Button>
- </AlertDialogFooter>
+ <PurgeTokenFooter
+ username={userToPurge?.username ?? ''}
+ disabled={!purgePreview || (purgePreview.locations === 0 && purgePreview.documents === 0 && purgePreview.notes === 0 && purgePreview.photos === 0 && purgePreview.achievements === 0)}
+ onConfirm={handlePurgeExecute}
+ />
  )}
  {purgeStep === 'loading-preview' && (<AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel></AlertDialogFooter>)}
  </AlertDialogContent>
  </AlertDialog>
+
+ {/* F3 — Asignar/revocar rol master con typed-token. */}
+ <DestructiveConfirmDialog
+ open={!!pendingMasterToggle}
+ onOpenChange={(next) => { if (!next) setPendingMasterToggle(null); }}
+ title={pendingMasterToggle?.hasRole ? '¿Revocar rol Master?' : '¿Asignar rol Master?'}
+ description={pendingMasterToggle ? (
+ <p>
+ {pendingMasterToggle.hasRole ? 'Vas a revocar' : 'Vas a asignar'} el rol{' '}
+ <strong>Master</strong> a{' '}
+ <strong>{pendingMasterToggle.user.display_name || pendingMasterToggle.user.username}</strong>.
+ {' '}El rol Master tiene acceso total y puede modificar permisos del resto de roles.
+ </p>
+ ) : null}
+ token="MASTER"
+ confirmLabel={pendingMasterToggle?.hasRole ? 'Revocar Master' : 'Asignar Master'}
+ onConfirm={async () => {
+ if (!pendingMasterToggle) return;
+ const { user, hasRole } = pendingMasterToggle;
+ setPendingMasterToggle(null);
+ await executeRoleToggle(user.id, 'master', hasRole);
+ }}
+ />
+
+ {/* F3 — Mutar role_permissions con typed-token. */}
+ <DestructiveConfirmDialog
+ open={!!pendingPermissionToggle}
+ onOpenChange={(next) => { if (!next) setPendingPermissionToggle(null); }}
+ title={pendingPermissionToggle?.hasPermission ? '¿Revocar permiso?' : '¿Asignar permiso?'}
+ description={pendingPermissionToggle ? (
+ <p>
+ {pendingPermissionToggle.hasPermission ? 'Vas a revocar' : 'Vas a asignar'} la capability{' '}
+ <code className="px-1 py-0.5 rounded bg-muted text-foreground font-mono text-[11px]">
+ {pendingPermissionToggle.permission}
+ </code>{' '}
+ al rol <strong>{ROLE_LABELS[pendingPermissionToggle.role]}</strong>.
+ </p>
+ ) : null}
+ token="MODIFICAR"
+ confirmLabel={pendingPermissionToggle?.hasPermission ? 'Revocar permiso' : 'Asignar permiso'}
+ onConfirm={async () => {
+ if (!pendingPermissionToggle) return;
+ const { role, permission, hasPermission } = pendingPermissionToggle;
+ setPendingPermissionToggle(null);
+ await executePermissionToggle(role, permission, hasPermission);
+ }}
+ />
   </motion.div>
   );
 }
