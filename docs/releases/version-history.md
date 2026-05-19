@@ -53,7 +53,8 @@ Las versiones estables deben poder usarse como puntos de retorno.
 - `v1.1.1`: último punto estable antes de formalizar rutas.
 - `v1.2.0`: rutas e itinerarios base.
 - `v1.2.1`: refinamiento de rutas/intermodal/persistencia.
-- `v1.2.2`: versión actual; gobernanza de versiones y árbol histórico.
+- `v1.2.2`: gobernanza de versiones y árbol histórico.
+- `v1.2.3`: versión actual; tests de gramática visual de puntos.
 
 Regla:
 
