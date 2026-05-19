@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { usePermissions, type AppRole, type AppPermission } from '@/domains/identity';
+import { usePermissions, type AppRole } from '@/domains/identity';
 import { CAPABILITIES, CAPABILITY_LABELS } from '@/domains/identity/capabilities';
 import {
  AlertDialog,
@@ -45,10 +45,8 @@ interface UserWithRoles {
  roles: AppRole[];
 }
 
-interface RolePermission {
- role: AppRole;
- permission: AppPermission;
-}
+// PR-BACKOFFICE-DEAD-SURFACES-1 H2 — `RolePermission`, `ALL_PERMISSIONS`,
+// `PERMISSION_LABELS` removed. La matriz canon vive en PermissionsMatrixPanel.
 
 const ROLE_LABELS: Record<AppRole, string> = {
   master: 'Master',
@@ -64,13 +62,8 @@ const ROLE_COLORS: Record<AppRole, string> = {
   editor: 'bg-blue-500',
 };
 
-// Etiquetas de permisos vienen del SoT único (`capabilities.ts`).
-const PERMISSION_LABELS = CAPABILITY_LABELS;
-
 // Canon RBAC PR-BACKOFFICE-UX-CLOSURE-1: 4 roles activos. `user`/`supervisor`/`curator` purgados del enum.
 const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor'];
-// Lista completa de capabilities en orden canónico (SoT único).
-const ALL_PERMISSIONS: AppPermission[] = [...CAPABILITIES];
 
 export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  const navigate = useNavigate();
