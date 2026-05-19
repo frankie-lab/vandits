@@ -21,6 +21,7 @@ import {
  AlertDialogHeader,
  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { DestructiveConfirmDialog } from '@/shared/components/ui/destructive-confirm-dialog';
 
 import { ADMIN_TABS, getAdminTab, type AdminTabKey } from './admin/admin-tabs';
 import { AdminGate } from './admin/AdminGate';
@@ -81,10 +82,12 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  const [savingRole, setSavingRole] = useState<string | null>(null);
  const [userToDelete, setUserToDelete] = useState<UserWithRoles | null>(null);
  const [userToPurge, setUserToPurge] = useState<UserWithRoles | null>(null);
- const [purging, setPurging] = useState(false);
  const [purgeStep, setPurgeStep] = useState<'idle' | 'loading-preview' | 'preview' | 'executing' | 'done'>('idle');
  const [purgePreview, setPurgePreview] = useState<{ targetUser: string; locations: number; documents: number; notes: number; photos: number; achievements: number } | null>(null);
  const [purgeProgress, setPurgeProgress] = useState(0);
+ // PR-BACKOFFICE-GOVERNANCE F3 — confirmaciones tipadas para acciones destructivas.
+ const [pendingMasterToggle, setPendingMasterToggle] = useState<{ user: UserWithRoles; hasRole: boolean } | null>(null);
+ const [pendingPermissionToggle, setPendingPermissionToggle] = useState<{ role: AppRole; permission: AppPermission; hasPermission: boolean } | null>(null);
 
  // PR-ADMIN-AUDIT Step 3: role-management requires manage_permissions (master-only),
  // NOT manage_users (which admins also hold). Prevents admin → master self-escalation.
@@ -240,6 +243,18 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  }
  }
 
+ // F3 — Asignar/revocar master exige typed-token. Diferimos al diálogo.
+ if (role === 'master') {
+ const user = users.find(u => u.id === userId);
+ if (!user) return;
+ setPendingMasterToggle({ user, hasRole });
+ return;
+ }
+
+ await executeRoleToggle(userId, role, hasRole);
+ };
+
+ const executeRoleToggle = async (userId: string, role: AppRole, hasRole: boolean) => {
  setSavingRole(`${userId}-${role}`);
  try {
  if (hasRole) {
@@ -277,6 +292,11 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  toast.error('Solo los Masters pueden modificar permisos');
  return;
  }
+ // F3 — toda mutación del matrix exige typed-token.
+ setPendingPermissionToggle({ role, permission, hasPermission });
+ };
+
+ const executePermissionToggle = async (role: AppRole, permission: AppPermission, hasPermission: boolean) => {
  setSavingRole(`${role}-${permission}`);
  try {
  if (hasPermission) {
@@ -521,17 +541,107 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  </AlertDialogDescription>
  </AlertDialogHeader>
  {purgeStep === 'preview' && (
- <AlertDialogFooter>
- <AlertDialogCancel>Cancelar</AlertDialogCancel>
- <Button variant="destructive" onClick={handlePurgeExecute}
- disabled={!purgePreview || (purgePreview.locations === 0 && purgePreview.documents === 0 && purgePreview.notes === 0 && purgePreview.photos === 0 && purgePreview.achievements === 0)}>
- Sí, limpiar usuario
- </Button>
- </AlertDialogFooter>
+ <PurgeTokenFooter
+ username={userToPurge?.username ?? ''}
+ disabled={!purgePreview || (purgePreview.locations === 0 && purgePreview.documents === 0 && purgePreview.notes === 0 && purgePreview.photos === 0 && purgePreview.achievements === 0)}
+ onConfirm={handlePurgeExecute}
+ />
  )}
  {purgeStep === 'loading-preview' && (<AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel></AlertDialogFooter>)}
  </AlertDialogContent>
  </AlertDialog>
-  </motion.div>
-  );
+
+ {/* F3 — Asignar/revocar rol master con typed-token. */}
+ <DestructiveConfirmDialog
+ open={!!pendingMasterToggle}
+ onOpenChange={(next) => { if (!next) setPendingMasterToggle(null); }}
+ title={pendingMasterToggle?.hasRole ? '¿Revocar rol Master?' : '¿Asignar rol Master?'}
+ description={pendingMasterToggle ? (
+ <p>
+ {pendingMasterToggle.hasRole ? 'Vas a revocar' : 'Vas a asignar'} el rol{' '}
+ <strong>Master</strong> a{' '}
+ <strong>{pendingMasterToggle.user.display_name || pendingMasterToggle.user.username}</strong>.
+ {' '}El rol Master tiene acceso total y puede modificar permisos del resto de roles.
+ </p>
+ ) : null}
+ token="MASTER"
+ confirmLabel={pendingMasterToggle?.hasRole ? 'Revocar Master' : 'Asignar Master'}
+ onConfirm={async () => {
+ if (!pendingMasterToggle) return;
+ const { user, hasRole } = pendingMasterToggle;
+ setPendingMasterToggle(null);
+ await executeRoleToggle(user.id, 'master', hasRole);
+ }}
+ />
+
+ {/* F3 — Mutar role_permissions con typed-token. */}
+ <DestructiveConfirmDialog
+ open={!!pendingPermissionToggle}
+ onOpenChange={(next) => { if (!next) setPendingPermissionToggle(null); }}
+ title={pendingPermissionToggle?.hasPermission ? '¿Revocar permiso?' : '¿Asignar permiso?'}
+ description={pendingPermissionToggle ? (
+ <p>
+ {pendingPermissionToggle.hasPermission ? 'Vas a revocar' : 'Vas a asignar'} la capability{' '}
+ <code className="px-1 py-0.5 rounded bg-muted text-foreground font-mono text-[11px]">
+ {pendingPermissionToggle.permission}
+ </code>{' '}
+ al rol <strong>{ROLE_LABELS[pendingPermissionToggle.role]}</strong>.
+ </p>
+ ) : null}
+ token="MODIFICAR"
+ confirmLabel={pendingPermissionToggle?.hasPermission ? 'Revocar permiso' : 'Asignar permiso'}
+ onConfirm={async () => {
+ if (!pendingPermissionToggle) return;
+ const { role, permission, hasPermission } = pendingPermissionToggle;
+ setPendingPermissionToggle(null);
+ await executePermissionToggle(role, permission, hasPermission);
+ }}
+ />
+   </motion.div>
+   );
+}
+
+/**
+ * F3 — Footer del diálogo de purge con typed-token "PURGAR <username>".
+ * Se separa para no romper la accesibilidad del AlertDialog cuando el step cambia.
+ */
+function PurgeTokenFooter({
+ username,
+ disabled,
+ onConfirm,
+}: {
+ username: string;
+ disabled: boolean;
+ onConfirm: () => void;
+}) {
+ const token = `PURGAR ${username}`;
+ const [typed, setTyped] = useState('');
+ const matches = typed === token;
+ return (
+ <div className="space-y-2">
+ <label className="text-xs text-muted-foreground block">
+ Para continuar, escribe{' '}
+ <code className="px-1 py-0.5 rounded bg-muted text-foreground font-mono text-[11px]">{token}</code>{' '}
+ exactamente.
+ </label>
+ <Input
+ value={typed}
+ onChange={(e) => setTyped(e.target.value)}
+ placeholder={token}
+ autoFocus
+ className="font-mono"
+ data-testid="purge-token-input"
+ />
+ <AlertDialogFooter>
+ <AlertDialogCancel>Cancelar</AlertDialogCancel>
+ <Button
+ variant="destructive"
+ disabled={disabled || !matches}
+ onClick={onConfirm}
+ >
+ Sí, limpiar usuario
+ </Button>
+ </AlertDialogFooter>
+ </div>
+ );
 }
