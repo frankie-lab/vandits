@@ -157,14 +157,22 @@ Leyenda: KEEP · SIMPLIFY · SPLIT · MERGE · REMOVE · MOVE_TO_ROUTE · DEPREC
 
 ---
 
-## 8 · Próximo PR sugerido (no incluido en este audit)
+## 8 · PR-BACKOFFICE-UX-CANON-2 · DONE
 
-Orden propuesto si apruebas:
+**SPLIT** `EnrichmentCardConfig` y **MERGE** proveedores de imagen en `DataSourcesPanel`.
 
-1. **PR-BACKOFFICE-UX-CANON-2 · SPLIT enrichment** (render-ficha vs política editorial vs providers) + MERGE providers de imagen en `DataSources`.
-2. **PR-BACKOFFICE-UX-CANON-3 · MOVE_TO_ROUTE** de design-system, geography, sources, image-recovery, audit, enrichment dentro de un shell `/admin/*`.
-3. **PR-BACKOFFICE-UX-CANON-4 · SIMPLIFY routes** (mostrar pila global↔user resuelta) y **SPLIT markers** (sizes vs states).
-4. **PR-BACKOFFICE-UX-CANON-5 · RENAME design-system** → Inspector + recategorize.
-5. Deuda fuera de scope: `users.email` cleanup, `IconLibraryManager` upsert, surface para `run_internal_tooling`.
+Cambios aplicados:
 
-Aprueba para que arranque por PR-2 (o reordena).
+- `EnrichmentCardConfig.tsx` reorganizado en 3 secciones con etiqueta de efecto:
+  1. **Render de ficha** — badge "Efecto inmediato" (toggles include_*, orden de campos).
+  2. **Política editorial IA** — badge "Solo nuevos enriquecimientos" + banner ámbar (tono, min_length, include_image, correct_coordinates, custom_prompt).
+  3. **Proveedores de imagen** — pointer block hacia "Fuentes de datos" (sin picker inline).
+- `DataSourcesPanel.tsx` añade 4º grupo **Imágenes**: lista canónica de 7 proveedores leyendo/escribiendo `enrichment_card_config.image_sources` + toggle global `include_image`. Cada fila muestra el código `kill-switch` (`enrich.commons`, `enrich.wikipedia`…) y un badge ámbar cuando esa fuente de `kind=enrichment` está deshabilitada (anulación visible).
+- Precedencia documentada en UI: `data_sources.enabled` = kill-switch global; `enrichment_card_config.image_sources` = filtro/selección. Sin cambios en `enrich-location` (ya respetaba esa precedencia vía `isImageSourceAllowed`).
+
+Próximo PR sugerido (pendiente aprobación):
+
+1. **PR-BACKOFFICE-UX-CANON-3 · MOVE_TO_ROUTE** de design-system, geography, sources, image-recovery, audit, enrichment dentro de un shell `/admin/*`.
+2. **PR-BACKOFFICE-UX-CANON-4 · SIMPLIFY routes** (mostrar pila global↔user resuelta) y **SPLIT markers** (sizes vs states).
+3. **PR-BACKOFFICE-UX-CANON-5 · RENAME design-system** → Inspector + recategorize.
+4. Deuda fuera de scope: `users.email` cleanup, `IconLibraryManager` upsert, surface para `run_internal_tooling`.
