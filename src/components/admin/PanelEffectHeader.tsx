@@ -45,7 +45,7 @@ export function PanelEffectHeader({ capability, label, className }: PanelEffectH
     >
       <EffectBadgeRow effects={effects} />
       {isDeferred && (
-        <OperationStatusCard opKey={operationKeyForCapability(capability)} label={label ?? meta?.label} />
+        <OperationStatusCard opKey={operationKeyForCapability(capability)} label={label ?? capability} />
       )}
     </div>
   );
