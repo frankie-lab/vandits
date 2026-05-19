@@ -1,6 +1,6 @@
 # Catálogo de eventos globales (window)
 
-Estado: **documentación inicial** — 2026-05-19  
+Estado: **inventario inicial + helper tipado parcial** — 2026-05-19  
 Alcance: inventario de los eventos `CustomEvent` emitidos/escuchados sobre `window` en `src/**`.  
 **No** describe contratos cerrados ni autoriza refactor; ver `docs/tech-debt.md` ítem 2.
 

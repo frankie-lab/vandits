@@ -1,6 +1,6 @@
 # Vandits Versioning Policy
 
-Estado: inicial — 2026-05-19
+Estado: activo — 2026-05-19
 
 Vandits adopta **Semantic Versioning** (SemVer) en formato `MAJOR.MINOR.PATCH`.
 Esta política define qué tipo de cambio justifica cada nivel y cómo se gestionan
