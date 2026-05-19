@@ -74,6 +74,7 @@ Los anchors documentados requieren tags Git reales para funcionar como rollback 
 - [ ] `v1.2.0`
 - [ ] `v1.2.1`
 - [ ] `v1.2.2`
+- [ ] `v1.2.3`
 
 Esta lista no debe marcarse como completada hasta verificar que los tags existen realmente en GitHub.
 
