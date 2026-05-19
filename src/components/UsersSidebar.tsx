@@ -455,10 +455,10 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  }, [users, searchTerm, currentUser?.id, relationFilter]);
 
  const getPrimaryRole = (roles: string[]): string => {
-  // Canon RBAC PR-ADMIN-AUDIT-3: catálogo activo (sin 'user' como rol explícito).
-  // Si el usuario no tiene rol asignado, se devuelve cadena vacía y el render
-  // muestra el badge neutro/sin rol.
- const priority = ['master', 'admin', 'moderator', 'supervisor', 'editor'];
+    // Canon RBAC PR-BACKOFFICE-UX-CLOSURE-1: 4 roles activos (master/admin/moderator/editor).
+    // Si el usuario no tiene rol asignado, se devuelve cadena vacía y el render
+    // muestra el badge neutro/sin rol.
+    const priority = ['master', 'admin', 'moderator', 'editor'];
  for (const role of priority) {
  if (roles.includes(role)) return role;
  }
