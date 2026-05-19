@@ -44,6 +44,43 @@ publicados; algunas son hitos **reconstructed** para fijar memoria histórica.
 
 ---
 
+## Patch History
+
+Las versiones patch reconstruidas agrupan bloques coherentes de fixes/estabilización. No representan un commit por versión. Las entradas `reconstructed` no fueron necesariamente releases formales publicadas en su momento.
+
+### 0.x — Pre-release / fundación
+
+| Versión | Fecha | Tipo | Hito | Confianza | Evidencia |
+|---|---:|---|---|---|---|
+| 0.1.0-alpha | 2026-01-16 | inferred | Mapa base, locations, filtros, Leaflet y primeros popups | medium | Commits iniciales de mapa, filtros y popups. |
+| 0.1.1-alpha | 2026-01-16 | inferred patch | Correcciones iniciales de mapa/filtros/runtime | medium | Fix map rendering with Leaflet, FilterBar, múltiples instancias React, overlays/modales. |
+| 0.2.0-alpha | 2026-01-16 | inferred | Enriquecimiento IA + popup enriquecido | medium | Show enriched popup. |
+| 0.2.1-alpha | 2026-01-16 | inferred patch | Estabilización de enriquecimiento/import | medium | AI edge handling, KML UUID, guardado al pausar enriquecimiento, batch resume. |
+| 0.3.0-alpha | 2026-01-16 | inferred | Geografía, tags y filtros interactivos | medium | Filtros clicables, tags geográficos, árbol de tags, hashtags. |
+| 0.3.1-alpha | 2026-01-16 | inferred patch | Correcciones de geografía/tags/popup | medium | Continente desconocido, hashtags geográficos, filtros desde popup, null safety. |
+| 0.4.0-beta | 2026-01-16 | inferred | Mapa fullscreen + experiencia app | medium | Make map fullscreen with popups. |
+| 0.4.1-beta | 2026-01-16 | inferred patch | Estabilización de realtime, popups y foco | medium | Realtime hook crash, popup update safety, popup null safety, foco al enriquecer. |
+
+### 1.x — Producto funcional
+
+| Versión | Fecha | Tipo | Hito | Confianza | Evidencia |
+|---|---:|---|---|---|---|
+| 1.0.0 | 2026-01-17 | stable | Sistema completo inicial | high | README changelog. |
+| 1.0.1 | 2026-01-17 | reconstructed patch | Estabilización post-1.0 | medium | useDatabaseSync race, popup lookup, geo hashtags, map center, search icon, semantic toggle, TagsTree, impacto enriquecimiento, animación, auth redirect, profile sync, admin scroll/loading. |
+| 1.1.0 | 2026-01-18 | stable | Layout unificado y consistencia UX | high | README changelog. |
+| 1.1.1 | 2026-04-19 | stable current | Welcome card + fix conteo catálogo | high | README changelog + `package.json`. |
+| 1.1.2 | TBD | candidate patch | Estabilización social/fotos/delete/markers posterior a 1.1.1 | medium | Users sidebar, photo update flow, duplicate threshold, delete workflow, soft-deleted locations, curator marker fallback, map scale guard, marker interaction, dialog close guard. |
+| 1.2.0 | 2026-04-04 | reconstructed minor | Rutas e itinerarios base | medium-high | routes schema, route_waypoints, calculate-route, RouteBuilder, RoutesListPanel, renderizado en mapa y eventos de rutas. |
+| 1.2.1 | 2026-04-06 | reconstructed patch | Refinamiento rutas/intermodal/persistencia | medium | stages, ida/vuelta, colores, persistencia, ferry_routes, alternativas driving/ferry/flight, selección en mapa, agrupación padre/hijo, skeleton, paradas/jornadas. |
+| 1.2.2 | TBD | planned patch | Gobernanza y estabilización documental | planned | versioning policy, reconstructed history, global events docs, tech debt. |
+| 1.3.0 | TBD | planned minor | Architecture baseline | planned | Requiere tests visuales, foto arquitectura, tipado inicial eventos y reducción de deuda. |
+
+Decisión de gobernanza: no se crea una patch version por commit. Solo se documentan patches cuando agrupan un bloque coherente de correcciones o estabilización con valor histórico.
+
+La versión oficial actual sigue siendo **1.1.1** hasta que se haga un release/bump explícito. Entradas marcadas como `TBD`, `candidate patch`, `planned patch` o `planned minor` son hitos propuestos, no versiones publicadas.
+
+---
+
 ## 0.x — Prototipo y fundación
 
 | Versión        | Fecha       | Tipo       | Hito                                              | Confianza | Evidencia |
