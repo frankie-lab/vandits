@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Shield, ChevronDown, ChevronRight, Loader2, Search, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,7 +24,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { DestructiveConfirmDialog } from '@/shared/components/ui/destructive-confirm-dialog';
 
-import { ADMIN_TABS, getAdminTab, type AdminTabKey } from './admin/admin-tabs';
+import { ADMIN_TABS, getAdminTab, isRouteModeTab, getAdminTabPath, type AdminTabKey } from './admin/admin-tabs';
 import { AdminGate } from './admin/AdminGate';
 
 type AdminTab = AdminTabKey;
