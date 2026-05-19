@@ -11,6 +11,7 @@ import { updateMarkerSizeConfig, type MarkerSizeMap } from '@/components/map/use
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MarkerStateRulesPanel } from './MarkerStateRulesPanel';
+import { EffectBadge } from '@/shared/components/ui/effect-badge';
 
 interface MarkerConfig {
   id: string;
@@ -283,10 +284,13 @@ export function MarkerSizeManager() {
   return (
     <Tabs defaultValue="sizes" className="flex flex-col h-full min-h-0" onValueChange={() => {}}>
       <div className="shrink-0 px-4 pt-2 pb-1 border-b border-border">
+        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+          <EffectBadge kind="cache-delay" detail="~5s para todos los usuarios" />
+        </div>
         <p className="text-[10px] text-muted-foreground leading-snug mb-1.5">
           Dos modelos distintos: <strong className="text-foreground">tamaños/colores por tipo</strong> (qué dibujamos) y
           {' '}<strong className="text-foreground">reglas de estado visual</strong> (paleta canónica enriched/imported/empty).
-          Ambos efecto inmediato; aplican a TODOS los usuarios.
+          Aplican a TODOS los usuarios.
         </p>
         <TabsList onClick={stop} onPointerDown={stop} onMouseDown={stop}>
           <TabsTrigger value="sizes" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}>

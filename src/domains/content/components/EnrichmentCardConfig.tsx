@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { invalidateCardConfig } from '@/components/map/map-popups';
+import { EffectBadge } from '@/shared/components/ui/effect-badge';
 
 /* ── Types ── */
 interface CardField {
@@ -815,9 +816,8 @@ export function EnrichmentCardConfig() {
                 <Eye className="w-4 h-4 text-emerald-500" />
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">Render de ficha</h4>
               </div>
-              <Badge variant="outline" className="text-[9px] border-emerald-500/40 text-emerald-700 dark:text-emerald-400">
-                Efecto inmediato
-              </Badge>
+              <EffectBadge kind="immediate" detail="popups recargan al guardar" />
+
             </div>
             <p className="text-[10px] text-muted-foreground leading-snug">
               Afecta cómo se pintan los popups del mapa. Al guardar, todos los POIs ya enriquecidos reflejan los cambios sin re-enriquecer.
@@ -902,9 +902,8 @@ export function EnrichmentCardConfig() {
                 <Wand2 className="w-4 h-4 text-amber-500" />
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">Política editorial IA</h4>
               </div>
-              <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-700 dark:text-amber-400">
-                Solo nuevos enriquecimientos
-              </Badge>
+              <EffectBadge kind="future-only" detail="POIs ya enriquecidos no cambian" />
+
             </div>
             <div className="flex items-start gap-2 px-2 py-2 rounded bg-amber-500/5 border border-amber-500/20">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />

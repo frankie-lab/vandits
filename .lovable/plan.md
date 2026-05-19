@@ -216,3 +216,31 @@ SIMPLIFY routes + SPLIT markers — clarificar ownership real sin tocar schema n
 
 ### Out of scope (deuda aceptada)
 - Si se quisiera un override realmente global (no por-usuario), requeriría schema nuevo (`app_settings.route_engine_global` o tabla dedicada) + cambios en `calculate-route` y `use-route-calculation`. NO se hace en este PR.
+
+---
+
+## 11 · PR-BACKOFFICE-UX-CANON-5 · DONE
+
+Cierre semántico del BackOffice — sin schema, sin lógica core.
+
+### Cambios
+- **Rename**: `Design System` → **`Design System Inspector`** (admin tab label). Refleja que hoy es audit/read-only, no editor.
+- **Audit panel**: las 4 tabs ahora viven en **dos clusters visuales** separados con label + subtítulo:
+  - `Runtime audit` (Estado resuelto + Runtime vs DB) → "Lo que la app está usando AHORA".
+  - `Debug técnico` (Trazas + Escenarios) → "Event tracing y verificación".
+- **Geography panel**: header re-taxonomizado en 3 categorías explícitas (rutinario / masivas / canonicalize one-shot). Nueva sección prominente **`CanonicalizeOneShotCard`** con border destructivo, toggle dry-run, `DestructiveConfirmDialog` token `CANONICALIZE`, gated por `useCapability('run_geo_canonicalize')`. Cierra la capability huérfana sin enterrarla como acción secundaria.
+- **Internal tooling surface explícita**: nuevo tab admin `/admin/internal-tools` (capability `run_internal_tooling`, icon `Terminal`). Panel `InternalToolsPanel` lista inventario de edge tools internas (create-test-users, canonicalize-admin-areas, purge-user, geocoding-job-tick, image-recovery-job-tick) con ownership UX explícito (panel / inline / cron / aquí) y `EffectBadge` por tool. Cierra capability huérfana.
+- **Runtime semantics canónico**: nuevo primitivo `src/shared/components/ui/effect-badge.tsx` con 5 variantes (`immediate` / `future-only` / `recompute` / `deferred` / `cache-delay`). Aplicado en:
+  - `RouteSettingsPanel` → `immediate` (próximos cálculos del usuario actual).
+  - `MarkerSizeManager` → `cache-delay` (~5s, todos los usuarios).
+  - `EnrichmentCardConfig` → `immediate` (render) + `future-only` (política IA).
+  - `InternalToolsPanel` → uno por tool.
+  - `CanonicalizeOneShotCard` → `deferred`.
+
+### Tests
+- `src/test/backoffice-ux-canon-5-contract.test.ts`: valida rename Inspector, surface internal-tools, presencia del bloque Canonicalize one-shot y de las 3 categorías taxonómicas, prohíbe tabs sin capability.
+- `src/test/admin-route-tabs-contract.test.ts` extendido para incluir `internal-tools` en el set canónico de routes.
+
+### Out of scope (deuda aceptada)
+- Cron tools (`geocoding-job-tick`, `image-recovery-job-tick`) no son ejecutables manualmente desde el panel — solo declaradas; trigger manual sería un PR separado.
+- `EffectBadge` no cubre aún `DataSourcesPanel` (4 grupos heterogéneos) — pendiente PR-6 si se requiere.

@@ -1,0 +1,153 @@
+/**
+ * InternalToolsPanel — Surface explícita para `run_internal_tooling`.
+ *
+ * Objetivo (PR-BACKOFFICE-UX-CANON-5):
+ *   - Cerrar la capability huérfana `run_internal_tooling` con ownership UX claro.
+ *   - Listar TODAS las edge tools internas disponibles, su estado de wiring,
+ *     y desde dónde se invocan (UI o cron). Sin esconderlas en URLs sueltas.
+ *
+ * Inventario actual (rev. 2026-05-19):
+ *   - create-test-users          → fixtures E2E (capability gated).
+ *   - canonicalize-admin-areas   → ver `/admin/geography` · one-shot prominente.
+ *   - purge-user                 → invocado desde `Gestión de usuarios`.
+ *   - geocoding-job-tick         → cron interno; no UI directa.
+ *
+ * Toda nueva tool interna debe declararse aquí o quedarse fuera del backoffice
+ * (script directo). NO se permiten edges runtime sin ownership UX.
+ */
+import { useState } from 'react';
+import { Terminal, Play, Loader2, ExternalLink, Info } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { Link } from 'react-router-dom';
+import { EffectBadge } from '@/shared/components/ui/effect-badge';
+
+interface ToolSpec {
+  id: string;
+  title: string;
+  description: string;
+  /** Where the tool is operated from. */
+  ownership:
+    | { kind: 'panel'; label: string; path?: string }
+    | { kind: 'inline'; label: string }
+    | { kind: 'cron'; label: string }
+    | { kind: 'here'; runner: () => Promise<void> };
+  effect: 'immediate' | 'deferred' | 'future-only';
+}
+
+export function InternalToolsPanel() {
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const runCreateTestUsers = async () => {
+    setBusy('create-test-users');
+    try {
+      const { error } = await supabase.functions.invoke('create-test-users', { body: {} });
+      if (error) throw error;
+      toast.success('create-test-users completado');
+    } catch (e) {
+      console.error('[internal-tools]', e);
+      toast.error('No se pudo ejecutar create-test-users');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const tools: ToolSpec[] = [
+    {
+      id: 'create-test-users',
+      title: 'create-test-users',
+      description: 'Crea fixtures E2E (sandbox-agent + cuentas auxiliares). Solo entornos de prueba.',
+      ownership: { kind: 'here', runner: runCreateTestUsers },
+      effect: 'immediate',
+    },
+    {
+      id: 'canonicalize-admin-areas',
+      title: 'canonicalize-admin-areas',
+      description: 'Deduplica y re-puntera admin_areas. One-shot destructivo.',
+      ownership: { kind: 'panel', label: 'Mantenimiento geográfico', path: '/admin/geography' },
+      effect: 'deferred',
+    },
+    {
+      id: 'purge-user',
+      title: 'purge-user',
+      description: 'Borra usuario y todos sus datos derivados. Last-master guard.',
+      ownership: { kind: 'panel', label: 'Gestión de usuarios' },
+      effect: 'immediate',
+    },
+    {
+      id: 'geocoding-job-tick',
+      title: 'geocoding-job-tick',
+      description: 'Procesa lotes pendientes de geocoding. Disparado por cron interno.',
+      ownership: { kind: 'cron', label: 'cron interno · cada minuto' },
+      effect: 'deferred',
+    },
+    {
+      id: 'image-recovery-job-tick',
+      title: 'image-recovery-job-tick',
+      description: 'Procesa lotes de recuperación de imágenes. Disparado por cron.',
+      ownership: { kind: 'cron', label: 'cron interno' },
+      effect: 'deferred',
+    },
+  ];
+
+  return (
+    <div className="flex-1 min-h-0 flex flex-col p-4 gap-4 overflow-y-auto">
+      <header className="rounded-lg border border-border bg-muted/20 p-4">
+        <div className="flex items-center gap-2 mb-1.5">
+          <Terminal className="w-4 h-4 text-slate-500" />
+          <h2 className="text-sm font-semibold">Internal tooling</h2>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Inventario único de edge tools internas y su ownership UX. Si una tool no aparece
+          aquí, no debería existir como edge runtime. Toda tool nueva debe registrarse en
+          este panel o quedarse como script directo (fuera del backoffice).
+        </p>
+      </header>
+
+      <ul className="space-y-2">
+        {tools.map((t) => (
+          <li key={t.id} className="rounded-lg border bg-card p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <code className="text-xs font-mono font-semibold text-foreground">{t.title}</code>
+                  <EffectBadge kind={t.effect} />
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1 leading-snug">{t.description}</p>
+                <div className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <Info className="w-3 h-3" />
+                  <span>Ownership:</span>
+                  {t.ownership.kind === 'panel' && (
+                    t.ownership.path ? (
+                      <Link to={t.ownership.path} className="text-primary hover:underline inline-flex items-center gap-1">
+                        {t.ownership.label} <ExternalLink className="w-2.5 h-2.5" />
+                      </Link>
+                    ) : (
+                      <span className="text-foreground/80">{t.ownership.label}</span>
+                    )
+                  )}
+                  {t.ownership.kind === 'inline' && <span className="text-foreground/80">{t.ownership.label}</span>}
+                  {t.ownership.kind === 'cron' && <span className="text-foreground/80">{t.ownership.label}</span>}
+                  {t.ownership.kind === 'here' && <span className="text-foreground/80">ejecutable aquí</span>}
+                </div>
+              </div>
+              {t.ownership.kind === 'here' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => t.ownership.kind === 'here' && t.ownership.runner()}
+                  disabled={busy === t.id}
+                  className="text-xs shrink-0"
+                >
+                  {busy === t.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Play className="w-3 h-3 mr-1" />}
+                  Ejecutar
+                </Button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

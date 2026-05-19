@@ -362,18 +362,34 @@ export function GeographyBackfillPanel() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-4 p-4 overflow-hidden">
-      {/* Subheader: framing del panel como consola admin */}
-      <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 text-xs text-muted-foreground leading-relaxed">
-        <p>
-          Operaciones <strong className="text-foreground">globales y masivas</strong> sobre jerarquías administrativas.
-          {' '}Para reparaciones puntuales usa <strong className="text-foreground">Salud</strong> en el mapa
-          (chips bajo el filtro principal).
+      {/* Subheader: 3-section taxonomy (PR-BACKOFFICE-UX-CANON-5) */}
+      <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 text-xs text-muted-foreground leading-relaxed space-y-1.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground/80">
+          Tres modelos operativos distintos
         </p>
+        <ul className="space-y-0.5 list-disc list-inside ml-1">
+          <li>
+            <strong className="text-foreground">Mantenimiento rutinario</strong>: chips de salud bajo el filtro principal del mapa (reparación punto a punto).
+          </li>
+          <li>
+            <strong className="text-foreground">Operaciones masivas</strong> (este panel): repair / fill / review sobre universos por usuario.
+          </li>
+          <li>
+            <strong className="text-foreground">Canonicalize one-shot</strong> (debajo): dedupe destructivo de admin_areas — master-only.
+          </li>
+        </ul>
       </div>
+
+      <CanonicalizeOneShotCard />
 
       {/* PASO 1 — Modo de normalización (3 tarjetas a ancho completo) */}
       <section className="rounded-lg border bg-muted/10">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3">
+        <div className="px-3 pt-3 pb-1 flex items-center justify-between">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Operaciones masivas · paso 1: modo
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 pt-1">
           {(Object.keys(MODE_META) as Mode[]).map((m) => {
             const meta = MODE_META[m];
             const Icon = meta.icon;
@@ -801,5 +817,104 @@ function LastResultCard({
         Finalizado {formatRelative(result.finishedAt)}
       </div>
     </div>
+  );
+}
+
+// ─── Canonicalize one-shot (PR-BACKOFFICE-UX-CANON-5) ──────────────────────
+// Surface explícita para `run_geo_canonicalize` (master-only). Antes esta
+// edge no tenía UI y la capability quedaba huérfana.
+import { DestructiveConfirmDialog } from '@/shared/components/ui/destructive-confirm-dialog';
+import { EffectBadge } from '@/shared/components/ui/effect-badge';
+import { useCapability } from '@/domains/identity';
+import { ShieldAlert } from 'lucide-react';
+
+function CanonicalizeOneShotCard() {
+  const { allowed: canRun } = useCapability('run_geo_canonicalize');
+  const [busy, setBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [lastResult, setLastResult] = useState<{ merged: number; dryRun: boolean } | null>(null);
+  const [dryRun, setDryRun] = useState(true);
+
+  if (!canRun) return null;
+
+  const run = async () => {
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('canonicalize-admin-areas', {
+        body: { dryRun },
+      });
+      if (error) throw error;
+      const merged = (data as { merged?: number })?.merged ?? 0;
+      setLastResult({ merged, dryRun });
+      toast.success(
+        dryRun
+          ? `Dry-run: ${merged} fusiones detectadas (sin escribir)`
+          : `Canonicalize ejecutado: ${merged} áreas fusionadas`,
+      );
+    } catch (e) {
+      console.error('[canonicalize-admin-areas]', e);
+      toast.error('No se pudo ejecutar canonicalize');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="rounded-lg border-2 border-destructive/30 bg-destructive/5 p-4">
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <ShieldAlert className="w-4 h-4 text-destructive shrink-0" />
+            <h3 className="text-sm font-semibold">Canonicalize admin_areas · one-shot</h3>
+            <EffectBadge kind="deferred" detail="Refresca cache de locations al final" />
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
+            Deduplica admin_areas por iso_code y por (parent, nombre normalizado), repuntera 8 FKs en
+            <code className="px-1 mx-0.5 rounded bg-muted text-foreground/80">locations</code>, fusiona hijos
+            y registra en <code className="px-1 rounded bg-muted text-foreground/80">place_merge_history</code>.
+            Destructivo · master-only.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 mt-3">
+        <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={dryRun}
+            onChange={(e) => setDryRun(e.target.checked)}
+            className="rounded"
+          />
+          <span>Dry-run (no escribir, solo contar)</span>
+        </label>
+        <Button
+          variant={dryRun ? 'outline' : 'destructive'}
+          size="sm"
+          disabled={busy}
+          onClick={() => (dryRun ? run() : setConfirmOpen(true))}
+          className="text-xs"
+        >
+          {busy ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Play className="w-3 h-3 mr-1" />}
+          {dryRun ? 'Lanzar dry-run' : 'Lanzar canonicalize (destructivo)'}
+        </Button>
+        {lastResult && (
+          <span className="text-[11px] text-muted-foreground">
+            Último: {lastResult.dryRun ? 'dry-run' : 'ejecutado'} · {lastResult.merged} fusiones
+          </span>
+        )}
+      </div>
+
+      <DestructiveConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Canonicalize destructivo"
+        description="Vas a fusionar admin_areas duplicadas y repuntear FKs en locations. Operación no reversible."
+        token="CANONICALIZE"
+        onConfirm={async () => {
+          setConfirmOpen(false);
+          await run();
+        }}
+      />
+    </section>
   );
 }

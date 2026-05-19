@@ -10,9 +10,9 @@ import { CAPABILITIES } from '@/domains/identity/capabilities';
 describe('admin route tabs contract', () => {
   const routeTabs = ADMIN_TABS.filter(isRouteModeTab);
 
-  it('expose the canonical 6 panels as routes', () => {
+  it('expose the canonical route panels (PR-3 + PR-5)', () => {
     expect(routeTabs.map(t => t.key).sort()).toEqual(
-      ['audit', 'design-system', 'enrichment', 'geography', 'image-recovery', 'sources'].sort(),
+      ['audit', 'design-system', 'enrichment', 'geography', 'image-recovery', 'internal-tools', 'sources'].sort(),
     );
   });
 

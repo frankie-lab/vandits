@@ -24,6 +24,7 @@ import {
   Palette,
   Route as RouteIcon,
   ShieldAlert,
+  Terminal,
   type LucideIcon,
 } from 'lucide-react';
 import type { Capability } from '@/domains/identity';
@@ -38,6 +39,7 @@ const GeographyBackfillPanel = lazy(() => import('@/components/admin/GeographyBa
 const DataSourcesPanel = lazy(() => import('@/components/admin/DataSourcesPanel').then(m => ({ default: m.DataSourcesPanel })));
 const RecoverImagesPanel = lazy(() => import('@/components/admin/RecoverImagesPanel').then(m => ({ default: m.RecoverImagesPanel })));
 const DesignSystemPanel = lazy(() => import('@/components/admin/DesignSystemPanel').then(m => ({ default: m.DesignSystemPanel })));
+const InternalToolsPanel = lazy(() => import('@/components/admin/InternalToolsPanel').then(m => ({ default: m.InternalToolsPanel })));
 
 export type AdminTabKey =
   | 'users'
@@ -50,7 +52,8 @@ export type AdminTabKey =
   | 'geography'
   | 'sources'
   | 'image-recovery'
-  | 'design-system';
+  | 'design-system'
+  | 'internal-tools';
 
 export interface AdminTabSpec {
   key: AdminTabKey;
@@ -163,12 +166,21 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
   },
   {
     key: 'design-system',
-    label: 'Design System',
+    label: 'Design System Inspector',
     icon: Palette,
     iconClass: 'text-fuchsia-500',
     capability: 'manage_design_system',
     routeMode: 'route',
     Component: DesignSystemPanel as LazyExoticComponent<ComponentType<unknown>>,
+  },
+  {
+    key: 'internal-tools',
+    label: 'Internal tooling',
+    icon: Terminal,
+    iconClass: 'text-slate-500',
+    capability: 'run_internal_tooling',
+    routeMode: 'route',
+    Component: InternalToolsPanel as LazyExoticComponent<ComponentType<unknown>>,
   },
 ];
 

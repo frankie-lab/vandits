@@ -44,27 +44,53 @@ interface ScenarioResult {
 export function AuditPanel() {
   const [activeSection, setActiveSection] = useState<'resolution' | 'trace' | 'sync' | 'scenarios'>('resolution');
 
-  return (
-    <div className="flex-1 overflow-hidden min-h-0 flex flex-col p-4 gap-4">
-      {/* Section tabs */}
-      <div className="flex gap-2 flex-wrap">
-        {[
-          { id: 'resolution' as const, label: 'Estado resuelto', icon: Eye },
-          { id: 'trace' as const, label: 'Trazas', icon: Clock },
-          { id: 'sync' as const, label: 'Runtime vs DB', icon: RefreshCw },
-          { id: 'scenarios' as const, label: 'Escenarios', icon: Play },
-        ].map(({ id, label, icon: Icon }) => (
+  // PR-BACKOFFICE-UX-CANON-5: separar visualmente runtime audit (lo que la
+  // app está usando AHORA) de debug técnico (event tracing + escenarios).
+  type SectionId = 'resolution' | 'trace' | 'sync' | 'scenarios';
+  type TabSpec = { id: SectionId; label: string; icon: typeof Eye; hint: string };
+  const RUNTIME_TABS: TabSpec[] = [
+    { id: 'resolution', label: 'Estado resuelto', icon: Eye, hint: 'Qué preferencias está usando la app ahora' },
+    { id: 'sync', label: 'Runtime vs DB', icon: RefreshCw, hint: 'Diff memoria vs persistencia' },
+  ];
+  const DEBUG_TABS: TabSpec[] = [
+    { id: 'trace', label: 'Trazas', icon: Clock, hint: 'Event tracing de cambios (últimos 20)' },
+    { id: 'scenarios', label: 'Escenarios', icon: Play, hint: 'Verificación scripted' },
+  ];
+
+  const renderGroup = (
+    title: string,
+    subtitle: string,
+    tabs: TabSpec[],
+  ) => (
+    <div className="space-y-1.5">
+      <div className="flex items-baseline gap-2">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</span>
+        <span className="text-[10px] text-muted-foreground/70">· {subtitle}</span>
+      </div>
+      <div className="flex gap-1.5 flex-wrap">
+        {tabs.map(({ id, label, icon: Icon, hint }) => (
           <Button
             key={id}
             variant={activeSection === id ? 'default' : 'outline'}
             size="sm"
             onClick={() => setActiveSection(id)}
-            className="gap-1.5"
+            className="gap-1.5 h-7 text-xs"
+            title={hint}
           >
             <Icon className="w-3.5 h-3.5" />
             {label}
           </Button>
         ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex-1 overflow-hidden min-h-0 flex flex-col p-4 gap-3">
+      {/* Two distinct semantic groups */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:gap-6 pb-2 border-b border-border/60">
+        {renderGroup('Runtime audit', 'Lo que la app está usando AHORA', RUNTIME_TABS)}
+        {renderGroup('Debug técnico', 'Event tracing y verificación', DEBUG_TABS)}
       </div>
 
       {/* Content */}
