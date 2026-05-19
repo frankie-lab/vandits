@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Shield, ChevronDown, ChevronRight, Loader2, Search, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,7 +24,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { DestructiveConfirmDialog } from '@/shared/components/ui/destructive-confirm-dialog';
 
-import { ADMIN_TABS, getAdminTab, type AdminTabKey } from './admin/admin-tabs';
+import { ADMIN_TABS, getAdminTab, isRouteModeTab, getAdminTabPath, type AdminTabKey } from './admin/admin-tabs';
 import { AdminGate } from './admin/AdminGate';
 
 type AdminTab = AdminTabKey;
@@ -72,7 +73,20 @@ const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'supervi
 const ALL_PERMISSIONS: AppPermission[] = [...CAPABILITIES];
 
 export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
+ const navigate = useNavigate();
  const { hasPermission, loading: permissionsLoading } = usePermissions();
+
+ // PR-BACKOFFICE-UX-CANON-3: si el tab solicitado vive ahora en una ruta
+ // dedicada `/admin/<key>`, redirige y cierra el modal en lugar de montarlo
+ // dentro de AdminPanel. Deep-link de cualquier call site sigue funcionando.
+ useEffect(() => {
+   const spec = getAdminTab(defaultTab as AdminTabKey | undefined);
+   if (spec && isRouteModeTab(spec)) {
+     navigate(getAdminTabPath(spec.key));
+     onClose();
+   }
+   // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [defaultTab]);
  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
  const [users, setUsers] = useState<UserWithRoles[]>([]);
  const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
@@ -328,6 +342,13 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  const roleHasPermission = (role: AppRole, permission: AppPermission): boolean => {
  return rolePermissions.some(rp => rp.role === role && rp.permission === permission);
  };
+
+ // PR-BACKOFFICE-UX-CANON-3: no montar UI si el tab vive en ruta dedicada;
+ // el useEffect superior ya disparó la navegación + onClose.
+ const _redirectSpec = getAdminTab(defaultTab as AdminTabKey | undefined);
+ if (_redirectSpec && isRouteModeTab(_redirectSpec)) {
+   return null;
+ }
 
  if (permissionsLoading) {
  return (

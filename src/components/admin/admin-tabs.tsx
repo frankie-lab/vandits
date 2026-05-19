@@ -58,8 +58,15 @@ export interface AdminTabSpec {
   icon: LucideIcon;
   iconClass: string;
   capability: Capability;
-  /** Wider modal (max-w-6xl) when true. */
+  /** Wider modal (max-w-6xl) when true. Only meaningful for routeMode='modal'. */
   wide?: boolean;
+  /**
+   * Where this surface lives in the BackOffice UX (PR-BACKOFFICE-UX-CANON-3).
+   *   - 'modal' (default): legacy modal, body rendered inside AdminPanel.
+   *   - 'route': dedicated `/admin/<key>` page rendered by AdminShell.
+   * Capability gate is identical in both modes; only the container changes.
+   */
+  routeMode?: 'modal' | 'route';
   /**
    * Lazy component. `null` for tabs whose body still lives inline inside
    * AdminPanel (users / permissions) — those render via the legacy switch
@@ -115,6 +122,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: FileText,
     iconClass: 'text-emerald-500',
     capability: 'manage_enrichment_config',
+    routeMode: 'route',
     Component: EnrichmentCardConfig as LazyExoticComponent<ComponentType<unknown>>,
   },
   {
@@ -123,6 +131,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: ShieldAlert,
     iconClass: 'text-amber-500',
     capability: 'view_audit_log',
+    routeMode: 'route',
     Component: AuditPanel as LazyExoticComponent<ComponentType<unknown>>,
   },
   {
@@ -131,7 +140,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: Compass,
     iconClass: 'text-amber-500',
     capability: 'view_geo_maintenance',
-    wide: true,
+    routeMode: 'route',
     Component: GeographyBackfillPanel as LazyExoticComponent<ComponentType<unknown>>,
   },
   {
@@ -140,6 +149,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: Database,
     iconClass: 'text-cyan-500',
     capability: 'manage_data_sources',
+    routeMode: 'route',
     Component: DataSourcesPanel as LazyExoticComponent<ComponentType<unknown>>,
   },
   {
@@ -148,7 +158,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: ImageIcon,
     iconClass: 'text-amber-500',
     capability: 'run_image_recovery',
-    wide: true,
+    routeMode: 'route',
     Component: RecoverImagesPanel as LazyExoticComponent<ComponentType<unknown>>,
   },
   {
@@ -157,7 +167,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: Palette,
     iconClass: 'text-fuchsia-500',
     capability: 'manage_design_system',
-    wide: true,
+    routeMode: 'route',
     Component: DesignSystemPanel as LazyExoticComponent<ComponentType<unknown>>,
   },
 ];
@@ -165,4 +175,14 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
 export function getAdminTab(key: AdminTabKey | undefined): AdminTabSpec | undefined {
   if (!key) return undefined;
   return ADMIN_TABS.find(t => t.key === key);
+}
+
+/** Resolución canónica de la URL `/admin/<key>` para un tab en routeMode='route'. */
+export function getAdminTabPath(key: AdminTabKey): string {
+  return `/admin/${key}`;
+}
+
+/** ¿Este tab vive en una ruta dedicada (no en el modal AdminPanel)? */
+export function isRouteModeTab(spec: AdminTabSpec | undefined): boolean {
+  return spec?.routeMode === 'route';
 }

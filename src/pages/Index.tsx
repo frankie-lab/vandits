@@ -120,8 +120,9 @@ const Index = () => {
       const tab = (e as CustomEvent<{ tab?: string }>).detail?.tab ?? 'map';
       open('profileEditor', { tab });
     };
-    const onOpenGeography = () => open('adminPanel', { tab: 'geography' });
-    const onOpenDataSources = () => open('adminPanel', { tab: 'image-recovery' });
+    // PR-BACKOFFICE-UX-CANON-3: geography e image-recovery viven en /admin/*.
+    const onOpenGeography = () => navigate('/admin/geography');
+    const onOpenDataSources = () => navigate('/admin/image-recovery');
     window.addEventListener('vandits:open-upload', onOpenUpload);
     window.addEventListener('vandits:open-profile', onOpenProfile as EventListener);
     window.addEventListener('admin:open-geography', onOpenGeography);
@@ -132,7 +133,7 @@ const Index = () => {
       window.removeEventListener('admin:open-geography', onOpenGeography);
       window.removeEventListener('admin:open-data-sources', onOpenDataSources);
     };
-  }, [open]);
+  }, [open, navigate]);
 
   // ─── Domain hooks ─────────────────────────────────────────────────────────
   const routeOrch = useRouteOrchestration(allRoutes);

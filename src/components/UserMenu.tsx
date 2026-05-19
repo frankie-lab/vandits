@@ -108,7 +108,7 @@ import { useExportTracking } from '@/hooks/use-export-tracking';
 import { useDuplicateCount } from '@/hooks/use-duplicate-count';
 import { supabase } from '@/integrations/supabase/client';
 import { APP_VERSION, APP_BUILD_DATE } from '@/lib/version';
-import { ADMIN_TABS } from '@/components/admin/admin-tabs';
+import { ADMIN_TABS, isRouteModeTab, getAdminTabPath } from '@/components/admin/admin-tabs';
 
 
 interface UserMenuProps {
@@ -481,10 +481,15 @@ export function UserMenu({
   {/* Capabilities-first: iterate declarative table, filter by hasPermission. */}
   {ADMIN_TABS.filter(tab => hasPermission(tab.capability)).map(tab => {
     const Icon = tab.icon;
+    // PR-BACKOFFICE-UX-CANON-3: tabs en routeMode='route' navegan a /admin/<key>
+    // en lugar de abrir el modal AdminPanel.
+    const onSelect = isRouteModeTab(tab)
+      ? () => navigate(getAdminTabPath(tab.key))
+      : () => onOpenAdmin?.(tab.key);
     return (
       <DropdownMenuItem
         key={tab.key}
-        onClick={() => onOpenAdmin?.(tab.key)}
+        onClick={onSelect}
         className="cursor-pointer"
       >
         <Icon className={`w-4 h-4 mr-2 ${tab.iconClass}`} />

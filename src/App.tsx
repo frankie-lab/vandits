@@ -12,6 +12,8 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
 import DuplicatePolicy from "./pages/DuplicatePolicy";
+import { AdminShell, AdminShellIndex } from "./pages/admin/AdminShell";
+import { AdminRoutePage } from "./pages/admin/AdminRoutePage";
 import { GlobalLoadingBar } from "@/shared/loading";
 import { DesignSystemThemeProvider } from "@/design-system/runtime/theme-provider";
 import { EditModeBar } from "@/components/admin/design-system/EditModeBar";
@@ -78,6 +80,22 @@ const App = () => (
               </ProtectedRoute>
             } 
           />
+
+          {/* Back Office shell (PR-BACKOFFICE-UX-CANON-3). Capability gate
+              vive en AdminShell (open_back_office || manage_users) y en
+              cada AdminRoutePage (capability del tab). */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <AdminShell />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<AdminShellIndex />} />
+            <Route path=":tab" element={<AdminRoutePage />} />
+          </Route>
+
  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
  <Route path="*" element={<NotFound />} />
  </Routes>
