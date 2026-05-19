@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { X, Save, Loader2, Route as RouteIcon, RefreshCw, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { X, Save, Loader2, Route as RouteIcon, RefreshCw, CheckCircle2, XCircle, AlertCircle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RouteEngineSettings } from '@/components/RouteEngineSettings';
 import { EngineConfig, DEFAULT_ENGINE_CONFIG } from '@/lib/route-engine';
@@ -49,6 +49,7 @@ function ServiceStatusBadge({ status }: { status: ServiceStatus['status'] }) {
 export function RouteSettingsPanelContent() {
   const { user } = useAuth();
   const [config, setConfig] = useState<EngineConfig>({ ...DEFAULT_ENGINE_CONFIG });
+  const [override, setOverride] = useState<Partial<EngineConfig> | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -57,7 +58,7 @@ export function RouteSettingsPanelContent() {
   const [checkingServices, setCheckingServices] = useState(false);
   const [servicesChecked, setServicesChecked] = useState(false);
 
-  // Load saved defaults
+  // Load saved defaults (ESTE usuario — NO existe storage global)
   useEffect(() => {
     if (!user) return;
     supabase.from('profiles')
@@ -65,8 +66,12 @@ export function RouteSettingsPanelContent() {
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data }) => {
-        if ((data as any)?.route_engine_defaults) {
-          setConfig(prev => ({ ...prev, ...(data as any).route_engine_defaults }));
+        const raw = (data as any)?.route_engine_defaults as Partial<EngineConfig> | null;
+        if (raw) {
+          setOverride(raw);
+          setConfig(prev => ({ ...prev, ...raw }));
+        } else {
+          setOverride(null);
         }
         setLoading(false);
       });
@@ -95,13 +100,42 @@ export function RouteSettingsPanelContent() {
         .eq('id', user.id);
       if (error) throw error;
       localStorage.setItem('vandits-route-engine-defaults', JSON.stringify(config));
-      toast.success('Configuración de rutas guardada');
+      setOverride(config);
+      toast.success('Tus defaults del motor de rutas se han guardado');
     } catch (e) {
       toast.error('Error al guardar la configuración');
     } finally {
       setSaving(false);
     }
   };
+
+  const handleClearOverride = async () => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('profiles')
+        .update({ route_engine_defaults: null } as any)
+        .eq('id', user.id);
+      if (error) throw error;
+      localStorage.removeItem('vandits-route-engine-defaults');
+      setOverride(null);
+      setConfig({ ...DEFAULT_ENGINE_CONFIG });
+      toast.success('Override eliminado — vuelves al default del sistema');
+    } catch {
+      toast.error('No se pudo eliminar el override');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Stack resuelto: default → tu override → efectivo (lo que ve calculate-route para TI)
+  const stackDiff = useMemo(() => {
+    if (!override) return [] as Array<{ key: keyof EngineConfig; def: unknown; ov: unknown }>;
+    const keys = Object.keys(DEFAULT_ENGINE_CONFIG) as Array<keyof EngineConfig>;
+    return keys
+      .filter(k => override[k] !== undefined && override[k] !== DEFAULT_ENGINE_CONFIG[k])
+      .map(k => ({ key: k, def: DEFAULT_ENGINE_CONFIG[k], ov: override[k] }));
+  }, [override]);
 
   const connectedCount = services.filter(s => s.status === 'connected').length;
   const totalCount = services.length;
@@ -118,10 +152,15 @@ export function RouteSettingsPanelContent() {
     <div className="flex flex-col h-full min-h-0 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Motor de rutas</h3>
-          <p className="text-xs text-muted-foreground">Configuración global y servicios conectados</p>
+          <h3 className="text-sm font-semibold text-foreground">Motor de rutas — mis defaults</h3>
+          <p className="text-xs text-muted-foreground">No existe configuración global escribible. Editas tu override personal.</p>
         </div>
         <div className="flex gap-2">
+          {override && (
+            <Button size="sm" variant="ghost" onClick={handleClearOverride} disabled={saving} className="text-xs">
+              Quitar mi override
+            </Button>
+          )}
           <Button size="sm" onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Save className="w-3.5 h-3.5 mr-1" />}
             Guardar
@@ -199,8 +238,62 @@ export function RouteSettingsPanelContent() {
 
         <Separator className="mb-5" />
 
+        {/* ── Stack de resolución (modelo real) ── */}
+        <div className="mb-5 rounded-xl border border-border bg-muted/30 p-3 space-y-2">
+          <div className="flex items-start gap-2">
+            <Info className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
+            <div className="text-[11px] text-muted-foreground leading-snug">
+              <p className="font-medium text-foreground mb-1">Stack de resolución por usuario</p>
+              <p>
+                <code>calculate-route</code> aplica, para cada usuario:
+                <strong className="text-foreground"> default del sistema</strong> →
+                <strong className="text-foreground"> override personal de ese usuario</strong> →
+                <strong className="text-foreground"> ajustes por-ruta en el RouteBuilder</strong>.
+              </p>
+              <p className="mt-1">
+                Lo que guardes aquí <strong className="text-foreground">solo afecta a tus propios cálculos</strong>.
+                No pisa overrides de otros usuarios ni ajustes guardados en rutas concretas.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-[10px]">
+            <div className="rounded-lg bg-card border px-2 py-1.5">
+              <div className="font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Default</div>
+              <div className="text-foreground/80">Hardcoded · read-only</div>
+            </div>
+            <div className="rounded-lg bg-card border px-2 py-1.5">
+              <div className="font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Tu override</div>
+              <div className="text-foreground/80">
+                {override ? `${stackDiff.length} campo${stackDiff.length === 1 ? '' : 's'} sobrescrito${stackDiff.length === 1 ? '' : 's'}` : 'Sin override'}
+              </div>
+            </div>
+            <div className="rounded-lg bg-card border px-2 py-1.5">
+              <div className="font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Efectivo (tú)</div>
+              <div className="text-foreground/80">Lo que ves abajo</div>
+            </div>
+          </div>
+          {stackDiff.length > 0 && (
+            <details className="text-[10px]">
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                Ver diff de tu override ({stackDiff.length})
+              </summary>
+              <ul className="mt-1.5 space-y-0.5 font-mono">
+                {stackDiff.map(d => (
+                  <li key={String(d.key)} className="flex items-center gap-2">
+                    <span className="text-foreground">{String(d.key)}</span>
+                    <span className="text-muted-foreground/60">{String(d.def)}</span>
+                    <span className="text-muted-foreground">→</span>
+                    <span className="text-primary">{String(d.ov)}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+
         <p className="text-xs text-muted-foreground mb-4">
-          Estos valores se aplicarán como predeterminados en todos los itinerarios nuevos. Puedes sobreescribirlos individualmente en cada ruta.
+          Efecto: <strong className="text-foreground">inmediato</strong> en tus próximos cálculos de ruta.
+          Itinerarios ya guardados conservan sus ajustes por-ruta.
         </p>
         <RouteEngineSettings
           config={config}
@@ -230,8 +323,8 @@ export function RouteSettingsPanel({ onClose }: RouteSettingsPanelProps) {
           <div className="flex items-center gap-2">
             <RouteIcon className="w-5 h-5 text-primary" />
             <div>
-              <h2 className="text-base font-semibold">Motor de rutas</h2>
-              <p className="text-xs text-muted-foreground">Configuración global y servicios conectados</p>
+              <h2 className="text-base font-semibold">Motor de rutas — mis defaults</h2>
+              <p className="text-xs text-muted-foreground">Override personal · stack default→tú→por-ruta</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">

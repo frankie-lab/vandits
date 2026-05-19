@@ -94,7 +94,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
   },
   {
     key: 'markers',
-    label: 'Tamaños de marcadores',
+    label: 'Marcadores (tamaños + estados)',
     icon: Ruler,
     iconClass: 'text-orange-500',
     capability: 'manage_marker_config',
