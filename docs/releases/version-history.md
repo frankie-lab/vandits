@@ -63,7 +63,8 @@ Las versiones estables deben poder usarse como puntos de retorno.
 - `v1.2.4`: primera extracción incremental desde `Index.tsx` (`useWelcomeCardEvents`).
 - `v1.2.5`: segunda extracción incremental desde `Index.tsx` (`usePendingValidationEvents`).
 - `v1.2.6`: tercera extracción incremental desde `Index.tsx` (`useIndexGlobalEvents` + `useRoutePanelBridge`); deuda técnica ítem 5 cerrada.
-- `v1.2.7`: versión actual; helper tipado inicial para eventos globales (`src/lib/global-events.ts`) + migración de los 3 hooks extraídos de `Index.tsx`; deuda técnica ítem 2 en progreso.
+- `v1.2.7`: helper tipado inicial para eventos globales (`src/lib/global-events.ts`) + migración de los 3 hooks extraídos de `Index.tsx`; deuda técnica ítem 2 en progreso.
+- `v1.2.8`: versión actual; segunda tanda de eventos globales tipados de bajo riesgo (`duplicate-threshold-changed`, `icon-library-changed`, `personal-categories:reload`); deuda técnica ítem 2 continúa en progreso.
 
 Regla:
 
