@@ -14,7 +14,7 @@ La prioridad debe combinar impacto en producto, riesgo operativo y facilidad de 
 
 | Ítem | Estado | Tipo | Comentario |
 |---|---|---|---|
-| 1. Versionado y documentación de estado | Resuelto formalizado | Gobernanza | `package.json`, README, UX y documentación quedan alineados en `1.2.2`. |
+| 1. Versionado y documentación de estado | Resuelto formalizado | Gobernanza | `package.json`, README, UX y documentación quedan alineados en `1.2.9`. |
 | 1.1. Materializar rollback anchors con tags Git | Pendiente operativo externo | Release management externo | Rollback anchors documentados; tags Git reales pendientes fuera de Lovable. No bloquea deuda técnica resoluble desde Lovable. |
 | 2. Catálogo de eventos globales | En progreso | Arquitectura | Inventario inicial + helper tipado ampliado (13 eventos cubiertos); migrados eventos de bajo riesgo en v1.2.8 (`duplicate-threshold-changed`, `icon-library-changed`, `personal-categories:reload`) y v1.2.9 (`trash-updated`). Pendientes: eventos con consumidor en `LocationMap.tsx` (`layer-visibility-changed`, `measurement-units-changed`), catch-alls fan-out alto (`store-updated`, `reload-locations`) y cobertura completa del bus. |
 | 3. Tests de gramática visual de puntos | Resuelto | Testing | Cubierto por `src/test/point-visual-state.test.ts` (11 casos para `enriched`, `imported`, `empty`). |
@@ -35,7 +35,7 @@ Criterio de auditoría:
 - Severidad: baja
 - Facilidad: alta
 - Riesgo de cambio: bajo
-- Estado: resuelto formalizado (2026-05-19) — `package.json` y README quedan alineados en **1.2.2**. `1.2.0` y `1.2.1` se formalizan desde el histórico reconstruido como anchors estables; `1.2.2` pasa a ser la versión actual. A partir de ahora cada PR debe declarar `Version impact` (none/patch/minor/major) según [`docs/versioning.md`](./versioning.md). Las versiones estables deben poder usarse como rollback anchors mediante tags Git `vX.Y.Z` (ver "Release / rollback anchors" en [`docs/releases/version-history.md`](./releases/version-history.md)).
+- Estado: resuelto formalizado (2026-05-19) — `package.json` y README quedan alineados en **1.2.9**. `1.2.0` y `1.2.1` se formalizan desde el histórico reconstruido como anchors estables; `1.2.9` pasa a ser la versión actual. A partir de ahora cada PR debe declarar `Version impact` (none/patch/minor/major) según [`docs/versioning.md`](./versioning.md). Las versiones estables deben poder usarse como rollback anchors mediante tags Git `vX.Y.Z` (ver "Release / rollback anchors" en [`docs/releases/version-history.md`](./releases/version-history.md)).
 
 `package.json`, README y documentación técnica deben contar la misma historia sobre la versión y el estado actual del proyecto.
 
