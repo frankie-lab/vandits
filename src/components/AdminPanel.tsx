@@ -21,6 +21,7 @@ import {
  AlertDialogHeader,
  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { DestructiveConfirmDialog } from '@/shared/components/ui/destructive-confirm-dialog';
 
 import { ADMIN_TABS, getAdminTab, type AdminTabKey } from './admin/admin-tabs';
 import { AdminGate } from './admin/AdminGate';
