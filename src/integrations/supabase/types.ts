@@ -3905,7 +3905,7 @@ export type Database = {
     Enums: {
       app_permission:
         | "manage_users"
-        | "manage_criteria"
+        | "manage_editorial_criteria"
         | "run_global_enrichment"
         | "delete_any_location"
         | "moderate_content"
@@ -3918,7 +3918,7 @@ export type Database = {
         | "manage_geo_maintenance"
         | "manage_data_sources"
         | "run_image_recovery"
-        | "manage_design_system"
+        | "inspect_design_system"
         | "purge_user"
         | "open_back_office"
         | "assign_master"
@@ -4121,7 +4121,7 @@ export const Constants = {
     Enums: {
       app_permission: [
         "manage_users",
-        "manage_criteria",
+        "manage_editorial_criteria",
         "run_global_enrichment",
         "delete_any_location",
         "moderate_content",
@@ -4134,7 +4134,7 @@ export const Constants = {
         "manage_geo_maintenance",
         "manage_data_sources",
         "run_image_recovery",
-        "manage_design_system",
+        "inspect_design_system",
         "purge_user",
         "open_back_office",
         "assign_master",

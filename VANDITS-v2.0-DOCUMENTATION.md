@@ -651,7 +651,7 @@ Estado del dominio Discovery (filtros, selección, viewport).
 
 ### Permisos
 - `manage_users` — Gestión de usuarios
-- `manage_criteria` — Configurar criterios de enriquecimiento
+- `manage_editorial_criteria` — Configurar criterios editoriales IA (freshness, thresholds, enrichment)
 - `run_global_enrichment` — Ejecutar enriquecimiento global
 - `view_all_locations` — Ver todas las ubicaciones
 - `edit_all_locations` — Editar cualquier ubicación

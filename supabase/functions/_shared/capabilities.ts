@@ -8,7 +8,7 @@
 export const CAPABILITIES = [
   // Clásicas
   "manage_users",
-  "manage_criteria",
+  "manage_editorial_criteria",
   "run_global_enrichment",
   "delete_any_location",
   "moderate_content",
@@ -22,7 +22,7 @@ export const CAPABILITIES = [
   "manage_geo_maintenance",
   "manage_data_sources",
   "run_image_recovery",
-  "manage_design_system",
+  "inspect_design_system",
   "purge_user",
   "open_back_office",
   // PR-BACKOFFICE-GOVERNANCE F2 — split de capabilities críticas
@@ -34,5 +34,7 @@ export const CAPABILITIES = [
 ] as const;
 // PR-HYGIENE-2: purgadas capabilities zombie sin consumidores (view_all_locations,
 // edit_all_locations, manage_documents, view_analytics, upload_files, add_locations).
+// PR-HYGIENE-4: rename semántico — manage_design_system -> inspect_design_system,
+// manage_criteria -> manage_editorial_criteria. Sin cambio de scope/gating/runtime.
 
 export type Capability = typeof CAPABILITIES[number];

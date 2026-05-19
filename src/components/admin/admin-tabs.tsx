@@ -169,7 +169,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     label: 'Design System Inspector',
     icon: Palette,
     iconClass: 'text-fuchsia-500',
-    capability: 'manage_design_system',
+    capability: 'inspect_design_system',
     routeMode: 'route',
     Component: DesignSystemPanel as LazyExoticComponent<ComponentType<unknown>>,
   },

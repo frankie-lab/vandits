@@ -203,7 +203,7 @@ export function UserMenu({
   // `open_back_office` controla la visibilidad del submenu entero.
   // Cada item dentro se filtra por su propia capability.
  const canAccessAdmin = hasPermission('open_back_office') || hasPermission('manage_users');
- const canManageCriteria = hasPermission('manage_criteria');
+ const canManageCriteria = hasPermission('manage_editorial_criteria');
  const canRunEnrichment = hasPermission('run_global_enrichment');
  
  const handleToggleSounds = (e: React.MouseEvent) => {
