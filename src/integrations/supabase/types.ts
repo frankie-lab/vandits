@@ -1277,6 +1277,7 @@ export type Database = {
           document_id: string | null
           enriched_data: Json | null
           enrichment_status: string | null
+          external_refs: Json | null
           geo_confidence: number | null
           geo_health: string | null
           geo_resolved_at: string | null
@@ -1322,6 +1323,7 @@ export type Database = {
           document_id?: string | null
           enriched_data?: Json | null
           enrichment_status?: string | null
+          external_refs?: Json | null
           geo_confidence?: number | null
           geo_health?: string | null
           geo_resolved_at?: string | null
@@ -1367,6 +1369,7 @@ export type Database = {
           document_id?: string | null
           enriched_data?: Json | null
           enrichment_status?: string | null
+          external_refs?: Json | null
           geo_confidence?: number | null
           geo_health?: string | null
           geo_resolved_at?: string | null
@@ -3341,6 +3344,7 @@ export type Database = {
           document_id: string | null
           enriched_data: Json | null
           enrichment_status: string | null
+          external_refs: Json | null
           geo_confidence: number | null
           geo_health: string | null
           geo_resolved_at: string | null

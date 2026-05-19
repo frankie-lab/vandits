@@ -7,6 +7,7 @@
  */
 import type { GeoLocation } from '@/types/location';
 import type { SharePayload } from '../types';
+import { resolveGoogleMapsUrl, resolveAppleMapsUrl } from './external-maps-url';
 
 function openInNewTab(url: string): void {
   try {
@@ -85,17 +86,16 @@ export async function shareInstagram(payload: SharePayload): Promise<boolean> {
   return copyToClipboard(payload.url);
 }
 
-export function openGoogleMaps(poi: Pick<GeoLocation, 'coordinates' | 'name'>): void {
-  const c = poi.coordinates;
-  if (!c) return;
-  openInNewTab(
-    `https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}`,
-  );
+export function openGoogleMaps(
+  poi: Pick<GeoLocation, 'coordinates' | 'name' | 'externalRefs'>,
+): void {
+  const { url } = resolveGoogleMapsUrl(poi);
+  if (url) openInNewTab(url);
 }
 
-export function openAppleMaps(poi: Pick<GeoLocation, 'coordinates' | 'name'>): void {
-  const c = poi.coordinates;
-  if (!c) return;
-  const q = encodeURIComponent(poi.name || '');
-  openInNewTab(`https://maps.apple.com/?ll=${c.lat},${c.lng}&q=${q}`);
+export function openAppleMaps(
+  poi: Pick<GeoLocation, 'coordinates' | 'name' | 'externalRefs'>,
+): void {
+  const { url } = resolveAppleMapsUrl(poi);
+  if (url) openInNewTab(url);
 }

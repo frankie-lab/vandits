@@ -39,6 +39,7 @@ export function dbLocationToGeoLocation(loc: any): GeoLocation {
     documentId: loc.document_id || undefined,
     ownerUserId: loc.owner_user_id ?? null,
     isApproved: loc.is_approved ?? false,
+    externalRefs: (loc.external_refs as GeoLocation['externalRefs']) || undefined,
     createdAt: new Date(loc.created_at),
     updatedAt: new Date(loc.updated_at),
   };
