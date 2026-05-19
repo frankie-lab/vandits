@@ -98,8 +98,19 @@ Crear documentación breve de dominios, stores, mapa, popups, Supabase, rutas, c
 - Severidad: media
 - Facilidad: media
 - Riesgo de cambio: medio
+- Estado: en progreso — extracción inicial realizada (2026-05-19, `v1.2.4`).
 
 `Index.tsx` actúa como hub de muchos subsistemas. Extraer progresivamente orquestación a hooks o domain shells.
+
+Extracciones realizadas:
+
+- `v1.2.4`: `useWelcomeCardEvents` (`src/hooks/use-welcome-card-events.ts`) — listeners de `vandits:open-upload`, `vandits:open-profile`, `admin:open-geography`, `admin:open-data-sources`. Sin cambios de contrato; sólo mueve lógica fuera de `Index.tsx`.
+
+Pendiente (no exhaustivo):
+
+- listeners restantes (`enrichment-criteria-changed`, `import:open-categories`, `lovable:follow-changed`, `pending-validations-updated`, `popup-action`);
+- puente `routesPanelOpen`/`routeBuilderOpen` ↔ `routeOrch`;
+- orquestación de paneles admin/profile/upload (`open`/`close` agrupados).
 
 ### 6. Reducir responsabilidad de `src/components/LocationMap.tsx`
 
