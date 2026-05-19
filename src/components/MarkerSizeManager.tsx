@@ -287,11 +287,6 @@ export function MarkerSizeManager() {
         <div className="flex items-center gap-2 mb-1.5 flex-wrap">
           <EffectBadge kind="cache-delay" detail="~5s para todos los usuarios" />
         </div>
-        <p className="text-[10px] text-muted-foreground leading-snug mb-1.5">
-          Dos modelos distintos: <strong className="text-foreground">tamaños/colores por tipo</strong> (qué dibujamos) y
-          {' '}<strong className="text-foreground">reglas de estado visual</strong> (paleta canónica enriched/imported/empty).
-          Aplican a TODOS los usuarios.
-        </p>
         <TabsList onClick={stop} onPointerDown={stop} onMouseDown={stop}>
           <TabsTrigger value="sizes" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}>
             <Ruler className="w-3 h-3 mr-1" /> Tamaños y colores por tipo

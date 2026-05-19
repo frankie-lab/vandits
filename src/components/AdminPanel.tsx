@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
-import { Checkbox } from '@/components/ui/checkbox';
+
 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -89,7 +89,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  const [searchTerm, setSearchTerm] = useState('');
  const [expandedRoles, setExpandedRoles] = useState<Set<AppRole>>(new Set());
  const [savingRole, setSavingRole] = useState<string | null>(null);
- const [userToDelete, setUserToDelete] = useState<UserWithRoles | null>(null);
+ // PR-BACKOFFICE-CLEANUP-REALITY-1 — `userToDelete` removed (dead UI: never set).
  const [userToPurge, setUserToPurge] = useState<UserWithRoles | null>(null);
  const [purgeStep, setPurgeStep] = useState<'idle' | 'loading-preview' | 'preview' | 'executing' | 'done'>('idle');
  const [purgePreview, setPurgePreview] = useState<{ targetUser: string; locations: number; documents: number; notes: number; photos: number; achievements: number } | null>(null);
@@ -429,19 +429,9 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
    </div>
  </motion.div>
 
- {/* Confirmación de eliminación */}
- <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
- <AlertDialogContent>
- <AlertDialogHeader>
- <AlertDialogTitle>¿Eliminar todos los roles?</AlertDialogTitle>
- <AlertDialogDescription>Esto eliminará todos los roles de {userToDelete?.display_name || userToDelete?.username}. El usuario quedará como usuario básico.</AlertDialogDescription>
- </AlertDialogHeader>
- <AlertDialogFooter>
- <AlertDialogCancel>Cancelar</AlertDialogCancel>
- <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Eliminar roles</AlertDialogAction>
- </AlertDialogFooter>
- </AlertDialogContent>
- </AlertDialog>
+  {/* PR-BACKOFFICE-CLEANUP-REALITY-1 — diálogo legacy "eliminar todos los roles"
+      removido: `userToDelete` nunca llegó a setearse en runtime, era dead UI. */}
+
 
  {/* Confirmación de limpieza de usuario */}
  <AlertDialog open={!!userToPurge} onOpenChange={() => { if (purgeStep !== 'executing') { setUserToPurge(null); setPurgeStep('idle'); setPurgePreview(null); setPurgeProgress(0); } }}>

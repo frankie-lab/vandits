@@ -396,23 +396,9 @@ export function GeographyBackfillPanel() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-4 p-4 overflow-hidden">
-      {/* Subheader: 3-section taxonomy (PR-BACKOFFICE-UX-CANON-5) */}
-      <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 text-xs text-muted-foreground leading-relaxed space-y-1.5">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground/80">
-          Tres modelos operativos distintos
-        </p>
-        <ul className="space-y-0.5 list-disc list-inside ml-1">
-          <li>
-            <strong className="text-foreground">Mantenimiento rutinario</strong>: chips de salud bajo el filtro principal del mapa (reparación punto a punto).
-          </li>
-          <li>
-            <strong className="text-foreground">Operaciones masivas</strong> (este panel): repair / fill / review sobre universos por usuario.
-          </li>
-          <li>
-            <strong className="text-foreground">Canonicalize one-shot</strong> (debajo): dedupe destructivo de admin_areas — master-only.
-          </li>
-        </ul>
-      </div>
+      {/* PR-BACKOFFICE-CLEANUP-REALITY-1 — intro card "Tres modelos operativos
+          distintos" eliminada: el PanelEffectHeader ya marca efectos + ámbito. */}
+
 
       <CanonicalizeOneShotCard />
 

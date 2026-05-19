@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { X, Save, Loader2, Route as RouteIcon, RefreshCw, CheckCircle2, XCircle, AlertCircle, Info } from 'lucide-react';
+import { X, Save, Loader2, Route as RouteIcon, RefreshCw, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RouteEngineSettings } from '@/components/RouteEngineSettings';
 import { EngineConfig, DEFAULT_ENGINE_CONFIG } from '@/lib/route-engine';
 import { useAuth } from '@/domains/identity';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { EffectBadge } from '@/shared/components/ui/effect-badge';
 
@@ -152,11 +151,11 @@ export function RouteSettingsPanelContent() {
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">
-        <div>
+        <div className="min-w-0">
           <h3 className="text-sm font-semibold text-foreground">Motor de rutas — mis defaults</h3>
-          <p className="text-xs text-muted-foreground">No existe configuración global escribible. Editas tu override personal.</p>
+          <p className="text-xs text-muted-foreground truncate">Override personal · stack default → tú → por-ruta</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           {override && (
             <Button size="sm" variant="ghost" onClick={handleClearOverride} disabled={saving} className="text-xs">
               Quitar mi override
@@ -169,11 +168,59 @@ export function RouteSettingsPanelContent() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3">
-        {/* ── Services Section ── */}
-        <div className="space-y-3 mb-5">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Servicios del motor</p>
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-6">
+        {/* ──────────────────────────────────────────────────────────
+            SECCIÓN A · CONFIGURACIÓN PERSISTENTE
+            Único bloque que escribe en BD (profiles.route_engine_defaults).
+            (PR-BACKOFFICE-CLEANUP-REALITY-1 — split visual)
+            ────────────────────────────────────────────────────────── */}
+        <section aria-labelledby="route-config-heading" className="space-y-3">
+          <div className="flex items-center justify-between border-b border-border/40 pb-1">
+            <h4 id="route-config-heading" className="text-[10px] font-semibold uppercase tracking-wider text-foreground">
+              Configuración persistente
+            </h4>
+            <EffectBadge kind="immediate" detail="Próximos cálculos de ruta del usuario actual" />
+          </div>
+
+          {stackDiff.length > 0 && (
+            <details className="text-[10px] rounded border border-border/60 bg-muted/20 px-2 py-1.5">
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                Ver diff de tu override ({stackDiff.length})
+              </summary>
+              <ul className="mt-1.5 space-y-0.5 font-mono">
+                {stackDiff.map(d => (
+                  <li key={String(d.key)} className="flex items-center gap-2">
+                    <span className="text-foreground">{String(d.key)}</span>
+                    <span className="text-muted-foreground/60">{String(d.def)}</span>
+                    <span className="text-muted-foreground">→</span>
+                    <span className="text-primary">{String(d.ov)}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+
+          <RouteEngineSettings
+            config={config}
+            onChange={(partial) => setConfig(prev => ({ ...prev, ...partial }))}
+          />
+        </section>
+
+        {/* ──────────────────────────────────────────────────────────
+            SECCIÓN B · DIAGNÓSTICO Y VERIFICACIÓN
+            Read-only. No escribe. Solo lectura de salud de servicios.
+            (PR-BACKOFFICE-CLEANUP-REALITY-1 — split visual)
+            ────────────────────────────────────────────────────────── */}
+        <section aria-labelledby="route-diag-heading" className="space-y-3">
+          <div className="flex items-center justify-between border-b border-border/40 pb-1">
+            <div className="flex items-center gap-1.5">
+              <h4 id="route-diag-heading" className="text-[10px] font-semibold uppercase tracking-wider text-foreground">
+                Diagnóstico y verificación
+              </h4>
+              <span className="px-1 py-px rounded text-[8.5px] font-semibold uppercase tracking-wider bg-muted text-muted-foreground border border-border/60">
+                DIAG
+              </span>
+            </div>
             <Button
               variant="ghost"
               size="sm"
@@ -187,41 +234,34 @@ export function RouteSettingsPanelContent() {
               ) : (
                 <RefreshCw className="w-3 h-3" />
               )}
-              <span className="inline-flex items-center gap-1">
-                <span className="px-1 py-0 rounded bg-muted/60 text-foreground/70 text-[9px] font-semibold uppercase tracking-wide">Diag</span>
-                {servicesChecked ? 'Verificar de nuevo' : 'Verificar conexiones'}
-              </span>
+              {servicesChecked ? 'Verificar de nuevo' : 'Verificar conexiones'}
             </Button>
           </div>
 
           {!servicesChecked && !checkingServices && (
-            <div className="rounded-xl border border-dashed border-muted-foreground/30 p-4 text-center">
-              <p className="text-xs text-muted-foreground">
-                Pulsa "Verificar conexiones" para comprobar el estado de todos los servicios que usa el motor de rutas.
-              </p>
-            </div>
+            <p className="text-[10px] text-muted-foreground px-1">
+              Acción read-only. Comprueba el estado de los servicios externos del motor sin modificar nada.
+            </p>
           )}
 
           {checkingServices && (
-            <div className="rounded-xl border border-dashed border-muted-foreground/30 p-6 text-center">
-              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground mx-auto mb-2" />
-              <p className="text-xs text-muted-foreground">Verificando servicios...</p>
+            <div className="rounded-lg border border-dashed border-muted-foreground/30 p-4 text-center">
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mx-auto mb-1.5" />
+              <p className="text-[10px] text-muted-foreground">Verificando servicios...</p>
             </div>
           )}
 
           {servicesChecked && !checkingServices && (
             <div className="space-y-2">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/50 text-xs">
                 <div className={`w-2 h-2 rounded-full ${connectedCount === totalCount ? 'bg-emerald-500' : connectedCount > 0 ? 'bg-amber-500' : 'bg-red-500'}`} />
-                <span className="text-xs font-medium">
-                  {connectedCount}/{totalCount} servicios operativos
-                </span>
+                <span className="font-medium">{connectedCount}/{totalCount} servicios operativos</span>
               </div>
 
               {services.map((service) => (
                 <div
                   key={service.id}
-                  className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
+                  className="flex items-start gap-2.5 px-3 py-2 rounded-md border bg-card"
                 >
                   <span className="text-base mt-0.5">{service.icon}</span>
                   <div className="flex-1 min-w-0">
@@ -239,73 +279,7 @@ export function RouteSettingsPanelContent() {
               ))}
             </div>
           )}
-        </div>
-
-        <Separator className="mb-5" />
-
-        {/* ── Stack de resolución (modelo real) ── */}
-        <div className="mb-5 rounded-xl border border-border bg-muted/30 p-3 space-y-2">
-          <div className="flex items-start gap-2">
-            <Info className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
-            <div className="text-[11px] text-muted-foreground leading-snug">
-              <p className="font-medium text-foreground mb-1">Stack de resolución por usuario</p>
-              <p>
-                <code>calculate-route</code> aplica, para cada usuario:
-                <strong className="text-foreground"> default del sistema</strong> →
-                <strong className="text-foreground"> override personal de ese usuario</strong> →
-                <strong className="text-foreground"> ajustes por-ruta en el RouteBuilder</strong>.
-              </p>
-              <p className="mt-1">
-                Lo que guardes aquí <strong className="text-foreground">solo afecta a tus propios cálculos</strong>.
-                No pisa overrides de otros usuarios ni ajustes guardados en rutas concretas.
-              </p>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-2 text-[10px]">
-            <div className="rounded-lg bg-card border px-2 py-1.5">
-              <div className="font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Default</div>
-              <div className="text-foreground/80">Hardcoded · read-only</div>
-            </div>
-            <div className="rounded-lg bg-card border px-2 py-1.5">
-              <div className="font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Tu override</div>
-              <div className="text-foreground/80">
-                {override ? `${stackDiff.length} campo${stackDiff.length === 1 ? '' : 's'} sobrescrito${stackDiff.length === 1 ? '' : 's'}` : 'Sin override'}
-              </div>
-            </div>
-            <div className="rounded-lg bg-card border px-2 py-1.5">
-              <div className="font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Efectivo (tú)</div>
-              <div className="text-foreground/80">Lo que ves abajo</div>
-            </div>
-          </div>
-          {stackDiff.length > 0 && (
-            <details className="text-[10px]">
-              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                Ver diff de tu override ({stackDiff.length})
-              </summary>
-              <ul className="mt-1.5 space-y-0.5 font-mono">
-                {stackDiff.map(d => (
-                  <li key={String(d.key)} className="flex items-center gap-2">
-                    <span className="text-foreground">{String(d.key)}</span>
-                    <span className="text-muted-foreground/60">{String(d.def)}</span>
-                    <span className="text-muted-foreground">→</span>
-                    <span className="text-primary">{String(d.ov)}</span>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-        </div>
-
-        <div className="mb-4 flex items-center gap-2 flex-wrap">
-          <EffectBadge kind="immediate" detail="Próximos cálculos de ruta del usuario actual" />
-          <span className="text-[11px] text-muted-foreground">
-            Itinerarios ya guardados conservan sus ajustes por-ruta.
-          </span>
-        </div>
-        <RouteEngineSettings
-          config={config}
-          onChange={(partial) => setConfig(prev => ({ ...prev, ...partial }))}
-        />
+        </section>
       </div>
     </div>
   );

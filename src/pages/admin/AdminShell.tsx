@@ -21,9 +21,33 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { Loader2, Shield, X, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePermissions } from '@/domains/identity';
-import { ADMIN_TABS, ADMIN_DOMAIN_LABELS, getAdminTab, groupAdminTabsByDomain, isRouteModeTab, type AdminTabKey } from '@/components/admin/admin-tabs';
+import {
+  ADMIN_TABS,
+  ADMIN_DOMAIN_LABELS,
+  getAdminTab,
+  groupAdminTabsByDomain,
+  isRouteModeTab,
+  isDiagnosticDomain,
+  type AdminTabKey,
+} from '@/components/admin/admin-tabs';
 
 const ROUTE_TABS = ADMIN_TABS.filter(isRouteModeTab);
+
+/**
+ * PR-BACKOFFICE-CLEANUP-REALITY-1 — badge DIAG.
+ * Marca visualmente toda surface del dominio `diagnostics` para que no se
+ * confunda con feature de producto. Texto plano, sin emojis (regla global).
+ */
+function DiagBadge({ className = '' }: { className?: string }) {
+  return (
+    <span
+      className={`shrink-0 px-1 py-px rounded text-[8.5px] font-semibold uppercase tracking-wider bg-muted text-muted-foreground border border-border/60 ${className}`}
+      title="Herramienta de diagnóstico / DevTools — no es una feature de producto"
+    >
+      DIAG
+    </span>
+  );
+}
 
 export function AdminShell() {
   const { hasPermission, loading } = usePermissions();
@@ -98,32 +122,36 @@ export function AdminShell() {
         {/* Sidebar nav agrupado por dominio (PR-BACKOFFICE-UX-CLOSURE-1 Sec. 2). */}
         <aside className="w-64 shrink-0 border-r bg-card/50 overflow-y-auto pb-8">
           <nav className="p-2 space-y-3">
-            {groupAdminTabsByDomain(visibleTabs).map(({ domain, tabs }) => (
-              <div key={domain} className="space-y-0.5">
-                <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70">
-                  {ADMIN_DOMAIN_LABELS[domain]}
+            {groupAdminTabsByDomain(visibleTabs).map(({ domain, tabs }) => {
+              const diag = isDiagnosticDomain(domain);
+              return (
+                <div key={domain} className={`space-y-0.5 ${diag ? 'pt-2 mt-2 border-t border-border/40' : ''}`}>
+                  <div className="px-3 pt-2 pb-1 flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70">
+                    <span>{ADMIN_DOMAIN_LABELS[domain]}</span>
+                    {diag && <DiagBadge />}
+                  </div>
+                  {tabs.map(tab => {
+                    const Icon = tab.icon;
+                    return (
+                      <NavLink
+                        key={tab.key}
+                        to={`/admin/${tab.key}`}
+                        className={({ isActive }) =>
+                          `flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${
+                            isActive
+                              ? 'bg-primary/10 text-foreground font-medium'
+                              : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                          } ${diag ? 'opacity-80' : ''}`
+                        }
+                      >
+                        <Icon className={`w-4 h-4 shrink-0 ${diag ? 'text-muted-foreground' : tab.iconClass}`} />
+                        <span className="truncate">{tab.label}</span>
+                      </NavLink>
+                    );
+                  })}
                 </div>
-                {tabs.map(tab => {
-                  const Icon = tab.icon;
-                  return (
-                    <NavLink
-                      key={tab.key}
-                      to={`/admin/${tab.key}`}
-                      className={({ isActive }) =>
-                        `flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${
-                          isActive
-                            ? 'bg-primary/10 text-foreground font-medium'
-                            : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                        }`
-                      }
-                    >
-                      <Icon className={`w-4 h-4 shrink-0 ${tab.iconClass}`} />
-                      <span className="truncate">{tab.label}</span>
-                    </NavLink>
-                  );
-                })}
-              </div>
-            ))}
+              );
+            })}
             {visibleTabs.length === 0 && (
               <p className="px-3 py-4 text-xs text-muted-foreground">
                 No tienes capabilities para ninguna sección con ruta dedicada.
@@ -160,17 +188,21 @@ export function AdminShellIndex() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {visibleTabs.map(tab => {
             const Icon = tab.icon;
+            const diag = isDiagnosticDomain(tab.domain);
             return (
               <Link
                 key={tab.key}
                 to={`/admin/${tab.key}`}
-                className="flex items-start gap-3 p-4 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
+                className={`flex items-start gap-3 p-4 rounded-lg border bg-card hover:bg-muted/30 transition-colors ${diag ? 'opacity-90 border-dashed' : ''}`}
               >
-                <div className="p-2 rounded-md bg-muted/50 shrink-0">
-                  <Icon className={`w-5 h-5 ${tab.iconClass}`} />
+                <div className={`p-2 rounded-md shrink-0 ${diag ? 'bg-muted/30' : 'bg-muted/50'}`}>
+                  <Icon className={`w-5 h-5 ${diag ? 'text-muted-foreground' : tab.iconClass}`} />
                 </div>
-                <div className="min-w-0">
-                  <div className="font-medium text-sm truncate">{tab.label}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className="font-medium text-sm truncate">{tab.label}</div>
+                    {diag && <DiagBadge />}
+                  </div>
                   <code className="text-[10px] text-muted-foreground">/admin/{tab.key}</code>
                 </div>
               </Link>

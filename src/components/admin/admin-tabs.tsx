@@ -56,44 +56,34 @@ export type AdminTabKey =
   | 'internal-tools';
 
 /**
- * BackOffice Information Architecture (PR-BACKOFFICE-UX-CLOSURE-1 Sec. 2).
+ * BackOffice Information Architecture (PR-BACKOFFICE-CLEANUP-REALITY-1).
  *
- * Agrupa los tabs por dominio operativo (ownership), no por orden histórico.
- * Es independiente de `CapabilityDomain` aunque normalmente coinciden:
- * `CapabilityDomain` describe la capability, `AdminDomain` describe la
- * superficie BackOffice donde vive su mini-app.
+ * 4 grupos humanos. Reemplaza el reparto técnico previo (governance/content/
+ * geo-ops/runtime-config/providers/recovery/audit/internal) por una taxonomía
+ * que el operador entiende a primera vista.
+ *
+ *   admin       → quién entra y qué puede tocar (usuarios + RBAC)
+ *   config      → ajustes persistentes que cambian comportamiento global
+ *   ops         → ejecutar trabajo masivo / jobs en background
+ *   diagnostics → inspección, debug, herramientas internas (no operación)
+ *
+ * `diagnostics` lleva además un badge "DIAG" en el sidebar/index para que
+ * NUNCA se confunda con una feature de producto.
  */
-export type AdminDomain =
-  | 'governance'
-  | 'content'
-  | 'geo-ops'
-  | 'runtime-config'
-  | 'providers'
-  | 'recovery'
-  | 'audit'
-  | 'internal';
+export type AdminDomain = 'admin' | 'config' | 'ops' | 'diagnostics';
 
 export const ADMIN_DOMAIN_LABELS: Record<AdminDomain, string> = {
-  governance: 'Governance',
-  content: 'Editorial / Content',
-  'geo-ops': 'Geo Ops',
-  'runtime-config': 'Runtime Config',
-  providers: 'Providers',
-  recovery: 'Recovery / Batch Ops',
-  audit: 'Audit / Debug',
-  internal: 'Internal Tools',
+  admin: 'Administración',
+  config: 'Configuración',
+  ops: 'Operaciones',
+  diagnostics: 'Diagnóstico / DevTools',
 };
 
-export const ADMIN_DOMAIN_ORDER: AdminDomain[] = [
-  'governance',
-  'content',
-  'geo-ops',
-  'runtime-config',
-  'providers',
-  'recovery',
-  'audit',
-  'internal',
-];
+export const ADMIN_DOMAIN_ORDER: AdminDomain[] = ['admin', 'config', 'ops', 'diagnostics'];
+
+export function isDiagnosticDomain(domain: AdminDomain): boolean {
+  return domain === 'diagnostics';
+}
 
 export interface AdminTabSpec {
   key: AdminTabKey;
@@ -127,7 +117,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: Users,
     iconClass: 'text-purple-500',
     capability: 'manage_users',
-    domain: 'governance',
+    domain: 'admin',
     Component: null,
   },
   {
@@ -136,7 +126,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: SlidersHorizontal,
     iconClass: 'text-blue-500',
     capability: 'manage_permissions',
-    domain: 'governance',
+    domain: 'admin',
     Component: null,
   },
   {
@@ -145,7 +135,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: Ruler,
     iconClass: 'text-orange-500',
     capability: 'manage_marker_config',
-    domain: 'runtime-config',
+    domain: 'config',
     Component: MarkerSizeManager as LazyExoticComponent<ComponentType<unknown>>,
   },
   {
@@ -154,7 +144,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: RouteIcon,
     iconClass: 'text-primary',
     capability: 'manage_route_engine',
-    domain: 'runtime-config',
+    domain: 'config',
     Component: RouteSettingsPanelContent as LazyExoticComponent<ComponentType<unknown>>,
   },
   {
@@ -163,7 +153,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: Settings,
     iconClass: 'text-indigo-500',
     capability: 'manage_icon_library',
-    domain: 'runtime-config',
+    domain: 'config',
     Component: IconLibraryManager as LazyExoticComponent<ComponentType<unknown>>,
   },
   {
@@ -172,19 +162,21 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: FileText,
     iconClass: 'text-emerald-500',
     capability: 'manage_enrichment_config',
-    domain: 'content',
+    domain: 'config',
     routeMode: 'route',
     Component: EnrichmentCardConfig as LazyExoticComponent<ComponentType<unknown>>,
   },
   {
-    key: 'audit',
-    label: 'Auditoría de preferencias',
-    icon: ShieldAlert,
-    iconClass: 'text-amber-500',
-    capability: 'view_audit_log',
-    domain: 'audit',
+    // Sources NO es Operaciones: define providers/prioridades/toggles
+    // (config persistente). No ejecuta jobs. (PR-BACKOFFICE-CLEANUP-REALITY-1)
+    key: 'sources',
+    label: 'Fuentes de datos',
+    icon: Database,
+    iconClass: 'text-cyan-500',
+    capability: 'manage_data_sources',
+    domain: 'config',
     routeMode: 'route',
-    Component: AuditPanel as LazyExoticComponent<ComponentType<unknown>>,
+    Component: DataSourcesPanel as LazyExoticComponent<ComponentType<unknown>>,
   },
   {
     key: 'geography',
@@ -192,19 +184,9 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: Compass,
     iconClass: 'text-amber-500',
     capability: 'view_geo_maintenance',
-    domain: 'geo-ops',
+    domain: 'ops',
     routeMode: 'route',
     Component: GeographyBackfillPanel as LazyExoticComponent<ComponentType<unknown>>,
-  },
-  {
-    key: 'sources',
-    label: 'Fuentes de datos',
-    icon: Database,
-    iconClass: 'text-cyan-500',
-    capability: 'manage_data_sources',
-    domain: 'providers',
-    routeMode: 'route',
-    Component: DataSourcesPanel as LazyExoticComponent<ComponentType<unknown>>,
   },
   {
     key: 'image-recovery',
@@ -212,9 +194,19 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: ImageIcon,
     iconClass: 'text-amber-500',
     capability: 'run_image_recovery',
-    domain: 'recovery',
+    domain: 'ops',
     routeMode: 'route',
     Component: RecoverImagesPanel as LazyExoticComponent<ComponentType<unknown>>,
+  },
+  {
+    key: 'audit',
+    label: 'Auditoría de preferencias',
+    icon: ShieldAlert,
+    iconClass: 'text-amber-500',
+    capability: 'view_audit_log',
+    domain: 'diagnostics',
+    routeMode: 'route',
+    Component: AuditPanel as LazyExoticComponent<ComponentType<unknown>>,
   },
   {
     key: 'design-system',
@@ -222,7 +214,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: Palette,
     iconClass: 'text-fuchsia-500',
     capability: 'inspect_design_system',
-    domain: 'internal',
+    domain: 'diagnostics',
     routeMode: 'route',
     Component: DesignSystemPanel as LazyExoticComponent<ComponentType<unknown>>,
   },
@@ -232,7 +224,7 @@ export const ADMIN_TABS: readonly AdminTabSpec[] = [
     icon: Terminal,
     iconClass: 'text-slate-500',
     capability: 'run_internal_tooling',
-    domain: 'internal',
+    domain: 'diagnostics',
     routeMode: 'route',
     Component: InternalToolsPanel as LazyExoticComponent<ComponentType<unknown>>,
   },

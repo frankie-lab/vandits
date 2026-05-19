@@ -16,7 +16,7 @@
  * (script directo). NO se permiten edges runtime sin ownership UX.
  */
 import { useState } from 'react';
-import { Terminal, Play, Loader2, ExternalLink, Info } from 'lucide-react';
+import { Play, Loader2, ExternalLink, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -92,44 +92,41 @@ export function InternalToolsPanel() {
   ];
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col p-4 gap-4 overflow-y-auto">
-      <header className="rounded-lg border border-border bg-muted/20 p-4">
-        <div className="flex items-center gap-2 mb-1.5">
-          <Terminal className="w-4 h-4 text-slate-500" />
-          <h2 className="text-sm font-semibold">Internal tooling</h2>
-        </div>
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          Inventario único de edge tools internas y su ownership UX. Si una tool no aparece
-          aquí, no debería existir como edge runtime. Toda tool nueva debe registrarse en
-          este panel o quedarse como script directo (fuera del backoffice).
-        </p>
-      </header>
-
-      <ul className="space-y-2">
+    <div
+      data-internal-registry="v1"
+      className="flex-1 min-h-0 flex flex-col gap-3 overflow-y-auto bg-muted/30 p-4"
+    >
+      {/* Registry table — sin card introductoria; el PanelEffectHeader ya marca
+          "internal / read-only" arriba. Densidad técnica deliberada. */}
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground/70 px-1 flex items-center gap-2">
+        <span>Tool registry</span>
+        <span className="font-mono">· {tools.length} entries</span>
+      </div>
+      <ul className="rounded border border-border/60 bg-card/60 divide-y divide-border/50 font-mono text-[11px]">
         {tools.map((t) => (
-          <li key={t.id} className="rounded-lg border bg-card p-3">
+          <li key={t.id} className="px-3 py-2 hover:bg-muted/40">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <code className="text-xs font-mono font-semibold text-foreground">{t.title}</code>
+                  <code className="font-semibold text-foreground">{t.title}</code>
                   <EffectBadge kind={t.effect} />
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-1 leading-snug">{t.description}</p>
-                <div className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                <p className="font-sans text-[11px] text-muted-foreground mt-1 leading-snug">{t.description}</p>
+                <div className="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground/80">
                   <Info className="w-3 h-3" />
-                  <span>Ownership:</span>
+                  <span className="font-sans">owner:</span>
                   {t.ownership.kind === 'panel' && (
                     t.ownership.path ? (
-                      <Link to={t.ownership.path} className="text-primary hover:underline inline-flex items-center gap-1">
+                      <Link to={t.ownership.path} className="font-sans text-primary hover:underline inline-flex items-center gap-1">
                         {t.ownership.label} <ExternalLink className="w-2.5 h-2.5" />
                       </Link>
                     ) : (
-                      <span className="text-foreground/80">{t.ownership.label}</span>
+                      <span className="font-sans text-foreground/80">{t.ownership.label}</span>
                     )
                   )}
-                  {t.ownership.kind === 'inline' && <span className="text-foreground/80">{t.ownership.label}</span>}
-                  {t.ownership.kind === 'cron' && <span className="text-foreground/80">{t.ownership.label}</span>}
-                  {t.ownership.kind === 'here' && <span className="text-foreground/80">ejecutable aquí</span>}
+                  {t.ownership.kind === 'inline' && <span className="font-sans text-foreground/80">{t.ownership.label}</span>}
+                  {t.ownership.kind === 'cron' && <span className="font-sans text-foreground/80">{t.ownership.label}</span>}
+                  {t.ownership.kind === 'here' && <span className="font-sans text-foreground/80">runnable here</span>}
                 </div>
               </div>
               {t.ownership.kind === 'here' && (
@@ -138,7 +135,7 @@ export function InternalToolsPanel() {
                   variant="outline"
                   onClick={() => t.ownership.kind === 'here' && t.ownership.runner()}
                   disabled={busy === t.id}
-                  className="text-xs shrink-0"
+                  className="font-sans text-xs shrink-0"
                 >
                   {busy === t.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Play className="w-3 h-3 mr-1" />}
                   Ejecutar
@@ -148,6 +145,10 @@ export function InternalToolsPanel() {
           </li>
         ))}
       </ul>
+      <p className="text-[10px] text-muted-foreground/70 px-1 leading-snug">
+        Catálogo técnico interno. Toda edge tool runtime debe registrarse aquí o quedarse fuera
+        del BackOffice como script directo.
+      </p>
     </div>
   );
 }
