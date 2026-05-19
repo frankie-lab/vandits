@@ -191,3 +191,28 @@ MOVE_TO_ROUTE de 6 panels a `/admin/*` bajo shell común.
 - `Index.tsx`: eventos `admin:open-geography` / `admin:open-data-sources` ahora navegan a `/admin/geography` y `/admin/image-recovery`.
 - Tests: `src/test/admin-route-tabs-contract.test.ts` (los 6 keys exactos, capability en CAPABILITIES, Component lazy presente, path canónico).
 - Capability gates conservados. Sin cambios funcionales en panels, schema o edges.
+
+---
+
+## 10 · PR-BACKOFFICE-UX-CANON-4 · DONE
+
+SIMPLIFY routes + SPLIT markers — clarificar ownership real sin tocar schema ni runtime.
+
+### Routes (`/admin` modal · "Motor de rutas")
+- **Hallazgo**: el panel se vendía como "Configuración global" pero escribía a `profiles.route_engine_defaults` del propio admin. No existe storage global writable.
+- Renombrado header + título a **"Motor de rutas — mis defaults"**; subtítulo "No existe configuración global escribible. Editas tu override personal."
+- Nuevo bloque **"Stack de resolución por usuario"** explícito: `default del sistema → override personal de ese usuario → ajustes por-ruta en el RouteBuilder`. Tarjetas Default / Tu override / Efectivo + `<details>` con diff de campos sobrescritos.
+- Acción **"Quitar mi override"** (set `route_engine_defaults = null`) para volver al default puro.
+- Mensaje de efecto: **inmediato en próximos cálculos del usuario actual**; itinerarios guardados conservan sus ajustes por-ruta.
+- Sin cambios a `calculate-route` ni al schema. Solo se hace visible el modelo real.
+
+### Markers (`/admin` modal · "Marcadores")
+- Renombrado label admin tab: `Tamaños de marcadores` → **`Marcadores (tamaños + estados)`**.
+- Tabs internas relabeladas con scope explícito: `Tamaños y colores por tipo` + `Reglas de estado visual`.
+- Header con subtítulo que separa los dos modelos (qué dibujamos vs paleta canónica enriched/imported/empty) y aclara que ambos tienen **efecto inmediato y aplican a TODOS los usuarios**.
+
+### Tests
+- `src/test/route-engine-stack-contract.test.ts`: documenta el stack real, valida que el panel escribe sólo a `profiles` filtrado por `user.id`, prohíbe storage global (`app_settings.route` / `route_engine_global`), exige presencia del bloque "Stack de resolución" y de la acción para quitar override.
+
+### Out of scope (deuda aceptada)
+- Si se quisiera un override realmente global (no por-usuario), requeriría schema nuevo (`app_settings.route_engine_global` o tabla dedicada) + cambios en `calculate-route` y `use-route-calculation`. NO se hace en este PR.
