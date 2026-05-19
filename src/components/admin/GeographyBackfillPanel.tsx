@@ -868,11 +868,14 @@ function CanonicalizeOneShotCard() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [lastResult, setLastResult] = useState<{ merged: number; dryRun: boolean } | null>(null);
   const [dryRun, setDryRun] = useState(true);
+  // PR-BACKOFFICE-DEAD-SURFACES-1 H4 — observability del one-shot.
+  const opHistory = useOperationHistory(operationKeyForCapability('run_geo_canonicalize'));
 
   if (!canRun) return null;
 
   const run = async () => {
     setBusy(true);
+    const handle = opHistory.start(dryRun ? 'dry-run' : 'destructive');
     try {
       const { data, error } = await supabase.functions.invoke('canonicalize-admin-areas', {
         body: { dryRun },
@@ -880,6 +883,10 @@ function CanonicalizeOneShotCard() {
       if (error) throw error;
       const merged = (data as { merged?: number })?.merged ?? 0;
       setLastResult({ merged, dryRun });
+      handle.complete({
+        status: 'ok',
+        summary: `${dryRun ? 'dry-run' : 'executed'} · merged=${merged}`,
+      });
       toast.success(
         dryRun
           ? `Dry-run: ${merged} fusiones detectadas (sin escribir)`
@@ -887,6 +894,10 @@ function CanonicalizeOneShotCard() {
       );
     } catch (e) {
       console.error('[canonicalize-admin-areas]', e);
+      handle.complete({
+        status: 'error',
+        summary: e instanceof Error ? e.message : String(e),
+      });
       toast.error('No se pudo ejecutar canonicalize');
     } finally {
       setBusy(false);
