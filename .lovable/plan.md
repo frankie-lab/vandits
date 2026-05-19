@@ -1,201 +1,123 @@
-## PR-HYGIENE-3 — Ratificación del REMOVE de `view_all_locations` y `edit_all_locations`
+# PR-BACKOFFICE-DISCOVERY-DOSSIER-1 — Discovery sistémico definitivo (revisado)
+
+**Propósito**: producir un dossier maestro + diagramas que modelen el BackOffice en 19 ejes, basados en **evidencia trazable del código**. Sin rediseño, sin runtime, sin RLS, sin schema, sin capabilities, sin migraciones. Las recomendaciones son **diagnóstico**, no autorización de cambios.
+
+## Cambios incorporados respecto a la versión previa
+
+1. Sección de inventario renombrada a **"Inventario inicial verificable"**. Toda surface descubierta durante la lectura se marca `discovered_during_audit: true`.
+2. Cada surface lleva **bloque de evidencia obligatorio**.
+3. Baseline de 24 surfaces se **valida contra código** (no se asume cerrado).
+4. Vocabulario permitido para campos sin evidencia: `unknown` | `inferred` (con justificación). **`TBD` prohibido.**
+5. Matriz final añade columnas `evidence_summary` y `reason`.
+6. Diagramas se guardan en **`docs/audits/diagrams/*.mmd`** (repo). `/mnt/documents/` solo como copia opcional para preview.
+7. Memoria `mem://governance/backoffice-discovery-dossier` es **entregable secundario**, no sustituto del doc en repo.
+8. **Profundidad proporcional**: audit completo para tabs complejos y operaciones; audit resumido para confirms y wrappers simples. Todos aparecen en inventario y matriz.
+9. Recomendaciones son **diagnóstico**. Set permitido: `KEEP | SPLIT | DOWNGRADE | MOVE | REMOVE | DEBUG_ONLY | MERGE | NEEDS_DECISION`. Ninguna implica ejecución.
+
+## Bloque de evidencia obligatorio (por surface)
+
+```text
+evidence:
+  file:           src/...           # ruta exacta verificada
+  route:          /admin/<key>      # o "embedded in <parent>" | "none"
+  component:      <ExportedName>
+  capability:     <cap | none | inferred:<cap>>
+  imports:        [hook/service/store relevantes]
+  reads:          [tablas, edge fns, stores]
+  writes:         [tablas, RPCs, edge fns, stores]
+  source_of_truth: <tabla|app_settings|store|edge fn|unknown>
+  anchor:         <ref a memoria/contrato existente | none>
+  discovered_during_audit: <true|false>
+```
+
+Campos sin evidencia directa → `unknown` o `inferred:<motivo corto>`. Nunca `TBD`.
+
+## Baseline de surfaces (24 — a validar contra código)
+
+Fuente verificada: `src/components/admin/admin-tabs.tsx` (12 tabs), `src/pages/admin/AdminShell.tsx`, `src/pages/admin/AdminRoutePage.tsx`, `src/components/AdminPanel.tsx`. Si la lectura descubre más, se añaden con `discovered_during_audit: true`.
+
+**Principales (12 tabs)**: users, permissions, markers, routes, icons, enrichment, sources, geography, image-recovery, audit, design-system, internal-tools.
+
+**Secundarias/chrome (9 candidatas)**: `AdminShell`, `AdminShellIndex`, `AdminGate`/`AdminGateDenied`, `AdminBrokenUsersList`, `PanelEffectHeader` + `EffectBadgeRow`, `OperationStatusCard`, `EditModeBar` (design-system), `RouteSettingsPanel` modal-wrapper legacy, `CameraFitQaGate` (overlay `?qa=1` relacionado con `view_audit_log`).
+
+**Confirms (3 dialogs)**: purge-user, permissions-toggle, geo-canonicalize.
+
+Total baseline: **24**. Final puede crecer.
+
+## Profundidad por categoría
+
+| Categoría | Profundidad |
+|---|---|
+| Tabs complejos (geography, image-recovery, enrichment, permissions, design-system, users) | **Audit completo** (19 secciones aplicables, ASCII anatomy, journeys) |
+| Tabs medios (sources, routes, markers, icons, audit, internal-tools) | **Audit completo** sin ASCII denso; journeys cortos |
+| Chrome (AdminShell, AdminShellIndex, AdminGate, PanelEffectHeader, OperationStatusCard, EffectBadgeRow) | **Audit resumido**: rol estructural, no operacional |
+| Wrappers/embebidos (AdminBrokenUsersList, RouteSettingsPanel modal-wrapper, EditModeBar, CameraFitQaGate) | **Audit resumido** |
+| Confirms (3) | **Audit resumido**: typed-token, scope, irreversibilidad |
+
+Todas aparecen en inventario y en la matriz final, completas o resumidas.
+
+## Entregable principal — documento maestro
+
+`docs/audits/backoffice-discovery-dossier.md` con las 19 secciones del brief en orden:
+
+1. Inventario inicial verificable (tabla con bloque de evidencia por surface)
+2. Functional surface audit (CONFIG/OPERATION/DATA/OBSERVABILITY/INSPECTOR/DEBUG/CONFIRM/HYBRID)
+3. Visual anatomy (ASCII + conteos: cards/CTAs/badges/toggles/tablas/collapsibles/inputs/scrolls)
+4. Operational usage (`unknown` permitido si no hay telemetría)
+5. User journeys por rol (master/admin/moderator/editor)
+6. Action hierarchy
+7. Error / failure states
+8. Empty / loading states
+9. Dependency / causality map
+10. Ownership / authority map
+11. Permission visibility (matriz rol×surface)
+12. Design system compliance
+13. Telemetry / auditability
+14. Responsive / viewport
+15. Copy / terminology
+16. Growth / lifecycle canon
+17. Family system (7 familias × estructura/layout/density/scroll/footer/header/action/responsive)
+18. **Matriz final** con columnas: `surface | family | ownership | runtime | risk | frequency | complexity | recommendation | evidence_summary | reason`
+19. Restricciones (eco literal del brief)
+
+## Diagramas (en repo)
+
+`docs/audits/diagrams/`:
+- `backoffice-family-system.mmd`
+- `backoffice-ownership-map.mmd`
+- `backoffice-dependency-graph.mmd`
+- `backoffice-navigation-graph.mmd`
+- `backoffice-lifecycle.mmd`
+- `backoffice-causality-cascades.mmd`
+
+Copia opcional en `/mnt/documents/` solo para que el usuario pueda abrirlos como artifacts en la preview (no es la ubicación primaria).
+
+## Entregables secundarios
+
+- `mem://governance/backoffice-discovery-dossier` — puntero al doc + regla: *"Toda surface nueva del BackOffice debe declarar `family`, `ownership_domain`, `runtime_semantics` e `interaction_type` y registrar evidencia ANTES de diseñar layout."*
+- Añadir línea en `mem://index.md` (Memorias, no Core), sin tocar el resto del archivo.
+
+## Método de trabajo
+
+1. **Lectura verificadora** (sólo `code--view`/`rg`): admin-tabs, AdminShell, AdminRoutePage, AdminPanel, 12 panels, 3 confirms, chrome candidato. Cada lectura confirma o descubre surfaces.
+2. **Rellenar evidencia** por surface antes de juzgar interacción/familia.
+3. **Generar 6 diagramas** en `docs/audits/diagrams/`.
+4. **Compilar** `docs/audits/backoffice-discovery-dossier.md` en una pasada.
+5. **Crear memoria secundaria** y actualizar `mem://index.md`.
 
-PR-HYGIENE-2 ya purgó ambas capabilities del enum DB (`app_permission`), del SoT cliente (`src/domains/identity/capabilities.ts`), del espejo Deno (`supabase/functions/_shared/capabilities.ts`), de la metadata RBAC (`src/components/admin/permissions/capability-metadata.ts`) y de `role_permissions`. Existe contract test (`src/test/capabilities-hygiene-2-contract.test.ts`) que impide su resurrección.
+## Criterio de aceptación
 
-Este PR no toca código ni DB. Su entregable único es **dejar formalizada la decisión** en `.lovable/plan.md` para que cualquier futura tentación de reintroducirlas tenga que pasar primero por reabrir este análisis.
+- 100% de surfaces del baseline + descubiertas presentes en inventario y matriz.
+- Bloque de evidencia completo para cada una; sin `TBD`.
+- 19 secciones presentes; cada celda sin datos marcada `unknown` o `inferred:<motivo>`.
+- 6 diagramas `.mmd` versionados en `docs/audits/diagrams/`.
+- Matriz final con `evidence_summary` y `reason` para cada surface.
+- Recomendaciones diagnósticas en el set permitido; ninguna acción ejecutada.
 
-### Análisis cerrado (a documentar en plan.md)
+## Fuera de alcance (explícito)
 
-**Semántica esperada (modelo teórico)**
-- `view_all_locations`: bypass del owner-scoping de SELECT sobre `public.locations` — permitiría a un rol no-master ver POIs `private`/`followers` ajenos sin estar siguiendo al owner.
-- `edit_all_locations`: bypass del owner-scoping de UPDATE sobre `public.locations` — permitiría editar metadata (descripción, tags, fotos, enriched_data, geo FKs) de POIs ajenos.
+- No rediseño, no nuevos componentes, no nuevos tamaños/cards/layouts.
+- No runtime, RLS, schema, capabilities, migraciones, refactors visuales grandes.
+- Las recomendaciones **no abren PRs** ni autorizan cambios. Sirven como backlog priorizable posterior.
 
-**Auditoría de uso real (estado pre-PR-HYGIENE-2)**
-- Client gates (`useCapability`, `hasPermission`): 0 referencias en `src/`.
-- Edge functions (`requireCapability`): 0 referencias en `supabase/functions/`.
-- RLS policies (`pg_policies`): 0 — `locations` usa `can_view_location()` + `owner_user_id = auth.uid()` + bypass por `has_role('admin'|'master')`.
-- SQL functions / RPCs / loaders / map rendering / popup actions / selección / export / batch ops: ninguno consulta estas capabilities.
-- Conclusión: paper-rights puras. Cablearlas exigiría diseñar desde cero qué tablas y operaciones cubren.
-
-**Mapa RLS (por qué REMOVE no abre huecos)**
-- `locations` SELECT: ya hay bypass master (visibilidad por `can_view_location` + role-check). Admin sigue editando vía `Admins can update any location` (UPDATE policy con `has_role admin|master`). El paper-right no añadía nada que no estuviera ya gobernado por role bypass.
-- Ningún flow de moderación, popup action, destructive action ni export dependía de estas capabilities.
-
-**Riesgos por opción**
-- KEEP + cablear: alto. Exige decidir scope (¿solo `locations`? ¿también `documents`/`location_photos`/`location_notes`?), reescribir 4–6 policies por tabla, introducir un segundo eje de autorización paralelo al `has_role` master bypass y migrar al canon `has_permission` en RLS — trabajo grande que hoy no resuelve ningún problema de producto real.
-- No cablear (statu quo previo): mantiene drift permanente entre matriz RBAC y semántica real, contradice el RBAC canon ("toda capability gobierna runtime real").
-- REMOVE (elegido): cero impacto runtime (no había consumidores), elimina dos paper-rights del catálogo, libera la matriz RBAC de filas engañosas. Reversible vía nueva migración si el producto algún día necesita un rol "auditor cross-user".
-
-**Recomendación cerrada: Opción B — REMOVE (ya aplicada en PR-HYGIENE-2)**
-
-Si en el futuro se necesita un rol con acceso cross-user real (auditor de contenido, soporte avanzado), debe diseñarse como una capability nueva con scope explícito (ej. `view_other_user_locations_for_moderation`) cableada SIMULTÁNEAMENTE a RLS + UI + edge desde el primer commit. Reintroducir los nombres genéricos `view_all_locations` / `edit_all_locations` queda explícitamente prohibido.
-
-### Cambios a aplicar (este PR)
-
-1. Añadir sección **PR-HYGIENE-3 — Ratificación** a `.lovable/plan.md` con el resumen anterior (semántica, auditoría, mapa RLS, riesgos, decisión cerrada y guardarraíl para el futuro).
-
-Sin cambios de código, migración, tests ni UI. El contract test de PR-HYGIENE-2 ya bloquea la resurrección.
-
----
-
-## PR-HYGIENE-3 — Ratificación del REMOVE de `view_all_locations` y `edit_all_locations` (NO-OP)
-
-PR-HYGIENE-2 ya purgó ambas capabilities. Este PR no toca código ni DB — solo formaliza el análisis para bloquear reintroducción accidental.
-
-### Semántica esperada (modelo teórico)
-
-- `view_all_locations`: bypass del owner-scoping de SELECT sobre `public.locations` — permitiría a un rol no-master ver POIs `private`/`followers` ajenos sin estar siguiendo al owner.
-- `edit_all_locations`: bypass del owner-scoping de UPDATE sobre `public.locations` — permitiría editar metadata (descripción, tags, fotos, enriched_data, geo FKs) de POIs ajenos.
-
-### Auditoría de uso real (estado pre-PR-HYGIENE-2)
-
-- Client gates (`useCapability`, `hasPermission`): 0 referencias en `src/`.
-- Edge functions (`requireCapability`): 0 referencias en `supabase/functions/`.
-- RLS policies (`pg_policies`): 0 — `locations` usa `can_view_location()` + `owner_user_id = auth.uid()` + bypass por `has_role('admin'|'master')`.
-- SQL functions / RPCs / loaders / map rendering / popup actions / selección / export / batch ops: ninguno consulta estas capabilities.
-- Conclusión: paper-rights puras. Cablearlas exigiría diseñar desde cero qué tablas y operaciones cubren.
-
-### Mapa RLS (por qué REMOVE no abre huecos)
-
-- `locations` SELECT: ya hay bypass master (visibilidad por `can_view_location` + role-check). Admin sigue editando vía `Admins can update any location` (UPDATE policy con `has_role admin|master`). El paper-right no añadía nada que no estuviera ya gobernado por role bypass.
-- Ningún flow de moderación, popup action, destructive action ni export dependía de estas capabilities.
-
-### Riesgos por opción
-
-- **KEEP + cablear**: alto. Exige decidir scope (¿solo `locations`? ¿también `documents`/`location_photos`/`location_notes`?), reescribir 4–6 policies por tabla, introducir un segundo eje de autorización paralelo al `has_role` master bypass y migrar al canon `has_permission` en RLS — trabajo grande que hoy no resuelve ningún problema de producto real.
-- **No cablear (statu quo previo)**: mantiene drift permanente entre matriz RBAC y semántica real, contradice el RBAC canon ("toda capability gobierna runtime real").
-- **REMOVE (elegido)**: cero impacto runtime (no había consumidores), elimina dos paper-rights del catálogo, libera la matriz RBAC de filas engañosas. Reversible vía nueva migración si el producto algún día necesita un rol "auditor cross-user".
-
-### Decisión cerrada: Opción B — REMOVE (ya aplicada en PR-HYGIENE-2)
-
-Si en el futuro se necesita un rol con acceso cross-user real (auditor de contenido, soporte avanzado), debe diseñarse como capability nueva con scope explícito (ej. `view_other_user_locations_for_moderation`) cableada SIMULTÁNEAMENTE a RLS + UI + edge desde el primer commit. **Reintroducir los nombres genéricos `view_all_locations` / `edit_all_locations` queda explícitamente prohibido**; el contract test `capabilities-hygiene-2-contract.test.ts` ya bloquea esa resurrección.
-
----
-
-## PR-HYGIENE-4 — Higiene semántica del catálogo RBAC (renames)
-
-Alinear nombres de capabilities con su runtime real y ownership operativo. Sin cambios de RLS, gating, scope efectivo ni runtime — solo naming.
-
-### Renames aplicados
-
-1. `manage_design_system` → **`inspect_design_system`**
-   - El panel es Design System **Inspector**: read-only / audit / navegación. No edita tokens globales persistentes, no gobierna theming runtime, no persiste cambios estructurales. El nombre legacy introducía falsa semántica de escritura.
-   - Metadata RBAC actualizada: `risk: low`, `runtime: none`, `masterOnly: true`, `domain: 'design-system'`.
-
-2. `manage_criteria` → **`manage_editorial_criteria`**
-   - "criteria" era ambiguo (no expresaba dominio ni ownership). Hoy gobierna reglas editoriales IA, freshness/update policy y enrichment thresholds.
-   - Metadata RBAC actualizada: descripción reescrita, `domain: 'content'`, `runtime: future-only` (sin cambio).
-
-### Migración DB
-
-`supabase/migrations/20260519_*_pr-hygiene-4-rename-capabilities.sql`:
-- `ALTER TYPE public.app_permission RENAME VALUE 'manage_design_system' TO 'inspect_design_system'`
-- `ALTER TYPE public.app_permission RENAME VALUE 'manage_criteria' TO 'manage_editorial_criteria'`
-- Envuelto en `DO $$ ... IF EXISTS ... END $$` → idempotente.
-- `RENAME VALUE` preserva el OID interno del enum → **todas las filas de `role_permissions` migran automáticamente** sin pérdida de asignaciones. Sin recreación de `has_permission` / `get_user_permissions` (firma del enum invariante).
-
-### Cambios cliente / Deno / metadata
-
-- `src/domains/identity/capabilities.ts`: SoT TS actualizado (lista + `CAPABILITY_LABELS`).
-- `supabase/functions/_shared/capabilities.ts`: espejo Deno actualizado en paralelo (contract test `capabilities-sot-parity` lo verifica).
-- `src/components/admin/permissions/capability-metadata.ts`: entradas renombradas; eliminado el hack de cast `as RuntimeImpact extends string ?...` y el override post-objeto que normalizaba `manage_design_system` — ahora la entrada canónica se define una sola vez con el runtime correcto.
-- `src/components/UserMenu.tsx`: `hasPermission('manage_editorial_criteria')`.
-- `src/components/admin/admin-tabs.tsx`: tab "Design System Inspector" usa `capability: 'inspect_design_system'`.
-- `VANDITS-v2.0-DOCUMENTATION.md`: línea del catálogo actualizada.
-
-### Contract test reforzado
-
-`src/test/capabilities-hygiene-2-contract.test.ts` añade bloque PR-HYGIENE-4 que prohíbe la resurrección de los nombres legacy (`manage_design_system`, `manage_criteria`) en SoT cliente, Deno o metadata, y exige presencia de los nombres canon (`inspect_design_system`, `manage_editorial_criteria`).
-
-### Rollback
-
-Revertir el rename es simétrico: dos `ALTER TYPE ... RENAME VALUE` en sentido inverso + revert de los archivos cliente/Deno/metadata. Asignaciones de roles intactas en cualquier dirección.
-
-### Auditoría de naming residual (sin acción — solo reporte)
-
-Tras los dos renames, el catálogo restante se considera **canon-coherente**:
-
-- `manage_users`, `manage_permissions`, `manage_marker_config`, `manage_route_engine`, `manage_icon_library`, `manage_enrichment_config`, `manage_data_sources` → ownership claro (configuración runtime sobre un dominio específico).
-- `delete_any_location`, `purge_user`, `assign_master` → verbo destructivo + scope explícito; nombres ya alineados con poder real.
-- `run_global_enrichment`, `run_image_recovery`, `run_internal_tooling`, `run_geo_backfill`, `run_geo_canonicalize` → prefijo `run_` correcto para jobs/batch deferred.
-- `view_audit_log`, `view_geo_maintenance` → prefijo `view_` correcto para read-only.
-- `moderate_content`, `open_back_office` → semántica directa.
-- `manage_geo_maintenance` → ya marcado como **alias legacy deprecated** en metadata; no requiere rename (su deprecación está pendiente de purga futura, no de renombrado).
-
-**No se introducen más renames en este PR.** El canon RBAC está ahora alineado con runtime real, ownership real y nivel de poder real.
-
-### Verificación
-
-- DB enum: `inspect_design_system`, `manage_editorial_criteria` presentes; los legacy no aparecen en `pg_enum`.
-- `role_permissions`: asignaciones preservadas (mismo OID interno).
-- SoT TS/Deno: byte-identical (verificado por `capabilities-sot-parity.test.ts`).
-- Hygiene contract: PR-HYGIENE-2 + PR-HYGIENE-4 verde.
-- Matriz RBAC UI: muestra los nuevos nombres con labels actualizados; gates intactos (`useCapability('inspect_design_system')` para el panel Design System, `useCapability('manage_editorial_criteria')` para Criterios).
-
----
-
-## PR-HYGIENE-5 — Purga del alias legacy `manage_geo_maintenance`
-
-`manage_geo_maintenance` quedó como alias del catálogo geo desde antes del split canónico (`view_geo_maintenance` / `run_geo_backfill` / `run_geo_canonicalize`, PR-BACKOFFICE-GOVERNANCE F2). Auditoría confirma: cero consumidores funcionales.
-
-### Auditoría de uso real
-
-- Cliente (`hasPermission` / `useCapability`): 0 referencias en `src/`.
-- Edge functions (`requireCapability`): 0 — `canonicalize-admin-areas` ya usa `run_geo_canonicalize`; un comentario obsoleto mencionaba el alias y se actualiza en este PR.
-- RLS / SQL functions / RPCs: 0 referencias.
-- `role_permissions`: 2 filas (`admin`, `master`) — papel-derecho sin efecto runtime; se borran en la migración.
-- Metadata RBAC: 1 entrada marcada como deprecated, se elimina.
-- Geography admin panel: usa `view_geo_maintenance` (sin cambio).
-
-### Cambios aplicados
-
-1. **Migración** `20260519_*_pr-hygiene-5-purge-manage-geo-maintenance.sql`:
-   - DROP funciones `has_permission` / `get_user_permissions` (dependen del enum).
-   - DELETE filas zombie en `role_permissions`.
-   - RENAME enum viejo → recreación sin el alias → recast columna `permission` → DROP enum viejo.
-   - Recrear funciones canónicas (firma idéntica).
-2. **SoT cliente** (`src/domains/identity/capabilities.ts`): eliminado del array y de `CAPABILITY_LABELS`.
-3. **Espejo Deno** (`supabase/functions/_shared/capabilities.ts`): eliminado en paralelo (contract test `capabilities-sot-parity` lo verifica).
-4. **Metadata RBAC** (`src/components/admin/permissions/capability-metadata.ts`): entrada sustituida por comentario que apunta al split canónico.
-5. **Edge function** (`supabase/functions/canonicalize-admin-areas/index.ts`): comentario actualizado para reflejar el gate real (`run_geo_canonicalize`).
-6. **Contract test** (`src/test/capabilities-hygiene-2-contract.test.ts`): añadido a `PURGED_ZOMBIES` — cualquier reintroducción falla en CI.
-
-### Verificación
-
-- DB: `manage_geo_maintenance` no aparece en `pg_enum` para `app_permission`. `role_permissions` ya no contiene la fila.
-- Permisos efectivos de admin y master: intactos (siguen teniendo `view_geo_maintenance` y `run_geo_backfill`; master además `run_geo_canonicalize`).
-- Geography panel sigue funcionando; canonicalize sigue funcionando; backfills siguen funcionando — todo vía las capabilities canónicas.
-- Sin cambios de UX, RLS ni runtime.
-
----
-
-## PR-BACKOFFICE-UX-CLOSURE-1 — Cierre operativo del canon RBAC/BackOffice
-
-Hace visible en la UX el canon ya saneado internamente. Sin nuevas capabilities, sin tocar RLS, sin rediseño visual.
-
-### Cambios aplicados
-
-1. **Sec. 5 — Purga de roles fantasma (migración SQL)**.
-   - Eliminados del enum `public.app_role` los valores `user`, `supervisor` y `curator` (0 titulares, 0 capabilities — verificado).
-   - Catálogo activo final: `{master, admin, moderator, editor}`.
-   - Patrón: snapshot de las 43 policies que dependían de `has_role` → drop functions CASCADE → reciclo del enum → recreate functions con firma idéntica → replay de policies idénticas. Sin cambios semánticos en RLS.
-   - Assertion final en la migración: `pg_enum` no contiene zombies.
-   - BL-021 cerrada (curator/user ya no inertes en pg_enum).
-
-2. **Sec. 1 — Matriz RBAC ya canónica**. `PermissionsMatrixPanel` ya era matriz capability × role agrupada por dominio (PR-RBAC-MATRIX-1). Se ajusta a 4 columnas, se generaliza la detección de roles vacíos/casi vacíos (banner ámbar genérico, no atado a `supervisor`).
-
-3. **Sec. 3 — EffectBadge único** (`src/components/admin/EffectBadge.tsx`): componente canon para señalizar efecto operativo. Kinds: `immediate | future-only | recompute | deferred | batch | destructive | global | read-only | internal`. Helper `effectsForCapability(cap)` deriva desde `CAPABILITY_META`. `EffectBadgeRow` para usar debajo del header de cada panel.
-
-4. **Sec. 2 — Information Architecture por dominio**. `AdminTabSpec` añade campo obligatorio `domain: AdminDomain` (`governance | content | geo-ops | runtime-config | providers | recovery | audit | internal`). Helper `groupAdminTabsByDomain(tabs)`. `AdminShell` agrupa el sidebar por dominio con header de sección.
-
-5. **Sec. 4 — Observability mínima** (`src/components/admin/observability/useOperationHistory.ts`): persistencia en `localStorage` por usuario, máximo 10 runs por `opKey`, sin schema nuevo. Hook `start()/handle.complete()` listo para cablear en panels de jobs.
-
-### Fuera de alcance (deferred a follow-up)
-- Cableado completo de `EffectBadgeRow` y `OperationStatusCard` en los 9 paneles (Geography, Image Recovery, Data Sources, Internal Tools, Audit, etc.).
-- Suite de contract tests (`admin-tabs-domains`, `rbac-roles-canon`, etc.) — pendiente.
-
-### Restricciones respetadas
-- 0 cambios en capabilities efectivas.
-- 0 cambios semánticos en RLS (policies reaplicadas idénticas).
-- 0 schema nuevo salvo la purga del enum `app_role`.
-- 0 rediseño visual general.
+¿Apruebas para redactar?
