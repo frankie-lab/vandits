@@ -46,6 +46,7 @@ import { useRouteOrchestration } from '@/domains/routes/hooks/use-route-orchestr
 import { useRouteFocusBus } from '@/domains/routes/hooks/use-route-focus-bus';
 import { useRightPanel } from '@/hooks/use-right-panel';
 import { useWelcomeCardEvents } from '@/hooks/use-welcome-card-events';
+import { usePendingValidationEvents } from '@/hooks/use-pending-validation-events';
 
 // Discovery orchestrator
 import { DiscoveryOrchestrator, type DiscoveryControls } from '@/domains/discovery/components/DiscoveryOrchestrator';
@@ -81,8 +82,9 @@ const Index = () => {
   const [criteriaVersion, setCriteriaVersion] = useState(0);
   const [notesLocation, setNotesLocation] = useState<GeoLocation | null>(null);
   const [showNotesEditor, setShowNotesEditor] = useState(false);
-  const [pendingValidationsCount, setPendingValidationsCount] = useState(0);
-  const [pendingValidationNames, setPendingValidationNames] = useState<string[]>([]);
+  // pendingValidations: estado + listener extraídos a `usePendingValidationEvents`
+  // (deuda técnica ítem 5, segunda extracción incremental).
+  const { pendingValidationsCount, pendingValidationNames } = usePendingValidationEvents();
   const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string; coordinates: { lat: number; lng: number } } | null>(null);
 
   // ─── Itineraries / Collections panel sub-tabs ───────────────────────────
@@ -182,14 +184,9 @@ const Index = () => {
     return () => window.removeEventListener('lovable:follow-changed', handleFollowChanged);
   }, [loadFromDatabase]);
 
-  useEffect(() => {
-    const handleValidationsUpdate = (e: CustomEvent<{ count: number; names: string[] }>) => {
-      setPendingValidationsCount(e.detail.count);
-      setPendingValidationNames(e.detail.names || []);
-    };
-    window.addEventListener('pending-validations-updated', handleValidationsUpdate as EventListener);
-    return () => window.removeEventListener('pending-validations-updated', handleValidationsUpdate as EventListener);
-  }, []);
+  // pending-validations-updated listener → ver `usePendingValidationEvents`.
+
+
 
   useEffect(() => {
     const handler = (e: Event) => handlePopupAction(e as CustomEvent);
