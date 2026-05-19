@@ -27,6 +27,7 @@ import {
   type OverflowMenuItem,
 } from '@/components/map/popup-overflow-menu';
 import { openGoogleMaps, openAppleMaps } from '@/domains/sharing/lib/channel-adapters';
+import { buildExternalMapLink } from '@/domains/sharing/lib/external-maps-url';
 import { exportToKML } from '@/lib/kml-parser';
 import { evaluatePoiExport } from '@/domains/content/lib/poi-export-eligibility';
 
@@ -202,18 +203,23 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
       const icon = (svg: string) =>
         `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">${svg}</svg>`;
 
+      // PR-SHARE-EXT-MAPS-2: labels dinámicos según confidence
+      // (high="Abrir", medium="Buscar", low="Abrir coordenadas").
+      const googleLink = buildExternalMapLink(location, 'google');
+      const appleLink = buildExternalMapLink(location, 'apple');
+
       const items: OverflowMenuItem[] = [
         {
           action: 'open-google-maps',
-          label: 'Abrir en Google Maps',
+          label: googleLink.label ?? 'Abrir en Google Maps',
           icon: icon('<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>'),
-          visible: hasCoords,
+          visible: !!googleLink.url,
         },
         {
           action: 'open-apple-maps',
-          label: 'Abrir en Apple Maps',
+          label: appleLink.label ?? 'Abrir en Apple Maps',
           icon: icon('<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>'),
-          visible: hasCoords,
+          visible: !!appleLink.url,
         },
         {
           action: 'export-poi',
