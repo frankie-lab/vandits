@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
-import { Checkbox } from '@/components/ui/checkbox';
+
 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -89,7 +89,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  const [searchTerm, setSearchTerm] = useState('');
  const [expandedRoles, setExpandedRoles] = useState<Set<AppRole>>(new Set());
  const [savingRole, setSavingRole] = useState<string | null>(null);
- const [userToDelete, setUserToDelete] = useState<UserWithRoles | null>(null);
+ // PR-BACKOFFICE-CLEANUP-REALITY-1 — `userToDelete` removed (dead UI: never set).
  const [userToPurge, setUserToPurge] = useState<UserWithRoles | null>(null);
  const [purgeStep, setPurgeStep] = useState<'idle' | 'loading-preview' | 'preview' | 'executing' | 'done'>('idle');
  const [purgePreview, setPurgePreview] = useState<{ targetUser: string; locations: number; documents: number; notes: number; photos: number; achievements: number } | null>(null);
