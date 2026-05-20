@@ -3444,36 +3444,63 @@ export type Database = {
         Args: { _parent_id: string }
         Returns: number
       }
-      _compute_location_geo_health: {
-        Args: {
-          _c_iso: string
-          _c_name: string
-          _c_parent: string
-          _continent_id: string
-          _country_code: string
-          _country_id: string
-          _country_str: string
-          _lat: number
-          _lng: number
-          _r_name: string
-          _r_parent: string
-          _region_id: string
-          _region_str: string
-          _z_name: string
-          _z_parent: string
-          _zone_id: string
-          _zone_str: string
-        }
-        Returns: string
-      }
+      _compute_location_geo_health:
+        | {
+            Args: {
+              _c_iso: string
+              _c_name: string
+              _c_parent: string
+              _continent_id: string
+              _country_code: string
+              _country_id: string
+              _country_str: string
+              _lat: number
+              _lng: number
+              _r_name: string
+              _r_parent: string
+              _region_id: string
+              _region_str: string
+              _z_name: string
+              _z_parent: string
+              _zone_id: string
+              _zone_str: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _c_iso: string
+              _c_name: string
+              _c_parent: string
+              _continent_id: string
+              _country_code: string
+              _country_id: string
+              _country_str: string
+              _enrichment_status: string
+              _lat: number
+              _lng: number
+              _r_name: string
+              _r_parent: string
+              _raw_geocode: Json
+              _region_id: string
+              _region_str: string
+              _z_name: string
+              _z_parent: string
+              _zone_id: string
+              _zone_str: string
+            }
+            Returns: string
+          }
       _compute_location_geo_health_lookup: {
         Args: {
           _continent_id: string
           _country_code: string
           _country_id: string
           _country_str: string
+          _enrichment_status: string
           _lat: number
           _lng: number
+          _raw_geocode: Json
           _region_id: string
           _region_str: string
           _zone_id: string

@@ -16,10 +16,27 @@
  */
 
 import type { GeoLocation } from '@/types/location';
+import {
+  computeHonestGeoHealth,
+  type GeoHealthInput,
+} from '@/shared/geography/compute-geo-health';
 
 export function isHealthyShareableGeo(
   loc: Pick<GeoLocation, 'geoHealth'> | null | undefined,
 ): boolean {
   if (!loc) return false;
-  return loc.geoHealth === 'ok';
+  // Defensa en profundidad (Fase 5 / R2): re-aplicar reglas hardError
+  // sobre el valor persistido. Si la DB devolvió 'ok' stale para un POI
+  // con coords inválidas o enriched+raw_geocode null, lo bloqueamos aquí.
+  const wide = loc as Partial<GeoLocation> & GeoHealthInput;
+  const coords = (wide as { coordinates?: { lat?: number; lng?: number } })
+    .coordinates;
+  const input: GeoHealthInput = {
+    geoHealth: wide.geoHealth ?? null,
+    enrichmentStatus: wide.enrichmentStatus ?? null,
+    rawGeocode: wide.rawGeocode,
+    latitude: wide.latitude ?? coords?.lat ?? null,
+    longitude: wide.longitude ?? coords?.lng ?? null,
+  };
+  return computeHonestGeoHealth(input) === 'ok';
 }

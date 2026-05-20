@@ -133,7 +133,7 @@ No abordar como reescritura. Extraer incrementalmente manteniendo contratos.
 - Severidad: crítica
 - Facilidad: media (7 fases incrementales independientes)
 - Riesgo de cambio: medio (toca pipeline de enriquecimiento + RPCs trunk + `geo_health` + identity gate pre-LLM)
-- Estado: en progreso — Fase 4 aplicada (2026-05-20)
+- Estado: en progreso — Fase 5 aplicada (2026-05-20)
 
 Motivo: existen **dos desacoples** críticos en el pipeline:
 
@@ -148,7 +148,7 @@ Cierre por fases (ver [`docs/contracts/enrichment-coord-coherence-contract.md`](
 2. `resolve-coordinates` obligatorio antes del LLM. ✅ Aplicada en v1.2.11 (`enrich-location` invoca `resolve-coordinates` post-R1; fallo → `{ success:false, validation_required:true, reason:'reverse_geocode_failed' }` sin gastar IA; `batch-enrich` propaga `kind:'reverse_geocode_failed'`; geografía estructurada persiste SOLO desde canónico).
 3. Name-coordinate identity gate (R9) — `assertNameCoordinateIdentity` pre-LLM. ✅ Aplicada en v1.2.12 (helper canónico `src/shared/geography/name-coord-identity.ts` + espejo Deno; integrado en `enrich-location` tras R3; `identity_lookup_unavailable` es **HARD BLOCK** por contrato — ambos lookups fallidos NUNCA continúa como `ok`; `batch-enrich` propaga 3 `kind` nuevos sin reintento ni `no_credits`).
 4. Prompt + validator: IA fuera de geografía estructurada. ✅ Aplicada en v1.2.13 (helper isomórfico `sanitizeAiEnrichmentPayload` + espejo Deno descarta del payload IA `datos_geograficos.{coordenadas, pais, continente, admin_nivel_1/2/3, localidad, sublocalidad}` y placeholders `(sin …)`; prompt de `enrich-location` añade bloque "GEOGRAFÍA ESTRUCTURADA (PROHIBIDO)"; `card-schema.datos_geograficos.jsonShape` recortado a `lugar_interes + direccion_postal`; merge server-side elimina todos los fallbacks `aiGeoData.<prohibido>`; `_geocoded` canonical-only; contract test `src/test/ai-payload-sanitizer.test.ts`).
-5. `geo_health` honesto (`(0,0)` → `hardError`).
+5. `geo_health` honesto (`(0,0)` → `hardError`). ✅ Aplicada en v1.2.14 (trigger SQL `_compute_location_geo_health` reescrito para emitir `'hardError'` en `lat/lng IS NULL`, `(0,0)`, fuera de WGS84, o `enriched + raw_geocode IS NULL`; `_compute_location_geo_health_lookup` y trigger `zzz_locations_set_geo_health` ampliados con `raw_geocode + enrichment_status`; helper cliente espejo `src/shared/geography/compute-geo-health.ts` + espejo Deno; `isHealthyShareableGeo` lo aplica defensivamente; sin backfill — filas recomputan al siguiente UPDATE; contract test `src/test/geo-health-hard-error.test.ts`).
 6. `assertGeoCoherence` + `quarantine` (post-LLM).
 7. `places_trunk` saneado + guard `zone≠region`.
 
