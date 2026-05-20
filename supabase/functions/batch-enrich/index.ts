@@ -401,6 +401,48 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
               candidates: Array.isArray(enrichData.candidates) ? enrichData.candidates : [],
             },
           });
+        } else if (enrichData.validation_required && enrichData.reason === 'geo_narrative_mismatch') {
+          // R6 — Fase 6: la narrativa IA contradice la geografía canónica.
+          // Persistimos `enrichment_status='quarantine'` + `custom_data.enrichment_block`
+          // y NO escribimos `enriched_data` final.
+          try {
+            const { data: existingRow } = await supabase
+              .from('locations')
+              .select('custom_data')
+              .eq('id', locationId)
+              .maybeSingle();
+            const existingCustom = (existingRow?.custom_data ?? {}) as Record<string, unknown>;
+            await supabase
+              .from('locations')
+              .update({
+                enrichment_status: 'quarantine',
+                custom_data: {
+                  ...existingCustom,
+                  enrichment_block: {
+                    reason: 'geo_narrative_mismatch',
+                    level: enrichData.level ?? null,
+                    expected: enrichData.expected ?? null,
+                    got: enrichData.got ?? null,
+                    source: enrichData.source ?? null,
+                    at: new Date().toISOString(),
+                  },
+                },
+              })
+              .eq('id', locationId);
+          } catch (e) {
+            console.warn('[R6] failed to persist quarantine block (non-fatal):', e);
+          }
+          throw Object.assign(new Error(enrichData.message || 'Narrativa IA incoherente con geografía canónica'), {
+            __structured: {
+              kind: 'geo_narrative_mismatch',
+              reason: 'geo_narrative_mismatch',
+              level: enrichData.level ?? null,
+              expected: enrichData.expected ?? null,
+              got: enrichData.got ?? null,
+              source: enrichData.source ?? null,
+              providedName: enrichData.providedName ?? location.name,
+            },
+          });
         } else if (enrichData.validation_required) {
           throw Object.assign(new Error('Validación requerida (nombre/coordenadas)'), {
             __structured: {
@@ -409,6 +451,7 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
               providedName: location.name,
             },
           });
+
         } else if (enrichData.success === false && enrichData.reason === 'name_coordinate_mismatch') {
           throw Object.assign(new Error(enrichData.message || 'Nombre y coordenadas no coinciden'), {
             __structured: {
