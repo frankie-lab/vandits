@@ -268,7 +268,7 @@ export interface GeoLocation {
   * anillo amarillo "cadena rota" sobre el marker. Ver
   * `mem://style/map/health-rings-rule`.
   */
- geoHealth?: 'ok' | 'broken' | 'partial' | 'stale_name' | 'empty' | null;
+ geoHealth?: 'ok' | 'broken' | 'partial' | 'stale_name' | 'empty' | 'hardError' | null;
   /** ID del documento de origen */
   documentId?: string;
   /**

@@ -16,10 +16,17 @@
  */
 
 import type { GeoLocation } from '@/types/location';
+import { computeHonestGeoHealth } from '@/shared/geography/compute-geo-health';
 
 export function isHealthyShareableGeo(
-  loc: Pick<GeoLocation, 'geoHealth'> | null | undefined,
+  loc:
+    | Pick<GeoLocation, 'geoHealth' | 'latitude' | 'longitude' | 'enrichmentStatus'>
+    | null
+    | undefined,
 ): boolean {
   if (!loc) return false;
-  return loc.geoHealth === 'ok';
+  // Defensa en profundidad (Fase 5 / R2): re-aplicar reglas hardError
+  // sobre el valor persistido. Si la DB devolvió 'ok' stale para un POI
+  // con coords inválidas o enriched+raw_geocode null, lo bloqueamos aquí.
+  return computeHonestGeoHealth(loc) === 'ok';
 }
