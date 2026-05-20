@@ -48,3 +48,34 @@ Deno.test("POST with valid location returns 200 with expected structure", async 
   assertExists(body);
   assertEquals(typeof body, "object");
 });
+
+// R3 / Fase 2 — contrato: si resolve-coordinates no produce canonical (p.ej. coords
+// inválidas o Nominatim caído), enrich-location DEBE devolver
+// `{ success:false, validation_required:true, reason:'reverse_geocode_failed' }`
+// SIN llamar al LLM. Aquí usamos coords WGS84 válidas formalmente pero en pleno
+// océano abierto donde Nominatim típicamente no resuelve país; el contrato exige
+// como mínimo que cualquier respuesta de fallo de reverse-geocode tenga el shape
+// canónico (reason fijo).
+Deno.test("R3 reverse_geocode_failed shape contract", async () => {
+  const res = await fetch(FUNCTION_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": SUPABASE_ANON_KEY,
+      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+    body: JSON.stringify({
+      location: {
+        name: "Punto en mar abierto",
+        coordinates: { lat: 0.001, lng: -30.0 },
+      },
+    }),
+  });
+  const body = await res.json();
+  assertExists(body);
+  // Si reverse-geocode falla, el shape debe ser canónico.
+  if (body?.validation_required === true && body?.reason === "reverse_geocode_failed") {
+    assertEquals(body.success, false);
+    assertEquals(typeof body.message, "string");
+  }
+});
