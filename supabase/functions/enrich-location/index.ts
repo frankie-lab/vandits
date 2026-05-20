@@ -2699,6 +2699,7 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
         
         // Store geocoded geographic data in enrichedData for database update
         // R3 — snapshot canónico completo para que batch-enrich persista solo desde reverse-geocode.
+        // R4 — `_geocoded` NUNCA toma datos de la IA: todas las claves vienen de `canonicalGeo`.
         enrichedData._geocoded = {
           ...geoData,
           country_code: canonicalGeo!.country_code,
