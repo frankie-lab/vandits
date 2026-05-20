@@ -133,7 +133,7 @@ No abordar como reescritura. Extraer incrementalmente manteniendo contratos.
 - Severidad: crítica
 - Facilidad: media (7 fases incrementales independientes)
 - Riesgo de cambio: medio (toca pipeline de enriquecimiento + RPCs trunk + `geo_health` + identity gate pre-LLM)
-- Estado: abierto crítico (2026-05-20)
+- Estado: en progreso — Fase 1 aplicada (2026-05-20)
 
 Motivo: existen **dos desacoples** críticos en el pipeline:
 
@@ -144,7 +144,7 @@ Causa raíz: enriquecimiento literario (IA), verdad geográfica (reverse-geocode
 
 Cierre por fases (ver [`docs/contracts/enrichment-coord-coherence-contract.md`](./contracts/enrichment-coord-coherence-contract.md)):
 
-1. Entry gates `isValidWgs84Coord`.
+1. Entry gates `isValidWgs84Coord`. ✅ Aplicada en v1.2.10 (`enrich-location`, `batch-enrich`, `scrape-tick`, trigger cliente; contract test `src/test/coord-validity.test.ts`).
 2. `resolve-coordinates` obligatorio antes del LLM.
 3. Name-coordinate identity gate (R9) — `assertNameCoordinateIdentity` pre-LLM.
 4. Prompt + validator: IA fuera de geografía estructurada.
