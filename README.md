@@ -89,6 +89,14 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.2.13 (2026-05-20)
+- ✅ Coord-coherence Fase 4 (R4 + R5): IA fuera de geografía estructurada.
+- ✅ Nuevo helper isomórfico `sanitizeAiEnrichmentPayload` (`src/shared/enrichment/ai-payload-sanitizer.ts` + espejo Deno) — descarta `datos_geograficos.{coordenadas, pais, continente, admin_nivel_1/2/3, localidad, sublocalidad}` emitidos por el LLM.
+- ✅ Placeholders evasivos `(sin región)`, `(sin provincia)`, `(sin comarca)`, `(sin localidad)` se eliminan recursivamente del payload IA antes de persistir (R5).
+- ✅ Prompt de `enrich-location` añade bloque "GEOGRAFÍA ESTRUCTURADA (PROHIBIDO)"; `card-schema.datos_geograficos` recorta `jsonShape` a `lugar_interes` + `direccion_postal`.
+- ✅ Merge geográfico server-side elimina TODOS los fallbacks `aiGeoData.<prohibido>`: país/continente/admin_*/localidad/sublocalidad vienen SOLO de `geoData` (canonical Fase 2). `_geocoded` se mantiene canonical-only.
+- ✅ Contract tests `src/test/ai-payload-sanitizer.test.ts` (8 casos); Fase 1/3 siguen verdes (22 tests total).
+
 ### v1.2.12 (2026-05-20)
 - ✅ Coord-coherence Fase 3 (R9): Name ↔ coordinate identity gate pre-LLM en `enrich-location`.
 - ✅ Helper canónico `assertNameCoordinateIdentity` en `src/shared/geography/name-coord-identity.ts` + espejo Deno.
