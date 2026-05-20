@@ -95,6 +95,20 @@
       "5":  { "value": "75 55% 42%",  "_css": "--poi-level-5" },
       "9":  { "value": "142 71% 45%", "_css": "--poi-level-9" },
       "10": { "value": "142 71% 45%", "_css": "--poi-level-10" }
+    },
+    "maturity": {
+      "$schema": "POI maturity diagnostic palette (POI-0..POI-10). Used ONLY by the admin-gated MaturityBadgeLayer overlay. NEVER consumed by createCustomIcon, resolvePoiVisualGrammar, or any production renderer. See docs/contracts/poi-maturity-visual-contract.md.",
+      "0":  { "value": "0 70% 50%",    "_css": "--poi-maturity-0" },
+      "1":  { "value": "28 18% 55%",   "_css": "--poi-maturity-1" },
+      "2":  { "value": "28 18% 45%",   "_css": "--poi-maturity-2" },
+      "3":  { "value": "0 80% 38%",    "_css": "--poi-maturity-3" },
+      "4":  { "value": "24 95% 53%",   "_css": "--poi-maturity-4" },
+      "5":  { "value": "38 92% 50%",   "_css": "--poi-maturity-5" },
+      "6":  { "value": "48 96% 53%",   "_css": "--poi-maturity-6" },
+      "7":  { "value": "75 75% 48%",   "_css": "--poi-maturity-7" },
+      "8":  { "value": "120 50% 55%",  "_css": "--poi-maturity-8" },
+      "9":  { "value": "142 71% 42%",  "_css": "--poi-maturity-9" },
+      "10": { "value": "142 80% 30%",  "_css": "--poi-maturity-10" }
     }
   }
 }
