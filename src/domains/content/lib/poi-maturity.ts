@@ -89,6 +89,47 @@ export interface PoiMaturityInput {
   category?: string | null;
   placeType?: string | null;
   tags?: string[] | null;
+
+  // flags geo_resolution (techo) — ver `docs/contracts/poi-maturity-visual-contract.md §4`
+  customData?: Record<string, unknown> | null;
+  custom_data?: Record<string, unknown> | null;
+}
+
+/** Status canónicos del flag `custom_data.geo_resolution.status`. */
+export type GeoResolutionStatus =
+  | 'pending_review'
+  | 'needs_name_fix'
+  | 'needs_coord_fix'
+  | 'geo_irrecoverable';
+
+/**
+ * Techo POI-N por flag `geo_resolution.status`. Ver contrato visual §4.
+ * Cualquier status desconocido → sin techo (devuelve 10).
+ */
+export function ceilingFromGeoResolutionStatus(
+  status: string | null | undefined,
+): PoiMaturityLevel {
+  switch (status) {
+    case 'geo_irrecoverable': return 1;
+    case 'needs_coord_fix':   return 2;
+    case 'needs_name_fix':    return 3;
+    case 'pending_review':    return 4;
+    default:                  return 10;
+  }
+}
+
+function readGeoResolutionStatus(loc: PoiMaturityInput): string | null {
+  const cd = (loc.customData ?? loc.custom_data) as
+    | Record<string, unknown>
+    | null
+    | undefined;
+  if (!cd) return null;
+  const raw = (cd as Record<string, unknown>).geo_resolution;
+  if (!raw || typeof raw !== 'object') return null;
+  const status = (raw as Record<string, unknown>).status;
+  return typeof status === 'string' && status.trim().length > 0
+    ? status.trim()
+    : null;
 }
 
 interface PoiEnrichedShape {
@@ -225,43 +266,29 @@ function isFullyCurated(loc: PoiMaturityInput): boolean {
 export function computePoiMaturity(loc: PoiMaturityInput | null | undefined): PoiMaturityLevel {
   if (!loc) return 0;
 
+  const level = computeLadderLevel(loc);
+
+  // Techo por flag `custom_data.geo_resolution.status`. Ver contrato
+  // visual §4: `Math.min(ladder, ceilingFromFlag)`. Sin flag → sin techo.
+  const ceiling = ceilingFromGeoResolutionStatus(readGeoResolutionStatus(loc));
+  return (Math.min(level, ceiling) as PoiMaturityLevel);
+}
+
+/** Ladder puro (sin techo por flag). Interno. */
+function computeLadderLevel(loc: PoiMaturityInput): PoiMaturityLevel {
   const hasName = hasValidatedName(loc);
   const hasCoords = hasCoordsPresent(loc);
   const validCoords = hasValidCoords(loc);
 
-  // POI-0: ni nombre validado ni coordenadas presentes.
   if (!hasName && !hasCoords) return 0;
-
-  // POI-1: solo coordenadas (con o sin validez), sin nombre.
   if (!hasName && hasCoords) return 1;
-
-  // hasName === true a partir de aquí.
-
-  // POI-2: nombre validado, pero coordenadas inválidas o ausentes.
-  // Coords inválidas NUNCA pueden pasar de POI-2.
   if (!validCoords) return 2;
-
-  // POI-3: nombre + coordenadas WGS84 válidas.
   if (!hasRawGeocode(loc)) return 3;
-
-  // POI-4: identidad confirmada (raw_geocode poblado).
   if (!hasCountryOrContinent(loc)) return 4;
-
-  // POI-5: país / continente resuelto.
   if (!hasRegionOrZone(loc)) return 5;
-
-  // POI-6: región / zona resuelta.
   if (!hasEnrichedDescription(loc)) return 6;
-
-  // POI-7: descripción IA verificable.
   if (!hasValidatedMedia(loc)) return 7;
-
-  // POI-8: media validada.
   if (!hasCategoryOrTags(loc)) return 8;
-
-  // POI-9: categoría / tags validados.
   if (!isFullyCurated(loc)) return 9;
-
-  // POI-10: curado completo.
   return 10;
 }

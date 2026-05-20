@@ -89,6 +89,14 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.2.20 (2026-05-20)
+- ✅ POI-N v2 materializado: `computePoiMaturity` aplica **techo** por flag `custom_data.geo_resolution.status` (`pending_review`→POI-4, `needs_name_fix`→POI-3, `needs_coord_fix`→POI-2, `geo_irrecoverable`→POI-1 fijo). Helper exportado `ceilingFromGeoResolutionStatus`. Lectura permisiva camelCase + snake_case. Sin flag → ladder libre.
+- ✅ Reinyección documentada: borrar `custom_data.geo_resolution` libera el techo y devuelve el POI al cálculo libre del ladder, sin re-enrich.
+- ✅ Tokens `poi.maturity.0..10` recalibrados a la paleta producto-aprobada (gris neutro → gris cálido → amarillo apagado → amarillo → amarillo intenso → ámbar suave → ámbar → verde amarillento → verde suave → verde). Sin rojo. Sólo namespace `poi.maturity.*`.
+- ✅ Tests aditivos: 10 nuevos casos en `poi-maturity.test.ts` cubren los 4 techos, ladder libre, snake_case, status desconocido, flag mal formado y reinyección. 40/40 tests pass.
+- ✅ NO toca: `createCustomIcon`, `resolvePoiVisualGrammar`, `getPoiCurationLevel`, marker base, colecciones, health rings, collection tints, popup, hero, ratings, export, sharing, datos, RLS, edge functions, migraciones. Overlay diagnóstico `MaturityBadgeLayer` consume tokens nuevos automáticamente.
+- ✅ Cross-ref: `docs/contracts/poi-maturity-visual-contract.md` §2/§4/§5 + `docs/contracts/geo-resolution-flags-contract.md`.
+
 ### v1.2.19 (2026-05-20)
 - ✅ Fix Opción A — `_compute_location_geo_health_lookup` ahora canonicaliza el string territorial comparando contra `admin_areas.name ∪ aliases ∪ name_translations` antes de delegar al cálculo de health. Elimina los `stale_name` falsos por traducción ES↔FR/IT/etc cuando la FK ya resuelve correctamente.
 - ✅ Validado contra los 3 casos del piloto B5a (`Autoire`, `Belcastel`, `Sant'Antonino`): recompute pasa de `stale_name` → `ok`. Stored `geo_health` se refresca en el próximo touch natural / batch de geo-canonicalize (sin UPDATE forzado sobre `locations`).
