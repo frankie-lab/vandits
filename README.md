@@ -89,6 +89,13 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.2.11 (2026-05-20)
+- ✅ Coord-coherence Fase 2: `resolve-coordinates` obligatorio antes del LLM en `enrich-location`.
+- ✅ Si reverse-geocode falla → respuesta canónica `{ success:false, validation_required:true, reason:'reverse_geocode_failed' }` sin gastar IA.
+- ✅ Geografía estructurada (`country/region/zone/continent/*_id/country_code/postal_code/timezone/raw_geocode/geo_source/geo_confidence/geo_resolved_at`) persiste SOLO desde el canónico; IA queda fuera.
+- ✅ `batch-enrich` propaga `reverse_geocode_failed` como `kind` específico (no se mapea a `no_credits` ni a `no_match`) y persiste el snapshot canónico completo.
+- ✅ Tests Fase 1 siguen verdes; añadido test de contrato de shape `reverse_geocode_failed` en `supabase/functions/enrich-location/index.test.ts`.
+
 ### v1.2.10 (2026-05-20)
 - ✅ Coord-coherence Fase 1: entry gates WGS84 duros (`isValidWgs84Coord`).
 - ✅ Rechazo de `null`, `NaN`, fuera de rango y `(0,0)` antes de cualquier IA.
