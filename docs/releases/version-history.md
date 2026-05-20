@@ -46,7 +46,8 @@ publicados; algunas son hitos **reconstructed** para fijar memoria histórica.
   1.2.9        Tercera tanda eventos globales tipados (trash-updated)  (stable)
   1.2.10       Coord-coherence Fase 1: entry gates WGS84 duros  (stable)
   1.2.11       Coord-coherence Fase 2: resolve-coordinates pre-LLM  (stable)
-  1.2.12       Coord-coherence Fase 3: name↔coord identity gate (R9) pre-LLM  ← versión actual (stable / current)
+  1.2.12       Coord-coherence Fase 3: name↔coord identity gate (R9) pre-LLM  (stable)
+  1.2.13       Coord-coherence Fase 4: IA fuera de geografía estructurada (R4+R5)  ← versión actual (stable / current)
   1.3.0        Architecture baseline                (planned)
 
 2.x — Futuro
