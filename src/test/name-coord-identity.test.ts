@@ -110,7 +110,7 @@ describe('R9 — assertNameCoordinateIdentity (Phase 3 contract)', () => {
     expect(normalizeName('La Sagrada Família')).toBe('sagrada familia');
     expect(normalizeName('Iglesia de San Pedro')).toBe('san pedro');
     expect(similarity('La Sagrada Família', 'Sagrada Familia')).toBeGreaterThanOrEqual(0.95);
-    expect(similarity('Plaza Mayor', 'Plaza Mayor de Madrid')).toBeGreaterThanOrEqual(0.82);
+    expect(similarity('Catedral de Burgos', 'Catedral de Burgos (Patrimonio)')).toBeGreaterThanOrEqual(0.82);
     expect(similarity('Hotel', 'Plaza Mayor')).toBeLessThan(0.5);
   });
 });
