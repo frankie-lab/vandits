@@ -1798,6 +1798,93 @@ serve(async (req) => {
       );
     }
 
+    // R3 — `resolve-coordinates` es source-of-truth geográfico (pre-LLM).
+    // Contrato: docs/contracts/enrichment-coord-coherence-contract.md (Fase 2).
+    // Si Nominatim/reverse-geocode falla, NO se llama al LLM y NO se persiste nada.
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    let canonicalGeo: {
+      canonical: Record<string, unknown> | null;
+      ids: Record<string, string | null>;
+      country_code: string | null;
+      postal_code: string | null;
+      timezone: string | null;
+      geo_source: string;
+      geo_confidence: number;
+      raw_geocode: Record<string, unknown> | null;
+      geo_resolved_at: string;
+    } | null = null;
+    try {
+      const rcRes = await fetch(`${SUPABASE_URL}/functions/v1/resolve-coordinates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SERVICE_KEY}`,
+          'apikey': SERVICE_KEY,
+        },
+        body: JSON.stringify({ latitude: lat, longitude: lng }),
+      });
+      if (!rcRes.ok) {
+        const txt = await rcRes.text();
+        console.warn('[R3] resolve-coordinates failed', rcRes.status, txt.slice(0, 200));
+        return new Response(
+          JSON.stringify({
+            success: false,
+            validation_required: true,
+            reason: 'reverse_geocode_failed',
+            message: 'Reverse-geocode no pudo resolver geografía canónica para estas coordenadas. POI no se enriquece hasta que se reasigne o se reintente.',
+            providedName: location.name,
+            coords: { lat, lng },
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      const rcJson = await rcRes.json();
+      if (!rcJson?.canonical) {
+        console.warn('[R3] resolve-coordinates returned no canonical', rcJson);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            validation_required: true,
+            reason: 'reverse_geocode_failed',
+            message: 'Reverse-geocode no devolvió geografía canónica. POI no se enriquece.',
+            providedName: location.name,
+            coords: { lat, lng },
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      canonicalGeo = {
+        canonical: rcJson.canonical,
+        ids: rcJson.ids ?? {},
+        country_code: rcJson.country_code ?? null,
+        postal_code: rcJson.postal_code ?? null,
+        timezone: rcJson.timezone ?? null,
+        geo_source: rcJson.geo_source ?? 'nominatim',
+        geo_confidence: typeof rcJson.geo_confidence === 'number' ? rcJson.geo_confidence : 0,
+        raw_geocode: rcJson.raw_geocode ?? rcJson.canonical,
+        geo_resolved_at: new Date().toISOString(),
+      };
+      console.log('[R3] canonical geo resolved', {
+        country: canonicalGeo.canonical?.country,
+        region: canonicalGeo.canonical?.region,
+        confidence: canonicalGeo.geo_confidence,
+      });
+    } catch (e) {
+      console.error('[R3] resolve-coordinates threw', e);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          validation_required: true,
+          reason: 'reverse_geocode_failed',
+          message: 'Reverse-geocode no disponible. POI no se enriquece.',
+          providedName: location.name,
+          coords: { lat, lng },
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     // 1. Fetch GLOBAL config from app_settings (base for ALL profiles)
     const globalConfig = await getGlobalEnrichmentConfig();
     console.log('Global enrichment config:', globalConfig.tone, globalConfig.min_length);
