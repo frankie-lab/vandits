@@ -1,4 +1,4 @@
-# VANDITS v1.2.9
+# VANDITS v1.2.10
 
 <div align="center">
 
