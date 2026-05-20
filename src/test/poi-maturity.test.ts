@@ -354,6 +354,7 @@ describe('computePoiMaturity — ladder POI-0…POI-10', () => {
       enrichedData: { descripcion: LONG_DESC },
     });
     expect(computePoiMaturity(sample)).toBe(computePoiMaturity(sample));
+  });
 });
 
 describe('computePoiMaturity — techo por flag custom_data.geo_resolution.status', () => {
