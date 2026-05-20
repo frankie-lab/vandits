@@ -50,7 +50,8 @@ publicados; algunas son hitos **reconstructed** para fijar memoria histórica.
   1.2.13       Coord-coherence Fase 4: IA fuera de geografía estructurada (R4+R5)  (stable)
   1.2.14       Coord-coherence Fase 5: geo_health honesto (R2)  (stable)
   1.2.15       Coord-coherence Fase 6: assertGeoCoherence + quarantine (R6)  (stable)
-  1.2.16       Coord-coherence Fase 7: places_trunk saneado + guard zone≠region (R7+R8)  ← versión actual (stable / current)
+  1.2.16       Coord-coherence Fase 7: places_trunk saneado + guard zone≠region (R7+R8)  (stable)
+  1.2.17       Helper computePoiMaturity (POI-0…POI-10), sin tocar mapa ni datos  ← versión actual (stable / current)
   1.3.0        Architecture baseline                (planned)
 
 2.x — Futuro
