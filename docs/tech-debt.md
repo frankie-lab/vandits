@@ -176,16 +176,16 @@ No iniciar Fase 5 antes de Fase 1, ni Fase 6 antes de Fase 2, ni Fase 3 antes de
 - Triada `Final / Importado / Vacío` deja de ser fill principal; pasa a **semántica legacy** (filtros, telemetría, leyendas heredadas) vía `getPointVisualState`, que se conserva.
 - `getPoiCurationLevel` (6 niveles producto) **no cambia**: sigue dictando acciones de footer/popup, independiente del fill.
 
-**Fases (PRs separados, no incluidos aquí):**
+**Fases (PRs separados):**
 
-1. Helper SoT `getPoiMaturityColor(loc)` envolviendo `computePoiMaturity` + lookup de tokens.
+1. ✅ **Aplicada en v1.3.0** — Helper SoT `getPoiMaturityColor(loc)` en `src/domains/content/lib/poi-maturity-color.ts` envolviendo `computePoiMaturity` + lookup directo del token `poi.maturity.<level>`. 19 contract tests en `src/test/poi-maturity-color.test.ts`. NO toca renderer (mapa idéntico). `getPointVisualState` se conserva como semántica legacy; `poi.state.*` no se elimina.
 2. Renderer: `createCustomIcon` y `resolvePoiVisualGrammar` consumen el nuevo helper para `paletteScope='state'`; `levelKey` (PR-MAP-CANON-3) se amplía para incluir POI-N en la clave de cache.
 3. Leyendas: pill inferior derecha en `LocationMap` muestra chips POI-N como leyenda principal; Final/Importado/Vacío se mueve a tooltip o se retira.
 4. Popup/miniaturas: hero y previews leen el mismo helper para paridad con el mapa.
 5. Tests: actualizar `poi-visual-grammar`, `point-visual-state`, `poi-maturity`, `map-icon-rings-gate`; añadir contract test `marker-fill-source-of-truth` que prohíbe nuevos consumidores de `poi.state.*` como fill.
 6. Cleanup: retirar `poi.state.*` del renderer (sólo leyendas legacy); decidir retirada definitiva del overlay debug.
 
-**Version impact:** la fase que cambia el fill renderizado exige **bump minor** `v1.2.x → v1.3.0`. Fases posteriores de cleanup quedan en `v1.3.x` patch.
+**Version impact:** Fase 1 ejecutada con bump **minor** `v1.2.22 → v1.3.0` (sin cambio visual; reserva el namespace para la migración del fill). La fase que cambia el fill renderizado (Fase 2) seguirá dentro de `v1.3.x` patch o `v1.4.0` según alcance.
 
-**Bloqueos previos a ejecutar Fase 1:** firma de producto sobre la nueva paleta + QA visual sobre fixture sandbox cubriendo POI-0…POI-10. No iniciar Fase 2 antes de Fase 1, ni Fase 3 antes de Fase 2.
+**Bloqueos previos a ejecutar Fase 2:** firma de producto sobre la nueva paleta + QA visual sobre fixture sandbox cubriendo POI-0…POI-10 con el renderer ya migrado. No iniciar Fase 3 antes de Fase 2.
 
