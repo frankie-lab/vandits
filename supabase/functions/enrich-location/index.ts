@@ -1765,12 +1765,21 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    // Coordinate range validation
+    // R1 — canonical WGS84 entry gate (rejects (0,0) Null Island, out-of-range, NaN).
+    // See docs/contracts/enrichment-coord-coherence-contract.md.
     const { lat, lng } = location.coordinates;
-    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      return new Response(JSON.stringify({ error: 'Coordinates out of range' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    const coordCheck = inspectWgs84Coord(lat, lng);
+    if (!coordCheck.valid) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'invalid_coordinates',
+          reason: coordCheck.reason,
+          validation_required: true,
+          message: 'Coordenadas inválidas: el POI no puede enriquecerse hasta que se reasigne una ubicación válida.',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
     }
     // Name length cap
     if (typeof location.name !== 'string' || location.name.length === 0 || location.name.length > 300) {
