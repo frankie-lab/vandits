@@ -94,7 +94,9 @@ function parsePlaceJsonLd(html: string, url: string): ScrapedPlace | null {
   const geo = ld.geo as Record<string, any> | undefined;
   const lat = Number(geo?.latitude);
   const lng = Number(geo?.longitude);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  // R1 — coords scraped from JSON-LD must pass the canonical WGS84 gate
+  // (rejects (0,0), NaN, out-of-range). Otherwise discard the candidate.
+  if (!isValidWgs84Coord(lat, lng)) return null;
   const addr = ld.address as Record<string, any> | undefined;
   return {
     url,
