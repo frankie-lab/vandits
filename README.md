@@ -89,6 +89,12 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.3.0 (2026-05-20)
+- ✅ **Fase 1 canon v3 marker fill (`docs/contracts/marker-fill-canon-v3.md`)** — helper SoT cromático: `src/domains/content/lib/poi-maturity-color.ts` exporta `getPoiMaturityColor(loc) → { level, fill }`. `level` viene de `computePoiMaturity` (incluye techo por flag `custom_data.geo_resolution.status` v2). `fill` se lee directamente del token `poi.maturity.<level>` como `hsl(...)`. Función pura, sin dependencia de `getPointVisualState`.
+- ✅ 19 contract tests (`src/test/poi-maturity-color.test.ts`): POI-0..POI-10 mapean al token correcto, los 4 techos `geo_resolution` se respetan (`geo_irrecoverable`→POI-1, `needs_coord_fix`→POI-2, `needs_name_fix`→POI-3, `pending_review`→POI-4), sin flag → ladder libre, status desconocido → sin techo, `null`/`undefined` → POI-0.
+- ✅ Bump **minor** `1.2.22 → 1.3.0` reservado para la migración del canon cromático. Fase 1 NO toca renderer: `createCustomIcon`, `resolvePoiVisualGrammar`, marker base, colecciones, health rings, owner identity, overlay y popup permanecen idénticos. `getPointVisualState` se conserva como semántica legacy (filtros/telemetría/leyendas); `poi.state.*` no se elimina.
+- ✅ NO toca: datos, RLS, edge functions, migraciones, re-enrich, mapa visualmente.
+
 ### v1.2.22 (2026-05-20)
 - ✅ Pulido UX overlay POI-N: `MaturityDiagnosticsControl` reposicionado a `bottom-12 left-4` (libera la barra de escala de Leaflet) y reordenado con `flex-col-reverse` (toggle anclado abajo, leyenda crece hacia arriba). Leyenda **colapsada por defecto** + `max-h-[60vh] overflow-y-auto` → POI-10 siempre alcanzable. Iconos chevron corregidos (Down=cerrado, Up=abierto).
 - ✅ Pista contextual en la pill inferior derecha (`LocationMap`): cuando el overlay POI-N está ON se prefija un chip `Estado base` (uppercase, separador derecho) para dejar explícito que "Final / Importado / Vacío" sigue describiendo la paleta del marker, no la madurez. La pill no se sustituye.
