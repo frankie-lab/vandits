@@ -690,6 +690,22 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
    // Get current user ID for ownership detection
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
+  // PR-MATURITY-OVERLAY (v1.2.18): diagnóstico admin-only, OFF por defecto.
+  // Suscribe a `map-render-mode-changed` para refrescar la capa de badges
+  // cuando cambia el modo de render (igual frecuencia que zoomend).
+  const maturityDiag = usePoiMaturityDiagnostics();
+  const [maturityRenderMode, setMaturityRenderMode] = useState<MarkerRenderMode>('standard');
+  useEffect(() => {
+    if (!maturityDiag.enabled) return;
+    const sync = () => {
+      const z = mapRef.current?.getZoom();
+      if (typeof z === 'number') setMaturityRenderMode(getRenderModeForZoom(z));
+    };
+    sync();
+    window.addEventListener('map-render-mode-changed', sync);
+    return () => window.removeEventListener('map-render-mode-changed', sync);
+  }, [maturityDiag.enabled]);
+
   // V2 Map Bridge — provides MapFeature[] when Phase D flag is active
   const { v2Features, shouldUseV2Render, v2Loading, refreshV2 } = useV2MapBridge({
     userId: currentUserId,
