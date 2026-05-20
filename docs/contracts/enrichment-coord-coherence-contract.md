@@ -21,6 +21,10 @@ Diagnóstico: ver [`docs/audits/enrichment-coord-coherence-audit.md`](../audits/
 - **Cadena admin canónica** = `{country, region, zone, admin3, locality}` resuelta por `reverse-geocode → resolve-admin-area`.
 - **Cadena admin narrativa** = lo que el LLM redacta en `enriched_data.descripcion` y `enriched_data.datos_geograficos.*`.
 - **Quarantine** = `enrichment_status='quarantine'` + `custom_data.enrichment_block = { reason, expected, got, source }`. Aparece en panel admin; no se renderiza como POI sano.
+- **Identidad nombre↔coords** = par `(name, lat, lng)` cuya verificación cruzada (reverse-geocode + nearby + name-search) devuelve match con confianza alta.
+- **`name_coordinate_mismatch`** = razón canónica cuando coords son válidas pero el nombre declarado no aparece cerca.
+- **`name_found_elsewhere`** = razón canónica cuando el nombre existe con alta confianza en una o más ubicaciones distintas a las coords aportadas.
+- **`pending_validation`** = `enrichment_status='pending_validation'` + `custom_data.enrichment_block = { reason, candidates, source }`. Estado pre-LLM (no es `quarantine`, que es post-LLM).
 
 ## 3. Reglas duras
 
