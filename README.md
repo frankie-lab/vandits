@@ -1,8 +1,8 @@
-# VANDITS v1.3.1
+# VANDITS v1.3.2
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.3.1-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.3.2-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -89,7 +89,7 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
-### v1.3.1 (2026-05-20)
+### v1.3.2 (2026-05-20)
 - ✅ **Fase 2 canon v3 marker fill (`docs/contracts/marker-fill-canon-v3.md`)** — el fill del marker propio (`paletteScope === 'state'`) pasa a derivarse de `getPoiMaturityColor(loc).fill` (`poi.maturity[0..10]`, 11 niveles) en vez del legacy `poi.level.*` (6 niveles). `resolvePoiVisualGrammar` ahora compone `levelVisual = { levelKey, maturityLevel, fillHsl, showStateRing }`: `fillHsl` viene de `poi.maturity[level]`, `maturityLevel` expone el nivel POI-N (0..10) para QA/telemetría, `levelKey` y `showStateRing` siguen ligados a `getPoiCurationLevel` (regla DURA "rings sólo en `poi-5`").
 - ✅ `createCustomIcon` SIN cambios estructurales: sigue leyendo `visualGrammar.levelVisual.fillHsl` como `baseColor`. Forma (círculo propio / triángulo seguido), borde, halo de selección, collection tint, health rings, owner identity OKLCH, hero polaroid `rich`, micro dots followed/app/source — todo conservado.
 - ✅ `getPointVisualState` se conserva como semántica legacy (filtros, leyendas pill, buckets `getBucketStats`, telemetría). `poi.state.*` no se elimina.
