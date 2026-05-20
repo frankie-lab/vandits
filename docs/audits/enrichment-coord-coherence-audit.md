@@ -72,6 +72,7 @@ FROM locations;
 5. **`places_trunk` puede quedar envenenado** — `upsert_trunk_place(_lat=0,_lng=0,...)` cachea basura; futuros POIs `(0,0)` la heredan vía `lookup_trunk_place`.
 6. **`geo_health` marca `'ok'`** — el clasificador no contempla `(0,0)`, out-of-range, ni `enriched + raw_geocode IS NULL`.
 7. **`zone` duplica `region`** — `zone='Castilla-La Mancha'` cuando el canon exige `zone_id=PROVINCIA` (debería ser `Guadalajara`).
+8. **Sin gate de identidad nombre↔coords** — nadie compara el nombre declarado contra reverse-geocode/nearby/name-search antes del LLM. Permite que "Glorieta de la Antártida" en `(0,0)` o un nombre real desplazado a coordenadas erróneas pase a enriquecimiento sin verificación de identidad.
 
 ## 4. Tabla de anomalías
 
