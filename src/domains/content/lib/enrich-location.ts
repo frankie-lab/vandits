@@ -18,6 +18,7 @@ import { resolveAllFks } from '@/shared/geography/resolve-admin-fks';
 import { enrichmentFailureStore } from '@/domains/content/hooks/use-enrichment-failure';
 import { parseEnrichmentError } from '@/domains/content/lib/enrichment-error-kind';
 import { emitEnrichmentPhase } from '@/components/map/popup-enrichment-phase-bus';
+import { inspectWgs84Coord } from '@/shared/geography/coord-validity';
 
 export interface TriggerEnrichOptions {
   /** When true, force re-generation (semantically the popup's `regenerate`). */
