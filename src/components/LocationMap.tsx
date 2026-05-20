@@ -2834,6 +2834,19 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
  </div>
  
   {/* Legend items — círculos (forma canónica de POI propio: regla "Forma POI por origen"). */}
+  {/* Cuando el overlay POI-N está ON, prefijamos "Estado base" para dejar claro
+      que esta leyenda sigue describiendo la paleta del marker (no la madurez). */}
+  {maturityDiag.enabled && (
+    <span
+      className={cn(
+        'pr-2 border-r border-border/50 text-[10px] uppercase tracking-wide',
+        mapTheme === 'dark' ? 'text-gray-400' : 'text-muted-foreground',
+      )}
+      title="La leyenda inferior describe el estado base del marker, no la madurez POI-N."
+    >
+      Estado base
+    </span>
+  )}
   <div className="flex items-center gap-1.5">
   <span className="inline-block w-2.5 h-2.5 rounded-full ring-1 ring-white/80 shadow-sm" style={{ backgroundColor: '#22c55e' }} />
   <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Final</span>
