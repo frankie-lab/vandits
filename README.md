@@ -1,8 +1,8 @@
-# VANDITS v1.2.12
+# VANDITS v1.2.13
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.2.12-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.2.13-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -88,6 +88,14 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 - [Deuda técnica priorizada](./docs/tech-debt.md)
 
 ## 📝 Changelog
+
+### v1.2.13 (2026-05-20)
+- ✅ Coord-coherence Fase 4 (R4 + R5): IA fuera de geografía estructurada.
+- ✅ Nuevo helper isomórfico `sanitizeAiEnrichmentPayload` (`src/shared/enrichment/ai-payload-sanitizer.ts` + espejo Deno) — descarta `datos_geograficos.{coordenadas, pais, continente, admin_nivel_1/2/3, localidad, sublocalidad}` emitidos por el LLM.
+- ✅ Placeholders evasivos `(sin región)`, `(sin provincia)`, `(sin comarca)`, `(sin localidad)` se eliminan recursivamente del payload IA antes de persistir (R5).
+- ✅ Prompt de `enrich-location` añade bloque "GEOGRAFÍA ESTRUCTURADA (PROHIBIDO)"; `card-schema.datos_geograficos` recorta `jsonShape` a `lugar_interes` + `direccion_postal`.
+- ✅ Merge geográfico server-side elimina TODOS los fallbacks `aiGeoData.<prohibido>`: país/continente/admin_*/localidad/sublocalidad vienen SOLO de `geoData` (canonical Fase 2). `_geocoded` se mantiene canonical-only.
+- ✅ Contract tests `src/test/ai-payload-sanitizer.test.ts` (8 casos); Fase 1/3 siguen verdes (22 tests total).
 
 ### v1.2.12 (2026-05-20)
 - ✅ Coord-coherence Fase 3 (R9): Name ↔ coordinate identity gate pre-LLM en `enrich-location`.

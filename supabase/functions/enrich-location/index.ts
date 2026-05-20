@@ -12,6 +12,7 @@ import { compareCountries } from "../_shared/country-iso.ts";
 import { inspectWgs84Coord } from "../_shared/coord-validity.ts";
 import { assertNameCoordinateIdentity } from "../_shared/name-coord-identity.ts";
 import { getEnabledSourceCodes, isSourceEnabled } from "../_shared/data-sources.ts";
+import { sanitizeAiEnrichmentPayload } from "../_shared/ai-payload-sanitizer.ts";
 import {
   searchImageFromSources as sharedImageSearch,
   type ImageSourceCode,
@@ -2293,6 +2294,13 @@ PRINCIPIO DE VALIDACIÓN (OBLIGATORIO):
 - El nombre, la localización y los datos históricos/geográficos deben ser coherentes con esas coordenadas.
 - Si existe web oficial, referencia institucional o identificador público, debe indicarse.
 - Los datos no verificados se omiten (nunca se indica "no verificado").
+
+GEOGRAFÍA ESTRUCTURADA (PROHIBIDO — R4 Fase 4):
+- NO emitas datos_geograficos.coordenadas, pais, continente, admin_nivel_1, admin_nivel_2, admin_nivel_3, localidad ni sublocalidad.
+- Esa información la aporta el sistema desde reverse-geocode; cualquier campo de esos será DESCARTADO antes de persistir.
+- Solo puedes emitir datos_geograficos.lugar_interes (y direccion_postal si es verificable).
+- El contenido editorial va en descripcion, datos_clave y etiquetas.
+- NUNCA uses placeholders del tipo "(sin región)", "(sin provincia)", "(sin comarca)" o "(sin localidad)". Si no tienes el dato, OMITE el campo.
 ${natureInstructions}
 ${coordCorrectionInstructions}
 ${toneInstructions}
@@ -2466,22 +2474,39 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
         }
         
         enrichedData = JSON.parse(cleanContent.trim());
-        
+
+        // R4 + R5 (Fase 4): la IA NO puede emitir geografía estructurada ni
+        // placeholders evasivos. Sanitizar el payload ANTES de cualquier
+        // lógica de merge o persistencia. Backend nunca hace merge silencioso
+        // de campos prohibidos.
+        {
+          const { sanitized, report } = sanitizeAiEnrichmentPayload(enrichedData);
+          if (report.removedGeoFields.length || report.removedPlaceholders.length) {
+            console.warn('[R4] AI payload sanitized', {
+              name: location.name,
+              removedGeoFields: report.removedGeoFields,
+              removedPlaceholders: report.removedPlaceholders,
+            });
+          }
+          enrichedData = sanitized;
+        }
+
         if (!enrichedData.etiquetas) {
           enrichedData.etiquetas = [];
         }
-        
+
         // Merge/enhance datos_geograficos from AI with Nominatim data
         // AI provides refined location info (lugar_interes, sublocalidad, direccion_postal)
         // Nominatim provides base geographic hierarchy
         const aiGeoData = enrichedData.datos_geograficos || {};
-        
-        // Prioridad INVERTIDA: Nominatim (derivado de coords) manda; la IA
-        // solo entra si Nominatim no resolvió nada. Esto evita que el LLM
-        // "invente" un país/región a partir del nombre cuando las coords
-        // caen en mar/desierto/otro país.
-        let finalPais = geoData.country || aiGeoData.pais;
-        let finalContinente = geoData.continent || aiGeoData.continente;
+
+        // R4: la geografía estructurada (pais/continente/admin_*/localidad/
+        // sublocalidad/coordenadas) viene EXCLUSIVAMENTE de reverse-geocode.
+        // El sanitizer ya descartó esos campos del payload IA; los siguientes
+        // valores nunca toman fallback de la IA (los `|| aiGeoData.*` se
+        // eliminaron deliberadamente — ver contrato Fase 4).
+        let finalPais = geoData.country;
+        let finalContinente = geoData.continent;
         
         // Si tenemos país pero no continente válido, inferir del mapa
         if (finalPais && (!finalContinente || finalContinente === 'Desconocido')) {
@@ -2582,14 +2607,18 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
           );
         }
 
+        // R4: geografía estructurada SOLO desde reverse-geocode (canonical).
+        // De `aiGeoData` solo se aceptan `lugar_interes` y `direccion_postal`
+        // (el sanitizer ya descartó el resto; mantenemos el acceso explícito
+        // para dejar el contrato visible en el código).
         const mergedGeoData: any = {
           continente: finalContinente,
           pais: finalPais,
-          admin_nivel_1: geoData.region || aiGeoData.admin_nivel_1,
-          admin_nivel_2: geoData.zone || aiGeoData.admin_nivel_2,
-          admin_nivel_3: aiGeoData.admin_nivel_3,
-          localidad: aiGeoData.localidad,
-          sublocalidad: aiGeoData.sublocalidad,
+          admin_nivel_1: geoData.region,
+          admin_nivel_2: geoData.zone,
+          admin_nivel_3: (geoData as any).admin3,
+          localidad: (geoData as any).locality,
+          sublocalidad: (geoData as any).sublocality,
           // Calle: SOLO el dato verificado de Nominatim (geoData.street). Nunca lo que invente la IA.
           calle: (geoData as any).street,
           lugar_interes: aiGeoData.lugar_interes || location.name,
@@ -2670,6 +2699,7 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
         
         // Store geocoded geographic data in enrichedData for database update
         // R3 — snapshot canónico completo para que batch-enrich persista solo desde reverse-geocode.
+        // R4 — `_geocoded` NUNCA toma datos de la IA: todas las claves vienen de `canonicalGeo`.
         enrichedData._geocoded = {
           ...geoData,
           country_code: canonicalGeo!.country_code,

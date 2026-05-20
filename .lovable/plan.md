@@ -1,42 +1,143 @@
+# Fase 4 — Prompt + validator: IA fuera de geografía estructurada
 
-# Fase 3 — Name-coordinate identity gate (R9)
+Contrato: `docs/contracts/enrichment-coord-coherence-contract.md` (R4 + R5).
+Objetivo: la IA NO puede emitir ni sobrescribir geografía estructurada. El sistema solo acepta `lugar_interes` (y `direccion_postal`) como contribución editorial de la IA en `datos_geograficos`. Todo lo demás viene exclusivamente de `resolve-coordinates` (Fase 2).
 
-Pulsa **Implement plan** para que ejecute. Sigo en plan mode pese a "Build mode activado".
+## Alcance
 
-## Cambios
+- `supabase/functions/enrich-location/index.ts` (prompt + post-parse sanitización + merge)
+- `supabase/functions/_shared/card-schema.ts` (recortar `datos_geograficos.jsonShape` + `promptHint` para no pedir campos prohibidos)
+- Nuevo helper isomórfico `ai-payload-sanitizer`
+- `supabase/functions/batch-enrich/index.ts` — sin cambios funcionales (delega a `enrich-location`); revisar mensajes propagados
+- Tests nuevos
+- Versión + docs
 
-### Nuevos archivos
-- `src/shared/geography/name-coord-identity.ts` — helper canónico isomorfo. Exporta `assertNameCoordinateIdentity`, `normalizeName`, `isGenericName`, `similarity`, `haversineMeters`. Lookups vía `search-nearby-osm` + `search-candidates` (skip `search-candidates` si nombre genérico). Inyectables `searchNearby` / `searchCandidates` para tests.
-- `supabase/functions/_shared/name-coord-identity.ts` — espejo Deno verbatim.
-- `src/test/name-coord-identity.test.ts` — 7 casos vitest (ok / mismatch / found_elsewhere / generic-ok / **both-fail → hard-block** / generic-nearby-fail → hard-block / similarity tolera acentos+artículos).
+## Cambios técnicos
 
-### Modificados
-- `supabase/functions/enrich-location/index.ts`
-  - Import: `assertNameCoordinateIdentity` desde `../_shared/name-coord-identity.ts`.
-  - Tras R3 (`canonicalGeo` resuelto, ~L1887) y antes de `getGlobalEnrichmentConfig()` (~L1889), insertar bloque R9. Cualquier status ≠ `'ok'` devuelve `200` con `{ success:false, validation_required:true, reason }` y NO llama LLM. Reasons: `name_coordinate_mismatch` | `name_found_elsewhere` | `identity_lookup_unavailable`. Try/catch externo también bloquea como `identity_lookup_unavailable`.
+### 1. Helper sanitizador (isomórfico)
 
-- `supabase/functions/batch-enrich/index.ts`
-  - Insertar 3 ramas específicas **antes** del `else if (enrichData.validation_required)` genérico (línea ~372). Cada rama lanza error estructurado con `kind` propio (`name_coordinate_mismatch` | `name_found_elsewhere` | `identity_lookup_unavailable`). Sin reintento, sin `no_credits`.
+Crear:
+- `src/shared/enrichment/ai-payload-sanitizer.ts`
+- `supabase/functions/_shared/ai-payload-sanitizer.ts` (mirror byte-equivalente)
 
-### Versionado + docs (patch 1.2.11 → 1.2.12)
-- `package.json`: `"version": "1.2.12"`.
-- `src/lib/app-version.ts`: `APP_VERSION = '1.2.12'`.
-- `README.md`: badge + título → v1.2.12; nuevo entry changelog.
-- `docs/releases/version-history.md`: añadir `1.2.12` al árbol; mover `current` de 1.2.11 → 1.2.12; añadir anchor + fila tabla 1.x + entrada `[ ] v1.2.12` pendientes Git.
-- `docs/tech-debt.md` ítem 7: estado `en progreso — Fase 3 aplicada (2026-05-20)`; bullet 3 `✅ Aplicada en v1.2.12 …`.
+API:
+```ts
+export const PROHIBITED_AI_GEO_FIELDS = [
+  'coordenadas','pais','admin_nivel_1','admin_nivel_2','admin_nivel_3',
+  'continente','localidad','sublocalidad',
+] as const;
 
-## Comportamiento aprobado (cambio vs propuesta original)
+export const PROHIBITED_PLACEHOLDER_RE =
+  /^\s*\(\s*sin\s+[^)]+\)\s*$/i;  // (sin región), (sin provincia), (sin comarca), (sin localidad)…
 
-Si **ambos** lookups fallan/timeout → `identity_lookup_unavailable` es **bloqueo duro**, NO continúa como ok:
-- `enrich-location`: `{ success:false, validation_required:true, reason:'identity_lookup_unavailable' }`, NO LLM.
-- `batch-enrich`: `kind:'identity_lookup_unavailable'`, sin reintento, sin contar `no_credits`.
+export interface SanitizeReport {
+  removedGeoFields: string[];
+  removedPlaceholders: Array<{ path: string; value: string }>;
+}
 
-## Fuera de scope
-Datos, migraciones SQL, re-enrich, `LocationMap.tsx`, `places_trunk`, RLS/RBAC, UI panels, Fases 4–7.
+export function sanitizeAiEnrichmentPayload(
+  payload: unknown
+): { sanitized: any; report: SanitizeReport };
+```
+
+Reglas:
+- Si `payload.datos_geograficos` existe, eliminar las claves de `PROHIBITED_AI_GEO_FIELDS`, registrando en `removedGeoFields`. Mantener `lugar_interes`, `direccion_postal` y cualquier clave no enumerada como prohibida.
+- Recorrer recursivamente el `payload` (objeto + arrays); si un valor string casa `PROHIBITED_PLACEHOLDER_RE`, eliminar la clave (objeto) o filtrar el elemento (array) y registrar la ruta + valor.
+- No tocar `_geocoded` (se rellena post-LLM desde canonical).
+- No mutar el input; devolver copia profunda saneada.
+
+### 2. `enrich-location/index.ts`
+
+a) **Prompt** — añadir directiva explícita justo después de "PRINCIPIO DE VALIDACIÓN":
+```
+GEOGRAFÍA ESTRUCTURADA (PROHIBIDO):
+- NO emitas `datos_geograficos.coordenadas`, `pais`, `continente`,
+  `admin_nivel_1`, `admin_nivel_2`, `admin_nivel_3`, `localidad` ni `sublocalidad`.
+- Esa información la aporta el sistema desde reverse-geocode; cualquier
+  campo de esos será DESCARTADO.
+- Solo puedes emitir `datos_geograficos.lugar_interes` (y `direccion_postal`
+  si es verificable). El contenido editorial va en `descripcion`, `datos_clave`
+  y `etiquetas`.
+- NUNCA uses placeholders del tipo "(sin región)", "(sin provincia)",
+  "(sin comarca)" o "(sin localidad)".
+```
+
+b) **Recortar `datos_geograficos` en `card-schema.ts`** (compartido entre prompt builder y UI):
+```ts
+datos_geograficos: {
+  ...,
+  jsonShape: {
+    lugar_interes: 'Nombre del POI',
+    direccion_postal: 'Si verificable',
+  },
+  promptHint: () =>
+    'Datos geográficos: SOLO lugar_interes (y direccion_postal si es verificable). El resto (país, continente, niveles administrativos, localidad) lo aporta el sistema.',
+}
+```
+La UI sigue leyendo del DB row, que se sigue rellenando con la cadena canónica completa desde `geoData`/canonical.
+
+c) **Post-parse**, justo después de `enrichedData = JSON.parse(...)`:
+```ts
+const { sanitized, report } = sanitizeAiEnrichmentPayload(enrichedData);
+if (report.removedGeoFields.length || report.removedPlaceholders.length) {
+  console.warn('[R4] AI payload sanitized', {
+    name: location.name,
+    removedGeoFields: report.removedGeoFields,
+    removedPlaceholders: report.removedPlaceholders,
+  });
+}
+enrichedData = sanitized;
+```
+
+d) **Merge geográfico** (líneas ~2477-2615): eliminar fallbacks `aiGeoData.pais|admin_nivel_1|admin_nivel_2|admin_nivel_3|localidad|sublocalidad|continente`. Cadena estructurada viene SOLO de `geoData` (canonical de Fase 2). Quedan permitidos `aiGeoData.lugar_interes` y `aiGeoData.direccion_postal`.
+   - `finalPais = geoData.country` (sin `|| aiGeoData.pais`).
+   - `finalContinente = geoData.continent` (idem).
+   - `coordenadas` se sigue calculando server-side desde `location.coordinates` (no IA).
+   - El bloque `compareCountries(nominatim, aiGeoData.pais)` ya no aplica (aiGeoData.pais es siempre `undefined` tras sanitizar) — dejarlo guard para no romper, pero documentar con comentario que sólo dispararía en caso de bug del sanitizer.
+   - El fallback "parse from `localizacion`" (líneas 2618-2640): mantenerlo intacto (no es campo prohibido), pero añadir comentario de que es legacy.
+
+e) `_geocoded` (líneas 2673-2683): ya viene SOLO de `canonicalGeo`. Sin cambios; añadir comentario `// R4: _geocoded NUNCA toma datos de la IA`.
+
+### 3. `batch-enrich/index.ts`
+
+Sin cambios de lógica — invoca `enrich-location` y los nuevos rechazos viajan en errorMessages. Verificar que ninguna ruta de error de Fase 4 introduce kinds nuevos (no los hay: la sanitización es silenciosa y deja al POI continuar).
+
+### 4. Tests
+
+`src/test/ai-payload-sanitizer.test.ts` (Vitest):
+- AI con todos los campos prohibidos → se eliminan, `lugar_interes` y `direccion_postal` sobreviven.
+- Placeholders `(sin región)`, `(sin provincia)`, `(sin comarca)`, `(sin localidad)` en `descripcion`, `datos_clave.tipo`, `etiquetas[]` → eliminados (clave/elemento).
+- Payload editorial válido sin geo prohibida → idéntico (deep-equal).
+- `_geocoded` presente accidentalmente en input IA → eliminado (no es campo IA; fuente única canónica).
+- Input `null`/`undefined`/no-object → no lanza; devuelve `{ sanitized: input, report: { vacío } }`.
+
+Contract test: `_geocoded` solo se setea desde `canonicalGeo` (lectura estática del código vía pequeña regex test sobre `enrich-location/index.ts`) — opcional pero útil; lo añadimos como `src/test/enrich-location-geocoded-source.test.ts`.
+
+### 5. Versión
+
+- `package.json`: `1.2.12 → 1.2.13`
+- `src/lib/app-version.ts`: bump idem
+- `README.md`: entrada changelog v1.2.13 con resumen R4+R5
+- `docs/releases/version-history.md`: entrada v1.2.13
+- `docs/tech-debt.md` ítem 7: "En progreso — Fase 4 aplicada"
+
+## Restricciones (confirmadas en el contrato)
+
+- No tocar datos históricos.
+- No migraciones SQL.
+- No re-enrich.
+- No tocar `LocationMap.tsx`.
+- No tocar `places_trunk`, RLS, RBAC, UI panels.
+- Fases 5–7 fuera de alcance.
 
 ## Validación
-- `bunx vitest run src/test/coord-validity.test.ts src/test/name-coord-identity.test.ts` → verde.
-- Deno `enrich-location/index.test.ts` → sigue verde (no se tocan tests existentes).
 
-## Version impact
-patch — 1.2.11 → 1.2.12.
+- `vitest run` sobre el nuevo suite + suites de Fase 1/3 existentes.
+- Lectura cruzada del bloque merge en `enrich-location` para confirmar 0 fallbacks `aiGeoData.<prohibido>`.
+
+## Reporte final esperado
+
+- Archivos modificados (~8 archivos + 2 nuevos).
+- Tests ejecutados (Fase 1 + Fase 3 + Fase 4 sanitizer).
+- Versión: 1.2.13.
+- Confirmación sin datos / sin migraciones / sin re-enrich / sin LocationMap.

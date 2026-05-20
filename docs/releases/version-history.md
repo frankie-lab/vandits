@@ -46,7 +46,8 @@ publicados; algunas son hitos **reconstructed** para fijar memoria histórica.
   1.2.9        Tercera tanda eventos globales tipados (trash-updated)  (stable)
   1.2.10       Coord-coherence Fase 1: entry gates WGS84 duros  (stable)
   1.2.11       Coord-coherence Fase 2: resolve-coordinates pre-LLM  (stable)
-  1.2.12       Coord-coherence Fase 3: name↔coord identity gate (R9) pre-LLM  ← versión actual (stable / current)
+  1.2.12       Coord-coherence Fase 3: name↔coord identity gate (R9) pre-LLM  (stable)
+  1.2.13       Coord-coherence Fase 4: IA fuera de geografía estructurada (R4+R5)  ← versión actual (stable / current)
   1.3.0        Architecture baseline                (planned)
 
 2.x — Futuro
@@ -72,7 +73,8 @@ Las versiones estables deben poder usarse como puntos de retorno.
 - `v1.2.9`: tercera tanda de eventos globales tipados (`trash-updated`, void, 8 emisores / 2 consumidores; sin tocar `LocationMap.tsx`); deuda técnica ítem 2 continúa en progreso.
 - `v1.2.10`: Coord-coherence Fase 1 — entry gates WGS84 duros (`isValidWgs84Coord` + espejo Deno) aplicados en `enrich-location`, `batch-enrich`, `scrape-tick` y trigger cliente; rechazo de `null`/`NaN`/fuera de rango/`(0,0)` antes de IA con `{ validation_required: true, reason: 'invalid_coordinates' }`; contract test `src/test/coord-validity.test.ts` (7 casos); ítem 7 pasa a en progreso.
 - `v1.2.11`: Coord-coherence Fase 2 — `resolve-coordinates` obligatorio antes del LLM en `enrich-location`; fallo de reverse-geocode devuelve `{ success:false, validation_required:true, reason:'reverse_geocode_failed' }` sin gastar IA; geografía estructurada (`country/region/zone/continent/country_code/postal_code/timezone/*_id/raw_geocode/geo_source/geo_confidence/geo_resolved_at`) persiste SOLO desde canónico; `batch-enrich` propaga `kind:'reverse_geocode_failed'` y persiste snapshot canónico completo; ítem 7 → Fase 2 aplicada.
-- `v1.2.12`: versión actual; Coord-coherence Fase 3 — `assertNameCoordinateIdentity` (R9) pre-LLM en `enrich-location`; cualquier status ≠ `ok` devuelve `{ success:false, validation_required:true, reason }` y NO llama LLM; **HARD BLOCK** en `identity_lookup_unavailable` (ambos lookups fallidos/timeout NUNCA continúa como `ok`); `batch-enrich` propaga 3 nuevos `kind` (`identity_lookup_unavailable`, `name_coordinate_mismatch`, `name_found_elsewhere`) sin reintento ni `no_credits`; helper canónico + espejo Deno; contract test `src/test/name-coord-identity.test.ts` (7 casos); ítem 7 sigue en progreso (Fase 3 aplicada).
+- `v1.2.12`: Coord-coherence Fase 3 — `assertNameCoordinateIdentity` (R9) pre-LLM en `enrich-location`; cualquier status ≠ `ok` devuelve `{ success:false, validation_required:true, reason }` y NO llama LLM; **HARD BLOCK** en `identity_lookup_unavailable` (ambos lookups fallidos/timeout NUNCA continúa como `ok`); `batch-enrich` propaga 3 nuevos `kind` (`identity_lookup_unavailable`, `name_coordinate_mismatch`, `name_found_elsewhere`) sin reintento ni `no_credits`; helper canónico + espejo Deno; contract test `src/test/name-coord-identity.test.ts` (7 casos); ítem 7 sigue en progreso (Fase 3 aplicada).
+- `v1.2.13`: versión actual; Coord-coherence Fase 4 — IA fuera de geografía estructurada (R4 + R5). Nuevo helper isomórfico `sanitizeAiEnrichmentPayload` (`src/shared/enrichment/ai-payload-sanitizer.ts` + espejo `supabase/functions/_shared/ai-payload-sanitizer.ts`) descarta del payload IA `datos_geograficos.{coordenadas, pais, continente, admin_nivel_1/2/3, localidad, sublocalidad}` y elimina placeholders evasivos `(sin región)/(sin provincia)/(sin comarca)/(sin localidad)` antes de persistir. Prompt de `enrich-location` añade bloque "GEOGRAFÍA ESTRUCTURADA (PROHIBIDO)"; `card-schema.datos_geograficos.jsonShape` recortado a `lugar_interes + direccion_postal`. Merge server-side elimina todos los fallbacks `aiGeoData.<prohibido>`: cadena admin canónica viene SOLO de `geoData` (canonical Fase 2). `_geocoded` se mantiene canonical-only. Contract tests `src/test/ai-payload-sanitizer.test.ts` (8 casos); ítem 7 sigue en progreso (Fase 4 aplicada).
 
 Regla:
 
@@ -80,7 +82,7 @@ Si una versión nueva falla, no se borra del histórico. Se vuelve operativament
 
 Ejemplo:
 
-Si `v1.2.12` falla, volver a `v1.2.11` o publicar `v1.2.13` con corrección.
+Si `v1.2.13` falla, volver a `v1.2.12` o publicar `v1.2.14` con corrección.
 
 Nota operativa:
 
@@ -102,8 +104,9 @@ Los anchors documentados requieren tags Git reales para funcionar como rollback 
 - [ ] `v1.2.10`
 - [ ] `v1.2.11`
 - [ ] `v1.2.12`
+- [ ] `v1.2.13`
 
-Esta lista no debe marcarse como completada hasta verificar que los tags existen realmente en GitHub. Lovable no crea tags Git; deben crearse desde GitHub o git local. La versión actual `v1.2.12` también requiere un tag Git real para que el rollback sea operativo.
+Esta lista no debe marcarse como completada hasta verificar que los tags existen realmente en GitHub. Lovable no crea tags Git; deben crearse desde GitHub o git local. La versión actual `v1.2.13` también requiere un tag Git real para que el rollback sea operativo.
 
 Estado de cierre: la gobernanza de rollback queda documentada y auditada. La materialización técnica de tags Git queda pendiente de acción externa fuera de Lovable.
 
