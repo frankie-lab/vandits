@@ -1,8 +1,8 @@
-# VANDITS v1.2.9
+# VANDITS v1.2.10
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.2.9-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.2.10-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -88,6 +88,12 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 - [Deuda técnica priorizada](./docs/tech-debt.md)
 
 ## 📝 Changelog
+
+### v1.2.10 (2026-05-20)
+- ✅ Coord-coherence Fase 1: entry gates WGS84 duros (`isValidWgs84Coord`).
+- ✅ Rechazo de `null`, `NaN`, fuera de rango y `(0,0)` antes de cualquier IA.
+- ✅ Aplicado en `enrich-location`, `batch-enrich`, `scrape-tick` y trigger cliente; respuesta `{ validation_required: true, reason: 'invalid_coordinates' }`.
+- ✅ Contract test `src/test/coord-validity.test.ts` (7 casos) en verde.
 
 ### v1.2.9 (2026-05-19)
 - ✅ Tercera tanda de eventos globales tipados (`trash-updated`, void).

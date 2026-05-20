@@ -43,7 +43,8 @@ publicados; algunas son hitos **reconstructed** para fijar memoria histórica.
   1.2.6        Tercera extracción Index.tsx (useIndexGlobalEvents + useRoutePanelBridge)  (stable)
   1.2.7        Helper tipado inicial eventos globales (global-events.ts)  (stable)
   1.2.8        Segunda tanda eventos globales tipados (duplicate/icon/personal-categories)  (stable)
-  1.2.9        Tercera tanda eventos globales tipados (trash-updated)  ← versión actual (stable / current)
+  1.2.9        Tercera tanda eventos globales tipados (trash-updated)  (stable)
+  1.2.10       Coord-coherence Fase 1: entry gates WGS84 duros  ← versión actual (stable / current)
   1.3.0        Architecture baseline                (planned)
 
 2.x — Futuro
@@ -66,7 +67,8 @@ Las versiones estables deben poder usarse como puntos de retorno.
 - `v1.2.6`: tercera extracción incremental desde `Index.tsx` (`useIndexGlobalEvents` + `useRoutePanelBridge`); deuda técnica ítem 5 cerrada.
 - `v1.2.7`: helper tipado inicial para eventos globales (`src/lib/global-events.ts`) + migración de los 3 hooks extraídos de `Index.tsx`; deuda técnica ítem 2 en progreso.
 - `v1.2.8`: segunda tanda de eventos globales tipados de bajo riesgo (`duplicate-threshold-changed`, `icon-library-changed`, `personal-categories:reload`); deuda técnica ítem 2 continúa en progreso.
-- `v1.2.9`: versión actual; tercera tanda de eventos globales tipados (`trash-updated`, void, 8 emisores / 2 consumidores; sin tocar `LocationMap.tsx`); deuda técnica ítem 2 continúa en progreso.
+- `v1.2.9`: tercera tanda de eventos globales tipados (`trash-updated`, void, 8 emisores / 2 consumidores; sin tocar `LocationMap.tsx`); deuda técnica ítem 2 continúa en progreso.
+- `v1.2.10`: versión actual; Coord-coherence Fase 1 — entry gates WGS84 duros (`isValidWgs84Coord` + espejo Deno) aplicados en `enrich-location`, `batch-enrich`, `scrape-tick` y trigger cliente; rechazo de `null`/`NaN`/fuera de rango/`(0,0)` antes de IA con `{ validation_required: true, reason: 'invalid_coordinates' }`; contract test `src/test/coord-validity.test.ts` (7 casos); ítem 7 pasa a en progreso.
 
 Regla:
 
@@ -74,11 +76,11 @@ Si una versión nueva falla, no se borra del histórico. Se vuelve operativament
 
 Ejemplo:
 
-Si `v1.2.9` falla, volver a `v1.2.8` o publicar `v1.2.10` con corrección.
+Si `v1.2.10` falla, volver a `v1.2.9` o publicar `v1.2.11` con corrección.
 
 Nota operativa:
 
-Los anchors documentados requieren tags Git reales para funcionar como rollback operativo. Hasta que existan los tags `v1.1.1`, `v1.2.0`, `v1.2.1`, `v1.2.2`, `v1.2.3`, `v1.2.4`, `v1.2.5`, `v1.2.6`, `v1.2.7`, `v1.2.8` y `v1.2.9` en GitHub, el rollback está definido documentalmente pero no materializado como mecanismo técnico.
+Los anchors documentados requieren tags Git reales para funcionar como rollback operativo. Hasta que existan los tags `v1.1.1`, `v1.2.0`, `v1.2.1`, `v1.2.2`, `v1.2.3`, `v1.2.4`, `v1.2.5`, `v1.2.6`, `v1.2.7`, `v1.2.8`, `v1.2.9` y `v1.2.10` en GitHub, el rollback está definido documentalmente pero no materializado como mecanismo técnico.
 
 ### Tags Git pendientes de crear
 
@@ -93,8 +95,9 @@ Los anchors documentados requieren tags Git reales para funcionar como rollback 
 - [ ] `v1.2.7`
 - [ ] `v1.2.8`
 - [ ] `v1.2.9`
+- [ ] `v1.2.10`
 
-Esta lista no debe marcarse como completada hasta verificar que los tags existen realmente en GitHub. Lovable no crea tags Git; deben crearse desde GitHub o git local. La versión actual `v1.2.9` también requiere un tag Git real para que el rollback sea operativo.
+Esta lista no debe marcarse como completada hasta verificar que los tags existen realmente en GitHub. Lovable no crea tags Git; deben crearse desde GitHub o git local. La versión actual `v1.2.10` también requiere un tag Git real para que el rollback sea operativo.
 
 Estado de cierre: la gobernanza de rollback queda documentada y auditada. La materialización técnica de tags Git queda pendiente de acción externa fuera de Lovable.
 
@@ -137,12 +140,13 @@ Las versiones patch reconstruidas agrupan bloques coherentes de fixes/estabiliza
 | 1.2.6 | 2026-05-19 | stable | Tercera extracción incremental de orquestación desde `Index.tsx` (`useIndexGlobalEvents` + `useRoutePanelBridge`); ítem 5 cerrado | high | `src/hooks/use-index-global-events.ts`, `src/hooks/use-route-panel-bridge.ts`, `src/pages/Index.tsx`. |
 | 1.2.7 | 2026-05-19 | stable | Helper tipado inicial para eventos globales (`src/lib/global-events.ts`); migración de los 3 hooks extraídos de `Index.tsx`; deuda técnica ítem 2 en progreso | high | `src/lib/global-events.ts`, `src/test/global-events.test.ts` (6 casos), hooks migrados. |
 | 1.2.8 | 2026-05-19 | stable | Segunda tanda de eventos globales tipados (`duplicate-threshold-changed`, `icon-library-changed`, `personal-categories:reload`); cobertura 9 → 12 eventos; ítem 2 continúa en progreso | high | `src/lib/global-events.ts` (12 eventos), `src/test/global-events.test.ts` (9 casos), `DuplicatesList.tsx`, `use-duplicate-count.ts`, `IconLibraryContext.tsx`, `PersonalCategoriesPanel.tsx` migrados. |
-| 1.2.9 | 2026-05-19 | stable / current | Tercera tanda de eventos globales tipados (`trash-updated`, void, 8 emisores / 2 consumidores; sin tocar `LocationMap.tsx`); cobertura 12 → 13 eventos; ítem 2 continúa en progreso | high | `src/lib/global-events.ts` (13 eventos), `src/test/global-events.test.ts` (10 casos), `FloatingToolbar.tsx`, `FilterBar.tsx`, `LocationList.tsx`, `TrashPanel.tsx`, `use-realtime-locations.ts`, `SelectionActions.tsx`, `use-popup-actions.ts`, `UserMenu.tsx`, `DocumentFocusView.tsx` migrados. |
+| 1.2.9 | 2026-05-19 | stable | Tercera tanda de eventos globales tipados (`trash-updated`, void, 8 emisores / 2 consumidores; sin tocar `LocationMap.tsx`); cobertura 12 → 13 eventos; ítem 2 continúa en progreso | high | `src/lib/global-events.ts` (13 eventos), `src/test/global-events.test.ts` (10 casos), `FloatingToolbar.tsx`, `FilterBar.tsx`, `LocationList.tsx`, `TrashPanel.tsx`, `use-realtime-locations.ts`, `SelectionActions.tsx`, `use-popup-actions.ts`, `UserMenu.tsx`, `DocumentFocusView.tsx` migrados. |
+| 1.2.10 | 2026-05-20 | stable / current | Coord-coherence Fase 1: entry gates WGS84 duros (`isValidWgs84Coord` + espejo Deno) rechazando `null`/`NaN`/out-of-range/`(0,0)` antes de IA con `{ validation_required:true, reason:'invalid_coordinates' }`; ítem 7 pasa a en progreso | high | `src/shared/geography/coord-validity.ts`, `supabase/functions/_shared/coord-validity.ts`, `src/test/coord-validity.test.ts` (7 casos), `supabase/functions/enrich-location/index.ts`, `supabase/functions/batch-enrich/index.ts`, `supabase/functions/scrape-tick/index.ts`, `src/domains/content/lib/enrich-location.ts`. |
 | 1.3.0 | TBD | planned minor | Architecture baseline | planned | Requiere tests visuales, foto arquitectura, tipado inicial eventos y reducción de deuda. |
 
 Decisión de gobernanza: no se crea una patch version por commit. Solo se documentan patches cuando agrupan un bloque coherente de correcciones o estabilización con valor histórico.
 
-La versión oficial actual es **1.2.9**. Entradas marcadas como `TBD`, `candidate patch` o `planned minor` son hitos propuestos, no versiones publicadas.
+La versión oficial actual es **1.2.10**. Entradas marcadas como `TBD`, `candidate patch` o `planned minor` son hitos propuestos, no versiones publicadas.
 
 ---
 
