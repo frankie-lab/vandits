@@ -89,6 +89,47 @@ export interface PoiMaturityInput {
   category?: string | null;
   placeType?: string | null;
   tags?: string[] | null;
+
+  // flags geo_resolution (techo) — ver `docs/contracts/poi-maturity-visual-contract.md §4`
+  customData?: Record<string, unknown> | null;
+  custom_data?: Record<string, unknown> | null;
+}
+
+/** Status canónicos del flag `custom_data.geo_resolution.status`. */
+export type GeoResolutionStatus =
+  | 'pending_review'
+  | 'needs_name_fix'
+  | 'needs_coord_fix'
+  | 'geo_irrecoverable';
+
+/**
+ * Techo POI-N por flag `geo_resolution.status`. Ver contrato visual §4.
+ * Cualquier status desconocido → sin techo (devuelve 10).
+ */
+export function ceilingFromGeoResolutionStatus(
+  status: string | null | undefined,
+): PoiMaturityLevel {
+  switch (status) {
+    case 'geo_irrecoverable': return 1;
+    case 'needs_coord_fix':   return 2;
+    case 'needs_name_fix':    return 3;
+    case 'pending_review':    return 4;
+    default:                  return 10;
+  }
+}
+
+function readGeoResolutionStatus(loc: PoiMaturityInput): string | null {
+  const cd = (loc.customData ?? loc.custom_data) as
+    | Record<string, unknown>
+    | null
+    | undefined;
+  if (!cd) return null;
+  const raw = (cd as Record<string, unknown>).geo_resolution;
+  if (!raw || typeof raw !== 'object') return null;
+  const status = (raw as Record<string, unknown>).status;
+  return typeof status === 'string' && status.trim().length > 0
+    ? status.trim()
+    : null;
 }
 
 interface PoiEnrichedShape {
