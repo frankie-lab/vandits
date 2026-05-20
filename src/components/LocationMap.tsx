@@ -2833,69 +2833,46 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
  )}
  </div>
  
-   {/* Legend — dos modos mutuamente excluyentes:
-       - Madurez POI OFF (default): "Estado base · Final · Importado · Vacío"
-         (círculos, paleta canónica del marker propio).
-       - Madurez POI ON (admin overlay): "Madurez · [chip 0..10]"
-         chips compactos con `poi.maturity.*` y tooltip por nivel. */}
-   {maturityDiag.enabled ? (
-     <>
-       <span
-         className={cn(
-           'pr-2 border-r border-border/50 text-[10px] uppercase tracking-wide',
-           mapTheme === 'dark' ? 'text-gray-400' : 'text-muted-foreground',
-         )}
-       >
-         Madurez
-       </span>
-       <div className="flex items-center gap-1">
-         {([
-           [0, 'Sin dato útil'],
-           [1, 'Solo coordenadas'],
-           [2, 'Solo nombre'],
-           [3, 'Nombre + coords'],
-           [4, 'Identidad confirmada'],
-           [5, 'País/continente'],
-           [6, 'Región/zona'],
-           [7, 'Descripción enriquecida'],
-           [8, 'Media validada'],
-           [9, 'Categoría/tags'],
-           [10, 'Curado completo'],
-         ] as const).map(([lvl, label]) => (
-           <span
-             key={lvl}
-             title={`POI-${lvl} · ${label}`}
-             aria-label={`POI-${lvl} · ${label}`}
-             className="inline-block w-2.5 h-2.5 rounded-full ring-1 ring-white/80 shadow-sm"
-             style={{ backgroundColor: `hsl(var(--poi-maturity-${lvl}))` }}
-           />
-         ))}
-       </div>
-     </>
-   ) : (
-     <>
-       <span
-         className={cn(
-           'pr-2 border-r border-border/50 text-[10px] uppercase tracking-wide',
-           mapTheme === 'dark' ? 'text-gray-400' : 'text-muted-foreground',
-         )}
-       >
-         Estado base
-       </span>
-       <div className="flex items-center gap-1.5">
-         <span className="inline-block w-2.5 h-2.5 rounded-full ring-1 ring-white/80 shadow-sm" style={{ backgroundColor: '#22c55e' }} />
-         <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Final</span>
-       </div>
-       <div className="flex items-center gap-1.5">
-         <span className="inline-block w-2.5 h-2.5 rounded-full ring-1 ring-white/80 shadow-sm" style={{ backgroundColor: '#9ca3af' }} />
-         <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Importado</span>
-       </div>
-       <div className="flex items-center gap-1.5">
-         <span className="inline-block w-2.5 h-2.5 rounded-full ring-1 ring-white/80 shadow-sm" style={{ backgroundColor: '#f97316' }} />
-         <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Vacío</span>
-       </div>
-     </>
-   )}
+    {/* Legend (v1.3.2) — única norma vigente: madurez POI-0..POI-10.
+        Cada número se pinta con el token `poi.maturity.<nivel>` (SoT del
+        fill del marker propio desde v1.3.1). Tooltip por nivel con su
+        significado canónico. Final/Importado/Vacío deja de ser leyenda
+        principal (ver docs/contracts/marker-fill-canon-v3.md). */}
+    <>
+      <span
+        className={cn(
+          'pr-2 border-r border-border/50 text-[10px] uppercase tracking-wide',
+          mapTheme === 'dark' ? 'text-gray-400' : 'text-muted-foreground',
+        )}
+      >
+        Madurez
+      </span>
+      <div className="flex items-center gap-1">
+        {([
+          [0, 'Sin dato útil'],
+          [1, 'Solo coordenadas'],
+          [2, 'Solo nombre'],
+          [3, 'Nombre + coordenadas válidas'],
+          [4, 'Identidad confirmada'],
+          [5, 'País / continente resuelto'],
+          [6, 'Región / zona resuelta'],
+          [7, 'Descripción enriquecida'],
+          [8, 'Media validada'],
+          [9, 'Categoría / tags'],
+          [10, 'Curado completo'],
+        ] as const).map(([lvl, label]) => (
+          <span
+            key={lvl}
+            title={`POI-${lvl} · ${label}`}
+            aria-label={`POI-${lvl} · ${label}`}
+            className="inline-flex items-center justify-center w-4 h-4 rounded-sm text-[9px] font-semibold leading-none text-white/95 ring-1 ring-black/10 shadow-sm tabular-nums"
+            style={{ backgroundColor: `hsl(var(--poi-maturity-${lvl}))` }}
+          >
+            {lvl}
+          </span>
+        ))}
+      </div>
+    </>
    </div>
  </div>
 
