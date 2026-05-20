@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { inspectWgs84Coord } from "../_shared/coord-validity.ts";
 
 // Declare EdgeRuntime for TypeScript
 declare const EdgeRuntime: {
@@ -179,6 +180,20 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
       if (typeof existingDesc === 'string' && existingDesc.trim().length > 0) {
         processedIds.push(locationId);
         console.log('Skip already-enriched:', location.name);
+        return;
+      }
+
+      // ===== R1 — WGS84 entry gate. Coords inválidas NO enriquecen.
+      // Contrato: docs/contracts/enrichment-coord-coherence-contract.md.
+      const coordCheck = inspectWgs84Coord(location.latitude, location.longitude);
+      if (!coordCheck.valid) {
+        errorIds.push(locationId);
+        errorMessages[locationId] = {
+          kind: 'invalid_coordinates',
+          message: `Coordenadas inválidas (${coordCheck.reason}). Requiere geocoding antes de enriquecer.`,
+          reason: coordCheck.reason,
+        };
+        console.warn('Skip invalid coords:', location.name, locationId, coordCheck.reason);
         return;
       }
 

@@ -18,6 +18,7 @@ import { resolveAllFks } from '@/shared/geography/resolve-admin-fks';
 import { enrichmentFailureStore } from '@/domains/content/hooks/use-enrichment-failure';
 import { parseEnrichmentError } from '@/domains/content/lib/enrichment-error-kind';
 import { emitEnrichmentPhase } from '@/components/map/popup-enrichment-phase-bus';
+import { inspectWgs84Coord } from '@/shared/geography/coord-validity';
 
 export interface TriggerEnrichOptions {
   /** When true, force re-generation (semantically the popup's `regenerate`). */
@@ -75,6 +76,19 @@ export async function triggerEnrichLocation(
     toast.info('Selecciona un punto cercano para identificar este lugar');
     return { success: true };
   }
+
+  // R1 — WGS84 entry gate. Sin coords válidas no se enriquece: el LLM
+  // inventaría geografía sobre (0,0) o sobre coords corruptas y `places_trunk`
+  // cachearía la basura. Ver docs/contracts/enrichment-coord-coherence-contract.md.
+  const coordCheck = inspectWgs84Coord(location.coordinates?.lat, location.coordinates?.lng);
+  if (!coordCheck.valid) {
+    toast.error(
+      `Coordenadas inválidas (${coordCheck.reason}). Reasigna una ubicación válida antes de enriquecer.`,
+      { duration: 6000 },
+    );
+    return { success: false, error: `invalid_coordinates:${coordCheck.reason}` };
+  }
+
 
   const verb = regenerate ? 'Re-enriqueciendo' : 'Enriqueciendo';
   const successMsg = regenerate ? 'Ficha re-enriquecida' : 'Ficha enriquecida';
