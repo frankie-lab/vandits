@@ -2474,22 +2474,39 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
         }
         
         enrichedData = JSON.parse(cleanContent.trim());
-        
+
+        // R4 + R5 (Fase 4): la IA NO puede emitir geografía estructurada ni
+        // placeholders evasivos. Sanitizar el payload ANTES de cualquier
+        // lógica de merge o persistencia. Backend nunca hace merge silencioso
+        // de campos prohibidos.
+        {
+          const { sanitized, report } = sanitizeAiEnrichmentPayload(enrichedData);
+          if (report.removedGeoFields.length || report.removedPlaceholders.length) {
+            console.warn('[R4] AI payload sanitized', {
+              name: location.name,
+              removedGeoFields: report.removedGeoFields,
+              removedPlaceholders: report.removedPlaceholders,
+            });
+          }
+          enrichedData = sanitized;
+        }
+
         if (!enrichedData.etiquetas) {
           enrichedData.etiquetas = [];
         }
-        
+
         // Merge/enhance datos_geograficos from AI with Nominatim data
         // AI provides refined location info (lugar_interes, sublocalidad, direccion_postal)
         // Nominatim provides base geographic hierarchy
         const aiGeoData = enrichedData.datos_geograficos || {};
-        
-        // Prioridad INVERTIDA: Nominatim (derivado de coords) manda; la IA
-        // solo entra si Nominatim no resolvió nada. Esto evita que el LLM
-        // "invente" un país/región a partir del nombre cuando las coords
-        // caen en mar/desierto/otro país.
-        let finalPais = geoData.country || aiGeoData.pais;
-        let finalContinente = geoData.continent || aiGeoData.continente;
+
+        // R4: la geografía estructurada (pais/continente/admin_*/localidad/
+        // sublocalidad/coordenadas) viene EXCLUSIVAMENTE de reverse-geocode.
+        // El sanitizer ya descartó esos campos del payload IA; los siguientes
+        // valores nunca toman fallback de la IA (los `|| aiGeoData.*` se
+        // eliminaron deliberadamente — ver contrato Fase 4).
+        let finalPais = geoData.country;
+        let finalContinente = geoData.continent;
         
         // Si tenemos país pero no continente válido, inferir del mapa
         if (finalPais && (!finalContinente || finalContinente === 'Desconocido')) {
