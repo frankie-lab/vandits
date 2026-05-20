@@ -85,6 +85,7 @@ FROM locations;
 | F5 | places_trunk | RPCs admiten `(0,0)` | No validan WGS84 | Cache envenenada propagable |
 | F6 | geo_health | `(0,0)` → `'ok'` | Reglas incompletas | POIs corruptos pasan por sanos |
 | F7 | canon territorial | `zone == region` | Resolver admin sin guard | Árbol geográfico roto |
+| F8 | identity gate | Nombre y coords incoherentes pasan al LLM | No existe `assertNameCoordinateIdentity` pre-LLM | Identidad del POI no garantizada |
 
 ## 5. Síntesis
 
