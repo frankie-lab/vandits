@@ -1,143 +1,110 @@
-# Fase 4 — Prompt + validator: IA fuera de geografía estructurada
+# Fase 5 — `geo_health` honesto (R2)
 
-Contrato: `docs/contracts/enrichment-coord-coherence-contract.md` (R4 + R5).
-Objetivo: la IA NO puede emitir ni sobrescribir geografía estructurada. El sistema solo acepta `lugar_interes` (y `direccion_postal`) como contribución editorial de la IA en `datos_geograficos`. Todo lo demás viene exclusivamente de `resolve-coordinates` (Fase 2).
+Defensa en profundidad: SQL trigger (fuente de verdad) + helper TS espejo (lectura defensiva). Sin backfill de datos históricos, sin re-enrich, sin tocar `LocationMap.tsx`, `places_trunk`, RLS/RBAC, UI panels, ni Fases 6–7.
 
-## Alcance
+## 1. Migración DDL (schema-only, sin UPDATE de filas)
 
-- `supabase/functions/enrich-location/index.ts` (prompt + post-parse sanitización + merge)
-- `supabase/functions/_shared/card-schema.ts` (recortar `datos_geograficos.jsonShape` + `promptHint` para no pedir campos prohibidos)
-- Nuevo helper isomórfico `ai-payload-sanitizer`
-- `supabase/functions/batch-enrich/index.ts` — sin cambios funcionales (delega a `enrich-location`); revisar mensajes propagados
-- Tests nuevos
-- Versión + docs
+Archivo nuevo en `supabase/migrations/`. Rewrites de funciones existentes — no toca filas históricas.
 
-## Cambios técnicos
+### 1.1 Ampliar `_compute_location_geo_health`
 
-### 1. Helper sanitizador (isomórfico)
+Añadir 2 parámetros al final: `_raw_geocode jsonb`, `_enrichment_status text`. Insertar bloque `WHEN ... THEN 'hardError'` ANTES del resto:
 
-Crear:
-- `src/shared/enrichment/ai-payload-sanitizer.ts`
-- `supabase/functions/_shared/ai-payload-sanitizer.ts` (mirror byte-equivalente)
+```sql
+WHEN _lat IS NULL OR _lng IS NULL THEN 'hardError'
+WHEN _lat = 0 AND _lng = 0 THEN 'hardError'
+WHEN ABS(_lat) > 90 OR ABS(_lng) > 180 THEN 'hardError'
+WHEN _enrichment_status = 'enriched' AND _raw_geocode IS NULL THEN 'hardError'
+```
 
-API:
+Quitar el viejo `WHEN _lat IS NULL OR _lng IS NULL THEN 'empty'` (ahora cae en hardError). El resto del CASE (broken/partial/stale_name/ok) intacto.
+
+### 1.2 Ampliar `_compute_location_geo_health_lookup`
+
+Añadir mismos 2 parámetros y propagarlos al `_compute_location_geo_health`.
+
+### 1.3 Trigger `locations_set_geo_health`
+
+Pasar `NEW.raw_geocode`, `NEW.enrichment_status`. Añadir esas columnas + `latitude/longitude` (ya están) al `UPDATE OF` del trigger:
+
+```sql
+BEFORE INSERT OR UPDATE OF
+  latitude, longitude,
+  continent_id, country_id, region_id, zone_id,
+  country, region, zone, country_code,
+  raw_geocode, enrichment_status
+```
+
+### 1.4 Trigger `admin_areas_invalidate_geo_health`
+
+Pasar `l.raw_geocode, l.enrichment_status` en su UPDATE recomputador.
+
+### 1.5 No backfill
+
+Se omite intencionalmente el `UPDATE public.locations` final (la migración anterior sí lo tenía). Conforme a "Sin migración de datos" del contrato + "no tocar datos históricos" del usuario. Filas existentes recomputan su `geo_health` la próxima vez que cambien las columnas observadas.
+
+## 2. Cliente — helper espejo defensivo
+
+### 2.1 Nuevo: `src/shared/geography/compute-geo-health.ts`
+
 ```ts
-export const PROHIBITED_AI_GEO_FIELDS = [
-  'coordenadas','pais','admin_nivel_1','admin_nivel_2','admin_nivel_3',
-  'continente','localidad','sublocalidad',
-] as const;
+export type GeoHealth = 'ok'|'broken'|'partial'|'stale_name'|'empty'|'hardError';
 
-export const PROHIBITED_PLACEHOLDER_RE =
-  /^\s*\(\s*sin\s+[^)]+\)\s*$/i;  // (sin región), (sin provincia), (sin comarca), (sin localidad)…
-
-export interface SanitizeReport {
-  removedGeoFields: string[];
-  removedPlaceholders: Array<{ path: string; value: string }>;
+export function isHardErrorGeo(loc): boolean {
+  // R2: lat/lng inválidos, (0,0), fuera WGS84, o enriched sin raw_geocode
 }
 
-export function sanitizeAiEnrichmentPayload(
-  payload: unknown
-): { sanitized: any; report: SanitizeReport };
-```
-
-Reglas:
-- Si `payload.datos_geograficos` existe, eliminar las claves de `PROHIBITED_AI_GEO_FIELDS`, registrando en `removedGeoFields`. Mantener `lugar_interes`, `direccion_postal` y cualquier clave no enumerada como prohibida.
-- Recorrer recursivamente el `payload` (objeto + arrays); si un valor string casa `PROHIBITED_PLACEHOLDER_RE`, eliminar la clave (objeto) o filtrar el elemento (array) y registrar la ruta + valor.
-- No tocar `_geocoded` (se rellena post-LLM desde canonical).
-- No mutar el input; devolver copia profunda saneada.
-
-### 2. `enrich-location/index.ts`
-
-a) **Prompt** — añadir directiva explícita justo después de "PRINCIPIO DE VALIDACIÓN":
-```
-GEOGRAFÍA ESTRUCTURADA (PROHIBIDO):
-- NO emitas `datos_geograficos.coordenadas`, `pais`, `continente`,
-  `admin_nivel_1`, `admin_nivel_2`, `admin_nivel_3`, `localidad` ni `sublocalidad`.
-- Esa información la aporta el sistema desde reverse-geocode; cualquier
-  campo de esos será DESCARTADO.
-- Solo puedes emitir `datos_geograficos.lugar_interes` (y `direccion_postal`
-  si es verificable). El contenido editorial va en `descripcion`, `datos_clave`
-  y `etiquetas`.
-- NUNCA uses placeholders del tipo "(sin región)", "(sin provincia)",
-  "(sin comarca)" o "(sin localidad)".
-```
-
-b) **Recortar `datos_geograficos` en `card-schema.ts`** (compartido entre prompt builder y UI):
-```ts
-datos_geograficos: {
-  ...,
-  jsonShape: {
-    lugar_interes: 'Nombre del POI',
-    direccion_postal: 'Si verificable',
-  },
-  promptHint: () =>
-    'Datos geográficos: SOLO lugar_interes (y direccion_postal si es verificable). El resto (país, continente, niveles administrativos, localidad) lo aporta el sistema.',
+export function computeHonestGeoHealth(loc): GeoHealth {
+  if (isHardErrorGeo(loc)) return 'hardError';
+  return (loc.geoHealth ?? 'empty');
 }
 ```
-La UI sigue leyendo del DB row, que se sigue rellenando con la cadena canónica completa desde `geoData`/canonical.
 
-c) **Post-parse**, justo después de `enrichedData = JSON.parse(...)`:
-```ts
-const { sanitized, report } = sanitizeAiEnrichmentPayload(enrichedData);
-if (report.removedGeoFields.length || report.removedPlaceholders.length) {
-  console.warn('[R4] AI payload sanitized', {
-    name: location.name,
-    removedGeoFields: report.removedGeoFields,
-    removedPlaceholders: report.removedPlaceholders,
-  });
-}
-enrichedData = sanitized;
-```
+Lee `loc.latitude`, `loc.longitude`, `loc.enrichmentStatus`, `loc.rawGeocode`. Reutiliza `isValidWgs84Coord` de Fase 1 para no duplicar lógica.
 
-d) **Merge geográfico** (líneas ~2477-2615): eliminar fallbacks `aiGeoData.pais|admin_nivel_1|admin_nivel_2|admin_nivel_3|localidad|sublocalidad|continente`. Cadena estructurada viene SOLO de `geoData` (canonical de Fase 2). Quedan permitidos `aiGeoData.lugar_interes` y `aiGeoData.direccion_postal`.
-   - `finalPais = geoData.country` (sin `|| aiGeoData.pais`).
-   - `finalContinente = geoData.continent` (idem).
-   - `coordenadas` se sigue calculando server-side desde `location.coordinates` (no IA).
-   - El bloque `compareCountries(nominatim, aiGeoData.pais)` ya no aplica (aiGeoData.pais es siempre `undefined` tras sanitizar) — dejarlo guard para no romper, pero documentar con comentario que sólo dispararía en caso de bug del sanitizer.
-   - El fallback "parse from `localizacion`" (líneas 2618-2640): mantenerlo intacto (no es campo prohibido), pero añadir comentario de que es legacy.
+### 2.2 Espejo Deno: `supabase/functions/_shared/compute-geo-health.ts`
 
-e) `_geocoded` (líneas 2673-2683): ya viene SOLO de `canonicalGeo`. Sin cambios; añadir comentario `// R4: _geocoded NUNCA toma datos de la IA`.
+Misma lógica para futuras edges (no se cablea en esta fase, sólo se publica).
 
-### 3. `batch-enrich/index.ts`
+### 2.3 Actualizar `src/domains/content/lib/geo-health.ts`
 
-Sin cambios de lógica — invoca `enrich-location` y los nuevos rechazos viajan en errorMessages. Verificar que ninguna ruta de error de Fase 4 introduce kinds nuevos (no los hay: la sanitización es silenciosa y deja al POI continuar).
+`isHealthyShareableGeo` pasa por `computeHonestGeoHealth(loc) === 'ok'` (en lugar de `loc.geoHealth === 'ok'`). Defensivo: si la DB devuelve `'ok'` stale pero R2 falla, sharing/export rechazan.
 
-### 4. Tests
+### 2.4 Tipos
 
-`src/test/ai-payload-sanitizer.test.ts` (Vitest):
-- AI con todos los campos prohibidos → se eliminan, `lugar_interes` y `direccion_postal` sobreviven.
-- Placeholders `(sin región)`, `(sin provincia)`, `(sin comarca)`, `(sin localidad)` en `descripcion`, `datos_clave.tipo`, `etiquetas[]` → eliminados (clave/elemento).
-- Payload editorial válido sin geo prohibida → idéntico (deep-equal).
-- `_geocoded` presente accidentalmente en input IA → eliminado (no es campo IA; fuente única canónica).
-- Input `null`/`undefined`/no-object → no lanza; devuelve `{ sanitized: input, report: { vacío } }`.
+`src/types/location.ts` línea 271: añadir `'hardError'` al union `geoHealth`. No tocar `HealthFilter` (ya lo contempla).
 
-Contract test: `_geocoded` solo se setea desde `canonicalGeo` (lectura estática del código vía pequeña regex test sobre `enrich-location/index.ts`) — opcional pero útil; lo añadimos como `src/test/enrich-location-geocoded-source.test.ts`.
+`src/integrations/supabase/types.ts` se regenerará automáticamente tras la migración (no editar manualmente).
 
-### 5. Versión
+## 3. Tests
 
-- `package.json`: `1.2.12 → 1.2.13`
-- `src/lib/app-version.ts`: bump idem
-- `README.md`: entrada changelog v1.2.13 con resumen R4+R5
-- `docs/releases/version-history.md`: entrada v1.2.13
-- `docs/tech-debt.md` ítem 7: "En progreso — Fase 4 aplicada"
+`src/test/geo-health-hard-error.test.ts` (Vitest, helper cliente):
 
-## Restricciones (confirmadas en el contrato)
+- `(0, 0)` → hardError
+- `lat=null` → hardError
+- `lng=null` → hardError
+- `lat=91` o `lng=-181` → hardError
+- `enrichment_status='enriched'` + `raw_geocode=null` → hardError
+- coords válidas + `raw_geocode` presente → respeta `loc.geoHealth` (`ok`/`partial`/etc, no fuerza hardError)
+- coords válidas + status `pending` + raw_geocode null → no hardError (rule sólo aplica si enriched)
 
-- No tocar datos históricos.
-- No migraciones SQL.
-- No re-enrich.
-- No tocar `LocationMap.tsx`.
-- No tocar `places_trunk`, RLS, RBAC, UI panels.
-- Fases 5–7 fuera de alcance.
+Test SQL contractual: nota en archivo de test indicando que la verificación funcional del trigger requiere ejecutar la migración (no automatizable en Vitest puro).
 
-## Validación
+## 4. Versionado y documentación
 
-- `vitest run` sobre el nuevo suite + suites de Fase 1/3 existentes.
-- Lectura cruzada del bloque merge en `enrich-location` para confirmar 0 fallbacks `aiGeoData.<prohibido>`.
+- `package.json` → `1.2.14`
+- `src/lib/app-version.ts` → `1.2.14`
+- `README.md` changelog: entry 1.2.14 — Fase 5 (R2) `geo_health` honesto
+- `docs/releases/version-history.md` — entry 1.2.14
+- `docs/tech-debt.md` ítem 7: "En progreso — Fase 5 aplicada"
 
-## Reporte final esperado
+## 5. Constraints confirmados
 
-- Archivos modificados (~8 archivos + 2 nuevos).
-- Tests ejecutados (Fase 1 + Fase 3 + Fase 4 sanitizer).
-- Versión: 1.2.13.
-- Confirmación sin datos / sin migraciones / sin re-enrich / sin LocationMap.
+- Sin tocar `LocationMap.tsx`, `places_trunk`, RLS/RBAC, UI panels
+- Sin re-enrich
+- Sin backfill de filas (DDL recomputa on-write)
+- Fases 6–7 fuera de scope
+
+## 6. Reporte final que entregaré
+
+Archivos modificados, tests ejecutados (Vitest verde), versión final `1.2.14`, confirmación explícita de constraints.
