@@ -2782,7 +2782,20 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
  <div ref={mapContainerRef} className="h-full w-full" />
  
  {/* Custom scale bar */}
- <MapScaleBar map={mapRef.current} units={measurementUnits} />
+  <MapScaleBar map={mapRef.current} units={measurementUnits} />
+
+  {/* PR-MATURITY-OVERLAY (v1.2.18): admin-only, OFF por defecto. */}
+  <MaturityDiagnosticsControl />
+  {maturityDiag.enabled && (
+    <MaturityBadgeLayer
+      map={mapRef.current}
+      locations={markerLocations}
+      viewerUid={currentUserId}
+      renderMode={maturityRenderMode}
+      enabled={maturityDiag.enabled}
+    />
+  )}
+  
  
  {/* "Ver N ubicaciones" — integrado en la pill inferior derecha (ver bloque legend) */}
    {/* Locate-me button moved to FloatingToolbar (top bar). State broadcast via 'map-locate-state'. */}
