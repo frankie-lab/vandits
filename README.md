@@ -90,6 +90,12 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 ## 📝 Changelog
 
 ### v1.3.2 (2026-05-20)
+- ✅ **Fase 3 canon v3 marker fill (`docs/contracts/marker-fill-canon-v3.md`)** — barra/leyenda inferior derecha (`LocationMap`) muestra ahora **única norma vigente**: `Madurez · 0 1 2 3 4 5 6 7 8 9 10`. Cada número se pinta con `hsl(var(--poi-maturity-<n>))` (token `poi.maturity.<n>`) y expone `title`/`aria-label` con el significado canónico POI-0..POI-10 (`Sin dato útil` → `Curado completo`).
+- ✅ Retirada la leyenda legacy `Estado base · Final · Importado · Vacío` (paleta `#22c55e`/`#9ca3af`/`#f97316` hardcoded). Final/Importado/Vacío deja de ser leyenda principal; permanece como semántica interna de `getPointVisualState` para filtros/buckets/telemetría.
+- ✅ Toggle `Madurez POI ON/OFF` (`MaturityDiagnosticsControl`) sin cambios — sigue activando el overlay admin de POIs. La barra inferior ya no depende de `maturityDiag.enabled`: la leyenda POI-N se muestra siempre.
+- ✅ Bump **patch** `1.3.1 → 1.3.2`. NO toca: marker fill, `computePoiMaturity`, `createCustomIcon`, `resolvePoiVisualGrammar`, colecciones, health rings, datos.
+
+### v1.3.1 (2026-05-20)
 - ✅ **Fase 2 canon v3 marker fill (`docs/contracts/marker-fill-canon-v3.md`)** — el fill del marker propio (`paletteScope === 'state'`) pasa a derivarse de `getPoiMaturityColor(loc).fill` (`poi.maturity[0..10]`, 11 niveles) en vez del legacy `poi.level.*` (6 niveles). `resolvePoiVisualGrammar` ahora compone `levelVisual = { levelKey, maturityLevel, fillHsl, showStateRing }`: `fillHsl` viene de `poi.maturity[level]`, `maturityLevel` expone el nivel POI-N (0..10) para QA/telemetría, `levelKey` y `showStateRing` siguen ligados a `getPoiCurationLevel` (regla DURA "rings sólo en `poi-5`").
 - ✅ `createCustomIcon` SIN cambios estructurales: sigue leyendo `visualGrammar.levelVisual.fillHsl` como `baseColor`. Forma (círculo propio / triángulo seguido), borde, halo de selección, collection tint, health rings, owner identity OKLCH, hero polaroid `rich`, micro dots followed/app/source — todo conservado.
 - ✅ `getPointVisualState` se conserva como semántica legacy (filtros, leyendas pill, buckets `getBucketStats`, telemetría). `poi.state.*` no se elimina.
