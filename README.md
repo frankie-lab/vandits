@@ -1,8 +1,8 @@
-# VANDITS v1.2.15
+# VANDITS v1.2.16
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.2.15-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.2.16-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -88,6 +88,14 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 - [Deuda técnica priorizada](./docs/tech-debt.md)
 
 ## 📝 Changelog
+
+### v1.2.16 (2026-05-20)
+- ✅ Coord-coherence Fase 7 (R7 + R8): `places_trunk` saneado + guard `zone ≠ region`.
+- ✅ R7: `lookup_trunk_place` y `upsert_trunk_place` (PL/pgSQL) rechazan coords inválidas al inicio: `NULL`, `NaN`, `(0,0)` Null Island, `|lat|>90`, `|lng|>180`. `lookup` retorna sin filas; `upsert` retorna `NULL`. Sin cambios en RLS, índices, ni schema de `places_trunk`.
+- ✅ Defensa cliente espejo: `triggerEnrichLocation` (`src/domains/content/lib/enrich-location.ts`) y `batch-enrich` envuelven `lookup_trunk_place`/`upsert_trunk_place` con `isValidWgs84Coord` antes de invocar RPC.
+- ✅ R8: nuevo helper canónico `shouldDropZone(zone, region)` (`src/shared/geography/zone-region-guard.ts` + espejo Deno `supabase/functions/_shared/zone-region-guard.ts`), comparación case- y diacritic-insensitive. `resolve-admin-area` lo aplica tras resolver toda la cadena: si `zone == region`, `zone_id` queda `NULL`; `region_id` permanece intacto.
+- ✅ Contract tests: `src/test/places-trunk-coord-guard.test.ts` (5 casos) + `src/test/zone-region-guard.test.ts` (6 casos).
+- ✅ Sin datos históricos tocados, sin backfill, sin re-enrich, sin tocar `LocationMap.tsx`, sin tocar RLS/RBAC ni paneles UI.
 
 ### v1.2.15 (2026-05-20)
 - ✅ Coord-coherence Fase 6 (R6): `assertGeoCoherence` + quarantine post-LLM. Nuevo helper isomórfico `assertGeoCoherence(canonical, aiNarrative)` (`src/shared/enrichment/geo-coherence.ts` + espejo `supabase/functions/_shared/geo-coherence.ts`) detecta menciones de país/región incompatibles con la geografía canónica resuelta por `resolve-coordinates`.

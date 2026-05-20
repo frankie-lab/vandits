@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { inspectWgs84Coord } from "../_shared/coord-validity.ts";
+import { inspectWgs84Coord, isValidWgs84Coord } from "../_shared/coord-validity.ts";
 
 // Declare EdgeRuntime for TypeScript
 declare const EdgeRuntime: {
@@ -198,13 +198,17 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
       }
 
       // ===== TRUNK LOOKUP (places_trunk) =====
+      // R7 (Fase 7): defensa servidor — no consultar tronco con coords inválidas.
       try {
-        const { data: trunkRows, error: trunkErr } = await supabase.rpc('lookup_trunk_place', {
-          _latitude: location.latitude,
-          _longitude: location.longitude,
-          _place_type: location.place_type ?? null,
-          _max_distance_meters: 250,
-        });
+        const trunkCoordsOk = isValidWgs84Coord(location.latitude, location.longitude);
+        const { data: trunkRows, error: trunkErr } = trunkCoordsOk
+          ? await supabase.rpc('lookup_trunk_place', {
+              _latitude: location.latitude,
+              _longitude: location.longitude,
+              _place_type: location.place_type ?? null,
+              _max_distance_meters: 250,
+            })
+          : { data: null, error: null };
         if (!trunkErr) {
           const trunk = Array.isArray(trunkRows) ? trunkRows[0] : null;
           if (trunk?.is_fresh && trunk?.enriched_data) {
@@ -345,14 +349,17 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
           await supabase.from('locations').update(updateData).eq('id', locationId);
 
           try {
-            await supabase.rpc('upsert_trunk_place', {
-              _name: location.name,
-              _latitude: location.latitude,
-              _longitude: location.longitude,
-              _place_type: (updateData.place_type as string) ?? location.place_type ?? null,
-              _enriched_data: enrichData.data,
-              _enriched_by: location.owner_user_id ?? null,
-            });
+            // R7 (Fase 7): defensa servidor — no contaminar tronco con coords inválidas.
+            if (isValidWgs84Coord(location.latitude, location.longitude)) {
+              await supabase.rpc('upsert_trunk_place', {
+                _name: location.name,
+                _latitude: location.latitude,
+                _longitude: location.longitude,
+                _place_type: (updateData.place_type as string) ?? location.place_type ?? null,
+                _enriched_data: enrichData.data,
+                _enriched_by: location.owner_user_id ?? null,
+              });
+            }
           } catch (e) {
             console.warn('Trunk upsert failed (non-fatal):', e);
           }

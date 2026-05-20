@@ -12,6 +12,7 @@
 // so callers that only pass `country: "FR"` end up with the right `continent_id` too.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { shouldDropZone } from '../_shared/zone-region-guard.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -273,6 +274,13 @@ Deno.serve(async (req) => {
 
       parentId = resolvedId;
       if (!isPlaceholder) lastDefinedIdx = i;
+    }
+
+    // R8 (Fase 7): zone ≠ region — si el caller envió la misma cadena como
+    // región y como provincia/zona, NO asignamos zone_id (queda NULL).
+    // region_id permanece intacto. No duplicamos la región como provincia.
+    if (shouldDropZone(body.zone, body.region)) {
+      ids['zone_id'] = null;
     }
 
     return new Response(JSON.stringify({ ids }), {
