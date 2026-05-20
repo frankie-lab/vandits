@@ -58,7 +58,8 @@ publicados; algunas son hitos **reconstructed** para fijar memoria histórica.
   1.2.21       Pulido UX overlay POI-N (reposición + colapso + pista "Estado base")  (stable)
   1.2.22       Overlay POI-N: leyenda compacta en pill inferior derecha; izquierda solo toggle  (stable)
   1.3.0        Canon v3 marker fill — Fase 1: helper SoT `getPoiMaturityColor` (sin tocar renderer)  (stable)
-  1.3.1        Canon v3 marker fill — Fase 2: renderer consume `poi.maturity[*]` (fill propio migrado)  ← versión actual (stable / current)
+  1.3.1        Canon v3 marker fill — Fase 2: renderer consume `poi.maturity[*]` (fill propio migrado)  (stable)
+  1.3.2        Canon v3 marker fill — Fase 3: leyenda inferior unificada `Madurez · 0..10`  ← versión actual (stable / current)
 
 
 2.x — Futuro
