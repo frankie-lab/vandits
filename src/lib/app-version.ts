@@ -2,5 +2,5 @@
 // In every real release, keep this aligned with `package.json`, README and
 // `docs/releases/version-history.md`. See `docs/versioning.md`.
 
-export const APP_VERSION = '1.2.19';
+export const APP_VERSION = '1.2.20';
 export const APP_VERSION_LABEL = `v${APP_VERSION}`;
