@@ -110,7 +110,8 @@ export async function triggerEnrichLocation(
     let trunkHit = false;
 
     // ─── 1) Tronco global: si NO es regenerate, intentar reusar ficha troncal fresca
-    if (!regenerate) {
+    // R7 (Fase 7): defensa cliente — no consultar places_trunk con coords inválidas.
+    if (!regenerate && isValidWgs84Coord(location.coordinates.lat, location.coordinates.lng)) {
       const { data: trunkRows } = await supabase.rpc('lookup_trunk_place', {
         _latitude: location.coordinates.lat,
         _longitude: location.coordinates.lng,
@@ -288,7 +289,8 @@ export async function triggerEnrichLocation(
     if (updateError) throw updateError;
 
     // ─── 3) Tronco: si se generó nuevo (o regenerate), upsert al tronco global
-    if (!trunkHit) {
+    // R7 (Fase 7): defensa cliente — no contaminar places_trunk con coords inválidas.
+    if (!trunkHit && isValidWgs84Coord(location.coordinates.lat, location.coordinates.lng)) {
       try {
         await supabase.rpc('upsert_trunk_place', {
           _name: location.name,
