@@ -16,9 +16,9 @@
  *          y no es placeholder evasivo del LLM)
  *   POI-8  media validada (imagen IA o foto propia)
  *   POI-9  categoría o tags validados
- *   POI-10 curado completo (`geoHealth === 'ok'`,
- *          `enrichment_status === 'enriched'`, observación personal
- *          presente)
+ *   POI-10 curado completo objetivo (`geoHealth === 'ok'` +
+ *          `enrichment_status === 'enriched'`). NO exige observación,
+ *          visita, rating ni foto propia — eso es estado personal.
  *
  * Reglas DURAS:
  *   - Coordenadas inválidas (Null Island, fuera de rango, NaN, null) no
@@ -242,13 +242,19 @@ function hasCategoryOrTags(loc: PoiMaturityInput): boolean {
   return false;
 }
 
+/**
+ * POI-10 — curación OBJETIVA completa: `geoHealth='ok'` +
+ * `enrichment_status='enriched'`. Estado personal (observación, visita,
+ * rating, foto propia, comentario) es eje SEPARADO y NO entra aquí. Las
+ * señales objetivas previas (raw_geocode, país, región, descripción,
+ * media, categoría/tags) ya están garantizadas por monotonía del ladder
+ * en POI-9.
+ */
 function isFullyCurated(loc: PoiMaturityInput): boolean {
   const geo = loc.geoHealth ?? loc.geo_health;
   if (geo !== 'ok') return false;
   const status = loc.enrichmentStatus ?? loc.enrichment_status;
   if (status !== 'enriched') return false;
-  const ed = pickEnriched(loc);
-  if (!nonEmptyString(ed?.observacion)) return false;
   return true;
 }
 

@@ -1,8 +1,8 @@
-# VANDITS v1.3.3
+# VANDITS v1.3.4
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.3.3-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.3.4-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -88,6 +88,14 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 - [Deuda técnica priorizada](./docs/tech-debt.md)
 
 ## 📝 Changelog
+
+### v1.3.4 (2026-05-20)
+- ✅ **Corrección definición POI-10** en `computePoiMaturity`. POI-10 deja de exigir `enriched_data.observacion` (estado personal/editorial del usuario). Pasa a representar **curación OBJETIVA completa**: `geoHealth='ok'` + `enrichment_status='enriched'` (sobre POI-9 ya garantiza por monotonía `raw_geocode`, país/continente, región/zona, descripción IA verificable, media validada, categoría/tags).
+- ✅ Estado personal (observación, visita, rating, foto propia, comentario) confirmado como **eje SEPARADO**: nunca eleva ni degrada el nivel objetivo POI-N. Flags `geo_resolution` siguen como techo.
+- ✅ `src/domains/content/lib/poi-maturity.ts`: `isFullyCurated` deja de leer `observacion`. JSDoc del módulo actualizado.
+- ✅ Tests `src/test/poi-maturity.test.ts`: el caso POI-10 ahora se construye **sin** `observacion` (regresión explícita). Nuevo test confirma que la presencia de `observacion` no degrada ni eleva (eje personal separado). 32/32 pasan.
+- ✅ `docs/contracts/poi-maturity-visual-contract.md`: tabla canónica y reglas DURAS actualizadas.
+- ✅ Bump **patch** `1.3.3 → 1.3.4`. NO toca: renderer, tokens, datos, RLS, edge functions, migraciones, `getPointVisualState`, `getPoiCurationLevel`.
 
 ### v1.3.3 (2026-05-20)
 - ✅ **Fase 3.1 canon v3 marker fill (`docs/contracts/marker-fill-canon-v3.md`)** — fix de mapping frontend: `dbLocationToGeoLocation` ahora copia `raw_geocode`, `geo_resolved_at`, `geo_confidence` y `geo_source` desde `v_locations_resolved` al objeto `GeoLocation`. Antes se perdían silenciosamente y `computePoiMaturity` capaba TODOS los enriched en POI-3 por ausencia de `rawGeocode`.
