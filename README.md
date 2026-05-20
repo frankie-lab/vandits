@@ -89,6 +89,12 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.2.17 (2026-05-20)
+- ✅ Nuevo helper canónico `computePoiMaturity(loc)` (`src/domains/content/lib/poi-maturity.ts`) que devuelve nivel POI-0…POI-10 según contrato `docs/contracts/poi-maturity-visual-contract.md`. Función pura, sin efectos, ladder monotónico.
+- ✅ Reglas DURAS: coords inválidas no pasan de POI-2; sin `raw_geocode` no se llega a POI-4; sin geografía resuelta no se salta a POI-7; POI-10 exige `geoHealth='ok'` + `enrichment_status='enriched'` + observación personal.
+- ✅ Contract tests `src/test/poi-maturity.test.ts` (19 casos verdes). Acepta forma camelCase y snake_case.
+- ✅ NO se ha tocado el renderer del mapa (`LocationMap.tsx`, `createCustomIcon`, `resolvePoiVisualGrammar`, `levelKey` PR-MAP-CANON-3 intactos). NO se ha tocado base de datos, ni RLS, ni edge functions. NO re-enrich. NO migraciones.
+
 ### v1.2.16 (2026-05-20)
 - ✅ Coord-coherence Fase 7 (R7 + R8): `places_trunk` saneado + guard `zone ≠ region`.
 - ✅ R7: `lookup_trunk_place` y `upsert_trunk_place` (PL/pgSQL) rechazan coords inválidas al inicio: `NULL`, `NaN`, `(0,0)` Null Island, `|lat|>90`, `|lng|>180`. `lookup` retorna sin filas; `upsert` retorna `NULL`. Sin cambios en RLS, índices, ni schema de `places_trunk`.
