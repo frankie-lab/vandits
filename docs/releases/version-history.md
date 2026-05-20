@@ -98,8 +98,9 @@ Los anchors documentados requieren tags Git reales para funcionar como rollback 
 - [ ] `v1.2.8`
 - [ ] `v1.2.9`
 - [ ] `v1.2.10`
+- [ ] `v1.2.11`
 
-Esta lista no debe marcarse como completada hasta verificar que los tags existen realmente en GitHub. Lovable no crea tags Git; deben crearse desde GitHub o git local. La versión actual `v1.2.10` también requiere un tag Git real para que el rollback sea operativo.
+Esta lista no debe marcarse como completada hasta verificar que los tags existen realmente en GitHub. Lovable no crea tags Git; deben crearse desde GitHub o git local. La versión actual `v1.2.11` también requiere un tag Git real para que el rollback sea operativo.
 
 Estado de cierre: la gobernanza de rollback queda documentada y auditada. La materialización técnica de tags Git queda pendiente de acción externa fuera de Lovable.
 
