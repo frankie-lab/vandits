@@ -1,8 +1,8 @@
-# VANDITS v1.3.2
+# VANDITS v1.3.3
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.3.2-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.3.3-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -88,6 +88,13 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 - [Deuda técnica priorizada](./docs/tech-debt.md)
 
 ## 📝 Changelog
+
+### v1.3.3 (2026-05-20)
+- ✅ **Fase 3.1 canon v3 marker fill (`docs/contracts/marker-fill-canon-v3.md`)** — fix de mapping frontend: `dbLocationToGeoLocation` ahora copia `raw_geocode`, `geo_resolved_at`, `geo_confidence` y `geo_source` desde `v_locations_resolved` al objeto `GeoLocation`. Antes se perdían silenciosamente y `computePoiMaturity` capaba TODOS los enriched en POI-3 por ausencia de `rawGeocode`.
+- ✅ `GeoLocation` extendido con campos opcionales `rawGeocode?: unknown`, `geoResolvedAt?: string | null`, `geoConfidence?: number | null`, `geoSource?: string | null`. Cambio aditivo, ningún consumidor existente afectado.
+- ✅ Nuevo test `src/test/db-transformers-raw-geocode.test.ts` (5 tests): preserva `raw_geocode`/`geo_resolved_at`/`geo_confidence`/`geo_source`; row sin `raw_geocode` → `rawGeocode === null`; integración con `computePoiMaturity` (enriched + raw_geocode + geo_health=ok + descripcion supera POI-3; regresión: sin raw_geocode sigue capado).
+- ✅ Bump **patch** `1.3.2 → 1.3.3`. NO toca: `computePoiMaturity`, renderer (`createCustomIcon`, `resolvePoiVisualGrammar`), tokens, colecciones, health rings, datos, RLS, edge functions, migraciones.
+- ⚠️ Deuda residual separada: ~340 POIs enriched sin `raw_geocode` en DB (backfill server-side pendiente, fuera del alcance de Fase 3.1). Ver `docs/tech-debt.md`.
 
 ### v1.3.2 (2026-05-20)
 - ✅ **Fase 3 canon v3 marker fill (`docs/contracts/marker-fill-canon-v3.md`)** — barra/leyenda inferior derecha (`LocationMap`) muestra ahora **única norma vigente**: `Madurez · 0 1 2 3 4 5 6 7 8 9 10`. Cada número se pinta con `hsl(var(--poi-maturity-<n>))` (token `poi.maturity.<n>`) y expone `title`/`aria-label` con el significado canónico POI-0..POI-10 (`Sin dato útil` → `Curado completo`).

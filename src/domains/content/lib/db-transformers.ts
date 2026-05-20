@@ -40,6 +40,13 @@ export function dbLocationToGeoLocation(loc: any): GeoLocation {
     ownerUserId: loc.owner_user_id ?? null,
     isApproved: loc.is_approved ?? false,
     externalRefs: (loc.external_refs as GeoLocation['externalRefs']) || undefined,
+    // Fase 3.1 canon v3 — preservar señales geo crudas del DB para que
+    // `computePoiMaturity` pueda graduar POI-4+. Antes se perdían en el
+    // mapping (todos los enriched caían en POI-3 por ausencia de raw_geocode).
+    rawGeocode: loc.raw_geocode ?? null,
+    geoResolvedAt: loc.geo_resolved_at ?? null,
+    geoConfidence: loc.geo_confidence ?? null,
+    geoSource: loc.geo_source ?? null,
     createdAt: new Date(loc.created_at),
     updatedAt: new Date(loc.updated_at),
   };

@@ -268,7 +268,20 @@ export interface GeoLocation {
   * anillo amarillo "cadena rota" sobre el marker. Ver
   * `mem://style/map/health-rings-rule`.
   */
- geoHealth?: 'ok' | 'broken' | 'partial' | 'stale_name' | 'empty' | 'hardError' | null;
+  geoHealth?: 'ok' | 'broken' | 'partial' | 'stale_name' | 'empty' | 'hardError' | null;
+  /**
+   * Raw geocoder payload (cache de `locations.raw_geocode`). Señal para
+   * destrabar POI-4+ en `computePoiMaturity`. Ver
+   * `docs/contracts/poi-maturity-visual-contract.md` y Fase 3.1 de
+   * `docs/contracts/marker-fill-canon-v3.md`.
+   */
+  rawGeocode?: unknown;
+  /** Timestamp ISO de resolución geo (cache de `locations.geo_resolved_at`). */
+  geoResolvedAt?: string | null;
+  /** Confianza 0..1 del geocoder (cache de `locations.geo_confidence`). */
+  geoConfidence?: number | null;
+  /** Fuente del geocoder (cache de `locations.geo_source`). */
+  geoSource?: string | null;
   /** ID del documento de origen */
   documentId?: string;
   /**
