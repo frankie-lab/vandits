@@ -89,7 +89,13 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.2.21 (2026-05-20)
+- ✅ Pulido UX overlay POI-N: `MaturityDiagnosticsControl` reposicionado a `bottom-12 left-4` (libera la barra de escala de Leaflet) y reordenado con `flex-col-reverse` (toggle anclado abajo, leyenda crece hacia arriba). Leyenda **colapsada por defecto** + `max-h-[60vh] overflow-y-auto` → POI-10 siempre alcanzable. Iconos chevron corregidos (Down=cerrado, Up=abierto).
+- ✅ Pista contextual en la pill inferior derecha (`LocationMap`): cuando el overlay POI-N está ON se prefija un chip `Estado base` (uppercase, separador derecho) para dejar explícito que "Final / Importado / Vacío" sigue describiendo la paleta del marker, no la madurez. La pill no se sustituye.
+- ✅ NO toca: `createCustomIcon`, `resolvePoiVisualGrammar`, `computePoiMaturity`, `MaturityBadgeLayer`, tokens `poi.maturity.*`, marker base, colecciones, popup, datos, RLS, edge functions, migraciones. Sólo presentación.
+
 ### v1.2.20 (2026-05-20)
+
 - ✅ POI-N v2 materializado: `computePoiMaturity` aplica **techo** por flag `custom_data.geo_resolution.status` (`pending_review`→POI-4, `needs_name_fix`→POI-3, `needs_coord_fix`→POI-2, `geo_irrecoverable`→POI-1 fijo). Helper exportado `ceilingFromGeoResolutionStatus`. Lectura permisiva camelCase + snake_case. Sin flag → ladder libre.
 - ✅ Reinyección documentada: borrar `custom_data.geo_resolution` libera el techo y devuelve el POI al cálculo libre del ladder, sin re-enrich.
 - ✅ Tokens `poi.maturity.0..10` recalibrados a la paleta producto-aprobada (gris neutro → gris cálido → amarillo apagado → amarillo → amarillo intenso → ámbar suave → ámbar → verde amarillento → verde suave → verde). Sin rojo. Sólo namespace `poi.maturity.*`.

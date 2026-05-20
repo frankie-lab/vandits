@@ -5,6 +5,14 @@
  * el usuario tiene capability `view_audit_log`. Aun así, este componente
  * verifica `allowed` internamente (defensa en profundidad).
  *
+ * Layout:
+ * - Anclado en `bottom-12 left-4` para no solaparse con la barra de escala
+ *   de Leaflet (que vive en `bottom-0 left-0`).
+ * - `flex-col-reverse`: el toggle queda anclado abajo y la leyenda crece
+ *   hacia arriba → POI-10 (último de la lista) nunca se recorta.
+ * - Leyenda colapsada por defecto; al expandir, `max-h-[60vh]` con scroll
+ *   interno garantiza que POI-10 sea siempre alcanzable en viewports bajos.
+ *
  * Sin emojis. Icono Lucide `Gauge`. Estilo neutro para no confundirse
  * con la paleta canónica del mapa.
  */
@@ -31,12 +39,12 @@ const LEGEND: Array<{ level: PoiMaturityLevel; label: string }> = [
 
 export default function MaturityDiagnosticsControl() {
   const { enabled, allowed, setEnabled } = usePoiMaturityDiagnostics();
-  const [legendOpen, setLegendOpen] = useState<boolean>(true);
+  const [legendOpen, setLegendOpen] = useState<boolean>(false);
 
   if (!allowed) return null;
 
   return (
-    <div className="absolute bottom-4 left-4 z-[999] flex flex-col items-start gap-2">
+    <div className="absolute bottom-12 left-4 z-[999] flex flex-col-reverse items-start gap-2">
       <button
         type="button"
         onClick={() => setEnabled(!enabled)}
@@ -58,16 +66,17 @@ export default function MaturityDiagnosticsControl() {
             type="button"
             onClick={() => setLegendOpen((v) => !v)}
             className="mb-1 flex items-center gap-1 font-semibold text-foreground"
+            aria-expanded={legendOpen}
           >
             Leyenda
             {legendOpen ? (
-              <ChevronDown className="h-3 w-3" />
-            ) : (
               <ChevronUp className="h-3 w-3" />
+            ) : (
+              <ChevronDown className="h-3 w-3" />
             )}
           </button>
           {legendOpen && (
-            <ul className="space-y-1">
+            <ul className="max-h-[60vh] space-y-1 overflow-y-auto pr-1">
               {LEGEND.map(({ level, label }) => {
                 const { bg } = resolveMaturityBadgeStyle(level);
                 return (
