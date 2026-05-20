@@ -369,6 +369,38 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
               coords: enrichData.coords ?? { lat: location.latitude, lng: location.longitude },
             },
           });
+        } else if (enrichData.validation_required && enrichData.reason === 'identity_lookup_unavailable') {
+          // R9 — Fase 3: lookups de identidad nombre↔coords caídos. HARD BLOCK. NO LLM.
+          throw Object.assign(new Error(enrichData.message || 'Lookups de identidad no disponibles'), {
+            __structured: {
+              kind: 'identity_lookup_unavailable',
+              reason: 'identity_lookup_unavailable',
+              providedName: enrichData.providedName ?? location.name,
+              coords: enrichData.coords ?? { lat: location.latitude, lng: location.longitude },
+            },
+          });
+        } else if (enrichData.validation_required && enrichData.reason === 'name_coordinate_mismatch') {
+          // R9 — Fase 3: nombre no coincide con coords. NO LLM.
+          throw Object.assign(new Error(enrichData.message || 'Nombre↔coords no coinciden'), {
+            __structured: {
+              kind: 'name_coordinate_mismatch',
+              reason: 'name_coordinate_mismatch',
+              providedName: enrichData.providedName ?? location.name,
+              coords: enrichData.coords ?? { lat: location.latitude, lng: location.longitude },
+              nearby: Array.isArray(enrichData.nearby) ? enrichData.nearby : [],
+            },
+          });
+        } else if (enrichData.validation_required && enrichData.reason === 'name_found_elsewhere') {
+          // R9 — Fase 3: nombre encontrado en otra ubicación. NO LLM.
+          throw Object.assign(new Error(enrichData.message || 'Nombre encontrado en otra ubicación'), {
+            __structured: {
+              kind: 'name_found_elsewhere',
+              reason: 'name_found_elsewhere',
+              providedName: enrichData.providedName ?? location.name,
+              coords: enrichData.coords ?? { lat: location.latitude, lng: location.longitude },
+              candidates: Array.isArray(enrichData.candidates) ? enrichData.candidates : [],
+            },
+          });
         } else if (enrichData.validation_required) {
           throw Object.assign(new Error('Validación requerida (nombre/coordenadas)'), {
             __structured: {
