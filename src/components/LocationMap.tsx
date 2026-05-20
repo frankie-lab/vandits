@@ -58,6 +58,9 @@ import {
   type VisitRelevanceInfo,
 } from './map/map-utils';
 import { createCustomIcon, getRenderModeForZoom, setCurrentRenderMode, setCurrentZoom, syncRenderModeFromMap, type MarkerRenderMode } from './map/map-icons';
+import MaturityBadgeLayer from './map/MaturityBadgeLayer';
+import MaturityDiagnosticsControl from './map/MaturityDiagnosticsControl';
+import { usePoiMaturityDiagnostics } from '@/hooks/use-poi-maturity-diagnostics';
 import { buildHoverTooltipHtml } from './map/map-tooltip';
 import { onMarkerSizeConfigChange, getMarkerSizeConfig } from './map/useMarkerSizeConfig';
 import {
