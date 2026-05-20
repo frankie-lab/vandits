@@ -1,8 +1,8 @@
-# VANDITS v1.2.10
+# VANDITS v1.2.11
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.2.10-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.2.11-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -88,6 +88,13 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 - [Deuda técnica priorizada](./docs/tech-debt.md)
 
 ## 📝 Changelog
+
+### v1.2.11 (2026-05-20)
+- ✅ Coord-coherence Fase 2: `resolve-coordinates` obligatorio antes del LLM en `enrich-location`.
+- ✅ Si reverse-geocode falla → respuesta canónica `{ success:false, validation_required:true, reason:'reverse_geocode_failed' }` sin gastar IA.
+- ✅ Geografía estructurada (`country/region/zone/continent/*_id/country_code/postal_code/timezone/raw_geocode/geo_source/geo_confidence/geo_resolved_at`) persiste SOLO desde el canónico; IA queda fuera.
+- ✅ `batch-enrich` propaga `reverse_geocode_failed` como `kind` específico (no se mapea a `no_credits` ni a `no_match`) y persiste el snapshot canónico completo.
+- ✅ Tests Fase 1 siguen verdes; añadido test de contrato de shape `reverse_geocode_failed` en `supabase/functions/enrich-location/index.test.ts`.
 
 ### v1.2.10 (2026-05-20)
 - ✅ Coord-coherence Fase 1: entry gates WGS84 duros (`isValidWgs84Coord`).

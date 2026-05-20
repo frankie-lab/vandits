@@ -318,10 +318,28 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
           }
 
           if (geocodedData) {
+            // R3 — persistir geografía estructurada SOLO desde el snapshot canónico
+            // devuelto por `resolve-coordinates` (vía `enrich-location._geocoded`).
+            // Contrato: docs/contracts/enrichment-coord-coherence-contract.md (Fase 2).
             if (geocodedData.country) updateData.country = geocodedData.country;
             if (geocodedData.region) updateData.region = geocodedData.region;
             if (geocodedData.zone) updateData.zone = geocodedData.zone;
             if (geocodedData.continent) updateData.continent = geocodedData.continent;
+            if (geocodedData.country_code) updateData.country_code = geocodedData.country_code;
+            if (geocodedData.postal_code) updateData.postal_code = geocodedData.postal_code;
+            if (geocodedData.timezone) updateData.timezone = geocodedData.timezone;
+            if (geocodedData.geo_source) updateData.geo_source = geocodedData.geo_source;
+            if (typeof geocodedData.geo_confidence === 'number') updateData.geo_confidence = geocodedData.geo_confidence;
+            if (geocodedData.geo_resolved_at) updateData.geo_resolved_at = geocodedData.geo_resolved_at;
+            if (geocodedData.raw_geocode) updateData.raw_geocode = geocodedData.raw_geocode;
+            const ids = geocodedData.ids ?? {};
+            if (ids.continent_id) updateData.continent_id = ids.continent_id;
+            if (ids.country_id) updateData.country_id = ids.country_id;
+            if (ids.region_id) updateData.region_id = ids.region_id;
+            if (ids.zone_id) updateData.zone_id = ids.zone_id;
+            if (ids.admin3_id) updateData.admin3_id = ids.admin3_id;
+            if (ids.locality_id) updateData.locality_id = ids.locality_id;
+            if (ids.sublocality_id) updateData.sublocality_id = ids.sublocality_id;
           }
 
           await supabase.from('locations').update(updateData).eq('id', locationId);
@@ -341,6 +359,16 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
 
           processedIds.push(locationId);
           console.log('Enriched location:', location.name, geocodedData ? '(with geocoding)' : '', derivedPlaceType ? `[${derivedPlaceType}]` : '');
+        } else if (enrichData.validation_required && enrichData.reason === 'reverse_geocode_failed') {
+          // R3 — reverse-geocode falló. NO se llamó al LLM. No reintentar como rate-limit.
+          throw Object.assign(new Error(enrichData.message || 'Reverse-geocode falló'), {
+            __structured: {
+              kind: 'reverse_geocode_failed',
+              reason: 'reverse_geocode_failed',
+              providedName: enrichData.providedName ?? location.name,
+              coords: enrichData.coords ?? { lat: location.latitude, lng: location.longitude },
+            },
+          });
         } else if (enrichData.validation_required) {
           throw Object.assign(new Error('Validación requerida (nombre/coordenadas)'), {
             __structured: {

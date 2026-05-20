@@ -1798,6 +1798,93 @@ serve(async (req) => {
       );
     }
 
+    // R3 — `resolve-coordinates` es source-of-truth geográfico (pre-LLM).
+    // Contrato: docs/contracts/enrichment-coord-coherence-contract.md (Fase 2).
+    // Si Nominatim/reverse-geocode falla, NO se llama al LLM y NO se persiste nada.
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    let canonicalGeo: {
+      canonical: Record<string, unknown> | null;
+      ids: Record<string, string | null>;
+      country_code: string | null;
+      postal_code: string | null;
+      timezone: string | null;
+      geo_source: string;
+      geo_confidence: number;
+      raw_geocode: Record<string, unknown> | null;
+      geo_resolved_at: string;
+    } | null = null;
+    try {
+      const rcRes = await fetch(`${SUPABASE_URL}/functions/v1/resolve-coordinates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SERVICE_KEY}`,
+          'apikey': SERVICE_KEY,
+        },
+        body: JSON.stringify({ latitude: lat, longitude: lng }),
+      });
+      if (!rcRes.ok) {
+        const txt = await rcRes.text();
+        console.warn('[R3] resolve-coordinates failed', rcRes.status, txt.slice(0, 200));
+        return new Response(
+          JSON.stringify({
+            success: false,
+            validation_required: true,
+            reason: 'reverse_geocode_failed',
+            message: 'Reverse-geocode no pudo resolver geografía canónica para estas coordenadas. POI no se enriquece hasta que se reasigne o se reintente.',
+            providedName: location.name,
+            coords: { lat, lng },
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      const rcJson = await rcRes.json();
+      if (!rcJson?.canonical) {
+        console.warn('[R3] resolve-coordinates returned no canonical', rcJson);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            validation_required: true,
+            reason: 'reverse_geocode_failed',
+            message: 'Reverse-geocode no devolvió geografía canónica. POI no se enriquece.',
+            providedName: location.name,
+            coords: { lat, lng },
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      canonicalGeo = {
+        canonical: rcJson.canonical,
+        ids: rcJson.ids ?? {},
+        country_code: rcJson.country_code ?? null,
+        postal_code: rcJson.postal_code ?? null,
+        timezone: rcJson.timezone ?? null,
+        geo_source: rcJson.geo_source ?? 'nominatim',
+        geo_confidence: typeof rcJson.geo_confidence === 'number' ? rcJson.geo_confidence : 0,
+        raw_geocode: rcJson.raw_geocode ?? rcJson.canonical,
+        geo_resolved_at: new Date().toISOString(),
+      };
+      console.log('[R3] canonical geo resolved', {
+        country: canonicalGeo.canonical?.country,
+        region: canonicalGeo.canonical?.region,
+        confidence: canonicalGeo.geo_confidence,
+      });
+    } catch (e) {
+      console.error('[R3] resolve-coordinates threw', e);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          validation_required: true,
+          reason: 'reverse_geocode_failed',
+          message: 'Reverse-geocode no disponible. POI no se enriquece.',
+          providedName: location.name,
+          coords: { lat, lng },
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     // 1. Fetch GLOBAL config from app_settings (base for ALL profiles)
     const globalConfig = await getGlobalEnrichmentConfig();
     console.log('Global enrichment config:', globalConfig.tone, globalConfig.min_length);
@@ -1874,10 +1961,14 @@ serve(async (req) => {
     console.log('Fetching data from multiple sources in parallel...');
 
     const [geocodeResult, wikipediaResult, wikidataResult, geonamesResult] = await Promise.all([
-      // Nominatim/OSM para reverse geocoding (solo si falta país/región)
-      (useNominatim && (!location.country || !location.region))
-        ? reverseGeocodeLocation(location.coordinates.lat, location.coordinates.lng)
-        : Promise.resolve({ country: location.country, region: location.region, zone: location.zone, continent: location.continent }),
+      // R3: geografía estructurada SIEMPRE viene del canónico ya resuelto arriba.
+      // Nominatim directo (`reverseGeocodeLocation`) queda deprecado en el path principal.
+      Promise.resolve({
+        country: (canonicalGeo!.canonical as any).country ?? undefined,
+        region: (canonicalGeo!.canonical as any).region ?? undefined,
+        zone: (canonicalGeo!.canonical as any).zone ?? undefined,
+        continent: (canonicalGeo!.canonical as any).continent ?? undefined,
+      }),
 
       // Wikipedia para extractos y artículos
       useWikipedia ? searchWikipedia(location.name, location.coordinates) : Promise.resolve(null),
@@ -1888,34 +1979,15 @@ serve(async (req) => {
       // GeoNames para topónimos (opcional, requiere username)
       useGeoNames ? searchGeoNames(location.name, location.coordinates) : Promise.resolve(null),
     ]);
-    
-    // Consolidar datos geográficos
+
+    // R3 — Consolidar datos geográficos EXCLUSIVAMENTE desde canonical (no caller, no IA).
+    // GeoNames/Wikidata NO pueden sobrescribir country/region/zone/continent.
     let geoData = {
-      country: location.country || geocodeResult?.country,
-      region: location.region || geocodeResult?.region,
-      zone: location.zone || geocodeResult?.zone,
-      continent: location.continent || geocodeResult?.continent,
+      country: geocodeResult?.country,
+      region: geocodeResult?.region,
+      zone: geocodeResult?.zone,
+      continent: geocodeResult?.continent,
     };
-    
-    // Enriquecer con GeoNames si disponible
-    if (geonamesResult) {
-      if (!geoData.country && geonamesResult.countryName) {
-        geoData.country = geonamesResult.countryName;
-      }
-      if (!geoData.region && geonamesResult.adminName1) {
-        geoData.region = geonamesResult.adminName1;
-      }
-      if (!geoData.zone && (geonamesResult.adminName2 || geonamesResult.adminName3)) {
-        geoData.zone = geonamesResult.adminName2 || geonamesResult.adminName3;
-      }
-    }
-    
-    console.log('Data sources fetched:', {
-      geocoding: !!geocodeResult?.country,
-      wikipedia: !!wikipediaResult?.extract,
-      wikidata: !!wikidataResult?.wikidataId,
-      geonames: !!geonamesResult?.geonameId,
-    });
 
     // ========== PRE-VALIDATION PHASE ==========
     // Check if we need to validate the location before enrichment
@@ -2524,7 +2596,18 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
         });
         
         // Store geocoded geographic data in enrichedData for database update
-        enrichedData._geocoded = geoData;
+        // R3 — snapshot canónico completo para que batch-enrich persista solo desde reverse-geocode.
+        enrichedData._geocoded = {
+          ...geoData,
+          country_code: canonicalGeo!.country_code,
+          postal_code: canonicalGeo!.postal_code,
+          timezone: canonicalGeo!.timezone,
+          geo_source: canonicalGeo!.geo_source,
+          geo_confidence: canonicalGeo!.geo_confidence,
+          geo_resolved_at: canonicalGeo!.geo_resolved_at,
+          raw_geocode: canonicalGeo!.raw_geocode,
+          ids: canonicalGeo!.ids,
+        };
         
         // Añadir información de las fuentes consultadas
         enrichedData._fuentes_consultadas = {
