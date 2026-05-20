@@ -273,7 +273,7 @@ describe('computePoiMaturity — ladder POI-0…POI-10', () => {
     ).toBe(9);
   });
 
-  it('POI-10: POI completo (geoHealth=ok + enriched + observación)', () => {
+  it('POI-10: curado objetivo completo (geoHealth=ok + enriched), SIN exigir observación', () => {
     expect(
       computePoiMaturity(
         poi({
@@ -292,11 +292,35 @@ describe('computePoiMaturity — ladder POI-0…POI-10', () => {
             imagen: 'https://example.org/img.jpg',
             categoria: 'Mirador',
             etiquetas: ['costa', 'atardecer'],
-            observacion: LONG_OBS,
+            // NOTA: observacion intencionalmente ausente. POI-10 ya NO
+            // depende de estado personal (visita/rating/observación).
           },
         }),
       ),
     ).toBe(10);
+  });
+
+  it('POI-10: presencia de observación NO degrada ni eleva (eje personal separado)', () => {
+    const withObs = computePoiMaturity(
+      poi({
+        name: 'Faro de Cabo',
+        latitude: 43.7,
+        longitude: -7.5,
+        rawGeocode: { place_id: 42 },
+        country: 'España',
+        region: 'Galicia',
+        geoHealth: 'ok',
+        enrichmentStatus: 'enriched',
+        enrichedData: {
+          descripcion: LONG_DESC,
+          imagen: 'https://example.org/img.jpg',
+          categoria: 'Mirador',
+          etiquetas: ['costa'],
+          observacion: LONG_OBS,
+        },
+      }),
+    );
+    expect(withObs).toBe(10);
   });
 
   it('POI-10 NO se otorga si geoHealth ≠ ok', () => {

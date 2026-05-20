@@ -32,13 +32,13 @@ Las versiones previas de este contrato mezclaban madurez con estado personal y p
 | POI-7  | Ámbar              | Descripción IA verificable (no placeholder evasivo del LLM).                                        |
 | POI-8  | Verde amarillento  | Media validada (imagen IA o foto propia).                                                           |
 | POI-9  | Verde suave        | Categoría / tags semánticos validados.                                                              |
-| POI-10 | Verde              | Curado completo: `geo_health='ok'` + `enrichment_status='enriched'` + `observacion` presente.       |
+| POI-10 | Verde              | Curado objetivo completo: `geo_health='ok'` + `enrichment_status='enriched'` (sobre POI-9 ya garantizado: `raw_geocode`, país/continente, región/zona, descripción IA, media, categoría/tags). |
 
 ### Reglas DURAS del ladder
 - Coordenadas inválidas (NaN, null, fuera de WGS84, Null Island) NUNCA pueden producir nivel > POI-2.
 - Sin `raw_geocode` no se puede pasar de POI-3.
 - Sin geografía resuelta (país/región) no se puede llegar a POI-7+.
-- Estado personal NUNCA degrada el nivel objetivo. Tampoco lo eleva.
+- Estado personal (observación, visita, rating, foto propia, comentario) NUNCA degrada NI eleva el nivel objetivo. POI-10 NO exige `observacion` ni ninguna señal personal — es eje separado.
 
 ---
 
