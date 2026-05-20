@@ -1,107 +1,157 @@
-# POI Maturity Visual Contract (POI-0 … POI-10)
+# POI Maturity Visual Contract (POI-0 … POI-10) — v2
 
-> **Status:** DRAFT — documentación. NO implementar todavía.
-> **Version impact:** none. Sin código, sin datos, sin bump.
-> **Scope:** define una escala visual de **madurez** del POI extendida a 11 niveles (POI-0…POI-10) para futura adopción. **No sustituye** el canon actual del mapa (`getPointVisualState` enriched/imported/empty + `levelKey` PR-MAP-CANON-3 con 6 niveles {0,1,3,5,9,10}). Cuando se implemente, deberá **convivir** con ese canon, no reemplazarlo en caliente.
-
----
-
-## 1. Tabla canónica POI-0 … POI-10
-
-| Nivel  | Color semántico    | Token sugerido (futuro)         | Significado                                                                                  |
-| ------ | ------------------ | ------------------------------- | -------------------------------------------------------------------------------------------- |
-| POI-0  | Rojo               | `poi.maturity.0`                | Sólo coordenadas. Sin nombre validado. POI fantasma.                                         |
-| POI-1  | Gris cálido        | `poi.maturity.1`                | Coords + nombre, geografía **sin validar** (`geoHealth ∈ {null, empty, stale_name}`).        |
-| POI-2  | Gris cálido        | `poi.maturity.2`                | Coords + nombre, geografía **parcial** (`geoHealth = 'partial'`). Mejor que POI-1, no resuelto.|
-| POI-3  | Rojo intenso       | `poi.maturity.3`                | Conflicto geográfico explícito (`geoHealth = 'broken'`). Requiere intervención.              |
-| POI-4  | Naranja            | `poi.maturity.4`                | Geo OK pero **sin enriquecer**. Listo para IA, pendiente de descripción.                     |
-| POI-5  | Ámbar              | `poi.maturity.5`                | Enriquecido **con deuda** (rings activos: `partial/chain/review/hardError` o geo ≠ ok).      |
-| POI-6  | Amarillo           | `poi.maturity.6`                | Enriquecido sano, **sin imagen** representativa o sin tags semánticas mínimas.               |
-| POI-7  | Lima               | `poi.maturity.7`                | Enriquecido sano completo (descripción + imagen + tags), **no visitado**.                    |
-| POI-8  | Verde claro        | `poi.maturity.8`                | Enriquecido sano + **visitado**, sin rating personal.                                        |
-| POI-9  | Verde              | `poi.maturity.9`                | Enriquecido sano + visitado + **rating personal**.                                           |
-| POI-10 | Verde intenso      | `poi.maturity.10`               | Curación máxima: POI-9 + observación/nota personal + foto propia. Referencia editorial.      |
+> **Status:** ACTIVO (doc-only v2). Alinea contrato visual con la implementación canónica `computePoiMaturity`.
+> **Version impact:** none. Sin código, sin datos, sin tokens, sin overlay, sin bump.
+> **Scope:** define la escala de **madurez objetiva** del POI en 11 niveles (POI-0…POI-10), su SoT, su paleta cromática producto-aprobada (gris → amarillo → ámbar → verde), su interacción con flags `geo_resolution` y la reinyección de POIs tras validación humana.
 
 ---
 
-## 2. Regla de lectura visual
+## 1. Fuente de verdad (SoT)
 
-**El color comunica el GRUPO de madurez. El badge comunica el NIVEL EXACTO.**
+**SoT funcional = `computePoiMaturity`** (`src/domains/content/lib/poi-maturity.ts`).
 
-Agrupación cromática canónica:
+- Ladder estrictamente monotónico por **campos disponibles**. Función pura, determinista, ya cubierta por tests (`src/test/poi-maturity.test.ts`, `poi-maturity-overlay.test.ts`).
+- Mide **deuda objetiva** del catálogo, no estado personal. Coherente con la regla DURA "salud objetiva ≠ estado personal" (P-POI-CURATION-1).
+- `visited` / `user_rating` / foto propia **no** son gates de POI-N. Viven en `userPersonalState` (P-POPUP-14.2) y son ortogonales a la madurez.
 
-| Grupo                | Niveles            | Color base       | Lectura rápida                                  |
-| -------------------- | ------------------ | ---------------- | ----------------------------------------------- |
-| **Crítico**          | POI-0, POI-3       | Rojo             | "Roto, intervenir."                             |
-| **Pendiente geo**    | POI-1, POI-2       | Gris cálido      | "Falta validar geografía."                      |
-| **Pendiente enrich** | POI-4              | Naranja          | "Geo OK, falta IA."                             |
-| **Deuda**            | POI-5              | Ámbar            | "Enriquecido pero con avisos."                  |
-| **Casi listo**       | POI-6, POI-7       | Amarillo / Lima  | "Sano, falta pulir o vivir."                    |
-| **Curado**           | POI-8, POI-9, POI-10 | Verde escala   | "Experiencia personal real."                    |
-
-**Invariante de diseño:**
-- El usuario distingue **a primera vista** el grupo por color.
-- El usuario distingue **el nivel exacto** leyendo el badge numérico (`POI-N`) o el ring de detalle.
-- **POI-1 y POI-2 comparten gris cálido** porque ambos son "pendiente geo"; la diferencia (sin validar vs. parcial) la comunica EXCLUSIVAMENTE el badge. No inventar dos grises distintos.
-- Mismo principio aplica a POI-6/POI-7 (amarillo/lima son matices del mismo grupo "casi listo") y a POI-8/POI-9/POI-10 (verde en escala creciente).
+Las versiones previas de este contrato mezclaban madurez con estado personal y proponían "broken=POI-3 rojo crítico". Esa parte queda **descartada** en v2.
 
 ---
 
-## 3. Relación con el canon actual (NO se sustituye)
+## 2. Tabla canónica POI-0 … POI-10
 
-El mapa hoy opera con dos ejes ortogonales:
+| Nivel  | Color (grupo)      | Significado funcional (lo que el ladder mide)                                                       |
+| ------ | ------------------ | --------------------------------------------------------------------------------------------------- |
+| POI-0  | Gris neutro        | Sin dato útil: ni nombre validado ni coordenadas presentes.                                         |
+| POI-1  | Gris cálido        | Sólo coordenadas presentes (sin nombre validado).                                                   |
+| POI-2  | Gris cálido        | Sólo nombre validado (coordenadas inválidas o ausentes — Null Island, NaN, fuera de rango WGS84).   |
+| POI-3  | Amarillo apagado   | Nombre + coordenadas WGS84 válidas, sin `raw_geocode`.                                              |
+| POI-4  | Amarillo           | Identidad confirmada: `raw_geocode` poblado por geocoder.                                           |
+| POI-5  | Amarillo intenso   | País o continente resuelto.                                                                         |
+| POI-6  | Ámbar suave        | Región o zona/provincia resuelta.                                                                   |
+| POI-7  | Ámbar              | Descripción IA verificable (no placeholder evasivo del LLM).                                        |
+| POI-8  | Verde amarillento  | Media validada (imagen IA o foto propia).                                                           |
+| POI-9  | Verde suave        | Categoría / tags semánticos validados.                                                              |
+| POI-10 | Verde              | Curado completo: `geo_health='ok'` + `enrichment_status='enriched'` + `observacion` presente.       |
 
-1. **Bucket visual plano** (`getPointVisualState`): `enriched` (verde ancla) / `imported` (gris) / `empty` (naranja). Es la SoT histórica del color del marker propio.
-2. **`levelKey` PR-MAP-CANON-3**: 6 niveles `{poi-0, poi-1a, poi-1b, poi-3, poi-5, poi-9, poi-10}` derivados de `getPoiCurationLevel`. Es la SoT actual del fill via `levelVisual.fillHsl`.
-
-Esta escala POI-0…POI-10 es una **extensión documental** que:
-
-- **No** redefine `enriched_data.descripcion` como criterio enriched.
-- **No** elimina los buckets `enriched/imported/empty`: POI-0…POI-4 caen en `imported|empty`, POI-5…POI-10 caen en `enriched`.
-- **No** rompe `levelKey`: el mapeo futuro será **función pura** `PoiMaturityLevel → levelKey` (muchos-a-uno). Ej.: POI-1 y POI-2 → `poi-1a`; POI-7/8/9 → `poi-9`; POI-10 → `poi-10`.
-- **No** rompe la regla de identidad de seguidos (`paletteScope = 'owner-identity'`): la escala POI-N **sólo aplica a POIs propios** (`paletteScope = 'state'`). Followed/app/source quedan fuera.
-
----
-
-## 4. Mapeo propuesto (referencia, no normativo todavía)
-
-| POI-N  | Bucket actual (`getEnrichmentBucket`) | `levelKey` (PR-MAP-CANON-3) | Notas                                                  |
-| ------ | ------------------------------------- | --------------------------- | ------------------------------------------------------ |
-| POI-0  | `empty`                               | `poi-0`                     | Sin nombre validado.                                   |
-| POI-1  | `empty` / `imported`                  | `poi-1a`                    | Geo sin validar.                                       |
-| POI-2  | `empty` / `imported`                  | `poi-1a`                    | Geo parcial. Subnivel dentro de poi-1a hoy.            |
-| POI-3  | `empty` / `imported` / `enriched`     | `poi-3`                     | Conflicto geo. Puede convivir con enrich.              |
-| POI-4  | `imported`                            | `poi-1b`                    | Geo OK, sin descripción IA.                            |
-| POI-5  | `enriched`                            | `poi-5`                     | Enriquecido con deuda objetiva.                        |
-| POI-6  | `enriched`                            | `poi-9`                     | Sano sin imagen. Hoy se agrupa en poi-9.               |
-| POI-7  | `enriched`                            | `poi-9`                     | Sano completo, no visitado.                            |
-| POI-8  | `enriched`                            | `poi-9`                     | Visitado sin rating. Hoy `poi-9` con `primaryAction = 'none'`. |
-| POI-9  | `enriched`                            | `poi-9` / `poi-10`          | Visitado + rating.                                     |
-| POI-10 | `enriched`                            | `poi-10`                    | Curación editorial máxima.                             |
+### Reglas DURAS del ladder
+- Coordenadas inválidas (NaN, null, fuera de WGS84, Null Island) NUNCA pueden producir nivel > POI-2.
+- Sin `raw_geocode` no se puede pasar de POI-3.
+- Sin geografía resuelta (país/región) no se puede llegar a POI-7+.
+- Estado personal NUNCA degrada el nivel objetivo. Tampoco lo eleva.
 
 ---
 
-## 5. Reglas de futura implementación (cuando se decida activar)
+## 3. Lectura visual
 
-1. **Aditiva**: nuevos tokens `poi.maturity.{0..10}` en `src/design-system/tokens/source/poi.json`. No tocar `poi.level.*` existentes hasta migración consciente.
-2. **Helper único**: `getPoiMaturityLevel(loc): 0..10`, viviendo junto a `getPoiCurationLevel`. Composición pura sobre helpers canónicos (`isPointEnriched`, `getPointHealthRings`, `geoHealth`, `customData.visited`, `customData.user_rating`, presencia de imagen, etc.).
-3. **Renderer invariance**: el marker propio sigue leyendo `levelVisual.fillHsl`. Hasta que la escala POI-N entre en `levelVisual`, **no** se pinta en el mapa. Sólo se podrá mostrar en:
-   - badges del popup,
-   - paneles de admin/audit,
-   - vistas de "salud del catálogo".
-4. **Convivencia obligatoria**: la primera versión productiva debe convivir con `enriched/imported/empty` SIN romperlos. Migración por feature flag tester-global (ver `docs/governance/rollout-policy.md`).
-5. **Followed/app/source**: PROHIBIDO leakeo. Esta escala sólo describe POIs propios. PR-1 curated-only sigue vigente.
-6. **Estado personal ≠ salud objetiva** (regla DURA, ya canónica): `visited`/`user_rating` sólo discriminan POI-8/9/10. Nunca degradan a POI-5.
+**El color comunica el GRUPO. El badge numérico comunica el NIVEL EXACTO.**
+
+| Grupo cromático | Niveles  | Intuición rápida                              |
+| --------------- | -------- | --------------------------------------------- |
+| Gris            | 0, 1, 2  | "Le falta lo básico."                         |
+| Amarillo        | 3, 4, 5  | "Tiene identidad, falta geografía completa."  |
+| Ámbar           | 6, 7     | "Tiene geografía, falta enriquecer."          |
+| Verde           | 8, 9, 10 | "Enriquecido, escalando hasta curación máxima." |
+
+POI-1 y POI-2 comparten gris cálido porque ambos son "le falta lo básico"; la diferencia (sólo coords vs sólo nombre) la comunica EXCLUSIVAMENTE el badge.
+
+No hay rojo. No hay degradación cromática por estado personal.
 
 ---
 
-## 6. Qué este documento NO hace
+## 4. Interacción con flags `geo_resolution` (regla DURA nueva)
 
-- NO modifica `poi.level.*` tokens existentes.
-- NO modifica `getPoiCurationLevel`, `getPointVisualState`, `resolvePoiVisualGrammar`, ni el renderer del marker.
+Contrato base: [`docs/contracts/geo-resolution-flags-contract.md`](./geo-resolution-flags-contract.md).
+
+Un POI con flag activo en `custom_data.geo_resolution.status` queda **topado** a un nivel máximo. El cálculo es `Math.min(nivel_calculado_por_el_ladder, techo_del_flag)`:
+
+| Flag                | Techo máximo          |
+| ------------------- | --------------------- |
+| `pending_review`    | POI-4                 |
+| `needs_name_fix`    | POI-3                 |
+| `needs_coord_fix`   | POI-2                 |
+| `geo_irrecoverable` | POI-1 (fijo)          |
+
+Sin flag (o flag retirado) → sin techo, el ladder vuelve a operar libremente.
+
+### Justificación
+- `pending_review` (POI-4): identidad puede estar confirmada pero la calidad del nombre/coords no fue ratificada por humano → no debe presentarse como POI alto enriched.
+- `needs_name_fix` (POI-3): el nombre tiene artefactos sintéticos (sufijos `Nuevo`, `Nueva`, `#N`) → la geografía resuelta posterior puede ser correcta pero el POI no es presentable.
+- `needs_coord_fix` (POI-2): la geo es inválida o sospechosa → no puede pasar el gate de POI-3.
+- `geo_irrecoverable` (POI-1): nombre fabricado / no verificable → no debe entrar en circuitos automáticos ni mostrarse como progresable.
+
+---
+
+## 5. Reinyección tras validación humana
+
+Diagrama canónico de retorno al circuito normal cuando un POI flagueado es revisado en la cola B5b:
+
+```text
+POI flagueado (techo activo)
+  │
+  ├── revisión humana en cola B5b
+  │     ├── approve_name      → borrar flag                                  → ladder libre → recomputa POI-N
+  │     ├── edit_name         → UPDATE name + borrar flag                    → entra a próxima tanda B5/B5a
+  │     ├── (coords corregidas) → humano corrige coords + borrar flag        → re-geocode normal
+  │     ├── reject            → mantener flag o promover a geo_irrecoverable (POI-1 fijo)
+  │     └── move_to_B5a       → borrar flag                                  → siguiente tanda automática lo recoge
+  │
+  └── al borrar el flag, `computePoiMaturity` vuelve a calcular SIN techo
+```
+
+Operaciones SQL únicas en reinyección (futuras, no incluidas en este contrato doc-only):
+- `UPDATE locations SET custom_data = custom_data - 'geo_resolution' WHERE id = …` (libera techo).
+- `UPDATE … SET name = …` opcional si `edit_name`.
+
+Sin re-enrich forzado. Sin bump. Estado personal intacto. Sin tocar `coords` salvo decisión humana explícita.
+
+---
+
+## 6. Relación con el canon actual del renderer (NO se sustituye)
+
+El renderer del marker sigue rigiéndose por dos ejes ortogonales **ya existentes**:
+
+1. **`getPointVisualState`** (`enriched` / `imported` / `empty`) — SoT histórica del color del marker propio.
+2. **`getPoiCurationLevel` → `levelKey`** (PR-MAP-CANON-3, 6 niveles `{poi-0, poi-1a, poi-1b, poi-3, poi-5, poi-9, poi-10}`) — SoT actual del fill via `levelVisual.fillHsl`.
+
+POI-N es una **señal complementaria diagnóstica**, NO reemplaza ninguno de esos ejes:
+
+- POI-0…POI-4 caen en buckets `empty` / `imported`.
+- POI-5…POI-10 caen en bucket `enriched`.
+- Mapeo informativo a `levelKey`: POI-0→`poi-0`, POI-1/2→`poi-1a`, POI-3→`poi-3`, POI-4→`poi-1b`, POI-5→`poi-5`, POI-6/7/8/9→`poi-9`, POI-10→`poi-10`. Función pura muchos-a-uno.
+- Regla de identidad de seguidos (`paletteScope = 'owner-identity'`) intacta: POI-N **sólo aplica a POIs propios** (`paletteScope = 'state'`). Followed/app/source quedan fuera.
+
+---
+
+## 7. Consumo
+
+POI-N hoy se consume EXCLUSIVAMENTE por:
+
+- **Overlay diagnóstico admin-gated** `MaturityBadgeLayer` (`src/components/map/MaturityBadgeLayer.tsx`) sobre tokens `poi.maturity.0..10`.
+- **Auditorías** (`docs/audits/b5-poi-maturity-distribution.md`, futuras revisiones de salud del catálogo).
+
+NO se consume por: `createCustomIcon`, `resolvePoiVisualGrammar`, `getPoiCurationLevel`, popup, hero, ratings, export, sharing, health rings, collection tints. Esos siguen su SoT propia.
+
+---
+
+## 8. Pendientes (no incluidos en este contrato doc-only)
+
+Estos cambios materializan el contrato en código y tokens. Cada uno requiere su propio PR con `Version impact: patch`:
+
+1. **`computePoiMaturity`**: añadir input opcional `customData?.geo_resolution?.status` (camel + snake) y aplicar `Math.min(level, ceilingFromFlag(status))`. Tests aditivos.
+2. **Tokens `poi.maturity.0..10`**: recalibrar HSL a la paleta producto-aprobada (gris → amarillo → ámbar → verde). Sólo namespace `poi.maturity.*`; **no tocar** `poi.state.*`, `poi.level.*`, `poi.ring.*`, `poi.collectionTintSample.*`.
+3. **Helper SQL futuro** (opcional): índice parcial sobre `(custom_data->'geo_resolution'->>'status')` si la cola crece.
+
+---
+
+## 9. Qué este documento NO hace
+
+- NO modifica `computePoiMaturity` ni tokens.
+- NO modifica `getPoiCurationLevel`, `getPointVisualState`, `resolvePoiVisualGrammar`, `createCustomIcon`.
+- NO toca markers, colecciones, health rings ni overlay.
 - NO introduce migración de datos.
 - NO cambia popup, footer, ratings block, hero ni breadcrumb.
-- NO cambia visibilidad, sharing, export ni health rings.
+- NO cambia visibilidad, sharing, export.
 - NO bump de versión.
 
-Es **contrato visual de referencia**. Cualquier PR que quiera materializarlo deberá enlazarlo y respetar la sección 5.
+Es **contrato visual canónico** vivo. Cualquier PR que modifique POI-N debe enlazarlo y respetar §1, §2, §4 y §5.
