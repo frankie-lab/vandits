@@ -133,7 +133,7 @@ No abordar como reescritura. Extraer incrementalmente manteniendo contratos.
 - Severidad: crítica
 - Facilidad: media (7 fases incrementales independientes)
 - Riesgo de cambio: medio (toca pipeline de enriquecimiento + RPCs trunk + `geo_health` + identity gate pre-LLM)
-- Estado: en progreso — Fase 3 aplicada (2026-05-20)
+- Estado: en progreso — Fase 4 aplicada (2026-05-20)
 
 Motivo: existen **dos desacoples** críticos en el pipeline:
 
