@@ -48,7 +48,8 @@ publicados; algunas son hitos **reconstructed** para fijar memoria histórica.
   1.2.11       Coord-coherence Fase 2: resolve-coordinates pre-LLM  (stable)
   1.2.12       Coord-coherence Fase 3: name↔coord identity gate (R9) pre-LLM  (stable)
   1.2.13       Coord-coherence Fase 4: IA fuera de geografía estructurada (R4+R5)  (stable)
-  1.2.14       Coord-coherence Fase 5: geo_health honesto (R2)  ← versión actual (stable / current)
+  1.2.14       Coord-coherence Fase 5: geo_health honesto (R2)  (stable)
+  1.2.15       Coord-coherence Fase 6: assertGeoCoherence + quarantine (R6)  ← versión actual (stable / current)
   1.3.0        Architecture baseline                (planned)
 
 2.x — Futuro
@@ -76,7 +77,8 @@ Las versiones estables deben poder usarse como puntos de retorno.
 - `v1.2.11`: Coord-coherence Fase 2 — `resolve-coordinates` obligatorio antes del LLM en `enrich-location`; fallo de reverse-geocode devuelve `{ success:false, validation_required:true, reason:'reverse_geocode_failed' }` sin gastar IA; geografía estructurada (`country/region/zone/continent/country_code/postal_code/timezone/*_id/raw_geocode/geo_source/geo_confidence/geo_resolved_at`) persiste SOLO desde canónico; `batch-enrich` propaga `kind:'reverse_geocode_failed'` y persiste snapshot canónico completo; ítem 7 → Fase 2 aplicada.
 - `v1.2.12`: Coord-coherence Fase 3 — `assertNameCoordinateIdentity` (R9) pre-LLM en `enrich-location`; cualquier status ≠ `ok` devuelve `{ success:false, validation_required:true, reason }` y NO llama LLM; **HARD BLOCK** en `identity_lookup_unavailable` (ambos lookups fallidos/timeout NUNCA continúa como `ok`); `batch-enrich` propaga 3 nuevos `kind` (`identity_lookup_unavailable`, `name_coordinate_mismatch`, `name_found_elsewhere`) sin reintento ni `no_credits`; helper canónico + espejo Deno; contract test `src/test/name-coord-identity.test.ts` (7 casos); ítem 7 sigue en progreso (Fase 3 aplicada).
 - `v1.2.13`: Coord-coherence Fase 4 — IA fuera de geografía estructurada (R4 + R5). Nuevo helper isomórfico `sanitizeAiEnrichmentPayload` (`src/shared/enrichment/ai-payload-sanitizer.ts` + espejo `supabase/functions/_shared/ai-payload-sanitizer.ts`) descarta del payload IA `datos_geograficos.{coordenadas, pais, continente, admin_nivel_1/2/3, localidad, sublocalidad}` y elimina placeholders evasivos `(sin región)/(sin provincia)/(sin comarca)/(sin localidad)` antes de persistir. Prompt de `enrich-location` añade bloque "GEOGRAFÍA ESTRUCTURADA (PROHIBIDO)"; `card-schema.datos_geograficos.jsonShape` recortado a `lugar_interes + direccion_postal`. Merge server-side elimina todos los fallbacks `aiGeoData.<prohibido>`: cadena admin canónica viene SOLO de `geoData` (canonical Fase 2). `_geocoded` se mantiene canonical-only. Contract tests `src/test/ai-payload-sanitizer.test.ts` (8 casos); ítem 7 sigue en progreso (Fase 4 aplicada).
-- `v1.2.14`: versión actual; Coord-coherence Fase 5 — `geo_health` honesto (R2). Trigger SQL `_compute_location_geo_health` reescrito para emitir el nuevo bucket `'hardError'` cuando `latitude/longitude IS NULL`, `(lat=0 AND lng=0)`, `|lat|>90 OR |lng|>180`, o `enrichment_status='enriched' AND raw_geocode IS NULL`. `_compute_location_geo_health_lookup` y trigger `zzz_locations_set_geo_health` ampliados con `raw_geocode jsonb + enrichment_status text` (ambos observados por el trigger `UPDATE OF`). Sin backfill: filas existentes recomputan al siguiente UPDATE relevante. Nuevo helper cliente espejo `src/shared/geography/compute-geo-health.ts` (`computeHonestGeoHealth` / `isHardErrorGeo`) + espejo Deno; `isHealthyShareableGeo` lo aplica defensivamente. Type `geoHealth` en `src/types/location.ts` extendido con `'hardError'`. Contract tests `src/test/geo-health-hard-error.test.ts` (10 casos). Ítem 7 sigue en progreso (Fase 5 aplicada).
+- `v1.2.14`: Coord-coherence Fase 5 — `geo_health` honesto (R2). Trigger SQL `_compute_location_geo_health` reescrito para emitir el nuevo bucket `'hardError'` cuando `latitude/longitude IS NULL`, `(lat=0 AND lng=0)`, `|lat|>90 OR |lng|>180`, o `enrichment_status='enriched' AND raw_geocode IS NULL`. `_compute_location_geo_health_lookup` y trigger `zzz_locations_set_geo_health` ampliados con `raw_geocode jsonb + enrichment_status text` (ambos observados por el trigger `UPDATE OF`). Sin backfill: filas existentes recomputan al siguiente UPDATE relevante. Nuevo helper cliente espejo `src/shared/geography/compute-geo-health.ts` (`computeHonestGeoHealth` / `isHardErrorGeo`) + espejo Deno; `isHealthyShareableGeo` lo aplica defensivamente. Type `geoHealth` en `src/types/location.ts` extendido con `'hardError'`. Contract tests `src/test/geo-health-hard-error.test.ts` (10 casos). Ítem 7 sigue en progreso (Fase 5 aplicada).
+- `v1.2.15`: versión actual; Coord-coherence Fase 6 — `assertGeoCoherence` + quarantine (R6). Nuevo helper isomórfico `assertGeoCoherence(canonical, aiNarrative)` en `src/shared/enrichment/geo-coherence.ts` + espejo Deno `supabase/functions/_shared/geo-coherence.ts` que extrae menciones de país/región de `descripcion`, `lugar_interes`, `datos_clave` y `tags` y las compara contra el canónico resuelto por reverse-geocode. Conservador por diseño: word-boundary diacritic-insensitive, catálogos cerrados (país probes + regiones de ES/FR/PT/IT), tolerancia cuando el mismo texto menciona también el país canónico (mención comparativa), sin falsos positivos por substring. `enrich-location` invoca el gate tras el sanitizer Fase 4 y antes del merge final; si falla, devuelve `{ success:false, validation_required:true, reason:'geo_narrative_mismatch', level, expected, got, source }` sin persistir `enriched_data`. `batch-enrich` añade nueva rama que actualiza la fila a `enrichment_status='quarantine'` con `custom_data.enrichment_block = { reason, level, expected, got, source, at }` y propaga `__structured.kind='geo_narrative_mismatch'`. Sin migraciones SQL (la columna `enrichment_status` es text libre), sin backfill, sin tocar `LocationMap.tsx` ni `places_trunk`. Contract tests `src/test/geo-coherence.test.ts` (12 casos). Ítem 7 sigue en progreso (Fase 6 aplicada).
 
 Regla:
 
@@ -84,7 +86,7 @@ Si una versión nueva falla, no se borra del histórico. Se vuelve operativament
 
 Ejemplo:
 
-Si `v1.2.14` falla, volver a `v1.2.13` o publicar `v1.2.15` con corrección.
+Si `v1.2.15` falla, volver a `v1.2.14` o publicar `v1.2.16` con corrección.
 
 Nota operativa:
 
@@ -108,8 +110,9 @@ Los anchors documentados requieren tags Git reales para funcionar como rollback 
 - [ ] `v1.2.12`
 - [ ] `v1.2.13`
 - [ ] `v1.2.14`
+- [ ] `v1.2.15`
 
-Esta lista no debe marcarse como completada hasta verificar que los tags existen realmente en GitHub. Lovable no crea tags Git; deben crearse desde GitHub o git local. La versión actual `v1.2.14` también requiere un tag Git real para que el rollback sea operativo.
+Esta lista no debe marcarse como completada hasta verificar que los tags existen realmente en GitHub. Lovable no crea tags Git; deben crearse desde GitHub o git local. La versión actual `v1.2.15` también requiere un tag Git real para que el rollback sea operativo.
 
 Estado de cierre: la gobernanza de rollback queda documentada y auditada. La materialización técnica de tags Git queda pendiente de acción externa fuera de Lovable.
 
