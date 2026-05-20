@@ -105,3 +105,27 @@ Razones:
 - [x] Solo `SELECT` sobre `locations` y `admin_areas`.
 
 **No bump. No B5a.2. Esperar decisión de canon (A / B / C) o aceptación explícita del ruido.**
+
+---
+
+## 9. Cierre — Opción A aplicada (2026-05-20, v1.2.19)
+
+**Status:** ✅ Migración aplicada. Sin UPDATE sobre `locations`. Sin re-enrich. Bump `1.2.18 → 1.2.19`.
+
+**Cambio aplicado:**
+- `_compute_location_geo_health_lookup` ahora obtiene `name + aliases + name_translations` de `admin_areas` y, si el string persistido (`_country_str`/`_region_str`/`_zone_str`) coincide con cualquiera de esas tres fuentes (case-insensitive), lo sustituye por `name` canónico antes de delegar al cálculo de health.
+- Las funciones internas `_compute_location_geo_health` (ambas overloads) **no se modifican** — firma preservada.
+
+**Validación (pilot, no se ejecutó UPDATE):**
+
+| POI | `geo_health` stored (pre-fix, sin tocar) | Recompute (post-fix vía SELECT lookup) |
+|---|---|---|
+| Autoire        | `stale_name` | **`ok`** |
+| Belcastel      | `stale_name` | **`ok`** |
+| Sant'Antonino  | `stale_name` | **`ok`** |
+
+Stored `geo_health` se actualizará en el próximo touch natural o vía `geocoding-canonicalize`. No se fuerza UPDATE para respetar el alcance.
+
+**B5a.2 (n=30):** sigue **pausado** hasta confirmar comportamiento sobre los 3 stored (al menos un touch natural) y validar que no aparecen regresiones en otros buckets.
+
+**Fuera de alcance (no aplicado):** Opción B (persistir canónico desde resolver) y Opción C (forzar `accept-language=local`). Quedan documentadas como alternativas si el catálogo de aliases resulta insuficiente a escala.
