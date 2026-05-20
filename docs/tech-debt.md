@@ -179,13 +179,13 @@ No iniciar Fase 5 antes de Fase 1, ni Fase 6 antes de Fase 2, ni Fase 3 antes de
 **Fases (PRs separados):**
 
 1. ✅ **Aplicada en v1.3.0** — Helper SoT `getPoiMaturityColor(loc)` en `src/domains/content/lib/poi-maturity-color.ts` envolviendo `computePoiMaturity` + lookup directo del token `poi.maturity.<level>`. 19 contract tests en `src/test/poi-maturity-color.test.ts`. NO toca renderer (mapa idéntico). `getPointVisualState` se conserva como semántica legacy; `poi.state.*` no se elimina.
-2. Renderer: `createCustomIcon` y `resolvePoiVisualGrammar` consumen el nuevo helper para `paletteScope='state'`; `levelKey` (PR-MAP-CANON-3) se amplía para incluir POI-N en la clave de cache.
+2. ✅ **Aplicada en v1.3.1** — Renderer cableado. `resolvePoiVisualGrammar` consume `getPoiMaturityColor` para `paletteScope === 'state'`; `PoiLevelVisual` extendido con `maturityLevel: PoiMaturityLevel`. `createCustomIcon` SIN cambio estructural (sigue leyendo `levelVisual.fillHsl`). `levelKey` y `showStateRing` siguen ligados a `getPoiCurationLevel` (regla DURA rings sólo en `poi-5`). Nuevo contract test `src/test/marker-fill-source-of-truth.test.ts` (14 tests) bloquea regresiones a `poi.state.*`/`poi.level.*`. `poi-visual-grammar.test.ts` reformulado. NO toca: leyendas, popup, miniaturas, datos, RLS, edge functions, migraciones.
 3. Leyendas: pill inferior derecha en `LocationMap` muestra chips POI-N como leyenda principal; Final/Importado/Vacío se mueve a tooltip o se retira.
 4. Popup/miniaturas: hero y previews leen el mismo helper para paridad con el mapa.
-5. Tests: actualizar `poi-visual-grammar`, `point-visual-state`, `poi-maturity`, `map-icon-rings-gate`; añadir contract test `marker-fill-source-of-truth` que prohíbe nuevos consumidores de `poi.state.*` como fill.
-6. Cleanup: retirar `poi.state.*` del renderer (sólo leyendas legacy); decidir retirada definitiva del overlay debug.
+5. Tests: actualizar `point-visual-state`, `poi-maturity`, `map-icon-rings-gate`; consolidar fixtures de niveles altos POI-9/POI-10 con geocode completo para test integration (hoy bloqueado por fixtures simples que cap-ean en POI-2).
+6. Cleanup: retirar `poi.level.*` del renderer (Fase 2 ya no lo consume); decidir retirada definitiva del overlay debug y del token `poi.state.*` como fill (queda sólo para semántica legacy de leyendas/buckets).
 
-**Version impact:** Fase 1 ejecutada con bump **minor** `v1.2.22 → v1.3.0` (sin cambio visual; reserva el namespace para la migración del fill). La fase que cambia el fill renderizado (Fase 2) seguirá dentro de `v1.3.x` patch o `v1.4.0` según alcance.
+**Version impact:** Fase 1 ejecutada con bump **minor** `v1.2.22 → v1.3.0` (sin cambio visual). Fase 2 ejecutada con bump **patch** `v1.3.0 → v1.3.1` (cambio visual real del fill propio: pasa de paleta `poi.level.*` 6-niveles a `poi.maturity.*` 11-niveles). Fases 3..6 se ejecutarán como patches dentro de `v1.3.x`.
 
-**Bloqueos previos a ejecutar Fase 2:** firma de producto sobre la nueva paleta + QA visual sobre fixture sandbox cubriendo POI-0…POI-10 con el renderer ya migrado. No iniciar Fase 3 antes de Fase 2.
+**Bloqueos previos a ejecutar Fase 3:** QA visual sobre fixture sandbox cubriendo POI-0…POI-10 con el renderer ya migrado (validar que el contraste fill / collection-tint-ring / health rings se mantiene legible).
 
