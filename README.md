@@ -89,6 +89,13 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.2.18 (2026-05-20)
+- ✅ Overlay diagnóstico POI-Maturity (POI-0…POI-10) admin-gated (`view_audit_log`), OFF por defecto. Toggle + leyenda en esquina inferior-izquierda del mapa; badge numérico 18px sobre POIs propios en `renderMode ∈ {standard, rich}`.
+- ✅ Nuevos tokens `poi.maturity.{0..10}` (`src/design-system/tokens/source/poi.json`). NO toca `poi.level.*`, NO toca `createCustomIcon`, `resolvePoiVisualGrammar`, `getPoiCurationLevel`, `levelKey` PR-MAP-CANON-3, paleta enriched/imported/empty, health rings, collection tints, identidad cromática de seguidos.
+- ✅ Tres líneas de defensa de gating (capability en `useCapability`, gate en hook `usePoiMaturityDiagnostics`, gate en `MaturityDiagnosticsControl`). Badge `interactive:false` + `pointer-events:none` → no captura clics ni interfiere con popups/selección.
+- ✅ Contract tests `src/test/poi-maturity-overlay.test.ts` (9 casos verdes). `poi-maturity.test.ts` sigue verde (19/19).
+- ✅ NO toca datos, RLS, edge functions, migraciones. NO re-enrich.
+
 ### v1.2.17 (2026-05-20)
 - ✅ Nuevo helper canónico `computePoiMaturity(loc)` (`src/domains/content/lib/poi-maturity.ts`) que devuelve nivel POI-0…POI-10 según contrato `docs/contracts/poi-maturity-visual-contract.md`. Función pura, sin efectos, ladder monotónico.
 - ✅ Reglas DURAS: coords inválidas no pasan de POI-2; sin `raw_geocode` no se llega a POI-4; sin geografía resuelta no se salta a POI-7; POI-10 exige `geoHealth='ok'` + `enrichment_status='enriched'` + observación personal.
