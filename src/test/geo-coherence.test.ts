@@ -16,8 +16,7 @@ describe('Fase 6 — assertGeoCoherence', () => {
     const res = assertGeoCoherence(canonES, {
       descripcion: 'Bonito mirador en France, cerca de los Alpes.',
     });
-    expect(res.ok).toBe(false);
-    if (res.ok) return;
+    if (res.ok) throw new Error('expected mismatch');
     expect(res.reason).toBe('geo_narrative_mismatch');
     expect(res.level).toBe('country');
     expect(res.source).toBe('descripcion');
@@ -36,13 +35,12 @@ describe('Fase 6 — assertGeoCoherence', () => {
     const res = assertGeoCoherence(canonES, {
       descripcion: 'Edificio modernista en pleno corazón de Cataluña.',
     });
-    expect(res.ok).toBe(false);
-    if (res.ok) return;
+    if (res.ok) throw new Error('expected mismatch');
     expect(res.level).toBe('region');
     expect(res.got).toMatch(/Catalu/i);
   });
 
-  it('"Valencia" ambiguo (ciudad/CCAA) coherente con región canónica "Comunidad Valenciana" → ok', () => {
+  it('"Valencia" ambiguo coherente con región "Comunidad Valenciana" → ok', () => {
     const res = assertGeoCoherence(
       { country: 'España', countryCode: 'ES', region: 'Comunidad Valenciana' },
       { descripcion: 'Plaza céntrica en Valencia, con vistas al río.' },
@@ -54,9 +52,7 @@ describe('Fase 6 — assertGeoCoherence', () => {
     const res = assertGeoCoherence(canonES, {
       descripcion: 'Inspirada en el estilo de Indianapolis, una ciudad de Estados Unidos.',
     });
-    // bloquea por Estados Unidos, no por "India"
-    expect(res.ok).toBe(false);
-    if (res.ok) return;
+    if (res.ok) throw new Error('expected mismatch (Estados Unidos)');
     expect(res.got.toLowerCase()).not.toBe('india');
   });
 
@@ -80,8 +76,7 @@ describe('Fase 6 — assertGeoCoherence', () => {
     const res = assertGeoCoherence(canonES, {
       datos_geograficos: { lugar_interes: 'Castillo de São Jorge, Lisboa, Portugal' },
     });
-    expect(res.ok).toBe(false);
-    if (res.ok) return;
+    if (res.ok) throw new Error('expected mismatch');
     expect(res.source).toBe('lugar_interes');
     expect(res.level).toBe('country');
   });
@@ -90,8 +85,7 @@ describe('Fase 6 — assertGeoCoherence', () => {
     const res = assertGeoCoherence(canonES, {
       datos_clave: { region: 'Andalucía', tipo: 'monumento' },
     });
-    expect(res.ok).toBe(false);
-    if (res.ok) return;
+    if (res.ok) throw new Error('expected mismatch');
     expect(res.source).toBe('datos_clave');
     expect(res.level).toBe('region');
   });
@@ -107,8 +101,7 @@ describe('Fase 6 — assertGeoCoherence', () => {
     const res = assertGeoCoherence(canonES, {
       tags: ['#Madrid', '#monumento'],
     });
-    expect(res.ok).toBe(false);
-    if (res.ok) return;
+    if (res.ok) throw new Error('expected mismatch');
     expect(res.source).toBe('tags');
     expect(res.level).toBe('region');
   });
