@@ -2607,14 +2607,18 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
           );
         }
 
+        // R4: geografía estructurada SOLO desde reverse-geocode (canonical).
+        // De `aiGeoData` solo se aceptan `lugar_interes` y `direccion_postal`
+        // (el sanitizer ya descartó el resto; mantenemos el acceso explícito
+        // para dejar el contrato visible en el código).
         const mergedGeoData: any = {
           continente: finalContinente,
           pais: finalPais,
-          admin_nivel_1: geoData.region || aiGeoData.admin_nivel_1,
-          admin_nivel_2: geoData.zone || aiGeoData.admin_nivel_2,
-          admin_nivel_3: aiGeoData.admin_nivel_3,
-          localidad: aiGeoData.localidad,
-          sublocalidad: aiGeoData.sublocalidad,
+          admin_nivel_1: geoData.region,
+          admin_nivel_2: geoData.zone,
+          admin_nivel_3: (geoData as any).admin3,
+          localidad: (geoData as any).locality,
+          sublocalidad: (geoData as any).sublocality,
           // Calle: SOLO el dato verificado de Nominatim (geoData.street). Nunca lo que invente la IA.
           calle: (geoData as any).street,
           lugar_interes: aiGeoData.lugar_interes || location.name,
