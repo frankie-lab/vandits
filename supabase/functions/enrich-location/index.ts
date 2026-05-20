@@ -1961,10 +1961,14 @@ serve(async (req) => {
     console.log('Fetching data from multiple sources in parallel...');
 
     const [geocodeResult, wikipediaResult, wikidataResult, geonamesResult] = await Promise.all([
-      // Nominatim/OSM para reverse geocoding (solo si falta país/región)
-      (useNominatim && (!location.country || !location.region))
-        ? reverseGeocodeLocation(location.coordinates.lat, location.coordinates.lng)
-        : Promise.resolve({ country: location.country, region: location.region, zone: location.zone, continent: location.continent }),
+      // R3: geografía estructurada SIEMPRE viene del canónico ya resuelto arriba.
+      // Nominatim directo (`reverseGeocodeLocation`) queda deprecado en el path principal.
+      Promise.resolve({
+        country: (canonicalGeo!.canonical as any).country ?? undefined,
+        region: (canonicalGeo!.canonical as any).region ?? undefined,
+        zone: (canonicalGeo!.canonical as any).zone ?? undefined,
+        continent: (canonicalGeo!.canonical as any).continent ?? undefined,
+      }),
 
       // Wikipedia para extractos y artículos
       useWikipedia ? searchWikipedia(location.name, location.coordinates) : Promise.resolve(null),
@@ -1975,34 +1979,15 @@ serve(async (req) => {
       // GeoNames para topónimos (opcional, requiere username)
       useGeoNames ? searchGeoNames(location.name, location.coordinates) : Promise.resolve(null),
     ]);
-    
-    // Consolidar datos geográficos
+
+    // R3 — Consolidar datos geográficos EXCLUSIVAMENTE desde canonical (no caller, no IA).
+    // GeoNames/Wikidata NO pueden sobrescribir country/region/zone/continent.
     let geoData = {
-      country: location.country || geocodeResult?.country,
-      region: location.region || geocodeResult?.region,
-      zone: location.zone || geocodeResult?.zone,
-      continent: location.continent || geocodeResult?.continent,
+      country: geocodeResult?.country,
+      region: geocodeResult?.region,
+      zone: geocodeResult?.zone,
+      continent: geocodeResult?.continent,
     };
-    
-    // Enriquecer con GeoNames si disponible
-    if (geonamesResult) {
-      if (!geoData.country && geonamesResult.countryName) {
-        geoData.country = geonamesResult.countryName;
-      }
-      if (!geoData.region && geonamesResult.adminName1) {
-        geoData.region = geonamesResult.adminName1;
-      }
-      if (!geoData.zone && (geonamesResult.adminName2 || geonamesResult.adminName3)) {
-        geoData.zone = geonamesResult.adminName2 || geonamesResult.adminName3;
-      }
-    }
-    
-    console.log('Data sources fetched:', {
-      geocoding: !!geocodeResult?.country,
-      wikipedia: !!wikipediaResult?.extract,
-      wikidata: !!wikidataResult?.wikidataId,
-      geonames: !!geonamesResult?.geonameId,
-    });
 
     // ========== PRE-VALIDATION PHASE ==========
     // Check if we need to validate the location before enrichment
