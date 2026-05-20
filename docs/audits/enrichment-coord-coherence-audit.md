@@ -91,6 +91,8 @@ FROM locations;
 
 > **El enriquecimiento literario y la verdad geográfica son flujos desacoplados. El segundo nunca audita al primero, y el primero puede escribir en territorio del segundo.**
 
+> Adicionalmente, **identidad y verdad geográfica también están desacopladas**: el sistema acepta cualquier `(name, lat, lng)` sin verificar que el nombre exista cerca de esas coordenadas ni que las coordenadas correspondan a algún lugar compatible con ese nombre. La identidad del POI no es condición previa al enriquecimiento.
+
 Las 7 anomalías son manifestaciones de esa misma ausencia de gate. El contrato vive en `docs/contracts/enrichment-coord-coherence-contract.md`.
 
 ## 6. Restricciones del documento
