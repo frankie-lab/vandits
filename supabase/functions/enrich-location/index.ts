@@ -9,6 +9,7 @@ import { buildEnrichmentSchema } from "../_shared/build-enrichment-schema.ts";
 import { extractCulturalContext } from "../_shared/cultural-context.ts";
 import { isUnverifiableLLMOutput } from "../_shared/llm-unverifiable.ts";
 import { compareCountries } from "../_shared/country-iso.ts";
+import { inspectWgs84Coord } from "../_shared/coord-validity.ts";
 import { getEnabledSourceCodes, isSourceEnabled } from "../_shared/data-sources.ts";
 import {
   searchImageFromSources as sharedImageSearch,
