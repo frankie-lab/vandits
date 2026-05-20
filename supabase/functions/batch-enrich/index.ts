@@ -182,6 +182,20 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         return;
       }
 
+      // ===== R1 — WGS84 entry gate. Coords inválidas NO enriquecen.
+      // Contrato: docs/contracts/enrichment-coord-coherence-contract.md.
+      const coordCheck = inspectWgs84Coord(location.latitude, location.longitude);
+      if (!coordCheck.valid) {
+        errorIds.push(locationId);
+        errorMessages[locationId] = {
+          kind: 'invalid_coordinates',
+          message: `Coordenadas inválidas (${coordCheck.reason}). Requiere geocoding antes de enriquecer.`,
+          reason: coordCheck.reason,
+        };
+        console.warn('Skip invalid coords:', location.name, locationId, coordCheck.reason);
+        return;
+      }
+
       // ===== TRUNK LOOKUP (places_trunk) =====
       try {
         const { data: trunkRows, error: trunkErr } = await supabase.rpc('lookup_trunk_place', {
