@@ -89,7 +89,18 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.3.1 (2026-05-20)
+- ✅ **Fase 2 canon v3 marker fill (`docs/contracts/marker-fill-canon-v3.md`)** — el fill del marker propio (`paletteScope === 'state'`) pasa a derivarse de `getPoiMaturityColor(loc).fill` (`poi.maturity[0..10]`, 11 niveles) en vez del legacy `poi.level.*` (6 niveles). `resolvePoiVisualGrammar` ahora compone `levelVisual = { levelKey, maturityLevel, fillHsl, showStateRing }`: `fillHsl` viene de `poi.maturity[level]`, `maturityLevel` expone el nivel POI-N (0..10) para QA/telemetría, `levelKey` y `showStateRing` siguen ligados a `getPoiCurationLevel` (regla DURA "rings sólo en `poi-5`").
+- ✅ `createCustomIcon` SIN cambios estructurales: sigue leyendo `visualGrammar.levelVisual.fillHsl` como `baseColor`. Forma (círculo propio / triángulo seguido), borde, halo de selección, collection tint, health rings, owner identity OKLCH, hero polaroid `rich`, micro dots followed/app/source — todo conservado.
+- ✅ `getPointVisualState` se conserva como semántica legacy (filtros, leyendas pill, buckets `getBucketStats`, telemetría). `poi.state.*` no se elimina.
+- ✅ `getPoiCurationLevel` (6 niveles producto) sin cambios — sigue dictando acciones de footer/popup vía `data-curation-action`/`data-curation-level`.
+- ✅ Nuevo contract test `src/test/marker-fill-source-of-truth.test.ts` (14 tests) blinda la regla: `paletteScope === 'state'` ⇒ `fillHsl === getPoiMaturityColor(loc).fill` (unwrap). Cobertura POI-0..POI-10 incluyendo los 4 techos `geo_resolution`. Regression guard contra reintroducción de `poi.state.enriched` como fill.
+- ✅ Tests actualizados: `poi-visual-grammar.test.ts` reformula el caso poi-9/poi-10 (ahora valida distintness a nivel TOKEN — el ladder de madurez puede converger en mismo nivel para fixtures sin geocode completo); añade verificación `maturityLevel ∈ [0..10]` cuando `paletteScope === 'state'`. `map-icon-rings-gate.test.ts` y `poi-maturity-color.test.ts` pasan sin cambios.
+- ✅ Bump **patch** `1.3.0 → 1.3.1`. Fases 3 (leyendas), 4 (popup/miniaturas), 5 (cleanup tests), 6 (retirar `poi.level.*`) diferidas a PRs futuros.
+- ✅ NO toca: datos, RLS, edge functions, migraciones, re-enrich, leyendas, popup, miniaturas, tokens `poi.state.*`/`poi.level.*` (siguen existiendo).
+
 ### v1.3.0 (2026-05-20)
+
 - ✅ **Fase 1 canon v3 marker fill (`docs/contracts/marker-fill-canon-v3.md`)** — helper SoT cromático: `src/domains/content/lib/poi-maturity-color.ts` exporta `getPoiMaturityColor(loc) → { level, fill }`. `level` viene de `computePoiMaturity` (incluye techo por flag `custom_data.geo_resolution.status` v2). `fill` se lee directamente del token `poi.maturity.<level>` como `hsl(...)`. Función pura, sin dependencia de `getPointVisualState`.
 - ✅ 19 contract tests (`src/test/poi-maturity-color.test.ts`): POI-0..POI-10 mapean al token correcto, los 4 techos `geo_resolution` se respetan (`geo_irrecoverable`→POI-1, `needs_coord_fix`→POI-2, `needs_name_fix`→POI-3, `pending_review`→POI-4), sin flag → ladder libre, status desconocido → sin techo, `null`/`undefined` → POI-0.
 - ✅ Bump **minor** `1.2.22 → 1.3.0` reservado para la migración del canon cromático. Fase 1 NO toca renderer: `createCustomIcon`, `resolvePoiVisualGrammar`, marker base, colecciones, health rings, owner identity, overlay y popup permanecen idénticos. `getPointVisualState` se conserva como semántica legacy (filtros/telemetría/leyendas); `poi.state.*` no se elimina.
