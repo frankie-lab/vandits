@@ -1,8 +1,8 @@
-# VANDITS v1.2.11
+# VANDITS v1.2.12
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.2.11-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.2.12-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -88,6 +88,14 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 - [Deuda técnica priorizada](./docs/tech-debt.md)
 
 ## 📝 Changelog
+
+### v1.2.12 (2026-05-20)
+- ✅ Coord-coherence Fase 3 (R9): Name ↔ coordinate identity gate pre-LLM en `enrich-location`.
+- ✅ Helper canónico `assertNameCoordinateIdentity` en `src/shared/geography/name-coord-identity.ts` + espejo Deno.
+- ✅ Cualquier status ≠ `ok` bloquea el LLM y devuelve `{ success:false, validation_required:true, reason }`.
+- ✅ HARD BLOCK: si fallan/timeout ambos lookups → `identity_lookup_unavailable` (NUNCA continúa como `ok`).
+- ✅ `batch-enrich` propaga 3 `kind` nuevos (`identity_lookup_unavailable`, `name_coordinate_mismatch`, `name_found_elsewhere`); sin reintento, sin `no_credits`.
+- ✅ Tests contrato `src/test/name-coord-identity.test.ts` (7 casos); Fase 1/2 siguen verdes.
 
 ### v1.2.11 (2026-05-20)
 - ✅ Coord-coherence Fase 2: `resolve-coordinates` obligatorio antes del LLM en `enrich-location`.

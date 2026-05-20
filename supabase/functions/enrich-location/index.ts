@@ -10,6 +10,7 @@ import { extractCulturalContext } from "../_shared/cultural-context.ts";
 import { isUnverifiableLLMOutput } from "../_shared/llm-unverifiable.ts";
 import { compareCountries } from "../_shared/country-iso.ts";
 import { inspectWgs84Coord } from "../_shared/coord-validity.ts";
+import { assertNameCoordinateIdentity } from "../_shared/name-coord-identity.ts";
 import { getEnabledSourceCodes, isSourceEnabled } from "../_shared/data-sources.ts";
 import {
   searchImageFromSources as sharedImageSearch,
@@ -1878,6 +1879,78 @@ serve(async (req) => {
           validation_required: true,
           reason: 'reverse_geocode_failed',
           message: 'Reverse-geocode no disponible. POI no se enriquece.',
+          providedName: location.name,
+          coords: { lat, lng },
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // R9 — Name ↔ coordinate identity gate (Fase 3).
+    // Contract: docs/contracts/enrichment-coord-coherence-contract.md.
+    // Runs AFTER R1 (coords) and R3 (canonical geo). Any non-`ok` status
+    // blocks the LLM. Lookup failure is a HARD BLOCK (no soft-fail).
+    try {
+      const identity = await assertNameCoordinateIdentity({
+        name: location.name,
+        lat,
+        lng,
+        supabaseUrl: SUPABASE_URL,
+        serviceKey: SERVICE_KEY,
+      });
+      if (identity.status === 'identity_lookup_unavailable') {
+        console.warn('[R9] identity_lookup_unavailable', { reason: identity.reason });
+        return new Response(
+          JSON.stringify({
+            success: false,
+            validation_required: true,
+            reason: 'identity_lookup_unavailable',
+            message: 'Lookups de identidad nombre↔coords no disponibles. POI no se enriquece.',
+            providedName: location.name,
+            coords: { lat, lng },
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      if (identity.status === 'name_coordinate_mismatch') {
+        console.warn('[R9] name_coordinate_mismatch', { name: location.name });
+        return new Response(
+          JSON.stringify({
+            success: false,
+            validation_required: true,
+            reason: 'name_coordinate_mismatch',
+            message: 'El nombre no coincide con ningún POI cercano a estas coordenadas.',
+            providedName: location.name,
+            coords: { lat, lng },
+            nearby: identity.nearby ?? [],
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      if (identity.status === 'name_found_elsewhere') {
+        console.warn('[R9] name_found_elsewhere', { name: location.name });
+        return new Response(
+          JSON.stringify({
+            success: false,
+            validation_required: true,
+            reason: 'name_found_elsewhere',
+            message: 'El nombre existe en ubicaciones distintas a las coordenadas aportadas.',
+            providedName: location.name,
+            coords: { lat, lng },
+            candidates: identity.candidates ?? [],
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      console.log('[R9] identity gate ok', { matched: identity.matched?.name ?? null });
+    } catch (e) {
+      console.error('[R9] identity gate threw', e);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          validation_required: true,
+          reason: 'identity_lookup_unavailable',
+          message: 'Gate de identidad nombre↔coords falló de forma inesperada. POI no se enriquece.',
           providedName: location.name,
           coords: { lat, lng },
         }),

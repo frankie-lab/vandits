@@ -133,7 +133,7 @@ No abordar como reescritura. Extraer incrementalmente manteniendo contratos.
 - Severidad: crítica
 - Facilidad: media (7 fases incrementales independientes)
 - Riesgo de cambio: medio (toca pipeline de enriquecimiento + RPCs trunk + `geo_health` + identity gate pre-LLM)
-- Estado: en progreso — Fase 2 aplicada (2026-05-20)
+- Estado: en progreso — Fase 3 aplicada (2026-05-20)
 
 Motivo: existen **dos desacoples** críticos en el pipeline:
 
@@ -146,7 +146,7 @@ Cierre por fases (ver [`docs/contracts/enrichment-coord-coherence-contract.md`](
 
 1. Entry gates `isValidWgs84Coord`. ✅ Aplicada en v1.2.10 (`enrich-location`, `batch-enrich`, `scrape-tick`, trigger cliente; contract test `src/test/coord-validity.test.ts`).
 2. `resolve-coordinates` obligatorio antes del LLM. ✅ Aplicada en v1.2.11 (`enrich-location` invoca `resolve-coordinates` post-R1; fallo → `{ success:false, validation_required:true, reason:'reverse_geocode_failed' }` sin gastar IA; `batch-enrich` propaga `kind:'reverse_geocode_failed'`; geografía estructurada persiste SOLO desde canónico).
-3. Name-coordinate identity gate (R9) — `assertNameCoordinateIdentity` pre-LLM.
+3. Name-coordinate identity gate (R9) — `assertNameCoordinateIdentity` pre-LLM. ✅ Aplicada en v1.2.12 (helper canónico `src/shared/geography/name-coord-identity.ts` + espejo Deno; integrado en `enrich-location` tras R3; `identity_lookup_unavailable` es **HARD BLOCK** por contrato — ambos lookups fallidos NUNCA continúa como `ok`; `batch-enrich` propaga 3 `kind` nuevos sin reintento ni `no_credits`).
 4. Prompt + validator: IA fuera de geografía estructurada.
 5. `geo_health` honesto (`(0,0)` → `hardError`).
 6. `assertGeoCoherence` + `quarantine` (post-LLM).
