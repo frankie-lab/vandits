@@ -21,7 +21,7 @@ La prioridad debe combinar impacto en producto, riesgo operativo y facilidad de 
 | 4. Foto de arquitectura actual | Resuelto | Documentación técnica | Cubierto por `docs/architecture/current-architecture.md`. |
 | 5. Reducir responsabilidad de `Index.tsx` | Resuelto (2026-05-19) — tercera extracción incremental completada en v1.2.6 | Refactor | `v1.2.4` extrae `useWelcomeCardEvents`; `v1.2.5` extrae `usePendingValidationEvents`; `v1.2.6` extrae `useIndexGlobalEvents` + `useRoutePanelBridge`. Sin `window.addEventListener` inline en `Index.tsx`; puente routes panel encapsulado. |
 | 6. Reducir responsabilidad de `LocationMap.tsx` | Abierto | Refactor alto riesgo | Extraer incrementalmente sin reescritura. |
-| 7. Coherencia coordenadas-enriquecimiento | Abierto crítico | Backend / pipeline de datos | POIs con coords inválidas pueden quedar `enriched + geo_health='ok'`. Diagnóstico: [`docs/audits/enrichment-coord-coherence-audit.md`](./audits/enrichment-coord-coherence-audit.md). Contrato y fases: [`docs/contracts/enrichment-coord-coherence-contract.md`](./contracts/enrichment-coord-coherence-contract.md). |
+| 7. Coherencia coordenadas-enriquecimiento | Abierto crítico | Backend / pipeline de datos | Doble desacople: (a) coords ↔ geografía estructurada y (b) **identidad nombre ↔ coords**. POIs con coords inválidas o con nombre incoherente con sus coords pueden quedar `enriched + geo_health='ok'`. Diagnóstico: [`docs/audits/enrichment-coord-coherence-audit.md`](./audits/enrichment-coord-coherence-audit.md). Contrato y fases: [`docs/contracts/enrichment-coord-coherence-contract.md`](./contracts/enrichment-coord-coherence-contract.md). |
 
 Criterio de auditoría:
 
@@ -131,23 +131,27 @@ No abordar como reescritura. Extraer incrementalmente manteniendo contratos.
 ### 7. Coherencia coordenadas-enriquecimiento
 
 - Severidad: crítica
-- Facilidad: media (6 fases incrementales independientes)
-- Riesgo de cambio: medio (toca pipeline de enriquecimiento + RPCs trunk + `geo_health`)
+- Facilidad: media (7 fases incrementales independientes)
+- Riesgo de cambio: medio (toca pipeline de enriquecimiento + RPCs trunk + `geo_health` + identity gate pre-LLM)
 - Estado: abierto crítico (2026-05-20)
 
-Motivo: POIs con coordenadas inválidas (`(0,0)`, `NULL`, fuera de rango WGS84) pueden terminar persistidos como `enrichment_status='enriched'` con `geo_health='ok'` y cadena admin textual inventada por el LLM. Caso de referencia: "Glorieta de la Antártida" / "Antarctica Roundabout" persistido en Null Island con `country='España'` y FKs admin resueltas pero `raw_geocode IS NULL`.
+Motivo: existen **dos desacoples** críticos en el pipeline:
 
-Causa raíz: enriquecimiento literario (IA) y verdad geográfica (reverse-geocode) son flujos desacoplados. La IA puede escribir `datos_geograficos.*` libremente, `batch-enrich` no llama a `resolve-coordinates` antes de persistir, no hay gate de coherencia, `geo_health` no detecta `(0,0)`, y `places_trunk` cachea las coords inválidas propagando la basura.
+1. **Coords ↔ geografía estructurada**: POIs con coordenadas inválidas (`(0,0)`, `NULL`, fuera de rango WGS84) pueden terminar persistidos como `enrichment_status='enriched'` con `geo_health='ok'` y cadena admin textual inventada por el LLM. Caso de referencia: "Glorieta de la Antártida" / "Antarctica Roundabout" persistido en Null Island con `country='España'` y FKs admin resueltas pero `raw_geocode IS NULL`.
+2. **Identidad nombre ↔ coords** (nuevo): un nombre puede apuntar a un lugar real y las coords a otro distinto, y nada lo detecta antes del LLM. Coords válidas no garantizan que el nombre corresponda a esas coords; un nombre válido no garantiza que las coords correspondan a ese nombre. La identidad del POI no se verifica como condición previa al enriquecimiento.
+
+Causa raíz: enriquecimiento literario (IA), verdad geográfica (reverse-geocode) e **identidad del POI** son tres flujos desacoplados. La IA puede escribir `datos_geograficos.*` libremente, `batch-enrich` no llama a `resolve-coordinates` antes de persistir, no hay gate de identidad nombre↔coords pre-LLM, no hay gate de coherencia narrativa post-LLM, `geo_health` no detecta `(0,0)`, y `places_trunk` cachea las coords inválidas propagando la basura.
 
 Cierre por fases (ver [`docs/contracts/enrichment-coord-coherence-contract.md`](./contracts/enrichment-coord-coherence-contract.md)):
 
 1. Entry gates `isValidWgs84Coord`.
 2. `resolve-coordinates` obligatorio antes del LLM.
-3. Prompt + validator: IA fuera de geografía estructurada.
-4. `geo_health` honesto (`(0,0)` → `hardError`).
-5. `assertGeoCoherence` + `quarantine`.
-6. `places_trunk` saneado + guard `zone≠region`.
+3. Name-coordinate identity gate (R9) — `assertNameCoordinateIdentity` pre-LLM.
+4. Prompt + validator: IA fuera de geografía estructurada.
+5. `geo_health` honesto (`(0,0)` → `hardError`).
+6. `assertGeoCoherence` + `quarantine` (post-LLM).
+7. `places_trunk` saneado + guard `zone≠region`.
 
-Backfill de POIs corruptos históricos: fuera de scope, se aborda tras validar Fases 1–6.
+Backfill de POIs corruptos históricos: fuera de scope, se aborda tras validar Fases 1–7.
 
-No iniciar Fase 4 antes de Fase 1, ni Fase 5 antes de Fase 2 (orden de dependencia documentado en el contrato).
+No iniciar Fase 5 antes de Fase 1, ni Fase 6 antes de Fase 2, ni Fase 3 antes de Fase 2 (orden de dependencia documentado en el contrato).

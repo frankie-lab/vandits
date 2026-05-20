@@ -72,6 +72,7 @@ FROM locations;
 5. **`places_trunk` puede quedar envenenado** — `upsert_trunk_place(_lat=0,_lng=0,...)` cachea basura; futuros POIs `(0,0)` la heredan vía `lookup_trunk_place`.
 6. **`geo_health` marca `'ok'`** — el clasificador no contempla `(0,0)`, out-of-range, ni `enriched + raw_geocode IS NULL`.
 7. **`zone` duplica `region`** — `zone='Castilla-La Mancha'` cuando el canon exige `zone_id=PROVINCIA` (debería ser `Guadalajara`).
+8. **Sin gate de identidad nombre↔coords** — nadie compara el nombre declarado contra reverse-geocode/nearby/name-search antes del LLM. Permite que "Glorieta de la Antártida" en `(0,0)` o un nombre real desplazado a coordenadas erróneas pase a enriquecimiento sin verificación de identidad.
 
 ## 4. Tabla de anomalías
 
@@ -84,10 +85,13 @@ FROM locations;
 | F5 | places_trunk | RPCs admiten `(0,0)` | No validan WGS84 | Cache envenenada propagable |
 | F6 | geo_health | `(0,0)` → `'ok'` | Reglas incompletas | POIs corruptos pasan por sanos |
 | F7 | canon territorial | `zone == region` | Resolver admin sin guard | Árbol geográfico roto |
+| F8 | identity gate | Nombre y coords incoherentes pasan al LLM | No existe `assertNameCoordinateIdentity` pre-LLM | Identidad del POI no garantizada |
 
 ## 5. Síntesis
 
 > **El enriquecimiento literario y la verdad geográfica son flujos desacoplados. El segundo nunca audita al primero, y el primero puede escribir en territorio del segundo.**
+
+> Adicionalmente, **identidad y verdad geográfica también están desacopladas**: el sistema acepta cualquier `(name, lat, lng)` sin verificar que el nombre exista cerca de esas coordenadas ni que las coordenadas correspondan a algún lugar compatible con ese nombre. La identidad del POI no es condición previa al enriquecimiento.
 
 Las 7 anomalías son manifestaciones de esa misma ausencia de gate. El contrato vive en `docs/contracts/enrichment-coord-coherence-contract.md`.
 
