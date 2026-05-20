@@ -154,4 +154,6 @@ Cierre por fases (ver [`docs/contracts/enrichment-coord-coherence-contract.md`](
 
 Backfill de POIs corruptos históricos: fuera de scope, se aborda tras validar Fases 1–7.
 
+**Pendiente:** aplicar flags de resolución geográfica a B5b/B5c según contrato [`docs/contracts/geo-resolution-flags-contract.md`](./contracts/geo-resolution-flags-contract.md) (mapeo inicial: 51 `human_review` → `pending_review`/`needs_name_fix`, 19 `reject_geo_irrecoverable` → `geo_irrecoverable`, 4 `Parque Municipal` cosméticos → `pending_review` sin tocar `raw_geocode`).
+
 No iniciar Fase 5 antes de Fase 1, ni Fase 6 antes de Fase 2, ni Fase 3 antes de Fase 2 (orden de dependencia documentado en el contrato).
