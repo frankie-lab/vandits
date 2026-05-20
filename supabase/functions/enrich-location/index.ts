@@ -2294,6 +2294,13 @@ PRINCIPIO DE VALIDACIÓN (OBLIGATORIO):
 - El nombre, la localización y los datos históricos/geográficos deben ser coherentes con esas coordenadas.
 - Si existe web oficial, referencia institucional o identificador público, debe indicarse.
 - Los datos no verificados se omiten (nunca se indica "no verificado").
+
+GEOGRAFÍA ESTRUCTURADA (PROHIBIDO — R4 Fase 4):
+- NO emitas datos_geograficos.coordenadas, pais, continente, admin_nivel_1, admin_nivel_2, admin_nivel_3, localidad ni sublocalidad.
+- Esa información la aporta el sistema desde reverse-geocode; cualquier campo de esos será DESCARTADO antes de persistir.
+- Solo puedes emitir datos_geograficos.lugar_interes (y direccion_postal si es verificable).
+- El contenido editorial va en descripcion, datos_clave y etiquetas.
+- NUNCA uses placeholders del tipo "(sin región)", "(sin provincia)", "(sin comarca)" o "(sin localidad)". Si no tienes el dato, OMITE el campo.
 ${natureInstructions}
 ${coordCorrectionInstructions}
 ${toneInstructions}
