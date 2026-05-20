@@ -89,6 +89,14 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.2.19 (2026-05-20)
+- ✅ Fix Opción A — `_compute_location_geo_health_lookup` ahora canonicaliza el string territorial comparando contra `admin_areas.name ∪ aliases ∪ name_translations` antes de delegar al cálculo de health. Elimina los `stale_name` falsos por traducción ES↔FR/IT/etc cuando la FK ya resuelve correctamente.
+- ✅ Validado contra los 3 casos del piloto B5a (`Autoire`, `Belcastel`, `Sant'Antonino`): recompute pasa de `stale_name` → `ok`. Stored `geo_health` se refresca en el próximo touch natural / batch de geo-canonicalize (sin UPDATE forzado sobre `locations`).
+- ✅ NO toca: `locations` (datos), coords, `enriched_data`, re-enrich, UI, `LocationMap.tsx`, schema. Solo función SQL.
+- ✅ Funciones internas `_compute_location_geo_health` (ambas overloads) intactas — compatibilidad de firma preservada.
+- ✅ Doc: `docs/audits/b5a-stale-name-dry-run.md` (cierre Opción A aplicada).
+- ⏸ B5a.2 (n=30) sigue pausado hasta confirmar comportamiento post-fix sobre los 3 stored.
+
 ### v1.2.18 (2026-05-20)
 - ✅ Overlay diagnóstico POI-Maturity (POI-0…POI-10) admin-gated (`view_audit_log`), OFF por defecto. Toggle + leyenda en esquina inferior-izquierda del mapa; badge numérico 18px sobre POIs propios en `renderMode ∈ {standard, rich}`.
 - ✅ Nuevos tokens `poi.maturity.{0..10}` (`src/design-system/tokens/source/poi.json`). NO toca `poi.level.*`, NO toca `createCustomIcon`, `resolvePoiVisualGrammar`, `getPoiCurationLevel`, `levelKey` PR-MAP-CANON-3, paleta enriched/imported/empty, health rings, collection tints, identidad cromática de seguidos.
