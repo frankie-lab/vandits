@@ -203,11 +203,29 @@ describe('PR-MAP-CANON-3 — levelVisual', () => {
     expect(out.levelVisual).toBeNull();
   });
 
-  it('poi-9 y poi-10 comparten fill en V1 (delta visual opcional NO bloquea PR)', () => {
-    const nine = resolvePoiVisualGrammar(VIEWER, poi({ ownerUserId: VIEWER, geoHealth: 'ok', enrichedData }));
-    const ten = resolvePoiVisualGrammar(VIEWER, poi({ ownerUserId: VIEWER, geoHealth: 'ok', enrichedData, customData: { visited: 'true', user_rating: '5' } }));
-    expect(nine.curation.levelKey).toBe('poi-9');
-    expect(ten.curation.levelKey).toBe('poi-10');
-    expect(nine.levelVisual!.fillHsl).toBe(ten.levelVisual!.fillHsl);
+  it('canon v3 — paleta POI-N v3 separa los 11 niveles (9 vs 10 distintos a nivel token)', async () => {
+    // Nota: el ladder de `computePoiMaturity` puede cap-ear maturity en
+    // función de geocode/región/media/observación, así que dos POIs con
+    // curaciones distintas (poi-9 vs poi-10) pueden compartir maturity.
+    // Lo que el canon v3 garantiza es que los TOKENS `poi.maturity.9` y
+    // `poi.maturity.10` son DISTINTOS (verde medio vs verde fuerte). El
+    // helper SoT `getPoiMaturityColor` los expone correctamente.
+    const { tokens } = await import('@/design-system/tokens');
+    const m9 = (tokens as any).poi.maturity['9'];
+    const m10 = (tokens as any).poi.maturity['10'];
+    expect(m9).toBeTruthy();
+    expect(m10).toBeTruthy();
+    expect(m9).not.toBe(m10);
+  });
+
+  it('canon v3 — levelVisual.maturityLevel ∈ [0..10] siempre que paletteScope === state', () => {
+    for (const [, extra] of cases) {
+      const out = resolvePoiVisualGrammar(VIEWER, poi(extra));
+      expect(out.levelVisual).not.toBeNull();
+      const m = out.levelVisual!.maturityLevel;
+      expect(Number.isInteger(m)).toBe(true);
+      expect(m).toBeGreaterThanOrEqual(0);
+      expect(m).toBeLessThanOrEqual(10);
+    }
   });
 });

@@ -97,7 +97,7 @@
       "10": { "value": "142 71% 45%", "_css": "--poi-level-10" }
     },
     "maturity": {
-      "$schema": "POI maturity diagnostic palette (POI-0..POI-10). Producto-aprobada v2 (gris→amarillo→ámbar→verde). Used ONLY by the admin-gated MaturityBadgeLayer overlay. NEVER consumed by createCustomIcon, resolvePoiVisualGrammar, or any production renderer. See docs/contracts/poi-maturity-visual-contract.md §2.",
+      "$schema": "POI maturity palette (POI-0..POI-10). Producto-aprobada v2 (gris→amarillo→ámbar→verde). Canon v3 Fase 2 (v1.3.1): SoT cromática del fill del marker propio vía `getPoiMaturityColor` → `resolvePoiVisualGrammar.levelVisual.fillHsl` → `createCustomIcon`. También consumido por el overlay admin-gated `MaturityBadgeLayer`. Ver docs/contracts/marker-fill-canon-v3.md + docs/contracts/poi-maturity-visual-contract.md §2.",
       "0":  { "value": "220 8% 55%",   "_css": "--poi-maturity-0" },
       "1":  { "value": "30 10% 60%",   "_css": "--poi-maturity-1" },
       "2":  { "value": "30 10% 48%",   "_css": "--poi-maturity-2" },

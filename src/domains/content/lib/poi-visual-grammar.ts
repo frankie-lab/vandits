@@ -1,37 +1,43 @@
 /**
- * poi-visual-grammar — PR-MAP-CANON-1 (no-op visual).
+ * poi-visual-grammar — PR-MAP-CANON-1 + canon v3 Fase 2 (marker fill SoT).
  *
  * SINGLE point of composition for everything the map renderer needs to
- * paint a POI. Combines the three existing canonical resolvers under one
- * pure function so `createCustomIcon` (and any future renderer) reads
- * ONE object instead of calling three helpers in cascade.
+ * paint a POI. Combines the canonical resolvers under one pure function
+ * so `createCustomIcon` reads ONE object instead of calling helpers in
+ * cascade.
  *
  * Composed from:
  *   - `resolveMarkerGrammar(viewer, loc)`  → shape + paletteScope + flags
- *     (own/followed/app/source rules).
  *   - `getPointVisualState(loc)`           → 3-state palette key
- *     (enriched/imported/empty). Only meaningful for `own`.
+ *     (enriched/imported/empty). Semántica LEGACY — NO gobierna el fill
+ *     del marker desde v1.3.1. Sigue alimentando filtros, leyendas
+ *     heredadas (`Final/Importado/Vacío`), buckets y telemetría.
  *   - `getPoiCurationLevel(loc)`           → POI-0/1/3/5/9/10 verdict
- *     (level + healthState + shareability + bodyBlocker + primaryAction).
- *     Reserved for `own`; for followed/app/source it is still computed but
- *     callers MAY ignore it (the marker does not currently differentiate
- *     curation levels visually — that is PR-MAP-CANON-3).
+ *     (acciones de footer/popup). NO gobierna el fill. SÍ gobierna
+ *     `showStateRing` (regla DURA: rings sólo en `poi-5`).
+ *   - `getPoiMaturityColor(loc)`           → SoT cromática del fill propio
+ *     (canon v3 — `poi.maturity[0..10]`). Reemplaza el lookup anterior
+ *     a `poi.level.*` en el camino `paletteScope === 'state'`.
  *   - `getPointHealthRings(loc, viewer)`   → ordered ring stack.
  *
- * This module is INTENTIONALLY pure and non-visual: it returns a
- * declarative object. Zero DOM, zero Leaflet, zero token resolution.
- * Tokens are read in the renderer.
+ * Pura, sin DOM ni Leaflet. Tokens se leen aquí (vía `getPoiMaturityColor`).
  *
- * Invariants (must hold across PR-MAP-CANON-1):
- *   1. `grammar.source.type === 'own'`     ⇔ `paletteScope === 'state'`
+ * Invariantes (v1.3.1):
+ *   1. `grammar.source.type === 'own'` ⇔ `paletteScope === 'state'`
  *      ⇔ `allowHealthRings && allowCollectionTint && allowWhiteStroke`.
- *   2. Followed/app/source POIs receive `healthRings: []` (PR-1 curated
- *      sharing boundary) regardless of underlying data.
- *   3. `visualState` is always computed but the renderer should only use
- *      it when `paletteScope === 'state'`.
+ *   2. Followed/app/source: `healthRings: []` y `levelVisual: null`
+ *      (curated-only sharing boundary intacto).
+ *   3. `visualState` se computa siempre pero el renderer NO la lee como
+ *      fill (canon v3). Se conserva para consumidores legacy.
  *   4. `curation.level ∈ {0,1,3,5,9,10}` — no new levels.
+ *   5. `levelVisual.fillHsl` se deriva de `getPoiMaturityColor(loc).fill`
+ *      cuando `paletteScope === 'state'`. `levelVisual.maturityLevel`
+ *      expone el nivel POI-N (0..10) usado.
+ *   6. `levelVisual.showStateRing === (curation.levelKey === 'poi-5')`.
+ *      La regla de rings sigue ligada a la curación, no a la madurez.
  *
- * Ver `docs/contracts/marker-grammar-contract.md`.
+ * Ver `docs/contracts/marker-grammar-contract.md` +
+ *     `docs/contracts/marker-fill-canon-v3.md`.
  */
 
 import type { GeoLocation } from '@/types/location';
@@ -52,38 +58,40 @@ import {
   type PoiCurationVerdict,
   type PoiVisualLevelKey,
 } from './poi-curation-level';
-import { tokens } from '@/design-system/tokens';
+import { getPoiMaturityColor } from './poi-maturity-color';
+import type { PoiMaturityLevel } from './poi-maturity';
 
 /**
- * PR-MAP-CANON-3 — Decisión visual derivada del nivel canónico POI-N.
- * Sólo se computa cuando `paletteScope === 'state'` (POI propio); para
- * followed/app/source es `null` y el pipeline de esos orígenes no cambia.
+ * Decisión visual del fill del marker propio.
  *
- * - `fill`: color HSL ya resuelto desde tokens (`poi.level.<N>`), listo
- *   para inyectar en `hsl(...)`. Cero literal en el renderer.
- * - `showStateRing`: true sólo para `poi-5` (único nivel con deuda
- *   objetiva que requiere capa de health rings como señal operativa
- *   secundaria). El resto de niveles no debe pintar rings.
+ * Canon v3 (v1.3.1): `fillHsl` proviene del token `poi.maturity[<level>]`
+ * vía `getPoiMaturityColor`, no del legacy `poi.level.*`. `levelKey`
+ * (curación 0/1/3/5/9/10) se conserva porque sigue gobernando
+ * `showStateRing` y porque consumidores de QA/telemetría lo esperan.
  */
 export interface PoiLevelVisual {
+  /** Nivel de curación POI (0/1a/1b/3/5/9/10). Rige `showStateRing`. */
   levelKey: PoiVisualLevelKey;
-  /** Triplete HSL (sin wrapper `hsl(...)`) — mismo formato que los demás tokens. */
+  /** Nivel de madurez POI-N (0..10). Rige el `fillHsl` (canon v3). */
+  maturityLevel: PoiMaturityLevel;
+  /** Triplete HSL (sin wrapper `hsl(...)`) — listo para inyectar en CSS. */
   fillHsl: string;
+  /** True sólo para `poi-5` (única curación con deuda objetiva). */
   showStateRing: boolean;
 }
 
 export interface PoiVisualGrammar {
   /** Shape + paletteScope + decoration flags (own/followed/app/source). */
   grammar: ResolvedMarkerGrammar;
-  /** 3-state palette key (enriched/imported/empty). Meaningful only for `own`. */
+  /** 3-state palette key (enriched/imported/empty). LEGACY: no rige fill. */
   visualState: PointVisualState;
   /** Health rings already filtered by ownership (curated-only sharing). */
   healthRings: HealthRing[];
-  /** Curation verdict (POI-0…POI-10). Always computed; renderer may ignore. */
+  /** Curation verdict (POI-0…POI-10 producto). Always computed. */
   curation: PoiCurationVerdict;
   /**
-   * PR-MAP-CANON-3 — Decisión visual canónica del marker propio. `null`
-   * para followed/app/source (su pipeline no consume nivel POI).
+   * Decisión visual canónica del marker propio. `null` para
+   * followed/app/source (su pipeline no consume nivel POI).
    */
   levelVisual: PoiLevelVisual | null;
 }
@@ -98,7 +106,7 @@ export interface ResolvePoiVisualGrammarOptions {
  *
  * Renderer contract: `createCustomIcon` reads `PoiVisualGrammar` and
  * decides nothing about ownership, shape, palette scope, ring stack or
- * curation level — it only paints what the grammar declares.
+ * fill — it only paints what the grammar declares.
  */
 export function resolvePoiVisualGrammar(
   viewerUid: string | null,
@@ -106,34 +114,35 @@ export function resolvePoiVisualGrammar(
 ): PoiVisualGrammar {
   const grammar = resolveMarkerGrammar(viewerUid, poi);
   const visualState = getPointVisualState(poi);
-  // Followed/app/source NEVER receive health rings on the map
-  // (PR-1 curated-only sharing boundary). The ownership guard lives in
-  // `getPointHealthRings` when `currentUserId` is passed; we double-gate
-  // here so a missing `viewerUid` cannot accidentally leak rings for
-  // non-own shapes.
   const healthRings = grammar.allowHealthRings
     ? getPointHealthRings(poi, viewerUid ?? null)
     : [];
   const curation = getPoiCurationLevel(poi);
   const levelVisual = grammar.paletteScope === 'state'
-    ? resolveLevelVisual(curation.levelKey)
+    ? resolveLevelVisual(poi, curation.levelKey)
     : null;
   return { grammar, visualState, healthRings, curation, levelVisual };
 }
 
 /**
- * PR-MAP-CANON-3 — Lookup canónico nivel → token. Sin lógica de negocio:
- * el verdict ya decidió el `levelKey`; aquí solo resolvemos el color y
- * la regla "rings sólo en POI-5".
+ * Canon v3 — `fillHsl` desde `poi.maturity[<level>]` vía
+ * `getPoiMaturityColor`. `showStateRing` permanece ligado a la curación
+ * (regla DURA `mem://style/map/health-rings-rule`).
  */
-function resolveLevelVisual(levelKey: PoiVisualLevelKey): PoiLevelVisual {
-  const levelTokens = (tokens as any).poi.level as Record<string, string>;
-  // El verdict mapea 1:1 con las keys del token (`poi.level.0`, `1a`, `1b`,
-  // `3`, `5`, `9`, `10`). El sufijo `poi-` se quita para indexar.
-  const tokenKey = levelKey.replace(/^poi-/, '');
-  const fillHsl = levelTokens[tokenKey];
+function resolveLevelVisual(
+  poi: GeoLocation,
+  levelKey: PoiVisualLevelKey,
+): PoiLevelVisual {
+  const { level: maturityLevel, fill } = getPoiMaturityColor(poi);
+  // `fill` viene como `hsl(<H> <S>% <L>%)`. Unwrap para mantener el
+  // contrato histórico de `fillHsl` (triplete sin wrapper) y no romper
+  // consumidores que ya hacen `hsl(${fillHsl})`.
+  const fillHsl = fill.startsWith('hsl(') && fill.endsWith(')')
+    ? fill.slice(4, -1)
+    : fill;
   return {
     levelKey,
+    maturityLevel,
     fillHsl,
     showStateRing: levelKey === 'poi-5',
   };
