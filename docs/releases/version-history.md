@@ -44,7 +44,8 @@ publicados; algunas son hitos **reconstructed** para fijar memoria histórica.
   1.2.7        Helper tipado inicial eventos globales (global-events.ts)  (stable)
   1.2.8        Segunda tanda eventos globales tipados (duplicate/icon/personal-categories)  (stable)
   1.2.9        Tercera tanda eventos globales tipados (trash-updated)  (stable)
-  1.2.10       Coord-coherence Fase 1: entry gates WGS84 duros  ← versión actual (stable / current)
+  1.2.10       Coord-coherence Fase 1: entry gates WGS84 duros  (stable)
+  1.2.11       Coord-coherence Fase 2: resolve-coordinates pre-LLM  ← versión actual (stable / current)
   1.3.0        Architecture baseline                (planned)
 
 2.x — Futuro
