@@ -130,22 +130,20 @@ export const CARD_FIELD_CATALOG: Record<CardFieldKey, CardFieldDef> = {
   datos_geograficos: {
     key: 'datos_geograficos',
     label: 'Datos geográficos',
-    description: 'Continente, país, niveles administrativos, localidad, dirección',
+    description: 'Solo lugar_interes y direccion_postal (el resto lo aporta el sistema desde reverse-geocode)',
     kind: 'object',
     collapsible: true,
+    // R4 (Fase 4 enrichment-coord-coherence-contract): la IA solo puede
+    // emitir lugar_interes y direccion_postal. País / continente / niveles
+    // administrativos / localidad / sublocalidad / coordenadas vienen
+    // EXCLUSIVAMENTE de `resolve-coordinates`. Ver
+    // `supabase/functions/_shared/ai-payload-sanitizer.ts`.
     jsonShape: {
-      continente: 'Europa',
-      pais: 'España',
-      admin_nivel_1: 'Comunidad Autónoma',
-      admin_nivel_2: 'Provincia',
-      admin_nivel_3: 'Comarca/Municipio',
-      localidad: 'Ciudad/Pueblo',
-      sublocalidad: 'Barrio',
       lugar_interes: 'Nombre del POI',
-      direccion_postal: 'Dirección postal completa',
+      direccion_postal: 'Dirección postal completa, si es verificable',
     },
     promptHint: () =>
-      'Datos geográficos (OBLIGATORIO): continente, pais, admin_nivel_1, admin_nivel_2, admin_nivel_3, localidad, sublocalidad, lugar_interes, direccion_postal.',
+      'Datos geográficos: SOLO lugar_interes (y direccion_postal si es verificable). NO emitas pais, continente, admin_nivel_1/2/3, localidad, sublocalidad ni coordenadas: esos valores los aporta el sistema desde reverse-geocode y serán descartados.',
   },
   datos_clave: {
     key: 'datos_clave',
