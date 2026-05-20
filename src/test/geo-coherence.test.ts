@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { assertGeoCoherence } from '@/shared/enrichment/geo-coherence';
+import { assertGeoCoherence, type CoherenceResult } from '@/shared/enrichment/geo-coherence';
+
+function assertMismatch(
+  res: CoherenceResult,
+): asserts res is Extract<CoherenceResult, { ok: false }> {
+  if (res.ok) throw new Error('expected geo_narrative_mismatch, got ok');
+}
+
 
 describe('Fase 6 — assertGeoCoherence', () => {
   const canonES = { country: 'España', countryCode: 'ES', region: 'Galicia' };
