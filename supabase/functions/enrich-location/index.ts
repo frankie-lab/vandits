@@ -13,6 +13,7 @@ import { inspectWgs84Coord } from "../_shared/coord-validity.ts";
 import { assertNameCoordinateIdentity } from "../_shared/name-coord-identity.ts";
 import { getEnabledSourceCodes, isSourceEnabled } from "../_shared/data-sources.ts";
 import { sanitizeAiEnrichmentPayload } from "../_shared/ai-payload-sanitizer.ts";
+import { assertGeoCoherence } from "../_shared/geo-coherence.ts";
 import {
   searchImageFromSources as sharedImageSearch,
   type ImageSourceCode,
@@ -2494,6 +2495,53 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
         if (!enrichedData.etiquetas) {
           enrichedData.etiquetas = [];
         }
+
+        // R6 — Fase 6: gate de coherencia IA ↔ geografía canónica.
+        // Si la narrativa generada por el LLM contradice país/región resueltos
+        // por reverse-geocode, NO persistimos como enriched. El caller
+        // (batch-enrich) recibe `geo_narrative_mismatch` y marca el POI como
+        // `enrichment_status='quarantine'` con `custom_data.enrichment_block`.
+        if (!skipValidation) {
+          const coherence = assertGeoCoherence(
+            {
+              country: geoData.country,
+              countryCode: (geoData as { countryCode?: string }).countryCode,
+              region: geoData.region,
+              locality: (geoData as { locality?: string }).locality,
+            },
+            {
+              descripcion: enrichedData?.descripcion,
+              datos_clave: enrichedData?.datos_clave,
+              tags: enrichedData?.etiquetas,
+              datos_geograficos: enrichedData?.datos_geograficos,
+            },
+          );
+          if (!coherence.ok) {
+            console.log(
+              `[R6] ABORT geo_narrative_mismatch level=${coherence.level} ` +
+              `expected="${coherence.expected}" got="${coherence.got}" ` +
+              `source=${coherence.source} for "${location.name}"`,
+            );
+            return new Response(
+              JSON.stringify({
+                success: false,
+                validation_required: true,
+                reason: 'geo_narrative_mismatch',
+                level: coherence.level,
+                expected: coherence.expected,
+                got: coherence.got,
+                source: coherence.source,
+                providedName: location.name,
+                providedCoords: location.coordinates,
+                message:
+                  `La narrativa del POI menciona "${coherence.got}" pero las coordenadas resuelven a "${coherence.expected}".`,
+              }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+            );
+          }
+        }
+
+
 
         // Merge/enhance datos_geograficos from AI with Nominatim data
         // AI provides refined location info (lugar_interes, sublocalidad, direccion_postal)
