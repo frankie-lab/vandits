@@ -2596,7 +2596,18 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
         });
         
         // Store geocoded geographic data in enrichedData for database update
-        enrichedData._geocoded = geoData;
+        // R3 — snapshot canónico completo para que batch-enrich persista solo desde reverse-geocode.
+        enrichedData._geocoded = {
+          ...geoData,
+          country_code: canonicalGeo!.country_code,
+          postal_code: canonicalGeo!.postal_code,
+          timezone: canonicalGeo!.timezone,
+          geo_source: canonicalGeo!.geo_source,
+          geo_confidence: canonicalGeo!.geo_confidence,
+          geo_resolved_at: canonicalGeo!.geo_resolved_at,
+          raw_geocode: canonicalGeo!.raw_geocode,
+          ids: canonicalGeo!.ids,
+        };
         
         // Añadir información de las fuentes consultadas
         enrichedData._fuentes_consultadas = {
