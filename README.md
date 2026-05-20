@@ -1,8 +1,8 @@
-# VANDITS v1.2.14
+# VANDITS v1.2.15
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.2.14-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.2.15-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -88,6 +88,14 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 - [Deuda técnica priorizada](./docs/tech-debt.md)
 
 ## 📝 Changelog
+
+### v1.2.15 (2026-05-20)
+- ✅ Coord-coherence Fase 6 (R6): `assertGeoCoherence` + quarantine post-LLM. Nuevo helper isomórfico `assertGeoCoherence(canonical, aiNarrative)` (`src/shared/enrichment/geo-coherence.ts` + espejo `supabase/functions/_shared/geo-coherence.ts`) detecta menciones de país/región incompatibles con la geografía canónica resuelta por `resolve-coordinates`.
+- ✅ `enrich-location` aplica el gate después del sanitizer R4 y antes del merge final: si la narrativa IA contradice país/región, devuelve `{ success:false, validation_required:true, reason:'geo_narrative_mismatch', level, expected, got, source }` sin persistir `enriched_data`.
+- ✅ `batch-enrich` propaga el caso: actualiza la fila a `enrichment_status='quarantine'` con `custom_data.enrichment_block = { reason, level, expected, got, source, at }` y emite `__structured.kind='geo_narrative_mismatch'`.
+- ✅ Conservador por diseño: word-boundary diacritic-insensitive, catálogos cerrados (país y regiones de ES/FR/PT/IT), tolerancia cuando el texto menciona también el país canónico (mención comparativa). Sin falsos positivos por substring (p.ej. "India" en "Indianapolis").
+- ✅ Contract tests `src/test/geo-coherence.test.ts` (12 casos). Sin migraciones SQL (`enrichment_status` es columna text libre). Sin backfill ni re-enrich.
+- ✅ Ítem 7 sigue en progreso (Fase 6 aplicada).
 
 ### v1.2.14 (2026-05-20)
 - ✅ Coord-coherence Fase 5 (R2): `geo_health` honesto. Nuevo bucket `hardError` emitido por trigger SQL cuando lat/lng son `null`, `(0,0)` Null Island, fuera de WGS84, o `enrichment_status='enriched'` + `raw_geocode IS NULL`.
