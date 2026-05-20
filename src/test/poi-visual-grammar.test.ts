@@ -203,11 +203,25 @@ describe('PR-MAP-CANON-3 — levelVisual', () => {
     expect(out.levelVisual).toBeNull();
   });
 
-  it('poi-9 y poi-10 comparten fill en V1 (delta visual opcional NO bloquea PR)', () => {
+  it('canon v3 — poi-9 y poi-10 ya NO comparten fill (paleta POI-N 11 niveles)', () => {
     const nine = resolvePoiVisualGrammar(VIEWER, poi({ ownerUserId: VIEWER, geoHealth: 'ok', enrichedData }));
     const ten = resolvePoiVisualGrammar(VIEWER, poi({ ownerUserId: VIEWER, geoHealth: 'ok', enrichedData, customData: { visited: 'true', user_rating: '5' } }));
     expect(nine.curation.levelKey).toBe('poi-9');
     expect(ten.curation.levelKey).toBe('poi-10');
-    expect(nine.levelVisual!.fillHsl).toBe(ten.levelVisual!.fillHsl);
+    // POI-N v3 separa explícitamente niveles 9 y 10 (verde medio vs verde fuerte).
+    expect(nine.levelVisual!.fillHsl).not.toBe(ten.levelVisual!.fillHsl);
+    // maturityLevel también difiere.
+    expect(nine.levelVisual!.maturityLevel).not.toBe(ten.levelVisual!.maturityLevel);
+  });
+
+  it('canon v3 — levelVisual.maturityLevel ∈ [0..10] siempre que paletteScope === state', () => {
+    for (const [, extra] of cases) {
+      const out = resolvePoiVisualGrammar(VIEWER, poi(extra));
+      expect(out.levelVisual).not.toBeNull();
+      const m = out.levelVisual!.maturityLevel;
+      expect(Number.isInteger(m)).toBe(true);
+      expect(m).toBeGreaterThanOrEqual(0);
+      expect(m).toBeLessThanOrEqual(10);
+    }
   });
 });
