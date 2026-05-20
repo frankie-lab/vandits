@@ -107,32 +107,38 @@ Sin re-enrich forzado. Sin bump. Estado personal intacto. Sin tocar `coords` sal
 
 ---
 
-## 6. Relación con el canon actual del renderer (NO se sustituye)
+## 6. Relación con el canon actual del renderer (transición v2 → v3)
 
-El renderer del marker sigue rigiéndose por dos ejes ortogonales **ya existentes**:
+**Hoy (v1.2.x — canon vigente):** el renderer del marker se rige por dos ejes ortogonales ya existentes:
 
 1. **`getPointVisualState`** (`enriched` / `imported` / `empty`) — SoT histórica del color del marker propio.
 2. **`getPoiCurationLevel` → `levelKey`** (PR-MAP-CANON-3, 6 niveles `{poi-0, poi-1a, poi-1b, poi-3, poi-5, poi-9, poi-10}`) — SoT actual del fill via `levelVisual.fillHsl`.
 
-POI-N es una **señal complementaria diagnóstica**, NO reemplaza ninguno de esos ejes:
+POI-N es hoy una **señal complementaria diagnóstica**, NO reemplaza ninguno de esos ejes:
 
 - POI-0…POI-4 caen en buckets `empty` / `imported`.
 - POI-5…POI-10 caen en bucket `enriched`.
 - Mapeo informativo a `levelKey`: POI-0→`poi-0`, POI-1/2→`poi-1a`, POI-3→`poi-3`, POI-4→`poi-1b`, POI-5→`poi-5`, POI-6/7/8/9→`poi-9`, POI-10→`poi-10`. Función pura muchos-a-uno.
 - Regla de identidad de seguidos (`paletteScope = 'owner-identity'`) intacta: POI-N **sólo aplica a POIs propios** (`paletteScope = 'state'`). Followed/app/source quedan fuera.
 
+**Mañana (v1.3.0 — canon v3 aprobado, ejecución diferida):** POI-N se promueve a **SoT cromática del fill del marker propio**. `getPointVisualState` se conserva como semántica (filtros, telemetría, leyendas legacy) pero deja de gobernar el fill. Detalle del nuevo canon en [`docs/contracts/marker-fill-canon-v3.md`](./marker-fill-canon-v3.md). Forma, borde, tinte de colección, health rings, halo y owner identity se conservan sin cambio.
+
 ---
 
 ## 7. Consumo
 
-POI-N hoy se consume EXCLUSIVAMENTE por:
+**Hoy (v1.2.x):** POI-N se consume EXCLUSIVAMENTE por:
 
 - **Overlay diagnóstico admin-gated** `MaturityBadgeLayer` (`src/components/map/MaturityBadgeLayer.tsx`) sobre tokens `poi.maturity.0..10`.
+- **Leyenda compacta** de la pill inferior derecha (`LocationMap`) cuando el toggle `Madurez POI ON` está activo.
 - **Auditorías** (`docs/audits/b5-poi-maturity-distribution.md`, futuras revisiones de salud del catálogo).
 
-NO se consume por: `createCustomIcon`, `resolvePoiVisualGrammar`, `getPoiCurationLevel`, popup, hero, ratings, export, sharing, health rings, collection tints. Esos siguen su SoT propia.
+NO se consume hoy por: `createCustomIcon`, `resolvePoiVisualGrammar`, `getPoiCurationLevel`, popup, hero, ratings, export, sharing, health rings, collection tints. Esos siguen su SoT propia.
+
+**Mañana (v1.3.0):** consumo adicional por `createCustomIcon` vía helper nuevo `getPoiMaturityColor(loc)` para resolver el fill del marker propio. Resto del pipeline (forma, borde, rings, halo) intacto. Badge numérico degradado a debug admin.
 
 ---
+
 
 ## 8. Pendientes (no incluidos en este contrato doc-only)
 
