@@ -250,33 +250,144 @@ ORDER BY updated_at DESC
 LIMIT 10;
 ```
 
-> Si el nombre real de columnas en `places_trunk` no es `lat/lng`, ajustar al esquema vigente antes de ejecutar.
+> **Nota schema real (2026-05-20)**: `public.places_trunk` usa `latitude`/`longitude` (no `lat`/`lng`). Las queries D8 ejecutadas reflejan ese nombre.
 
-## 3. Tabla de conteos (placeholder)
+## 3. Conteos reales
 
-A rellenar tras ejecutar manualmente los SELECT de §2.
+**Ejecutado**: 2026-05-20 UTC vía `supabase--read_query` (sólo SELECT, sin escritura).
+**Total `public.locations`**: **5 447** filas.
+**Caveat extensión**: `unaccent` NO está instalada en el proyecto (`SELECT EXISTS … pg_extension WHERE extname='unaccent'` → `false`). Los predicados D6/D7 que el doc proponía con `unaccent(...)` se ejecutaron con `lower(trim(...))` puro. Posibles falsos negativos por tildes/diacríticos (p. ej. "Andalucía" vs "Andalucia"). Reejecutar con `unaccent` cuando se habilite la extensión.
 
-| Categoría | Definición | Count | % sobre total `locations` | Observaciones |
+| Categoría | Definición | Count | % sobre 5 447 | Observaciones |
 |---|---|---:|---:|---|
-| D1 | Coords nulas | — | — | |
-| D2 | Null Island `(0,0)` | — | — | |
-| D3 | Fuera WGS84 / NaN | — | — | |
-| D4 | Enriched sin `raw_geocode` | — | — | |
-| D5 | `geo_health='ok'` stale | — | — | mide visibilidad de la mentira |
-| D6a | `zone == region` textual | — | — | |
-| D6b | `zone_id` redundante FK | — | — | |
-| D7-struct | Placeholders en columnas | — | — | |
-| D7-enriched | Placeholders en `enriched_data` | — | — | |
-| D8 | `places_trunk` envenenado | — | — | |
+| D1 | Coords nulas | **0** | 0.00 % | Limpio. Fase 1 (entry gate R1) ya cubre nuevos imports; histórico también limpio. |
+| D2 | Null Island `(0, 0)` | **1** | 0.02 % | Caso único: `Antarctica Roundabout` (`89867d20-…`). Coincide con el POI mencionado en el contrato como sintoma original. |
+| D3 | Fuera WGS84 / NaN | **0** | 0.00 % | Limpio. |
+| D4 | Enriched sin `raw_geocode` | **394** | 7.23 % | Italia-pesado. Pueblos enriquecidos antes de Fase 2 (resolve-coordinates obligatorio). |
+| D5 | `geo_health='ok'` stale (R2 falla) | **389** | 7.14 % | ≈D4 menos D2 (Null Island ya quizá marcado distinto). Markers verdes mintiendo en mapa. |
+| D6a | `zone == region` textual | **1 613** | 29.61 % | Mayoría: España (Cantabria, Asturias, Galicia…), Italia (Sicilia), Suiza. Provincia=región autonómica/cantonal. |
+| D6b | `zone_id` redundante FK | **1 613** | 29.61 % | Empate exacto con D6a — el daño es 1-a-1 entre columnas textuales y FK. |
+| D7-struct | Placeholders en columnas | **459** | 8.43 % | `(sin región)` / `(sin provincia)` mayoritarios. |
+| D7-enriched | Placeholders en `enriched_data.datos_geograficos` | **1 420** | 26.07 % | 3× más que D7-struct → el LLM legacy escribió placeholders profusamente en el blob enriquecido antes de Fase 4. |
+| D8 | `places_trunk` envenenado | **0** | — | Limpio. La tabla `places_trunk` tiene CHECK efectivo o nunca recibió coords inválidas. |
 
-Total de filas en `public.locations`:
-```sql
-SELECT count(*) FROM public.locations;
-```
+**Total filas dañadas (unión bruta sin dedup)**: D2(1) + D4(394) + D6a(1 613) + D7-struct(459) + D7-enriched(1 420) ≈ 3 887. Con overlap real probable de ~70 %. Ver §5 para la propuesta de orden.
 
-## 4. Muestras
+## 4. Muestras (LIMIT 10)
 
-Los SELECT de §2 ya incluyen `LIMIT 10 ORDER BY updated_at DESC` para inspección directa. Pegar resultados aquí cuando se ejecuten.
+Sólo se incluyen muestras para categorías con `count > 0`. D1/D3/D8 omitidos por estar vacíos.
+
+### D2 — Null Island
+
+| id | name | enrichment_status | geo_health | lat | lng | updated_at |
+|---|---|---|---|---:|---:|---|
+| `89867d20-bc1e-4a12-82fa-ba4820a5cdab` | Antarctica Roundabout | enriched | ok | 0 | 0 | 2026-05-11 15:01:30Z |
+
+### D4 — `enriched` sin `raw_geocode`
+
+| id | name | geo_health | geo_source | updated_at |
+|---|---|---|---|---|
+| `fe3a877c-…` | Compiano | ok | null | 2026-05-14 19:49:51Z |
+| `f96246f9-…` | Percile | ok | null | 2026-05-14 19:49:49Z |
+| `d1d117ea-…` | Offagna | ok | null | 2026-05-14 19:47:10Z |
+| `c1dfcacb-…` | Montechiarugolo | ok | null | 2026-05-14 19:46:49Z |
+| `bc303ce4-…` | Opi | ok | null | 2026-05-14 19:46:43Z |
+| `ad09dc98-…` | Grottammare | ok | null | 2026-05-14 19:46:16Z |
+| `a99dfa4e-…` | Castro dei Volsci | ok | null | 2026-05-14 19:46:10Z |
+| `7bd04f1b-…` | Follina | ok | null | 2026-05-14 19:40:28Z |
+| `791ade58-…` | Monteleone di Spoleto | ok | null | 2026-05-14 19:40:24Z |
+| `674cda6d-…` | San Leo | ok | null | 2026-05-14 19:38:03Z |
+
+Patrón: pueblos italianos enriquecidos en lote 2026-05-14 antes de Fase 2.
+
+### D5 — `geo_health='ok'` stale
+
+Mismas 10 filas que D4 (es el subconjunto que dispara R2). `geo_health = 'ok'` persistido contradice R2 (`enriched + raw_geocode IS NULL ⇒ hardError`).
+
+| id | name | latitude | longitude | enrichment_status | no_raw | updated_at |
+|---|---|---:|---:|---|---|---|
+| `fe3a877c-…` | Compiano | 44.4960 | 9.6620 | enriched | true | 2026-05-14 19:49:51Z |
+| `f96246f9-…` | Percile | 42.0945 | 12.9084 | enriched | true | 2026-05-14 19:49:49Z |
+| `d1d117ea-…` | Offagna | 43.5276 | 13.4414 | enriched | true | 2026-05-14 19:47:10Z |
+| `c1dfcacb-…` | Montechiarugolo | 44.6934 | 10.4224 | enriched | true | 2026-05-14 19:46:49Z |
+| `bc303ce4-…` | Opi | 41.7810 | 13.8297 | enriched | true | 2026-05-14 19:46:43Z |
+| `ad09dc98-…` | Grottammare | 42.9904 | 13.8687 | enriched | true | 2026-05-14 19:46:16Z |
+| `a99dfa4e-…` | Castro dei Volsci | 41.5082 | 13.4063 | enriched | true | 2026-05-14 19:46:10Z |
+| `7bd04f1b-…` | Follina | 45.9530 | 12.1181 | enriched | true | 2026-05-14 19:40:28Z |
+| `791ade58-…` | Monteleone di Spoleto | 42.6510 | 12.9515 | enriched | true | 2026-05-14 19:40:24Z |
+| `674cda6d-…` | San Leo | 43.8969 | 12.3436 | enriched | true | 2026-05-14 19:38:03Z |
+
+### D6a — `zone == region` textual
+
+| id | name | region | zone | updated_at |
+|---|---|---|---|---|
+| `ca9f4359-…` | Forza d'Agrò | Sicilia | Sicilia | 2026-05-19 16:39:29Z |
+| `9a7428dd-…` | Creux du Van | Neuchatel | Neuchatel | 2026-05-18 13:31:33Z |
+| `37030d80-…` | Puente del Diablo | Cantabria | Cantabria | 2026-05-16 11:50:43Z |
+| `09d5b124-…` | Santillana del Mar | Cantabria | Cantabria | 2026-05-16 11:49:51Z |
+| `7a6d046e-…` | Santillana del Mar | Cantabria | Cantabria | 2026-05-16 11:49:27Z |
+| `1a56f465-…` | Comillas | Cantabria | Cantabria | 2026-05-16 11:49:14Z |
+| `8c2bee8d-…` | San Vicente de la Barquera | Cantabria | Cantabria | 2026-05-16 11:49:00Z |
+| `65961f6d-…` | Llanes | Principado de Asturias | Principado de Asturias | 2026-05-16 11:47:31Z |
+| `a01b0259-…` | Ribadesella | Principado de Asturias | Principado de Asturias | 2026-05-16 11:46:40Z |
+| `da0ada4c-…` | La Cuevona | Principado de Asturias | Principado de Asturias | 2026-05-16 11:46:04Z |
+
+### D6b — `zone_id` redundante FK
+
+Mismas 10 filas que D6a — el daño es simétrico textual+FK.
+
+| id | name | region_name | zone_name | updated_at |
+|---|---|---|---|---|
+| `ca9f4359-…` | Forza d'Agrò | Sicilia | Sicilia | 2026-05-19 16:39:29Z |
+| `9a7428dd-…` | Creux du Van | Neuchatel | Neuchatel | 2026-05-18 13:31:33Z |
+| `37030d80-…` | Puente del Diablo | Cantabria | Cantabria | 2026-05-16 11:50:43Z |
+| `09d5b124-…` | Santillana del Mar | Cantabria | Cantabria | 2026-05-16 11:49:51Z |
+| `7a6d046e-…` | Santillana del Mar | Cantabria | Cantabria | 2026-05-16 11:49:27Z |
+| `1a56f465-…` | Comillas | Cantabria | Cantabria | 2026-05-16 11:49:14Z |
+| `8c2bee8d-…` | San Vicente de la Barquera | Cantabria | Cantabria | 2026-05-16 11:49:00Z |
+| `65961f6d-…` | Llanes | Principado de Asturias | Principado de Asturias | 2026-05-16 11:47:31Z |
+| `a01b0259-…` | Ribadesella | Principado de Asturias | Principado de Asturias | 2026-05-16 11:46:40Z |
+| `da0ada4c-…` | La Cuevona | Principado de Asturias | Principado de Asturias | 2026-05-16 11:46:04Z |
+
+### D7-struct — placeholders en columnas
+
+| id | name | country | region | zone | continent | updated_at |
+|---|---|---|---|---|---|---|
+| `8599037f-…` | Soajo | Portugal | (sin región) | Viana do Castelo | Europa | 2026-05-16 14:44:08Z |
+| `1ed634ef-…` | Lastres | España | Principado de Asturias | (sin provincia) | Europa | 2026-05-16 11:45:38Z |
+| `eb2f5374-…` | Kjerag | Noruega | (sin región) | Rogaland | Europa | 2026-05-14 19:49:28Z |
+| `d65d900c-…` | Hațeg | Rumania | (sin región) | Hunedoara | Europa | 2026-05-14 19:49:02Z |
+| `c9afc5ba-…` | Hvar | Croacia | (sin región) | Split-Dalmatia County | Europa | 2026-05-14 19:47:00Z |
+| `c53e3ad2-…` | Hamnøy | Noruega | (sin región) | Nordland | Europa | 2026-05-14 19:46:53Z |
+| `bbcdc4c8-…` | Predjama | Eslovenia | (sin región) | (sin región) | Europa | 2026-05-14 19:46:41Z |
+| `b7752d84-…` | Cluj-Napoca | Rumania | (sin región) | Cluj | Europa | 2026-05-14 19:46:34Z |
+| `b8658eb7-…` | Reino de Voss | Noruega | (sin región) | Vestland | Europa | 2026-05-14 19:46:34Z |
+| `b6e0d9a0-…` | Sogn og Fjordane | Noruega | (sin región) | Vestland | Europa | 2026-05-14 19:46:32Z |
+
+### D7-enriched — placeholders en `enriched_data.datos_geograficos`
+
+Sólo los 10 más recientes; el blob completo se muestra abreviado por legibilidad.
+
+| id | name | placeholder keys detectadas | updated_at |
+|---|---|---|---|
+| `8599037f-…` | Soajo | `admin_nivel_1='(sin región)'` | 2026-05-16 14:44:08Z |
+| `1a56f465-…` | Comillas | `admin_nivel_2='(sin provincia)'` | 2026-05-16 11:49:14Z |
+| `65961f6d-…` | Llanes | `admin_nivel_2='(sin provincia)'` | 2026-05-16 11:47:31Z |
+| `b6b2d792-…` | Tazones | `admin_nivel_2='(sin provincia)'` | 2026-05-16 11:43:56Z |
+| `e690a835-…` | Cercedilla | `admin_nivel_2='(sin provincia)'` | 2026-05-15 10:04:55Z |
+| `fb41deee-…` | Fiumefreddo Bruzio | `admin_nivel_2='(sin provincia)'` | 2026-05-14 19:49:51Z |
+| `fb34f959-…` | San Gemini | `admin_nivel_2='(sin provincia)'` | 2026-05-14 19:49:51Z |
+| `f9c63308-…` | Spilimbergo | `admin_nivel_2='(sin provincia)'` | 2026-05-14 19:49:49Z |
+| `f93ea6bc-…` | Corenno Plinio | `admin_nivel_2='(sin provincia)'` | 2026-05-14 19:49:49Z |
+| `f8df57b7-…` | Isola San Giulio | `admin_nivel_2='(sin provincia)'` | 2026-05-14 19:49:47Z |
+
+Dominante: `admin_nivel_2 = '(sin provincia)'` en POIs italianos/españoles. Origen probable: LLM legacy emitiendo placeholder cuando Nominatim no devolvía nivel 2.
+
+### D1, D3, D8 — sin muestras
+
+`count = 0` confirmado vía SELECT. No hay filas que mostrar.
+
+
 
 ## 5. Propuesta de corrección por fases (B1–B6)
 
