@@ -72,6 +72,22 @@ Antes de persistir, `assertGeoCoherence(canonical, aiNarrative)`:
 ### R8 — `zone ≠ region.parent_name`
 El resolver de FKs admin rechaza `zone_id` si su nombre coincide con `region`. Si solo hay candidata coincidente con la región padre, `zone_id` queda NULL. Alinea con el core memory `Árbol geográfico canónico`.
 
+### R9 — Name-coordinate identity gate (pre-LLM)
+Antes de invocar la IA, además de R1, el pipeline DEBE ejecutar `assertNameCoordinateIdentity({ name, lat, lng })`:
+
+1. Validar coords (R1).
+2. Reverse-geocode + nearby lookup desde `(lat, lng)` → conjunto `C_coords` de candidatos cercanos (radio configurable, p.ej. ≤ 250 m exacto / ≤ 1 km warning según tipo).
+3. Cuando el nombre es resoluble (no genérico), búsqueda por nombre → conjunto `C_name` de candidatos con coords.
+4. Comparar `name` declarado contra `C_coords` (fuzzy + normalización topónimos, tolerancia a acentos/artículos/idioma).
+5. Decisión:
+   - **Match alto** — `name ∈ C_coords` o `dist(name_best, coords) ≤ ε` → continuar enriquecimiento.
+   - **Coords válidas, nombre no aparece cerca** → `validation_required` con `reason='name_coordinate_mismatch'`. POI queda en `pending_validation`. NO se enriquece. NO se mueven coords.
+   - **Nombre existe lejos** (`C_name ≠ ∅` y todos están lejos de `coords`) → devolver `C_name` como **candidatos** al usuario (con sus coords), `reason='name_found_elsewhere'`. NO mover el POI automáticamente. NO enriquecer como `enriched`. POI queda en `pending_validation`.
+   - **Coords inválidas** (R1 falla) → forward-geocode por nombre + contexto (`country/region`) para sugerir coords candidatas, pero NO enriquecer hasta que el usuario confirme.
+6. Toda decisión distinta de "match alto" se registra en `custom_data.enrichment_block = { reason, candidates, source }` y deja `enrichment_status='pending_validation'`.
+
+R9 es **pre-LLM** y **complementaria** a R6 (post-LLM): R9 garantiza identidad del POI antes de gastar IA; R6 garantiza coherencia narrativa después.
+
 ## 4. Fases (plan incremental, NO se ejecutan en este documento)
 
 ### Fase 1 — Entry gates duros
