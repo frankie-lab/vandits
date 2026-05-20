@@ -13,6 +13,7 @@ Diagnóstico: ver [`docs/audits/enrichment-coord-coherence-audit.md`](../audits/
 3. La IA puede leer la geografía resuelta como contexto; no puede sobrescribirla.
 4. Cualquier incoherencia IA↔reverse-geocode bloquea la persistencia: el POI va a `quarantine`, no a `enriched`.
 5. Sin coords válidas no hay enriquecimiento.
+6. Identidad del POI = nombre compatible + coordenadas compatibles. Coordenadas válidas no bastan; nombre válido no basta. Sin identidad confirmada no hay enriquecimiento.
 
 ## 2. Definiciones
 
