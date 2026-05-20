@@ -161,3 +161,31 @@ Backfill de POIs corruptos históricos: fuera de scope, se aborda tras validar F
 **Pendiente (POI-N v2):** recalibrar tokens `poi.maturity.0..10` a la paleta producto-aprobada (gris neutro → gris cálido → amarillo apagado → amarillo → amarillo intenso → ámbar suave → ámbar → verde amarillento → verde suave → verde). Sólo namespace `poi.maturity.*`; no tocar `poi.state.*`, `poi.level.*`, `poi.ring.*`, `poi.collectionTintSample.*`.
 
 No iniciar Fase 5 antes de Fase 1, ni Fase 6 antes de Fase 2, ni Fase 3 antes de Fase 2 (orden de dependencia documentado en el contrato).
+
+---
+
+## Roadmap — Migrar canon cromático del marker a POI-N (v1.3.0)
+
+**Status:** plan estratégico aprobado, ejecución diferida. Doc-only ejecutado: ver [`docs/contracts/marker-fill-canon-v3.md`](./contracts/marker-fill-canon-v3.md) + §6/§7 de [`docs/contracts/poi-maturity-visual-contract.md`](./contracts/poi-maturity-visual-contract.md).
+
+**Decisión canon v3:**
+
+- Fill principal del marker propio pasa a `poi.maturity[ computePoiMaturity(loc) ]` (11 tonos, gris → amarillo → ámbar → verde).
+- Colección (tinte 2px), owner identity (OKLCH para seguidos), selección (halo) y health rings (5px) se **conservan** como capas secundarias geométricamente separadas — no compiten por el fill.
+- Badge numérico POI-N **deja de ser UI principal**; sobrevive como debug interno admin (`view_audit_log` + toggle `Madurez POI ON/OFF`) durante al menos dos releases tras el bump.
+- Triada `Final / Importado / Vacío` deja de ser fill principal; pasa a **semántica legacy** (filtros, telemetría, leyendas heredadas) vía `getPointVisualState`, que se conserva.
+- `getPoiCurationLevel` (6 niveles producto) **no cambia**: sigue dictando acciones de footer/popup, independiente del fill.
+
+**Fases (PRs separados, no incluidos aquí):**
+
+1. Helper SoT `getPoiMaturityColor(loc)` envolviendo `computePoiMaturity` + lookup de tokens.
+2. Renderer: `createCustomIcon` y `resolvePoiVisualGrammar` consumen el nuevo helper para `paletteScope='state'`; `levelKey` (PR-MAP-CANON-3) se amplía para incluir POI-N en la clave de cache.
+3. Leyendas: pill inferior derecha en `LocationMap` muestra chips POI-N como leyenda principal; Final/Importado/Vacío se mueve a tooltip o se retira.
+4. Popup/miniaturas: hero y previews leen el mismo helper para paridad con el mapa.
+5. Tests: actualizar `poi-visual-grammar`, `point-visual-state`, `poi-maturity`, `map-icon-rings-gate`; añadir contract test `marker-fill-source-of-truth` que prohíbe nuevos consumidores de `poi.state.*` como fill.
+6. Cleanup: retirar `poi.state.*` del renderer (sólo leyendas legacy); decidir retirada definitiva del overlay debug.
+
+**Version impact:** la fase que cambia el fill renderizado exige **bump minor** `v1.2.x → v1.3.0`. Fases posteriores de cleanup quedan en `v1.3.x` patch.
+
+**Bloqueos previos a ejecutar Fase 1:** firma de producto sobre la nueva paleta + QA visual sobre fixture sandbox cubriendo POI-0…POI-10. No iniciar Fase 2 antes de Fase 1, ni Fase 3 antes de Fase 2.
+
