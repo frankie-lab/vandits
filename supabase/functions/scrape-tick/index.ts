@@ -5,6 +5,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { finalizeImportedDocument } from '../_shared/finalize-import.ts';
 import { getEnabledSourceCodes, isSourceEnabled } from '../_shared/data-sources.ts';
+import { isValidWgs84Coord } from '../_shared/coord-validity.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
