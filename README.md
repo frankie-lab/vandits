@@ -89,7 +89,7 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
-### v1.2.21 (2026-05-20)
+### v1.2.22 (2026-05-20)
 - ✅ Pulido UX overlay POI-N: `MaturityDiagnosticsControl` reposicionado a `bottom-12 left-4` (libera la barra de escala de Leaflet) y reordenado con `flex-col-reverse` (toggle anclado abajo, leyenda crece hacia arriba). Leyenda **colapsada por defecto** + `max-h-[60vh] overflow-y-auto` → POI-10 siempre alcanzable. Iconos chevron corregidos (Down=cerrado, Up=abierto).
 - ✅ Pista contextual en la pill inferior derecha (`LocationMap`): cuando el overlay POI-N está ON se prefija un chip `Estado base` (uppercase, separador derecho) para dejar explícito que "Final / Importado / Vacío" sigue describiendo la paleta del marker, no la madurez. La pill no se sustituye.
 - ✅ NO toca: `createCustomIcon`, `resolvePoiVisualGrammar`, `computePoiMaturity`, `MaturityBadgeLayer`, tokens `poi.maturity.*`, marker base, colecciones, popup, datos, RLS, edge functions, migraciones. Sólo presentación.

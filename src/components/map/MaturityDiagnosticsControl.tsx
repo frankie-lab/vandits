@@ -1,50 +1,25 @@
 /**
- * MaturityDiagnosticsControl — Toggle + leyenda del overlay POI-Maturity.
+ * MaturityDiagnosticsControl — Toggle del overlay POI-Maturity (admin-only).
  *
- * Admin-only: el componente padre (`LocationMap`) sólo lo monta cuando
- * el usuario tiene capability `view_audit_log`. Aun así, este componente
- * verifica `allowed` internamente (defensa en profundidad).
+ * v1.2.22: leyenda larga retirada de la esquina inferior izquierda.
+ * Este componente sólo expone el botón ON/OFF. La leyenda compacta de
+ * colores POI-0..POI-10 vive ahora en la barra inferior derecha
+ * (`LocationMap` → status pill), junto a la leyenda base del marker.
  *
- * Layout:
- * - Anclado en `bottom-12 left-4` para no solaparse con la barra de escala
- *   de Leaflet (que vive en `bottom-0 left-0`).
- * - `flex-col-reverse`: el toggle queda anclado abajo y la leyenda crece
- *   hacia arriba → POI-10 (último de la lista) nunca se recorta.
- * - Leyenda colapsada por defecto; al expandir, `max-h-[60vh]` con scroll
- *   interno garantiza que POI-10 sea siempre alcanzable en viewports bajos.
- *
- * Sin emojis. Icono Lucide `Gauge`. Estilo neutro para no confundirse
- * con la paleta canónica del mapa.
+ * Defensa en profundidad: además del gating en `LocationMap`, este
+ * componente verifica `allowed` internamente.
  */
 
-import { useState } from 'react';
-import { Gauge, ChevronDown, ChevronUp } from 'lucide-react';
+import { Gauge } from 'lucide-react';
 import { usePoiMaturityDiagnostics } from '@/hooks/use-poi-maturity-diagnostics';
-import { resolveMaturityBadgeStyle } from '@/shared/diagnostics/poi-maturity-overlay';
-import type { PoiMaturityLevel } from '@/domains/content/lib/poi-maturity';
-
-const LEGEND: Array<{ level: PoiMaturityLevel; label: string }> = [
-  { level: 0,  label: 'Sin dato útil' },
-  { level: 1,  label: 'Solo coordenadas' },
-  { level: 2,  label: 'Solo nombre' },
-  { level: 3,  label: 'Nombre + coords' },
-  { level: 4,  label: 'Identidad confirmada' },
-  { level: 5,  label: 'País/continente' },
-  { level: 6,  label: 'Región/zona' },
-  { level: 7,  label: 'Descripción enriquecida' },
-  { level: 8,  label: 'Media validada' },
-  { level: 9,  label: 'Categoría/tags' },
-  { level: 10, label: 'Curado completo' },
-];
 
 export default function MaturityDiagnosticsControl() {
   const { enabled, allowed, setEnabled } = usePoiMaturityDiagnostics();
-  const [legendOpen, setLegendOpen] = useState<boolean>(false);
 
   if (!allowed) return null;
 
   return (
-    <div className="absolute bottom-12 left-4 z-[999] flex flex-col-reverse items-start gap-2">
+    <div className="absolute bottom-12 left-4 z-[999]">
       <button
         type="button"
         onClick={() => setEnabled(!enabled)}
@@ -59,44 +34,6 @@ export default function MaturityDiagnosticsControl() {
         <Gauge className="h-3.5 w-3.5" />
         Madurez POI {enabled ? 'ON' : 'OFF'}
       </button>
-
-      {enabled && (
-        <div className="rounded-lg bg-background/95 px-3 py-2 text-xs shadow-md backdrop-blur-sm">
-          <button
-            type="button"
-            onClick={() => setLegendOpen((v) => !v)}
-            className="mb-1 flex items-center gap-1 font-semibold text-foreground"
-            aria-expanded={legendOpen}
-          >
-            Leyenda
-            {legendOpen ? (
-              <ChevronUp className="h-3 w-3" />
-            ) : (
-              <ChevronDown className="h-3 w-3" />
-            )}
-          </button>
-          {legendOpen && (
-            <ul className="max-h-[60vh] space-y-1 overflow-y-auto pr-1">
-              {LEGEND.map(({ level, label }) => {
-                const { bg } = resolveMaturityBadgeStyle(level);
-                return (
-                  <li key={level} className="flex items-center gap-2">
-                    <span
-                      className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white shadow-sm"
-                      style={{ background: bg, textShadow: '0 1px 1px rgba(0,0,0,0.5)' }}
-                    >
-                      {level}
-                    </span>
-                    <span className="text-muted-foreground">
-                      POI-{level} · {label}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      )}
     </div>
   );
 }
