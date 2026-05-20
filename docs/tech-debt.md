@@ -156,4 +156,8 @@ Backfill de POIs corruptos históricos: fuera de scope, se aborda tras validar F
 
 **Pendiente:** aplicar flags de resolución geográfica a B5b/B5c según contrato [`docs/contracts/geo-resolution-flags-contract.md`](./contracts/geo-resolution-flags-contract.md) (mapeo inicial: 51 `human_review` → `pending_review`/`needs_name_fix`, 19 `reject_geo_irrecoverable` → `geo_irrecoverable`, 4 `Parque Municipal` cosméticos → `pending_review` sin tocar `raw_geocode`).
 
+**Pendiente (POI-N v2):** materializar techo por flag `geo_resolution` en `computePoiMaturity` (`Math.min(level, ceilingFromFlag(status))` con tabla `pending_review→POI-4`, `needs_name_fix→POI-3`, `needs_coord_fix→POI-2`, `geo_irrecoverable→POI-1`) + tests aditivos. Doc canónica: [`docs/contracts/poi-maturity-visual-contract.md`](./contracts/poi-maturity-visual-contract.md) §4 y §5.
+
+**Pendiente (POI-N v2):** recalibrar tokens `poi.maturity.0..10` a la paleta producto-aprobada (gris neutro → gris cálido → amarillo apagado → amarillo → amarillo intenso → ámbar suave → ámbar → verde amarillento → verde suave → verde). Sólo namespace `poi.maturity.*`; no tocar `poi.state.*`, `poi.level.*`, `poi.ring.*`, `poi.collectionTintSample.*`.
+
 No iniciar Fase 5 antes de Fase 1, ni Fase 6 antes de Fase 2, ni Fase 3 antes de Fase 2 (orden de dependencia documentado en el contrato).

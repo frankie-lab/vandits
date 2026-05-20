@@ -3,6 +3,8 @@
 **Status:** 📋 Contrato docs-only. Sin código, sin datos, sin migración, sin bump.
 **Fecha:** 2026-05-20
 **Predecesores:** `b5b-needs-name-fix-dry-run.md`, `b5b-human-review-queue.md`, `enrichment-coord-coherence-contract.md`.
+
+> **Cross-ref POI-N (v2):** estos flags actúan como **techo** sobre la escala POI-0…POI-10 calculada por `computePoiMaturity`. Tabla canónica de techos en [`poi-maturity-visual-contract.md §4`](./poi-maturity-visual-contract.md): `pending_review` → POI-4, `needs_name_fix` → POI-3, `needs_coord_fix` → POI-2, `geo_irrecoverable` → POI-1 (fijo). Reinyección al circuito normal: borrar el flag (`custom_data - 'geo_resolution'`) libera el techo y devuelve el POI al cálculo libre del ladder. Ver §5 del contrato POI-N.
 **Version impact:** none.
 
 ---
