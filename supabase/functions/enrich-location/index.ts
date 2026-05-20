@@ -12,6 +12,7 @@ import { compareCountries } from "../_shared/country-iso.ts";
 import { inspectWgs84Coord } from "../_shared/coord-validity.ts";
 import { assertNameCoordinateIdentity } from "../_shared/name-coord-identity.ts";
 import { getEnabledSourceCodes, isSourceEnabled } from "../_shared/data-sources.ts";
+import { sanitizeAiEnrichmentPayload } from "../_shared/ai-payload-sanitizer.ts";
 import {
   searchImageFromSources as sharedImageSearch,
   type ImageSourceCode,
