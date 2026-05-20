@@ -58,6 +58,9 @@ import {
   type VisitRelevanceInfo,
 } from './map/map-utils';
 import { createCustomIcon, getRenderModeForZoom, setCurrentRenderMode, setCurrentZoom, syncRenderModeFromMap, type MarkerRenderMode } from './map/map-icons';
+import MaturityBadgeLayer from './map/MaturityBadgeLayer';
+import MaturityDiagnosticsControl from './map/MaturityDiagnosticsControl';
+import { usePoiMaturityDiagnostics } from '@/hooks/use-poi-maturity-diagnostics';
 import { buildHoverTooltipHtml } from './map/map-tooltip';
 import { onMarkerSizeConfigChange, getMarkerSizeConfig } from './map/useMarkerSizeConfig';
 import {
@@ -686,6 +689,22 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
   
    // Get current user ID for ownership detection
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // PR-MATURITY-OVERLAY (v1.2.18): diagnóstico admin-only, OFF por defecto.
+  // Suscribe a `map-render-mode-changed` para refrescar la capa de badges
+  // cuando cambia el modo de render (igual frecuencia que zoomend).
+  const maturityDiag = usePoiMaturityDiagnostics();
+  const [maturityRenderMode, setMaturityRenderMode] = useState<MarkerRenderMode>('standard');
+  useEffect(() => {
+    if (!maturityDiag.enabled) return;
+    const sync = () => {
+      const z = mapRef.current?.getZoom();
+      if (typeof z === 'number') setMaturityRenderMode(getRenderModeForZoom(z));
+    };
+    sync();
+    window.addEventListener('map-render-mode-changed', sync);
+    return () => window.removeEventListener('map-render-mode-changed', sync);
+  }, [maturityDiag.enabled]);
 
   // V2 Map Bridge — provides MapFeature[] when Phase D flag is active
   const { v2Features, shouldUseV2Render, v2Loading, refreshV2 } = useV2MapBridge({
@@ -2763,7 +2782,20 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
  <div ref={mapContainerRef} className="h-full w-full" />
  
  {/* Custom scale bar */}
- <MapScaleBar map={mapRef.current} units={measurementUnits} />
+  <MapScaleBar map={mapRef.current} units={measurementUnits} />
+
+  {/* PR-MATURITY-OVERLAY (v1.2.18): admin-only, OFF por defecto. */}
+  <MaturityDiagnosticsControl />
+  {maturityDiag.enabled && (
+    <MaturityBadgeLayer
+      map={mapRef.current}
+      locations={markerLocations}
+      viewerUid={currentUserId}
+      renderMode={maturityRenderMode}
+      enabled={maturityDiag.enabled}
+    />
+  )}
+  
  
  {/* "Ver N ubicaciones" — integrado en la pill inferior derecha (ver bloque legend) */}
    {/* Locate-me button moved to FloatingToolbar (top bar). State broadcast via 'map-locate-state'. */}

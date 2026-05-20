@@ -43,6 +43,7 @@ export interface GlobalEventMap {
   'icon-library-changed': { library: GlobalIconLibraryName };
   'personal-categories:reload': void;
   'trash-updated': void;
+  'lovable:diagnostics:poi-maturity-changed': void;
 }
 
 export type GlobalEventName = keyof GlobalEventMap;

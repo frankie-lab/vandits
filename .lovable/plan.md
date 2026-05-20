@@ -1,75 +1,110 @@
-## B3 dry-run — resultados read-only
+## Plan — POI Maturity Diagnostics Overlay (v1.2.18, admin-gated, OFF por defecto)
 
-Ya ejecuté las consultas. Para escribir `docs/audits/b3-zone-region-dry-run.md` necesito **build mode** (plan mode no permite crear archivos).
+### Resumen
 
-### Conteos
+Capa diagnóstica que pinta un badge numérico POI-0…POI-10 sobre cada POI **propio** del mapa, activable por un toggle visible **únicamente** a usuarios con capability `view_audit_log` (cualquier admin o master ya la tiene). OFF por defecto. Cero impacto en el renderer canónico de markers.
 
-| Bucket | Count |
+### Restricciones que respeta
+
+- NO toca `createCustomIcon`, `resolvePoiVisualGrammar`, `getPoiCurationLevel`, `levelKey` (PR-MAP-CANON-3).
+- NO toca paleta enriched/imported/empty, health rings, collection tints, identidad cromática de seguidos.
+- NO toca datos, RLS, edge functions, migraciones.
+- NO re-enrich.
+- NO visible al usuario normal: gate por capability.
+- OFF por defecto incluso para admins; opt-in explícito por sesión.
+
+### Cómo se ve
+
+- Toggle "Diagnóstico POI-N" en `FloatingToolbar`, sólo renderizado si `useCapability('view_audit_log') === true`. Icono Lucide (`Gauge`). Estado persistido en `localStorage` clave `lovable:diagnostics:poi-maturity` (boolean).
+- Cuando ON: por cada POI propio visible (`paletteScope === 'state'`, `renderMode ∈ {standard, rich}`, z≥9), aparece un chip circular 16×16 px anclado al mismo lat/lng con offset `+10,-10` desde el centro del marker.
+  - Texto: `0`…`10`, peso bold, color blanco con text-shadow para contraste.
+  - Fondo: color del grupo de madurez según `docs/contracts/poi-maturity-visual-contract.md`, leído desde nuevos tokens `poi.maturity.{0..10}`.
+  - `pointer-events: none` y `interactive: false` en el `L.divIcon` → no roba clic ni cursor al marker, no abre popup, no participa en selección.
+- Leyenda flotante plegable bottom-left cuando el toggle está ON: lista los 11 niveles con su color y nombre corto del contrato. Cerrable; estado en localStorage.
+
+### Archivos a tocar
+
+**Nuevos:**
+
+- `src/design-system/tokens/source/poi.json` → añadir bloque `poi.maturity.{0..10}` (11 entradas HSL alineadas con el contrato visual: 0=rojo, 1/2=gris cálido, 3=rojo intenso, 4=naranja, 5=ámbar, 6=amarillo, 7=lima, 8=verde claro, 9=verde, 10=verde intenso). NO toca `poi.level.*`. Tras edición, `npm run tokens:build` regenera `src/design-system/tokens/index.ts` automáticamente.
+- `src/shared/diagnostics/poi-maturity-overlay.ts` → helpers puros:
+  - `shouldRenderMaturityBadge(args): boolean` (gates: toggle ON, paletteScope==='state', renderMode∈{standard,rich}, viewer present).
+  - `resolveMaturityBadgeStyle(level): { bg, label }` (lectura de tokens).
+- `src/hooks/use-poi-maturity-diagnostics.ts` → estado del toggle (localStorage + listener de evento global `lovable:diagnostics:poi-maturity-changed`), expone `{enabled, setEnabled}`. Internamente combina con `useCapability('view_audit_log')` — si no hay capability, `enabled` siempre devuelve `false` (defensa en profundidad).
+- `src/components/map/MaturityBadgeLayer.tsx` → componente React-Leaflet (`useMap()` + `L.layerGroup`) que:
+  - Itera `markerLocations` (mismo subset que `LocationMap` ya calcula, filtrado por viewport culling v1).
+  - Para cada POI que pasa `shouldRenderMaturityBadge`, calcula `computePoiMaturity(loc)` y monta un `L.marker` con `divIcon` interactivo=false y `zIndexOffset` por debajo de popups abiertos.
+  - Listener a `lovable:diagnostics:poi-maturity-changed` y a cambios de zoom para re-render.
+  - Cleanup al desmontar.
+- `src/components/map/MaturityLegend.tsx` → leyenda plegable con la tabla del contrato.
+- `src/lib/global-events.ts` → añadir tipo `'lovable:diagnostics:poi-maturity-changed'` (void payload) al map de eventos.
+- Tests: `src/test/poi-maturity-overlay.test.ts` — cubre `shouldRenderMaturityBadge` (toggle off, paletteScope!=='state', renderMode=='micro'/'compact', sin viewer) y `resolveMaturityBadgeStyle` (los 11 niveles devuelven token válido).
+
+**Tocados (cambios aditivos mínimos):**
+
+- `src/components/map/FloatingToolbar.tsx` → import + render condicional del toggle dentro del bloque ya existente de toggles, envuelto en `{canViewAudit && (...)}`.
+- `src/components/map/LocationMap.tsx` → un único `{maturityOverlayEnabled && <MaturityBadgeLayer locations={markerLocations} viewerUid={viewerUid} renderMode={renderMode} />}` cerca del resto de capas hijas. Sin tocar nada más.
+
+**NO se tocan:**
+
+`createCustomIcon`, `resolvePoiVisualGrammar`, `getPoiCurationLevel`, `getPointVisualState`, `getPointHealthRings`, `levelVisual`, `marker-grammar.ts`, `applyLayerVisibility`, collection-tint, identity-allocator, owner-identity-store, schema, RLS, edge functions.
+
+### Gating exacto
+
+- Capability: `view_audit_log` (ya existente, admin+master). NO se crea capability nueva.
+- Tres líneas de defensa:
+  1. `FloatingToolbar` no renderiza el toggle sin la capability.
+  2. `use-poi-maturity-diagnostics` devuelve `enabled=false` si la capability falta, aunque haya valor `true` en localStorage de una sesión previa con permisos.
+  3. `MaturityBadgeLayer` lee `enabled` del hook; sin él no monta nada.
+- Sin la capability, el código de overlay nunca se ejecuta y el bundle apenas crece (componentes tree-shakeables tras `enabled=false`).
+
+### Riesgos y mitigaciones
+
+| Riesgo | Mitigación |
 |---|---|
-| **D6a** `lower(btrim(zone)) = lower(btrim(region))` | **1 607** |
-| **D6b strict** `zone_id = region_id` | **0** |
-| **D6a ∩ D6b** | 0 |
-| **Unión a corregir** | **1 607** |
+| Saturación visual a zoom alto (badge + marker + rings + tint) | Badge sólo en `standard/rich` (z≥9); chip 16px; gate por capability; OFF por defecto. |
+| Confusión con colores actuales del marker | Leyenda siempre visible cuando ON; badge claramente externo al SVG del marker; tokens nuevos `poi.maturity.*` distintos de `poi.level.*`. |
+| Performance con catálogos grandes | Reusa `markerLocations` (ya respeta culling); `L.layerGroup` único, no recrea por pan; cleanup determinista al desmontar. |
+| Subset-fit o cámara movida sin querer | El layer no toca subset-fit ni emite `requestSubsetFit`. Sólo añade markers visuales. |
+| Followed/app/source recibiendo badge | `shouldRenderMaturityBadge` exige `paletteScope==='state'`. Contract test verifica que followed/app/source nunca reciben badge. |
+| Drift con `levelKey` PR-MAP-CANON-3 | El contrato visual ya documenta convivencia. Ambas señales coexisten ortogonales; ningún test asume implicación entre `computePoiMaturity` y `getPoiCurationLevel.level`. |
+| Permisos cambian en runtime (admin → editor) | Hook reevalúa capability; el overlay desaparece al instante. |
+| Bundle crece para usuarios sin capability | Imports estáticos pequeños; componentes condicionalmente montados; impacto cliente despreciable. |
 
-**D6b "equivalente":** una consulta extendida detectó 5 018 filas donde `region_id` es **ancestro** de `zone_id`. Esto **NO es redundancia** — es el árbol canónico `region → provincia (zone)` definido en `mem://geography/canonical-tree-spec`. Descartado del scope. **D6b real = 0.**
+### Por qué es debug y no feature de producto
 
-### Sub-breakdown D6a
+- Es señal analítica para auditar la salud del catálogo antes de operaciones masivas (B5 y siguientes).
+- El contrato visual canónico del marker sigue siendo enriched/imported/empty + `levelKey`. POI-N es complemento, no sustituto.
+- Admin-only mantiene la superficie limpia para usuarios normales y deja la herramienta donde sí aporta valor: revisión y planificación.
 
-- 64 placeholders `zone == region == "(sin región)"`
-- 1 543 duplicados reales (Madrid, Roma, París, ciudades-región alemanas, etc.)
+### Verificación previa antes de mergear
 
-### Top 5 por país/región
+1. `bunx vitest run poi-maturity-overlay` verde.
+2. `bunx vitest run poi-maturity` sigue verde (helper canónico no tocado).
+3. Toggle invisible en sesión de usuario sin capability (QA manual rápido).
+4. Con toggle ON en sesión admin: badges aparecen sobre POIs propios en z≥9; followed/app/source siguen sin badge; popups, selección, drag y hover del marker funcionan idénticos a antes (badge no captura eventos).
+5. Toggle OFF: cero rastro visual ni en DOM ni en consola.
 
-| País | Región | n |
-|---|---|---|
-| Francia | Isla de Francia | 158 |
-| Italia | Lacio | 130 |
-| España | Comunidad de Madrid | 110 |
-| Italia | Toscana | 86 |
-| Italia | Lombardia | 84 |
+### Version impact
 
-Patrón: capitales metropolitanas + importer legacy que copió `region` a `zone` por defecto.
+`patch`: 1.2.17 → 1.2.18.
 
-### Ejemplos (3 de 10)
+Bumps:
 
-- `6fd47859…` Friburgo de Brisgovia — Alemania / Baden-Wurtemberg / **Baden-Wurtemberg** (zone_id ≠ region_id, mismo nombre)
-- `b1def0af…` Duisburgo — Alemania / Nordrhein-Westfalen / **Nordrhein-Westfalen**
-- `d0eb9fb8…` Bahía de Botany — Australia / Nueva Gales del Sur / **Nueva Gales del Sur**
+- `package.json`
+- `src/lib/app-version.ts`
+- `README.md` (entrada changelog)
+- `docs/releases/version-history.md` (árbol + anchor v1.2.18)
 
-### UPDATE propuesto (no ejecutar)
+Cero migraciones, cero datos, cero re-enrich, cero edge functions.
 
-```sql
--- B3a (1 607 filas)
-UPDATE locations
-SET zone = NULL, updated_at = now()
-WHERE deleted_at IS NULL
-  AND zone IS NOT NULL AND region IS NOT NULL
-  AND lower(btrim(zone)) = lower(btrim(region));
+### Orden de ejecución cuando se apruebe
 
--- B3b (0 filas hoy, idempotente)
-UPDATE locations
-SET zone_id = NULL, updated_at = now()
-WHERE deleted_at IS NULL AND zone_id = region_id;
-```
-
-**No tocados:** `region`, `region_id`, coords, `enriched_data`, `raw_geocode`, `enrichment_status`, `geo_health`, `country_id`, `admin3_id`, `locality_id`, etc.
-
-### Riesgos
-
-- Falsos positivos en ciudades-región (Berlín-land/ciudad). Mitigación: `zone_id` y `region_id` permanecen; el resolver (`v_locations_resolved`) re-deriva label desde FK.
-- Drift snapshot→execute (precedente B2 −1). Mitigación en B3-execute: hash + abort si delta >0.5 %.
-- 64 placeholders `"(sin región)"` quedan en `region` (fuera de scope B3).
-
-### Rollback
-
-Predicado idempotente + snapshot `(id, zone_old)` capturado en B3-execute. Sin snapshot, solo PITR.
-
-### Recomendación
-
-Proceder con B3-execute en una sola pasada (D6a 1 607). B3b safe no-op (0 filas).
-
----
-
-## Siguiente paso
-
-Cambia a **build mode** y escribiré `docs/audits/b3-zone-region-dry-run.md` con el contenido completo (conteos, 10 ejemplos, SQL reproducible, UPDATE comentado, riesgos, rollback, recomendación). Cero UPDATE/DELETE/migración/código/bump.
+1. Tokens `poi.maturity.{0..10}` + regen (`tokens:build` auto en `predev/prebuild`).
+2. Helper `poi-maturity-overlay.ts` + test.
+3. Tipo de evento global + hook `use-poi-maturity-diagnostics`.
+4. `MaturityBadgeLayer` + `MaturityLegend`.
+5. Toggle en `FloatingToolbar` (gated).
+6. Montaje condicional en `LocationMap` (1 línea).
+7. Bump versión + changelog + version-history.
+8. Run vitest completo para confirmar no-regresión.
