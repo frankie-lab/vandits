@@ -82,7 +82,7 @@ Si una versión nueva falla, no se borra del histórico. Se vuelve operativament
 
 Ejemplo:
 
-Si `v1.2.12` falla, volver a `v1.2.11` o publicar `v1.2.13` con corrección.
+Si `v1.2.13` falla, volver a `v1.2.12` o publicar `v1.2.14` con corrección.
 
 Nota operativa:
 
