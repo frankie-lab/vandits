@@ -1,51 +1,62 @@
-## Plan — Ejecutar SELECTs read-only de `geo-backfill-dry-run.md` y rellenar conteos
+# B2a — geo_health stale dry-run (plan)
 
-Trabajo de pura lectura + edición docs-only. Necesito pasar a build mode para usar `supabase--read_query` (read-only por contrato del tool) y editar el doc.
+Crear `docs/audits/b2-geo-health-stale-dry-run.md` con auditoría y UPDATE propuesto **comentado** para los ~394 POIs con `geo_health='ok'` que incumplen R2 (`enrichment_status='enriched' AND raw_geocode IS NULL`).
 
-### Pasos
+Solo lectura. Sin UPDATE, sin migración, sin re-enrich, sin bump.
 
-1. Ejecutar en paralelo, vía `supabase--read_query`, las 10 queries de conteo del doc:
-   - D1 — coords nulas
-   - D2 — Null Island `(0,0)`
-   - D3 — fuera WGS84 / NaN
-   - D4 — `enriched` sin `raw_geocode`
-   - D5 — `geo_health='ok'` stale (R2 falla)
-   - D6a — `zone == region` textual
-   - D6b — `zone_id` redundante FK (join `admin_areas`)
-   - D7-struct — placeholders `^\(sin .+\)$` en columnas
-   - D7-enriched — placeholders en `enriched_data.datos_geograficos.*`
-   - D8 — `places_trunk` con coords inválidas
-   - Total `locations` (denominador para %).
+## Pasos
 
-2. Ejecutar las queries de muestra `LIMIT 10 ORDER BY updated_at DESC` para cada categoría con `count > 0`. Saltar muestras para `count = 0` (no aportan).
+1. Ejecutar SELECTs read-only vía `supabase--read_query`:
+   - **Conteo total** del scope R2 estricto (sub-criterio `enriched + raw_geocode IS NULL`, sin null/(0,0)/out-of-range, ya verificados en cero).
+   - **Breakdown** por country/region (top 10) para dimensionar.
+   - **10 ejemplos** con `id, name, lat, lon, geo_health (current='ok'), target_geo_health='hardError', enrichment_status, geo_source, geo_confidence, raw_geocode IS NULL, country, region, zone, updated_at`.
+   - **Confirmación R2 puro**: query con `HAVING` que verifique que el 100% del scope cae exclusivamente por el sub-criterio R2 (coords válidas, no null, no (0,0), no out-of-range).
+   - **Solapamiento D6**: cuántos del scope tienen también `zone == region` (informativo, no bloqueante).
 
-3. Verificar nombre real de columnas en `public.places_trunk` (lat/lng vs latitude/longitude) con un `information_schema` SELECT antes de D8. Ajustar query si difiere.
+2. Escribir `docs/audits/b2-geo-health-stale-dry-run.md` con:
+   - **§1 Objetivo** — Marcar como `hardError` los POIs enriched sin `raw_geocode` para que el sistema de Salud los detecte y `geocoding-job` los reprocese. No mover coords. No tocar `enriched_data`.
+   - **§2 Scope** — conteo total + breakdown.
+   - **§3 Validación R2 puro** — confirmación de que todos los casos son R2 exclusivamente.
+   - **§4 SQL SELECT** dry-run (queries ejecutadas, copy-paste reproducible).
+   - **§5 10 ejemplos** (tabla markdown).
+   - **§6 SQL UPDATE propuesto (COMENTADO, NO EJECUTAR)**:
+     ```sql
+     -- DRY RUN — NO EJECUTAR
+     -- UPDATE public.locations
+     -- SET geo_health = 'hardError',
+     --     updated_at = now()
+     -- WHERE geo_health = 'ok'
+     --   AND enrichment_status = 'enriched'
+     --   AND raw_geocode IS NULL
+     --   AND latitude IS NOT NULL
+     --   AND longitude IS NOT NULL
+     --   AND NOT (latitude = 0 AND longitude = 0)
+     --   AND ABS(latitude) <= 90
+     --   AND ABS(longitude) <= 180;
+     ```
+     - **Idempotencia**: re-ejecutarlo no cambia filas (predicate ya excluye `geo_health='hardError'`).
+     - **No toca**: `latitude`, `longitude`, `enriched_data`, `enrichment_status`, `raw_geocode`, FKs geográficas.
+   - **§7 Riesgos**:
+     - R1: Explosión visual de health rings rojos (~394 markers) si UI no se prepara. Mitigación: comunicar antes de B5.
+     - R2: `geocoding-job` saturando Nominatim al reprocesar masivo. Mitigación: ejecutar B5 con `page_size` bajo y cooldown.
+     - R3: Si algún POI tiene coords correctas pero `raw_geocode` perdido por bug histórico, el reprocesado puede mover sutilmente las coords vía FKs. Mitigación: B5 debe correr en modo `fill` que preserve coords si el match es ambiguo.
+     - R4: Solapamiento con D6 (`zone==region`) — POIs marcados aquí también necesitarán B3, pero el orden B2→B3 sigue siendo seguro (B3 sólo limpia `zone_id` redundante).
+   - **§8 Rollback plan**:
+     ```sql
+     -- ROLLBACK (NO EJECUTAR salvo incidente)
+     -- UPDATE public.locations
+     -- SET geo_health = 'ok'
+     -- WHERE id = ANY($1::uuid[]);  -- snapshot de ids capturado pre-UPDATE
+     ```
+     - **Pre-requisito**: antes de ejecutar el UPDATE real (fuera de B2a), capturar snapshot `SELECT id FROM ... WHERE <scope>` a CSV.
+     - Ventana de rollback: ilimitada (el campo es idempotente y la condición original es reproducible mientras nadie re-enriquezca).
+   - **§9 Confirmación read-only** — ningún UPDATE/DELETE/migración ejecutado en esta fase.
 
-4. Detectar si la extensión `unaccent` está disponible:
-   ```sql
-   SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname='unaccent') AS has_unaccent;
-   ```
-   Si NO está, sustituir `unaccent(x)` por `x` en D6/D7 y anotarlo en el doc como caveat (falsos negativos por tildes).
+## Archivos
 
-5. Editar **únicamente** `docs/audits/geo-backfill-dry-run.md`:
-   - Rellenar la tabla §3 (count, % sobre total, observaciones puntuales).
-   - Reemplazar cada bloque "Muestras" de §4 / §2 con los resultados reales en tabla markdown (máx 10 filas por daño, columnas relevantes acotadas para legibilidad).
-   - Anotar fecha de ejecución (UTC) y rama `master` del esquema.
-   - Anotar caveat `unaccent` si aplica.
-   - Anotar nombre real de columnas trunk si difiere.
+- **Crear**: `docs/audits/b2-geo-health-stale-dry-run.md`
+- **No tocar**: `src/`, `supabase/`, `package.json`, `README.md`, `app-version.ts`, `.lovable/plan.md`, `docs/audits/geo-backfill-dry-run.md` (B2a es spin-off independiente).
 
-### Restricciones (ratificadas)
+## Version impact
 
-- Solo SELECT. Cero UPDATE/DELETE/INSERT/migraciones.
-- No tocar código de runtime ni de tests.
-- No bump de versión. `package.json` / `app-version.ts` / `README.md` / `version-history.md` intactos.
-- `.lovable/plan.md` no editado.
-- Único archivo modificado: `docs/audits/geo-backfill-dry-run.md`.
-- **Version impact: none.**
-
-### Reporte final que daré
-
-- Tabla resumen D1–D8 con counts y %.
-- Confirmación de cuántas categorías tenían muestras incluidas.
-- Confirmación read-only: lista de queries ejecutadas, todas `SELECT`.
-- Caveats encontrados (unaccent ausente, columnas trunk renombradas, etc.) si los hay.
+**none** — solo documentación.
