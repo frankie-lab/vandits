@@ -359,6 +359,16 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
 
           processedIds.push(locationId);
           console.log('Enriched location:', location.name, geocodedData ? '(with geocoding)' : '', derivedPlaceType ? `[${derivedPlaceType}]` : '');
+        } else if (enrichData.validation_required && enrichData.reason === 'reverse_geocode_failed') {
+          // R3 — reverse-geocode falló. NO se llamó al LLM. No reintentar como rate-limit.
+          throw Object.assign(new Error(enrichData.message || 'Reverse-geocode falló'), {
+            __structured: {
+              kind: 'reverse_geocode_failed',
+              reason: 'reverse_geocode_failed',
+              providedName: enrichData.providedName ?? location.name,
+              coords: enrichData.coords ?? { lat: location.latitude, lng: location.longitude },
+            },
+          });
         } else if (enrichData.validation_required) {
           throw Object.assign(new Error('Validación requerida (nombre/coordenadas)'), {
             __structured: {
