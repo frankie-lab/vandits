@@ -1,0 +1,71 @@
+id,id8,name,custom_data,geo_health,has_raw
+006aa8d9-8666-47f2-a852-7a9ea6d61f78,006aa8d9,Puente Medieval de Grenoble,{},hardError,f
+05bd4905-86cd-4802-b4e3-b9015917ce5f,05bd4905,Castillo de Toledo,{},hardError,f
+0c56e1c9-b6ca-486c-b0c5-faa3c7657d8d,0c56e1c9,Catedral de A Coruña,{},hardError,f
+0eee796e-57e3-4edf-b1f0-c5b0f4180e65,0eee796e,Puente Medieval de Santiago de Compostela Nuevo,{},hardError,f
+13b6ac67-83d9-447b-bba9-7326cb3bcd30,13b6ac67,Jardín Botánico de Beja Nuevo,{},hardError,f
+1637941c-6431-4c5e-b41e-b80bec3079ba,1637941c,Casco Antiguo de Niza,{},hardError,f
+1813cd8c-80a1-46a3-b2d9-0fd41dca2f0a,1813cd8c,Monasterio de Le Havre Nuevo,{},hardError,f
+1a5bd7b3-67af-4ecd-8190-30078ef48a50,1a5bd7b3,Parque Municipal de Braga,{},ok,t
+1b17cb4a-c61b-495f-bcb9-0e17442bf638,1b17cb4a,Puente Medieval de Alicante,{},hardError,f
+1b2b47d2-3c3a-4b85-9911-d6aec8fdfecd,1b2b47d2,Mirador de Nueva York,{},hardError,f
+1bdb4c0b-8ff0-41b9-9943-efa457bfb3eb,1bdb4c0b,Cueva de Consuegra Nuevo,{},hardError,f
+2309c116-f7e0-41a8-9b22-9297d61008e4,2309c116,Castillo de Zaragoza Nuevo,{},hardError,f
+2719e6b9-e6b5-4ae2-bc96-c2cfa74811aa,2719e6b9,Casco Antiguo de Lisboa Nuevo,{},hardError,f
+272393af-3198-4f9c-bccd-8fe251cabcc6,272393af,Parque Municipal de Lille Nuevo,{},hardError,f
+28cf0c27-8739-4c5d-b2e8-e6f8638d1d19,28cf0c27,Mercado Central de Málaga Nuevo,{},hardError,f
+294219ec-b114-4384-b968-e06c68747cf0,294219ec,Faro de Llívia Nuevo,{},hardError,f
+2b405059-33e6-46bc-8ebd-a8d8b3f2e82e,2b405059,Puente Medieval de Cáceres Nuevo,{},hardError,f
+34fad56f-88f0-4ad8-906d-d5758d0642e3,34fad56f,Mercado Central de Aveiro Nuevo,{},hardError,f
+373a3fd9-84fe-49e7-83a5-17906ed120ab,373a3fd9,Monasterio de Valencia Nuevo,{},hardError,f
+3a407d77-4762-4407-86cf-d75712ba4409,3a407d77,Puente Medieval de Viana do Castelo,{},hardError,f
+40b287bf-f0f6-4309-b257-53ce875e1a67,40b287bf,Mercado Central de Montpellier Nuevo,{},hardError,f
+451c596f-4dbe-4254-97c7-538704ca3f96,451c596f,Mercado Central de Granada Nuevo,{},hardError,f
+48139cf5-ce5e-4ed5-b252-b28a2093637b,48139cf5,Restaurante Tradicional Burdeos Nuevo,{},hardError,f
+4859aff1-91c7-4383-96f0-57f5b6971abe,4859aff1,Restaurante Tradicional Grenoble Nuevo,{},hardError,f
+49f4b495-cf8d-402b-bfd5-9902ab717924,49f4b495,Monasterio de Albacete Nuevo,{},hardError,f
+4df7ac3a-da4b-4e02-921a-25cbf3152034,4df7ac3a,Plaza Mayor de Palma,{},hardError,f
+5626ab6c-fbfa-4dad-9ae0-4b52da362fbb,5626ab6c,Castillo de Estrasburgo Nuevo,{},hardError,f
+568df858-a5e8-4bdd-94f3-fe2a43d02e1a,568df858,Jardín Botánico de Valencia Nuevo,{},hardError,f
+58fa11c0-e4e7-4df6-a5e8-8056ecd1472b,58fa11c0,Monasterio de Beja,{},hardError,f
+5a977f93-ecc8-4d6f-85a8-9070e0ad0588,5a977f93,Puente Medieval de Almada Nuevo,{},hardError,f
+5b322261-0ad1-4656-9a94-04c116847496,5b322261,Museo Etnográfico de Bastia,{},hardError,f
+5b74c902-901e-4687-a3c7-9980cba9a1ca,5b74c902,Mercado Central de Málaga,{},hardError,f
+5c98da4f-6bdf-4a17-9a20-85bc90c67a7d,5c98da4f,Parque Municipal de Sevilla,{},ok,t
+63036654-062d-4824-b8a7-81ff38704d8b,63036654,Faro de Atenas,{},hardError,f
+654ecabd-0d03-4e9f-89d9-2f274bb9fbdc,654ecabd,Mirador de Dijon,{},hardError,f
+664e5d8b-b28d-4ccc-b046-1a04ce7a4545,664e5d8b,Monasterio de Burdeos #2,{},hardError,f
+68a61cc4-1cbc-41f0-9376-163b3f1d98be,68a61cc4,Monasterio de Burdeos,{},hardError,f
+6bfda188-ddce-4f14-8b90-883bebb3f64f,6bfda188,Catedral de Niza,{},hardError,f
+6de248f1-71a1-4bdd-bab4-d1008aef667a,6de248f1,Parque Municipal de Valladolid Nuevo,{},hardError,f
+70f14a7e-d8d2-4482-b580-e50ab16a64c6,70f14a7e,Casco Antiguo de Coimbra,{},hardError,f
+7e25339f-34d8-4043-924f-948b62429939,7e25339f,Puente Medieval de Burdeos Nuevo,{},hardError,f
+802a59b7-4e96-4d4e-8487-a6fb295893d6,802a59b7,Monasterio de Albacete,{},hardError,f
+898b7fef-a3fb-4ca1-8488-a88740bd900e,898b7fef,Museo Etnográfico de Los Ángeles Nuevo,{},hardError,f
+8cd7b1e1-eaeb-40a3-a897-07ddd36000dd,8cd7b1e1,Casco Antiguo de Cáceres,{},hardError,f
+8dbef3a0-0256-4a4e-974a-1b463c66d253,8dbef3a0,Mirador de Grenoble Nuevo,{},hardError,f
+8e932821-1a3d-4907-bb74-ef57daf86d4f,8e932821,Cueva de Alicante Nuevo,{},hardError,f
+932084b0-49b7-4002-82f4-7279feb052f6,932084b0,Mercado Central de Santander Nuevo,{},hardError,f
+94a05278-c7d4-432b-a6a5-9ba40c7658a6,94a05278,Casco Antiguo de Viana do Castelo Nuevo,{},hardError,f
+94d2e9d9-4162-48d8-832b-6ef063873d12,94d2e9d9,Parque Municipal de Murcia,{},ok,t
+953c4376-702c-47b1-af0f-08cc897cd13e,953c4376,Plaza Mayor de Sevilla,{},hardError,f
+97994320-be06-450e-94c8-2a8f058cd051,97994320,Casco Antiguo de Leiria Nuevo,{},hardError,f
+a49fc322-3c95-4b2a-8520-4cba5625f4b2,a49fc322,Puente Medieval de Lyon,{},hardError,f
+a4b87810-5326-4f00-a2fb-eebe395ef8af,a4b87810,Plaza Mayor de Valladolid Nuevo,{},hardError,f
+b35a79fc-b3f1-49b7-b6e1-623586a77444,b35a79fc,Plaza Mayor de A Coruña Nuevo,{},hardError,f
+b3cf9399-6fd1-4975-bbae-7f144400e3d7,b3cf9399,Catedral de Rennes Nuevo,{},hardError,f
+b41a33d7-10e7-45c0-9cc9-f95fbd775d13,b41a33d7,Monasterio de Sumela,{},partial,f
+c1663f48-dc32-44ef-a3ff-f690f0554d34,c1663f48,Museo Etnográfico de Valladolid,{},hardError,f
+c7a1d2a9-00d2-4ffa-8b08-f31518d21e74,c7a1d2a9,Jardín Botánico de Alicante,{},hardError,f
+c9e0df07-10de-4218-9a3b-a6ab10992b13,c9e0df07,Plaza Mayor de Santander,{},hardError,f
+cc5fc42b-8e32-4b82-bf4d-446e4cbe1e29,cc5fc42b,Parque Municipal de Marrakech Nuevo,{},hardError,f
+d11f44dd-0667-40a4-b87d-c5cfc35ef9bb,d11f44dd,Mercado Central de Llívia,{},hardError,f
+d25504ac-5586-4db8-b58a-5b6a9aa27fa6,d25504ac,Parque Municipal de Vigo Nuevo,{},hardError,f
+d3587fb9-5847-4872-9a7b-0d402e5297fc,d3587fb9,Castillo de Évora Nuevo,{},hardError,f
+d5664740-7395-4c47-bd93-d9508202c96a,d5664740,Puente Medieval de Sevilla,{},hardError,f
+d8151dd1-63be-442b-a49b-5c6f2b597b40,d8151dd1,Jardín Botánico de Vigo,{},hardError,f
+e280fafd-f42c-45d4-99e3-7ffc25170b43,e280fafd,Plaza Mayor de Le Havre Nuevo,{},hardError,f
+e86188df-f488-4d8f-9aab-7b80278f30d0,e86188df,Monasterio de Burdeos Nuevo,{},hardError,f
+e9cfe0cd-df92-4ff8-9638-94dc86699e62,e9cfe0cd,Parque Municipal de Toledo,{},ok,t
+ef50654b-ca8b-4294-8b78-8e89d4f76141,ef50654b,Museo Etnográfico de Estrasburgo,{},hardError,f
+fb79a9e3-61cb-4cae-b50b-ac6349a7087c,fb79a9e3,Mirador de Santander,{},hardError,f
