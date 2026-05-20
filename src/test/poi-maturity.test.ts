@@ -354,5 +354,104 @@ describe('computePoiMaturity — ladder POI-0…POI-10', () => {
       enrichedData: { descripcion: LONG_DESC },
     });
     expect(computePoiMaturity(sample)).toBe(computePoiMaturity(sample));
+});
+
+describe('computePoiMaturity — techo por flag custom_data.geo_resolution.status', () => {
+  // POI base que SIN flag llegaría a POI-10.
+  function fullyCurated(): PoiMaturityInput {
+    return poi({
+      name: 'Faro de Cabo',
+      latitude: 43.7,
+      longitude: -7.5,
+      rawGeocode: { place_id: 42 },
+      country: 'España',
+      continent: 'Europa',
+      region: 'Galicia',
+      zone: 'A Coruña',
+      geoHealth: 'ok',
+      enrichmentStatus: 'enriched',
+      enrichedData: {
+        descripcion: LONG_DESC,
+        imagen: 'https://example.org/img.jpg',
+        categoria: 'Mirador',
+        etiquetas: ['costa', 'atardecer'],
+        observacion: LONG_OBS,
+      },
+    });
+  }
+
+  it('sin customData → sin techo (POI-10)', () => {
+    expect(computePoiMaturity(fullyCurated())).toBe(10);
+  });
+
+  it('pending_review → techo POI-4', () => {
+    const loc = { ...fullyCurated(), customData: { geo_resolution: { status: 'pending_review' } } };
+    expect(computePoiMaturity(loc)).toBe(4);
+  });
+
+  it('needs_name_fix → techo POI-3', () => {
+    const loc = { ...fullyCurated(), customData: { geo_resolution: { status: 'needs_name_fix' } } };
+    expect(computePoiMaturity(loc)).toBe(3);
+  });
+
+  it('needs_coord_fix → techo POI-2', () => {
+    const loc = { ...fullyCurated(), customData: { geo_resolution: { status: 'needs_coord_fix' } } };
+    expect(computePoiMaturity(loc)).toBe(2);
+  });
+
+  it('geo_irrecoverable → POI-1 fijo', () => {
+    const loc = { ...fullyCurated(), customData: { geo_resolution: { status: 'geo_irrecoverable' } } };
+    expect(computePoiMaturity(loc)).toBe(1);
+  });
+
+  it('snake_case custom_data también aplica techo', () => {
+    const loc = { ...fullyCurated(), custom_data: { geo_resolution: { status: 'pending_review' } } };
+    expect(computePoiMaturity(loc)).toBe(4);
+  });
+
+  it('techo NO eleva: si ladder es POI-2, flag pending_review (techo 4) lo deja en POI-2', () => {
+    const loc: PoiMaturityInput = {
+      name: 'Faro',
+      latitude: 0,
+      longitude: 0, // Null Island → ladder = POI-2
+      customData: { geo_resolution: { status: 'pending_review' } },
+    };
+    expect(computePoiMaturity(loc)).toBe(2);
+  });
+
+  it('status desconocido → sin techo', () => {
+    const loc = { ...fullyCurated(), customData: { geo_resolution: { status: 'something_else' } } };
+    expect(computePoiMaturity(loc)).toBe(10);
+  });
+
+  it('geo_resolution mal formado (no object) → ignorado, sin techo', () => {
+    const loc = { ...fullyCurated(), customData: { geo_resolution: 'pending_review' } as unknown as Record<string, unknown> };
+    expect(computePoiMaturity(loc)).toBe(10);
+  });
+
+  it('reinyección: borrar el flag (custom_data sin geo_resolution) restaura ladder libre', () => {
+    const base = fullyCurated();
+    const flagged = { ...base, customData: { geo_resolution: { status: 'geo_irrecoverable' } } };
+    expect(computePoiMaturity(flagged)).toBe(1);
+    const unflagged = { ...base, customData: {} as Record<string, unknown> };
+    expect(computePoiMaturity(unflagged)).toBe(10);
+  });
+});
+
+import { ceilingFromGeoResolutionStatus } from '@/domains/content/lib/poi-maturity';
+
+describe('ceilingFromGeoResolutionStatus', () => {
+  it('mapea los 4 status canónicos al techo correcto', () => {
+    expect(ceilingFromGeoResolutionStatus('geo_irrecoverable')).toBe(1);
+    expect(ceilingFromGeoResolutionStatus('needs_coord_fix')).toBe(2);
+    expect(ceilingFromGeoResolutionStatus('needs_name_fix')).toBe(3);
+    expect(ceilingFromGeoResolutionStatus('pending_review')).toBe(4);
+  });
+
+  it('null / undefined / desconocido → 10 (sin techo)', () => {
+    expect(ceilingFromGeoResolutionStatus(null)).toBe(10);
+    expect(ceilingFromGeoResolutionStatus(undefined)).toBe(10);
+    expect(ceilingFromGeoResolutionStatus('resolved')).toBe(10);
+    expect(ceilingFromGeoResolutionStatus('')).toBe(10);
   });
 });
