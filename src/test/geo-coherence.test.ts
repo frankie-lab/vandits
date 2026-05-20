@@ -23,7 +23,7 @@ describe('Fase 6 — assertGeoCoherence', () => {
     const res = assertGeoCoherence(canonES, {
       descripcion: 'Bonito mirador en France, cerca de los Alpes.',
     });
-    if (res.ok) throw new Error('expected mismatch');
+    assertMismatch(res);
     expect(res.reason).toBe('geo_narrative_mismatch');
     expect(res.level).toBe('country');
     expect(res.source).toBe('descripcion');
@@ -42,7 +42,7 @@ describe('Fase 6 — assertGeoCoherence', () => {
     const res = assertGeoCoherence(canonES, {
       descripcion: 'Edificio modernista en pleno corazón de Cataluña.',
     });
-    if (res.ok) throw new Error('expected mismatch');
+    assertMismatch(res);
     expect(res.level).toBe('region');
     expect(res.got).toMatch(/Catalu/i);
   });
@@ -59,7 +59,7 @@ describe('Fase 6 — assertGeoCoherence', () => {
     const res = assertGeoCoherence(canonES, {
       descripcion: 'Inspirada en el estilo de Indianapolis, una ciudad de Estados Unidos.',
     });
-    if (res.ok) throw new Error('expected mismatch (Estados Unidos)');
+    assertMismatch(res);
     expect(res.got.toLowerCase()).not.toBe('india');
   });
 
@@ -83,7 +83,7 @@ describe('Fase 6 — assertGeoCoherence', () => {
     const res = assertGeoCoherence(canonES, {
       datos_geograficos: { lugar_interes: 'Castillo de São Jorge, Lisboa, Portugal' },
     });
-    if (res.ok) throw new Error('expected mismatch');
+    assertMismatch(res);
     expect(res.source).toBe('lugar_interes');
     expect(res.level).toBe('country');
   });
@@ -92,7 +92,7 @@ describe('Fase 6 — assertGeoCoherence', () => {
     const res = assertGeoCoherence(canonES, {
       datos_clave: { region: 'Andalucía', tipo: 'monumento' },
     });
-    if (res.ok) throw new Error('expected mismatch');
+    assertMismatch(res);
     expect(res.source).toBe('datos_clave');
     expect(res.level).toBe('region');
   });
@@ -108,7 +108,7 @@ describe('Fase 6 — assertGeoCoherence', () => {
     const res = assertGeoCoherence(canonES, {
       tags: ['#Madrid', '#monumento'],
     });
-    if (res.ok) throw new Error('expected mismatch');
+    assertMismatch(res);
     expect(res.source).toBe('tags');
     expect(res.level).toBe('region');
   });
