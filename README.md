@@ -1,8 +1,8 @@
-# VANDITS v1.2.13
+# VANDITS v1.2.14
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.2.13-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.2.14-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -88,6 +88,14 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 - [Deuda técnica priorizada](./docs/tech-debt.md)
 
 ## 📝 Changelog
+
+### v1.2.14 (2026-05-20)
+- ✅ Coord-coherence Fase 5 (R2): `geo_health` honesto. Nuevo bucket `hardError` emitido por trigger SQL cuando lat/lng son `null`, `(0,0)` Null Island, fuera de WGS84, o `enrichment_status='enriched'` + `raw_geocode IS NULL`.
+- ✅ `_compute_location_geo_health` y `_compute_location_geo_health_lookup` ampliados con `raw_geocode jsonb` + `enrichment_status text`; trigger `zzz_locations_set_geo_health` observa también esos dos campos.
+- ✅ Nuevo helper cliente espejo `src/shared/geography/compute-geo-health.ts` (`computeHonestGeoHealth` / `isHardErrorGeo`) + espejo Deno `supabase/functions/_shared/compute-geo-health.ts`. `isHealthyShareableGeo` lo aplica defensivamente para rechazar `geo_health='ok'` stale.
+- ✅ Type union de `geoHealth` en `src/types/location.ts` extendido con `'hardError'`.
+- ✅ Contract tests `src/test/geo-health-hard-error.test.ts` (10 casos). Sin backfill de filas históricas (recomputan al siguiente UPDATE).
+- ✅ Ítem 7 sigue en progreso (Fase 5 aplicada).
 
 ### v1.2.13 (2026-05-20)
 - ✅ Coord-coherence Fase 4 (R4 + R5): IA fuera de geografía estructurada.
