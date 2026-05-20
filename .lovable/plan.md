@@ -1,62 +1,75 @@
-# B2a — geo_health stale dry-run (plan)
+## B3 dry-run — resultados read-only
 
-Crear `docs/audits/b2-geo-health-stale-dry-run.md` con auditoría y UPDATE propuesto **comentado** para los ~394 POIs con `geo_health='ok'` que incumplen R2 (`enrichment_status='enriched' AND raw_geocode IS NULL`).
+Ya ejecuté las consultas. Para escribir `docs/audits/b3-zone-region-dry-run.md` necesito **build mode** (plan mode no permite crear archivos).
 
-Solo lectura. Sin UPDATE, sin migración, sin re-enrich, sin bump.
+### Conteos
 
-## Pasos
+| Bucket | Count |
+|---|---|
+| **D6a** `lower(btrim(zone)) = lower(btrim(region))` | **1 607** |
+| **D6b strict** `zone_id = region_id` | **0** |
+| **D6a ∩ D6b** | 0 |
+| **Unión a corregir** | **1 607** |
 
-1. Ejecutar SELECTs read-only vía `supabase--read_query`:
-   - **Conteo total** del scope R2 estricto (sub-criterio `enriched + raw_geocode IS NULL`, sin null/(0,0)/out-of-range, ya verificados en cero).
-   - **Breakdown** por country/region (top 10) para dimensionar.
-   - **10 ejemplos** con `id, name, lat, lon, geo_health (current='ok'), target_geo_health='hardError', enrichment_status, geo_source, geo_confidence, raw_geocode IS NULL, country, region, zone, updated_at`.
-   - **Confirmación R2 puro**: query con `HAVING` que verifique que el 100% del scope cae exclusivamente por el sub-criterio R2 (coords válidas, no null, no (0,0), no out-of-range).
-   - **Solapamiento D6**: cuántos del scope tienen también `zone == region` (informativo, no bloqueante).
+**D6b "equivalente":** una consulta extendida detectó 5 018 filas donde `region_id` es **ancestro** de `zone_id`. Esto **NO es redundancia** — es el árbol canónico `region → provincia (zone)` definido en `mem://geography/canonical-tree-spec`. Descartado del scope. **D6b real = 0.**
 
-2. Escribir `docs/audits/b2-geo-health-stale-dry-run.md` con:
-   - **§1 Objetivo** — Marcar como `hardError` los POIs enriched sin `raw_geocode` para que el sistema de Salud los detecte y `geocoding-job` los reprocese. No mover coords. No tocar `enriched_data`.
-   - **§2 Scope** — conteo total + breakdown.
-   - **§3 Validación R2 puro** — confirmación de que todos los casos son R2 exclusivamente.
-   - **§4 SQL SELECT** dry-run (queries ejecutadas, copy-paste reproducible).
-   - **§5 10 ejemplos** (tabla markdown).
-   - **§6 SQL UPDATE propuesto (COMENTADO, NO EJECUTAR)**:
-     ```sql
-     -- DRY RUN — NO EJECUTAR
-     -- UPDATE public.locations
-     -- SET geo_health = 'hardError',
-     --     updated_at = now()
-     -- WHERE geo_health = 'ok'
-     --   AND enrichment_status = 'enriched'
-     --   AND raw_geocode IS NULL
-     --   AND latitude IS NOT NULL
-     --   AND longitude IS NOT NULL
-     --   AND NOT (latitude = 0 AND longitude = 0)
-     --   AND ABS(latitude) <= 90
-     --   AND ABS(longitude) <= 180;
-     ```
-     - **Idempotencia**: re-ejecutarlo no cambia filas (predicate ya excluye `geo_health='hardError'`).
-     - **No toca**: `latitude`, `longitude`, `enriched_data`, `enrichment_status`, `raw_geocode`, FKs geográficas.
-   - **§7 Riesgos**:
-     - R1: Explosión visual de health rings rojos (~394 markers) si UI no se prepara. Mitigación: comunicar antes de B5.
-     - R2: `geocoding-job` saturando Nominatim al reprocesar masivo. Mitigación: ejecutar B5 con `page_size` bajo y cooldown.
-     - R3: Si algún POI tiene coords correctas pero `raw_geocode` perdido por bug histórico, el reprocesado puede mover sutilmente las coords vía FKs. Mitigación: B5 debe correr en modo `fill` que preserve coords si el match es ambiguo.
-     - R4: Solapamiento con D6 (`zone==region`) — POIs marcados aquí también necesitarán B3, pero el orden B2→B3 sigue siendo seguro (B3 sólo limpia `zone_id` redundante).
-   - **§8 Rollback plan**:
-     ```sql
-     -- ROLLBACK (NO EJECUTAR salvo incidente)
-     -- UPDATE public.locations
-     -- SET geo_health = 'ok'
-     -- WHERE id = ANY($1::uuid[]);  -- snapshot de ids capturado pre-UPDATE
-     ```
-     - **Pre-requisito**: antes de ejecutar el UPDATE real (fuera de B2a), capturar snapshot `SELECT id FROM ... WHERE <scope>` a CSV.
-     - Ventana de rollback: ilimitada (el campo es idempotente y la condición original es reproducible mientras nadie re-enriquezca).
-   - **§9 Confirmación read-only** — ningún UPDATE/DELETE/migración ejecutado en esta fase.
+### Sub-breakdown D6a
 
-## Archivos
+- 64 placeholders `zone == region == "(sin región)"`
+- 1 543 duplicados reales (Madrid, Roma, París, ciudades-región alemanas, etc.)
 
-- **Crear**: `docs/audits/b2-geo-health-stale-dry-run.md`
-- **No tocar**: `src/`, `supabase/`, `package.json`, `README.md`, `app-version.ts`, `.lovable/plan.md`, `docs/audits/geo-backfill-dry-run.md` (B2a es spin-off independiente).
+### Top 5 por país/región
 
-## Version impact
+| País | Región | n |
+|---|---|---|
+| Francia | Isla de Francia | 158 |
+| Italia | Lacio | 130 |
+| España | Comunidad de Madrid | 110 |
+| Italia | Toscana | 86 |
+| Italia | Lombardia | 84 |
 
-**none** — solo documentación.
+Patrón: capitales metropolitanas + importer legacy que copió `region` a `zone` por defecto.
+
+### Ejemplos (3 de 10)
+
+- `6fd47859…` Friburgo de Brisgovia — Alemania / Baden-Wurtemberg / **Baden-Wurtemberg** (zone_id ≠ region_id, mismo nombre)
+- `b1def0af…` Duisburgo — Alemania / Nordrhein-Westfalen / **Nordrhein-Westfalen**
+- `d0eb9fb8…` Bahía de Botany — Australia / Nueva Gales del Sur / **Nueva Gales del Sur**
+
+### UPDATE propuesto (no ejecutar)
+
+```sql
+-- B3a (1 607 filas)
+UPDATE locations
+SET zone = NULL, updated_at = now()
+WHERE deleted_at IS NULL
+  AND zone IS NOT NULL AND region IS NOT NULL
+  AND lower(btrim(zone)) = lower(btrim(region));
+
+-- B3b (0 filas hoy, idempotente)
+UPDATE locations
+SET zone_id = NULL, updated_at = now()
+WHERE deleted_at IS NULL AND zone_id = region_id;
+```
+
+**No tocados:** `region`, `region_id`, coords, `enriched_data`, `raw_geocode`, `enrichment_status`, `geo_health`, `country_id`, `admin3_id`, `locality_id`, etc.
+
+### Riesgos
+
+- Falsos positivos en ciudades-región (Berlín-land/ciudad). Mitigación: `zone_id` y `region_id` permanecen; el resolver (`v_locations_resolved`) re-deriva label desde FK.
+- Drift snapshot→execute (precedente B2 −1). Mitigación en B3-execute: hash + abort si delta >0.5 %.
+- 64 placeholders `"(sin región)"` quedan en `region` (fuera de scope B3).
+
+### Rollback
+
+Predicado idempotente + snapshot `(id, zone_old)` capturado en B3-execute. Sin snapshot, solo PITR.
+
+### Recomendación
+
+Proceder con B3-execute en una sola pasada (D6a 1 607). B3b safe no-op (0 filas).
+
+---
+
+## Siguiente paso
+
+Cambia a **build mode** y escribiré `docs/audits/b3-zone-region-dry-run.md` con el contenido completo (conteos, 10 ejemplos, SQL reproducible, UPDATE comentado, riesgos, rollback, recomendación). Cero UPDATE/DELETE/migración/código/bump.
