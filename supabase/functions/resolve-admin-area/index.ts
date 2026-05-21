@@ -13,6 +13,10 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { shouldDropZone } from '../_shared/zone-region-guard.ts';
+import {
+  regionHasNoProvincia,
+  getCountryCanon,
+} from '../_shared/territorial-canon.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
