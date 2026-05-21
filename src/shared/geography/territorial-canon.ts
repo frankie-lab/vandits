@@ -220,5 +220,5 @@ export const COUNTRIES_WITHOUT_PROVINCIA: ReadonlyArray<string> = Object.freeze(
   Object.values(TERRITORIAL_CANON).filter((c) => !c.hasProvincia).map((c) => c.iso2),
 );
 
-/** Total de entradas (debe ser 39: 38 PDF + RU). */
+/** Total de entradas (debe ser 49: 38 PDF + RU + 10 ola P0). */
 export const TERRITORIAL_CANON_SIZE = Object.keys(TERRITORIAL_CANON).length;
