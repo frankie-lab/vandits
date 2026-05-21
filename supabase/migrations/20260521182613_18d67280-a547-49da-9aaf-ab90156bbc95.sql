@@ -1,0 +1,3 @@
+UPDATE public.locations SET zone_id = NULL, zone = NULL, updated_at = now() WHERE country_code = 'NO' AND (geo_resolved_at IS NULL OR geo_resolved_at < '2026-05-21') AND (zone_id IS NOT NULL OR zone IS NOT NULL);
+
+UPDATE public.locations SET admin3_id = NULL, updated_at = now() WHERE country_code = 'NO' AND (geo_resolved_at IS NULL OR geo_resolved_at < '2026-05-21') AND admin3_id IS NOT NULL AND locality_id IS NOT NULL;
