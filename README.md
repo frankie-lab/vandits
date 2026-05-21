@@ -1,8 +1,8 @@
-# VANDITS v1.3.4
+# VANDITS v1.3.5
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.3.4-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.3.5-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -88,6 +88,10 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 - [Deuda técnica priorizada](./docs/tech-debt.md)
 
 ## 📝 Changelog
+
+### v1.3.5 (2026-05-21)
+- ✅ **Tooltips canónicos en leyenda Madurez** (pill inferior derecha de `LocationMap`). Cada chip 0–10 se envuelve con `AppTooltip` (Radix + tokens del sistema) además del `title`/`aria-label` ya existentes. Contenido por chip: `POI-<n> · <significado>` (0 Sin dato útil · 1 Solo coordenadas · 2 Solo nombre · 3 Nombre + coordenadas válidas · 4 Identidad confirmada · 5 País / continente resuelto · 6 Región / zona resuelta · 7 Descripción enriquecida · 8 Media validada · 9 Categoría / tags validados · 10 Curado completo).
+- ✅ Bump **patch** `1.3.4 → 1.3.5`. NO toca: colores, layout, `computePoiMaturity`, marker fill, datos, colecciones, popup.
 
 ### v1.3.4 (2026-05-20)
 - ✅ **Corrección definición POI-10** en `computePoiMaturity`. POI-10 deja de exigir `enriched_data.observacion` (estado personal/editorial del usuario). Pasa a representar **curación OBJETIVA completa**: `geoHealth='ok'` + `enrichment_status='enriched'` (sobre POI-9 ya garantiza por monotonía `raw_geocode`, país/continente, región/zona, descripción IA verificable, media validada, categoría/tags).
