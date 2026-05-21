@@ -35,26 +35,38 @@ interface TreeNode {
  * Recorre los nodos raíz buscando `country` (depth=1). Si el ISO2 del país
  * cae bajo el canon §1 sin provincia, los hijos zone (que tras la regla del
  * canon en `getLocationHierarchy` son todos placeholder `(sin provincia)`)
- * se sustituyen por sus nietos. El `count`/`totalCount` del país no cambia.
+ * se sustituyen por sus nietos. Las paths de TODOS los descendientes se
+ * reescriben omitiendo el segmento zone, para que `selectNode` siga mapeando
+ * correctamente a filtros (continent/country/region/comarca/...).
  *
  * Países desconocidos = no-op. Tree multi-país queda con jerarquía mixta
  * (algunos países muestran Provincia, otros no), exactamente como el canon
  * exige.
  */
+function stripZoneSegmentFromPaths(node: TreeNode, countryPathLen: number): TreeNode {
+  // Quita el índice `countryPathLen + 1` (posición de zone) del path acumulado.
+  const newPath = node.path.length > countryPathLen + 1
+    ? [...node.path.slice(0, countryPathLen + 1), ...node.path.slice(countryPathLen + 2)]
+    : node.path;
+  return {
+    ...node,
+    path: newPath,
+    children: node.children.map((c) => stripZoneSegmentFromPaths(c, countryPathLen)),
+  };
+}
+
 function collapseZoneForCountriesWithoutProvincia(nodes: TreeNode[]): void {
   for (const continentNode of nodes) {
     for (const countryNode of continentNode.children) {
       const iso2 = nameToIso2(countryNode.name);
       if (!iso2) continue;
       if (hasProvincia(iso2)) continue;
-      // Aplana el nivel zone (cada hijo zone aporta sus hijos al país).
+      // Aplana zone: cada hijo zone aporta sus hijos al país; los paths
+      // descendientes pierden el segmento zone.
       const promoted: TreeNode[] = [];
       for (const zoneNode of countryNode.children) {
         for (const grandchild of zoneNode.children) {
-          // Re-emparenta el path para que coincida con el nuevo depth.
-          // El path acumulado se reescribe omitiendo el segmento zone.
-          const newPath = [...countryNode.path, ...grandchild.path.slice(countryNode.path.length + 1)];
-          promoted.push({ ...grandchild, path: newPath });
+          promoted.push(stripZoneSegmentFromPaths(grandchild, countryNode.path.length));
         }
       }
       countryNode.children = promoted.sort(compareGeoTreeNodes);
