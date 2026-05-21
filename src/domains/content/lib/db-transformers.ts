@@ -38,6 +38,9 @@ export function dbLocationToGeoLocation(loc: any): GeoLocation {
     zoneResolved: loc.zone_resolved || undefined,
     admin3Resolved: loc.admin3_resolved || undefined,
     localityResolved: loc.locality_resolved || undefined,
+    // T2A-wire — iso_code canónico de la región (PT-20, PT-30, ES-CT, ...).
+    // Vehículo data-driven para excepciones regionales del canon territorial.
+    regionIsoCode: loc.region_iso_code || undefined,
     placeType: (loc.place_type as GeoLocation['placeType']) || undefined,
     customData: Object.keys(mergedCustomData).length ? mergedCustomData : undefined,
     enrichedData: (loc.enriched_data as unknown as EnrichedLocationData) || undefined,

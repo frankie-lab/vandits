@@ -281,6 +281,14 @@ export interface GeoLocation {
   zoneResolved?: string;
   admin3Resolved?: string;
   localityResolved?: string;
+  /**
+   * T2A-wire — `iso_code` canónico de la región (admin_nivel_1) tipo `PT-20`,
+   * `PT-30`, `ES-CT`, etc. Derivado en `v_locations_resolved` desde
+   * `admin_areas.iso_code` por `region_id`. Usado por
+   * `regionHasNoProvincia()` para aplicar excepciones regionales del canon
+   * (p.ej. Açores/Madeira sin distrito) sin hardcode en componentes.
+   */
+  regionIsoCode?: string;
  placeType?: PlaceType;
  visibility?: LocationVisibility;
  customData?: Record<string, string>;
