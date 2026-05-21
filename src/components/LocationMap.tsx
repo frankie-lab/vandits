@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
 import { MapScaleBar } from './MapScaleBar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { AppTooltip } from '@/shared/components/ui/AppTooltip';
 import { useMapCenterConfig, MapCenterConfig } from './MapCenterSettings';
 import { ZOOM_THRESHOLDS } from '@/design-system/map/rules/zoom-thresholds';
 
