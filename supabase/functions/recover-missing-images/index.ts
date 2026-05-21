@@ -318,34 +318,104 @@ serve(async (req) => {
         const complete = isAttemptComplete(telemetry);
 
         if (hit) {
-          item = {
-            id: loc.id, name: loc.name, result: "found",
-            source: telemetry.finalSource, durationMs: telemetry.durationMs,
-          };
-          if (!dryRun) {
-            const newEnriched = {
-              ...(loc.enriched_data ?? {}),
-              imagen: hit.url,
-              imagen_fuente: `${hit.source}: ${hit.title ?? ""}`.trim(),
-              media: {
-                ...(loc.enriched_data?.media ?? {}),
-                images: [hit],
-                cover_url: hit.url,
-                image_recovery_attempted_at: new Date().toISOString(),
-                image_recovery: {
-                  source_telemetry: telemetry,
-                  recovered: true,
-                },
-              },
+          // Classify the candidate BEFORE persisting. Banderas / escudos /
+          // logos / .svg vectoriales se rechazan: no se promociona el POI a
+          // POI-8 con basura. Ver `docs/audits/poi7-image-quality-gate-plan.md`.
+          const classification = classifyImageCandidate({
+            url: hit.url,
+            title: hit.title,
+            sourceField: (hit as { source_field?: string | null }).source_field
+              ?? null,
+          });
+
+          if (classification.status === "rejected") {
+            // Symbolic candidate (flag/coat/logo/svg). Do NOT write `imagen`.
+            // Persist the rejection so retries don't re-propose the same URL
+            // and observability is preserved. The POI stays at its current
+            // POI-N level (no media counted).
+            item = {
+              id: loc.id, name: loc.name, result: "rejected",
+              source: telemetry.finalSource, durationMs: telemetry.durationMs,
+              imageKind: classification.kind,
+              imageStatus: classification.status,
+              rejectionReason: classification.reason,
             };
-            const { error: uErr } = await admin
-              .from("locations")
-              .update({ enriched_data: newEnriched })
-              .eq("id", loc.id);
-            if (!uErr) { updated++; updatedDelta = 1; }
-            else console.error("update failed", loc.id, uErr.message);
+            noImage++; noImageDelta = 1;
+            if (!dryRun) {
+              const prevRejected = Array.isArray(loc.enriched_data?.media_rejected)
+                ? loc.enriched_data.media_rejected
+                : [];
+              const newEnriched = {
+                ...(loc.enriched_data ?? {}),
+                media_rejected: [
+                  ...prevRejected,
+                  {
+                    url: hit.url,
+                    source: hit.source,
+                    title: hit.title ?? null,
+                    reason: classification.reason,
+                    kind: classification.kind,
+                    detected_at: new Date().toISOString(),
+                  },
+                ],
+                media: {
+                  ...(loc.enriched_data?.media ?? {}),
+                  image_recovery_attempted_at: new Date().toISOString(),
+                  image_recovery: {
+                    source_telemetry: telemetry,
+                    recovered: false,
+                    rejected: true,
+                    rejection_reason: classification.reason,
+                  },
+                },
+              };
+              await admin
+                .from("locations")
+                .update({ enriched_data: newEnriched })
+                .eq("id", loc.id);
+            }
           } else {
-            updated++; updatedDelta = 1; // count as "would-update"
+            // accepted (representative) or pending_review (unknown).
+            // pending_review still persists `imagen` for human review but
+            // image_status='pending_review' prevents POI-8 promotion via
+            // `hasValidatedMedia` in poi-maturity.ts.
+            item = {
+              id: loc.id, name: loc.name, result: "found",
+              source: telemetry.finalSource, durationMs: telemetry.durationMs,
+              imageKind: classification.kind,
+              imageStatus: classification.status,
+              rejectionReason: classification.reason,
+            };
+            if (!dryRun) {
+              const newEnriched = {
+                ...(loc.enriched_data ?? {}),
+                imagen: hit.url,
+                imagen_fuente: `${hit.source}: ${hit.title ?? ""}`.trim(),
+                image_status: classification.status,
+                image_kind: classification.kind,
+                image_classified_at: new Date().toISOString(),
+                media: {
+                  ...(loc.enriched_data?.media ?? {}),
+                  images: [hit],
+                  cover_url: hit.url,
+                  image_recovery_attempted_at: new Date().toISOString(),
+                  image_recovery: {
+                    source_telemetry: telemetry,
+                    recovered: true,
+                    image_kind: classification.kind,
+                    image_status: classification.status,
+                  },
+                },
+              };
+              const { error: uErr } = await admin
+                .from("locations")
+                .update({ enriched_data: newEnriched })
+                .eq("id", loc.id);
+              if (!uErr) { updated++; updatedDelta = 1; }
+              else console.error("update failed", loc.id, uErr.message);
+            } else {
+              updated++; updatedDelta = 1; // count as "would-update"
+            }
           }
         } else if (!complete) {
           // All failures were transient — DO NOT mark attempted. Will retry.
