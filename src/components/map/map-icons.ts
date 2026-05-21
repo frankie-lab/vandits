@@ -404,15 +404,15 @@ export const createCustomIcon = (
   //   La antigua `focused-thumbnail-rule` queda deprecada.
 
 
-  // PR-MAP-CANON-3 — Cuando `paletteScope === 'state'` (POI propio),
-  // el fill principal sale del nivel canónico POI-N (SoT compartida con
-  // el popup vía `getPoiCurationLevel.levelKey`). `marker_size_config.
-  // fill_color` deja de gobernar el color en esta rama: queda como
-  // fallback para no-state y para tamaño/hover/border (que sí lo siguen
-  // leyendo a través de `entry`).
+  // CANON ABSOLUTO (v1.3.10) — Para TODO POI propio (paletteScope='state'),
+  // el fill del disco viene de `poi.maturity[computePoiMaturity(loc)]` a
+  // través de `ownMaturityFill` (SoT única). `entry.fill_color` queda como
+  // fallback SÓLO para no-state (formas no-propias que no entran por la
+  // rama de followed/app/source). `entry` sigue gobernando tamaño / hover /
+  // borde — eso NO es color, sigue válido.
   const levelVisual = visualGrammar?.levelVisual ?? null;
-  const baseColor = levelVisual ? `hsl(${levelVisual.fillHsl})` : entry.fill_color;
-  const baseColorLight = levelVisual
+  const baseColor = ownMaturityFill ?? entry.fill_color;
+  const baseColorLight = ownMaturityFill
     ? adjustHslLightness(baseColor, 15)
     : (entry.fill_color_light || adjustHslLightness(baseColor, 15));
   const scaleRatio = hoverSize ? hoverSize / size : 1;
