@@ -365,18 +365,23 @@ export const createCustomIcon = (
   const isMassSelect = currentState === 'selected';
   // Halo de propiedad (Ola 2): PR-MAP-CANON-2 — tokenizado en `poi.halo.own`.
   const ownHalo = isOwn && !isMassSelect ? ` ${tokens.poi.halo.own}` : '';
-  const shadow = (isMassSelect
-    ? 'drop-shadow(0 0 0 1.5px rgba(255,255,255,0.95)) drop-shadow(0 1px 3px rgba(0,0,0,0.35))'
-    : currentState !== 'normal'
-      ? getStateShadow(currentState, '#000000', stateRules)
-      : getShadowForMode(renderMode)) + ownHalo;
+  // Fase A (v1.3.7): selección/focus/recent NO altera el fill POI-N.
+  // Se usa un halo externo blanco+sombra (mismo patrón que mass-select)
+  // para señalar el estado sin contaminar el color del disco.
+  const HALO_EXTERNAL =
+    'drop-shadow(0 0 0 2px hsl(var(--background))) ' +
+    'drop-shadow(0 0 0 3px rgba(0,0,0,0.55)) ' +
+    'drop-shadow(0 1px 3px rgba(0,0,0,0.35))';
+  const shadow = (currentState !== 'normal'
+    ? HALO_EXTERNAL
+    : getShadowForMode(renderMode)) + ownHalo;
   const baseBorderWidth = getStateBorderWidth(currentState, stateRules);
   const borderWidth = isMassSelect ? Math.max(2, baseBorderWidth) : baseBorderWidth;
 
-  const applyStateColor = (hex: string): string => {
-    if (currentState === 'normal' || isMassSelect) return hex;
-    return getStateColor(hex, currentState, stateRules);
-  };
+  // Fase A (v1.3.7): el fill canónico POI-N nunca se mezcla con color de
+  // estado. `applyStateColor` queda como identidad para no propagar cambios
+  // a las ramas SVG (pin gradient / dot gradient).
+  const applyStateColor = (hex: string): string => hex;
 
   // Regla canónica por zoom (ver `mem://style/map/zoom-driven-hero`):
   //   • La imagen Hero aparece SOLO en el hover Polaroid (z≥14) y como
@@ -436,7 +441,7 @@ export const createCustomIcon = (
     // (Lucide MapPin/Type) — cero React per marker.
     const glyph = getCoherenceGlyph(location);
     const glyphHtml = glyph
-      ? `<div style="position:absolute; top:-4px; right:-4px; width:14px; height:14px; border-radius:50%; background:hsl(var(--poi-health-review) / 0.95); display:flex; align-items:center; justify-content:center; pointer-events:none; box-shadow:0 0 0 1.5px hsl(var(--background));"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${getCoherenceGlyphPath(glyph)}</svg></div>`
+      ? `<div style="position:absolute; top:-3px; right:-3px; width:10px; height:10px; border-radius:50%; background:hsl(var(--poi-health-review) / 0.85); display:flex; align-items:center; justify-content:center; pointer-events:none; box-shadow:0 0 0 1px hsl(var(--background));"><svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${getCoherenceGlyphPath(glyph)}</svg></div>`
       : '';
     polaroidHtml = `
       <div class="poi-hero-marker poi-hero-marker--addon${ownClass}" style="position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%); width:${polaroidW}px; height:${polaroidH}px; pointer-events:none; --marker-state-color:${baseColor};">
