@@ -359,8 +359,8 @@
   position: absolute;
   inset: 0;
   border-radius: 9999px;
-  border: var(--collection-ring-width, 2px) dashed var(--collection-tint, #ffffff);
-  opacity: 0.60;
+  border: 2px solid var(--collection-tint, #ffffff);
+  opacity: 1;
   pointer-events: none;
   box-sizing: border-box;
 }
