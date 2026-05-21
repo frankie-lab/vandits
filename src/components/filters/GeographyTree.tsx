@@ -29,6 +29,39 @@ interface TreeNode {
  ids: string[];
 }
 
+/**
+ * T2A-wire — Colapsa el nivel Provincia en países con `hasProvincia=false`.
+ *
+ * Recorre los nodos raíz buscando `country` (depth=1). Si el ISO2 del país
+ * cae bajo el canon §1 sin provincia, los hijos zone (que tras la regla del
+ * canon en `getLocationHierarchy` son todos placeholder `(sin provincia)`)
+ * se sustituyen por sus nietos. El `count`/`totalCount` del país no cambia.
+ *
+ * Países desconocidos = no-op. Tree multi-país queda con jerarquía mixta
+ * (algunos países muestran Provincia, otros no), exactamente como el canon
+ * exige.
+ */
+function collapseZoneForCountriesWithoutProvincia(nodes: TreeNode[]): void {
+  for (const continentNode of nodes) {
+    for (const countryNode of continentNode.children) {
+      const iso2 = nameToIso2(countryNode.name);
+      if (!iso2) continue;
+      if (hasProvincia(iso2)) continue;
+      // Aplana el nivel zone (cada hijo zone aporta sus hijos al país).
+      const promoted: TreeNode[] = [];
+      for (const zoneNode of countryNode.children) {
+        for (const grandchild of zoneNode.children) {
+          // Re-emparenta el path para que coincida con el nuevo depth.
+          // El path acumulado se reescribe omitiendo el segmento zone.
+          const newPath = [...countryNode.path, ...grandchild.path.slice(countryNode.path.length + 1)];
+          promoted.push({ ...grandchild, path: newPath });
+        }
+      }
+      countryNode.children = promoted.sort(compareGeoTreeNodes);
+    }
+  }
+}
+
 export function GeographyTree() {
  const { getAllLocations, filters, setFilters, selectedLocations, navigateToGeoNode, toggleGeoBranchSelection } = useLocationsStore();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
