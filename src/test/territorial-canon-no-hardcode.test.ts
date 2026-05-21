@@ -28,6 +28,11 @@ const GUARDED_FILES = [
 
 const FORBIDDEN_ISO2 = ['PT', 'ES', 'FR', 'IT', 'GB', 'US', 'DE', 'NL', 'BR', 'JP', 'MX', 'AU'];
 const FORBIDDEN_LONG_NAMES = ['Portugal', 'Spain', 'España', 'France', 'Francia', 'Italy', 'Italia', 'Germany', 'Alemania'];
+// T2A-wire (§1.b) — iso_codes regionales y nombres de regiones cuya
+// excepción canónica DEBE pasar por `regionHasNoProvincia` / canon, NUNCA
+// por comparación literal en componentes/parsers/resolver.
+const FORBIDDEN_REGION_ISO = ['PT-20', 'PT-30'];
+const FORBIDDEN_REGION_NAMES = ['Açores', 'Azores', 'Madeira'];
 
 function stripBlockComments(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, '');
