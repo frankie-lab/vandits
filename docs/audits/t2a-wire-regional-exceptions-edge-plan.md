@@ -199,3 +199,19 @@ El veto sólo dispara con `PT-20` / `PT-30`. No se toca Distrito.
   mismo código de warning (`canon-region-zone-forbidden`).
 - Tests TS/Deno verdes. Paridad y anti-hardcode verdes.
 - Roadmap: criterios §5.2 y §5.3 cerrados, global 4/6.
+
+---
+
+## 8. Rollback
+
+- Revertir el PR de runtime (edge `resolve-admin-area/index.ts` + cliente
+  `resolve-admin-fks.ts`) — un solo commit, dos archivos de runtime.
+- Volver de 1.3.17 a 1.3.16 (`package.json`, `src/lib/app-version.ts`,
+  `docs/releases/version-history.md`) si fuera necesario.
+- Confirmar que el cambio es **aditivo en payload** (`meta` opcional) y que
+  callers existentes no se rompen al revertir.
+- **No hay rollback de datos** porque este PR no toca datos históricos
+  (`locations`, `admin_areas`, `enriched_data` intactos). El veto sólo afecta
+  el output de FK resolver para POIs nuevos en curso de import.
+- Mecanismo recomendado: revert vía History de Lovable; tests Deno+Vitest
+  revertidos a su estado v1.3.16.

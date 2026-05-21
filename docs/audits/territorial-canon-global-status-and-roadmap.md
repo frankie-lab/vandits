@@ -88,13 +88,13 @@ No son TODOs comprometidos. Sólo se promoverán a canon global si una auditorí
 El canon territorial se considera **globalmente cerrado** cuando se cumplen TODAS las condiciones:
 
 1. ✅ Wire cliente respeta excepciones regionales (v1.3.16).
-2. ⏳ Wire servidor (`resolveAllFks` + `resolve-admin-area` edge) respeta excepciones regionales — **sin TODOs**.
-3. ⏳ Cualquier escritura nueva en `locations` con región en `regionsWithoutProvincia` y `zone_id != NULL` es rechazada o silenciosamente normalizada en el servidor.
+2. ✅ Wire servidor (`resolveAllFks` + `resolve-admin-area` edge) respeta excepciones regionales — **sin TODOs** (v1.3.17, T2A-wire-regional-exceptions-edge).
+3. ✅ Cualquier escritura nueva en `locations` con región en `regionsWithoutProvincia` y `zone_id != NULL` es rechazada/normalizada server-side (v1.3.17, veto en `resolve-admin-area` + warning `canon-region-zone-forbidden`).
 4. ⏳ Data-fixes históricos residuales (Santa Cruz, Bolhão, Braga Parque, bbox-only) cerrados o formalmente aceptados como deuda no bloqueante. Tener ticket vigente no basta por sí solo para cerrar este criterio.
-5. ✅ Tests transversales (paridad TS/Deno + anti-hardcode + excepciones regionales) verdes en CI.
+5. ✅ Tests transversales (paridad TS/Deno + anti-hardcode + excepciones regionales + wire-resolver edge contract) verdes en CI.
 6. ⏳ Telemetría de warnings activa en producción durante ≥7 días sin spikes inexplicados. Depende de implementar §4.3.
 
-**Estado actual:** 2/6 cerrado. Bloqueante principal: edge enforcement (punto 2).
+**Estado actual:** 4/6 cerrado (v1.3.17). Pendientes: §5.4 (data-fixes residuales) y §5.6 (telemetría).
 
 ---
 

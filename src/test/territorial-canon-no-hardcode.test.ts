@@ -24,6 +24,9 @@ const GUARDED_FILES = [
   'src/shared/import/canon-validator.ts',
   'supabase/functions/_shared/geo-normalizer.ts',
   'supabase/functions/_shared/reverse-geocode.ts',
+  // T2A-wire §1.b (edge enforcement): el resolver server-side aplica el veto
+  // exclusivamente vía `regionHasNoProvincia` del canon Deno.
+  'supabase/functions/resolve-admin-area/index.ts',
 ];
 
 const FORBIDDEN_ISO2 = ['PT', 'ES', 'FR', 'IT', 'GB', 'US', 'DE', 'NL', 'BR', 'JP', 'MX', 'AU'];
