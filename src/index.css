@@ -357,7 +357,7 @@
    la jerarquía visual). No toca lógica de colecciones, solo render. */
 .collection-tint-ring {
   position: absolute;
-  inset: 0;
+  inset: -3px;
   border-radius: 9999px;
   border: 2px solid var(--collection-tint, #ffffff);
   opacity: 1;
