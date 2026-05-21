@@ -1,0 +1,20 @@
+cd75b85c-c834-4bd0-ab4b-ad36eb28f958|Agulo|https://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/Bandera_de_Agulo_%28con_escudo%29.svg/1280px-Bandera_de_Agulo_%28con_escudo%29.svg.png
+246b93cd-d97d-4a18-8b69-27866f84f1be|Albarracín|https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/Bandera_de_Albarrac%C3%ADn.svg/1280px-Bandera_de_Albarrac%C3%ADn.svg.png
+0399cfa7-70f2-42d1-8887-72e49940a951|Anento|https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Bandera_de_Anento.svg/1280px-Bandera_de_Anento.svg.png
+889d7a2f-9598-4177-8a41-6ea5cd18593d|Baños de la Encina|https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Bandera_de_Ba%C3%B1os_de_la_Encina_%28Ja%C3%A9n%29.svg/1280px-Bandera_de_Ba%C3%B1os_de_la_Encina_%28Ja%C3%A9n%29.svg.png
+f53bc4d9-da60-408c-a79c-cd4752913aa0|Capileira|https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Bandera_de_Capileira_%28Granada%29.svg/1280px-Bandera_de_Capileira_%28Granada%29.svg.png
+91049c79-4ae4-4b42-8723-3bf5d66fa9c5|Covarrubias|https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Bandera_de_Covarrubias_%28Burgos%29.svg/1280px-Bandera_de_Covarrubias_%28Burgos%29.svg.png
+53115fb5-9679-484e-b657-1537b29668fa|Genalguacil|https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Flag_of_Genalguacil_Spain.svg/1280px-Flag_of_Genalguacil_Spain.svg.png
+6c194b1a-b887-4781-b34a-f1057dd831c9|Grazalema|https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Flag_of_Grazalema.svg/1280px-Flag_of_Grazalema.svg.png
+2204ba5d-1c78-4eb3-86ae-89a8c425c68f|Llerena|https://upload.wikimedia.org/wikipedia/commons/thumb/9/96/Bandera_de_Llerena.svg/1280px-Bandera_de_Llerena.svg.png
+1d8de57d-5d82-4b13-9a39-bca68e25162c|Lucainena de las Torres|https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/Flag_of_Lucainena_de_las_Torres_Spain.svg/1280px-Flag_of_Lucainena_de_las_Torres_Spain.svg.png
+b50f275d-b5f7-447a-bece-7c7c0050fddd|Mojácar|https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Bandera_de_Moj%C3%A1car_%28Almer%C3%ADa%29.svg/1280px-Bandera_de_Moj%C3%A1car_%28Almer%C3%ADa%29.svg.png
+c80062c4-1bd7-418c-90d4-a88b1569ed8f|Mondoñedo|https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Flag_of_Mondo%C3%B1edo.svg/1280px-Flag_of_Mondo%C3%B1edo.svg.png
+f43da01c-c22c-4db3-95c5-930626ba6b2b|Níjar|https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/Bandera_de_N%C3%ADjar_%28Almer%C3%ADa%29.svg/1280px-Bandera_de_N%C3%ADjar_%28Almer%C3%ADa%29.svg.png
+aa50a907-b73f-4253-8a89-77d4cf9247b5|Olivenza|https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Bandera_de_Olivenza_%28Badajoz%29.svg/1280px-Bandera_de_Olivenza_%28Badajoz%29.svg.png
+eb71821f-2673-4815-aeba-4b54a6f00b66|Pastrana|https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/Bandera_de_Pastrana.svg/1280px-Bandera_de_Pastrana.svg.png
+c02410c2-aa4a-4bec-88ef-862465d66e54|San Martín de Trevejo|https://upload.wikimedia.org/wikipedia/commons/e/e8/San_martin_de_trevejo-Bandera.gif
+d74580b7-147f-4289-91b3-efe68bd6ec57|Setenil de las Bodegas|https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Flag_of_Setenil_de_las_Bodegas_Spain.svg/1280px-Flag_of_Setenil_de_las_Bodegas_Spain.svg.png
+4663baa3-f97f-47ac-a819-2a404ee3ebc4|Trevélez|https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Flag_of_Trev%C3%A9lez_Spain.svg/1280px-Flag_of_Trev%C3%A9lez_Spain.svg.png
+11b2d22d-b964-4db7-a9e8-7816c9098a7f|Vejer de la Frontera|https://upload.wikimedia.org/wikipedia/commons/thumb/5/54/Flag_of_Vejer_de_la_Frontera_Spain_%282nd_Coat_of_Arms_Variant%29.svg/1280px-Flag_of_Vejer_de_la_Frontera_Spain_%282nd_Coat_of_Arms_Variant%29.svg.png
+aa58f037-4cbb-4102-a5ef-a661e96dd724|Zahara de la Sierra|https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Bandera_de_Zahara_de_la_Sierra.svg/1280px-Bandera_de_Zahara_de_la_Sierra.svg.png
