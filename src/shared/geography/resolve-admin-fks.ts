@@ -18,6 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   getCountryCanon,
   allowsRegionEqualsZone,
+  regionHasNoProvincia,
 } from '@/shared/geography/territorial-canon';
 import { nameToIso2 } from '@/shared/geo/country-iso';
 
