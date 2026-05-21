@@ -1,11 +1,23 @@
 # T2.3 — Plan de ejecución: Lote 0 + Lote 1 (PT)
 
-> **Estado:** PLAN. No ejecutar. No UPDATE. No geocoder. No código. No bump.
+> **Estado:** PLAN aprobado con bloqueos (IE + canon_gap). No ejecutar todavía. No UPDATE. No geocoder. No código. No bump.
 >
 > **Referencias:**
 > - `docs/audits/t2-3-region-placeholder-dry-run.md`
-> - `docs/contracts/territorial-equivalence-canon.md`
+> - `docs/contracts/territorial-equivalence-canon.md` (+ mirrors TS/Deno)
 > - `docs/audits/t2-2-hasprovinciafalse-lote1-closure.md`
+
+---
+
+## 0bis. Gate canónico TERRITORIAL_CANON (regla DURA, ambos lotes)
+
+Antes de tocar ningún POI, se evalúa `country_code` contra `TERRITORIAL_CANON` (`docs/contracts/territorial-equivalence-canon.md` + mirrors TS/Deno).
+
+- **`country_code ∈ TERRITORIAL_CANON`** → POI elegible para resolución según el método del lote.
+- **`country_code ∉ TERRITORIAL_CANON`** → **PRESERVAR**. Marcar `canon_gap=true` en postflight. **NO resolver automáticamente** ni por parent-chain, ni por Nominatim, ni por catálogo.
+- **`country_code = 'IE'`** → **BLOQUEADO EXPLÍCITAMENTE** en L0, L1 y L2..L5. Listar y reportar como `canon_gap_blocked='IE'`. Requiere prerequisito **T2.3-IE** (ver §5) antes de cualquier corrección de sus ~55 POIs.
+
+Este gate aplica antes que cualquier otro filtro de selección de universo y se documenta en cada postflight (`country_code`, conteo `eligible` vs `canon_gap` vs `canon_gap_blocked`).
 
 ---
 
