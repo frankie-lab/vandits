@@ -82,13 +82,16 @@ export function getLocationHierarchy(
   const continentFallback = (typeof lat === 'number' && typeof lng === 'number')
     ? continentLabelFromCoords(lat, lng)
     : undefined;
+  // T1-fix — orden canónico por nivel: *Resolved (FK SoT) → legacy text →
+  // enriched_data.datos_geograficos.*. Ver
+  // docs/contracts/territorial-equivalence-canon.md § "SoT textual cliente".
   const raw = {
-    continent: canonicalContinent(norm(loc.continent ?? gd?.continente)) ?? continentFallback,
-    country: canonicalCountry(norm(loc.country ?? gd?.pais)),
-    region: norm(loc.region ?? gd?.admin_nivel_1),
-    zone: norm(loc.zone ?? gd?.admin_nivel_2),
-    admin_level_3: norm((loc as any).comarca ?? gd?.admin_nivel_3),
-    locality: norm((loc as any).localidad ?? gd?.localidad),
+    continent: canonicalContinent(norm(loc.continentResolved ?? loc.continent ?? gd?.continente)) ?? continentFallback,
+    country: canonicalCountry(norm(loc.countryResolved ?? loc.country ?? gd?.pais)),
+    region: norm(loc.regionResolved ?? loc.region ?? gd?.admin_nivel_1),
+    zone: norm(loc.zoneResolved ?? loc.zone ?? gd?.admin_nivel_2),
+    admin_level_3: norm(loc.admin3Resolved ?? (loc as any).comarca ?? gd?.admin_nivel_3),
+    locality: norm(loc.localityResolved ?? (loc as any).localidad ?? gd?.localidad),
     sublocality: norm((loc as any).sublocalidad ?? gd?.sublocalidad),
     street: norm(gd?.calle),
   } as Record<HierarchyLevel, string | undefined>;
