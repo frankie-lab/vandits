@@ -124,11 +124,17 @@ Estimación dry-run: **~17 POIs** sujetos al recorte del gate canónico (los 17 
 
 ```sql
 WITH src AS (
+`parent-chain` puro, con gate canónico aplicado en el `WHERE`:
+
+```sql
+WITH src AS (
   SELECT l.id AS loc_id,
          COALESCE(l.admin3_id, l.zone_id, l.locality_id) AS leaf_id
   FROM locations l
   WHERE (l.region_id IS NULL OR l.region IS NULL OR l.region = '')
     AND COALESCE(l.admin3_id, l.zone_id, l.locality_id) IS NOT NULL
+    AND l.country_code <> 'IE'                          -- bloqueo explícito IE
+    AND l.country_code = ANY($CANON_COUNTRY_CODES)      -- gate TERRITORIAL_CANON
 ),
 chain AS (
   SELECT s.loc_id, aa.id AS anc_id, aa.name AS anc_name, aa.depth
@@ -140,7 +146,7 @@ chain AS (
 SELECT loc_id, anc_id, anc_name FROM chain;
 ```
 
-Sin Nominatim. Sin matching textual. Sin heurística de coordenadas.
+`$CANON_COUNTRY_CODES` se materializa desde `TERRITORIAL_CANON` en pre-flight (lista cerrada de ISO2). Sin Nominatim, sin matching textual, sin heurística de coordenadas.
 
 ### 1.4 Listado a generar (no ejecutar todavía)
 
