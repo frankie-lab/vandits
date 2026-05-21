@@ -248,6 +248,16 @@ export interface GeoLocation {
  lng: number;
  altitude?: number;
  };
+ /**
+  * Cache textual legacy de la cadena administrativa. Estos campos se mantienen
+  * por compatibilidad con código existente. La fuente canónica (SoT) en cliente
+  * son los campos `*Resolved` (derivados de FK → `admin_areas.name` vía
+  * `v_locations_resolved`). Ver `docs/contracts/territorial-equivalence-canon.md`
+  * sección "SoT textual cliente" y `docs/audits/t1-zone-text-null-with-zone-id-dry-run.md`.
+  *
+  * Consumers deben preferir `*Resolved` cuando exista. `getLocationHierarchy`
+  * aplica el orden canónico (`*Resolved` → legacy → `enriched_data.datos_geograficos.*`).
+  */
  continent?: string;
  country?: string;
  region?: string;
@@ -256,6 +266,21 @@ export interface GeoLocation {
   localidad?: string;
   sublocalidad?: string;
   street?: string;
+  /**
+   * SoT textual derivado de FK → `admin_areas.name` por `v_locations_resolved`.
+   * `undefined` cuando la consulta no pasa por la vista (p.ej. `.from('locations')`
+   * directo). En ese caso `getLocationHierarchy` cae al campo legacy.
+   *
+   * NOTA: la vista actual sólo expone los 4 niveles superiores
+   * (continent/country/region/zone). `admin3Resolved` y `localityResolved`
+   * quedan reservados para cuando la vista los exponga (deuda separada).
+   */
+  continentResolved?: string;
+  countryResolved?: string;
+  regionResolved?: string;
+  zoneResolved?: string;
+  admin3Resolved?: string;
+  localityResolved?: string;
  placeType?: PlaceType;
  visibility?: LocationVisibility;
  customData?: Record<string, string>;
