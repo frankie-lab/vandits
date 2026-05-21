@@ -109,11 +109,14 @@ Resolver `region_id` / `region` derivándolos de la cadena `admin_areas` ya exis
 
 POIs donde:
 
+- `country_code IN TERRITORIAL_CANON` **Y** `country_code <> 'IE'` (gate §0bis)
 - `region_id IS NULL OR region IS NULL OR region = ''`
 - **Y** al menos uno de `{admin3_id, zone_id, locality_id}` está poblado
 - **Y** el ancestro depth=1 (región) es derivable navegando `admin_areas.path` hacia arriba
 
-Estimación dry-run: **~17 POIs**. Lista cerrada se materializa en §1.4.
+POIs cuyo `country_code` no está en TERRITORIAL_CANON, o es `IE`, quedan fuera del UPDATE y se reportan como `canon_gap` / `canon_gap_blocked` en §1.4.
+
+Estimación dry-run: **~17 POIs** sujetos al recorte del gate canónico (los 17 originales pertenecen a países ya canonizados según T2.2, pero el gate se ejecuta igualmente como defensa en profundidad). Lista cerrada se materializa en §1.4.
 
 ### 1.3 Método de resolución
 
