@@ -80,6 +80,49 @@ export function collapseZoneForCountriesWithoutProvincia(nodes: TreeNode[]): voi
   }
 }
 
+/**
+ * T2A-wire (§1.b) — Colapso del nivel Provincia para regiones declaradas
+ * SIN provincia/distrito dentro de un país que en general sí tiene provincia
+ * (caso PT-20 Açores, PT-30 Madeira).
+ *
+ * `regionIsoIndex` mapea `regionLabel` (texto que se ve en el árbol, derivado
+ * de `regionResolved`/`region`) → `regionIsoCode` (`PT-20`, `PT-30`, ...).
+ * Se construye fuera de aquí desde `filteredLocations` para no hardcodear
+ * nombres en el componente.
+ *
+ * Para cada región cuyo iso_code está en `regionsWithoutProvincia` del
+ * `CountryCanon`, sustituye `region.children` (zones placeholder o legacy)
+ * por sus nietos (admin3/locality/...), reescribiendo paths con
+ * `stripZoneSegmentFromPaths`. País desconocido / región sin iso_code = no-op.
+ *
+ * Se invoca DESPUÉS de `collapseZoneForCountriesWithoutProvincia`.
+ */
+export function collapseZoneForRegionsWithoutProvincia(
+  nodes: TreeNode[],
+  regionIsoIndex: ReadonlyMap<string, string>,
+): void {
+  for (const continentNode of nodes) {
+    for (const countryNode of continentNode.children) {
+      const iso2 = nameToIso2(countryNode.name);
+      if (!iso2) continue;
+      for (const regionNode of countryNode.children) {
+        // Indexamos por `country/region` para evitar colisiones de nombre
+        // entre países distintos (p.ej. "Norte" puede existir en múltiples).
+        const key = `${countryNode.name}/${regionNode.name}`;
+        const regionIso = regionIsoIndex.get(key);
+        if (!regionHasNoProvincia(iso2, regionIso)) continue;
+        const promoted: TreeNode[] = [];
+        for (const zoneNode of regionNode.children) {
+          for (const grandchild of zoneNode.children) {
+            promoted.push(stripZoneSegmentFromPaths(grandchild, countryNode.path.length));
+          }
+        }
+        regionNode.children = promoted.sort(compareGeoTreeNodes);
+      }
+    }
+  }
+}
+
 export function GeographyTree() {
  const { getAllLocations, filters, setFilters, selectedLocations, navigateToGeoNode, toggleGeoBranchSelection } = useLocationsStore();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
