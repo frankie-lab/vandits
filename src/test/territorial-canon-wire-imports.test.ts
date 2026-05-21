@@ -6,7 +6,9 @@
  *   - idempotente
  */
 import { describe, it, expect } from 'vitest';
-import { applyCanonToParsed } from '@/shared/import/canon-validator';
+import { applyCanonToParsed, type CanonAwarePoint } from '@/shared/import/canon-validator';
+
+const mk = (p: Partial<CanonAwarePoint>): CanonAwarePoint => ({ ...p });
 
 describe('T2A-wire — applyCanonToParsed (parsers)', () => {
   it('SE: descarta zone', () => {
