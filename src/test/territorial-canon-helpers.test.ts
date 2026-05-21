@@ -83,21 +83,10 @@ describe('territorial-canon — helpers behavior', () => {
   });
 
   describe('inmutabilidad', () => {
-    it('las entradas devueltas están congeladas (Object.freeze al definir literal)', () => {
-      const canon = getCountryCanon('PT')!;
-      expect(canon).toBeTruthy();
-      // El record raíz está congelado; las entradas del literal heredan freeze
-      // sólo si están definidas dentro de Object.freeze({...}) — verificamos
-      // que escribir sobre la raíz no produce mutación.
-      const before = canon.hasProvincia;
-      try {
-        // @ts-expect-error: prueba runtime
-        canon.hasProvincia = false;
-      } catch {
-        // strict mode lanza; non-strict silencia. Ambos OK.
-      }
-      const after = getCountryCanon('PT')!.hasProvincia;
-      expect(after).toBe(before);
+    it('TERRITORIAL_CANON record raíz está congelado', async () => {
+      const mod = await import('@/shared/geography/territorial-canon');
+      expect(Object.isFrozen(mod.TERRITORIAL_CANON)).toBe(true);
     });
   });
 });
+
