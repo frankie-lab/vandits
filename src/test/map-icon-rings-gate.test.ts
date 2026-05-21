@@ -54,8 +54,8 @@ function poi(extra: Record<string, unknown> = {}): GeoLocation {
   } as unknown as GeoLocation;
 }
 
-// `border:5px solid` es la firma del ring en `ringsHtml` (RING_WIDTH=5).
-const RING_HTML_SIGNATURE = /border:5px solid/;
+// `border:3px solid` es la firma del ring en `ringsHtml` (RING_WIDTH=3, Fase A v1.3.7).
+const RING_HTML_SIGNATURE = /border:3px solid/;
 
 function htmlOf(loc: GeoLocation): string {
   const icon = createCustomIcon(false, false, false, loc, 0, false, null, true, VIEWER) as any;
