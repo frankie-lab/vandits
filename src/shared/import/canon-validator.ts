@@ -18,7 +18,7 @@
  * pasa por aquí; queda como deuda T2A-wire-bis (resolver post-process cubre el
  * lado FK).
  */
-import { getCountryCanon } from '@/shared/geography/territorial-canon';
+import { getCountryCanon, regionHasNoProvincia } from '@/shared/geography/territorial-canon';
 import { nameToIso2 } from '@/shared/geo/country-iso';
 
 /** Subset mínimo que el validator necesita leer/escribir. */
@@ -26,6 +26,16 @@ export interface CanonAwarePoint {
   country?: string | null;
   region?: string | null;
   zone?: string | null;
+  /**
+   * T2A-wire (§1.b) — Opcional. Cuando el caller ya conoce el `iso_code`
+   * canónico de la región (p.ej. `PT-20`, `PT-30`) tras resolución FK,
+   * `applyCanonToParsed` aplicará las excepciones regionales del canon
+   * (descarte de zone bajo PT-20/PT-30, etc.). Sin este campo, las
+   * excepciones regionales se delegan a la edge (ver follow-up).
+   */
+  regionIsoCode?: string | null;
+  /** Equivalente a `regionIsoCode` cuando el caller ya tiene el `zone_id` resuelto. */
+  zoneId?: string | null;
   admin3?: string | null;
   locality?: string | null;
   sublocality?: string | null;
@@ -36,6 +46,12 @@ export interface CanonAwarePoint {
 export interface ApplyCanonOptions {
   /** ISO2 ya resuelto upstream; si se omite, se infiere de `point.country`. */
   iso2?: string | null;
+  /**
+   * T2A-wire (§1.b) — iso_code de la región (`PT-20`, etc.). Si se omite,
+   * se toma de `point.regionIsoCode`. Sin este dato no se aplican excepciones
+   * regionales (las excepciones por país §1 sí se aplican igualmente).
+   */
+  regionIsoCode?: string | null;
   /** Emite warning a `console.warn` cuando descarta valores. Default `true`. */
   emitWarnings?: boolean;
 }
@@ -51,6 +67,7 @@ export function applyCanonToParsed<T extends CanonAwarePoint>(
 
   const emit = opts.emitWarnings !== false;
   const reviews = point.canonReview ? [...point.canonReview] : [];
+  const regionIso = opts.regionIsoCode ?? point.regionIsoCode ?? null;
 
   // Regla §1: hasProvincia=false ⇒ zone NO existe.
   if (!canon.hasProvincia && point.zone) {
@@ -61,6 +78,21 @@ export function applyCanonToParsed<T extends CanonAwarePoint>(
     }
     reviews.push('canon-zone-forbidden');
     point.zone = null;
+  }
+
+  // Regla §1.b: región declarada SIN provincia/distrito (p.ej. PT-20, PT-30).
+  // Descarta zone (texto + FK) aunque el país en general sí tenga provincia.
+  if (regionHasNoProvincia(canon.iso2, regionIso)) {
+    if (point.zone || point.zoneId) {
+      if (emit) {
+        console.warn(
+          `[canon-validator] ${canon.iso2}/${regionIso}: descartando zone="${point.zone ?? ''}" zoneId="${point.zoneId ?? ''}" (region sin provincia)`,
+        );
+      }
+      reviews.push('canon-region-zone-forbidden');
+      point.zone = null;
+      point.zoneId = null;
+    }
   }
 
   // Regla §1: municipioField='locality' ⇒ admin3 enruta a locality.
@@ -80,3 +112,4 @@ export function applyCanonToParsed<T extends CanonAwarePoint>(
   if (reviews.length) point.canonReview = reviews;
   return point;
 }
+

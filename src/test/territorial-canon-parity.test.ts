@@ -27,6 +27,10 @@ describe('territorial-canon — TS ↔ Deno parity', () => {
       expect(deno.municipioField, `municipioField mismatch ${key}`).toBe(ts.municipioField);
       expect(deno.localityField, `localityField mismatch ${key}`).toBe(ts.localityField);
       expect([...deno.regionEqZoneWhitelist], `whitelist mismatch ${key}`).toEqual([...ts.regionEqZoneWhitelist]);
+      // T2A-wire (§1.b) — paridad de regionsWithoutProvincia.
+      const tsRWP = ts.regionsWithoutProvincia ? [...ts.regionsWithoutProvincia] : undefined;
+      const denoRWP = deno.regionsWithoutProvincia ? [...deno.regionsWithoutProvincia] : undefined;
+      expect(denoRWP, `regionsWithoutProvincia mismatch ${key}`).toEqual(tsRWP);
     }
   });
 

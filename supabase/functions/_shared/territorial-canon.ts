@@ -16,6 +16,8 @@ export interface CountryCanon {
   readonly municipioField: MunicipioField;
   readonly localityField: LocalityField;
   readonly regionEqZoneWhitelist: ReadonlyArray<string>;
+  /** T2A-wire — Excepciones regionales (§1.b). Lookup case-sensitive por iso_code. */
+  readonly regionsWithoutProvincia?: ReadonlyArray<string>;
 }
 
 export const TERRITORIAL_CANON: Readonly<Record<string, CountryCanon>> = Object.freeze({
@@ -24,7 +26,7 @@ export const TERRITORIAL_CANON: Readonly<Record<string, CountryCanon>> = Object.
   IT: { iso2: 'IT', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: [] },
   GB: { iso2: 'GB', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: [] },
   US: { iso2: 'US', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: ['District of Columbia'] },
-  PT: { iso2: 'PT', hasProvincia: true, municipioField: 'admin3', localityField: 'locality', regionEqZoneWhitelist: [] },
+  PT: { iso2: 'PT', hasProvincia: true, municipioField: 'admin3', localityField: 'locality', regionEqZoneWhitelist: [], regionsWithoutProvincia: ['PT-20', 'PT-30'] },
   RO: { iso2: 'RO', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: [] },
   DE: { iso2: 'DE', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: ['Berlin', 'Hamburg', 'Bremen'] },
   FI: { iso2: 'FI', hasProvincia: false, municipioField: 'locality', localityField: 'sublocality', regionEqZoneWhitelist: [] },
@@ -110,6 +112,26 @@ export function allowsRegionEqualsZone(
   }
   return false;
 }
+
+/**
+ * T2A-wire — §1.b: lookup data-driven de excepciones regionales (PT-20, PT-30,
+ * etc.). Case-sensitive sobre iso_code completo. Sin hardcode fuera de canon.
+ */
+export function regionHasNoProvincia(
+  iso2: string | null | undefined,
+  regionIsoCode: string | null | undefined,
+): boolean {
+  const canon = getCountryCanon(iso2);
+  if (!canon || !canon.regionsWithoutProvincia || !canon.regionsWithoutProvincia.length) return false;
+  if (typeof regionIsoCode !== 'string') return false;
+  const code = regionIsoCode.trim();
+  if (!code) return false;
+  for (const entry of canon.regionsWithoutProvincia) {
+    if (entry === code) return true;
+  }
+  return false;
+}
+
 
 export const COUNTRIES_WITHOUT_PROVINCIA: ReadonlyArray<string> = Object.freeze(
   Object.values(TERRITORIAL_CANON).filter((c) => !c.hasProvincia).map((c) => c.iso2),
