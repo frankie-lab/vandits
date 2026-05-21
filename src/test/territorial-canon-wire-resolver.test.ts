@@ -68,8 +68,8 @@ describe('T2A-wire — sanitización canon en resolveAllFks', () => {
     expect(out.zone_id).toBeNull();
   });
 
-  it('CL (municipioField=locality): admin3 promueve a locality', () => {
-    const out = sanitize('CL', base({ admin3_id: 'a3' }));
+  it('NL (municipioField=locality): admin3 promueve a locality', () => {
+    const out = sanitize('NL', base({ admin3_id: 'a3' }));
     expect(out.admin3_id).toBeNull();
     expect(out.locality_id).toBe('a3');
   });
