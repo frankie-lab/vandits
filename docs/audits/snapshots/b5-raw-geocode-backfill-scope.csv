@@ -1,0 +1,340 @@
+id,name,country,latitude,longitude,owner_user_id,created_at,geo_health
+96fb3645-8af4-4f4d-9ed4-0595690da8ab,Jardín Botánico de Múnich Alto,Alemania,48.112758,11.686408,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+417c8935-b0db-493c-81d0-c59e023fda79,Museo Etnográfico de Berlín (Sur),Alemania,52.456705,13.320147,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+4e1c7955-542a-485d-9b55-ba25a50da039,Bodega Artesanal de Albacete de la Sierra,España,39.024036,-1.838012,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+8cc02c20-3964-47b6-8bad-804dc04ae1a3,Bodega Artesanal de Ávila,España,40.686475,-4.58532,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+43285e14-cf72-4ef8-9cb9-57f449dccb12,Bodega Artesanal de Ávila #2,España,40.743633,-4.675148,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+3715fd65-093d-420c-812b-5887b792051c,Bodega Artesanal de Barcelona (Norte),España,41.459545,2.08102,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+31869808-cdc6-4050-b270-389893b0c430,Bodega Artesanal de Madrid,España,40.445491,-3.597439,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+75a01dda-3c66-43de-a113-99cd7cab9bd4,Bodega Artesanal de Murcia Antiguo,España,38.055289,-1.16017,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+4ebd1e53-ddf4-4791-a5aa-f62e99ac99a8,Bodega Artesanal de Oviedo,España,43.626698,-5.572972,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+e7d2d01f-cd27-4f76-8705-9a89c80a5004,Bodega Artesanal de Sevilla,España,37.412629,-5.891039,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+d3748235-7bab-4e00-b5ad-e06a71d90ba9,Bodega Artesanal de Tenerife de la Sierra,España,28.439295,-16.196693,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+f85747ae-c1a8-45dd-a703-86c7f9e1b19d,Café Histórico de Bilbao (Norte),España,43.265286,-3.033182,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+8490d2d0-9ed3-4e89-a8cd-2c291791d69b,Café Histórico de Bilbao del Valle,España,43.153039,-2.967484,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+fce87116-53ca-47ef-b1e5-ecaa5dbd3e4e,Café Histórico de Consuegra (Norte),España,39.836413,-3.61098,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+2e23062b-bff0-4706-8283-f61539eb97b8,Café Histórico de Santander Nuevo,España,43.370137,-3.782949,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+e99a4dd1-260e-4a68-b692-fdc43f433db7,Café Histórico de Santander Nuevo,España,43.370302,-3.919017,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+6b19de97-dcb9-48e1-8a45-4c2eccf022d2,Café Histórico de Valencia (Norte),España,39.448565,-0.288979,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+a61e18c2-a896-4389-9fc4-b8634d74ed90,Cascada Oculta A Coruña,España,43.362776,-8.441932,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+fa3c9dd9-90c5-4b44-bdd1-f290aee976d0,Cascada Oculta Alicante (Norte),España,38.244427,-0.556402,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+73e40cb6-f871-40b3-b850-e9b98c0a7561,Cascada Oculta Barcelona de la Sierra,España,41.405146,2.094323,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+f4170ae4-6f6a-4617-82a5-08c8eddbfe61,Cascada Oculta Bilbao del Valle,España,43.257764,-2.945805,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+e1f29b58-8356-45f4-bdec-de3166d42284,Cascada Oculta Cádiz Antiguo,España,36.524741,-6.354278,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+1cbe6901-d502-4770-8493-a28e0ad29319,Cascada Oculta Granada,España,37.258582,-3.636858,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+6ec9f468-0db7-4358-9034-cd871f3884be,Cascada Oculta Madrid de la Sierra,España,40.524518,-3.744068,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+cac78dc2-dd95-4942-a91e-a0a75bf3d9e3,Cascada Oculta Murcia,España,38.039281,-1.217754,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+3c8b56ad-25b6-4580-96de-b7dd748ed849,Cascada Oculta Sevilla,España,37.293315,-6.096442,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+8bc64de3-e66f-4587-ad3e-2db2ae4a686f,Cascada Oculta Sevilla Alto,España,37.306668,-6.006456,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+8cd7b1e1-eaeb-40a3-a897-07ddd36000dd,Casco Antiguo de Cáceres,España,39.556242,-6.480782,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+7b626d87-a1f7-46d8-aed0-695db5713bb7,Casco Antiguo de Cáceres Alto,España,39.354561,-6.433792,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+0d97fe48-b84b-41a5-9a21-c88da057b847,Casco Antiguo de Consuegra del Valle,España,39.775297,-3.492837,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+f129d5c7-7907-4a86-8dbe-319e7af52efa,Casco Antiguo de Murcia (Norte),España,37.884701,-1.022239,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+8a1da658-28d7-449e-8abf-143e4243bc53,Casco Antiguo de Sevilla Antiguo,España,37.374477,-5.86595,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+f9b7aa48-5ef5-41eb-ad2f-fb5c8bd0f2a0,Castillo de Albacete Bajo,España,38.951786,-1.745656,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+27855bd9-b374-4a47-93d2-676854ccedb1,Castillo de Llívia de la Sierra,España,42.510214,1.632523,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+eb5ea618-6bd9-401d-a9cd-329e1e7ac8df,Castillo de Murcia (Sur),España,37.987167,-1.229647,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+e349ab00-444b-49a6-8290-5fa255ebb7c0,Castillo de Palma (Sur),España,39.456566,2.610871,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+123c0fe0-c308-4fe8-9ea8-630fff9b9c49,Castillo de Sevilla Bajo,España,37.302882,-5.87254,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+be2b35f4-f809-48ef-be48-bcf8c2eb55df,Castillo de Tenerife de la Sierra,España,28.461345,-16.286405,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+05bd4905-86cd-4802-b4e3-b9015917ce5f,Castillo de Toledo,España,39.947601,-4.121703,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+fff3f802-4ade-4611-9c4c-edbff3b4e93e,Castillo de Toledo (Sur),España,39.905288,-4.017565,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+2309c116-f7e0-41a8-9b22-9297d61008e4,Castillo de Zaragoza Nuevo,España,41.579598,-0.930657,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+0c56e1c9-b6ca-486c-b0c5-faa3c7657d8d,Catedral de A Coruña,España,43.262205,-8.507388,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+cabc2b9a-e6ca-4181-98ba-23484d51a447,Catedral de Albacete Antiguo,España,39.059799,-1.763876,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+5b1fe3e4-4b8d-4017-bc59-b891d6e280ec,Catedral de Consuegra de la Sierra,España,39.624731,-3.544869,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+7da674a6-da19-486f-ac19-bbfb8a541f4e,Catedral de Santander Alto,España,43.36467,-3.691758,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+a8ba652c-d138-49c2-8812-3b161b846a13,Catedral de Sevilla del Valle,España,37.359079,-6.097735,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+8e932821-1a3d-4907-bb74-ef57daf86d4f,Cueva de Alicante Nuevo,España,38.278372,-0.453374,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+b85fd50b-147e-4ca8-b4fb-659b2c8cd9e8,Cueva de Bilbao de la Sierra,España,43.274713,-2.880464,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+2cc8afab-6b1c-4530-a1c8-fbab3a06d002,Cueva de Cáceres (Norte),España,39.411383,-6.34871,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+1bdb4c0b-8ff0-41b9-9943-efa457bfb3eb,Cueva de Consuegra Nuevo,España,39.677513,-3.497704,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+d2d0faf5-6c78-4fb9-adf2-755361c42a05,Cueva de Madrid Bajo,España,40.33612,-3.595076,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+7beae676-25cc-4b7b-bdcf-c9f7da9c2e0d,Cueva de Málaga Bajo,España,36.619631,-4.389426,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+c04bcd1b-e2bc-4f1e-8b82-65fee4d5f4ae,Cueva de Valencia (Norte),España,39.408296,-0.354971,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+0ec1cf3d-90e0-4e7c-be5d-74eb8e4f2726,Cueva de Vigo Antiguo,España,42.14753,-8.641794,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+93d4853f-a7b1-4ab8-ba5b-6d5a64256d09,Cueva de Vigo del Valle,España,42.271208,-8.721625,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+44b7896d-b497-4a78-844b-5832622e0748,Cueva de Zaragoza del Valle,España,41.682961,-0.901106,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+1eda8aa6-3489-47b6-904a-f8d2934350b1,Faro de Cáceres (Norte),España,39.460726,-6.301924,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+294219ec-b114-4384-b968-e06c68747cf0,Faro de Llívia Nuevo,España,42.605509,1.497914,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+411a13ca-2a03-4b10-84ce-aca54ee691f2,Faro de Madrid (Sur),España,40.463743,-3.627694,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+887369dc-e169-4c10-863b-68cc57a52460,Faro de Murcia del Valle,España,38.007004,-1.089897,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+f43d98aa-7ce9-45be-9c50-020755311506,Faro de Santander del Valle,España,43.385496,-3.897397,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+e16ac9d9-c472-4f9f-b94f-7371f0a235ad,Faro de Toledo Bajo,España,39.947628,-3.918477,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+f977e226-da17-4485-96d2-a5483b26f03e,Faro de Valladolid de la Sierra,España,41.748043,-4.736602,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+c7a1d2a9-00d2-4ffa-8b08-f31518d21e74,Jardín Botánico de Alicante,España,38.337236,-0.390022,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+b57c37c9-b057-4992-ab61-955f4f764434,Jardín Botánico de Consuegra Antiguo,España,39.689022,-3.524766,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+0f792e64-827a-4720-9551-20fc403e9511,Jardín Botánico de Granada Bajo,España,37.130789,-3.579027,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+6fa5a913-326d-44f9-bdf2-4d6efa3465d6,Jardín Botánico de Málaga (Norte),España,36.833019,-4.480805,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+33c7f721-cebd-4e3b-bdff-a3bb9b14760c,Jardín Botánico de Málaga Antiguo,España,36.829581,-4.459384,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+7fcf8f21-748c-4b0f-b509-4e8164a843c1,Jardín Botánico de Murcia Alto,España,38.05416,-1.084954,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+bf1441eb-1a90-464b-94bc-9ac61664a2a5,Jardín Botánico de Oviedo de la Sierra,España,43.427468,-5.742368,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+a1d9bbf1-e202-4dbc-b6c6-cd7b53a3eff2,Jardín Botánico de Valencia Antiguo,España,39.4886,-0.445243,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+568df858-a5e8-4bdd-94f3-fe2a43d02e1a,Jardín Botánico de Valencia Nuevo,España,39.555756,-0.417147,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+d8151dd1-63be-442b-a49b-5c6f2b597b40,Jardín Botánico de Vigo,España,42.224558,-8.666837,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+c4f4e307-eb22-4709-9f67-2aca3791a85b,Jardín Botánico de Zaragoza (Norte),España,41.531837,-0.908286,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+fb70abe1-1f1a-48ce-88c9-88572e7dfe76,Mercado Central de A Coruña Bajo,España,43.422453,-8.345245,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+5797105e-2ded-4bb9-b0a5-a87d95d0b3b8,Mercado Central de Ávila del Valle,España,40.768058,-4.657152,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+e88168d0-b20a-4a7f-b17a-ed0dbc8dc58d,Mercado Central de Bilbao (Norte),España,43.207541,-2.990582,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+bd89c994-d37f-46ca-a5f6-692c190af522,Mercado Central de Granada Alto,España,37.277493,-3.689474,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+6fa16934-1b78-4674-88c8-598a1a17dc86,Mercado Central de Granada de la Sierra,España,37.228446,-3.698911,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+451c596f-4dbe-4254-97c7-538704ca3f96,Mercado Central de Granada Nuevo,España,37.158056,-3.487916,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+d11f44dd-0667-40a4-b87d-c5cfc35ef9bb,Mercado Central de Llívia,España,42.559759,1.641969,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+042128b3-d546-4696-a7fa-7d3b3e0d8a45,Mercado Central de Madrid Bajo,España,40.32365,-3.596988,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+5b74c902-901e-4687-a3c7-9980cba9a1ca,Mercado Central de Málaga,España,36.667296,-4.434357,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+28cf0c27-8739-4c5d-b2e8-e6f8638d1d19,Mercado Central de Málaga Nuevo,España,36.797354,-4.349098,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+70153a8f-0ead-45ef-98ab-17e6179398b4,Mercado Central de Oviedo (Norte),España,43.460957,-5.719748,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+8ff6a37e-b7f1-49e7-83ea-4e09cc658b83,Mercado Central de Palma del Valle,España,39.561066,2.611846,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+932084b0-49b7-4002-82f4-7279feb052f6,Mercado Central de Santander Nuevo,España,43.390856,-3.764638,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+0bfe1a23-312e-4129-80e9-d181442d99dc,Mercado Central de Santiago de Compostela Bajo,España,42.786268,-8.575207,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+bc24bcce-ac5d-4734-8fce-d6050113854d,Mercado Central de Zaragoza de la Sierra,España,41.532558,-0.959382,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+82e8dac4-f80d-4126-8708-9cfae828c64c,Mirador de Palma del Valle,España,39.60274,2.547243,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+fb79a9e3-61cb-4cae-b50b-ac6349a7087c,Mirador de Santander,España,43.482389,-3.738679,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+e4af637c-8cf9-44f5-a4aa-6b2e8529e1e3,Mirador de Sevilla Bajo,España,37.321573,-5.983215,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+49e2c8ee-8ba7-4fb8-89a4-05bbb3f61ba2,Mirador de Sevilla de la Sierra,España,37.495945,-5.944128,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+70f8eb25-3f41-484a-9ce9-172f978b96e2,Mirador de Tenerife Alto,España,28.492258,-16.164075,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+03d10475-6515-4265-afcf-ed88f28ff389,Mirador de Toledo de la Sierra,España,39.959386,-4.107787,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+7b52862e-8e97-4195-94d3-212ee3ad825a,Mirador de Valladolid Bajo,España,41.704384,-4.778196,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+802a59b7-4e96-4d4e-8487-a6fb295893d6,Monasterio de Albacete,España,39.011984,-1.784767,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+49f4b495-cf8d-402b-bfd5-9902ab717924,Monasterio de Albacete Nuevo,España,38.907711,-1.799703,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+1bae2cbb-5365-4567-8526-c7f3ca20df7b,Monasterio de Alicante Alto,España,38.324902,-0.465661,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+b9d1d928-c785-4ea9-9c76-e01a6cabfe53,Monasterio de Cáceres Alto,España,39.420622,-6.46061,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+d62c9fb3-b07b-4101-9a73-0f218d56af3e,Monasterio de Llívia Antiguo,España,42.500057,1.444305,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+c69465a6-0181-4ac3-8ca2-8fbd76e8df2d,Monasterio de Málaga (Norte),España,36.721071,-4.448523,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+ea2ae62e-8fda-4d7a-91bf-7d96208bc9b3,Monasterio de Santander Antiguo,España,43.366103,-3.761473,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+80293d7a-0bc6-40dd-809f-b2051ea2d44f,Monasterio de Santiago de Compostela (Norte),España,42.814478,-8.584197,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+2b84ade1-7c60-40cf-b82f-38d30820a279,Monasterio de Tenerife Antiguo,España,28.434669,-16.134314,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+fd36530c-357d-47af-a4de-a6c3ffa72aa4,Monasterio de Toledo del Valle,España,39.879549,-4.088325,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+373a3fd9-84fe-49e7-83a5-17906ed120ab,Monasterio de Valencia Nuevo,España,39.583448,-0.405452,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+d3450416-705f-49a8-994a-f3bd3f3dcf5c,Monasterio de Valladolid Antiguo,España,41.637653,-4.793668,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+e91d81f5-b01d-4fc9-9e02-cb1a7cc735cf,Monasterio de Zaragoza Bajo,España,41.597095,-0.771716,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+93d20425-7f27-4217-8e71-1c2ebd45b547,Museo Etnográfico de Cádiz (Sur),España,36.466168,-6.337999,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+338c0b37-aef5-490a-98c0-41318e4a1115,Museo Etnográfico de Llívia del Valle,España,42.509378,1.614835,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+c1663f48-dc32-44ef-a3ff-f690f0554d34,Museo Etnográfico de Valladolid,España,41.569516,-4.794911,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+12563119-df7c-48c8-a686-fff032ce4cba,Museo Etnográfico de Valladolid (Sur),España,41.549248,-4.795438,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+3522259f-8832-4985-adc0-88aa75324b91,Parque Municipal de Alicante Alto,España,38.460739,-0.372021,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+52c1fb5a-fc39-4e8e-8bb7-f54c50012841,Parque Municipal de Llívia Alto,España,42.497731,1.440576,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+838db3fd-dc4f-4c12-afc5-9e7887dc7a76,Parque Municipal de Llívia del Valle,España,42.406853,1.417798,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+f3c0babd-d6b7-46e6-bb0f-e7454cda883f,Parque Municipal de Murcia del Valle,España,37.995186,-1.22591,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+757db149-393d-49d6-8656-1c346717159a,Parque Municipal de Toledo de la Sierra,España,39.884854,-3.98818,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+6de248f1-71a1-4bdd-bab4-d1008aef667a,Parque Municipal de Valladolid Nuevo,España,41.658078,-4.633462,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+d25504ac-5586-4db8-b58a-5b6a9aa27fa6,Parque Municipal de Vigo Nuevo,España,42.272831,-8.640414,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+4ddb3669-c721-4d78-b15f-892527ad1106,Playa Secreta de Alicante,España,38.252516,-0.497821,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+e9a5829f-9109-4874-8b75-26fb1846f383,Playa Secreta de Alicante Alto,España,38.352962,-0.430902,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+1b4ab9f3-9d58-4648-9460-d6d74f93084c,Playa Secreta de Alicante de la Sierra,España,38.363211,-0.428549,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+1933b697-37f5-4d81-938d-2c4e00f5eae0,Playa Secreta de Barcelona Bajo,España,41.492783,2.148914,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+4953fd56-d159-4bdd-a213-ca95021aa7d5,Playa Secreta de Cáceres (Sur),España,39.360683,-6.418996,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+df79b7fe-e9f8-4f16-9155-7079df554a48,Playa Secreta de Granada Alto,España,37.257657,-3.537117,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+c14dd510-c115-49c8-9c93-7beda9012416,Playa Secreta de Madrid del Valle,España,40.307838,-3.632726,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+f3cda4eb-cd60-4ed9-ad63-de7d174a9973,Playa Secreta de Salamanca de la Sierra,España,41.089549,-5.667635,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+79679290-29cd-491b-bac5-8bac0d217d9a,Playa Secreta de Santiago de Compostela (Norte),España,42.796532,-8.500142,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+33cf4dcc-2260-4a0e-b12e-b37a8104f3e3,Playa Secreta de Tenerife,España,28.491767,-16.176503,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+8ddeaa28-35f0-459a-9081-00c1c572fdcf,Playa Secreta de Tenerife (Norte),España,28.352626,-16.283303,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+974c3222-a775-4ca4-95f0-87cc3c1b5365,Playa Secreta de Valencia de la Sierra,España,39.522641,-0.424223,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+b35a79fc-b3f1-49b7-b6e1-623586a77444,Plaza Mayor de A Coruña Nuevo,España,43.370109,-8.497856,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+4fc18bfc-3108-45a2-832a-3a03adbbc1e0,Plaza Mayor de Albacete de la Sierra,España,39.068463,-1.97694,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+f8f888ea-3ca9-497a-85ab-67b95042c205,Plaza Mayor de Málaga Alto,España,36.800823,-4.356337,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+93d1b47e-2442-485b-853e-d9426368d130,Plaza Mayor de Murcia de la Sierra,España,38.099845,-1.039569,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+4df7ac3a-da4b-4e02-921a-25cbf3152034,Plaza Mayor de Palma,España,39.536954,2.751054,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+c9e0df07-10de-4218-9a3b-a6ab10992b13,Plaza Mayor de Santander,España,43.501883,-3.838905,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+953c4376-702c-47b1-af0f-08cc897cd13e,Plaza Mayor de Sevilla,España,37.358343,-5.887588,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+4451d872-5a2a-4571-a241-05176c67835a,Plaza Mayor de Toledo del Valle,España,39.950199,-4.046948,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+a4b87810-5326-4f00-a2fb-eebe395ef8af,Plaza Mayor de Valladolid Nuevo,España,41.767396,-4.672094,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+8904fc13-0feb-4929-8552-e1c9d2c18b08,Plaza Mayor de Vigo (Norte),España,42.284232,-8.797486,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+c91cecdb-8f0a-4d03-8968-618d11462d26,Plaza Mayor de Vigo Bajo,España,42.168552,-8.601356,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+da120e15-b8fc-4b0b-948c-7025f75a150b,Pueblo Encantado Alicante Alto,España,38.331242,-0.437729,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+7b4d0ec7-7acb-43ad-8b96-e347917a38df,Pueblo Encantado Llívia del Valle,España,42.554405,1.438179,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+173cd421-4438-46cd-8dc6-de76d564c97e,Pueblo Encantado Llívia del Valle,España,42.473484,1.611539,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+e881c86e-a1bf-4b28-b46a-38a5fe14e335,Pueblo Encantado Málaga,España,36.690113,-4.368217,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+216814ca-345a-4d97-9e56-e40eba414bac,Pueblo Encantado Oviedo,España,43.513119,-5.691615,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+a17f1e80-e79e-4369-93b7-9bc6cb0f1e2d,Pueblo Encantado Palma,España,39.501017,2.561955,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+40f324dd-bbca-49ac-93d6-631c98289d76,Pueblo Encantado Salamanca (Norte),España,40.96013,-5.604004,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+19a65ec1-c255-4c71-a869-93dcbbe02aa5,Pueblo Encantado Valladolid,España,41.545638,-4.824824,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+9bb5104b-b444-4013-86e4-4a4ea469cfc2,Pueblo Encantado Zaragoza,España,41.72229,-0.84167,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+1b17cb4a-c61b-495f-bcb9-0e17442bf638,Puente Medieval de Alicante,España,38.312027,-0.419454,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+2b405059-33e6-46bc-8ebd-a8d8b3f2e82e,Puente Medieval de Cáceres Nuevo,España,39.363135,-6.455201,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+34efea11-d182-4782-bf9b-fd9c8930583b,Puente Medieval de Granada (Norte),España,37.158058,-3.528064,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+f8d867aa-07e2-4680-8458-dc6ef7934be9,Puente Medieval de Granada del Valle,España,37.196624,-3.580544,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+b230fffe-b02a-4eb0-a261-21bc7834660b,Puente Medieval de Oviedo Alto,España,43.467221,-5.596506,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+49a76c8c-b233-4039-9193-798960cddcc9,Puente Medieval de Palma Alto,España,39.547792,2.648214,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+045b2f5b-103e-4643-b360-25d3f69f657b,Puente Medieval de Salamanca de la Sierra,España,40.954968,-5.687495,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+0eee796e-57e3-4edf-b1f0-c5b0f4180e65,Puente Medieval de Santiago de Compostela Nuevo,España,42.987475,-8.645833,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+d5664740-7395-4c47-bd93-d9508202c96a,Puente Medieval de Sevilla,España,37.347801,-6.033546,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+88a6f280-95dc-4343-ba20-88a64f28b301,Puente Medieval de Vigo (Norte),España,42.200279,-8.816612,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+df5042f6-a891-4825-b0d2-a96a93a7c485,Restaurante Tradicional Ávila (Norte),España,40.746493,-4.769882,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+e52e9fe9-2bcf-4801-8aae-3801704d18d4,Restaurante Tradicional Ávila (Norte),España,40.696972,-4.676164,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+296533ff-7bc4-4eb3-ab38-8e33e1cb3620,Restaurante Tradicional Cádiz de la Sierra,España,36.428253,-6.379453,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+3cbad260-0147-48cd-bc14-ff165fe47030,Restaurante Tradicional Madrid Antiguo,España,40.443277,-3.784412,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+fe0f7ccf-b42c-48c8-a529-1d54c963c57d,Restaurante Tradicional Salamanca de la Sierra,España,40.914258,-5.688245,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+e5c814e5-6b07-4681-a186-ae18ed0d1f75,Restaurante Tradicional Tenerife Alto,España,28.531825,-16.246732,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+6ac63030-f1f1-43c0-87bd-623f30977ccc,Restaurante Tradicional Tenerife Antiguo,España,28.418968,-16.342823,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+f0c522ba-4dec-4425-8151-20acc403bb3a,Restaurante Tradicional Valencia de la Sierra,España,39.453323,-0.284511,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+06a7def7-9e04-487e-ada0-1eedf23085cf,Ruta de Senderismo Madrid (Norte),España,40.52311,-3.717063,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+5c8ed546-9ba4-4169-aac0-4446bdf9038d,Ruta de Senderismo Málaga,España,36.777411,-4.309686,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+af0f976c-f6b0-443a-9c93-64565d577058,Ruta de Senderismo Oviedo del Valle,España,43.65799,-5.765541,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+adeefb3c-8739-4d0d-94ee-478032791b23,Ruta de Senderismo Palma,España,39.597357,2.755573,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+32707b03-4c71-4c51-9e41-1657c9af0cf0,Ruta de Senderismo Palma #2,España,39.55573,2.602877,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+21b29687-2e20-42ed-8133-357b50489a8b,Ruta de Senderismo Santander Bajo,España,43.345144,-3.80284,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+e868511b-5df7-430f-9685-c432e810ba0a,Ruta de Senderismo Toledo Bajo,España,39.885813,-4.034968,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+ced0df03-3b53-47dd-8592-109de4018ce4,Ruta de Senderismo Valencia,España,39.459049,-0.334821,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+539a85f1-a105-48b5-911e-84ecd9a37c90,Ruta de Senderismo Valladolid Bajo,España,41.586651,-4.762209,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+f6495751-221a-46cf-ad73-f61eef3ac87d,Ruta de Senderismo Vigo Alto,España,42.154948,-8.730024,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+4d382d2d-2e26-4404-bf56-8c2d988e69ee,Ruta de Senderismo Zaragoza del Valle,España,41.595665,-0.992439,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+b5af2a0a-c794-4fc5-92c9-efbb4845e820,Bodega Artesanal de Nueva York (Norte),Estados Unidos,40.61764,-73.91021,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+d5d55f07-1a55-4e3b-be45-27b993790154,Cascada Oculta Nueva York,Estados Unidos,40.614802,-74.075095,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+b76edbd0-3492-41a6-a6f9-0378b2d8aaa7,Cueva de Nueva York de la Sierra,Estados Unidos,40.739837,-73.953374,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+1b2b47d2-3c3a-4b85-9911-d6aec8fdfecd,Mirador de Nueva York,Estados Unidos,40.804203,-74.009669,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+898b7fef-a3fb-4ca1-8488-a88740bd900e,Museo Etnográfico de Los Ángeles Nuevo,Estados Unidos,33.992995,-118.18291,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+c48995ee-9117-4b04-a768-5e63613dfca0,Plaza Mayor de Los Ángeles Alto,Estados Unidos,34.058315,-118.288399,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+c1d66814-c7e5-46e3-a024-393e066730f3,Pueblo Encantado Los Ángeles Alto,Estados Unidos,34.043549,-118.228403,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+deb13046-e73e-4e58-a418-700c99317c23,Bodega Artesanal de Bastia,Francia,42.607641,9.384827,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+0d54fe36-97a6-483b-9ccd-f0e1747a136b,Bodega Artesanal de Bastia del Valle,Francia,42.817943,9.525423,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+adff7443-842c-4cb4-96e8-8ab270163eaa,Bodega Artesanal de Grenoble,Francia,45.161712,5.647656,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+ef0d8070-6fca-4dfc-a909-38c07b638726,Bodega Artesanal de Rennes Bajo,Francia,48.061749,-1.598998,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+bd98e30d-5830-471c-b6cb-f5eccd289ed2,Café Histórico de Niza (Norte),Francia,43.694028,7.360571,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+2aa22ad3-1e58-4e47-8d9c-fc77d9ef2bb0,Café Histórico de Rennes (Norte),Francia,48.12741,-1.755666,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+172728a5-a5a0-47be-85fa-28b8f46ae69f,Café Histórico de Rennes (Sur),Francia,48.206776,-1.621199,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+003cdeeb-eff0-4ac3-b1c2-2b5980fbbdfb,Cascada Oculta Estrasburgo (Norte),Francia,48.636246,7.795382,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+71113d98-10b1-4670-a5a9-23bdf70d87f6,Cascada Oculta Marsella,Francia,43.214328,5.414453,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+38a8e45b-1641-42cc-83a9-53364c67d000,Casco Antiguo de Aviñón (Sur),Francia,44.063021,4.865375,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+1637941c-6431-4c5e-b41e-b80bec3079ba,Casco Antiguo de Niza,Francia,43.593766,7.331596,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+b99735ed-9c4e-4382-9525-6c327237af87,Casco Antiguo de Rennes (Sur),Francia,48.124364,-1.613758,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+5626ab6c-fbfa-4dad-9ae0-4b52da362fbb,Castillo de Estrasburgo Nuevo,Francia,48.57766,7.754385,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+e8308b1b-aafb-41ff-88df-242b1b6e9744,Catedral de Bastia Antiguo,Francia,42.709725,9.568446,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+6bfda188-ddce-4f14-8b90-883bebb3f64f,Catedral de Niza,Francia,43.647451,7.255655,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+b3cf9399-6fd1-4975-bbae-7f144400e3d7,Catedral de Rennes Nuevo,Francia,48.129234,-1.770629,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+d44956ff-29d7-412d-8416-f52fea1a0ceb,Faro de Burdeos del Valle,Francia,44.870907,-0.686602,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+abf252e0-7914-4a7b-9d09-e1e65749c6f0,Faro de Lyon Alto,Francia,45.805752,4.781005,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+590db125-4665-46ee-bcd5-85f5f6eb8ed8,Faro de Marsella Alto,Francia,43.373052,5.440758,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+d3adbc11-a6d4-4854-baab-22f927411f01,Jardín Botánico de Dijon Bajo,Francia,47.430994,5.071932,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+abe19bf4-ee99-4f8e-8af4-5e51653e4c33,Jardín Botánico de Rennes Alto,Francia,48.164357,-1.76449,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+5786fb0e-89ad-4a33-862c-9bec7f2cb287,Mercado Central de Burdeos (Norte),Francia,44.870588,-0.550186,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+40b287bf-f0f6-4309-b257-53ce875e1a67,Mercado Central de Montpellier Nuevo,Francia,43.714421,3.781561,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+d006c4c4-117e-4660-89f1-725b967d7c33,Mercado Central de París Bajo,Francia,48.803146,2.468367,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+81db2216-be26-4557-aeba-2f219d46cb45,Mercado Central de Rennes Alto,Francia,48.055132,-1.743717,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+654ecabd-0d03-4e9f-89d9-2f274bb9fbdc,Mirador de Dijon,Francia,47.419161,5.061679,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+8dbef3a0-0256-4a4e-974a-1b463c66d253,Mirador de Grenoble Nuevo,Francia,45.140967,5.777992,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+1c47653e-11d3-4aab-a412-fb2b7e2ded73,Mirador de Toulouse (Norte),Francia,43.496841,1.564028,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+68a61cc4-1cbc-41f0-9376-163b3f1d98be,Monasterio de Burdeos,Francia,44.90749,-0.692892,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+664e5d8b-b28d-4ccc-b046-1a04ce7a4545,Monasterio de Burdeos #2,Francia,44.784272,-0.67898,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+e86188df-f488-4d8f-9aab-7b80278f30d0,Monasterio de Burdeos Nuevo,Francia,44.787902,-0.633235,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+1813cd8c-80a1-46a3-b2d9-0fd41dca2f0a,Monasterio de Le Havre Nuevo,Francia,49.442797,0.093064,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+794f3105-ce3f-4757-bc09-e5c8e5599ea4,Monasterio de Marsella (Sur),Francia,43.315063,5.441681,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+1cf5f9bf-da56-404b-833f-6f99fc60e00d,Monasterio de Niza de la Sierra,Francia,43.683475,7.231043,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+5b322261-0ad1-4656-9a94-04c116847496,Museo Etnográfico de Bastia,Francia,42.587476,9.379282,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+8980ad00-50f6-4d67-9afa-6f989ee3d05f,Museo Etnográfico de Burdeos (Norte),Francia,44.82835,-0.661971,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+ef50654b-ca8b-4294-8b78-8e89d4f76141,Museo Etnográfico de Estrasburgo,Francia,48.469866,7.815738,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+e0460964-54c2-4756-a6b4-c0dc1f2b0648,Museo Etnográfico de Montpellier (Sur),Francia,43.692801,3.878539,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+935e0e70-1780-4af5-b797-8365cd5b0cad,Museo Etnográfico de Niza Alto,Francia,43.662304,7.286771,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+e203d462-c2d1-45dd-b8d1-d5e5e709d618,Parque Municipal de Dijon Bajo,Francia,47.204962,5.020814,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+f5caa63b-98d8-4597-8bbe-9fc678697bcd,Parque Municipal de Grenoble Antiguo,Francia,45.144834,5.669769,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+272393af-3198-4f9c-bccd-8fe251cabcc6,Parque Municipal de Lille Nuevo,Francia,50.586553,2.996219,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+1e548f0f-4d14-496a-9dee-9a21676c92fb,Playa Secreta de Dijon Nuevo,Francia,47.3139,5.077193,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+e280fafd-f42c-45d4-99e3-7ffc25170b43,Plaza Mayor de Le Havre Nuevo,Francia,49.501805,0.207137,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+51fdbbf2-e323-4526-bdc2-72ca7c0d1f9a,Plaza Mayor de Nantes del Valle,Francia,47.269234,-1.451042,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+436e4d2f-09f1-476f-bde7-ae81955de147,Pueblo Encantado Dijon del Valle,Francia,47.266258,4.972136,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+2167b960-a897-4032-b239-f619049d4a62,Pueblo Encantado Montpellier,Francia,43.559659,3.859873,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+36f4079c-d25b-4635-a947-c3df2b55cbeb,Pueblo Encantado Montpellier Alto,Francia,43.665052,3.957694,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+c4e540c0-cf59-47b5-aad9-1abff1ff929a,Pueblo Encantado Niza,Francia,43.594093,7.274795,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+5ceeb1ad-c8f6-4483-ac7c-fa0b496739a4,Puente Medieval de Aviñón (Norte),Francia,43.993963,4.803165,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+7e25339f-34d8-4043-924f-948b62429939,Puente Medieval de Burdeos Nuevo,Francia,44.903966,-0.607909,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+3d4aac2b-7356-46fc-965f-76e57fb8a6bb,Puente Medieval de Estrasburgo Alto,Francia,48.541682,7.859411,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+006aa8d9-8666-47f2-a852-7a9ea6d61f78,Puente Medieval de Grenoble,Francia,45.095273,5.708844,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+a49fc322-3c95-4b2a-8520-4cba5625f4b2,Puente Medieval de Lyon,Francia,45.655026,4.865983,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+48139cf5-ce5e-4ed5-b252-b28a2093637b,Restaurante Tradicional Burdeos Nuevo,Francia,44.765697,-0.478772,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+cf0825f1-8409-4019-ba07-abadeb855c47,Restaurante Tradicional Estrasburgo (Norte),Francia,48.592195,7.64297,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+4859aff1-91c7-4383-96f0-57f5b6971abe,Restaurante Tradicional Grenoble Nuevo,Francia,45.185765,5.631348,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+b43b8fc6-af9d-45c8-9306-c5e0ab42d5e6,Restaurante Tradicional Marsella (Norte),Francia,43.351924,5.359828,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+23f11348-397d-442c-9a65-5188074c6f29,Restaurante Tradicional Marsella Alto,Francia,43.273184,5.429753,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+61e05d1b-2518-4cf8-964d-54e526b70f17,Ruta de Senderismo Bastia Bajo,Francia,42.640806,9.390238,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+e21c78e5-250e-45e9-a6eb-ec0c3e65fad0,Ruta de Senderismo Dijon de la Sierra,Francia,47.31947,5.060082,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+7af732e2-7453-4860-9aa6-775649e406c6,Ruta de Senderismo Toulouse Alto,Francia,43.561288,1.436153,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+63036654-062d-4824-b8a7-81ff38704d8b,Faro de Atenas,Grecia,38.020071,23.79157,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+25603a76-01c9-46a8-9c6b-90464a8a845e,Jardín Botánico de Santorini (Norte),Grecia,36.44058,25.371807,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+339afd37-e0f9-4a0e-94e4-80c66c95d088,Monasterio de Atenas (Norte),Grecia,37.893841,23.680178,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+a487d462-0952-40c3-b928-29cddcb34e8b,Museo Etnográfico de Santorini (Norte),Grecia,36.439755,25.581171,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+baced2f2-556e-4845-ba20-ee3dfbec3cf5,Playa Secreta de Atenas del Valle,Grecia,37.870749,23.673085,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+edab0edd-7290-47fd-b41f-378af4b694c4,Faro de Venecia (Sur),Italia,45.366588,12.301349,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+d13d1007-59ab-403d-8efb-46f0f64ba22e,Monasterio de Nápoles (Sur),Italia,40.907458,14.343946,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+090fc490-026f-4683-bfea-b0b2638d8442,Pueblo Encantado Venecia Nuevo,Italia,45.531289,12.258192,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+069b515b-19da-4d51-b606-6584860d2998,Ruta de Senderismo Roma,Italia,42.022697,12.537748,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+44019ece-2a06-4c0b-b2c8-4489350b8138,Ruta de Senderismo Venecia Alto,Italia,45.389215,12.378648,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+26bac137-8a78-4f6a-bcde-be36aa0ae1a4,Café Histórico de Marrakech,Marruecos,31.575375,-7.965277,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+f5ef13b3-afa5-4387-8663-7f5fb53e4da4,Faro de Marrakech de la Sierra,Marruecos,31.698093,-8.024604,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+ff595395-a18f-49b7-b378-02d554cc031b,Mercado Central de Casablanca (Sur),Marruecos,33.673604,-7.471603,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+cc5fc42b-8e32-4b82-bf4d-446e4cbe1e29,Parque Municipal de Marrakech Nuevo,Marruecos,31.540448,-7.93098,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+d22da4e2-bca7-4e51-ab47-32c061f49370,Playa Secreta de Marrakech,Marruecos,31.698611,-8.056385,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+0ab7cc93-b331-40a4-acc8-91a4766cbadf,Restaurante Tradicional Casablanca Bajo,Marruecos,33.583575,-7.520027,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+25f471b4-61ef-4ca0-b3cd-9a364358e5e9,Bodega Artesanal de Braga (Sur),Portugal,41.506135,-8.427866,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+5fc75d47-ed31-40b9-bda3-e09a72699a9d,Bodega Artesanal de Braga (Sur) #2,Portugal,41.494884,-8.449292,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+c88f8317-ad4d-4062-9e99-938dcb0d21be,Bodega Artesanal de Coimbra (Norte),Portugal,40.176521,-8.469101,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+a13ffbd8-9f46-41a2-91e8-c7007d19a880,Bodega Artesanal de Ponta Delgada (Sur),Portugal,37.653547,-25.564472,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+f40c31ff-06da-4238-83db-a9b4be7525a4,Bodega Artesanal de Ponta Delgada Nuevo,Portugal,37.672084,-25.737867,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+3c958f44-669f-4dcf-9bf8-cb810907d4bd,Bodega Artesanal de Viana do Castelo Bajo,Portugal,41.624549,-8.851632,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+6c37e2e9-5d7e-45b9-a23b-c61a7f9535db,Bodega Artesanal de Viana do Castelo de la Sierra,Portugal,41.604739,-8.732889,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+18fdb892-ea10-4578-9ad3-bd127051725e,Café Histórico de Aveiro (Norte),Portugal,40.543648,-8.527498,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+b1bf0f2b-1e93-43be-86a3-3008d5731ab6,Café Histórico de Ponta Delgada,Portugal,37.63463,-25.712735,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+09a5a2ee-9a43-4fec-91bc-ab77603f3058,Café Histórico de Porto del Valle,Portugal,41.228995,-8.613276,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+2c604578-7934-43ea-bdaa-7e3fd121c647,Cascada Oculta Faro,Portugal,36.910269,-7.95988,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+70f14a7e-d8d2-4482-b580-e50ab16a64c6,Casco Antiguo de Coimbra,Portugal,40.318904,-8.415711,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+f84fa53b-97ea-4d54-aebf-de412536720e,Casco Antiguo de Leiria de la Sierra,Portugal,39.758064,-8.697069,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+97994320-be06-450e-94c8-2a8f058cd051,Casco Antiguo de Leiria Nuevo,Portugal,39.811473,-8.828289,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+2719e6b9-e6b5-4ae2-bc96-c2cfa74811aa,Casco Antiguo de Lisboa Nuevo,Portugal,38.706696,-9.027888,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+94a05278-c7d4-432b-a6a5-9ba40c7658a6,Casco Antiguo de Viana do Castelo Nuevo,Portugal,41.779506,-8.934117,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+bcfe1256-d856-4687-81a1-eb0d02cced22,Castillo de Beja de la Sierra,Portugal,37.942459,-7.836471,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+fdb07522-6ed6-44bc-918b-f517b49ad5cd,Castillo de Beja del Valle,Portugal,38.026578,-7.978413,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+16e7679f-f77a-4ad5-b3a7-bef3734ace4c,Castillo de Braga del Valle,Portugal,41.635,-8.536052,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+d3587fb9-5847-4872-9a7b-0d402e5297fc,Castillo de Évora Nuevo,Portugal,38.562607,-7.826875,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+c1314522-63bf-44c6-b50b-63a30832645e,Castillo de Faro Bajo,Portugal,36.984906,-7.981136,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+d3a6a2b4-1d16-4649-9462-48d2ee78f852,Catedral de Beja Bajo,Portugal,38.121631,-7.940076,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+34288f92-2928-4089-ad65-a751a8b5b5f7,Cueva de Aveiro (Norte),Portugal,40.751606,-8.526181,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+045190d5-2500-4e0b-be7b-a86a88502916,Faro de Évora (Norte),Portugal,38.686082,-7.840776,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+13b6ac67-83d9-447b-bba9-7326cb3bcd30,Jardín Botánico de Beja Nuevo,Portugal,38.061739,-7.93713,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+76c4ca61-b8bc-4545-892c-1aae0c40ae89,Jardín Botánico de Évora (Norte),Portugal,38.490257,-7.879521,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+49987109-4c97-46a2-b35a-9829e5b27ef2,Jardín Botánico de Porto Bajo,Portugal,41.05368,-8.653542,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+cf16cfa4-ea6e-4dfe-9988-2c6f8677eb8f,Jardín Botánico de Viana do Castelo (Sur),Portugal,41.812101,-8.817816,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+34fad56f-88f0-4ad8-906d-d5758d0642e3,Mercado Central de Aveiro Nuevo,Portugal,40.590703,-8.764649,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+32891f07-c4ea-4f12-933d-ab05f2d20345,Mercado Central de Braga del Valle,Portugal,41.545419,-8.535627,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+4db50cf6-58f3-4781-9f8c-6190e536b1ef,Mercado Central de Lisboa (Norte),Portugal,38.780272,-9.200526,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+d17dc33c-8ad3-4b02-bb9b-7f3ec1952068,Mercado Central de Ponta Delgada (Norte),Portugal,37.679965,-25.67711,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+51b203e0-f1e1-49de-9d6a-f40aba17cdfa,Mirador de Aveiro del Valle,Portugal,40.588803,-8.55276,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+a9ca1867-bc5d-49ec-80a3-ae6c356bc8f4,Mirador de Braga (Norte),Portugal,41.442101,-8.368667,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+58fa11c0-e4e7-4df6-a5e8-8056ecd1472b,Monasterio de Beja,Portugal,37.917571,-7.845308,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+ed8c4aa7-b1a7-4a5c-9628-5a392343f537,Museo Etnográfico de Almada Antiguo,Portugal,38.881526,-9.194784,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+1b2f3b6c-47e6-4f12-9cc6-7a0b774fa9e3,Museo Etnográfico de Almada Bajo,Portugal,38.890163,-9.201017,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+04e9ab8a-f373-4adf-aa88-e2648e6170c7,Museo Etnográfico de Lisboa del Valle,Portugal,38.727081,-9.065737,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+24ba3b2a-ec9b-4e38-ba3a-65bb13969fb2,Parque Municipal de Funchal de la Sierra,Portugal,32.563012,-16.844475,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+4fba189d-00df-466b-aec2-3b0924d18dd3,Parque Municipal de Lisboa Antiguo,Portugal,38.761003,-9.073764,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+95bf23cb-b9b9-4cf6-a047-e4f0f4c3e15f,Parque Municipal de Lisboa del Valle,Portugal,38.791714,-9.103947,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+319afd8b-7c00-4a33-8f0d-8bdb8c635090,Parque Municipal de Viana do Castelo (Sur),Portugal,41.596044,-8.899979,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+3e13291b-8bfd-4a82-b8f5-d2c2491bef95,Playa Secreta de Beja (Sur),Portugal,38.057508,-7.90614,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+766aa7f8-dabf-46b7-a1d3-c6d5c5b31d4e,Playa Secreta de Coimbra,Portugal,40.160977,-8.361327,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+2a8c9f9f-1593-41ae-8475-a2d0d936d1d8,Playa Secreta de Faro Antiguo,Portugal,37.123857,-7.814658,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+239a7005-01ca-4bf4-8d12-314945861e7d,Playa Secreta de Leiria Alto,Portugal,39.680985,-8.832111,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+b987fda3-e6c1-498b-88be-8ad2a5fccdd9,Playa Secreta de Leiria Nuevo,Portugal,39.718799,-8.915352,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+0f731bdd-7093-49a8-ac21-cf244d14d51f,Playa Secreta de Lisboa,Portugal,38.690841,-9.189317,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+3ea76167-1c31-418b-ab4d-bdc8dca6a8bd,Playa Secreta de Ponta Delgada (Norte),Portugal,37.767851,-25.721408,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+5fa0fab9-5e4e-46a4-b158-e1b3d002699b,Plaza Mayor de Braga Bajo,Portugal,41.469981,-8.39398,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+d6c736a5-d244-47e4-81c6-ec58738ea3c4,Plaza Mayor de Ponta Delgada (Norte),Portugal,37.733565,-25.571717,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+41f49121-df8b-427c-9f40-759e747f0371,Pueblo Encantado Beja Antiguo,Portugal,37.913579,-7.883634,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+f3870dc6-09bb-4871-8eb7-edfcc02e8c05,Pueblo Encantado Beja Antiguo #2,Portugal,38.073441,-7.973255,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+ee04b298-f545-45da-a5be-33bf28bcb831,Pueblo Encantado Beja Bajo,Portugal,38.069299,-7.914031,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+d2ac1433-6d11-46b6-98ce-3ec2b4e1bcc3,Pueblo Encantado Coimbra Nuevo,Portugal,40.101027,-8.303443,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+52f32188-4ae8-4cf5-bb93-4d1bf6b47a8f,Pueblo Encantado Leiria de la Sierra,Portugal,39.663621,-8.780057,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+05f2e010-5b80-46dd-b3c6-25ff2eb26636,Pueblo Encantado Mafra Nuevo,Portugal,38.986166,-9.344793,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+5a977f93-ecc8-4d6f-85a8-9070e0ad0588,Puente Medieval de Almada Nuevo,Portugal,38.872186,-9.113203,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+50368c20-3059-40ae-894f-fd0ca0ed2b23,Puente Medieval de Funchal Antiguo,Portugal,32.693443,-16.863526,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+3a407d77-4762-4407-86cf-d75712ba4409,Puente Medieval de Viana do Castelo,Portugal,41.674751,-8.860722,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+97f88a17-7381-43ea-ab30-613f8c0be202,Restaurante Tradicional Funchal del Valle,Portugal,32.672676,-16.897747,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+fd6eb5e1-c296-412f-b53d-f2b2ebdb0623,Restaurante Tradicional Porto del Valle,Portugal,41.068779,-8.725896,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+ccb54683-cc64-4dd6-8b49-f175da486045,Ruta de Senderismo Aveiro,Portugal,40.697322,-8.611106,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+fe2e1acd-2dd4-4e9d-b4c9-f70846366727,Ruta de Senderismo Leiria (Norte),Portugal,39.662737,-8.841835,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+506994bf-f285-4099-9f5e-8a37113ccf0d,Ruta de Senderismo Leiria Antiguo,Portugal,39.792385,-8.86208,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+66e3add3-562f-4033-bd0e-f2cc4c50339c,Casco Antiguo de Londres (Sur),Reino Unido,51.563191,-0.116626,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+985bd3ad-9342-41bc-b9db-3f3bc119f819,Mercado Central de Londres (Norte),Reino Unido,51.603999,-0.141376,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+b1a119cf-ef5f-4a3d-8680-545fd90290cc,Mirador de Edimburgo de la Sierra,Reino Unido,56.029309,-3.095989,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+f15f6ed0-3dea-4671-aadc-ac312fe1f531,Playa Secreta de Londres,Reino Unido,51.458499,-0.161189,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+4c061029-2c54-45b8-a99a-d2fc1b6f2874,Playa Secreta de Londres Alto,Reino Unido,51.527403,-0.236122,ec870c6b-fe8f-41c3-8682-a70bd67cf128,2026-05-14 14:09:28.244683+00,hardError
+48182fea-28c9-4975-84a3-f222e45fd252,Monasterio de Ginebra del Valle,Suiza,46.108245,6.187763,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+aec4c126-fdda-41c5-869a-28660d3edd2d,Restaurante Tradicional Berna del Valle,Suiza,46.85253,7.418583,08e0c12c-bdab-4db8-b147-7ef8ce7c5c76,2026-05-14 14:09:28.244683+00,hardError
+b41a33d7-10e7-45c0-9cc9-f95fbd775d13,Monasterio de Sumela,Turquía,40.690064,39.658438,f04b3b95-7308-4b74-b3c7-7e819767c5fb,2026-05-06 17:42:43.41489+00,partial
