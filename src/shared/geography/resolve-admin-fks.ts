@@ -143,6 +143,16 @@ function applyCanonToResolvedFks(
     if (!legit) out.zone_id = null;
   }
 
+  // T2A-wire (§1.b) — TODO: aplicar `regionHasNoProvincia(iso2, regionIsoCode)`
+  // para descartar `zone_id` bajo regiones declaradas sin provincia (PT-20
+  // Açores, PT-30 Madeira). Requiere que la edge `resolve-admin-area` devuelva
+  // `region_iso_code` derivado de `admin_areas.iso_code` por `region_id`.
+  // Hook preparado — defensa server-side completa pendiente en follow-up:
+  // `docs/audits/t2a-wire-regional-exceptions-edge-ticket.md`.
+  // El cliente NO tiene aquí acceso síncrono al iso_code; NO se hardcodea
+  // nada (sin lookup por nombre de región). Fase 1 cubre la UI via vista
+  // `v_locations_resolved.region_iso_code` y `getLocationHierarchy`.
+
   return out;
 }
 
