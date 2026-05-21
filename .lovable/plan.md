@@ -1,83 +1,61 @@
-# Fase A — Subordinación visual de capas secundarias (patch 1.3.6 → 1.3.7)
+## Fase de estabilización visual del mapa
 
-Aplicar SOLO Fase A. No tocar Fase B, escala POI-N, `computePoiMaturity`, `getPoiMaturityColor`, marker fill, datos, edge functions ni migraciones.
+Objetivo: cerrar dos invariantes visuales sin reabrir el debate cromático.
 
-## Cambios
+### 1. Verificación — fill POI-N
 
-### 1. Health rings — opacidad 0.45 + ancho 5→3px
+`map-icons.ts` (línea 264-400) resuelve el fill del marker propio desde `visualGrammar.levelVisual.fillHsl`, que proviene de `getPoiMaturityColor` → `tokens.poi.maturity[level]`. La leyenda inferior (`LocationMap.tsx` 2837-2880) pinta cada chip con `hsl(var(--poi-maturity-${lvl}))`, los **mismos tokens**.
 
-`src/domains/content/lib/point-health-rings.ts`:
+| Nivel | Token | Fill marker | Chip leyenda | Correcto |
+|---|---|---|---|---|
+| POI-0 | `poi.maturity.0` (gris neutro) | sí | sí | sí |
+| POI-1 | `poi.maturity.1` (gris cálido) | sí | sí | sí |
+| POI-2 | `poi.maturity.2` (gris cálido) | sí | sí | sí |
+| POI-3 | `poi.maturity.3` (amarillo apagado) | sí | sí | sí |
+| POI-4 | `poi.maturity.4` (amarillo) | sí | sí | sí |
+| POI-5 | `poi.maturity.5` (amarillo intenso) | sí | sí | sí |
+| POI-6 | `poi.maturity.6` (ámbar suave) | sí | sí | sí |
+| POI-7 | `poi.maturity.7` (ámbar) | sí | sí | sí |
+| POI-8 | `poi.maturity.8` (verde amarillento) | sí | sí | sí |
+| POI-9 | `poi.maturity.9` (verde suave) | sí | sí | sí |
+| POI-10 | `poi.maturity.10` (verde) | sí | sí | sí |
 
-- `RING_COLORS`: hornear alpha 0.45 en el token usando `hsl(var(--…) / 0.45)`. Mantiene el hue semántico (amber/yellow/magenta/red) pero al 45% de peso visual. Cubre las dos ramas de render (border en dot, drop-shadow en pin) sin overrides.
-- `RING_WIDTH`: `5 → 3`.
+Conclusión: regla 1 ya cumplida, no hace falta tocar nada.
 
-Efecto colateral controlado: `RING_GAP = RING_WIDTH` (en `map-icons.ts`) hereda → el padding total `ringPad = ringCount * 3 + 2` reduce el `containerSize` del dot, manteniendo centrado e iconAnchor correctos (lógica ya parametrizada).
+### 2. Verificación — collection tint sobre fill POI-N
 
-### 2. Collection tint ring — opacity 0.45 + dashed
+Estado actual tras Fase A (`index.css` 356-364): `border: 2px dashed var(--collection-tint)` + `opacity: 0.45`.
 
-`src/index.css` regla `.collection-tint-ring`:
+| Fill bajo el tinte | Tinte visible | Comentario |
+|---|---|---|
+| POI-3 (amarillo apagado) | marginal | dashed 2px @ 0.45 sobre fondo claro queda muy débil |
+| POI-7 (ámbar saturado) | marginal | el fill domina y el dashed casi desaparece |
+| POI-10 (verde) | marginal | igual: lectura de pertenencia a colección se pierde |
 
-```css
-.collection-tint-ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 9999px;
-  border: var(--collection-ring-width, 2px) dashed var(--collection-tint, #ffffff);
-  opacity: 0.45;
-  pointer-events: none;
-  box-sizing: border-box;
-}
-```
+Diagnóstico: Fase A subordinó correctamente el tinte, pero **se pasó**: la pertenencia a colección ya no se lee de un vistazo. Hay que recuperar legibilidad sin volver a competir con el fill.
 
-Cambio: `solid → dashed`, `opacity: 0.8 → 0.45`. Solo render del tint; no toca lógica de colecciones ni el color elegido por el usuario.
+### Recomendación única
 
-### 3. Coherence/review chip — 14px → 10px, opacity 0.95 → 0.85
+Subir `opacity` del `.collection-tint-ring` de **0.45 → 0.60**. Mantener `dashed` y `2px`. Sin tocar nada más.
 
-`src/components/map/map-icons.ts` (rama `renderMode === 'rich'`, construcción `glyphHtml`):
+Justificación: el patrón dashed ya diferencia visualmente "tinte" de "fill sólido", así que recuperar algo de opacidad no devuelve la competencia cromática que tenía la versión sólida 0.8. Es el cambio mínimo que reequilibra sin reabrir el resto.
 
-- Contenedor `width:14px;height:14px` → `width:10px;height:10px`.
-- Posición `top:-4px; right:-4px` → `top:-3px; right:-3px`.
-- Fondo `hsl(var(--poi-health-review) / 0.95)` → `/ 0.85`.
-- Halo del chip `box-shadow:0 0 0 1.5px hsl(var(--background))` → `0 0 0 1px hsl(var(--background))`.
-- SVG `width="9" height="9"` → `width="7" height="7"`, `stroke-width="2.5"` → `2`.
+### Alcance del cambio (cuando se implemente)
 
-### 4. Selección/focus — halo externo, sin alterar fill
+Un solo edit, una sola línea:
+- `src/index.css` → `.collection-tint-ring { opacity: 0.60; }`
+- Version bump patch (1.3.7 → 1.3.8).
+- Entrada en `README.md`.
 
-`src/components/map/map-icons.ts`:
+### Fuera de alcance (no tocar)
 
-- `applyStateColor` → identidad (devuelve `hex` siempre). El fill POI-N nunca se mezcla con color de estado.
-- `shadow` para `currentState !== 'normal'` usa el mismo patrón halo externo blanco que ya empleaba `isMassSelect`:
-  ```ts
-  const HALO_EXTERNAL =
-    'drop-shadow(0 0 0 2px hsl(var(--background))) ' +
-    'drop-shadow(0 0 0 3px rgba(0,0,0,0.55)) ' +
-    'drop-shadow(0 1px 3px rgba(0,0,0,0.35))';
-  const shadow = (currentState !== 'normal' ? HALO_EXTERNAL : getShadowForMode(renderMode)) + ownHalo;
-  ```
-- `getStateShadow`/`getStateColor` siguen existiendo (otros call-sites, tests) pero `map-icons.ts` deja de invocarlos para `focused/recent/selected`. No se borran helpers en esta fase.
+- `computePoiMaturity`, `getPoiMaturityColor`, tokens `poi.maturity.*`.
+- Health rings (`point-health-rings.ts`), halos, bordes.
+- Datos, edge functions, migraciones, RLS.
+- Escala POI-N y leyenda.
 
-### 5. Version bump (patch)
+### Validación post-cambio
 
-- `package.json`: `1.3.6 → 1.3.7`.
-- `src/lib/app-version.ts`: `APP_VERSION = '1.3.7'`.
-- `README.md`: badge + entrada en historial v1.3.7 con resumen "Fase A subordinación visual capas marker".
-
-## Tests / verificación
-
-- `src/test/health-rings.test.ts`, `src/test/map-icon-rings-gate.test.ts`: actualizar referencias a `RING_WIDTH` y a strings de color si comparan literalmente (ajustar al nuevo formato con `/ 0.45`).
-- `src/test/poi-visual-grammar.test.ts`: si afirma color exacto del ring, recalibrar.
-- Verificación visual rápida en preview: POI-5 con `chain+review` + colección de color saturado → debe seguir leyéndose el fill POI-N como dominante.
-
-## Out of scope (no aplicar ahora)
-
-- Desaturar paleta health a banda neutra común (Fase B).
-- Banda de hues prohibidos para collection tint.
-- Diferenciación por grosor/dash entre health rings.
-- Cambios en `computePoiMaturity`, `getPoiMaturityColor`, tokens `poi.maturity.*`.
-- Datos, RLS, edge functions, migraciones.
-
-## Riesgos
-
-- Tests snapshot que comparen literal del color del ring fallarán → ajustar.
-- Rings al 45% pueden parecer débiles bajo basemaps muy claros; si feedback negativo, subir a 0.55 en hotfix (1 línea).
-- El halo de selección externo aumenta el bounding box visual ~2-3px; no afecta hit-test (Leaflet usa `iconSize`).
+- Mapa sigue respondiendo a escala POI-N (fill manda).
+- Collection tint vuelve a ser legible sobre POI-3 / POI-7 / POI-10.
+- Tests existentes (`map-icon-rings-gate.test.ts`, `poi-visual-grammar.test.ts`) siguen verdes (no tocan opacity del tint).

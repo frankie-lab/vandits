@@ -351,14 +351,16 @@
 }
 
 /* Collection visibility tint: outer ring around the marker, never covering it.
-   Fase A (v1.3.7): dashed + opacity 0.45 para subordinar el tinte frente al
-   fill POI-N. No toca lógica de colecciones, solo render. */
+   Fase A (v1.3.7): dashed para subordinar el tinte frente al fill POI-N.
+   v1.3.8: opacity 0.45 → 0.60 para recuperar legibilidad de pertenencia
+   a colección sin volver a competir con el fill (el patrón dashed mantiene
+   la jerarquía visual). No toca lógica de colecciones, solo render. */
 .collection-tint-ring {
   position: absolute;
   inset: 0;
   border-radius: 9999px;
   border: var(--collection-ring-width, 2px) dashed var(--collection-tint, #ffffff);
-  opacity: 0.45;
+  opacity: 0.60;
   pointer-events: none;
   box-sizing: border-box;
 }
