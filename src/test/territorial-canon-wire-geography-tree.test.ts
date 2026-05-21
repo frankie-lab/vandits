@@ -25,26 +25,22 @@ function makeLoc(partial: Partial<GeoLocation>): GeoLocation {
 describe('T2A-wire — GeographyTree depth via getLocationHierarchy', () => {
   it('SE: zone se descarta en hierarchy → tree no tiene rama Provincia útil', () => {
     const nodes = groupLocationsByHierarchy([
-      makeLoc({ country: 'Sweden', region: 'Stockholm', zone: 'GHOST', enrichedData: { datos_geograficos: { localidad: 'Stockholm' } } as any }),
+      makeLoc({ continent: 'Europe', country: 'Sweden', region: 'Stockholm', zone: 'GHOST', enrichedData: { datos_geograficos: { localidad: 'Stockholm' } } as any }),
     ]);
-    // Continente → Country
     const europe = nodes.find((n) => /europ/i.test(n.value));
     expect(europe).toBeDefined();
     const sweden = europe!.children.find((n) => /sweden/i.test(n.value));
     expect(sweden).toBeDefined();
-    // El nivel zone existe en el árbol crudo como placeholder (UNCLASSIFIED_VALUE)
-    // pero NO contiene el valor "GHOST" — la regla del canon lo eliminó.
     const region = sweden!.children.find((n) => /stockholm/i.test(n.value));
     expect(region).toBeDefined();
-    const zoneLevel = region!.children;
-    for (const z of zoneLevel) {
+    for (const z of region!.children) {
       expect(z.value).not.toBe('GHOST');
     }
   });
 
   it('PT: zone se mantiene (hasProvincia=true)', () => {
     const nodes = groupLocationsByHierarchy([
-      makeLoc({ country: 'Portugal', region: 'Norte', zone: 'Braga' }),
+      makeLoc({ continent: 'Europe', country: 'Portugal', region: 'Norte', zone: 'Braga' }),
     ]);
     const europe = nodes.find((n) => /europ/i.test(n.value))!;
     const pt = europe.children.find((n) => /portugal/i.test(n.value))!;
@@ -56,6 +52,7 @@ describe('T2A-wire — GeographyTree depth via getLocationHierarchy', () => {
   it('AR/CABA: zone colapsa porque region==zone whitelisted', () => {
     const nodes = groupLocationsByHierarchy([
       makeLoc({
+        continent: 'Americas',
         country: 'Argentina',
         region: 'Ciudad Autónoma de Buenos Aires',
         zone: 'Ciudad Autónoma de Buenos Aires',
@@ -64,7 +61,6 @@ describe('T2A-wire — GeographyTree depth via getLocationHierarchy', () => {
     const america = nodes.find((n) => /amer/i.test(n.value))!;
     const ar = america.children.find((n) => /argentina/i.test(n.value))!;
     const caba = ar.children.find((n) => /ciudad/i.test(n.value))!;
-    // Ningún hijo zone reproduce CABA — el canon lo colapsó.
     for (const z of caba.children) {
       expect(z.value).not.toBe('Ciudad Autónoma de Buenos Aires');
     }

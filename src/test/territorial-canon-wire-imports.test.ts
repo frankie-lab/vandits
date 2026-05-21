@@ -19,10 +19,10 @@ describe('T2A-wire — applyCanonToParsed (parsers)', () => {
     expect(p.zone).toBeNull();
   });
 
-  it('CL: admin3 promueve a locality', () => {
-    const p = applyCanonToParsed(mk({ country: 'Chile', admin3: 'Providencia' }), { emitWarnings: false });
+  it('NL: admin3 promueve a locality', () => {
+    const p = applyCanonToParsed(mk({ country: 'Netherlands', admin3: 'Amsterdam-Centrum' }), { emitWarnings: false });
     expect(p.admin3).toBeNull();
-    expect(p.locality).toBe('Providencia');
+    expect(p.locality).toBe('Amsterdam-Centrum');
     expect(p.canonReview).toContain('canon-admin3-promoted-to-locality');
   });
 
