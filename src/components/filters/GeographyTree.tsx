@@ -187,11 +187,18 @@ export function GeographyTree() {
 
  const nodes: TreeNode[] = [];
  const continentMap = new Map<string, TreeNode>();
+ // T2A-wire (§1.b) — Índice `country/regionLabel → regionIsoCode` para que
+ // el colapso regional sea data-driven (sin hardcodear PT-20/PT-30/Açores).
+ // Llave compuesta evita colisiones de nombre entre países (p.ej. "Norte").
+ const regionIsoIndex = new Map<string, string>();
 
  filteredLocations.forEach(loc => {
  // Path COMPLETO de 8 niveles, con placeholders canónicos para los
  // niveles ausentes. Esto garantiza padre = suma(hijos).
  const h = getFilledLocationHierarchy(loc);
+ if (loc.regionIsoCode && h.country && h.region) {
+ regionIsoIndex.set(`${h.country}/${h.region}`, loc.regionIsoCode);
+ }
 
  let parentChildren = nodes;
  const accumPath: string[] = [];
@@ -247,6 +254,12 @@ export function GeographyTree() {
   // canon en hierarchy.ts) por sus nietos. El invariante padre=Σ(hijos) se
   // mantiene porque la zona placeholder agrupa el 100% de los puntos.
   collapseZoneForCountriesWithoutProvincia(nodes);
+
+  // T2A-wire (§1.b) — Después del colapso por país, colapsa también el
+  // nivel zone bajo regiones declaradas SIN provincia/distrito (PT-20
+  // Açores, PT-30 Madeira). Data-driven vía `regionIsoIndex` +
+  // `regionHasNoProvincia` — sin literales en este componente.
+  collapseZoneForRegionsWithoutProvincia(nodes, regionIsoIndex);
 
   return nodes;
   }, [filteredLocations, totalTree]);
