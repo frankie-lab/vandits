@@ -59,7 +59,7 @@ export function stripZoneSegmentFromPaths(node: TreeNode, countryPathLen: number
   };
 }
 
-function collapseZoneForCountriesWithoutProvincia(nodes: TreeNode[]): void {
+export function collapseZoneForCountriesWithoutProvincia(nodes: TreeNode[]): void {
   for (const continentNode of nodes) {
     for (const countryNode of continentNode.children) {
       const iso2 = nameToIso2(countryNode.name);
