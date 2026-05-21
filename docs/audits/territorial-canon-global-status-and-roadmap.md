@@ -63,7 +63,6 @@
 ### 4.1 Wire / código (canon global)
 - ⏳ **Edge enforcement** de `regionsWithoutProvincia` en `resolveAllFks` (hoy: hook + TODO). Ticket: `docs/audits/t2a-wire-regional-exceptions-edge-ticket.md`.
 - ⏳ **Server-side discard** en edge function `resolve-admin-area` para descartar `zone_id` cuando la región pertenece a `regionsWithoutProvincia`.
-- ⏳ **Ampliación de excepciones** a otros países con regiones autónomas/insulares análogas (ES Canarias/Baleares evaluación pendiente, FR DOM-TOM, IT Sicilia/Sardegna — sólo si auditoría territorial lo justifica; no hardcodear preventivamente).
 
 ### 4.2 Data-fixes históricos pendientes
 - ⏳ **Santa Cruz da Graciosa** — quedó fuera de P2, requiere remapeo si cumple regla PT-20. Ticket: `T2.3-P2-residual-data`.
@@ -75,6 +74,13 @@
 - ⏳ Métrica de warnings `canon-region-zone-forbidden` en pipeline de import (telemetría agregada).
 - ⏳ Panel admin de cobertura territorial por país (Geo Maintenance).
 
+Este bloque alimenta directamente el criterio §5.6: telemetría ≥7 días sin spikes.
+
+### 4.4 Exploratorio / sujeto a auditoría
+- ❔ **Ampliación de excepciones regionales** a ES Canarias/Baleares, FR DOM-TOM, IT Sicilia/Sardegna y análogos.
+
+No son TODOs comprometidos. Sólo se promoverán a canon global si una auditoría territorial demuestra que requieren excepción regional. Prohibido hardcodear preventivamente.
+
 ---
 
 ## 5. Criterio de cierre global
@@ -84,9 +90,9 @@ El canon territorial se considera **globalmente cerrado** cuando se cumplen TODA
 1. ✅ Wire cliente respeta excepciones regionales (v1.3.16).
 2. ⏳ Wire servidor (`resolveAllFks` + `resolve-admin-area` edge) respeta excepciones regionales — **sin TODOs**.
 3. ⏳ Cualquier escritura nueva en `locations` con región en `regionsWithoutProvincia` y `zone_id != NULL` es rechazada o silenciosamente normalizada en el servidor.
-4. ⏳ Data-fixes históricos residuales (Santa Cruz, Bolhão, Braga Parque, bbox-only) cerrados o explícitamente diferidos con ticket vigente.
+4. ⏳ Data-fixes históricos residuales (Santa Cruz, Bolhão, Braga Parque, bbox-only) cerrados o formalmente aceptados como deuda no bloqueante. Tener ticket vigente no basta por sí solo para cerrar este criterio.
 5. ✅ Tests transversales (paridad TS/Deno + anti-hardcode + excepciones regionales) verdes en CI.
-6. ⏳ Telemetría de warnings activa en producción durante ≥7 días sin spikes inexplicados.
+6. ⏳ Telemetría de warnings activa en producción durante ≥7 días sin spikes inexplicados. Depende de implementar §4.3.
 
 **Estado actual:** 2/6 cerrado. Bloqueante principal: edge enforcement (punto 2).
 
