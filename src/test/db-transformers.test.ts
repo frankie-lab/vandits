@@ -54,4 +54,68 @@ describe('dbLocationToGeoLocation', () => {
     expect(result.customData?.user_image_url).toBe('https://example.com/img.jpg');
     expect(result.customData?.user_image_visibility).toBe('public');
   });
+
+  it('T1-fix — prefiere *_resolved sobre legacy y expone *Resolved', () => {
+    const dbRow = {
+      id: 'loc-3',
+      name: 'Resolved Source',
+      latitude: 41.4,
+      longitude: 2.1,
+      // legacy text NULL / vacío
+      continent: null,
+      country: null,
+      region: null,
+      zone: null,
+      admin_level_3: null,
+      locality: null,
+      // *_resolved presentes (vienen de v_locations_resolved)
+      continent_resolved: 'Europe',
+      country_resolved: 'España',
+      region_resolved: 'Cataluña',
+      zone_resolved: 'Barcelona',
+      admin3_resolved: 'Barcelonès',
+      locality_resolved: 'Barcelona',
+      visibility: 'followers',
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
+    };
+
+    const result = dbLocationToGeoLocation(dbRow);
+
+    // Campos textuales canónicos resuelven al *_resolved
+    expect(result.continent).toBe('Europe');
+    expect(result.country).toBe('España');
+    expect(result.region).toBe('Cataluña');
+    expect(result.zone).toBe('Barcelona');
+    expect(result.comarca).toBe('Barcelonès');
+    expect(result.localidad).toBe('Barcelona');
+
+    // Campos *Resolved espejados (SoT explícita)
+    expect(result.continentResolved).toBe('Europe');
+    expect(result.countryResolved).toBe('España');
+    expect(result.regionResolved).toBe('Cataluña');
+    expect(result.zoneResolved).toBe('Barcelona');
+    expect(result.admin3Resolved).toBe('Barcelonès');
+    expect(result.localityResolved).toBe('Barcelona');
+  });
+
+  it('T1-fix — legacy text se usa cuando no hay *_resolved', () => {
+    const dbRow = {
+      id: 'loc-4',
+      name: 'Legacy Only',
+      latitude: 40,
+      longitude: -3,
+      region: 'Aragón',
+      zone: 'Zaragoza',
+      visibility: 'followers',
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
+    };
+
+    const result = dbLocationToGeoLocation(dbRow);
+    expect(result.region).toBe('Aragón');
+    expect(result.zone).toBe('Zaragoza');
+    expect(result.regionResolved).toBeUndefined();
+    expect(result.zoneResolved).toBeUndefined();
+  });
 });
