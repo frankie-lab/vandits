@@ -16,7 +16,7 @@ import type { GeoLocation } from '@/types/location';
 import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
 import { canonicalCountry, canonicalContinent } from '@/shared/geography/canonical-names';
 import { continentLabelFromCoords } from '@/shared/geography/continent-bbox';
-import { getCountryCanon, allowsRegionEqualsZone } from '@/shared/geography/territorial-canon';
+import { getCountryCanon, allowsRegionEqualsZone, regionHasNoProvincia } from '@/shared/geography/territorial-canon';
 import { nameToIso2 } from '@/shared/geo/country-iso';
 
 export const HIERARCHY_LEVELS = [
