@@ -16,6 +16,8 @@ export interface CountryCanon {
   readonly municipioField: MunicipioField;
   readonly localityField: LocalityField;
   readonly regionEqZoneWhitelist: ReadonlyArray<string>;
+  /** T2A-wire — Excepciones regionales (§1.b). Lookup case-sensitive por iso_code. */
+  readonly regionsWithoutProvincia?: ReadonlyArray<string>;
 }
 
 export const TERRITORIAL_CANON: Readonly<Record<string, CountryCanon>> = Object.freeze({
@@ -24,7 +26,7 @@ export const TERRITORIAL_CANON: Readonly<Record<string, CountryCanon>> = Object.
   IT: { iso2: 'IT', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: [] },
   GB: { iso2: 'GB', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: [] },
   US: { iso2: 'US', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: ['District of Columbia'] },
-  PT: { iso2: 'PT', hasProvincia: true, municipioField: 'admin3', localityField: 'locality', regionEqZoneWhitelist: [] },
+  PT: { iso2: 'PT', hasProvincia: true, municipioField: 'admin3', localityField: 'locality', regionEqZoneWhitelist: [], regionsWithoutProvincia: ['PT-20', 'PT-30'] },
   RO: { iso2: 'RO', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: [] },
   DE: { iso2: 'DE', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: ['Berlin', 'Hamburg', 'Bremen'] },
   FI: { iso2: 'FI', hasProvincia: false, municipioField: 'locality', localityField: 'sublocality', regionEqZoneWhitelist: [] },
