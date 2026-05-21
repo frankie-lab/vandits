@@ -113,6 +113,26 @@ export function allowsRegionEqualsZone(
   return false;
 }
 
+/**
+ * T2A-wire — §1.b: lookup data-driven de excepciones regionales (PT-20, PT-30,
+ * etc.). Case-sensitive sobre iso_code completo. Sin hardcode fuera de canon.
+ */
+export function regionHasNoProvincia(
+  iso2: string | null | undefined,
+  regionIsoCode: string | null | undefined,
+): boolean {
+  const canon = getCountryCanon(iso2);
+  if (!canon || !canon.regionsWithoutProvincia || !canon.regionsWithoutProvincia.length) return false;
+  if (typeof regionIsoCode !== 'string') return false;
+  const code = regionIsoCode.trim();
+  if (!code) return false;
+  for (const entry of canon.regionsWithoutProvincia) {
+    if (entry === code) return true;
+  }
+  return false;
+}
+
+
 export const COUNTRIES_WITHOUT_PROVINCIA: ReadonlyArray<string> = Object.freeze(
   Object.values(TERRITORIAL_CANON).filter((c) => !c.hasProvincia).map((c) => c.iso2),
 );
