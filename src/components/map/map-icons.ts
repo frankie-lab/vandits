@@ -27,6 +27,7 @@ import { getOwnerIdentityOklch } from '@/stores/owner-identity-store';
 import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
 import { resolveMarkerGrammar } from '@/domains/content/lib/poi-marker-grammar';
 import { resolvePoiVisualGrammar } from '@/domains/content/lib/poi-visual-grammar';
+import { getPoiMaturityColor } from '@/domains/content/lib/poi-maturity-color';
 
 // ── Neutral palettes for non-owner / non-followed shapes ───────────────
 // PR-MAP-CANON-2: tokens en `design-system/tokens/source/poi.json` →
@@ -237,6 +238,20 @@ export const createCustomIcon = (
   const isAppPoi = grammarShape === 'diamond';
   const isSourcePoi = grammarShape === 'hexagon';
   const isNonOwnShape = isFollowedPoi || isAppPoi || isSourcePoi;
+  // CANON ABSOLUTO (v1.3.10): para TODO POI propio, el fill SoT es
+  // `poi.maturity[computePoiMaturity(loc)]`. Sin fallback a
+  // `entry.fill_color`, `poi.state.*`, `poi.level.*` ni `getPointVisualState`.
+  // Aplica a micro, compact, standard y rich. Si `visualGrammar.levelVisual`
+  // existe lo usamos (ya proviene de `getPoiMaturityColor` vía la gramática);
+  // si por alguna razón no existe pero el POI es propio (paletteScope='state'),
+  // recalculamos defensivamente desde el mismo helper canónico — NUNCA caemos
+  // a paletas legacy.
+  const isOwnPoi = grammar?.paletteScope === 'state';
+  const ownMaturityFill = isOwnPoi && location
+    ? (visualGrammar?.levelVisual
+        ? `hsl(${visualGrammar.levelVisual.fillHsl})`
+        : getPoiMaturityColor(location).fill)
+    : null;
 
   if (grammar && !grammar.allowCollectionTint) {
     collectionTint = null;
@@ -261,11 +276,10 @@ export const createCustomIcon = (
       currentZoom <= 3 ? Number(microByZoom?.z3OrLess ?? 2) :
       currentZoom === 4 ? Number(microByZoom?.z4 ?? 3) :
       Number(microByZoom?.z5 ?? 4);
-    // PR-MAP-CANON-3 — own micro dot: fill desde nivel canónico cuando
-    // existe `levelVisual` (paletteScope='state'); fallback a `entry.fill_color`.
-    const dot = visualGrammar?.levelVisual
-      ? `hsl(${visualGrammar.levelVisual.fillHsl})`
-      : entry.fill_color;
+    // CANON ABSOLUTO (v1.3.10): own micro dot fill = `poi.maturity[N]`.
+    // Sin fallback a `entry.fill_color`. Followed/app/source no entran
+    // aquí (ya retornan antes con sus shapes propias).
+    const dot = ownMaturityFill ?? entry.fill_color;
     const haloStyle = isOwn ? '' : 'opacity:0.85;';
     // Followed micro: triángulo invertido CSS, fill = identidad (sin borde).
     if (isFollowedPoi) {
@@ -390,15 +404,15 @@ export const createCustomIcon = (
   //   La antigua `focused-thumbnail-rule` queda deprecada.
 
 
-  // PR-MAP-CANON-3 — Cuando `paletteScope === 'state'` (POI propio),
-  // el fill principal sale del nivel canónico POI-N (SoT compartida con
-  // el popup vía `getPoiCurationLevel.levelKey`). `marker_size_config.
-  // fill_color` deja de gobernar el color en esta rama: queda como
-  // fallback para no-state y para tamaño/hover/border (que sí lo siguen
-  // leyendo a través de `entry`).
+  // CANON ABSOLUTO (v1.3.10) — Para TODO POI propio (paletteScope='state'),
+  // el fill del disco viene de `poi.maturity[computePoiMaturity(loc)]` a
+  // través de `ownMaturityFill` (SoT única). `entry.fill_color` queda como
+  // fallback SÓLO para no-state (formas no-propias que no entran por la
+  // rama de followed/app/source). `entry` sigue gobernando tamaño / hover /
+  // borde — eso NO es color, sigue válido.
   const levelVisual = visualGrammar?.levelVisual ?? null;
-  const baseColor = levelVisual ? `hsl(${levelVisual.fillHsl})` : entry.fill_color;
-  const baseColorLight = levelVisual
+  const baseColor = ownMaturityFill ?? entry.fill_color;
+  const baseColorLight = ownMaturityFill
     ? adjustHslLightness(baseColor, 15)
     : (entry.fill_color_light || adjustHslLightness(baseColor, 15));
   const scaleRatio = hoverSize ? hoverSize / size : 1;
