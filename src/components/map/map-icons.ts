@@ -365,18 +365,23 @@ export const createCustomIcon = (
   const isMassSelect = currentState === 'selected';
   // Halo de propiedad (Ola 2): PR-MAP-CANON-2 — tokenizado en `poi.halo.own`.
   const ownHalo = isOwn && !isMassSelect ? ` ${tokens.poi.halo.own}` : '';
-  const shadow = (isMassSelect
-    ? 'drop-shadow(0 0 0 1.5px rgba(255,255,255,0.95)) drop-shadow(0 1px 3px rgba(0,0,0,0.35))'
-    : currentState !== 'normal'
-      ? getStateShadow(currentState, '#000000', stateRules)
-      : getShadowForMode(renderMode)) + ownHalo;
+  // Fase A (v1.3.7): selección/focus/recent NO altera el fill POI-N.
+  // Se usa un halo externo blanco+sombra (mismo patrón que mass-select)
+  // para señalar el estado sin contaminar el color del disco.
+  const HALO_EXTERNAL =
+    'drop-shadow(0 0 0 2px hsl(var(--background))) ' +
+    'drop-shadow(0 0 0 3px rgba(0,0,0,0.55)) ' +
+    'drop-shadow(0 1px 3px rgba(0,0,0,0.35))';
+  const shadow = (currentState !== 'normal'
+    ? HALO_EXTERNAL
+    : getShadowForMode(renderMode)) + ownHalo;
   const baseBorderWidth = getStateBorderWidth(currentState, stateRules);
   const borderWidth = isMassSelect ? Math.max(2, baseBorderWidth) : baseBorderWidth;
 
-  const applyStateColor = (hex: string): string => {
-    if (currentState === 'normal' || isMassSelect) return hex;
-    return getStateColor(hex, currentState, stateRules);
-  };
+  // Fase A (v1.3.7): el fill canónico POI-N nunca se mezcla con color de
+  // estado. `applyStateColor` queda como identidad para no propagar cambios
+  // a las ramas SVG (pin gradient / dot gradient).
+  const applyStateColor = (hex: string): string => hex;
 
   // Regla canónica por zoom (ver `mem://style/map/zoom-driven-hero`):
   //   • La imagen Hero aparece SOLO en el hover Polaroid (z≥14) y como
