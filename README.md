@@ -89,6 +89,13 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.3.16 (2026-05-21)
+- ✅ **T2A-wire Fase 1 — excepciones regionales del canon territorial**. `CountryCanon` se extiende con `regionsWithoutProvincia` (case-sensitive sobre `iso_code` de `admin_areas`) y nuevo helper `regionHasNoProvincia(iso2, regionIsoCode)`. Caso inicial obligatorio: Portugal con `['PT-20', 'PT-30']` ⇒ Açores y Madeira colapsan el nivel Distrito; Portugal continental conserva Distrito.
+- ✅ `v_locations_resolved` expone `region_iso_code` (derivado de `admin_areas.iso_code` vía `region_id`); `dbLocationToGeoLocation` lo mapea a `GeoLocation.regionIsoCode`. `getLocationHierarchy` suprime `zone` para regiones insulares **antes** del fallback a `enriched_data.admin_nivel_2`, neutralizando el revive de "Lisboa" en Madalena/Açores sin tocar datos. `GeographyTree` colapsa Distrito promoviendo concelhos a hijos directos de la región. `applyCanonToParsed` descarta `zone`/`zoneId` para POIs nuevos y emite `canon-region-zone-forbidden`. `resolveAllFks` queda con hook + TODO (defensa cliente suficiente); enforcement server-side queda diferido a `docs/audits/t2a-wire-regional-exceptions-edge-ticket.md`.
+- ✅ Lint anti-hardcode activa `FORBIDDEN_REGION_ISO` (`PT-20`, `PT-30`) y `FORBIDDEN_REGION_NAMES` (`Açores`, `Azores`, `Madeira`): prohíbe comparación literal contra esos valores en módulos vigilados (resolver, hierarchy, GeographyTree, parsers, canon-validator, geo-normalizer, reverse-geocode). Toda especialización pasa por `regionHasNoProvincia`.
+- ✅ Espejado en Deno (`supabase/functions/_shared/territorial-canon.ts`); contract test `territorial-canon-parity` extendido a `regionsWithoutProvincia`. Tests nuevos: `territorial-canon-regional-exceptions`, `territorial-canon-wire-hierarchy-pt-insular`, `territorial-canon-wire-imports-pt-insular`, `territorial-canon-wire-geography-tree-pt-insular`.
+- ✅ Bump **patch** `1.3.15 → 1.3.16`. NO toca: datos (`locations`, `admin_areas`, `enriched_data`), Santa Cruz da Graciosa, Bolhão, Braga Parque, Nominatim, re-enrich, renderer del mapa, tokens POI-N, health rings, colecciones, RLS, edge functions (sólo migración SQL aditiva en la vista).
+
 ### v1.3.8 (2026-05-21)
 - ✅ **Fase estabilización visual — collection tint reequilibrado**. Tras Fase A (v1.3.7) la pertenencia a colección quedó marginal sobre POI-3/POI-7/POI-10. Se sube `opacity` del `.collection-tint-ring` `0.45 → 0.60` manteniendo `dashed` + `2px`. El patrón dashed conserva la jerarquía (fill POI-N sigue mandando), pero la pertenencia a colección vuelve a leerse de un vistazo.
 - ✅ Confirmadas dos invariantes visuales:
