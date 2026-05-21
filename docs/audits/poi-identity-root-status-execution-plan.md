@@ -13,33 +13,146 @@ Universo auditado: **5.100 POIs** (`deleted_at IS NULL AND is_approved=true`).
 
 ---
 
-## 1. Tabla A/B/C/D (resumen)
+## 0. Orden operativo
 
-| Root | Count | %      | Color  | Owner  | Apto enrich | Prioridad ejecución |
-|------|------:|-------:|--------|--------|:-----------:|---------------------|
-| A    |     1 | 0,02 % | rojo   | user   | NO          | **P0**              |
-| B    |    97 | 1,90 % | amarillo | system | NO        | **P1**              |
-| C    |     8 | 0,16 % | naranja| user   | NO          | **P0**              |
-| D    | 4.994 | 97,92 %| verde  | auto   | SÍ          | **P2**              |
-| Total| 5.100 | 100 %  | —      | —      | —           | —                   |
+Reordenado para no bloquear nunca el avance del sistema por una cola humana
+de 5 POIs:
 
-Cola operativa (A+B+C) = **106 POIs** (2,08 %).
-Acción humana real (A + C real, sin fixtures) = **5 POIs**.
+```text
+P1 → Sistema / canon / backfill  (97 B)            ← arranca ya
+P2 → Auto-enrich sobre D pendientes (1.271 D)      ← arranca ya, en paralelo
+P0 → Revisión humana mínima (1 A + 4 C reales)     ← cola separada, no bloquea
+```
+
+**Reglas duras del orden:**
+- P1 y P2 avanzan **sin esperar acción humana**.
+- P0 vive como cola humana separada; **no bloquea** P1 ni P2.
+- A/C **excluidos siempre** de la cola de enrich (filtro duro en P2).
+- B no resueltos **excluidos** de la cola de enrich hasta que P1 los cierre.
+- No se cambia `computePoiMaturity`.
+- No se cambia marker fill ni paleta.
 
 ---
 
-## 2. P0 — Acción humana mínima
+## 1. Tabla A/B/C/D (resumen)
 
-Objetivo: cerrar identidad rota o incoherente. **No auto-enrich.** No tocar
-`computePoiMaturity`. No cambiar marker fill.
+| Root | Count | %      | Color    | Owner  | Apto enrich | Fase | Bloquea otras fases |
+|------|------:|-------:|----------|--------|:-----------:|------|---------------------|
+| B    |    97 | 1,90 % | amarillo | system | NO          | **P1** | — |
+| D    | 4.994 | 97,92 %| verde    | auto   | SÍ (1.271)  | **P2** | — |
+| A    |     1 | 0,02 % | rojo     | user   | NO          | **P0** | NO |
+| C    |     8 | 0,16 % | naranja  | user   | NO          | **P0** | NO |
+| Total| 5.100 | 100 %  | —        | —      | —           | —    | — |
 
-### 2.1 Lista A (1)
+Cola operativa total = 106 POIs (2,08 %). Acción humana real = **5 POIs**.
+
+---
+
+## 2. P1 — Sistema / canon / backfill (arranca ya)
+
+Objetivo: cerrar los 97 POIs B sin pedir nada al usuario. Deuda del sistema.
+**No degradar POI-N visualmente** (regla §5.3 contrato).
+
+### 2.1 Breakdown B por causa
+
+| Subcola | Count | Resolución | Conecta con |
+|---------|------:|-----------|-------------|
+| `canon-gap` (país fuera de TERRITORIAL_CANON) | 86 | Patches canon Wave A/B/C | World Canon Coverage P1/P2 |
+| `geo-partial` (FK resoluble) | 7 | `backfill-admin-fks` | infra geo |
+| `country-id-null` | 3 | `backfill-admin-fks` | infra geo |
+| `enriched-no-region` (`region_id` NULL pese a enriched) | 1 | `backfill-admin-fks` | infra geo |
+| **Total B** | **97** | 100 % automatizable | — |
+
+### 2.2 Waves dentro de P1
+
+| Wave | Tipo | Contenido | POIs B cerrados | Acumulado |
+|------|------|-----------|----------------:|----------:|
+| **P1-w1 canon-gap A** | canon | EE(9), LT(8), KE(8), ET(5), LV(4), GE(4), DK(4) | 42 | 43 % |
+| **P1-w2 backfill FKs** | infra | `geo-partial` (7) + `country-id-null` (3) + `enriched-no-region` (1) → admin_area/FK + region placeholders + zone indebida | 11 | 55 % |
+| **P1-w3 canon-gap B** | canon | ME(3), CU(3), BA(3), MD(3), FO(3), CR(2), SG(2), TZ(2) | 21 | 76 % |
+| **P1-w4 canon-gap C (long-tail)** | canon | AL, BY, CD, CY, EC, GL, IL, JO, KG, KY, MG, MN, MR, MT, PE, SD, SM, TD, TM, YE (1 c/u) | 20 | 97 % |
+| **P1-w5 anexo XK** | canon | Kosovo (3) — requiere decisión política/ISO previa | 3 | 100 % |
+
+Sub-buckets nombrados explícitamente (alineados con el enunciado del ticket):
+- **canon_gap** → Waves w1, w3, w4, w5.
+- **admin_area / FK backfill** → Wave w2 (`country-id-null`).
+- **region placeholders** → Wave w2 (`enriched-no-region`).
+- **zone indebida** → Wave w2 (`geo-partial` con zone fuera de canon).
+
+### 2.3 Restricciones P1
+
+- No tocar A ni C.
+- No re-enrich.
+- No tocar `enriched_data`.
+- No tocar `name`, `coords`, `description`, `enrichment_status`.
+- Patches canon = aditivos (mismo patrón validado en P0 World Canon Coverage).
+- `backfill-admin-fks` se ejecuta primero en dry-run.
+
+### 2.4 Criterio de cierre P1
+
+- POI sale de B cuando `country_id IS NOT NULL`, `country_code ∈ TERRITORIAL_CANON`
+  y `geo_health != 'partial'`.
+- Al salir de B, el POI pasa a D y entra automáticamente a la cola P2.
+
+---
+
+## 3. P2 — Auto-enrich sobre D pendientes (arranca ya, en paralelo a P1)
+
+Objetivo: alimentar enrich automático SOLO con D pendientes. Independiente
+de P1 — no se espera a cerrar B para enriquecer D.
+
+### 3.1 Cola D
+
+| Sub-bucket D | Count |
+|--------------|------:|
+| Ya enriquecidos (`enriched_data.descripcion` no vacío) | 3.723 |
+| **Pendientes de enrichment (cola candidata)** | **1.271** |
+| Total D | 4.994 |
+
+Cola candidata = `root='D' AND has_descripcion=false` → **1.271 POIs**.
+
+### 3.2 Exclusiones explícitas (filtro duro)
+
+Skip silencioso si:
+- `root = 'A'` (1 POI).
+- `root = 'B'` no resuelto todavía (97 POIs en este momento, decrecerá con P1).
+- `root = 'C'` (8 POIs).
+- POI marcado como **fixture** (E2E / `beta-chain-*` / sintéticos).
+- POI marcado con **flag de revisión** (lista P0 manual o cualquier flag
+  `synthetic=true` / `under-review=true`).
+- `enrichment_status = 'unresolved'` (2 POIs ya en D).
+- `is_approved = false` o `deleted_at IS NOT NULL`.
+
+**Solo D puede entrar a enrich.** Cualquier otra raíz se descarta antes de
+encolar.
+
+### 3.3 Entregables P2
+
+- Pre-filtro de cola IA documentado (sin cablear todavía).
+- Distribución por país-top-D para batching futuro: ES, FR, IT, GB, US, PT
+  lideran (sin desglose cuantitativo en este plan).
+- No tocar `enrich-location` aún; sólo dejar el contrato del filtro.
+
+### 3.4 Restricciones P2
+
+- No mover POI-N manualmente.
+- No tocar `computePoiMaturity`.
+- No tocar marker fill ni paleta.
+- No llamar IA en este plan; sólo preparar la cola.
+
+---
+
+## 4. P0 — Revisión humana mínima (cola separada, no bloquea)
+
+Objetivo: mantener visible la deuda real de identidad sin frenar P1/P2.
+
+### 4.1 Lista A (1)
 
 | id | name | cc | motivo | acción sugerida |
 |----|------|----|--------|-----------------|
 | `89867d20-bc1e-4a12-82fa-ba4820a5cdab` | Antarctica Roundabout | ES | coords-zero | usuario: corregir coords o descartar |
 
-### 2.2 Lista C real (4)
+### 4.2 Lista C real (4)
 
 Excluye 4 fixtures E2E (`f04b…e2e000000001`, `…000000002`, `2bb2d2e6-…
 beta-chain-1`, `435a2dcf-… beta-chain-2`).
@@ -51,120 +164,40 @@ beta-chain-1`, `435a2dcf-… beta-chain-2`).
 | `2584a104-8fbe-495f-be3b-c52793579796` | Șirnea | RO | broken | idem | idem |
 | `47c49cf2-50f1-4a03-8c8f-c98dffbf968b` | Biertan | RO | broken | idem | idem |
 
-### 2.3 Entregables P0
+### 4.3 Reglas P0
 
-- Tabla anterior usada como **lista de revisión humana** (panel admin o
-  export CSV manual). No materializar todavía.
-- Excluir estos 5 IDs de cualquier cola IA hasta resolución.
-- Fixtures E2E: marcar `synthetic=true` (sin acción).
+- A/C **no entran nunca** a la cola de enrich (excluidos por P2 §3.2).
+- A/C **siguen visibles** como tarea humana (panel admin / export CSV manual).
+- A/C **no bloquean** ningún wave de P1 ni la cola D de P2.
+- Fixtures: marcar `synthetic=true` y excluir de cualquier panel humano.
 
-### 2.4 Criterio de cierre P0
+### 4.4 Criterio de cierre P0
 
 - A: `latitude!=0 OR longitude!=0` y dentro de rango válido.
 - C: `geo_health` deja `broken|stale_name|empty`.
+- Al cerrar, el POI pasa a D y entra automáticamente a la cola P2.
 
 ---
 
-## 3. P1 — Acción sistema/canon
-
-Objetivo: cerrar los 97 POIs B sin pedir nada al usuario. **No degradar
-POI-N visualmente** (regla §5.3 contrato: B no penaliza al usuario).
-
-### 3.1 Breakdown B por causa
-
-| Subcola | Count | Resolución | Conecta con |
-|---------|------:|-----------|-------------|
-| `canon-gap` (país fuera de TERRITORIAL_CANON) | 86 | Wave P1+ canon mundial | World Canon Coverage P1/P2 |
-| `geo-partial` (FK resoluble) | 7 | `backfill-admin-fks` | infra geo |
-| `country-id-null` | 3 | `backfill-admin-fks` | infra geo |
-| `enriched-no-region` (`region_id` NULL pese a enriched) | 1 | `backfill-admin-fks` | infra geo |
-| **Total B** | **97** | 100 % automatizable | — |
-
-### 3.2 Breakdown `canon-gap` por país (38 ISO2 distintos)
-
-Orden recomendado por volumen → mayor reducción de B con menor patch:
-
-| Wave | ISO2 (count) | POIs B cubiertos | Reducción acumulada |
-|------|--------------|-----------------:|--------------------:|
-| **P1-canon Wave A** | EE(9), LT(8), KE(8), ET(5), LV(4), GE(4), DK(4) | 42 | −43 % |
-| **P1-canon Wave B** | ME(3), CU(3), BA(3), MD(3), FO(3), CR(2), SG(2), TZ(2) | 21 | −65 % |
-| **P1-canon Wave C** | AL, BY, CD, CY, EC, GL, IL, JO, KG, KY, MG, MN, MR, MT, PE, SD, SM, TD, TM, YE (1 c/u) | 20 | −86 % |
-| **P1-canon anexo** | XK (3) Kosovo | 3 | −89 % (requiere decisión política/ISO) |
-| **P1-backfill FKs** | geo-partial + country-id-null + enriched-no-region | 11 | −100 % |
-
-> Wave A y B cierran el 65 % del bucket B con sólo 15 países nuevos en el
-> canon. Wave C es long-tail y puede agruparse en un único patch.
-
-### 3.3 Entregables P1
-
-- Patch canon Wave A (7 países, +42 POIs B cerrados).
-- Patch canon Wave B (8 países, +21 POIs B cerrados).
-- Patch canon Wave C (20 países long-tail, +20 POIs B cerrados).
-- Decisión XK (Kosovo) explícita antes del patch anexo.
-- Ejecución `backfill-admin-fks` sobre los 11 POIs con motivo
-  `geo-partial / country-id-null / enriched-no-region`.
-
-### 3.4 Restricciones P1
-
-- No tocar datos del POI (nombre, coords, descripción).
-- No tocar `enriched_data`.
-- No re-enrich.
-- Patches de canon = aditivos (mismo patrón que P0 World Canon Coverage).
-
----
-
-## 4. P2 — Auto-enrich (cola D)
-
-Objetivo: alimentar enrich automático SOLO con D pendientes.
-
-### 4.1 Cola D
-
-| Sub-bucket D | Count |
-|--------------|------:|
-| Ya enriquecidos (`enriched_data.descripcion` no vacío) | 3.723 |
-| **Pendientes de enrichment (cola candidata)** | **1.271** |
-| Total D | 4.994 |
-
-Cola candidata = `root='D' AND has_descripcion=false` → **1.271 POIs**.
-
-### 4.2 Criterios de exclusión (filtro duro de la cola)
-
-Skip silencioso si:
-- `root ∈ {A, B, C}` (incluye fixtures).
-- `enrichment_status = 'unresolved'` (2 POIs en D).
-- `is_approved = false` o `deleted_at IS NOT NULL`.
-- POI en lista P0 manual de revisión humana.
-
-### 4.3 Entregables P2
-
-- Pre-filtro de cola IA documentado (sin cablear todavía).
-- Distribución por país-top-D para batching futuro: ES, FR, IT, GB, US, PT
-  lideran (sin desglose cuantitativo en este plan).
-- No tocar `enrich-location` aún. Sólo dejar el contrato del filtro.
-
-### 4.4 Restricciones P2
-
-- No mover POI-N manualmente.
-- No tocar `computePoiMaturity`.
-- No tocar marker fill ni paleta.
-- No llamar IA en este plan; sólo preparar la cola.
-
----
-
-## 5. Orden recomendado de ejecución
+## 5. Orden recomendado de ejecución (paralelizable)
 
 ```text
-1. P0  → Revisar 5 POIs (A=1, C real=4). Sin escritura masiva.
-2. P1a → Patch canon Wave A (EE, LT, KE, ET, LV, GE, DK).
-3. P1b → backfill-admin-fks sobre los 11 POIs B no-canon-gap.
-4. P1c → Patch canon Wave B (ME, CU, BA, MD, FO, CR, SG, TZ).
-5. P1d → Patch canon Wave C long-tail (20 ISO2).
-6. P1e → Decisión + patch anexo XK (si procede).
-7. P2  → Cablear pre-filtro `root='D' AND !has_descripcion` en cola enrich.
-8. P3  → (opcional, fuera de este plan) materializar identity_root_status.
+[Hilo sistema — secuencial]
+  P1-w1 canon Wave A (EE, LT, KE, ET, LV, GE, DK)
+  P1-w2 backfill-admin-fks (11 POIs: FK + region placeholders + zone indebida)
+  P1-w3 canon Wave B (ME, CU, BA, MD, FO, CR, SG, TZ)
+  P1-w4 canon Wave C long-tail (20 ISO2)
+  P1-w5 decisión + patch anexo XK (si procede)
+
+[Hilo enrich — en paralelo desde día 1]
+  P2 cola D pendiente (1.271 POIs), filtro duro §3.2
+       └─ se realimenta sola con POIs que salen de B (vía P1) o de A/C (vía P0)
+
+[Hilo humano — asíncrono, no bloquea]
+  P0 revisión 5 POIs (1 A + 4 C real)
 ```
 
-Cada paso es independiente y reversible.
+Cada hilo es independiente y reversible.
 
 ---
 
@@ -174,7 +207,8 @@ Cada paso es independiente y reversible.
 |--------|-----------|
 | Falsos C por nombre/coords legítimos | P0 es revisión humana, no UPDATE automático. |
 | Patches canon rompen tests | Cada wave sigue el patrón validado (P0 World Canon Coverage); tests TS/Deno parity obligatorios. |
-| Backfill FKs sobrescribe datos buenos | `backfill-admin-fks` ya tiene defensa en profundidad (`resolveAllFks`); ejecutar primero en modo dry-run. |
+| Backfill FKs sobrescribe datos buenos | `resolveAllFks` con defensa en profundidad; primera corrida en dry-run + snapshot de `region_id/zone_id/admin3_id/locality_id`. |
+| P2 encola un POI no-D por carrera con P1 | Filtro duro §3.2 se evalúa en el momento del encolado, no en planning. |
 | Cola IA filtra de más | Pre-filtro documentado pero no cableado en este plan; activar tras 7 días de validación heurística. |
 | XK (Kosovo) genera incidencia política | Mantener en B con flag `annex-pending` hasta decisión explícita. |
 | Heurística A/B/C/D diverge de POI-N | A/B/C/D es ortogonal; no toca `computePoiMaturity` ni marker fill (regla dura contrato §5.1–5.2). |
@@ -183,17 +217,15 @@ Cada paso es independiente y reversible.
 
 ## 7. Rollback
 
-- **P0**: no hay rollback. Es revisión humana sobre 5 IDs; sin escritura.
-- **P1a/c/d (patches canon)**: revertir PR del wave; cambio aditivo en
-  `TERRITORIAL_CANON` (TS + Deno), no toca datos. POIs vuelven a `B`.
-- **P1b (backfill FKs)**: ejecutar en modo dry-run primero; si la corrida
-  real genera regresión, revertir vía `resolveAllFks` rerun con snapshot
-  previo de `region_id/zone_id/admin3_id/locality_id` (capturar snapshot
-  antes de ejecutar).
-- **P1e (XK)**: revertir patch anexo igual que P1a.
+- **P1-w1 / w3 / w4 / w5 (patches canon)**: revertir PR del wave; cambio
+  aditivo en `TERRITORIAL_CANON` (TS + Deno), no toca datos. POIs vuelven a `B`.
+- **P1-w2 (backfill FKs)**: dry-run primero; si la corrida real genera
+  regresión, restaurar `region_id/zone_id/admin3_id/locality_id` desde el
+  snapshot capturado antes de la corrida.
 - **P2 (cola enrich)**: no hay rollback porque este plan **no cabla** el
   filtro; sólo lo documenta. Si en el futuro se cabla, basta con desactivar
-  el guard y la cola vuelve al comportamiento previo.
+  el guard.
+- **P0**: no hay rollback. Es revisión humana sobre 5 IDs; sin escritura.
 - **Datos históricos, `locations`, `admin_areas`, `enriched_data`,
   `computePoiMaturity`, marker fill, paleta, POI-N**: NO se tocan en
   ninguna fase → no requieren rollback.
@@ -216,9 +248,9 @@ Cada paso es independiente y reversible.
 
 ## 9. Decisiones pendientes (post-plan)
 
-1. ¿Aprobar Wave A del canon (7 países) como siguiente patch?
-2. ¿Aprobar `backfill-admin-fks` sobre los 11 POIs B no-canon-gap?
-3. ¿Quién revisa los 5 POIs P0 (A + C real)?
-4. ¿Se cabla el pre-filtro `root='D'` en `enrich-location` ya o tras
+1. ¿Aprobar P1-w1 (canon Wave A, 7 países) como siguiente patch?
+2. ¿Aprobar P1-w2 (`backfill-admin-fks` sobre los 11 POIs B no-canon-gap)?
+3. ¿Cablear el pre-filtro `root='D'` en `enrich-location` ya, o tras
    materializar el campo derivado?
+4. ¿Quién revisa los 5 POIs P0 (A + C real)?
 5. ¿Decisión política sobre XK (Kosovo)?
