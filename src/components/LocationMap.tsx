@@ -2833,11 +2833,10 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
  )}
  </div>
  
-    {/* Legend (v1.3.2) — única norma vigente: madurez POI-0..POI-10.
+    {/* Legend (v1.3.5) — única norma vigente: madurez POI-0..POI-10.
         Cada número se pinta con el token `poi.maturity.<nivel>` (SoT del
-        fill del marker propio desde v1.3.1). Tooltip por nivel con su
-        significado canónico. Final/Importado/Vacío deja de ser leyenda
-        principal (ver docs/contracts/marker-fill-canon-v3.md). */}
+        fill del marker propio desde v1.3.1). Tooltip canónico por nivel
+        vía AppTooltip + `title` accesible. Sin cambios de layout/color. */}
     <>
       <span
         className={cn(
@@ -2858,19 +2857,24 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
           [6, 'Región / zona resuelta'],
           [7, 'Descripción enriquecida'],
           [8, 'Media validada'],
-          [9, 'Categoría / tags'],
+          [9, 'Categoría / tags validados'],
           [10, 'Curado completo'],
-        ] as const).map(([lvl, label]) => (
-          <span
-            key={lvl}
-            title={`POI-${lvl} · ${label}`}
-            aria-label={`POI-${lvl} · ${label}`}
-            className="inline-flex items-center justify-center w-4 h-4 rounded-sm text-[9px] font-semibold leading-none text-white/95 ring-1 ring-black/10 shadow-sm tabular-nums"
-            style={{ backgroundColor: `hsl(var(--poi-maturity-${lvl}))` }}
-          >
-            {lvl}
-          </span>
-        ))}
+        ] as const).map(([lvl, label]) => {
+          const tip = `POI-${lvl} · ${label}`;
+          return (
+            <AppTooltip key={lvl} content={tip} side="top">
+              <span
+                title={tip}
+                aria-label={tip}
+                role="img"
+                className="inline-flex items-center justify-center w-4 h-4 rounded-sm text-[9px] font-semibold leading-none text-white/95 ring-1 ring-black/10 shadow-sm tabular-nums cursor-default"
+                style={{ backgroundColor: `hsl(var(--poi-maturity-${lvl}))` }}
+              >
+                {lvl}
+              </span>
+            </AppTooltip>
+          );
+        })}
       </div>
     </>
    </div>
