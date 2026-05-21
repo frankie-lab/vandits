@@ -351,9 +351,12 @@ Primera incorporación al canon de países **fuera del PDF original** pero prese
 - `territorial-canon-parity.test.ts` — paridad TS↔Deno itera todas las claves (cubre los 10 nuevos sin cambio).
 - `territorial-canon-helpers.test.ts` — sin cambios (defaults/UNKNOWN siguen vigentes para los 156 países restantes del DOCX).
 
+---
 
+## 11. Restricciones del PR original
 
 - **No tocar código.**
+
 - **No tocar datos.**
 - **Sin migraciones.**
 - **Sin re-enrich.**
