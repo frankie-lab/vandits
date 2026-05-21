@@ -441,7 +441,7 @@ export const createCustomIcon = (
     // (Lucide MapPin/Type) — cero React per marker.
     const glyph = getCoherenceGlyph(location);
     const glyphHtml = glyph
-      ? `<div style="position:absolute; top:-4px; right:-4px; width:14px; height:14px; border-radius:50%; background:hsl(var(--poi-health-review) / 0.95); display:flex; align-items:center; justify-content:center; pointer-events:none; box-shadow:0 0 0 1.5px hsl(var(--background));"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${getCoherenceGlyphPath(glyph)}</svg></div>`
+      ? `<div style="position:absolute; top:-3px; right:-3px; width:10px; height:10px; border-radius:50%; background:hsl(var(--poi-health-review) / 0.85); display:flex; align-items:center; justify-content:center; pointer-events:none; box-shadow:0 0 0 1px hsl(var(--background));"><svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${getCoherenceGlyphPath(glyph)}</svg></div>`
       : '';
     polaroidHtml = `
       <div class="poi-hero-marker poi-hero-marker--addon${ownClass}" style="position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%); width:${polaroidW}px; height:${polaroidH}px; pointer-events:none; --marker-state-color:${baseColor};">
