@@ -14,6 +14,8 @@ import {
 } from '@/components/ui/tooltip';
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
 import { getLocationHierarchy, getFilledLocationHierarchy, UNCLASSIFIED_VALUE, HIERARCHY_LEVELS, LEVEL_PLACEHOLDER_LABELS, compareGeoTreeNodes, type HierarchyLevel } from '@/shared/geography/hierarchy';
+import { hasProvincia } from '@/shared/geography/territorial-canon';
+import { nameToIso2 } from '@/shared/geo/country-iso';
 
 type TreeLevel = 'continent' | 'country' | 'region' | 'zone' | 'comarca' | 'localidad' | 'sublocalidad' | 'calle';
 
@@ -145,8 +147,15 @@ export function GeographyTree() {
   };
   sortNodes(nodes);
 
- return nodes;
- }, [filteredLocations, totalTree]);
+  // T2A-wire — colapso del nivel Provincia en países con hasProvincia=false.
+  // Recorre los nodos `country` y, si el ISO2 del país no admite provincia
+  // canónica, sustituye los hijos zone (todos placeholder tras la regla del
+  // canon en hierarchy.ts) por sus nietos. El invariante padre=Σ(hijos) se
+  // mantiene porque la zona placeholder agrupa el 100% de los puntos.
+  collapseZoneForCountriesWithoutProvincia(nodes);
+
+  return nodes;
+  }, [filteredLocations, totalTree]);
 
  const toggleExpand = (path: string) => {
  const newExpanded = new Set(expandedNodes);
