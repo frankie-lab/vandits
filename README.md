@@ -89,6 +89,14 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.3.7 (2026-05-21)
+- ✅ **Fase A — subordinación visual capas marker**. Los modificadores secundarios (health rings, collection tint, coherence chip, selección/focus) dejan de competir con el fill POI-N como lectura primaria.
+  - `point-health-rings.ts`: `RING_COLORS` hornean alpha `0.45` (`hsl(var(--…) / 0.45)`) sobre los 4 tokens existentes (partial/chain/review/hardError). `RING_WIDTH 5 → 3`. Cubre dot (border) y pin (drop-shadow).
+  - `index.css` `.collection-tint-ring`: `solid → dashed`, `opacity 0.8 → 0.45`. Solo render; lógica/color de colecciones intactos.
+  - `map-icons.ts` coherence/review chip: `14×14 → 10×10`, `top/right -4 → -3`, fondo `/ 0.95 → / 0.85`, halo `1.5px → 1px`, svg `9×9 stroke 2.5 → 7×7 stroke 2`.
+  - `map-icons.ts` selección/focus/recent: `applyStateColor` queda como identidad; el fill POI-N nunca se mezcla. El estado se señala con halo externo blanco + sombra (mismo patrón que mass-select).
+- ✅ Bump **patch** `1.3.6 → 1.3.7`. NO toca: escala POI-N, `computePoiMaturity`, `getPoiMaturityColor`, marker fill, datos, edge functions, migraciones, RLS.
+
 ### v1.3.6 (2026-05-21)
 - ✅ **Image quality guardrail (POI-7 → POI-8)**. Nuevo clasificador determinista `classifyImageCandidate` (`supabase/functions/_shared/image-quality.ts` + mirror `src/domains/content/lib/image-quality.ts`). Rechaza banderas/escudos/logos/seals y `.svg` puros antes de persistir. `image_status ∈ {accepted, rejected, pending_review}`, `image_kind ∈ {representative, symbolic, unknown}`. Rechazados → `enriched_data.media_rejected[]`, sin escribir `imagen`.
 - ✅ `recover-missing-images` integra el clasificador. `computePoiMaturity.hasValidatedMedia` ignora `imagen` con `image_status ∈ {rejected, pending_review}`. Backward-compat: legacy sin `image_status` sigue contando.
