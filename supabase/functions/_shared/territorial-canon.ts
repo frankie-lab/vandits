@@ -57,7 +57,7 @@ export const TERRITORIAL_CANON: Readonly<Record<string, CountryCanon>> = Object.
   KR: { iso2: 'KR', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: ['Seoul', 'Busan', 'Incheon', 'Daegu', 'Daejeon', 'Gwangju', 'Ulsan'] },
   PH: { iso2: 'PH', hasProvincia: true, municipioField: 'admin3', localityField: 'locality', regionEqZoneWhitelist: ['Manila', 'Cebu City', 'Davao City', 'Quezon City'] },
   IN: { iso2: 'IN', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: ['Chandigarh', 'Lakshadweep', 'Delhi'] },
-  RU: { iso2: 'RU', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: ['Moskva', 'Moscow', 'Saint Petersburg', 'Sankt-Peterburg', 'Sevastopol'] },
+  RU: { iso2: 'RU', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: ['Moskva', 'Moscow', 'Moscú', 'Saint Petersburg', 'Sankt-Peterburg', 'Sevastopol'] },
 });
 
 const UNKNOWN_CANON: CountryCanon = Object.freeze({
