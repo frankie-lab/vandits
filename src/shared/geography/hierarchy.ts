@@ -86,7 +86,11 @@ export function getLocationHierarchy(
   // enriched_data.datos_geograficos.*. Ver
   // docs/contracts/territorial-equivalence-canon.md § "SoT textual cliente".
   const raw = {
-    continent: canonicalContinent(norm(loc.continentResolved ?? loc.continent ?? gd?.continente)) ?? continentFallback,
+    // Fallback bbox dentro de canonicalContinent: garantiza que `Europa`/`África`
+    // devueltos por `continentLabelFromCoords` (etiquetas en español) se fusionen
+    // con `Europe`/`Africa` y no aparezcan nodos duplicados en el árbol Geo.
+    // Ver docs/audits/t1-geography-tree-postfix-visual-audit.md §2.2.
+    continent: canonicalContinent(norm(loc.continentResolved ?? loc.continent ?? gd?.continente) ?? continentFallback),
     country: canonicalCountry(norm(loc.countryResolved ?? loc.country ?? gd?.pais)),
     region: norm(loc.regionResolved ?? loc.region ?? gd?.admin_nivel_1),
     zone: norm(loc.zoneResolved ?? loc.zone ?? gd?.admin_nivel_2),
