@@ -17,9 +17,9 @@ import { getLocationHierarchy, getFilledLocationHierarchy, UNCLASSIFIED_VALUE, H
 import { hasProvincia } from '@/shared/geography/territorial-canon';
 import { nameToIso2 } from '@/shared/geo/country-iso';
 
-type TreeLevel = 'continent' | 'country' | 'region' | 'zone' | 'comarca' | 'localidad' | 'sublocalidad' | 'calle';
+export type TreeLevel = 'continent' | 'country' | 'region' | 'zone' | 'comarca' | 'localidad' | 'sublocalidad' | 'calle';
 
-interface TreeNode {
+export interface TreeNode {
  name: string;
  count: number;
  totalCount: number;
