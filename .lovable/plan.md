@@ -1,61 +1,56 @@
-## Fase de estabilización visual del mapa
+## Próximo tick image-recovery — 101 POI-7
 
-Objetivo: cerrar dos invariantes visuales sin reabrir el debate cromático.
+### Scope
+- **Selección IDs**: SELECT directo en `locations` (DB ya conectada como master), filtros canónicos del modo `missing`:
+  - `deleted_at IS NULL`
+  - `enriched_data->>'descripcion' IS NOT NULL AND <> ''`
+  - `enriched_data->>'imagen' IS NULL OR = ''`
+  - `user_image_url IS NULL`
+  - `enriched_data->'media'->>'image_status' IS NULL` (excluye `pending_review` ya tocados → no cuentan para POI-8 y no se reintentan)
+  - **`enriched_data->'recovery'->>'attempted_at' IS NULL`** (excluye intentos previos que ya consumieron cuota — `retry_stale_days=30`)
+  - `ORDER BY created_at ASC LIMIT 101`
+- Ese set se pasa como `scope.locationIds` al crear el job → `total_in_scope = 101`, `max_total = 101`.
 
-### 1. Verificación — fill POI-N
+### Job
+- INSERT en `image_recovery_jobs`:
+  - `user_id = sandbox-agent` (master, owner del tick operativo)
+  - `mode = 'missing'`, `force = false`, `dry_run = false`
+  - `scope = { locationIds: [...101] }`
+  - `page_size = 25`, `max_total = 101`
+  - `label = 'POI-7 top-101 oldest · guardrail ON'`
+- Status inicial `running`. El cron `image-recovery-job-tick` lo va a recoger en su próxima ejecución; además forzaremos ticks vía `supabase--curl_edge_functions POST /image-recovery-job-tick` hasta `status='done'` (~4–5 ticks de ~25 items).
 
-`map-icons.ts` (línea 264-400) resuelve el fill del marker propio desde `visualGrammar.levelVisual.fillHsl`, que proviene de `getPoiMaturityColor` → `tokens.poi.maturity[level]`. La leyenda inferior (`LocationMap.tsx` 2837-2880) pinta cada chip con `hsl(var(--poi-maturity-${lvl}))`, los **mismos tokens**.
+### Guardrail (ya implementado en `recover-missing-images`)
+Sin cambios de código. El flujo por POI:
+- candidato accepted (`imageKind='representative'`) → `enriched_data.imagen` se setea + `media.image_status='accepted'` → **cuenta como POI-8**.
+- candidato rejected (`imageKind='symbolic'` o falla calidad) → se empuja a `enriched_data.media_rejected[]`, NO se setea `imagen` → sigue POI-7.
+- candidato `pending_review` (kind=`unknown`) → `imagen` se persiste para revisión humana pero `media.image_status='pending_review'` → **NO cuenta como POI-8**.
+- failed/no-image → contador `no_image`/`failed`, sin escritura sobre datos.
 
-| Nivel | Token | Fill marker | Chip leyenda | Correcto |
-|---|---|---|---|---|
-| POI-0 | `poi.maturity.0` (gris neutro) | sí | sí | sí |
-| POI-1 | `poi.maturity.1` (gris cálido) | sí | sí | sí |
-| POI-2 | `poi.maturity.2` (gris cálido) | sí | sí | sí |
-| POI-3 | `poi.maturity.3` (amarillo apagado) | sí | sí | sí |
-| POI-4 | `poi.maturity.4` (amarillo) | sí | sí | sí |
-| POI-5 | `poi.maturity.5` (amarillo intenso) | sí | sí | sí |
-| POI-6 | `poi.maturity.6` (ámbar suave) | sí | sí | sí |
-| POI-7 | `poi.maturity.7` (ámbar) | sí | sí | sí |
-| POI-8 | `poi.maturity.8` (verde amarillento) | sí | sí | sí |
-| POI-9 | `poi.maturity.9` (verde suave) | sí | sí | sí |
-| POI-10 | `poi.maturity.10` (verde) | sí | sí | sí |
+### Invariantes (verificados, no se tocan)
+- `name`, `latitude`, `longitude`, FKs geo (`*_id`), `enriched_data.descripcion`, tags, colecciones: NO mutados por `recover-missing-images` (solo escribe `enriched_data.imagen`, `enriched_data.media`, `enriched_data.media_rejected`, `enriched_data.recovery`).
+- Sin re-enrich: el endpoint no llama a IA de descripción/tags; solo image search + quality gate.
 
-Conclusión: regla 1 ya cumplida, no hace falta tocar nada.
+### Reporte final (después de `status='done'`)
+Salida en chat + persistencia en `docs/audits/image-recovery-tick-<UTC>.md`:
+| métrica | fuente |
+|---|---|
+| accepted | `recent_items` filter `result='found' AND media.image_status='accepted'` + diff DB `enriched_data->'media'->>'image_status' = 'accepted'` sobre los 101 |
+| rejected | conteo de nuevas entradas en `enriched_data.media_rejected[]` sobre los 101 |
+| pending | diff DB `media.image_status='pending_review'` sobre los 101 |
+| failed | job.`failed` |
+| POI-7 restante (global) | re-query del filtro POI-7 missing-image post-tick |
+| auditoría | `job.id`, timestamps `created_at`/`updated_at`, `waves`, `scanned`, lista de items con `id/name/result/source/durationMs` desde `recent_items` |
 
-### 2. Verificación — collection tint sobre fill POI-N
+### Pasos de ejecución
+1. SELECT 101 IDs POI-7 oldest (DB directa).
+2. INSERT job con `scope.locationIds`.
+3. Loop: `curl POST /image-recovery-job-tick` cada ~5s hasta `status='done'` (o `last_error`).
+4. SELECT counters + diff DB sobre los 101 IDs.
+5. Escribir auditoría en `docs/audits/image-recovery-tick-<UTC>.md` + reporte en chat.
 
-Estado actual tras Fase A (`index.css` 356-364): `border: 2px dashed var(--collection-tint)` + `opacity: 0.45`.
-
-| Fill bajo el tinte | Tinte visible | Comentario |
-|---|---|---|
-| POI-3 (amarillo apagado) | marginal | dashed 2px @ 0.45 sobre fondo claro queda muy débil |
-| POI-7 (ámbar saturado) | marginal | el fill domina y el dashed casi desaparece |
-| POI-10 (verde) | marginal | igual: lectura de pertenencia a colección se pierde |
-
-Diagnóstico: Fase A subordinó correctamente el tinte, pero **se pasó**: la pertenencia a colección ya no se lee de un vistazo. Hay que recuperar legibilidad sin volver a competir con el fill.
-
-### Recomendación única
-
-Subir `opacity` del `.collection-tint-ring` de **0.45 → 0.60**. Mantener `dashed` y `2px`. Sin tocar nada más.
-
-Justificación: el patrón dashed ya diferencia visualmente "tinte" de "fill sólido", así que recuperar algo de opacidad no devuelve la competencia cromática que tenía la versión sólida 0.8. Es el cambio mínimo que reequilibra sin reabrir el resto.
-
-### Alcance del cambio (cuando se implemente)
-
-Un solo edit, una sola línea:
-- `src/index.css` → `.collection-tint-ring { opacity: 0.60; }`
-- Version bump patch (1.3.7 → 1.3.8).
-- Entrada en `README.md`.
-
-### Fuera de alcance (no tocar)
-
-- `computePoiMaturity`, `getPoiMaturityColor`, tokens `poi.maturity.*`.
-- Health rings (`point-health-rings.ts`), halos, bordes.
-- Datos, edge functions, migraciones, RLS.
-- Escala POI-N y leyenda.
-
-### Validación post-cambio
-
-- Mapa sigue respondiendo a escala POI-N (fill manda).
-- Collection tint vuelve a ser legible sobre POI-3 / POI-7 / POI-10.
-- Tests existentes (`map-icon-rings-gate.test.ts`, `poi-visual-grammar.test.ts`) siguen verdes (no tocan opacity del tint).
+### Fuera de alcance
+- No se modifica `recover-missing-images` ni `image-recovery-job-tick`.
+- No se purgan ni reabren POIs en `pending_review` previo.
+- No se promueve manualmente a POI-8 (toda promoción ocurre solo si el guardrail acepta).
+- No version bump (operación de datos, no de código).
