@@ -261,7 +261,8 @@ Materializar tabla en `docs/audits/t2-3-pt-preflight.md`:
 | id | name | lat | lon | region_actual | metodo | region_propuesta | region_id_propuesto | confianza |
 |----|------|-----|-----|---------------|--------|------------------|---------------------|-----------|
 
-- `confianza ∈ {parent-chain, nominatim+catalog-unique, preserve-ambiguous, preserve-no-coords, preserve-foreign-country}`.
+- `confianza ∈ {parent-chain, nominatim+catalog-unique, preserve-ambiguous, preserve-no-coords, preserve-foreign-country, canon_gap, canon_gap_blocked}`.
+- PT está en TERRITORIAL_CANON → todos los 29 POIs pasan el gate §0bis. Las marcas `canon_gap*` quedan reservadas para reuso del mismo pre-flight schema en L2..L5.
 
 ### 2.7 Snapshot
 
