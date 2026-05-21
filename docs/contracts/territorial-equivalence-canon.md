@@ -307,9 +307,56 @@ Un país puede declarar `hasProvincia=true` a nivel global y aun así contener r
 - `territorial-canon-parity.test.ts` — paridad cliente/Deno extendida.
 - `territorial-canon-no-hardcode.test.ts` — FORBIDDEN_REGION_ISO / FORBIDDEN_REGION_NAMES activos.
 
-## 11. Restricciones de este PR
+---
+
+## 11c. Ola P0 — World Canon Coverage Patch (aplicado v1.3.18)
+
+Primera incorporación al canon de países **fuera del PDF original** pero presentes en el documento maestro mundial `Equivalencias_Divisiones_Territoriales_Todo_el_Mundo_Canonico.docx` y con POIs ya enriquecidos en producción. Resuelve la observación principal de [`docs/audits/t-global-canon-world-docx-coverage-audit.md`](../audits/t-global-canon-world-docx-coverage-audit.md) §3.1.
+
+**Reglas de derivación (idénticas al patrón del PDF §1):**
+
+- `hasProvincia = false` ⇔ celda Provincia del DOCX = "—".
+- `municipioField = 'admin3'` si `hasProvincia=true`, `'locality'` si no.
+- `localityField = 'sublocality'` por defecto (los 10 P0 caen ahí).
+- `regionEqZoneWhitelist = []` para todos los P0 (no se observan uniprovinciales legítimas en el DOCX para esta ola).
+- `regionsWithoutProvincia`: no se declara en ninguno (excepciones regionales tipo PT-20/PT-30 quedan fuera del alcance P0).
+
+**Tabla P0:**
+
+| iso2 | País | Región (DOCX) | Provincia (DOCX) | Municipio (DOCX) | Localidad (DOCX) | has_provincia | municipio_field | locality_field |
+|---|---|---|---|---|---|:---:|:---:|:---:|
+| IE | Irlanda | Provincia histórica | County | City/County Council | Townland / Village | true | `admin3` | `sublocality` |
+| HR | Croacia | Županija | — | Općina / Grad | Naselje | **false** | `locality` | `sublocality` |
+| RS | Serbia | Provincia autónoma | Okrug | Opština | Naselje | true | `admin3` | `sublocality` |
+| BG | Bulgaria | Oblast | — | Obshtina | Selo / Kvartal | **false** | `locality` | `sublocality` |
+| HU | Hungría | Región estadística | Megye | Település | Városrész | true | `admin3` | `sublocality` |
+| ML | Mali | Région | Cercle | Commune | Village / Quartier | true | `admin3` | `sublocality` |
+| SK | Eslovaquia | Kraj | Okres | Obec | Miestna časť | true | `admin3` | `sublocality` |
+| CZ | Chequia | Kraj | Okres | Obec | Místní část | true | `admin3` | `sublocality` |
+| SI | Eslovenia | Región estadística | — | Občina | Naselje | **false** | `locality` | `sublocality` |
+| IS | Islandia | Región estadística | — | Sveitarfélag | Þorp / Hverfi | **false** | `locality` | `sublocality` |
+
+**Impacto operativo (consulta read-only auditada 2026-05-21):** ~196 POIs estaban cayendo a `UNKNOWN_CANON` (`hasProvincia=false` por defecto conservador). Tras P0 resuelven contra entrada explícita del canon — sin migración de datos, sin re-enrich, sin remap retroactivo. La ganancia es operativa en el momento siguiente en que `resolveAllFks` / `compute-geo-health` / `GeographyTree` toquen esos POIs.
+
+**Reglas duras:**
+
+- **Sin re-enrich.** Cambios de canon no disparan IA.
+- **Sin backfill.** `locations.*` legacy queda inerte; SoT canónico vive en `v_locations_resolved` + helpers del canon.
+- **Sin hardcode.** Cualquier especialización para IE/HR/RS/BG/HU/ML/SK/CZ/SI/IS pasa por el canon. El lint `territorial-canon-no-hardcode` ya cubre los módulos vigilados; los 10 ISO2 P0 NO entran a `FORBIDDEN_ISO2` por ahora (sólo se vigila el subset histórico del PDF) — extensión opcional en olas posteriores.
+- **Olas siguientes.** P1 (EE, KE, LT, ET, GE, LV, DK) y P2+ siguen el mismo patrón. Cada ola es bump patch independiente.
+
+**Tests:**
+
+- `territorial-canon-pdf-conformance.test.ts` — `TERRITORIAL_CANON_SIZE === 49`, lista exacta de 13 países sin provincia, bloque P0 explícito.
+- `territorial-canon-parity.test.ts` — paridad TS↔Deno itera todas las claves (cubre los 10 nuevos sin cambio).
+- `territorial-canon-helpers.test.ts` — sin cambios (defaults/UNKNOWN siguen vigentes para los 156 países restantes del DOCX).
+
+---
+
+## 11. Restricciones del PR original
 
 - **No tocar código.**
+
 - **No tocar datos.**
 - **Sin migraciones.**
 - **Sin re-enrich.**
