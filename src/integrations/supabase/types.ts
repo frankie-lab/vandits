@@ -3441,6 +3441,7 @@ export type Database = {
           raw_geocode: Json | null
           region: string | null
           region_id: string | null
+          region_iso_code: string | null
           region_resolved: string | null
           street_name: string | null
           sublocality: string | null
