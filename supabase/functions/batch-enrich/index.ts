@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { inspectWgs84Coord, isValidWgs84Coord } from "../_shared/coord-validity.ts";
+import { classifyPoiIdentityRootStatus } from "../_shared/poi-identity-root-status.ts";
 
 // Declare EdgeRuntime for TypeScript
 declare const EdgeRuntime: {
