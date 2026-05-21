@@ -1,34 +1,85 @@
-## Cierre image-recovery job `3e8a009b-77a4-4444-b1c6-e8d965f76a24`
+# T1-fix — `*_resolved` como SoT textual cliente (patch)
 
-### 1. Terminar ticks
-- Loop `POST /image-recovery-job-tick` cada ~5s hasta que la fila tenga `status='done'` (o `last_error`). El job ya está capado a `max_total=37`, así que como máximo restan ~11 POIs.
-- Re-chequeo mid-loop con `SELECT status, scanned, updated, no_image, skipped, failed, waves, last_error, recent_items FROM image_recovery_jobs WHERE id='3e8a009b…'`.
+Refs: `docs/audits/t1-zone-text-null-with-zone-id-dry-run.md`, `docs/contracts/territorial-equivalence-canon.md`.
 
-### 2. Consolidar métricas finales
-Sobre el set real de IDs procesados (los 37 del scope):
-- `accepted` = COUNT donde `enriched_data->'media'->>'image_status' = 'accepted'` post-tick (delta respecto a pre-tick).
-- `rejected` = COUNT con nuevas entradas en `enriched_data->'media_rejected'`.
-- `pending_review` = COUNT con `enriched_data->'media'->>'image_status' = 'pending_review'`.
-- `failed` = `job.failed`.
-- `none` = `job.no_image`.
-- `scanned`, `total_in_scope` desde la fila del job.
-- POI-7 restante global = re-query del filtro canónico POI-7 missing-image (path correcto `enriched_data.media.image_recovery_attempted_at`).
+## Cambios
 
-### 3. Crear `docs/audits/image-recovery-batch-500-<UTC>.md`
-Contenido:
-- **Job ID** `3e8a009b-77a4-4444-b1c6-e8d965f76a24` + timestamps.
-- **Scope real procesado**: 37 IDs (no 500, no 1.403). Lista resumida con `id`/`name` desde `recent_items`.
-- **Métricas finales** (tabla con las 7 métricas de arriba).
-- **Hallazgo del filtro erróneo**:
-  - Filtro incorrecto usado en la solicitud previa: `enriched_data->'recovery'->>'attempted_at'`.
-  - Path real canónico: `enriched_data.media.image_recovery_attempted_at`.
-  - Consecuencia: el primer job de 500 (`e634ea84…`) seleccionó IDs no-enriched/inelegibles → 0 escrituras útiles → **inocuo, no tocó datos**.
-- **Backlog real**: 37 POI-7 reales (enriched + sin imagen + sin recovery previa), no 500 ni 1.403.
-- **Cierre operativo**: no se lanzan nuevos jobs image-recovery hasta nueva orden.
-- **Invariantes verificados** (no se tocó: name/lat/lng/FKs/descripcion/tags/colecciones; no re-enrich; sin código/migraciones/bump).
+### 1. `src/types/location.ts` — `GeoLocation`
 
-### Restricciones respetadas
-- No nuevos jobs.
-- No código, no migraciones, no version bump.
-- No re-enrich.
-- Solo lectura DB + ticks edge function + creación de un archivo markdown de auditoría.
+Añadir campos opcionales (puramente aditivos, no breaking):
+
+- `continentResolved?: string`
+- `countryResolved?: string`
+- `regionResolved?: string`
+- `zoneResolved?: string`
+- `admin3Resolved?: string`
+- `localityResolved?: string`
+
+JSDoc señalando que `continent`/`country`/`region`/`zone`/`comarca`/`localidad` son **cache textual legacy** y que `*Resolved` (derivado de FK → `admin_areas.name` vía `v_locations_resolved`) es la fuente textual canónica.
+
+### 2. `src/domains/content/lib/db-transformers.ts`
+
+Dentro de `dbLocationToGeoLocation`:
+
+- Poblar los seis `*Resolved` desde `loc.*_resolved` directos (sin fallback — `undefined` si la vista no los trae).
+- Mantener `continent/country/region/zone` con `*_resolved || legacy` (ya existe).
+- Añadir mismo patrón a `comarca` (`loc.admin3_resolved || loc.admin_level_3`) y `localidad` (`loc.locality_resolved || loc.locality`).
+
+### 3. `src/shared/geography/hierarchy.ts`
+
+En `getLocationHierarchy`, orden canónico por nivel:
+
+1. `loc.*Resolved` (FK SoT)
+2. legacy text (`loc.region`, `loc.zone`, `loc.comarca`, `loc.localidad`, `loc.country`, `loc.continent`, `loc.sublocalidad`)
+3. `enriched_data.datos_geograficos.*` (fallback)
+
+Niveles tratados: `continent`, `country`, `region`, `zone`, `admin_level_3`, `locality`. `sublocality` y `street` no cambian (no hay `*Resolved`).
+
+`getFilledLocationHierarchy` no requiere cambios (delega en `getLocationHierarchy`).
+
+### 4. Tests (Vitest)
+
+`**src/test/db-transformers.test.ts**` (extender) — caso `{ zone_id: 'x', zone_resolved: 'Barcelona', zone: null }`:
+
+- `result.zone === 'Barcelona'`
+- `result.zoneResolved === 'Barcelona'`
+- Mismo patrón para `region`, `admin3`, `locality`.
+
+`**src/test/geography-hierarchy-resolved.test.ts**` (nuevo):
+
+- Sólo `zoneResolved` → hierarchy.zone correcto.
+- `zoneResolved` + legacy `zone` diferentes → gana `zoneResolved`.
+- Sólo legacy `zone` → fallback funciona.
+- Sólo `enriched_data.datos_geograficos.admin_nivel_2` → fallback final funciona.
+- Repetir el patrón para `region` / `admin_level_3` / `locality` (1 caso cada uno).
+
+### 5. Documentación
+
+`**docs/contracts/territorial-equivalence-canon.md**` — añadir sección "SoT textual cliente":
+
+- `*Resolved` (vía `v_locations_resolved`) = SoT textual.
+- Legacy `loc.zone`/etc = cache denormalizada (no escribir desde cliente).
+- `enriched_data.datos_geograficos.*` = último fallback heurístico.
+- Orden canónico de lectura aplicado en `getLocationHierarchy`.
+
+`**docs/tech-debt.md**`:
+
+- Marcar **item 8 (T1-fix)** como APLICADO con fecha y ref de PR.
+- Dejar pendiente sub-item: inventario y migración progresiva de los ~30 call sites `.from('locations')` que no pasan por `v_locations_resolved` (riesgo: si pasan por `dbLocationToGeoLocation`, los `*Resolved` quedan `undefined` y la UI cae al legacy text).
+
+## Out of scope (explícito)
+
+- Migrar call sites `.from('locations')`.
+- Backfill SQL de `locations.zone`.
+- Tocar `v_locations_resolved`, edge functions, migraciones, datos, re-enrich.
+- Bump mayor; impacto = **patch**.
+
+## Orden de archivos a tocar
+
+1. `src/types/location.ts`
+2. `src/domains/content/lib/db-transformers.ts`
+3. `src/shared/geography/hierarchy.ts`
+4. `src/test/db-transformers.test.ts` (extend)
+5. `src/test/geography-hierarchy-resolved.test.ts` (new)
+6. `docs/contracts/territorial-equivalence-canon.md`
+7. `docs/tech-debt.md`
