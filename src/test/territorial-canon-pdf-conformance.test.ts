@@ -14,8 +14,8 @@ import {
 } from '@/shared/geography/territorial-canon';
 
 describe('territorial-canon — PDF conformance (§1, §2, §4)', () => {
-  it('contiene 39 entradas (38 PDF + RU operativo)', () => {
-    expect(TERRITORIAL_CANON_SIZE).toBe(39);
+  it('contiene 49 entradas (38 PDF + RU operativo + 10 ola P0)', () => {
+    expect(TERRITORIAL_CANON_SIZE).toBe(49);
   });
 
   it('todas las claves son ISO2 mayúsculas de 2 chars y coinciden con iso2 interno', () => {
@@ -25,9 +25,9 @@ describe('territorial-canon — PDF conformance (§1, §2, §4)', () => {
     }
   });
 
-  it('§2: lista exacta de países sin provincia = FI, NO, NL, SE, BR, AU, JP, MX, CO', () => {
+  it('§2 + ola P0: lista exacta de países sin provincia = FI,NO,NL,SE,BR,AU,JP,MX,CO + HR,BG,SI,IS', () => {
     expect([...COUNTRIES_WITHOUT_PROVINCIA].sort()).toEqual(
-      ['AU', 'BR', 'CO', 'FI', 'JP', 'MX', 'NL', 'NO', 'SE'].sort(),
+      ['AU', 'BG', 'BR', 'CO', 'FI', 'HR', 'IS', 'JP', 'MX', 'NL', 'NO', 'SE', 'SI'].sort(),
     );
   });
 
@@ -40,11 +40,22 @@ describe('territorial-canon — PDF conformance (§1, §2, §4)', () => {
     }
   });
 
+  it('ola P0: hasProvincia correcto por DOCX mundial', () => {
+    // DOCX: Provincia poblada → hasProvincia=true.
+    for (const iso of ['IE', 'RS', 'HU', 'ML', 'SK', 'CZ']) {
+      expect(hasProvincia(iso), `${iso} P0 debe tener provincia`).toBe(true);
+    }
+    // DOCX: Provincia "—" → hasProvincia=false.
+    for (const iso of ['HR', 'BG', 'SI', 'IS']) {
+      expect(hasProvincia(iso), `${iso} P0 NO debe tener provincia`).toBe(false);
+    }
+  });
+
   it('§1: municipioField=locality solo en países sin admin3 canónico', () => {
     for (const iso of COUNTRIES_WITHOUT_PROVINCIA) {
       expect(getMunicipioField(iso), `${iso}`).toBe('locality');
     }
-    for (const iso of ['ES', 'FR', 'IT', 'GB', 'US', 'PT', 'DE', 'CH', 'AT', 'BE']) {
+    for (const iso of ['ES', 'FR', 'IT', 'GB', 'US', 'PT', 'DE', 'CH', 'AT', 'BE', 'IE', 'RS', 'HU', 'ML', 'SK', 'CZ']) {
       expect(getMunicipioField(iso), `${iso}`).toBe('admin3');
     }
   });
