@@ -89,6 +89,10 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.3.5 (2026-05-21)
+- ✅ **Tooltips canónicos en leyenda Madurez** (pill inferior derecha de `LocationMap`). Cada chip 0–10 se envuelve con `AppTooltip` (Radix + tokens del sistema) además del `title`/`aria-label` ya existentes. Contenido por chip: `POI-<n> · <significado>` (0 Sin dato útil · 1 Solo coordenadas · 2 Solo nombre · 3 Nombre + coordenadas válidas · 4 Identidad confirmada · 5 País / continente resuelto · 6 Región / zona resuelta · 7 Descripción enriquecida · 8 Media validada · 9 Categoría / tags validados · 10 Curado completo).
+- ✅ Bump **patch** `1.3.4 → 1.3.5`. NO toca: colores, layout, `computePoiMaturity`, marker fill, datos, colecciones, popup.
+
 ### v1.3.4 (2026-05-20)
 - ✅ **Corrección definición POI-10** en `computePoiMaturity`. POI-10 deja de exigir `enriched_data.observacion` (estado personal/editorial del usuario). Pasa a representar **curación OBJETIVA completa**: `geoHealth='ok'` + `enrichment_status='enriched'` (sobre POI-9 ya garantiza por monotonía `raw_geocode`, país/continente, región/zona, descripción IA verificable, media validada, categoría/tags).
 - ✅ Estado personal (observación, visita, rating, foto propia, comentario) confirmado como **eje SEPARADO**: nunca eleva ni degrada el nivel objetivo POI-N. Flags `geo_resolution` siguen como techo.
