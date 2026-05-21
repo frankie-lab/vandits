@@ -72,6 +72,21 @@ describe('territorial-canon — no hardcode en lógica territorial', () => {
             violations.push(`L${idx + 1}: comparación con '${name}' → ${original.trim()}`);
           }
         }
+        // T2A-wire (§1.b) — excepciones regionales: prohibir comparación
+        // literal contra iso_code regional (PT-20/PT-30) o contra nombre
+        // de región insular. El SoT es `regionHasNoProvincia` (canon).
+        for (const iso of FORBIDDEN_REGION_ISO) {
+          const re = new RegExp(`(={2,3})\\s*['"\`]${iso}['"\`]`);
+          if (re.test(code)) {
+            violations.push(`L${idx + 1}: comparación con region iso '${iso}' → ${original.trim()}`);
+          }
+        }
+        for (const name of FORBIDDEN_REGION_NAMES) {
+          const re = new RegExp(`(={2,3})\\s*['"\`]${name}['"\`]`);
+          if (re.test(code)) {
+            violations.push(`L${idx + 1}: comparación con region name '${name}' → ${original.trim()}`);
+          }
+        }
       });
 
       expect(
