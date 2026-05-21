@@ -262,6 +262,51 @@ Tras la auditoría [`docs/audits/t1-zone-text-null-with-zone-id-dry-run.md`](../
 - **Sin backfill** de `locations.zone` (regla DURA — la cache puede quedar `NULL`; SoT vive en la vista).
 - **Riesgo residual**: ~30 call sites con `.from('locations')` directo no pasan por la vista. Si llegan a `dbLocationToGeoLocation`, los `*Resolved` quedan `undefined` y el cliente cae al legacy. Migración progresiva trackeada como deuda (item 8.bis).
 
+---
+
+## 11b. Excepciones regionales (T2A-wire, aplicado v1.3.16)
+
+Un país puede declarar `hasProvincia=true` a nivel global y aun así contener regiones específicas que **no tienen nivel provincia/distrito**. El canon resuelve este caso con la propiedad opcional `regionsWithoutProvincia: ReadonlyArray<string>` sobre `CountryCanon`, que enumera los `iso_code` de admin_areas (case-sensitive, p.ej. `'PT-20'`) afectados.
+
+**Caso inicial obligatorio — Portugal:**
+
+| Región | iso_code | Política |
+|---|---|---|
+| Portugal continental (Norte, Centro, Lisboa, Alentejo, Algarve) | `PT-01..PT-18` | Conserva nivel Distrito (`zone_id` poblado, label "Distrito") |
+| Açores | `PT-20` | Colapsa Distrito (`zone_id=NULL`, sin label "(sin provincia)") |
+| Madeira | `PT-30` | Colapsa Distrito (`zone_id=NULL`, sin label "(sin provincia)") |
+
+**Contrato API:**
+
+- Helper único `regionHasNoProvincia(iso2, regionIsoCode): boolean` (espejado en `src/shared/geography/territorial-canon.ts` y `supabase/functions/_shared/territorial-canon.ts`).
+- Lookup case-sensitive sobre `iso_code` completo. `null`/`undefined`/cadena vacía ⇒ `false`. País sin la propiedad declarada ⇒ `false`.
+
+**Wire aplicado en v1.3.16 (Fase 1):**
+
+1. `v_locations_resolved` expone `region_iso_code` (derivado de `admin_areas.iso_code` vía `region_id`).
+2. `dbLocationToGeoLocation` mapea a `GeoLocation.regionIsoCode`.
+3. `getLocationHierarchy` suprime `raw.zone = undefined` cuando la combinación país+región cumple el veto, **antes** del fallback a `enriched_data.admin_nivel_2` (esto neutraliza el revive de "Lisboa" en Madalena/Açores sin tocar datos).
+4. `GeographyTree` colapsa el nivel Distrito en el árbol UI promoviendo concelhos a hijos directos de la región.
+5. `applyCanonToParsed` descarta `zone`/`zoneId` en POIs nuevos importados bajo esas regiones y emite warning `canon-region-zone-forbidden`.
+6. `resolveAllFks` cliente: **sólo hook + TODO** (defensa client-side suficiente). El enforcement server-side real queda pendiente en [`docs/audits/t2a-wire-regional-exceptions-edge-ticket.md`](../audits/t2a-wire-regional-exceptions-edge-ticket.md).
+7. Lint anti-hardcode (`src/test/territorial-canon-no-hardcode.test.ts`) bloquea cualquier comparación literal contra `'PT-20'`, `'PT-30'`, `'Açores'`, `'Azores'`, `'Madeira'` fuera del canon.
+
+**Reglas duras:**
+
+- **Data-driven.** Ningún componente puede ramificar por nombre de región o `iso_code` literal. Toda especialización pasa por `regionHasNoProvincia`.
+- **Sin migración de datos.** El canon neutraliza el efecto visual; los `enriched_data.admin_nivel_2='Lisboa'` legacy quedan inertes.
+- **Paridad TS ↔ Deno** obligatoria sobre `regionsWithoutProvincia` (cubierto por `territorial-canon-parity.test.ts`).
+- **Extensión futura.** Añadir Canarias (ES) u otras regiones uniinsulares sigue el mismo patrón: declarar `regionsWithoutProvincia` en el canon del país, sin tocar componentes.
+
+**Tests obligatorios:**
+
+- `territorial-canon-regional-exceptions.test.ts` — helper unitario.
+- `territorial-canon-wire-hierarchy-pt-insular.test.ts` — `getLocationHierarchy` suprime zone.
+- `territorial-canon-wire-imports-pt-insular.test.ts` — `applyCanonToParsed` descarta zone.
+- `territorial-canon-wire-geography-tree-pt-insular.test.ts` — UI colapsa Distrito.
+- `territorial-canon-parity.test.ts` — paridad cliente/Deno extendida.
+- `territorial-canon-no-hardcode.test.ts` — FORBIDDEN_REGION_ISO / FORBIDDEN_REGION_NAMES activos.
+
 ## 11. Restricciones de este PR
 
 - **No tocar código.**
@@ -270,4 +315,5 @@ Tras la auditoría [`docs/audits/t1-zone-text-null-with-zone-id-dry-run.md`](../
 - **Sin re-enrich.**
 - **Sin bump.** Version impact: **none**.
 - Documento solo. Aplicación queda diferida a PRs separados, listados en [`docs/tech-debt.md`](../tech-debt.md).
+
 
