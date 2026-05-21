@@ -10,6 +10,7 @@ import { extractCulturalContext } from "../_shared/cultural-context.ts";
 import { isUnverifiableLLMOutput } from "../_shared/llm-unverifiable.ts";
 import { compareCountries } from "../_shared/country-iso.ts";
 import { inspectWgs84Coord } from "../_shared/coord-validity.ts";
+import { classifyPoiIdentityRootStatus } from "../_shared/poi-identity-root-status.ts";
 import { assertNameCoordinateIdentity } from "../_shared/name-coord-identity.ts";
 import { getEnabledSourceCodes, isSourceEnabled } from "../_shared/data-sources.ts";
 import { sanitizeAiEnrichmentPayload } from "../_shared/ai-payload-sanitizer.ts";
@@ -1754,13 +1755,69 @@ serve(async (req) => {
 
     // PR-ADMIN-AUDIT-3 Fase A: `curatorId`/`druidId` retirados del contrato.
     // Las tablas `curators`/`druids` fueron purgadas en migraciones anteriores.
-    const { location: rawLocation, generateImage = true, imageSources, skipValidation = false, confirmedCandidate } = parsed as {
+    const { location: rawLocation, generateImage = true, imageSources, skipValidation = false, confirmedCandidate, locationId } = parsed as {
       location: IncomingLocation;
       generateImage?: boolean;
       imageSources?: string[];
       skipValidation?: boolean;
       confirmedCandidate?: string;
+      locationId?: string;
     };
+
+    // ===== POI-Identity Root Status revalidation =====
+    // If a `locationId` is provided (batch path + cable-aware clients), re-read
+    // the row from DB and re-classify just before any IA/write happens. This
+    // closes the enqueue→write race window: if A/B/C/canon_gap/hardError/
+    // already_enriched/in_progress/fixture/under_review/unresolved appeared
+    // between enqueue and now, we skip silently (200 + skipReason).
+    // Contract: docs/audits/poi-identity-p1-p2-parallel-execution-plan.md §2.2/§2.3.
+    if (typeof locationId === 'string' && /^[0-9a-f-]{36}$/i.test(locationId)) {
+      try {
+        const REVAL_URL = Deno.env.get('SUPABASE_URL')!;
+        const REVAL_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.49.1');
+        const revalClient = createClient(REVAL_URL, REVAL_KEY);
+        const { data: fresh } = await revalClient
+          .from('locations')
+          .select('id,name,latitude,longitude,country_code,country_id,region_id,geo_health,enrichment_status,is_approved,deleted_at,owner_user_id,enriched_data,metadata')
+          .eq('id', locationId)
+          .maybeSingle();
+        if (fresh) {
+          const verdict = classifyPoiIdentityRootStatus(fresh);
+          if (!verdict.eligibleForAutoEnrich) {
+            console.log(
+              '[poi-identity:reval] skip',
+              locationId,
+              `root=${verdict.root}`,
+              `reason=${verdict.skipReason}`,
+              verdict.detail ?? '',
+            );
+            return new Response(
+              JSON.stringify({
+                success: false,
+                reason: 'identity_root_skip',
+                root: verdict.root,
+                skipReason: verdict.skipReason,
+                detail: verdict.detail ?? null,
+                message: 'POI no elegible para auto-enrich tras revalidación (POI-Identity Root Status).',
+              }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+            );
+          }
+        }
+      } catch (e) {
+        console.warn('[poi-identity:reval] could not revalidate, aborting to be safe:', e);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            reason: 'identity_root_revalidation_failed',
+            message: 'No se pudo revalidar el POI-Identity Root Status. Abort por seguridad.',
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    }
+
 
     const location = normalizeLocation(rawLocation);
     if (!location) {

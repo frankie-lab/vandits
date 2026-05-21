@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { inspectWgs84Coord, isValidWgs84Coord } from "../_shared/coord-validity.ts";
+import { classifyPoiIdentityRootStatus } from "../_shared/poi-identity-root-status.ts";
 
 // Declare EdgeRuntime for TypeScript
 declare const EdgeRuntime: {
@@ -175,7 +176,25 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         return;
       }
 
-      // ===== SKIP ALREADY-ENRICHED (transversal rule: los verdes no se reenriquecen) =====
+      // ===== POI-Identity Root Status §2.2/§2.3 GATE =====
+      // Only root='D' eligible POIs may reach the LLM. Everything else is
+      // a silent noop-skip (no error, no retry, no fail count). Contract:
+      // docs/audits/poi-identity-p1-p2-parallel-execution-plan.md §2.2 / §2.3.
+      const identity = classifyPoiIdentityRootStatus(location);
+      if (!identity.eligibleForAutoEnrich) {
+        processedIds.push(locationId);
+        console.log(
+          '[poi-identity] skip',
+          locationId,
+          location.name,
+          `root=${identity.root}`,
+          `reason=${identity.skipReason}`,
+          identity.detail ?? '',
+        );
+        return;
+      }
+
+      // ===== SKIP ALREADY-ENRICHED (defensive — classifier already catches this) =====
       const existingDesc = (location.enriched_data as { descripcion?: string } | null)?.descripcion;
       if (typeof existingDesc === 'string' && existingDesc.trim().length > 0) {
         processedIds.push(locationId);
@@ -269,6 +288,7 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
               'Authorization': `Bearer ${supabaseKey}`,
             },
             body: JSON.stringify({
+              locationId, // PR cableado: revalidación servidor-side just-before-write
               location: {
                 name: location.name,
                 description: location.description,
