@@ -288,6 +288,7 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
               'Authorization': `Bearer ${supabaseKey}`,
             },
             body: JSON.stringify({
+              locationId, // PR cableado: revalidación servidor-side just-before-write
               location: {
                 name: location.name,
                 description: location.description,
