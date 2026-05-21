@@ -98,8 +98,9 @@ export async function resolveAdminFks(input: AdminAreaInput): Promise<AdminAreaI
     });
     if (error) throw error;
     const rawIds: AdminAreaIds = { ...EMPTY_IDS, ...(data?.ids ?? {}) };
+    const meta = (data?.meta ?? null) as ResolveAdminAreaMeta | null;
     // T2A-wire — sanitización data-driven según TERRITORIAL_CANON.
-    const ids = applyCanonToResolvedFks(rawIds, input);
+    const ids = applyCanonToResolvedFks(rawIds, input, meta);
     adminCache.set(key, ids);
     return { ...ids };
   } catch (err) {
@@ -108,18 +109,24 @@ export async function resolveAdminFks(input: AdminAreaInput): Promise<AdminAreaI
   }
 }
 
+interface ResolveAdminAreaMeta {
+  region_iso_code?: string | null;
+  canon?: { iso2?: string | null; regionForbidsProvincia?: boolean } | null;
+}
+
 /**
  * T2A-wire — Post-procesa los IDs resueltos según el canon territorial.
  *
  * Defensa en profundidad: aunque la edge `resolve-admin-area` devuelva FKs
  * para niveles "imposibles" en el país (e.g. `zone_id` para SE/NO/BR/AU/JP),
- * aquí se descartan. Reglas §1, §4 del contrato territorial.
+ * aquí se descartan. Reglas §1, §1.b, §4 del contrato territorial.
  *
  * Idempotente. País desconocido = passthrough (fallback legacy).
  */
 function applyCanonToResolvedFks(
   ids: AdminAreaIds,
   input: AdminAreaInput,
+  meta?: ResolveAdminAreaMeta | null,
 ): AdminAreaIds {
   const iso2 = nameToIso2(input.country ?? null);
   const canon = getCountryCanon(iso2);
@@ -144,15 +151,21 @@ function applyCanonToResolvedFks(
     if (!legit) out.zone_id = null;
   }
 
-  // T2A-wire (§1.b) — TODO: aplicar `regionHasNoProvincia(iso2, regionIsoCode)`
-  // para descartar `zone_id` bajo regiones declaradas sin provincia (PT-20
-  // Açores, PT-30 Madeira). Requiere que la edge `resolve-admin-area` devuelva
-  // `region_iso_code` derivado de `admin_areas.iso_code` por `region_id`.
-  // Hook preparado — defensa server-side completa pendiente en follow-up:
-  // `docs/audits/t2a-wire-regional-exceptions-edge-ticket.md`.
-  // El cliente NO tiene aquí acceso síncrono al iso_code; NO se hardcodea
-  // nada (sin lookup por nombre de región). Fase 1 cubre la UI via vista
-  // `v_locations_resolved.region_iso_code` y `getLocationHierarchy`.
+  // T2A-wire (§1.b) — Excepción regional: regionsWithoutProvincia.
+  // El edge `resolve-admin-area` resuelve `region_iso_code` desde
+  // `admin_areas.iso_code` y lo expone en `meta`. Aquí se aplica defensa en
+  // profundidad: si la región prohíbe provincia ⇒ descartar zone_id.
+  // El veto autoritativo ya se aplicó server-side; este bloque garantiza
+  // consistencia si meta llega pero los ids no fueron saneados (back-compat).
+  const regionIsoCode = meta?.region_iso_code ?? null;
+  if (regionIsoCode && regionHasNoProvincia(canon.iso2, regionIsoCode) && out.zone_id) {
+    console.warn('[resolveAdminFks] canon-region-zone-forbidden', {
+      iso2: canon.iso2,
+      regionIsoCode,
+      droppedZoneId: true,
+    });
+    out.zone_id = null;
+  }
 
   return out;
 }
