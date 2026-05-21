@@ -35,6 +35,15 @@ export interface CountryCanon {
    * normalización (lowercase + NFD strip diacritics + trim).
    */
   readonly regionEqZoneWhitelist: ReadonlyArray<string>;
+  /**
+   * T2A-wire — Excepciones regionales (§1.b del contrato territorial).
+   * Lista de `iso_code` (case-sensitive, formato `XX-NN`) de regiones de este
+   * país que NO tienen nivel provincia/distrito operativo aunque
+   * `hasProvincia=true`. Permite que el árbol jerárquico omita zone para
+   * casos como PT-20 Açores / PT-30 Madeira sin hardcode en componentes.
+   * Lookup canónico vía `regionHasNoProvincia(iso2, regionIsoCode)`.
+   */
+  readonly regionsWithoutProvincia?: ReadonlyArray<string>;
 }
 
 /**
