@@ -45,7 +45,7 @@ export interface TreeNode {
  * Tree multi-país queda con jerarquía mixta (algunos países muestran
  * Provincia, otros no), exactamente como el canon exige.
  */
-function stripZoneSegmentFromPaths(node: TreeNode, countryPathLen: number): TreeNode {
+export function stripZoneSegmentFromPaths(node: TreeNode, countryPathLen: number): TreeNode {
   // Quita el índice `countryPathLen + 2` (posición de zone, ya que region
   // ocupa countryPathLen + 1) del path acumulado.
   const zoneIdx = countryPathLen + 2;
