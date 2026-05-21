@@ -136,6 +136,9 @@ interface PoiEnrichedShape {
   descripcion?: string | null;
   imagen?: string | null;
   imagen_fuente?: string | null;
+  /** image-quality guardrail (ver `supabase/functions/_shared/image-quality.ts`). */
+  image_status?: 'accepted' | 'rejected' | 'pending_review' | null;
+  image_kind?: 'representative' | 'symbolic' | 'unknown' | null;
   categoria?: string | null;
   clasificacion?: unknown;
   etiquetas?: string[] | null;
