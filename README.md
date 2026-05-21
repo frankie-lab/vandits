@@ -89,6 +89,12 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.3.18 (2026-05-21)
+- ✅ **P0 — World Canon Coverage Patch (ola 1)**. `TERRITORIAL_CANON` (TS + espejo Deno) crece de 39 → 49 entradas con los 10 países priorizados por la auditoría mundial (`docs/audits/t-global-canon-world-docx-coverage-audit.md` §3.1): **IE, HR, RS, BG, HU, ML, SK, CZ, SI, IS**. Derivación data-driven desde `Equivalencias_Divisiones_Territoriales_Todo_el_Mundo_Canonico.docx`: `hasProvincia=true` para `IE, RS, HU, ML, SK, CZ`; `hasProvincia=false` para `HR, BG, SI, IS` (Provincia "—" en DOCX). `regionEqZoneWhitelist=[]` en todas. Sin entradas en `regionsWithoutProvincia`. Resuelve ~196 POIs hoy cayendo a `UNKNOWN_CANON`.
+- ✅ Contract tests actualizados: `territorial-canon-pdf-conformance` (size 49, lista exacta de 13 países sin provincia, nuevo bloque P0 positivo/negativo, `municipioField` extendido). Paridad TS↔Deno y lint anti-hardcode siguen verdes sin tocar (`territorial-canon-parity` itera todas las claves; `territorial-canon-no-hardcode` no depende del tamaño).
+- ✅ Doc `docs/contracts/territorial-equivalence-canon.md` §11c (nuevo): tabla mapping P0 + referencias a DOCX/audit.
+- ✅ Bump **patch** `1.3.17 → 1.3.18`. NO toca: datos (`locations`, `admin_areas`, `enriched_data`), edge data, POIs históricos, Nominatim, re-enrich, migraciones SQL, renderer del mapa, RLS, edge functions, tokens POI-N, health rings, colecciones.
+
 ### v1.3.17 (2026-05-21)
 - ✅ **T2A-wire-regional-exceptions-edge — enforcement server-side**. `supabase/functions/resolve-admin-area/index.ts` lee `iso_code` de `country_id` y `region_id` resueltos (1 SELECT extra cuando hay región) y aplica `regionHasNoProvincia(iso2, regionIsoCode)` desde el canon Deno (`_shared/territorial-canon.ts`). Si la región prohíbe provincia ⇒ `ids.zone_id = null` + `console.warn('canon-region-zone-forbidden', …)`. Respuesta extendida con `meta: { region_iso_code, canon: { iso2, regionForbidsProvincia } }` (aditivo, back-compat). Sin hardcode de PT-20/PT-30 fuera de `TERRITORIAL_CANON`.
 - ✅ Cliente `src/shared/geography/resolve-admin-fks.ts` consume `data.meta.region_iso_code` y aplica el mismo veto en `applyCanonToResolvedFks` como defensa en profundidad (TODO previo eliminado). Mismo código de warning `canon-region-zone-forbidden`.
