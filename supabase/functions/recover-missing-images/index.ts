@@ -34,6 +34,7 @@ import {
   type ImageSourceCode,
 } from "../_shared/image-search.ts";
 import { requireCapability } from "../_shared/require-capability.ts";
+import { classifyImageCandidate } from "../_shared/image-quality.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
