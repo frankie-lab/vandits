@@ -82,9 +82,12 @@ const PER_POI_JITTER_MS = () => 200 + Math.floor(Math.random() * 300);
 interface ItemLog {
   id: string;
   name: string | null;
-  result: "found" | "none" | "skipped" | "transient";
+  result: "found" | "none" | "skipped" | "transient" | "rejected";
   source: ImageSourceCode | null;
   durationMs: number;
+  imageKind?: "representative" | "symbolic" | "unknown";
+  imageStatus?: "accepted" | "rejected" | "pending_review";
+  rejectionReason?: string | null;
 }
 
 function getMediaImageUrl(enriched: any): string | null {
