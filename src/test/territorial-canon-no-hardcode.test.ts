@@ -19,6 +19,9 @@ const GUARDED_FILES = [
   'src/shared/geography/hierarchy.ts',
   'src/shared/geography/zone-region-guard.ts',
   'src/shared/geography/renormalize.ts',
+  'src/components/filters/GeographyTree.tsx',
+  'src/lib/parsers/shared.ts',
+  'src/shared/import/canon-validator.ts',
   'supabase/functions/_shared/geo-normalizer.ts',
   'supabase/functions/_shared/reverse-geocode.ts',
 ];
