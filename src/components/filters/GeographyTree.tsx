@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/tooltip';
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
 import { getLocationHierarchy, getFilledLocationHierarchy, UNCLASSIFIED_VALUE, HIERARCHY_LEVELS, LEVEL_PLACEHOLDER_LABELS, compareGeoTreeNodes, type HierarchyLevel } from '@/shared/geography/hierarchy';
-import { hasProvincia } from '@/shared/geography/territorial-canon';
+import { hasProvincia, regionHasNoProvincia } from '@/shared/geography/territorial-canon';
 import { nameToIso2 } from '@/shared/geo/country-iso';
 
 export type TreeLevel = 'continent' | 'country' | 'region' | 'zone' | 'comarca' | 'localidad' | 'sublocalidad' | 'calle';
