@@ -35,6 +35,75 @@ export type Database = {
         }
         Relationships: []
       }
+      _catalog_pt_ra_concelhos_snapshot_2026_05_21: {
+        Row: {
+          depth: number | null
+          id: string | null
+          is_placeholder: boolean | null
+          parent_id: string | null
+          path: string[] | null
+          snapshot_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          depth?: number | null
+          id?: string | null
+          is_placeholder?: boolean | null
+          parent_id?: string | null
+          path?: string[] | null
+          snapshot_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          depth?: number | null
+          id?: string | null
+          is_placeholder?: boolean | null
+          parent_id?: string | null
+          path?: string[] | null
+          snapshot_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      _locations_ra_concelhos_snapshot_2026_05_21: {
+        Row: {
+          admin3_id: string | null
+          id: string | null
+          locality_id: string | null
+          region: string | null
+          region_id: string | null
+          snapshot_at: string | null
+          sublocality_id: string | null
+          updated_at: string | null
+          zone: string | null
+          zone_id: string | null
+        }
+        Insert: {
+          admin3_id?: string | null
+          id?: string | null
+          locality_id?: string | null
+          region?: string | null
+          region_id?: string | null
+          snapshot_at?: string | null
+          sublocality_id?: string | null
+          updated_at?: string | null
+          zone?: string | null
+          zone_id?: string | null
+        }
+        Update: {
+          admin3_id?: string | null
+          id?: string | null
+          locality_id?: string | null
+          region?: string | null
+          region_id?: string | null
+          snapshot_at?: string | null
+          sublocality_id?: string | null
+          updated_at?: string | null
+          zone?: string | null
+          zone_id?: string | null
+        }
+        Relationships: []
+      }
       achievement_definitions: {
         Row: {
           category: string
