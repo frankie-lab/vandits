@@ -243,6 +243,25 @@ Cuando un POI de estos países entre, debe resolverse al primer intento sin nece
 
 ---
 
+## 11a. SoT textual cliente (T1-fix, aplicado v1.3.11)
+
+Tras la auditoría [`docs/audits/t1-zone-text-null-with-zone-id-dry-run.md`](../audits/t1-zone-text-null-with-zone-id-dry-run.md) se detectó que ~1.432 POIs tenían `zone_id` válido pero `locations.zone` (cache textual) `NULL`, causando huecos en `GeographyTree` y breadcrumbs.
+
+**Orden canónico de lectura textual en cliente** (aplicado por `getLocationHierarchy` en `src/shared/geography/hierarchy.ts`):
+
+1. **`loc.*Resolved`** — derivado en `v_locations_resolved` de FK → `admin_areas.name`. SoT textual.
+2. **`loc.<legacy>`** (`continent`, `country`, `region`, `zone`, `comarca`, `localidad`) — cache denormalizada en `locations.*`. NO escribir desde cliente; tratar como cache secundaria.
+3. **`enriched_data.datos_geograficos.*`** — último fallback heurístico procedente del IA / geocoder libre.
+
+**Cobertura actual de la vista `v_locations_resolved`**: sólo expone 4 niveles `*_resolved` (`continent_resolved`, `country_resolved`, `region_resolved`, `zone_resolved`). Los campos `admin3Resolved` / `localityResolved` en `GeoLocation` están reservados; el transformer ya intenta `loc.admin3_resolved || loc.locality_resolved` con fallback al legacy. Ampliar la vista a `admin3_resolved` / `locality_resolved` es deuda separada (tech-debt item 8.bis).
+
+**Invariantes de implementación:**
+
+- `dbLocationToGeoLocation` (`src/domains/content/lib/db-transformers.ts`) puebla los 6 campos `*Resolved` y mantiene los legacy con la regla `*_resolved || legacy` para compatibilidad de consumidores no migrados.
+- `getLocationHierarchy` aplica el orden canónico en los 6 niveles administrativos (continent, country, region, zone, admin_level_3, locality). `sublocality` y `street` no cambian (sin `*_resolved`).
+- **Sin backfill** de `locations.zone` (regla DURA — la cache puede quedar `NULL`; SoT vive en la vista).
+- **Riesgo residual**: ~30 call sites con `.from('locations')` directo no pasan por la vista. Si llegan a `dbLocationToGeoLocation`, los `*Resolved` quedan `undefined` y el cliente cae al legacy. Migración progresiva trackeada como deuda (item 8.bis).
+
 ## 11. Restricciones de este PR
 
 - **No tocar código.**
@@ -251,3 +270,4 @@ Cuando un POI de estos países entre, debe resolverse al primer intento sin nece
 - **Sin re-enrich.**
 - **Sin bump.** Version impact: **none**.
 - Documento solo. Aplicación queda diferida a PRs separados, listados en [`docs/tech-debt.md`](../tech-debt.md).
+
