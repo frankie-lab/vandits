@@ -1,8 +1,8 @@
-# VANDITS v1.3.7
+# VANDITS v1.3.8
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.3.7-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.3.8-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -88,6 +88,13 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 - [Deuda técnica priorizada](./docs/tech-debt.md)
 
 ## 📝 Changelog
+
+### v1.3.8 (2026-05-21)
+- ✅ **Fase estabilización visual — collection tint reequilibrado**. Tras Fase A (v1.3.7) la pertenencia a colección quedó marginal sobre POI-3/POI-7/POI-10. Se sube `opacity` del `.collection-tint-ring` `0.45 → 0.60` manteniendo `dashed` + `2px`. El patrón dashed conserva la jerarquía (fill POI-N sigue mandando), pero la pertenencia a colección vuelve a leerse de un vistazo.
+- ✅ Confirmadas dos invariantes visuales:
+  - Fill marker = `tokens.poi.maturity.{0..10}` vía `getPoiMaturityColor` (SoT canon v3).
+  - Leyenda inferior usa los mismos tokens (`hsl(var(--poi-maturity-${lvl}))`).
+- ✅ Bump **patch** `1.3.7 → 1.3.8`. NO toca: escala POI-N, `computePoiMaturity`, `getPoiMaturityColor`, marker fill, health rings, halos, datos, edge functions, migraciones, RLS.
 
 ### v1.3.7 (2026-05-21)
 - ✅ **Fase A — subordinación visual capas marker**. Los modificadores secundarios (health rings, collection tint, coherence chip, selección/focus) dejan de competir con el fill POI-N como lectura primaria.
