@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      _catalog_pt_districts_snapshot_2026_05_21: {
+        Row: {
+          id: string
+          is_placeholder: boolean
+          snapshot_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          is_placeholder: boolean
+          snapshot_at?: string
+          updated_at: string
+        }
+        Update: {
+          id?: string
+          is_placeholder?: boolean
+          snapshot_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       achievement_definitions: {
         Row: {
           category: string
