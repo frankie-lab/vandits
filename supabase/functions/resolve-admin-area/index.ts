@@ -287,7 +287,61 @@ Deno.serve(async (req) => {
       ids['zone_id'] = null;
     }
 
-    return new Response(JSON.stringify({ ids }), {
+    // T2A-wire §1.b — Excepciones regionales (regionsWithoutProvincia).
+    // Lookup iso_code de country & region resueltos para aplicar veto via
+    // canon (sin hardcode de PT-20/PT-30). Adicional: 1 SELECT cuando hay
+    // region_id, 0 round-trips si la región no se resolvió.
+    let regionIsoCode: string | null = null;
+    let countryIsoCode: string | null = null;
+    let regionForbidsProvincia = false;
+    const regionId = ids['region_id'];
+    const countryId = ids['country_id'];
+    if (regionId || countryId) {
+      try {
+        const lookupIds = [regionId, countryId].filter((x): x is string => !!x);
+        const { data: isoRows } = await supabase
+          .from('admin_areas')
+          .select('id, iso_code')
+          .in('id', lookupIds);
+        if (isoRows) {
+          for (const row of isoRows) {
+            if (row.id === regionId) regionIsoCode = (row as any).iso_code ?? null;
+            if (row.id === countryId) countryIsoCode = (row as any).iso_code ?? null;
+          }
+        }
+      } catch (e) {
+        console.warn('[resolve-admin-area] iso_code lookup failed', e);
+      }
+    }
+    // Derivar iso2 país: prioriza iso_code canónico; fallback a body.country si ISO2.
+    const iso2Candidate = countryIsoCode && countryIsoCode.length >= 2
+      ? countryIsoCode.slice(0, 2).toUpperCase()
+      : (typeof body.country === 'string' && ISO2_RE.test(body.country.trim())
+          ? body.country.trim().toUpperCase()
+          : null);
+    if (iso2Candidate && regionIsoCode && regionHasNoProvincia(iso2Candidate, regionIsoCode)) {
+      regionForbidsProvincia = true;
+      if (ids['zone_id']) {
+        console.warn('[resolve-admin-area] canon-region-zone-forbidden', {
+          iso2: iso2Candidate,
+          regionIsoCode,
+          droppedZoneId: true,
+        });
+        ids['zone_id'] = null;
+      }
+    }
+    const canonForCountry = iso2Candidate ? getCountryCanon(iso2Candidate) : null;
+
+    return new Response(JSON.stringify({
+      ids,
+      meta: {
+        region_iso_code: regionIsoCode,
+        canon: {
+          iso2: canonForCountry?.iso2 ?? null,
+          regionForbidsProvincia,
+        },
+      },
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
