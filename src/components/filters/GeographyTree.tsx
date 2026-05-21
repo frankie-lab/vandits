@@ -46,9 +46,9 @@ export interface TreeNode {
  * Provincia, otros no), exactamente como el canon exige.
  */
 export function stripZoneSegmentFromPaths(node: TreeNode, countryPathLen: number): TreeNode {
-  // Quita el índice `countryPathLen + 2` (posición de zone, ya que region
-  // ocupa countryPathLen + 1) del path acumulado.
-  const zoneIdx = countryPathLen + 2;
+  // Path indexing: continent(0), country(1) → countryPathLen=2; region(2),
+  // zone(3). Quita el índice `countryPathLen + 1` = posición de zone.
+  const zoneIdx = countryPathLen + 1;
   const newPath = node.path.length > zoneIdx
     ? [...node.path.slice(0, zoneIdx), ...node.path.slice(zoneIdx + 1)]
     : node.path;
