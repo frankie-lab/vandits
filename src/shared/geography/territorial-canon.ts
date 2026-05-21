@@ -91,6 +91,22 @@ export const TERRITORIAL_CANON: Readonly<Record<string, CountryCanon>> = Object.
   PH: { iso2: 'PH', hasProvincia: true, municipioField: 'admin3', localityField: 'locality', regionEqZoneWhitelist: ['Manila', 'Cebu City', 'Davao City', 'Quezon City'] },
   IN: { iso2: 'IN', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: ['Chandigarh', 'Lakshadweep', 'Delhi'] },
   RU: { iso2: 'RU', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: ['Moskva', 'Moscow', 'Moscú', 'Saint Petersburg', 'Sankt-Peterburg', 'Sevastopol'] },
+  // ────────────────────────────────────────────────────────────────────
+  // Ola P0 — World Canon Coverage Patch (v1.3.18).
+  // Fuente: `Equivalencias_Divisiones_Territoriales_Todo_el_Mundo_Canonico.docx`
+  // + `docs/audits/t-global-canon-world-docx-coverage-audit.md` §2.1/§2.3/§3.1.
+  // Reglas: hasProvincia=false ⇔ DOCX marca Provincia "—". Sin inventar.
+  // ────────────────────────────────────────────────────────────────────
+  IE: { iso2: 'IE', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: [] },
+  HR: { iso2: 'HR', hasProvincia: false, municipioField: 'locality', localityField: 'sublocality', regionEqZoneWhitelist: [] },
+  RS: { iso2: 'RS', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: [] },
+  BG: { iso2: 'BG', hasProvincia: false, municipioField: 'locality', localityField: 'sublocality', regionEqZoneWhitelist: [] },
+  HU: { iso2: 'HU', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: [] },
+  ML: { iso2: 'ML', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: [] },
+  SK: { iso2: 'SK', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: [] },
+  CZ: { iso2: 'CZ', hasProvincia: true, municipioField: 'admin3', localityField: 'sublocality', regionEqZoneWhitelist: [] },
+  SI: { iso2: 'SI', hasProvincia: false, municipioField: 'locality', localityField: 'sublocality', regionEqZoneWhitelist: [] },
+  IS: { iso2: 'IS', hasProvincia: false, municipioField: 'locality', localityField: 'sublocality', regionEqZoneWhitelist: [] },
 });
 
 /**
