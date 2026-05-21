@@ -227,7 +227,20 @@ function arrayHasEntries(v: unknown): boolean {
 
 function hasValidatedMedia(loc: PoiMaturityInput): boolean {
   const ed = pickEnriched(loc);
-  if (nonEmptyString(ed?.imagen)) return true;
+  // Guardrail de calidad de imagen: una imagen `enriched_data.imagen`
+  // sólo cuenta para POI-8 si `image_status` está ausente (legacy =
+  // backward-compat, asumido representativo) o explícitamente 'accepted'.
+  // `rejected` (bandera/escudo/logo) y `pending_review` (dudoso) NO
+  // promocionan el POI. Las fotos de usuario (`photos`, `images`, `media`,
+  // `user_image_url`) siempre cuentan — no pasan por el clasificador.
+  if (nonEmptyString(ed?.imagen)) {
+    const status = ed?.image_status ?? null;
+    if (status === 'rejected' || status === 'pending_review') {
+      // skip the IA image; fall through to user-uploaded media checks
+    } else {
+      return true;
+    }
+  }
   if (arrayHasEntries(loc.photos)) return true;
   if (arrayHasEntries(loc.images)) return true;
   if (arrayHasEntries(loc.media)) return true;
