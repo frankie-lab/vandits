@@ -1,11 +1,23 @@
 # T2.3 — Plan de ejecución: Lote 0 + Lote 1 (PT)
 
-> **Estado:** PLAN. No ejecutar. No UPDATE. No geocoder. No código. No bump.
+> **Estado:** PLAN aprobado con bloqueos (IE + canon_gap). No ejecutar todavía. No UPDATE. No geocoder. No código. No bump.
 >
 > **Referencias:**
 > - `docs/audits/t2-3-region-placeholder-dry-run.md`
-> - `docs/contracts/territorial-equivalence-canon.md`
+> - `docs/contracts/territorial-equivalence-canon.md` (+ mirrors TS/Deno)
 > - `docs/audits/t2-2-hasprovinciafalse-lote1-closure.md`
+
+---
+
+## 0bis. Gate canónico TERRITORIAL_CANON (regla DURA, ambos lotes)
+
+Antes de tocar ningún POI, se evalúa `country_code` contra `TERRITORIAL_CANON` (`docs/contracts/territorial-equivalence-canon.md` + mirrors TS/Deno).
+
+- **`country_code ∈ TERRITORIAL_CANON`** → POI elegible para resolución según el método del lote.
+- **`country_code ∉ TERRITORIAL_CANON`** → **PRESERVAR**. Marcar `canon_gap=true` en postflight. **NO resolver automáticamente** ni por parent-chain, ni por Nominatim, ni por catálogo.
+- **`country_code = 'IE'`** → **BLOQUEADO EXPLÍCITAMENTE** en L0, L1 y L2..L5. Listar y reportar como `canon_gap_blocked='IE'`. Requiere prerequisito **T2.3-IE** (ver §5) antes de cualquier corrección de sus ~55 POIs.
+
+Este gate aplica antes que cualquier otro filtro de selección de universo y se documenta en cada postflight (`country_code`, conteo `eligible` vs `canon_gap` vs `canon_gap_blocked`).
 
 ---
 
@@ -97,15 +109,22 @@ Resolver `region_id` / `region` derivándolos de la cadena `admin_areas` ya exis
 
 POIs donde:
 
+- `country_code IN TERRITORIAL_CANON` **Y** `country_code <> 'IE'` (gate §0bis)
 - `region_id IS NULL OR region IS NULL OR region = ''`
 - **Y** al menos uno de `{admin3_id, zone_id, locality_id}` está poblado
 - **Y** el ancestro depth=1 (región) es derivable navegando `admin_areas.path` hacia arriba
 
-Estimación dry-run: **~17 POIs**. Lista cerrada se materializa en §1.4.
+POIs cuyo `country_code` no está en TERRITORIAL_CANON, o es `IE`, quedan fuera del UPDATE y se reportan como `canon_gap` / `canon_gap_blocked` en §1.4.
+
+Estimación dry-run: **~17 POIs** sujetos al recorte del gate canónico (los 17 originales pertenecen a países ya canonizados según T2.2, pero el gate se ejecuta igualmente como defensa en profundidad). Lista cerrada se materializa en §1.4.
 
 ### 1.3 Método de resolución
 
 `parent-chain` puro:
+
+```sql
+WITH src AS (
+`parent-chain` puro, con gate canónico aplicado en el `WHERE`:
 
 ```sql
 WITH src AS (
@@ -114,6 +133,8 @@ WITH src AS (
   FROM locations l
   WHERE (l.region_id IS NULL OR l.region IS NULL OR l.region = '')
     AND COALESCE(l.admin3_id, l.zone_id, l.locality_id) IS NOT NULL
+    AND l.country_code <> 'IE'                          -- bloqueo explícito IE
+    AND l.country_code = ANY($CANON_COUNTRY_CODES)      -- gate TERRITORIAL_CANON
 ),
 chain AS (
   SELECT s.loc_id, aa.id AS anc_id, aa.name AS anc_name, aa.depth
@@ -125,7 +146,7 @@ chain AS (
 SELECT loc_id, anc_id, anc_name FROM chain;
 ```
 
-Sin Nominatim. Sin matching textual. Sin heurística de coordenadas.
+`$CANON_COUNTRY_CODES` se materializa desde `TERRITORIAL_CANON` en pre-flight (lista cerrada de ISO2). Sin Nominatim, sin matching textual, sin heurística de coordenadas.
 
 ### 1.4 Listado a generar (no ejecutar todavía)
 
@@ -240,7 +261,8 @@ Materializar tabla en `docs/audits/t2-3-pt-preflight.md`:
 | id | name | lat | lon | region_actual | metodo | region_propuesta | region_id_propuesto | confianza |
 |----|------|-----|-----|---------------|--------|------------------|---------------------|-----------|
 
-- `confianza ∈ {parent-chain, nominatim+catalog-unique, preserve-ambiguous, preserve-no-coords, preserve-foreign-country}`.
+- `confianza ∈ {parent-chain, nominatim+catalog-unique, preserve-ambiguous, preserve-no-coords, preserve-foreign-country, canon_gap, canon_gap_blocked}`.
+- PT está en TERRITORIAL_CANON → todos los 29 POIs pasan el gate §0bis. Las marcas `canon_gap*` quedan reservadas para reuso del mismo pre-flight schema en L2..L5.
 
 ### 2.7 Snapshot
 
@@ -299,7 +321,42 @@ Igual que §0.3, filtrado por `location_id IN (universo PT)`.
 
 ## 4. Fuera de alcance (explícito)
 
-- Class B' no-PT (RO, NO, HR, etc.) → lotes posteriores.
+- Class B' no-PT (RO, NO, HR, etc.) → lotes posteriores **siempre que su `country_code` esté en TERRITORIAL_CANON**.
 - Class C (catálogo incompleto: RS, XK, ME, MD) → requiere backfill `admin_areas` previo.
 - Class D (fixtures sintéticos) → excluidos permanentemente.
+- **IE / Irlanda → bloqueado en L0, L1, L2..L5** hasta completar prerequisito T2.3-IE (§5).
+- Cualquier `country_code` ∉ TERRITORIAL_CANON → preservar y reportar `canon_gap`, sin resolución automática en ningún lote.
 - Re-enrich, IA, scraping, cambios de `country_id`/`zone_id`/`locality_id`, bump de versión.
+
+---
+
+## 5. Prerequisito T2.3-IE (bloqueante para Irlanda)
+
+**Estado:** abierto. Bloquea cualquier corrección de los ~55 POIs `country_code='IE'`.
+
+### 5.1 Alcance
+
+- Añadir entrada `IE` a `docs/contracts/territorial-equivalence-canon.md` con:
+  - `hasProvincia` (decisión documentada: las 4 provincias históricas IE son culturales, no admin operativas → previsible `false`, a confirmar en T2.3-IE).
+  - `municipioField` (probable `locality`; County Council como nivel admin real).
+  - Mapping `region` → County (26 condados) o agrupación canónica.
+  - Aliases bilingües EN/GA (Gaeilge).
+- Sincronizar mirrors:
+  - TS: `src/shared/geography/territorial-canon.ts` (o equivalente activo).
+  - Deno: `supabase/functions/_shared/territorial-canon.ts`.
+- Contract test de paridad TS↔Deno↔markdown para `IE`.
+
+### 5.2 Restricciones
+
+- Solo canon + mirrors. **No tocar POIs IE** en este prerequisito.
+- No re-enrich. No migraciones de datos. No bump.
+
+### 5.3 Salida
+
+- `docs/audits/t2-3-ie-canon-prereq.md` con decisión `hasProvincia`, mapping, aliases y diff de canon.
+- Una vez cerrado y aprobado → desbloquea **T2.3-IE-data** (lote dedicado de los ~55 POIs siguiendo el pipeline Class B' del Lote 1).
+
+### 5.4 Reporte intermedio
+
+Hasta entonces, todos los postflights de L0/L1/L2..L5 deben listar los POIs IE preservados bajo `canon_gap_blocked='IE'` con conteo explícito.
+
