@@ -321,7 +321,42 @@ Igual que §0.3, filtrado por `location_id IN (universo PT)`.
 
 ## 4. Fuera de alcance (explícito)
 
-- Class B' no-PT (RO, NO, HR, etc.) → lotes posteriores.
+- Class B' no-PT (RO, NO, HR, etc.) → lotes posteriores **siempre que su `country_code` esté en TERRITORIAL_CANON**.
 - Class C (catálogo incompleto: RS, XK, ME, MD) → requiere backfill `admin_areas` previo.
 - Class D (fixtures sintéticos) → excluidos permanentemente.
+- **IE / Irlanda → bloqueado en L0, L1, L2..L5** hasta completar prerequisito T2.3-IE (§5).
+- Cualquier `country_code` ∉ TERRITORIAL_CANON → preservar y reportar `canon_gap`, sin resolución automática en ningún lote.
 - Re-enrich, IA, scraping, cambios de `country_id`/`zone_id`/`locality_id`, bump de versión.
+
+---
+
+## 5. Prerequisito T2.3-IE (bloqueante para Irlanda)
+
+**Estado:** abierto. Bloquea cualquier corrección de los ~55 POIs `country_code='IE'`.
+
+### 5.1 Alcance
+
+- Añadir entrada `IE` a `docs/contracts/territorial-equivalence-canon.md` con:
+  - `hasProvincia` (decisión documentada: las 4 provincias históricas IE son culturales, no admin operativas → previsible `false`, a confirmar en T2.3-IE).
+  - `municipioField` (probable `locality`; County Council como nivel admin real).
+  - Mapping `region` → County (26 condados) o agrupación canónica.
+  - Aliases bilingües EN/GA (Gaeilge).
+- Sincronizar mirrors:
+  - TS: `src/shared/geography/territorial-canon.ts` (o equivalente activo).
+  - Deno: `supabase/functions/_shared/territorial-canon.ts`.
+- Contract test de paridad TS↔Deno↔markdown para `IE`.
+
+### 5.2 Restricciones
+
+- Solo canon + mirrors. **No tocar POIs IE** en este prerequisito.
+- No re-enrich. No migraciones de datos. No bump.
+
+### 5.3 Salida
+
+- `docs/audits/t2-3-ie-canon-prereq.md` con decisión `hasProvincia`, mapping, aliases y diff de canon.
+- Una vez cerrado y aprobado → desbloquea **T2.3-IE-data** (lote dedicado de los ~55 POIs siguiendo el pipeline Class B' del Lote 1).
+
+### 5.4 Reporte intermedio
+
+Hasta entonces, todos los postflights de L0/L1/L2..L5 deben listar los POIs IE preservados bajo `canon_gap_blocked='IE'` con conteo explícito.
+
