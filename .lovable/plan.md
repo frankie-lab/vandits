@@ -1,65 +1,83 @@
-## Fase 3.1 — Mapping fix: `raw_geocode` llega al frontend
+# Fase A — Subordinación visual de capas secundarias (patch 1.3.6 → 1.3.7)
 
-Restaura las señales geo en `GeoLocation` para que `computePoiMaturity` pueda graduar enriched más allá de POI-3. Sin tocar datos, renderer, colores ni migrations.
+Aplicar SOLO Fase A. No tocar Fase B, escala POI-N, `computePoiMaturity`, `getPoiMaturityColor`, marker fill, datos, edge functions ni migraciones.
 
-### 1. `src/types/location.ts` (~L271)
+## Cambios
 
-Añadir al interface `GeoLocation`, junto a `geoHealth`:
+### 1. Health rings — opacidad 0.45 + ancho 5→3px
 
-```ts
-/** Raw geocoder payload (cache de `locations.raw_geocode`). Señal para POI-4+. */
-rawGeocode?: unknown;
-/** Timestamp ISO de resolución geo (cache de `locations.geo_resolved_at`). */
-geoResolvedAt?: string | null;
-/** Confianza 0..1 del geocoder (cache de `locations.geo_confidence`). */
-geoConfidence?: number | null;
-/** Fuente del geocoder (cache de `locations.geo_source`). */
-geoSource?: string | null;
+`src/domains/content/lib/point-health-rings.ts`:
+
+- `RING_COLORS`: hornear alpha 0.45 en el token usando `hsl(var(--…) / 0.45)`. Mantiene el hue semántico (amber/yellow/magenta/red) pero al 45% de peso visual. Cubre las dos ramas de render (border en dot, drop-shadow en pin) sin overrides.
+- `RING_WIDTH`: `5 → 3`.
+
+Efecto colateral controlado: `RING_GAP = RING_WIDTH` (en `map-icons.ts`) hereda → el padding total `ringPad = ringCount * 3 + 2` reduce el `containerSize` del dot, manteniendo centrado e iconAnchor correctos (lógica ya parametrizada).
+
+### 2. Collection tint ring — opacity 0.45 + dashed
+
+`src/index.css` regla `.collection-tint-ring`:
+
+```css
+.collection-tint-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: var(--collection-ring-width, 2px) dashed var(--collection-tint, #ffffff);
+  opacity: 0.45;
+  pointer-events: none;
+  box-sizing: border-box;
+}
 ```
 
-### 2. `src/domains/content/lib/db-transformers.ts`
+Cambio: `solid → dashed`, `opacity: 0.8 → 0.45`. Solo render del tint; no toca lógica de colecciones ni el color elegido por el usuario.
 
-En `dbLocationToGeoLocation`, añadir antes de `createdAt`:
+### 3. Coherence/review chip — 14px → 10px, opacity 0.95 → 0.85
 
-```ts
-rawGeocode: loc.raw_geocode ?? null,
-geoResolvedAt: loc.geo_resolved_at ?? null,
-geoConfidence: loc.geo_confidence ?? null,
-geoSource: loc.geo_source ?? null,
-```
+`src/components/map/map-icons.ts` (rama `renderMode === 'rich'`, construcción `glyphHtml`):
 
-`v_locations_resolved` ya expone esas columnas (verificado en auditoría previa); el `select('*')` actual las trae.
+- Contenedor `width:14px;height:14px` → `width:10px;height:10px`.
+- Posición `top:-4px; right:-4px` → `top:-3px; right:-3px`.
+- Fondo `hsl(var(--poi-health-review) / 0.95)` → `/ 0.85`.
+- Halo del chip `box-shadow:0 0 0 1.5px hsl(var(--background))` → `0 0 0 1px hsl(var(--background))`.
+- SVG `width="9" height="9"` → `width="7" height="7"`, `stroke-width="2.5"` → `2`.
 
-### 3. Tests (nuevo archivo `src/test/db-transformers-raw-geocode.test.ts`)
+### 4. Selección/focus — halo externo, sin alterar fill
 
-- `dbLocationToGeoLocation` preserva `raw_geocode → rawGeocode` (objeto, no perdido).
-- `dbLocationToGeoLocation` preserva `geo_resolved_at`, `geo_confidence`, `geo_source`.
-- Row sin `raw_geocode` → `rawGeocode === null`.
-- **Integración con `computePoiMaturity`**:
-  - Row enriched + `raw_geocode` poblado + `geo_health='ok'` + `descripcion` → `computePoiMaturity(dbLocationToGeoLocation(row)) > 3`.
-  - Row enriched sin `raw_geocode` → `computePoiMaturity(...) <= 3` (regresión: deuda residual sigue capada).
+`src/components/map/map-icons.ts`:
 
-### 4. Bump v1.3.2 → v1.3.3
+- `applyStateColor` → identidad (devuelve `hex` siempre). El fill POI-N nunca se mezcla con color de estado.
+- `shadow` para `currentState !== 'normal'` usa el mismo patrón halo externo blanco que ya empleaba `isMassSelect`:
+  ```ts
+  const HALO_EXTERNAL =
+    'drop-shadow(0 0 0 2px hsl(var(--background))) ' +
+    'drop-shadow(0 0 0 3px rgba(0,0,0,0.55)) ' +
+    'drop-shadow(0 1px 3px rgba(0,0,0,0.35))';
+  const shadow = (currentState !== 'normal' ? HALO_EXTERNAL : getShadowForMode(renderMode)) + ownHalo;
+  ```
+- `getStateShadow`/`getStateColor` siguen existiendo (otros call-sites, tests) pero `map-icons.ts` deja de invocarlos para `focused/recent/selected`. No se borran helpers en esta fase.
 
-- `package.json`
-- `src/lib/app-version.ts`
-- `README.md` (entrada changelog v1.3.3 — fix mapping geo signals)
-- `docs/releases/version-history.md` (entrada v1.3.3)
+### 5. Version bump (patch)
 
-### 5. `docs/tech-debt.md`
+- `package.json`: `1.3.6 → 1.3.7`.
+- `src/lib/app-version.ts`: `APP_VERSION = '1.3.7'`.
+- `README.md`: badge + entrada en historial v1.3.7 con resumen "Fase A subordinación visual capas marker".
 
-- Marcar Fase 3.1 aplicada en el roadmap del canon cromático v3.
-- Anotar deuda residual separada: **~340 POIs enriched sin `raw_geocode` en DB** (backfill server-side pendiente, fuera del alcance de Fase 3.1).
+## Tests / verificación
 
-### Invariantes
+- `src/test/health-rings.test.ts`, `src/test/map-icon-rings-gate.test.ts`: actualizar referencias a `RING_WIDTH` y a strings de color si comparan literalmente (ajustar al nuevo formato con `/ 0.45`).
+- `src/test/poi-visual-grammar.test.ts`: si afirma color exacto del ring, recalibrar.
+- Verificación visual rápida en preview: POI-5 con `chain+review` + colección de color saturado → debe seguir leyéndose el fill POI-N como dominante.
 
-- No se tocan: `computePoiMaturity`, `resolvePoiVisualGrammar`, `createCustomIcon`, tokens, RLS, edge functions, migrations, datos.
-- Cambio aditivo: campos opcionales nuevos; ningún consumidor existente afectado.
-- Impacto visual: POIs enriched con `raw_geocode` en DB pasarán de POI-3 a POI-4+ según señales adicionales (esperado y deseado).
+## Out of scope (no aplicar ahora)
 
-### Reporte final (post-ejecución)
+- Desaturar paleta health a banda neutra común (Fase B).
+- Banda de hues prohibidos para collection tint.
+- Diferenciación por grosor/dash entre health rings.
+- Cambios en `computePoiMaturity`, `getPoiMaturityColor`, tokens `poi.maturity.*`.
+- Datos, RLS, edge functions, migraciones.
 
-- Archivos modificados (5) + 1 test nuevo.
-- Resultados de los tests añadidos.
-- Versión final `1.3.3`.
-- Confirmación: 0 cambios en datos / renderer / tokens.
+## Riesgos
+
+- Tests snapshot que comparen literal del color del ring fallarán → ajustar.
+- Rings al 45% pueden parecer débiles bajo basemaps muy claros; si feedback negativo, subir a 0.55 en hotfix (1 línea).
+- El halo de selección externo aumenta el bounding box visual ~2-3px; no afecta hit-test (Leaflet usa `iconSize`).

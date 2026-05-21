@@ -54,14 +54,19 @@ export type HealthRing = 'partial' | 'chain' | 'review' | 'hardError';
  * `src/design-system/tokens/source/poi.json` → `poi.health.*`. Cero hex
  * hardcoded: cualquier ajuste de color debe pasar por el JSON + rebuild.
  */
+// Fase A (subordinación visual, v1.3.7): los rings mantienen su hue
+// semántico pero al 45% de opacidad y 3px de ancho (antes 5px @100%) para
+// que la lectura primaria del marker siga siendo el fill POI-N. La opacidad
+// se hornea en el token color para que tanto la rama `border` (dot) como
+// `drop-shadow` (pin) la respeten sin overrides.
 export const RING_COLORS: Record<HealthRing, string> = {
-  partial:   'hsl(var(--poi-health-partial))',
-  chain:     'hsl(var(--poi-health-chain))',
-  review:    'hsl(var(--poi-health-review))',
-  hardError: 'hsl(var(--poi-health-hard-error))',
+  partial:   'hsl(var(--poi-health-partial) / 0.45)',
+  chain:     'hsl(var(--poi-health-chain) / 0.45)',
+  review:    'hsl(var(--poi-health-review) / 0.45)',
+  hardError: 'hsl(var(--poi-health-hard-error) / 0.45)',
 };
 
-export const RING_WIDTH = 5;
+export const RING_WIDTH = 3;
 
 /** Order canónico (inner → outer). El renderer dibuja en este orden. */
 const RING_ORDER: readonly HealthRing[] = ['partial', 'chain', 'review', 'hardError'];
