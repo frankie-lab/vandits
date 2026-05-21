@@ -16,6 +16,8 @@ import type { GeoLocation } from '@/types/location';
 import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
 import { canonicalCountry, canonicalContinent } from '@/shared/geography/canonical-names';
 import { continentLabelFromCoords } from '@/shared/geography/continent-bbox';
+import { getCountryCanon, allowsRegionEqualsZone } from '@/shared/geography/territorial-canon';
+import { nameToIso2 } from '@/shared/geo/country-iso';
 
 export const HIERARCHY_LEVELS = [
   'continent',
@@ -103,6 +105,25 @@ export function getLocationHierarchy(
   // para que la UI tenga un único bucket por nivel ausente.
   for (const lv of HIERARCHY_LEVELS) {
     if (isPlaceholderValue(raw[lv])) raw[lv] = undefined;
+  }
+  // T2A-wire — aplica TERRITORIAL_CANON data-driven:
+  //   §1: `hasProvincia=false` ⇒ omite nivel zone.
+  //   §4: region == zone legitimado por whitelist uniprovincial ⇒ colapsa
+  //        zone en region (el árbol queda con un único nivel etiquetado).
+  // País desconocido = passthrough.
+  const iso2 = nameToIso2(raw.country ?? null);
+  const canon = getCountryCanon(iso2);
+  if (canon) {
+    if (!canon.hasProvincia) {
+      raw.zone = undefined;
+    } else if (
+      raw.region &&
+      raw.zone &&
+      raw.region.localeCompare(raw.zone, undefined, { sensitivity: 'base' }) === 0 &&
+      allowsRegionEqualsZone(canon.iso2, raw.region)
+    ) {
+      raw.zone = undefined;
+    }
   }
   return raw;
 }
