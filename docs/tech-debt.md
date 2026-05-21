@@ -168,7 +168,34 @@ No iniciar Fase 5 antes de Fase 1, ni Fase 6 antes de Fase 2, ni Fase 3 antes de
 
 ---
 
+## Excepciones regionales del canon territorial (T2A-wire, v1.3.16)
+
+**Status:** Fase 1 (wire cliente + GeographyTree + parser imports) aplicada en v1.3.16. Edge enforcement pendiente.
+
+**Aplicado:**
+
+- `CountryCanon.regionsWithoutProvincia` (TS + Deno) con caso inicial PT-20/PT-30.
+- Helper `regionHasNoProvincia(iso2, regionIsoCode)`.
+- `v_locations_resolved` expone `region_iso_code`.
+- `getLocationHierarchy` suprime `zone` para regiones insulares (neutraliza revive de "Lisboa" en Madalena).
+- `GeographyTree` colapsa nivel Distrito para PT-20/PT-30.
+- `applyCanonToParsed` descarta `zone`/`zoneId` y emite `canon-region-zone-forbidden`.
+- Lint anti-hardcode activa FORBIDDEN_REGION_ISO/FORBIDDEN_REGION_NAMES.
+
+**Pendiente operativo (no bloqueante):**
+
+- **`resolveAllFks` cliente** queda con hook + TODO; no consulta `iso_code` de `admin_areas` para vetar `zone_id`. Defensa client-side suficiente (parser + hierarchy + tree). Detalle en [`docs/audits/t2a-wire-regional-exceptions-edge-ticket.md`](./audits/t2a-wire-regional-exceptions-edge-ticket.md).
+- **Edge `resolve-admin-area`** no aplica el veto server-side. Si la pipeline edge persiste un POI PT-20/PT-30 con `zone_id` resuelto desde Nominatim, el canon cliente lo ignora visualmente pero la columna queda inconsistente con el contrato. Cierre en el mismo edge-ticket.
+- **Datos residuales** (Santa Cruz da Graciosa concelho promotion, Bolhão coords, Braga Parque coords) — ticket separado [`docs/audits/t2-3-p2-residual-data-ticket.md`](./audits/t2-3-p2-residual-data-ticket.md).
+
+**No deuda (explícito):**
+
+- Limpieza de `enriched_data.admin_nivel_2='Lisboa'` legacy en Açores: el canon ya neutraliza el efecto visual. Backfill opcional, no requerido.
+
+---
+
 ## Roadmap — Migrar canon cromático del marker a POI-N (v1.3.0)
+
 
 **Status:** plan estratégico aprobado, ejecución diferida. Doc-only ejecutado: ver [`docs/contracts/marker-fill-canon-v3.md`](./contracts/marker-fill-canon-v3.md) + §6/§7 de [`docs/contracts/poi-maturity-visual-contract.md`](./contracts/poi-maturity-visual-contract.md).
 
