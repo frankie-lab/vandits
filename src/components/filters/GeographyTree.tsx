@@ -17,9 +17,9 @@ import { getLocationHierarchy, getFilledLocationHierarchy, UNCLASSIFIED_VALUE, H
 import { hasProvincia } from '@/shared/geography/territorial-canon';
 import { nameToIso2 } from '@/shared/geo/country-iso';
 
-type TreeLevel = 'continent' | 'country' | 'region' | 'zone' | 'comarca' | 'localidad' | 'sublocalidad' | 'calle';
+export type TreeLevel = 'continent' | 'country' | 'region' | 'zone' | 'comarca' | 'localidad' | 'sublocalidad' | 'calle';
 
-interface TreeNode {
+export interface TreeNode {
  name: string;
  count: number;
  totalCount: number;
@@ -32,21 +32,25 @@ interface TreeNode {
 /**
  * T2A-wire — Colapsa el nivel Provincia en países con `hasProvincia=false`.
  *
- * Recorre los nodos raíz buscando `country` (depth=1). Si el ISO2 del país
- * cae bajo el canon §1 sin provincia, los hijos zone (que tras la regla del
- * canon en `getLocationHierarchy` son todos placeholder `(sin provincia)`)
- * se sustituyen por sus nietos. Las paths de TODOS los descendientes se
- * reescriben omitiendo el segmento zone, para que `selectNode` siga mapeando
- * correctamente a filtros (continent/country/region/comarca/...).
+ * Estructura del árbol: continent(0) → country(1) → region(2) → zone(3) →
+ * admin3(4) → locality(5) → sublocality(6) → street(7).
  *
- * Países desconocidos = no-op. Tree multi-país queda con jerarquía mixta
- * (algunos países muestran Provincia, otros no), exactamente como el canon
- * exige.
+ * Para países §1 sin provincia, los nodos `zone` que cuelgan de cada
+ * `region` son TODOS placeholder `(sin provincia)` (regla
+ * `getLocationHierarchy`). Este collapse sustituye `region.children` (zones)
+ * por sus nietos (admin3/locality/...), reescribiendo paths para omitir el
+ * segmento zone. Las regiones se preservan.
+ *
+ * Itera a nivel REGIÓN — NO a nivel país. País desconocido = no-op.
+ * Tree multi-país queda con jerarquía mixta (algunos países muestran
+ * Provincia, otros no), exactamente como el canon exige.
  */
-function stripZoneSegmentFromPaths(node: TreeNode, countryPathLen: number): TreeNode {
-  // Quita el índice `countryPathLen + 1` (posición de zone) del path acumulado.
-  const newPath = node.path.length > countryPathLen + 1
-    ? [...node.path.slice(0, countryPathLen + 1), ...node.path.slice(countryPathLen + 2)]
+export function stripZoneSegmentFromPaths(node: TreeNode, countryPathLen: number): TreeNode {
+  // Path indexing: continent(0), country(1) → countryPathLen=2; region(2),
+  // zone(3). Quita el índice `countryPathLen + 1` = posición de zone.
+  const zoneIdx = countryPathLen + 1;
+  const newPath = node.path.length > zoneIdx
+    ? [...node.path.slice(0, zoneIdx), ...node.path.slice(zoneIdx + 1)]
     : node.path;
   return {
     ...node,
@@ -55,21 +59,23 @@ function stripZoneSegmentFromPaths(node: TreeNode, countryPathLen: number): Tree
   };
 }
 
-function collapseZoneForCountriesWithoutProvincia(nodes: TreeNode[]): void {
+export function collapseZoneForCountriesWithoutProvincia(nodes: TreeNode[]): void {
   for (const continentNode of nodes) {
     for (const countryNode of continentNode.children) {
       const iso2 = nameToIso2(countryNode.name);
       if (!iso2) continue;
       if (hasProvincia(iso2)) continue;
-      // Aplana zone: cada hijo zone aporta sus hijos al país; los paths
-      // descendientes pierden el segmento zone.
-      const promoted: TreeNode[] = [];
-      for (const zoneNode of countryNode.children) {
-        for (const grandchild of zoneNode.children) {
-          promoted.push(stripZoneSegmentFromPaths(grandchild, countryNode.path.length));
+      // Para cada región del país, sustituye sus hijos zone (placeholder)
+      // por los nietos (admin3/locality/...), con paths reescritos.
+      for (const regionNode of countryNode.children) {
+        const promoted: TreeNode[] = [];
+        for (const zoneNode of regionNode.children) {
+          for (const grandchild of zoneNode.children) {
+            promoted.push(stripZoneSegmentFromPaths(grandchild, countryNode.path.length));
+          }
         }
+        regionNode.children = promoted.sort(compareGeoTreeNodes);
       }
-      countryNode.children = promoted.sort(compareGeoTreeNodes);
     }
   }
 }
