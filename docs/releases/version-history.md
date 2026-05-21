@@ -62,7 +62,8 @@ publicados; algunas son hitos **reconstructed** para fijar memoria histórica.
   1.3.2        Canon v3 marker fill — Fase 3: leyenda inferior unificada `Madurez · 0..10`  (stable)
   1.3.3        Canon v3 marker fill — Fase 3.1: mapping fix `raw_geocode` llega al frontend  (stable)
   1.3.4        POI-10 corregido: curación objetiva (geoHealth=ok + enriched), sin exigir observación  (stable)
-  1.3.5        Tooltips canónicos AppTooltip en leyenda compacta Madurez (chips 0–10)  ← versión actual (stable / current)
+  1.3.5        Tooltips canónicos AppTooltip en leyenda compacta Madurez (chips 0–10)  (stable)
+  1.3.16       T2A-wire Fase 1 — excepciones regionales canon territorial (PT-20/PT-30 sin Distrito)  ← versión actual (stable / current)
 
 
 2.x — Futuro
