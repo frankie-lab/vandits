@@ -3,7 +3,8 @@
  *
  * Espejo data-driven de la tabla §1 de
  * `docs/contracts/territorial-equivalence-canon.md` (38 países PDF + RU
- * operativo = 39 entradas). Codifica reglas de jerarquía administrativa por
+ * operativo + 10 países de la ola P0 mundial = 49 entradas). Codifica
+ * reglas de jerarquía administrativa por
  * país ISO2: si tiene nivel "provincia", dónde aterriza el municipio
  * (`admin3_id` vs `locality_id`), dónde aterriza la localidad/barrio
  * (`locality_id` vs `sublocality_id`) y qué regiones uniprovinciales
