@@ -1,8 +1,8 @@
-# VANDITS v1.3.5
+# VANDITS v1.3.6
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.3.5-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.3.6-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -89,8 +89,15 @@ Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para docume
 
 ## 📝 Changelog
 
+### v1.3.6 (2026-05-21)
+- ✅ **Image quality guardrail (POI-7 → POI-8)**. Nuevo clasificador determinista `classifyImageCandidate` (`supabase/functions/_shared/image-quality.ts` + mirror `src/domains/content/lib/image-quality.ts`). Rechaza banderas/escudos/logos/seals y `.svg` puros antes de persistir. `image_status ∈ {accepted, rejected, pending_review}`, `image_kind ∈ {representative, symbolic, unknown}`. Rechazados → `enriched_data.media_rejected[]`, sin escribir `imagen`.
+- ✅ `recover-missing-images` integra el clasificador. `computePoiMaturity.hasValidatedMedia` ignora `imagen` con `image_status ∈ {rejected, pending_review}`. Backward-compat: legacy sin `image_status` sigue contando.
+- ✅ Corrección 20 falsos positivos L1 (banderas/escudos): movidos a `media_rejected[]`, marcados `rejected/symbolic`. Snapshot en `docs/audits/snapshots/poi7-l1-non-representative-full.csv`. Reversible 1:1.
+- ✅ Tests nuevos: `image-quality-classifier.test.ts` + extensión `poi-maturity.test.ts` (rejected/pending_review/accepted/legacy/user-photo override).
+- ✅ Bump **patch** `1.3.5 → 1.3.6`. NO toca: nombres, coords, geografía, descripción, tags, colecciones, renderer, tokens, RLS, migraciones. No L2.
+
 ### v1.3.5 (2026-05-21)
-- ✅ **Tooltips canónicos en leyenda Madurez** (pill inferior derecha de `LocationMap`). Cada chip 0–10 se envuelve con `AppTooltip` (Radix + tokens del sistema) además del `title`/`aria-label` ya existentes. Contenido por chip: `POI-<n> · <significado>` (0 Sin dato útil · 1 Solo coordenadas · 2 Solo nombre · 3 Nombre + coordenadas válidas · 4 Identidad confirmada · 5 País / continente resuelto · 6 Región / zona resuelta · 7 Descripción enriquecida · 8 Media validada · 9 Categoría / tags validados · 10 Curado completo).
+- ✅ **Tooltips canónicos en leyenda Madurez** (pill inferior derecha de `LocationMap`). Cada chip 0–10 se envuelve con `AppTooltip` (Radix + tokens del sistema) además del `title`/`aria-label` ya existentes.
 - ✅ Bump **patch** `1.3.4 → 1.3.5`. NO toca: colores, layout, `computePoiMaturity`, marker fill, datos, colecciones, popup.
 
 ### v1.3.4 (2026-05-20)

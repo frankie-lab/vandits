@@ -480,3 +480,77 @@ describe('ceilingFromGeoResolutionStatus', () => {
     expect(ceilingFromGeoResolutionStatus('')).toBe(10);
   });
 });
+
+describe('computePoiMaturity — image quality guardrail (POI-7 → POI-8)', () => {
+  const base: PoiMaturityInput = {
+    name: 'Faro de Cabo',
+    latitude: 43.7,
+    longitude: -7.5,
+    rawGeocode: { place_id: 42 },
+    country: 'España',
+    region: 'Galicia',
+  };
+
+  it('imagen + image_status="rejected" (bandera/escudo) NO promociona a POI-8', () => {
+    const level = computePoiMaturity({
+      ...base,
+      enrichedData: {
+        descripcion: LONG_DESC,
+        imagen: 'https://upload.wikimedia.org/.../Bandera_de_X.svg.png',
+        image_status: 'rejected',
+        image_kind: 'symbolic',
+      },
+    });
+    expect(level).toBe(7);
+  });
+
+  it('imagen + image_status="pending_review" NO promociona a POI-8', () => {
+    const level = computePoiMaturity({
+      ...base,
+      enrichedData: {
+        descripcion: LONG_DESC,
+        imagen: 'https://example.org/dudoso.jpg',
+        image_status: 'pending_review',
+        image_kind: 'unknown',
+      },
+    });
+    expect(level).toBe(7);
+  });
+
+  it('imagen + image_status="accepted" SÍ promociona a POI-8', () => {
+    const level = computePoiMaturity({
+      ...base,
+      enrichedData: {
+        descripcion: LONG_DESC,
+        imagen: 'https://example.org/photo.jpg',
+        image_status: 'accepted',
+        image_kind: 'representative',
+      },
+    });
+    expect(level).toBe(8);
+  });
+
+  it('legacy: imagen sin image_status sigue contando (backward-compat)', () => {
+    const level = computePoiMaturity({
+      ...base,
+      enrichedData: {
+        descripcion: LONG_DESC,
+        imagen: 'https://example.org/photo.jpg',
+      },
+    });
+    expect(level).toBe(8);
+  });
+
+  it('imagen rejected pero foto de usuario en photos[] → POI-8', () => {
+    const level = computePoiMaturity({
+      ...base,
+      enrichedData: {
+        descripcion: LONG_DESC,
+        imagen: 'https://upload.wikimedia.org/.../Bandera_de_X.svg.png',
+        image_status: 'rejected',
+      },
+      photos: ['/uploads/user.jpg'],
+    });
+    expect(level).toBe(8);
+  });
+});
