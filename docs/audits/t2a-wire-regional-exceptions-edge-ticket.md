@@ -90,3 +90,14 @@ Si el lookup de `iso_code` por `region_id` en runtime es costoso, considerar un 
 - `resolveAllFks` cliente y edge son consistentes (mismo veto, misma fuente: `regionsWithoutProvincia`).
 - Contract test `territorial-canon-parity` sigue verde.
 - `territorial-canon-no-hardcode` sigue verde con FORBIDDEN_REGION_ISO/NAMES activos.
+
+---
+
+## 9. Cierre
+
+**Estado:** CERRADO en v1.3.17 (T2A-wire-regional-exceptions-edge).
+
+- Edge `resolve-admin-area`: lookup de `iso_code` (country+region) + veto `regionHasNoProvincia` + `meta.region_iso_code` en respuesta + warn `canon-region-zone-forbidden`.
+- Cliente `resolveAllFks`: consume `meta.region_iso_code` y aplica defensa en profundidad (TODO eliminado).
+- Tests: `territorial-canon-wire-resolver-pt-insular`, `territorial-canon-wire-resolver-edge-contract`. Lint anti-hardcode extendido a `supabase/functions/resolve-admin-area/index.ts`.
+- Roadmap: §5.2 y §5.3 cerrados; global 2/6 → 4/6.
