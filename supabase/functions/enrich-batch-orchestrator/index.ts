@@ -406,9 +406,17 @@ async function flushMetricsAndCalls(
   client: any,
   runId: string,
   run: any,
-  delta: { success: number; fail: number; skip: number; noop: number; by_skip_reason: Record<string, number> },
+  delta: {
+    success: number;
+    fail: number;
+    skip: number;
+    noop: number;
+    by_skip_reason: Record<string, number>;
+    by_fail_reason?: Record<string, number>;
+  },
   aiCallsThisChunk: number,
 ) {
+
   const prev = run.metrics ?? {};
   const prevBy = (prev.by_skip_reason ?? {}) as Record<string, number>;
   const prevByFail = (prev.by_fail_reason ?? {}) as Record<string, number>;
