@@ -707,7 +707,9 @@ Deno.serve(async (req) => {
     if (req.method === "POST" && path === "/pause") return await handlePause(req, client);
     if (req.method === "POST" && path === "/resume") return await handleResume(req, client);
     if (req.method === "POST" && path === "/restart") return await handleRestart(req, userClient);
+    if (req.method === "POST" && path === "/watchdog") return await handleWatchdog(req, client, userClient);
     if (req.method === "GET" && path === "/status") return await handleStatus(url, client);
+
     return json({ error: "not_found", path, method: req.method }, 404);
 
   } catch (e) {
