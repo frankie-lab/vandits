@@ -40,14 +40,14 @@ const json = (body: unknown, status = 200) =>
 async function requireMaster(req: Request) {
   const authHeader = req.headers.get("Authorization") ?? "";
   if (!authHeader.startsWith("Bearer ")) {
-    return { error: json({ error: "unauthorized" }, 401), client: null, uid: null };
+    return { error: json({ error: "unauthorized" }, 401), client: null, uid: null, authHeader: null };
   }
   const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
     global: { headers: { Authorization: authHeader } },
   });
   const { data: userData, error: userErr } = await userClient.auth.getUser();
   if (userErr || !userData?.user) {
-    return { error: json({ error: "unauthorized" }, 401), client: null, uid: null };
+    return { error: json({ error: "unauthorized" }, 401), client: null, uid: null, authHeader: null };
   }
   // Service-role client for queries (so we can set the orchestrator flag in Phase B)
   const svc = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -58,10 +58,11 @@ async function requireMaster(req: Request) {
     _role: "master",
   });
   if (roleErr || !isMaster) {
-    return { error: json({ error: "forbidden" }, 403), client: null, uid: null };
+    return { error: json({ error: "forbidden" }, 403), client: null, uid: null, authHeader: null };
   }
-  return { error: null, client: svc, uid: userData.user.id };
+  return { error: null, client: svc, uid: userData.user.id, authHeader };
 }
+
 
 // ---------------------------------------------------------------------
 // Endpoint handlers
