@@ -280,4 +280,204 @@ Ninguna de estas exclusiones requiere lógica nueva en el orquestador — todas 
 - No introduce nuevos gates por rol.
 - No emite bump.
 
-— Fin del plan —
+— Fin del plan v1 —
+
+---
+
+# Adenda v2 — Cambios obligatorios pre-aprobación
+
+Estado: PROPUESTA v2. Sobrescribe las secciones equivalentes de v1 cuando hay conflicto. Sin ejecución (ni migración, ni código, ni IA) hasta aprobación explícita de Fase A.
+
+## A1. Budget guard por run (sustituye §6 parcial)
+
+Campos añadidos a `enrichment_batch_runs`:
+
+```sql
+ALTER TABLE enrichment_batch_runs
+  ADD COLUMN max_ai_calls         INT  NOT NULL DEFAULT 25,    -- piloto
+  ADD COLUMN max_runtime_minutes  INT  NOT NULL DEFAULT 60,
+  ADD COLUMN max_error_rate_pct   INT  NOT NULL DEFAULT 5,     -- ya implícito en stop #1
+  ADD COLUMN ai_calls_used        INT  NOT NULL DEFAULT 0,
+  ADD COLUMN pause_reason         TEXT;                         -- p.ej. 'max_ai_calls_reached'
+```
+
+Defaults:
+- Piloto (Fase B): `max_ai_calls = 25` (configurable 25 ó 50 en el seed).
+- Run completo (Fase C): debe aprobarse explícitamente; sin default implícito. La llamada `seed` exige `max_ai_calls >= scope_count` con flag `confirm_full_run=true`.
+
+Comportamiento:
+- El loop incrementa `ai_calls_used` cada vez que dispatch-a `enrich-location` con verdict elegible (no cuenta skips/noops).
+- Si `ai_calls_used >= max_ai_calls` ⇒ `status='paused'`, `pause_reason='max_ai_calls_reached'`. El run NO se aborta — `resume` reanuda sólo si master eleva el techo.
+- Si `elapsed_minutes >= max_runtime_minutes` ⇒ `status='paused'`, `pause_reason='max_runtime_reached'`.
+- Si `fail / (success+fail) > max_error_rate_pct` tras ≥50 finalizados ⇒ `status='aborted'`, `abort_reason='error_rate_exceeded'` (terminal, requiere análisis manual).
+- `pause manual`: `UPDATE enrichment_batch_runs SET status='paused', pause_reason='manual'` — loop lo respeta en la siguiente iteración.
+
+## A2. Status endpoint (nuevo)
+
+`GET /enrich-batch-orchestrator/status?run_id=…` (master + admin lectura) devuelve:
+
+```json
+{
+  "run_id": "…",
+  "label": "pilot-25-20260522",
+  "status": "running|paused|completed|aborted",
+  "pause_reason": null,
+  "abort_reason": null,
+  "scope_count": 25,
+  "max_ai_calls": 25,
+  "ai_calls_used": 18,
+  "max_runtime_minutes": 60,
+  "elapsed_minutes": 42,
+  "metrics": { /* §9 v1 */ },
+  "next_action": "auto-resume|awaiting-approval|terminal"
+}
+```
+
+## A3. Trigger DB de auditoría — acotado (sustituye §8 stop #3)
+
+El trigger de allowlist **NO es global**. Sólo bloquea UPDATEs cuando el contexto declara que la sesión es del orquestador:
+
+```sql
+CREATE OR REPLACE FUNCTION enforce_orchestrator_update_allowlist()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+  is_orchestrator boolean := COALESCE(current_setting('app.batch_orchestrator', true) = 'true', false);
+BEGIN
+  IF NOT is_orchestrator THEN
+    RETURN NEW;  -- importers, recovery, edición manual, otros jobs => NO afectados
+  END IF;
+  -- Allowlist estricta para el orquestador
+  IF (NEW.name              IS DISTINCT FROM OLD.name)
+  OR (NEW.latitude          IS DISTINCT FROM OLD.latitude)
+  OR (NEW.longitude         IS DISTINCT FROM OLD.longitude)
+  OR (NEW.country_id        IS DISTINCT FROM OLD.country_id)
+  OR (NEW.region_id         IS DISTINCT FROM OLD.region_id)
+  OR (NEW.zone_id           IS DISTINCT FROM OLD.zone_id)
+  OR (NEW.admin3_id         IS DISTINCT FROM OLD.admin3_id)
+  OR (NEW.locality_id       IS DISTINCT FROM OLD.locality_id)
+  OR (NEW.sublocality_id    IS DISTINCT FROM OLD.sublocality_id)
+  OR (NEW.continent_id      IS DISTINCT FROM OLD.continent_id)
+  OR (NEW.type_id           IS DISTINCT FROM OLD.type_id)
+  OR (NEW.owner_user_id     IS DISTINCT FROM OLD.owner_user_id)
+  OR (NEW.visibility        IS DISTINCT FROM OLD.visibility)
+  OR (NEW.is_approved       IS DISTINCT FROM OLD.is_approved)
+  OR (NEW.custom_data       IS DISTINCT FROM OLD.custom_data)
+  OR (NEW.place_type        IS DISTINCT FROM OLD.place_type)
+  OR (NEW.personal_category_id IS DISTINCT FROM OLD.personal_category_id) THEN
+    RAISE EXCEPTION 'orchestrator_update_outside_allowlist: only enriched_data/enrichment_status/updated_at allowed';
+  END IF;
+  RETURN NEW;
+END $$;
+
+CREATE TRIGGER trg_enforce_orchestrator_update_allowlist
+BEFORE UPDATE ON locations
+FOR EACH ROW EXECUTE FUNCTION enforce_orchestrator_update_allowlist();
+```
+
+Activación: el orquestador (y sólo el orquestador) ejecuta `SELECT set_config('app.batch_orchestrator', 'true', true)` (LOCAL a la transacción) antes de cada `UPDATE locations`. Cualquier otro flujo (importers, recovery, edición manual, `geocoding_jobs`, `image_recovery_jobs`, edición desde UI) NO setea el flag y por tanto NO ve restricciones nuevas. Verificación obligatoria en Fase A: tests que confirmen que importer, recovery y edición manual siguen pudiendo escribir name/coords/FKs.
+
+## A4. Modo piloto (Fase B)
+
+Primer run real = piloto acotado:
+- `scope_count`: 25 ó 50 IDs (sub-muestra del CSV congelado, preservando distribución por país).
+- `max_ai_calls`: igual al `scope_count`.
+- `max_runtime_minutes`: 30.
+- Subset elegido: primeros N tras ordering canónico (GB→US→IE→…), o muestreo estratificado por país (a decidir antes del seed).
+
+Validaciones obligatorias del piloto antes de Fase C:
+- métricas success/fail/skip dentro de banda esperada (<5 % fail);
+- coste IA real registrado y comparado vs estimación;
+- ningún re-enrich (UNIQUE + status check);
+- allowlist no violada (0 excepciones del trigger);
+- rollback verificado en 1 POI piloto (compensación efectiva);
+- ningún A/B/C/canon_gap/hardError/fixture llegó a `success`;
+- ningún Nominatim invocado (grep en logs);
+- `computePoiMaturity`, marker fill, canon, paleta intactos.
+
+Sólo si todas las validaciones pasan ⇒ se solicita aprobación de Fase C.
+
+## A5. Rollback / Compensación (sustituye §12)
+
+**Requisito previo:** confirmar que `enrich-location` ya snapshot-ea `enriched_data` previo en `audit_logs` antes de escribir. Si NO lo hace (a verificar en Fase A), el orquestador crea snapshot propio antes de cualquier piloto:
+
+```sql
+CREATE TABLE enrichment_batch_snapshots (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  run_id UUID NOT NULL REFERENCES enrichment_batch_runs(id) ON DELETE CASCADE,
+  location_id UUID NOT NULL,
+  previous_enriched_data JSONB,
+  previous_enrichment_status TEXT,
+  taken_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (run_id, location_id)
+);
+```
+
+Flujo de snapshot:
+1. Antes de despachar IA para un POI, el orquestador hace INSERT en `enrichment_batch_snapshots` con el estado actual (idempotente por UNIQUE).
+2. Si la escritura de `enrich-location` triunfa, el snapshot queda como fuente de verdad del estado pre-batch.
+3. Compensación por POI: `UPDATE locations SET enriched_data = s.previous_enriched_data, enrichment_status = s.previous_enrichment_status WHERE id = s.location_id` (ejecutado bajo flag orquestador para pasar trigger).
+4. Compensación del piloto entero: cursor sobre `enrichment_batch_snapshots WHERE run_id=$1` aplica el rollback in bulk.
+
+Conservación:
+- Snapshot vive 90 días, luego archivado a `audit-snapshots/`.
+- CSV congelado original nunca se borra.
+
+## A6. Checklist de ejecución en 3 fases (sustituye §14)
+
+### Fase A — Schema + Edge + Tests (SIN IA)
+
+- [ ] Migración: tablas `enrichment_batch_runs`, `enrichment_batch_items`, `enrichment_batch_snapshots`; trigger acotado `enforce_orchestrator_update_allowlist` con flag `app.batch_orchestrator`.
+- [ ] RLS master-only (lectura admin para reporting/status).
+- [ ] Edge function `enrich-batch-orchestrator` con endpoints `seed | start | pause | resume | restart | status` y `confirm_full_run` para Fase C.
+- [ ] Tests Deno:
+  - seed exactamente 1.259 desde CSV congelado, filtra 0 fuera de scope;
+  - claim atómico no entrega el mismo POI a dos procesos;
+  - gate Fase 1 ejecutado pre-IA (skip silencioso, sin dispatch);
+  - trigger no afecta a UPDATEs simulados de importer/recovery/edición manual;
+  - trigger bloquea UPDATE fuera de allowlist cuando flag activo;
+  - budget guard pausa run al alcanzar `max_ai_calls`;
+  - status endpoint refleja métricas correctamente.
+- [ ] Confirmación auditada: `enrich-location` snapshot-ea `enriched_data` previo en `audit_logs`. Si NO, snapshot propio activado por defecto.
+- [ ] Sin IA. Sin bump. Sin tocar P1-w2. Sin Nominatim.
+
+### Fase B — Piloto 25/50 (CON IA, scope acotado)
+
+- [ ] Aprobación explícita de Fase A cerrada.
+- [ ] Seed piloto: 25 ó 50 IDs (subset del CSV congelado).
+- [ ] `max_ai_calls = scope_count`, `max_runtime_minutes = 30`, `max_error_rate_pct = 5`.
+- [ ] Run real; orquestador respeta budget guard y status endpoint.
+- [ ] Validar las 8 condiciones de §A4.
+- [ ] Reporte: `docs/audits/poi-identity-p2-pilot-<run_label>-execution.md` con métricas + verificación rollback en 1 POI.
+- [ ] Sin bump.
+
+### Fase C — Run completo 1.259 (aprobación separada)
+
+- [ ] Aprobación explícita de Fase B cerrada y reporte firmado.
+- [ ] Seed completo con `confirm_full_run=true`, `max_ai_calls >= 1259`, `max_runtime_minutes` acordado (estimación ~4–6 h).
+- [ ] Stop conditions activas (error rate, budget, manual).
+- [ ] Reporte final §10 v1 + distribución A/B/C/D post-run.
+- [ ] Sin bump (server-side puro).
+
+## A7. Versionado / bump impact (sustituye §11)
+
+- Fase A: migración + edge function nuevo + tests. **Sin código cliente. No requiere bump.**
+- Fase B/C: ejecución server-side. **Sin código cliente. No requiere bump.**
+- Bump sólo si en algún momento se decide exponer UI de control del orquestador (no contemplado en este plan).
+
+## A8. Riesgos actualizados
+
+- **R1 (resuelto):** trigger acotado por `app.batch_orchestrator` ⇒ no afecta a importer/recovery/edición manual. Validación obligatoria en Fase A.
+- **R2:** lock optimista deja huérfanos `in_progress` si el orquestador cae mid-flight. Mitigación v1 (restart resetea >5 min).
+- **R3 (resuelto):** budget guard `max_ai_calls` + piloto 25/50 acotan coste.
+- **R4:** re-clasificación entre seed y claim infla `skip` count. Aceptable.
+- **R5:** concurrencia con `enrichment_jobs` / `global_enrichment_jobs`. Lock optimista evita doble escritura; en Fase A se documenta orden de precedencia.
+- **R6:** `pg_cron` opcional; restart manual disponible.
+- **R7 (nuevo):** snapshot `enrichment_batch_snapshots` puede crecer rápido en Fase C. TTL 90 días + archivado documentado.
+
+## A9. Lo que la adenda NO cambia
+
+- Sigue prohibido: Nominatim, re-enrich, A/B/C/canon_gap/hardError/fixtures, `computePoiMaturity`, marker fill, canon, paleta, bump cliente.
+- P1-w2 sigue bloqueado.
+- Gates Fase 1 inalterados (ya cableados, contract tests verdes).
+
+— Fin de la adenda v2 —
