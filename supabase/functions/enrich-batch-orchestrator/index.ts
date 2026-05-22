@@ -196,6 +196,7 @@ async function applyComplete(client: any, runId: string) {
  */
 async function processChunk(
   client: any,
+  rpcClient: any,
   runId: string,
   dryRun: boolean,
   authHeader: string | null,
@@ -212,14 +213,15 @@ async function processChunk(
     return { continueLoop: false, verdict: `abort:${budget.reason}` };
   }
 
-  // Claim atomically.
-  const { data: claimed, error: claimErr } = await client.rpc("claim_batch_items", {
+  // Claim atomically (must run with user auth context so RPC has_role check passes).
+  const { data: claimed, error: claimErr } = await rpcClient.rpc("claim_batch_items", {
     _run_id: runId,
     _chunk_size: run.chunk_size,
   });
   if (claimErr) {
     return { continueLoop: false, verdict: `claim_error:${claimErr.message}` };
   }
+
   if (!claimed || claimed.length === 0) {
     await applyComplete(client, runId);
     return { continueLoop: false, verdict: "completed" };
