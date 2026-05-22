@@ -411,9 +411,14 @@ async function flushMetricsAndCalls(
 ) {
   const prev = run.metrics ?? {};
   const prevBy = (prev.by_skip_reason ?? {}) as Record<string, number>;
+  const prevByFail = (prev.by_fail_reason ?? {}) as Record<string, number>;
   const mergedBy: Record<string, number> = { ...prevBy };
   for (const [k, v] of Object.entries(delta.by_skip_reason)) {
     mergedBy[k] = (mergedBy[k] ?? 0) + v;
+  }
+  const mergedByFail: Record<string, number> = { ...prevByFail };
+  for (const [k, v] of Object.entries(delta.by_fail_reason ?? {})) {
+    mergedByFail[k] = (mergedByFail[k] ?? 0) + v;
   }
   const nextMetrics = {
     success: (prev.success ?? 0) + delta.success,
@@ -421,7 +426,9 @@ async function flushMetricsAndCalls(
     skip: (prev.skip ?? 0) + delta.skip,
     noop: (prev.noop ?? 0) + delta.noop,
     by_skip_reason: mergedBy,
+    by_fail_reason: mergedByFail,
   };
+
   await client
     .from("enrichment_batch_runs")
     .update({
