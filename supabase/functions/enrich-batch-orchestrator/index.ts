@@ -588,13 +588,15 @@ Deno.serve(async (req) => {
   if (auth.error) return auth.error;
   const client = auth.client!;
   const uid = auth.uid!;
+  const authHeader = auth.authHeader;
 
   const url = new URL(req.url);
   const path = url.pathname.replace(/^\/enrich-batch-orchestrator/, "") || "/";
 
   try {
     if (req.method === "POST" && path === "/seed") return await handleSeed(req, client, uid);
-    if (req.method === "POST" && path === "/start") return await handleStart(req, client);
+    if (req.method === "POST" && path === "/start") return await handleStart(req, client, authHeader);
+
     if (req.method === "POST" && path === "/pause") return await handlePause(req, client);
     if (req.method === "POST" && path === "/resume") return await handleResume(req, client);
     if (req.method === "POST" && path === "/restart") return await handleRestart(req, client);
