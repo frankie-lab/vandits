@@ -692,6 +692,157 @@ export type Database = {
         }
         Relationships: []
       }
+      enrichment_batch_items: {
+        Row: {
+          attempts: number
+          claimed_at: string | null
+          country_code: string | null
+          fail_reason: string | null
+          finished_at: string | null
+          id: string
+          location_id: string
+          run_id: string
+          skip_reason: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          claimed_at?: string | null
+          country_code?: string | null
+          fail_reason?: string | null
+          finished_at?: string | null
+          id?: string
+          location_id: string
+          run_id: string
+          skip_reason?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          claimed_at?: string | null
+          country_code?: string | null
+          fail_reason?: string | null
+          finished_at?: string | null
+          id?: string
+          location_id?: string
+          run_id?: string
+          skip_reason?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrichment_batch_items_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "enrichment_batch_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      enrichment_batch_runs: {
+        Row: {
+          abort_reason: string | null
+          ai_calls_used: number
+          chunk_size: number
+          confirm_full_run: boolean
+          created_at: string
+          created_by: string | null
+          finished_at: string | null
+          id: string
+          label: string
+          max_ai_calls: number
+          max_error_rate_pct: number
+          max_runtime_minutes: number
+          metrics: Json
+          pause_reason: string | null
+          pause_seconds: number
+          scope_count: number
+          source_csv_path: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          abort_reason?: string | null
+          ai_calls_used?: number
+          chunk_size?: number
+          confirm_full_run?: boolean
+          created_at?: string
+          created_by?: string | null
+          finished_at?: string | null
+          id?: string
+          label: string
+          max_ai_calls?: number
+          max_error_rate_pct?: number
+          max_runtime_minutes?: number
+          metrics?: Json
+          pause_reason?: string | null
+          pause_seconds?: number
+          scope_count?: number
+          source_csv_path?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          abort_reason?: string | null
+          ai_calls_used?: number
+          chunk_size?: number
+          confirm_full_run?: boolean
+          created_at?: string
+          created_by?: string | null
+          finished_at?: string | null
+          id?: string
+          label?: string
+          max_ai_calls?: number
+          max_error_rate_pct?: number
+          max_runtime_minutes?: number
+          metrics?: Json
+          pause_reason?: string | null
+          pause_seconds?: number
+          scope_count?: number
+          source_csv_path?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      enrichment_batch_snapshots: {
+        Row: {
+          id: string
+          location_id: string
+          previous_enriched_data: Json | null
+          previous_enrichment_status: string | null
+          run_id: string
+          taken_at: string
+        }
+        Insert: {
+          id?: string
+          location_id: string
+          previous_enriched_data?: Json | null
+          previous_enrichment_status?: string | null
+          run_id: string
+          taken_at?: string
+        }
+        Update: {
+          id?: string
+          location_id?: string
+          previous_enriched_data?: Json | null
+          previous_enrichment_status?: string | null
+          run_id?: string
+          taken_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrichment_batch_snapshots_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "enrichment_batch_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       enrichment_criteria: {
         Row: {
           description_tone: string
@@ -3855,6 +4006,7 @@ export type Database = {
           username: string
         }[]
       }
+      batch_orchestrator_health: { Args: never; Returns: Json }
       can_view_deleted_location: {
         Args: { loc_row: Database["public"]["Tables"]["locations"]["Row"] }
         Returns: boolean
@@ -3879,6 +4031,14 @@ export type Database = {
         Returns: {
           new_status: string
           updated_count: number
+        }[]
+      }
+      claim_batch_items: {
+        Args: { _chunk_size?: number; _run_id: string }
+        Returns: {
+          country_code: string
+          item_id: string
+          location_id: string
         }[]
       }
       cleanup_old_deleted_locations: { Args: never; Returns: number }
@@ -3995,6 +4155,10 @@ export type Database = {
       }
       refresh_locations_admin_cache: { Args: never; Returns: number }
       refresh_user_stats: { Args: { _user_id: string }; Returns: undefined }
+      restart_stale_batch_items: {
+        Args: { _run_id: string; _stale_minutes?: number }
+        Returns: number
+      }
       upsert_trunk_place: {
         Args: {
           _enriched_by?: string
