@@ -238,25 +238,29 @@ async function processChunk(
   };
 
   for (const item of claimed as Array<{ item_id: string; location_id: string }>) {
-    // Re-fetch fresh row (read-only).
-    const { data: fresh } = await client
+    // Re-fetch fresh row (read-only). NOTE: `locations` has `custom_data`, the
+    // shared classifier expects `metadata` — alias it.
+    const { data: fresh, error: freshErr } = await client
       .from("locations")
       .select(
-        "id, name, latitude, longitude, country_code, country_id, region_id, geo_health, enrichment_status, is_approved, deleted_at, owner_user_id, enriched_data, metadata",
+        "id, name, latitude, longitude, country_code, country_id, region_id, geo_health, enrichment_status, is_approved, deleted_at, owner_user_id, enriched_data, metadata:custom_data",
       )
       .eq("id", item.location_id)
       .single();
 
     if (!fresh) {
+      const reason = freshErr ? `location_lookup_error:${freshErr.code ?? freshErr.message}` : "location_not_found";
+      console.warn("[orchestrator] fresh fetch failed", item.location_id, reason);
       await client
         .from("enrichment_batch_items")
-        .update({ status: "fail", fail_reason: "location_not_found", finished_at: new Date().toISOString() })
+        .update({ status: "fail", fail_reason: reason, finished_at: new Date().toISOString() })
         .eq("id", item.item_id);
       metricsDelta.fail += 1;
-      metricsDelta.by_fail_reason["location_not_found"] =
-        (metricsDelta.by_fail_reason["location_not_found"] ?? 0) + 1;
+      const bucket = reason.split(":")[0] ?? "fail";
+      metricsDelta.by_fail_reason[bucket] = (metricsDelta.by_fail_reason[bucket] ?? 0) + 1;
       continue;
     }
+
 
     const verdict = classifyPoiIdentityRootStatus(fresh as LocationRow);
     if (!verdict.eligibleForAutoEnrich) {
