@@ -446,20 +446,25 @@ async function flushMetricsAndCalls(
     .eq("id", runId);
 }
 
-async function handleStart(req: Request, client: any) {
+async function handleStart(req: Request, client: any, authHeader: string | null) {
   const body = await req.json().catch(() => ({}));
   const runId: string = body.run_id;
-  const dryRun: boolean = !!body.dryRun;
+  const dryRun: boolean = body.dryRun === true;
   if (!runId) return json({ error: "run_id_required" }, 400);
-
-  // Phase A gate: server REFUSES to dispatch IA. dryRun MUST be true.
-  if (!dryRun) {
-    return json({ error: "phase_a_dry_run_only", hint: "Pass { dryRun: true } in Phase A" }, 403);
-  }
 
   const run = await loadRun(client, runId);
   if (run.status === "completed" || run.status === "aborted") {
     return json({ error: `run_${run.status}` }, 409);
+  }
+
+  // Phase B pilot guard: live dispatches require strict scope cap.
+  if (!dryRun) {
+    if ((run.scope_count ?? 0) > 50) {
+      return json({ error: "phase_b_pilot_scope_cap", limit: 50, actual: run.scope_count }, 403);
+    }
+    if ((run.max_ai_calls ?? 0) > 50) {
+      return json({ error: "phase_b_pilot_max_ai_calls_cap", limit: 50, actual: run.max_ai_calls }, 403);
+    }
   }
 
   await client
@@ -471,14 +476,11 @@ async function handleStart(req: Request, client: any) {
     })
     .eq("id", runId);
 
-  // Process chunks sequentially in-loop. With dryRun the work is light so we
-  // can finish small pilots within the request lifetime. For larger scopes we
-  // bail after maxChunksPerInvocation and rely on a follow-up /start call.
   const maxChunksPerInvocation = Number(body.maxChunksPerInvocation ?? 50);
   let processed = 0;
   let lastVerdict = "noop";
   while (processed < maxChunksPerInvocation) {
-    const { continueLoop, verdict } = await processChunk(client, runId, dryRun);
+    const { continueLoop, verdict } = await processChunk(client, runId, dryRun, authHeader);
     lastVerdict = verdict;
     processed += 1;
     if (!continueLoop) break;
@@ -496,6 +498,7 @@ async function handleStart(req: Request, client: any) {
     metrics: after.metrics,
   });
 }
+
 
 async function handlePause(req: Request, client: any) {
   const body = await req.json().catch(() => ({}));
