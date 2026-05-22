@@ -4006,6 +4006,20 @@ export type Database = {
           username: string
         }[]
       }
+      apply_orchestrator_enrichment: {
+        Args: {
+          _enriched_data: Json
+          _enrichment_status?: string
+          _location_id: string
+        }
+        Returns: {
+          descripcion_length: number
+          descripcion_present: boolean
+          enrichment_status: string
+          id: string
+          updated_at: string
+        }[]
+      }
       batch_orchestrator_health: { Args: never; Returns: Json }
       can_view_deleted_location: {
         Args: { loc_row: Database["public"]["Tables"]["locations"]["Row"] }
