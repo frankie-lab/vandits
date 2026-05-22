@@ -227,8 +227,24 @@ async function processChunk(
     return { continueLoop: false, verdict: "completed" };
   }
 
+  // Catalog of `success:false` reasons that enrich-location emits as
+  // defense-in-depth (gate refusals, not real failures). Mapped to
+  // `skip:defense_<reason>` so they do NOT contaminate the error_rate guard
+  // and never consume retry budget as a "fail".
+  const DEFENSE_SKIP_REASONS = new Set<string>([
+    "identity_root_skip",
+    "identity_root_revalidation_failed",
+    "invalid_coordinates",
+    "reverse_geocode_failed",
+    "identity_lookup_unavailable",
+    "name_coordinate_mismatch",
+    "name_found_elsewhere",
+    "geo_narrative_mismatch",
+    "llm_unverifiable",
+  ]);
+
   let aiCallsThisChunk = 0;
-  const metricsDelta = {
+  const aggregate = {
     success: 0,
     fail: 0,
     skip: 0,
@@ -237,30 +253,68 @@ async function processChunk(
     by_fail_reason: {} as Record<string, number>,
   };
 
+  // Flush helper: persists ONE item's delta + ai_calls increment immediately.
+  // This guarantees `enrichment_batch_runs.ai_calls_used` and `metrics` reflect
+  // reality even if the worker dies mid-chunk (prevents wedged runs).
+  async function flushOne(
+    delta: { success?: number; fail?: number; skip?: number; noop?: number; skip_reason?: string; fail_reason?: string },
+    aiCallDelta: number,
+  ) {
+    aggregate.success += delta.success ?? 0;
+    aggregate.fail += delta.fail ?? 0;
+    aggregate.skip += delta.skip ?? 0;
+    aggregate.noop += delta.noop ?? 0;
+    if (delta.skip_reason) {
+      aggregate.by_skip_reason[delta.skip_reason] = (aggregate.by_skip_reason[delta.skip_reason] ?? 0) + 1;
+    }
+    if (delta.fail_reason) {
+      aggregate.by_fail_reason[delta.fail_reason] = (aggregate.by_fail_reason[delta.fail_reason] ?? 0) + 1;
+    }
+    aiCallsThisChunk += aiCallDelta;
+    // Re-read run, merge with persisted metrics (other workers may write too),
+    // then persist incremental ai_calls_used + new aggregate.
+    const fresh = await loadRun(client, runId);
+    const prev = (fresh.metrics ?? {}) as any;
+    const mergedSkip: Record<string, number> = { ...(prev.by_skip_reason ?? {}) };
+    if (delta.skip_reason) mergedSkip[delta.skip_reason] = (mergedSkip[delta.skip_reason] ?? 0) + 1;
+    const mergedFail: Record<string, number> = { ...(prev.by_fail_reason ?? {}) };
+    if (delta.fail_reason) mergedFail[delta.fail_reason] = (mergedFail[delta.fail_reason] ?? 0) + 1;
+    await client
+      .from("enrichment_batch_runs")
+      .update({
+        ai_calls_used: (fresh.ai_calls_used ?? 0) + aiCallDelta,
+        metrics: {
+          success: (prev.success ?? 0) + (delta.success ?? 0),
+          fail: (prev.fail ?? 0) + (delta.fail ?? 0),
+          skip: (prev.skip ?? 0) + (delta.skip ?? 0),
+          noop: (prev.noop ?? 0) + (delta.noop ?? 0),
+          by_skip_reason: mergedSkip,
+          by_fail_reason: mergedFail,
+        },
+      })
+      .eq("id", runId);
+  }
+
   for (const item of claimed as Array<{ item_id: string; location_id: string }>) {
-    // Re-fetch fresh row (read-only). NOTE: `locations` has `custom_data`, the
-    // shared classifier expects `metadata` — alias it.
+    // Re-fetch fresh row (read-only). `locations.custom_data` aliased to
+    // `metadata` for the shared classifier.
     const { data: fresh, error: freshErr } = await client
       .from("locations")
       .select(
-        "id, name, latitude, longitude, country_code, country_id, region_id, geo_health, enrichment_status, is_approved, deleted_at, owner_user_id, enriched_data, metadata:custom_data",
+        "id, name, latitude, longitude, country_code, country_id, region_id, geo_health, enrichment_status, is_approved, deleted_at, owner_user_id, enriched_data, updated_at, metadata:custom_data",
       )
       .eq("id", item.location_id)
       .single();
 
     if (!fresh) {
       const reason = freshErr ? `location_lookup_error:${freshErr.code ?? freshErr.message}` : "location_not_found";
-      console.warn("[orchestrator] fresh fetch failed", item.location_id, reason);
       await client
         .from("enrichment_batch_items")
         .update({ status: "fail", fail_reason: reason, finished_at: new Date().toISOString() })
         .eq("id", item.item_id);
-      metricsDelta.fail += 1;
-      const bucket = reason.split(":")[0] ?? "fail";
-      metricsDelta.by_fail_reason[bucket] = (metricsDelta.by_fail_reason[bucket] ?? 0) + 1;
+      await flushOne({ fail: 1, fail_reason: reason.split(":")[0] ?? "fail" }, 0);
       continue;
     }
-
 
     const verdict = classifyPoiIdentityRootStatus(fresh as LocationRow);
     if (!verdict.eligibleForAutoEnrich) {
@@ -269,14 +323,12 @@ async function processChunk(
         .from("enrichment_batch_items")
         .update({ status: "skip", skip_reason: reason, finished_at: new Date().toISOString() })
         .eq("id", item.item_id);
-      metricsDelta.skip += 1;
-      metricsDelta.by_skip_reason[reason] = (metricsDelta.by_skip_reason[reason] ?? 0) + 1;
+      await flushOne({ skip: 1, skip_reason: reason }, 0);
       continue;
     }
 
     // ELIGIBLE.
     if (dryRun) {
-      aiCallsThisChunk += 1; // count toward budget for parity with Phase B
       await client
         .from("enrichment_batch_items")
         .update({
@@ -285,26 +337,23 @@ async function processChunk(
           finished_at: new Date().toISOString(),
         })
         .eq("id", item.item_id);
-      metricsDelta.noop += 1;
+      await flushOne({ noop: 1, skip_reason: "dry_run_fase_a" }, 1);
 
-      const projected = (run.ai_calls_used ?? 0) + aiCallsThisChunk;
-      if (projected >= run.max_ai_calls) {
-        await flushMetricsAndCalls(client, runId, run, metricsDelta, aiCallsThisChunk);
+      const after = await loadRun(client, runId);
+      if ((after.ai_calls_used ?? 0) >= after.max_ai_calls) {
         await applyPause(client, runId, "max_ai_calls_reached");
         return { continueLoop: false, verdict: "pause:max_ai_calls_reached" };
       }
       continue;
     }
 
-    // ----- Phase B path: snapshot + dispatch enrich-location -----
+    // ----- Phase B path: snapshot + dispatch enrich-location + PERSIST + VERIFY -----
     if (!authHeader) {
       await client
         .from("enrichment_batch_items")
         .update({ status: "fail", fail_reason: "missing_auth_for_dispatch", finished_at: new Date().toISOString() })
         .eq("id", item.item_id);
-      metricsDelta.fail += 1;
-      metricsDelta.by_fail_reason["missing_auth_for_dispatch"] =
-        (metricsDelta.by_fail_reason["missing_auth_for_dispatch"] ?? 0) + 1;
+      await flushOne({ fail: 1, fail_reason: "missing_auth_for_dispatch" }, 0);
       continue;
     }
 
@@ -322,19 +371,19 @@ async function processChunk(
         .from("enrichment_batch_items")
         .update({ status: "fail", fail_reason: `snapshot_failed:${snapErr.message}`, finished_at: new Date().toISOString() })
         .eq("id", item.item_id);
-      metricsDelta.fail += 1;
-      metricsDelta.by_fail_reason["snapshot_failed"] =
-        (metricsDelta.by_fail_reason["snapshot_failed"] ?? 0) + 1;
-      // STOP CONDITION: snapshot failure aborts the run per Phase B contract.
-      await flushMetricsAndCalls(client, runId, run, metricsDelta, aiCallsThisChunk);
+      await flushOne({ fail: 1, fail_reason: "snapshot_failed" }, 0);
       await applyAbort(client, runId, "snapshot_failure");
       return { continueLoop: false, verdict: "abort:snapshot_failure" };
     }
 
-    // 2) Dispatch enrich-location with locationId (it revalidates Phase 1).
-    aiCallsThisChunk += 1;
-    let dispatchOk = false;
-    let dispatchReason: string = "unknown";
+    // 2) Dispatch enrich-location. enrich-location is a PURE FUNCTION: it
+    //    generates enriched data and returns it; it does NOT persist. The
+    //    orchestrator MUST perform the write via the allowlisted RPC and
+    //    verify persistence before declaring success.
+    const baselineUpdatedAt: string | null = (fresh as any).updated_at ?? null;
+    let outcome: "success" | "skip" | "fail" = "fail";
+    let reasonCode = "unknown";
+    let aiCallDelta = 1; // attempted an IA call
     try {
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/enrich-location`, {
         method: "POST",
@@ -355,56 +404,91 @@ async function processChunk(
           skipValidation: false,
         }),
       });
-      const body = await resp.json().catch(() => ({} as any));
-      if (resp.ok && body?.success !== false && body?.reason !== "identity_root_skip") {
-        dispatchOk = true;
-        dispatchReason = "ok";
-      } else if (body?.reason === "identity_root_skip") {
-        dispatchOk = false;
-        dispatchReason = `revalidation_skip:${body?.skipReason ?? "unknown"}`;
+      const respBody = await resp.json().catch(() => ({} as any));
+
+      if (!resp.ok) {
+        outcome = "fail";
+        reasonCode = `http_${resp.status}:${respBody?.error ?? respBody?.reason ?? "no_detail"}`;
+      } else if (respBody?.success === false) {
+        // ALL success:false from enrich-location are defense-in-depth gates.
+        outcome = "skip";
+        const dr = String(respBody?.reason ?? respBody?.skipReason ?? "unspecified");
+        reasonCode = DEFENSE_SKIP_REASONS.has(dr) ? `defense_${dr}` : `defense_other:${dr}`;
+      } else if (!respBody?.data || typeof respBody.data !== "object") {
+        outcome = "fail";
+        reasonCode = "no_data_in_response";
       } else {
-        dispatchOk = false;
-        dispatchReason = `http_${resp.status}:${body?.error ?? body?.reason ?? "no_detail"}`;
+        // 3) PERSIST: write enriched_data back via allowlisted RPC.
+        const enrichedPayload = respBody.data;
+        const { data: persistRows, error: persistErr } = await client.rpc(
+          "apply_orchestrator_enrichment",
+          {
+            _location_id: item.location_id,
+            _enriched_data: enrichedPayload,
+            _enrichment_status: "enriched",
+          },
+        );
+        if (persistErr) {
+          outcome = "fail";
+          reasonCode = `persist_rpc_error:${persistErr.code ?? persistErr.message}`;
+        } else {
+          const row = Array.isArray(persistRows) ? persistRows[0] : persistRows;
+          // 4) VERIFY: descripcion non-empty AND updated_at advanced.
+          const descPresent = !!row?.descripcion_present;
+          const updatedAdvanced = baselineUpdatedAt
+            ? row?.updated_at && Date.parse(row.updated_at) > Date.parse(baselineUpdatedAt)
+            : !!row?.updated_at;
+          if (descPresent && updatedAdvanced) {
+            outcome = "success";
+            reasonCode = "ok";
+          } else {
+            outcome = "fail";
+            reasonCode = !descPresent
+              ? "success_without_persist:no_descripcion"
+              : "success_without_persist:updated_at_not_advanced";
+          }
+        }
       }
     } catch (e) {
-      dispatchOk = false;
-      dispatchReason = `dispatch_exception:${(e as Error).message}`;
+      outcome = "fail";
+      reasonCode = `dispatch_exception:${(e as Error).message}`;
     }
 
-    if (dispatchOk) {
+    // Apply outcome to item row + flush incrementally.
+    if (outcome === "success") {
       await client
         .from("enrichment_batch_items")
         .update({ status: "success", finished_at: new Date().toISOString() })
         .eq("id", item.item_id);
-      metricsDelta.success += 1;
-    } else if (dispatchReason.startsWith("revalidation_skip:")) {
-      const sr = dispatchReason.replace("revalidation_skip:", "");
+      await flushOne({ success: 1 }, aiCallDelta);
+    } else if (outcome === "skip") {
       await client
         .from("enrichment_batch_items")
-        .update({ status: "skip", skip_reason: sr, finished_at: new Date().toISOString() })
+        .update({ status: "skip", skip_reason: reasonCode, finished_at: new Date().toISOString() })
         .eq("id", item.item_id);
-      metricsDelta.skip += 1;
-      metricsDelta.by_skip_reason[sr] = (metricsDelta.by_skip_reason[sr] ?? 0) + 1;
+      await flushOne({ skip: 1, skip_reason: reasonCode }, aiCallDelta);
     } else {
       await client
         .from("enrichment_batch_items")
-        .update({ status: "fail", fail_reason: dispatchReason, finished_at: new Date().toISOString() })
+        .update({ status: "fail", fail_reason: reasonCode, finished_at: new Date().toISOString() })
         .eq("id", item.item_id);
-      metricsDelta.fail += 1;
-      const bucket = dispatchReason.split(":")[0] ?? "unknown";
-      metricsDelta.by_fail_reason[bucket] = (metricsDelta.by_fail_reason[bucket] ?? 0) + 1;
+      await flushOne({ fail: 1, fail_reason: reasonCode.split(":")[0] ?? "fail" }, aiCallDelta);
     }
 
-    // Budget check mid-chunk after each AI call.
-    const projected = (run.ai_calls_used ?? 0) + aiCallsThisChunk;
-    if (projected >= run.max_ai_calls) {
-      await flushMetricsAndCalls(client, runId, run, metricsDelta, aiCallsThisChunk);
+    // Budget check: pause as soon as max_ai_calls is reached.
+    const after = await loadRun(client, runId);
+    if ((after.ai_calls_used ?? 0) >= after.max_ai_calls) {
       await applyPause(client, runId, "max_ai_calls_reached");
       return { continueLoop: false, verdict: "pause:max_ai_calls_reached" };
     }
+    // Mid-chunk error_rate guard (via evaluateBudget over fresh snapshot).
+    const v = evaluateBudget(after as RunBudgetSnapshot);
+    if (v.action === "abort") {
+      await applyAbort(client, runId, v.reason);
+      return { continueLoop: false, verdict: `abort:${v.reason}` };
+    }
   }
 
-  await flushMetricsAndCalls(client, runId, run, metricsDelta, aiCallsThisChunk);
   return { continueLoop: true, verdict: "chunk_done" };
 }
 
