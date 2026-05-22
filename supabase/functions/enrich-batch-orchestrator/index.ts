@@ -40,18 +40,15 @@ const json = (body: unknown, status = 200) =>
 async function requireMaster(req: Request) {
   const authHeader = req.headers.get("Authorization") ?? "";
   if (!authHeader.startsWith("Bearer ")) {
-    return { error: json({ error: "unauthorized" }, 401), client: null, uid: null, authHeader: null };
+    return { error: json({ error: "unauthorized" }, 401), svc: null, userClient: null, uid: null, authHeader: null };
   }
-  // User-context client: preserves auth.uid() so SECURITY DEFINER RPCs that
-  // check `has_role(auth.uid(), 'master')` work correctly.
   const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
     global: { headers: { Authorization: authHeader } },
   });
   const { data: userData, error: userErr } = await userClient.auth.getUser();
   if (userErr || !userData?.user) {
-    return { error: json({ error: "unauthorized" }, 401), client: null, uid: null, authHeader: null };
+    return { error: json({ error: "unauthorized" }, 401), svc: null, userClient: null, uid: null, authHeader: null };
   }
-  // Service-role probe purely to verify master role.
   const svc = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
   });
@@ -60,10 +57,11 @@ async function requireMaster(req: Request) {
     _role: "master",
   });
   if (roleErr || !isMaster) {
-    return { error: json({ error: "forbidden" }, 403), client: null, uid: null, authHeader: null };
+    return { error: json({ error: "forbidden" }, 403), svc: null, userClient: null, uid: null, authHeader: null };
   }
-  return { error: null, client: userClient, uid: userData.user.id, authHeader };
+  return { error: null, svc, userClient, uid: userData.user.id, authHeader };
 }
+
 
 
 
