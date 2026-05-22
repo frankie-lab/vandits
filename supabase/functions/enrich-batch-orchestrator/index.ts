@@ -449,7 +449,7 @@ async function flushMetricsAndCalls(
     .eq("id", runId);
 }
 
-async function handleStart(req: Request, client: any, authHeader: string | null) {
+async function handleStart(req: Request, client: any, rpcClient: any, authHeader: string | null) {
   const body = await req.json().catch(() => ({}));
   const runId: string = body.run_id;
   const dryRun: boolean = body.dryRun === true;
@@ -483,11 +483,12 @@ async function handleStart(req: Request, client: any, authHeader: string | null)
   let processed = 0;
   let lastVerdict = "noop";
   while (processed < maxChunksPerInvocation) {
-    const { continueLoop, verdict } = await processChunk(client, runId, dryRun, authHeader);
+    const { continueLoop, verdict } = await processChunk(client, rpcClient, runId, dryRun, authHeader);
     lastVerdict = verdict;
     processed += 1;
     if (!continueLoop) break;
   }
+
 
   const after = await loadRun(client, runId);
   return json({
