@@ -493,49 +493,63 @@ async function processChunk(
 }
 
 
-async function flushMetricsAndCalls(
-  client: any,
-  runId: string,
-  run: any,
-  delta: {
-    success: number;
-    fail: number;
-    skip: number;
-    noop: number;
-    by_skip_reason: Record<string, number>;
-    by_fail_reason?: Record<string, number>;
-  },
-  aiCallsThisChunk: number,
-) {
+// (flushMetricsAndCalls removed in fixes-1: metrics now flush per item via
+//  the inner `flushOne` helper inside processChunk. This guarantees
+//  `ai_calls_used`/`metrics` reflect reality even if the worker dies
+//  mid-chunk and prevents wedged-running rows.)
 
-  const prev = run.metrics ?? {};
-  const prevBy = (prev.by_skip_reason ?? {}) as Record<string, number>;
-  const prevByFail = (prev.by_fail_reason ?? {}) as Record<string, number>;
-  const mergedBy: Record<string, number> = { ...prevBy };
-  for (const [k, v] of Object.entries(delta.by_skip_reason)) {
-    mergedBy[k] = (mergedBy[k] ?? 0) + v;
-  }
-  const mergedByFail: Record<string, number> = { ...prevByFail };
-  for (const [k, v] of Object.entries(delta.by_fail_reason ?? {})) {
-    mergedByFail[k] = (mergedByFail[k] ?? 0) + v;
-  }
-  const nextMetrics = {
-    success: (prev.success ?? 0) + delta.success,
-    fail: (prev.fail ?? 0) + delta.fail,
-    skip: (prev.skip ?? 0) + delta.skip,
-    noop: (prev.noop ?? 0) + delta.noop,
-    by_skip_reason: mergedBy,
-    by_fail_reason: mergedByFail,
-  };
+/**
+ * Watchdog: detect in_flight items older than `stale_minutes` (default 5)
+ * and reset them to pending. If `max_ai_calls` is already reached, pause
+ * the run instead of resetting (no further IA should be consumed). Returns
+ * a summary suitable for status dashboards.
+ */
+async function handleWatchdog(req: Request, client: any, rpcClient: any) {
+  const body = await req.json().catch(() => ({}));
+  const runId: string = body.run_id;
+  const staleMinutes: number = Number(body.stale_minutes ?? 5);
+  if (!runId) return json({ error: "run_id_required" }, 400);
 
-  await client
-    .from("enrichment_batch_runs")
-    .update({
-      ai_calls_used: (run.ai_calls_used ?? 0) + aiCallsThisChunk,
-      metrics: nextMetrics,
-    })
-    .eq("id", runId);
+  const run = await loadRun(client, runId);
+
+  // If budget is exhausted, do NOT reset orphans for re-processing — just
+  // pause and report. Compensation must be a separate explicit action.
+  if ((run.ai_calls_used ?? 0) >= (run.max_ai_calls ?? 0) && run.status === "running") {
+    await applyPause(client, runId, "max_ai_calls_reached");
+    return json({
+      run_id: runId,
+      action: "paused_max_ai_calls",
+      reset_count: 0,
+      ai_calls_used: run.ai_calls_used,
+      max_ai_calls: run.max_ai_calls,
+    });
+  }
+
+  const { data: reset, error } = await rpcClient.rpc("restart_stale_batch_items", {
+    _run_id: runId,
+    _stale_minutes: staleMinutes,
+  });
+  if (error) return json({ error: "watchdog_reset_failed", detail: error.message }, 500);
+
+  // If the run was running but the worker is clearly dead (orphans found),
+  // pause it so a fresh /start has to be issued explicitly.
+  const reset_count = (reset as number) ?? 0;
+  let nextStatus = run.status;
+  if (reset_count > 0 && run.status === "running") {
+    await applyPause(client, runId, "worker_died");
+    nextStatus = "paused";
+  }
+  return json({
+    run_id: runId,
+    action: reset_count > 0 ? "reset_stale" : "noop",
+    reset_count,
+    prev_status: run.status,
+    status: nextStatus,
+    ai_calls_used: run.ai_calls_used,
+    max_ai_calls: run.max_ai_calls,
+  });
 }
+
 
 async function handleStart(req: Request, client: any, rpcClient: any, authHeader: string | null) {
   const body = await req.json().catch(() => ({}));
