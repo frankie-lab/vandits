@@ -528,18 +528,19 @@ async function handleResume(req: Request, client: any) {
   return json({ run_id: runId, status: "running" });
 }
 
-async function handleRestart(req: Request, client: any) {
+async function handleRestart(req: Request, rpcClient: any) {
   const body = await req.json().catch(() => ({}));
   const runId: string = body.run_id;
   const staleMinutes: number = Number(body.stale_minutes ?? 5);
   if (!runId) return json({ error: "run_id_required" }, 400);
-  const { data: reset, error } = await client.rpc("restart_stale_batch_items", {
+  const { data: reset, error } = await rpcClient.rpc("restart_stale_batch_items", {
     _run_id: runId,
     _stale_minutes: staleMinutes,
   });
   if (error) return json({ error: "restart_failed", detail: error.message }, 500);
   return json({ run_id: runId, reset_count: reset });
 }
+
 
 async function handleStatus(url: URL, client: any) {
   const runId = url.searchParams.get("run_id");
