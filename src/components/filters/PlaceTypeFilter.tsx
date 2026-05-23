@@ -63,7 +63,8 @@ const PLACE_TYPE_COLORS: Record<PlaceType, string> = {
 export function PlaceTypeFilter() {
  const { getAllLocations, filters, setFilters } = useLocationsStore();
 
- const allLocations = getAllLocations();
+ const allLocations = useScopedLocations(getAllLocations());
+
 
   const placeTypeCounts = useMemo(() => {
   if (allLocations.length === 0) return new Map<PlaceType, number>();
