@@ -117,8 +117,8 @@ describe('PR-EXPORT-1 · C2 · scope explícito en call sites UI (vía pipeline 
       // Deben invocar runPoiExport (pipeline canónico).
       const calls = src.match(/runPoiExport\s*\(/g) ?? [];
       expect(calls.length).toBeGreaterThan(0);
-      // El pipeline recibe scope explícito en su payload.
-      expect(src).toMatch(/scope\s*:/);
+      // El pipeline recibe scope explícito en su payload (shorthand `scope,` o `scope: …`).
+      expect(src).toMatch(/\bscope\s*[:,]/);
     }
   });
 });
