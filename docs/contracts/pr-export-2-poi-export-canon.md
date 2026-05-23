@@ -167,13 +167,25 @@ export type PoiExportRecord = {
 };
 ```
 
-**Notas de naming:**
+**Notas de naming y composición:**
 
 - DTO usa `latitude/longitude` para legibilidad externa; el código
   interno sigue usando `{lat, lng}` (`GeoLocation.coordinates`). El
   mapper traduce. No se filtran propiedades internas.
 - `ownerUserId` **no existe** en el DTO. Está prohibido en ambos
   scopes (§6).
+- `classification.poiLevel` y `classification.rootStatus` son
+  **internal-only** en PR-EXPORT-2: el mapper los **omite** cuando
+  `scope === 'public'`, aunque vivan estructuralmente bajo
+  `classification` (decisión §15.2 / §15.3).
+- `content.imageUrl` en `public` se exporta **solo si es URL pública,
+  validada y no firmada**. Signed/private URLs quedan prohibidas
+  (decisión §15.4).
+- Envelope opcional `collection { id, name, description? }`: solo
+  cuando el origen del export sea una colección y el usuario tenga
+  permiso sobre ella. Vive en la metadata del envelope (JSON /
+  GeoJSON / cabecera KML), nunca dentro del `PoiExportRecord`
+  (decisión §15.6).
 
 ---
 
@@ -191,21 +203,22 @@ export type PoiExportRecord = {
 | `geography.province`               |   ✓    |    ✓     | `zone_id` resuelto |
 | `geography.municipality`           |   ✓    |    ✓     | |
 | `geography.locality`               |   ✓    |    ✓     | |
-| `classification.poiLevel`          |   ⚠    |    ✓     | Ver §15 (pregunta abierta) |
-| `classification.rootStatus` A/B/C/D|   ⚠    |    ✓     | Ver §15 (pregunta abierta) |
+| `classification.poiLevel`          |   ✗    |    ✓     | Internal-only en PR-EXPORT-2 (§15.2) |
+| `classification.rootStatus` A/B/C/D|   ✗    |    ✓     | Internal-only en PR-EXPORT-2 (§15.3) |
 | `classification.category`          |   ✓    |    ✓     | `effectivePlaceType` |
 | `classification.tags[]`            |   ✓    |    ✓     | Solo tags públicos filtrados (`filterPersonalTags`) |
-| `content.description`              |   ✓    |    ✓     | Solo `enriched_data.descripcion` canónica |
-| `content.imageUrl`                 |   ⚠    |    ✓     | Solo si validada como pública (§15) |
+| `content.description`              |   ✓    |    ✓     | Solo `enriched_data.descripcion` canónica; sanitización por formato (§15.10) |
+| `content.imageUrl`                 |   ⚠    |    ✓     | En `public` solo URLs públicas validadas, no firmadas (§15.4) |
 | `metadata.source`                  |   ✓    |    ✓     | Alto nivel, no URL interna |
 | `metadata.exportedAt`              |   ✓    |    ✓     | ISO timestamp |
 | `internal.countryCode`             |   ✗    |    ✓     | ISO alpha-2 |
 | `internal.enrichmentStatus`        |   ✗    |    ✓     | |
 | `internal.geoHealth`               |   ✗    |    ✓     | Resumen, no payload completo |
 | `customData[allowlisted]`          |   ✓    |    ✓     | Solo claves de §7 |
+| Envelope `collection {id,name,…}`  |   ✓    |    ✓     | Solo si origen es colección y hay permiso (§15.6). Vive en metadata del envelope, no en el record. |
 
-Leyenda: ✓ permitido · ✗ prohibido · ⚠ permitido con condiciones a
-resolver en §15.
+Leyenda: ✓ permitido · ✗ prohibido · ⚠ permitido con condición
+explícita.
 
 ---
 
@@ -242,7 +255,8 @@ Lista no exhaustiva de prohibidos por defecto:
 `customData` es un sobre abierto. **Nunca** se exporta entero.
 
 ```ts
-// Propuesta inicial — sujeta a §15
+// Allowlist inicial conservadora — decisión §15.1.
+// Cualquier campo adicional REQUIERE auditoría explícita antes de añadirse.
 export const CUSTOM_DATA_EXPORT_ALLOWLIST = {
   public: [
     'source',
@@ -253,7 +267,6 @@ export const CUSTOM_DATA_EXPORT_ALLOWLIST = {
     'source',
     'external_id',
     'user_label',
-    // futuros campos operativos previa revisión
   ] as const,
 };
 ```
@@ -264,7 +277,8 @@ Reglas:
 - Valores no serializables (functions, symbols, DOM nodes) → omitidos.
 - Estado personal (`visited`, `user_rating`) NO va en `customData`
   exportable. Personal state no influye en export (PR-EXPORT-1).
-- Nombres concretos se pulen tras revisión de datos reales (§15).
+- Ampliar el allowlist requiere auditoría documentada (no se permiten
+  añadidos ad-hoc en PR-EXPORT-2).
 
 ---
 
@@ -280,22 +294,26 @@ Todos los formatos consumen `PoiExportRecord[]`. Ninguno lee
 - Encoding UTF-8 + BOM opcional para Excel.
 - Escape correcto de `,`, `"`, `\n`, `\r`.
 - Campos anidados se aplanan: `geography_country`,
-  `classification_poiLevel`, etc.
+  `classification_category`, etc.
 - `tags[]` se serializan como `;`-separated string.
 - `customData[k]` se aplana como columnas `custom_<k>` sólo si la
   clave está en allowlist (§7).
+- `description` se exporta como **plaintext** (sin markdown ni HTML;
+  decisión §15.10).
 
 ### 8.2 KML
 
 - Un `<Placemark>` por POI.
 - `<Point><coordinates>lng,lat,0</coordinates></Point>`.
 - `<name>` sanitizado (escape XML).
-- `<description>` sanitizada (escape XML, sin HTML crudo de
-  `enriched_data`).
+- `<description>` **escaped/sanitized** (escape XML; sin HTML crudo
+  de `enriched_data`; decisión §15.10).
 - `<ExtendedData>` con `<Data name="…">` sólo para campos
   allowlisted.
 - Cabecera con `<Document><name>` y metadata `exportedAt`,
-  `export_scope`.
+  `export_scope`. Si el origen es colección con permiso, la cabecera
+  incluye `<Data name="collection_id">` / `<Data name="collection_name">`
+  (decisión §15.6).
 
 ### 8.3 JSON
 
@@ -306,10 +324,15 @@ Todos los formatos consumen `PoiExportRecord[]`. Ninguno lee
   "export_scope": "public",
   "exported_at": "2026-05-23T12:34:56.000Z",
   "count": 42,
+  "collection": { "id": "…", "name": "…", "description": "…" },
   "records": [ /* PoiExportRecord[] */ ]
 }
 ```
 
+- `collection` es **opcional**: solo presente si el origen es una
+  colección y el usuario tiene permiso (decisión §15.6).
+- `description` dentro de cada record va como **plaintext**
+  (decisión §15.10).
 - **Prohibido** exportar `GeoLocation` completo (regla dura). El
   `exportToJSON` actual debe migrar a `PoiExportRecord` en la
   implementación PR-EXPORT-2.
@@ -320,11 +343,16 @@ Todos los formatos consumen `PoiExportRecord[]`. Ninguno lee
 - `geometry`: `{ type: 'Point', coordinates: [longitude, latitude] }`
   (orden **GeoJSON canónico** `[lng, lat]`).
 - `properties`: todos los campos allowlisted de `PoiExportRecord`
-  excepto `coordinates` (ya en `geometry`).
+  excepto `coordinates` (ya en `geometry`). `description` como
+  plaintext (decisión §15.10).
 - `id` en `Feature.id` y duplicado en `properties.id` para
   compatibilidad.
-- Envelope `FeatureCollection` puede llevar `metadata` extra fuera del
-  estándar estricto si el consumidor lo tolera; default sin metadata.
+- Envelope `FeatureCollection` puede incluir miembro no estándar
+  `collection { id, name, description? }` cuando aplique
+  (decisión §15.6).
+- **Scope default**: `public` (decisión §15.5). `internal` solo por
+  selección explícita del usuario y con permiso (owner-only en
+  PR-EXPORT-2).
 
 ### 8.5 Exclusiones explícitas (fuera de PR-EXPORT-2)
 
@@ -334,7 +362,19 @@ Todos los formatos consumen `PoiExportRecord[]`. Ninguno lee
 - Backup full-account.
 - Export async server-side / edge jobs.
 - Storage + signed URLs.
-- GPX (queda pendiente decisión waypoint-only, §15).
+- GPX — pospuesto como futuro waypoint-only (decisión §15.9).
+- Exports síncronos cliente de **>10.000 POIs** — bloqueo duro;
+  requieren backend/async futuro (decisión §15.7).
+
+### 8.6 Límites de tamaño (cliente síncrono)
+
+| Tamaño selección | Comportamiento |
+|------------------|----------------|
+| ≤ 5.000 POIs     | Export normal sin advertencia. |
+| 5.001 – 10.000   | Warning UI obligatorio antes de descargar; usuario debe confirmar. |
+| > 10.000         | **Bloqueo duro**. No se serializa. Mensaje: "Fuera de alcance de PR-EXPORT-2; pendiente de export asíncrono". |
+
+Decisión §15.7.
 
 ---
 
@@ -358,8 +398,12 @@ Reglas universales:
   **reportan en UI** como count + razón genérica (§10).
 - Selección parcialmente exportable: nunca abortar; exportar elegibles
   y mostrar excluidos.
-- `internal` requiere owner o capability futura
-  `export_poi_internal` (§15).
+- **`internal` = owner-only en PR-EXPORT-2** (decisión §15.8). NO se
+  crea capability `export_poi_internal` en este contrato; queda
+  pospuesta para una iteración futura.
+- Export de colección permite envelope `collection { id, name,
+  description? }` cuando el origen sea una colección y el usuario
+  tenga permiso sobre ella (decisión §15.6).
 
 ---
 
@@ -469,7 +513,11 @@ Explícitamente **NO** entran en PR-EXPORT-2:
 - Backup full-account.
 - ZIP / multi-file bundles.
 - XLSX, PDF.
-- GPX (decisión pendiente, §15).
+- GPX (pospuesto como futuro waypoint-only, decisión §15.9).
+- Exports síncronos cliente de **>10.000 POIs** (bloqueo duro,
+  decisión §15.7); requieren backend/async futuro.
+- Capability `export_poi_internal` para admins (pospuesta,
+  decisión §15.8). En PR-EXPORT-2 `internal` = owner-only.
 - Auditoría server-side de exports.
 - Cambios de datos.
 - Cambios de schema.
@@ -477,40 +525,53 @@ Explícitamente **NO** entran en PR-EXPORT-2:
 - Cambios en `ShareSheet`, `share-eligibility`, `share-payload`
   (PR-SHARE-1 sigue intacto).
 - Export de rutas / tracks / documentos completos (solo POIs).
-- Envelope de colección (nombre/descripción de la colección como
-  metadata del archivo) — §15.
+- Ampliación del `CUSTOM_DATA_EXPORT_ALLOWLIST` sin auditoría
+  documentada (decisión §15.1).
 
 ---
 
-## 15. Preguntas abiertas
+## 15. Decisiones cerradas
 
-Pendientes de resolución antes de implementar PR-EXPORT-2:
+Las preguntas abiertas iniciales quedan **resueltas**. Esta sección
+fija las decisiones canónicas de PR-EXPORT-2. Cualquier reapertura
+requiere un nuevo contrato (PR-EXPORT-3 o sucesor).
 
-1. **`customData` allowlist real**: ¿`source`, `external_id`,
-   `user_label` cubren los casos reales? ¿Hay claves operativas que
-   queremos exponer en `internal`?
-2. **`classification.poiLevel` (POI-N)**: ¿se permite en `public` o
-   queda restringido a `internal`? Riesgo: expone curación interna.
-3. **`classification.rootStatus` (A/B/C/D)**: misma pregunta. Es
-   metadato de pipeline; probablemente `internal` only.
-4. **`content.imageUrl` en `public`**: ¿se exporta cualquier URL o
-   sólo si pasa validación de origen público (no signed, no storage
-   privado)?
-5. **GeoJSON default scope**: ¿debe ofrecerse como `public` por
-   defecto al ser el formato más "compartible"?
-6. **Export de colección**: ¿debe incluir nombre/descripción de la
-   colección como envelope en JSON/GeoJSON? ¿O sólo POIs?
-7. **Límite máximo de POIs para export síncrono cliente**: la
-   auditoría sugiere ~5.000. Confirmar techo duro y comportamiento al
-   superarlo (bloquear vs warning).
-8. **`export_poi_internal` capability**: ¿se crea una nueva capability
-   para admins que necesiten exportar POIs ajenos en modo internal, o
-   se mantiene strict owner-only?
-9. **GPX waypoint-only**: ¿se añade como formato de PR-EXPORT-2 o se
-   pospone? Decisión binaria.
-10. **Sanitización de `description`**: ¿se exporta markdown crudo,
-    plaintext o HTML escapado por formato? Propuesta: plaintext en
-    CSV/JSON/GeoJSON, escaped en KML.
+1. **`CUSTOM_DATA_EXPORT_ALLOWLIST`** = `['source', 'external_id',
+   'user_label']` para `public` e `internal`. Allowlist inicial
+   **conservadora**. Añadir cualquier otra clave requiere auditoría
+   explícita documentada; sin atajos en PR-EXPORT-2.
+2. **`classification.poiLevel`** = **internal-only**. El mapper lo
+   omite en `scope === 'public'`.
+3. **`classification.rootStatus` (A/B/C/D)** = **internal-only**.
+   Mismo tratamiento que `poiLevel`.
+4. **`content.imageUrl` en `public`** = permitido **solo si** la URL
+   es pública, validada y **no firmada**. Signed/private URLs
+   prohibidas en `public`. El mapper debe descartar la `imageUrl` si
+   no pasa validación.
+5. **GeoJSON default scope** = **`public`** por defecto. `internal`
+   solo por selección explícita del usuario y con permiso (owner-only,
+   decisión §15.8).
+6. **Export de colección** = se permite envelope opcional `collection
+   { id, name, description? }` cuando el origen del export sea una
+   colección y el usuario tenga permiso sobre ella. Vive en la
+   metadata del envelope (JSON / GeoJSON / cabecera KML), nunca dentro
+   del `PoiExportRecord`. CSV no soporta envelope: la información de
+   colección se omite en CSV.
+7. **Límite de POIs para export síncrono cliente**:
+   - ≤ 5.000 → export normal.
+   - 5.001 – 10.000 → **warning UI** obligatorio antes de descargar,
+     con confirmación explícita del usuario.
+   - > 10.000 → **bloqueo duro**, fuera de alcance de PR-EXPORT-2;
+     requiere backend/async futuro.
+8. **Capability `export_poi_internal`** = **NO se crea** en
+   PR-EXPORT-2. `internal` queda **owner-only**. Admins/capability
+   nueva quedan **pospuestas** para una iteración futura.
+9. **GPX** = **fuera de PR-EXPORT-2**. Pospuesto como futuro
+   waypoint-only en un contrato posterior.
+10. **Sanitización de `description`**:
+    - CSV / JSON / GeoJSON → **plaintext** (sin markdown ni HTML).
+    - KML → **escaped/sanitized** (escape XML, sin HTML crudo de
+      `enriched_data`).
 
 ---
 
