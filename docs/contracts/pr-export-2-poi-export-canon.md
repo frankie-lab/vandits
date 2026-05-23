@@ -167,13 +167,25 @@ export type PoiExportRecord = {
 };
 ```
 
-**Notas de naming:**
+**Notas de naming y composición:**
 
 - DTO usa `latitude/longitude` para legibilidad externa; el código
   interno sigue usando `{lat, lng}` (`GeoLocation.coordinates`). El
   mapper traduce. No se filtran propiedades internas.
 - `ownerUserId` **no existe** en el DTO. Está prohibido en ambos
   scopes (§6).
+- `classification.poiLevel` y `classification.rootStatus` son
+  **internal-only** en PR-EXPORT-2: el mapper los **omite** cuando
+  `scope === 'public'`, aunque vivan estructuralmente bajo
+  `classification` (decisión §15.2 / §15.3).
+- `content.imageUrl` en `public` se exporta **solo si es URL pública,
+  validada y no firmada**. Signed/private URLs quedan prohibidas
+  (decisión §15.4).
+- Envelope opcional `collection { id, name, description? }`: solo
+  cuando el origen del export sea una colección y el usuario tenga
+  permiso sobre ella. Vive en la metadata del envelope (JSON /
+  GeoJSON / cabecera KML), nunca dentro del `PoiExportRecord`
+  (decisión §15.6).
 
 ---
 
