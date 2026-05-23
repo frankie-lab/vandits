@@ -129,7 +129,10 @@ export function GeographyTree() {
  const { getAllLocations, filters, setFilters, selectedLocations, navigateToGeoNode, toggleGeoBranchSelection } = useLocationsStore();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
-  const allLocations = getAllLocations();
+  // Universo base activo (Explorar=all / Mantener→Con deuda / Sin enriquecer).
+  // Si no hay UniverseBaseProvider, cae a `getAllLocations()` (comportamiento legacy).
+  const allLocations = useScopedLocations(getAllLocations());
+
   const totalUnclassified = useMemo(
     () => allLocations.filter((l) => {
       const h = getLocationHierarchy(l);
