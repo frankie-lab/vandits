@@ -13,6 +13,8 @@ import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
 import DuplicatePolicy from "./pages/DuplicatePolicy";
 import { AdminShell, AdminShellIndex } from "./pages/admin/AdminShell";
+// TEMPORARY MAINTENANCE TOOL — remove or keep hidden after P2 backlog drained.
+import PoiP2RunnerPage from "./pages/admin/dev/PoiP2RunnerPage";
 import { AdminRoutePage } from "./pages/admin/AdminRoutePage";
 import { GlobalLoadingBar } from "@/shared/loading";
 import { DesignSystemThemeProvider } from "@/design-system/runtime/theme-provider";
@@ -95,6 +97,18 @@ const App = () => (
             <Route index element={<AdminShellIndex />} />
             <Route path=":tab" element={<AdminRoutePage />} />
           </Route>
+
+          {/* TEMPORARY MAINTENANCE TOOL — /admin/dev/poi-p2-runner.
+              Master-only + run_internal_tooling. Hidden from menus.
+              Remove or keep hidden after P2 backlog is drained. */}
+          <Route
+            path="/admin/dev/poi-p2-runner"
+            element={
+              <ProtectedRoute>
+                <PoiP2RunnerPage />
+              </ProtectedRoute>
+            }
+          />
 
  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
  <Route path="*" element={<NotFound />} />
