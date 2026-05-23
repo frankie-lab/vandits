@@ -91,13 +91,17 @@ describe('PR-EXPORT-1 · kml-parser defensive assert', () => {
     // Warn defensivo por descarte (NO es el warn de scope ausente).
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('descartados'));
   });
-  it('exportToJSON scope=internal con ctx descarta ajenos', () => {
+  it('exportToJSON scope=internal con ctx descarta ajenos (envelope v2)', () => {
     const out = exportToJSON([poi9(OWNER_A), poi9(OWNER_B)], 'internal', ctxA, { scopeProvided: true });
     const parsed = JSON.parse(out);
-    expect(parsed.export_scope).toBe('internal');
-    expect(parsed.locations).toHaveLength(1);
-    expect(parsed.locations[0].ownerUserId).toBe(OWNER_A);
+    expect(parsed.export_format_version).toBe('poi-export-json-v2');
+    expect(parsed.scope).toBe('internal');
+    expect(parsed.items).toHaveLength(1);
+    expect(parsed.items[0].id).toBe('poi-9');
+    // PR-EXPORT-2: ownerUserId NUNCA en el DTO.
+    expect(parsed.items[0].ownerUserId).toBeUndefined();
   });
+
 });
 
 describe('PR-EXPORT-1 · C2 · scope explícito en call sites UI', () => {
