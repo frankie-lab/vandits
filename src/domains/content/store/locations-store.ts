@@ -420,7 +420,17 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     return annotated;
   },
 
-  getFilteredLocations: () => {
+  getFilteredLocations: () => (get() as any)._computeFiltered({ ignoreSelection: false }),
+
+  /**
+   * Universo visible/autorizado tras filtros, SIN aplicar el recorte por
+   * `selectedLocations`. Lo consume el contador de FilterBar para que los
+   * denominadores T/Tm/Ts no colapsen al tamaño de la selección.
+   * Ver docs/audits/selection-counter-ownership-ratios-plan.md.
+   */
+  getFilteredUniverse: () => (get() as any)._computeFiltered({ ignoreSelection: true }),
+
+  _computeFiltered: ({ ignoreSelection }: { ignoreSelection: boolean }) => {
     const state = get();
 
     // Kill switch: if all points are hidden via layer visibility, return nothing
