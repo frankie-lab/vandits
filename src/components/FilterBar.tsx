@@ -414,9 +414,30 @@ export function FilterBar() {
   {/* ── Modo Mantener: Salud + CTA separado ── */}
   {panelMode === 'maintain' && (
     <div className="space-y-2">
+      {/* Resumen de curación (3 buckets canónicos sobre el universo filtrado).
+          Es la vista general del eje Salud — read-only; los chips de abajo
+          permiten actuar sobre los sub-tipos de "con deuda". */}
+      <div className="flex items-center gap-3 text-xs flex-wrap px-1">
+        <div className="flex items-center gap-1 text-green-600" title="POIs enriquecidos con geo verificada (POI-9 + POI-10)">
+          <CheckCircle className="w-3 h-3" />
+          <span className="font-semibold tabular-nums">{COUNT_FORMATTER.format(curationBuckets.completos)}</span>
+          <span>completos</span>
+        </div>
+        <div className="flex items-center gap-1 text-amber-600" title="POIs enriquecidos con deuda geográfica pendiente (POI-5)">
+          <AlertCircle className="w-3 h-3" />
+          <span className="font-semibold tabular-nums">{COUNT_FORMATTER.format(curationBuckets.conDeuda)}</span>
+          <span>con deuda</span>
+        </div>
+        <div className="flex items-center gap-1 text-muted-foreground" title="POIs importados sin enriquecer (POI-0 + POI-1)">
+          <CircleDashed className="w-3 h-3" />
+          <span className="font-semibold tabular-nums">{COUNT_FORMATTER.format(curationBuckets.sinEnriquecer)}</span>
+          <span>sin enriquecer</span>
+        </div>
+      </div>
+      <Separator />
       <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
         <HeartPulse className="w-3 h-3" />
-        Filtro de salud
+        Acciones sobre <span className="text-amber-600">con deuda</span>
       </div>
       <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin">
         {(() => {
