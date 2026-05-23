@@ -6,6 +6,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
+import { useScopedLocations } from '@/components/filters/UniverseBaseContext';
+
 
 interface TagNode {
  name: string;
@@ -100,9 +102,11 @@ export function TagsTree() {
  const [searchTerm, setSearchTerm] = useState('');
  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Naturaleza', 'Patrimonio', 'Geología']));
 
-  // Universo base de la facetería = mismo conjunto que el mapa global ve.
-  // Evita ofrecer tags que devolverían 0 resultados (p.ej. de docs `draft`).
- const allLocations = getVisibleUniverseLocations();
+  // Universo base de la facetería = mismo conjunto que el mapa global ve,
+  // recortado por el universo activo del panel (Explorar=all / Con deuda /
+  // Sin enriquecer) cuando hay UniverseBaseProvider.
+ const allLocations = useScopedLocations(getVisibleUniverseLocations());
+
  
   // Check if there are geography filters active
  const hasGeoFilters = useMemo(() => {

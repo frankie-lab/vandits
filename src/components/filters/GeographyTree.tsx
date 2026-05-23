@@ -16,6 +16,8 @@ import { matchesLocationFilters } from '@/domains/content/lib/location-filtering
 import { getLocationHierarchy, getFilledLocationHierarchy, UNCLASSIFIED_VALUE, HIERARCHY_LEVELS, LEVEL_PLACEHOLDER_LABELS, compareGeoTreeNodes, type HierarchyLevel } from '@/shared/geography/hierarchy';
 import { hasProvincia, regionHasNoProvincia } from '@/shared/geography/territorial-canon';
 import { nameToIso2 } from '@/shared/geo/country-iso';
+import { useScopedLocations } from '@/components/filters/UniverseBaseContext';
+
 
 export type TreeLevel = 'continent' | 'country' | 'region' | 'zone' | 'comarca' | 'localidad' | 'sublocalidad' | 'calle';
 
@@ -127,7 +129,10 @@ export function GeographyTree() {
  const { getAllLocations, filters, setFilters, selectedLocations, navigateToGeoNode, toggleGeoBranchSelection } = useLocationsStore();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
-  const allLocations = getAllLocations();
+  // Universo base activo (Explorar=all / Mantener→Con deuda / Sin enriquecer).
+  // Si no hay UniverseBaseProvider, cae a `getAllLocations()` (comportamiento legacy).
+  const allLocations = useScopedLocations(getAllLocations());
+
   const totalUnclassified = useMemo(
     () => allLocations.filter((l) => {
       const h = getLocationHierarchy(l);

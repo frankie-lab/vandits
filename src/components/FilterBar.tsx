@@ -46,22 +46,31 @@ import { loadLocationsFromDatabase } from '@/domains/content';
 import { HealthFilterActionCTA } from './discovery/HealthFilterActionCTA';
 import { useSelectionFitOnStart } from './discovery/use-selection-fit-on-start';
 import { useHealthFilterFit } from './discovery/use-health-filter-fit';
+import { UniverseBaseProvider } from './filters/UniverseBaseContext';
+import {
+  resolveUniverseBase,
+  getUniverseBaseLabel,
+  type ActiveModeUniverse,
+} from '@/domains/content/lib/resolve-universe-base';
 import { toast } from 'sonner';
+
 
 
 const COUNT_FORMATTER = new Intl.NumberFormat('es-ES');
 
 export function FilterBar() {
-  const { 
-  filters, 
-  setFilters, 
+  const {
+  filters,
+  setFilters,
   selectedLocations,
   selectAllLocations,
   clearSelection,
+  addLocationsToSelection,
   selectByFilter,
   selectedDocument,
   updateDocumentLocations,
   } = useLocationsStore();
+
   const getAllLocations = useLocationsStore(s => s.getAllLocations);
   const documents = useLocationsStore(s => s.documents);
   
@@ -227,6 +236,55 @@ export function FilterBar() {
 
   const [maintainTab, setMaintainTab] = useState<'debt' | 'unenriched'>('debt');
 
+  // Tab activa del árbol (Geo / Tipo / Tags / Legacy). Se PRESERVA al
+  // alternar Explorar ↔ Mantener (ver plan §3: persistencia de tab).
+  type TreeTab = 'geography' | 'classification' | 'tags' | 'types';
+  const [treeTab, setTreeTab] = useState<TreeTab>('geography');
+
+  // Universo activo (SoT del plan §1). Mantener→Con deuda = 'debt';
+  // Mantener→Sin enriquecer = 'unenriched'; resto = 'all'.
+  const activeModeUniverse: ActiveModeUniverse =
+    panelMode === 'maintain'
+      ? (maintainTab === 'debt' ? 'debt' : 'unenriched')
+      : 'all';
+
+  const allLocationsForUniverse = useMemo(
+    () => getAllLocations(),
+    // Reactivo a cambios reales del store (documentos / locations).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [getAllLocations, documents],
+  );
+
+  // Universo base resuelto + set de ids para intersecciones O(1).
+  const universeBaseLocations = useMemo(
+    () => resolveUniverseBase(activeModeUniverse, allLocationsForUniverse),
+    [activeModeUniverse, allLocationsForUniverse],
+  );
+  const universeBaseIds = useMemo(
+    () => new Set(universeBaseLocations.map((l) => l.id)),
+    [universeBaseLocations],
+  );
+
+  // effectiveActionSet (plan §1, ajuste obligatorio):
+  //   userSelection no vacía → universeBase ∩ treeSelection ∩ userSelection
+  //   userSelection vacía    → universeBase ∩ treeSelection
+  // `filteredLocations` ya aplica treeSelection (geo/tipo/tags/búsqueda). Lo
+  // intersectamos con universeBase. Para userSelection, sumamos el recorte
+  // sólo cuando existe.
+  const effectiveActionSet = useMemo(() => {
+    const base = filteredLocations.filter((l) => universeBaseIds.has(l.id));
+    if (selectedLocations.size === 0) return base;
+    return base.filter((l) => selectedLocations.has(l.id));
+  }, [filteredLocations, universeBaseIds, selectedLocations]);
+
+  // Universo del contador superior: refleja universeBase activo (plan §5).
+  const universeForCounter = useMemo(
+    () => filteredUniverse.filter((l: any) => universeBaseIds.has(l.id)),
+    [filteredUniverse, universeBaseIds],
+  );
+
+  const universeLabel = getUniverseBaseLabel(activeModeUniverse);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.sessionStorage.setItem(STORAGE_KEY, panelMode);
@@ -239,6 +297,19 @@ export function FilterBar() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.healthFilter]);
+
+  // "Seleccionar todo" del modo activo: selecciona universeBase ∩ treeSelection.
+  // No intersecta con userSelection (es justo lo que la materializa).
+  const handleSelectAllInMode = useCallback(() => {
+    const base = filteredLocations.filter((l) => universeBaseIds.has(l.id));
+    if (base.length === 0) return;
+    clearSelection();
+    addLocationsToSelection(base.map((l) => l.id));
+  }, [filteredLocations, universeBaseIds, clearSelection, addLocationsToSelection]);
+
+
+
+
 
 
   return (
@@ -254,7 +325,7 @@ export function FilterBar() {
          <span className="text-primary">{COUNT_FORMATTER.format(ownershipRatios.X)}</span>
          <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(ownershipRatios.T)}</span>
        </span>
-       <span className="text-sm text-muted-foreground leading-none">seleccionados</span>
+       <span className="text-sm text-muted-foreground leading-none">seleccionados{universeLabel ? ` (${universeLabel})` : ''}</span>
      </div>
      <div className="text-xs mt-1 leading-tight">
        <span className="font-semibold tabular-nums">
@@ -362,9 +433,68 @@ export function FilterBar() {
   />
 
 
-  {/* ── Modo Explorar: Geo / Tipo / Tags / Legacy ── */}
-  {panelMode === 'explore' && (
-    <Tabs defaultValue="geography" className="w-full">
+  {/* === Sub-tabs de Mantener (solo cuando panelMode='maintain') ===
+      Selecciona el universo base (debt vs unenriched). El árbol Geo/Tipo/Tags/
+      Legacy se renderiza igual debajo, scope cambia vía UniverseBaseProvider. */}
+  {panelMode === 'maintain' && (
+    <Tabs value={maintainTab} onValueChange={(v) => setMaintainTab(v as 'debt' | 'unenriched')} className="w-full">
+      <TabsList className="grid grid-cols-2 w-full h-8 p-1">
+        <TabsTrigger value="debt" className="text-xs gap-1.5">
+          <AlertCircle className="w-3 h-3 text-amber-600" />
+          Con deuda
+          <span className="tabular-nums text-muted-foreground">{COUNT_FORMATTER.format(curationBuckets.conDeuda)}</span>
+        </TabsTrigger>
+        <TabsTrigger value="unenriched" className="text-xs gap-1.5">
+          <CircleDashed className="w-3 h-3" />
+          Sin enriquecer
+          <span className="tabular-nums text-muted-foreground">{COUNT_FORMATTER.format(curationBuckets.sinEnriquecer)}</span>
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
+  )}
+
+  {/* === Árbol unificado Geo / Tipo / Tags / Legacy ===
+      Plan §3: las tres vistas (Explorar, Con deuda, Sin enriquecer) usan la
+      MISMA estructura. UniverseBaseProvider recorta el universo base que ven
+      los 4 árboles (vía useScopedLocations). Tab activa persiste entre modos. */}
+  <UniverseBaseProvider mode={activeModeUniverse} allLocations={allLocationsForUniverse}>
+    {panelMode === 'maintain' && (
+      <div className="space-y-1.5 mt-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+            Acción sobre {universeLabel ?? 'subconjunto'}
+            <span className="ml-1 normal-case tabular-nums text-muted-foreground/70">
+              ({COUNT_FORMATTER.format(effectiveActionSet.length)})
+            </span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSelectAllInMode}
+            disabled={effectiveActionSet.length === 0 && selectedLocations.size === 0}
+            className="h-6 px-2 text-[11px] gap-1"
+          >
+            <CheckSquare className="w-3 h-3" />
+            Seleccionar todo
+          </Button>
+        </div>
+        {maintainTab === 'debt' ? (
+          <HealthFilterActionCTA
+            healthFilter={filters.healthFilter ?? null}
+            filteredLocations={effectiveActionSet as any}
+            selectedLocationIds={selectedLocations}
+          />
+        ) : (
+          <div className="text-xs text-muted-foreground px-1 py-2">
+            {effectiveActionSet.length > 0
+              ? `${COUNT_FORMATTER.format(effectiveActionSet.length)} POIs sin enriquecer en el subconjunto activo. La cola de enriquecimiento masivo se gestiona desde el panel de Imported Content.`
+              : 'No hay POIs sin enriquecer en el subconjunto actual.'}
+          </div>
+        )}
+      </div>
+    )}
+
+    <Tabs value={treeTab} onValueChange={(v) => setTreeTab(v as TreeTab)} className="w-full mt-2">
       <TabsList className="grid w-full grid-cols-4 h-9">
         {(() => {
           const hasAxis = (axis: FilterAxis) => activeChips.some((c) => c.axis === axis);
@@ -408,54 +538,8 @@ export function FilterBar() {
         <PlaceTypeFilter />
       </TabsContent>
     </Tabs>
-  )}
+  </UniverseBaseProvider>
 
-  {/* ── Modo Mantener: 2 sub-pestañas accionables (con deuda / sin enriquecer)
-       + contador read-only de "completos" como referencia. "Completos" NO es
-       pestaña porque no requiere acción de mantenimiento. ── */}
-  {panelMode === 'maintain' && (
-    <div className="space-y-2">
-
-
-
-      <Tabs value={maintainTab} onValueChange={(v) => setMaintainTab(v as 'debt' | 'unenriched')} className="w-full">
-        <TabsList className="grid grid-cols-2 w-full h-8 p-1">
-          <TabsTrigger value="debt" className="text-xs gap-1.5">
-            <AlertCircle className="w-3 h-3 text-amber-600" />
-            Con deuda
-            <span className="tabular-nums text-muted-foreground">{COUNT_FORMATTER.format(curationBuckets.conDeuda)}</span>
-          </TabsTrigger>
-          <TabsTrigger value="unenriched" className="text-xs gap-1.5">
-            <CircleDashed className="w-3 h-3" />
-            Sin enriquecer
-            <span className="tabular-nums text-muted-foreground">{COUNT_FORMATTER.format(curationBuckets.sinEnriquecer)}</span>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="debt" className="mt-2 space-y-1.5">
-          <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-            Acción sobre subconjunto
-          </div>
-          <HealthFilterActionCTA
-            healthFilter={filters.healthFilter ?? null}
-            filteredLocations={filteredLocations as any}
-            selectedLocationIds={selectedLocations}
-          />
-        </TabsContent>
-
-        <TabsContent value="unenriched" className="mt-2 space-y-1.5">
-          <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-            Acción sobre subconjunto
-          </div>
-          <div className="text-xs text-muted-foreground px-1 py-2">
-            {curationBuckets.sinEnriquecer > 0
-              ? `${COUNT_FORMATTER.format(curationBuckets.sinEnriquecer)} POIs importados sin enriquecer. La cola de enriquecimiento masivo se gestiona desde el panel de Imported Content.`
-              : 'No hay POIs sin enriquecer en el subconjunto actual.'}
-          </div>
-        </TabsContent>
-      </Tabs>
-    </div>
-  )}
 
 
 
