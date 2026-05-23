@@ -354,30 +354,63 @@ Criterio de salida Fase 2:
 9. Serializers prohibidos leer `GeoLocation`; contract test grep + runtime guard.
 10. Sanitización: plaintext en CSV/JSON/GeoJSON; XML escape en KML.
 
-### Decisiones pendientes a aprobar **antes de Fase 2**
+### Decisiones ratificadas (antes de Fase 2)
 
-1. **Default scope por formato** (§5):
-   - Recomendación: todos `public` por defecto; `internal` solo selección explícita + permiso.
-   - Alternativa rechazada por conservador: CSV/JSON default `internal` si owner.
-   - Necesito ratificación antes de cablear el registry.
+Las 6 decisiones pendientes quedaron cerradas. Estas son las reglas vinculantes para Fase 2 Core:
 
-2. **Envelope de colección** en JSON/GeoJSON/KML:
-   - Forma propuesta: `collection: { id, name, description? }`.
-   - Confirmar que `description` de colección no requiere allowlist/sanitización adicional.
+1. **Default scope por formato** — CERRADA.
+   - Todos los formatos (CSV, KML, JSON, GeoJSON) usan `public` por defecto.
+   - `internal` solo si: (a) el usuario lo selecciona explícitamente, (b) tiene permiso, (c) `evaluatePoiExport` lo autoriza.
+   - **No hay `internal` automático por ser owner.**
+   - Registry expone `defaultScope: 'public'` para los 4 formatos.
 
-3. **Tratamiento de `customData` keys no allowlisted**:
-   - Recomendación: descartar silencioso + `console.warn` en dev.
-   - Alternativa: arrojar en dev. Confirmar postura.
+2. **Envelope de colección** — CERRADA.
+   - Habilitado en JSON, GeoJSON y KML cuando el origen sea una colección.
+   - Shape canónica:
+     ```ts
+     collection: {
+       id: string;
+       name: string;
+       description?: string;
+     }
+     ```
+   - Condiciones:
+     - Solo si el usuario tiene permiso sobre la colección.
+     - No incluir campos privados de colección.
+     - CSV puede usar columnas `collection_id` / `collection_name` si añade valor; el envelope formal **no** aplica a CSV.
+   - `description` de colección se trata como texto plano en JSON/GeoJSON y se XML-escapa en KML (misma regla que `description` de POI).
 
-4. **`use-export-tracking` consolidación**:
-   - Ejecutar diff en arranque de Fase 2 y reportar antes de tocar.
-   - Confirmar criterio de "cero cambio" (qué eventos/payload son comparados).
+3. **`customData` keys no allowlisted** — CERRADA.
+   - Descartar silenciosamente en producción.
+   - En desarrollo (`import.meta.env.DEV`), emitir `console.warn` con la key descartada.
+   - Nunca exportar keys no allowlisted. Nunca exportar `customData` completo.
 
-5. **Comunicación del breaking change JSON v2**:
-   - ¿Release notes en `docs/audits/` suficiente o requiere aviso adicional a usuarios técnicos?
+4. **Consolidación `use-export-tracking`** — CERRADA.
+   - Criterio operativo de "cero cambio":
+     - mismo API público del hook;
+     - mismos eventos emitidos;
+     - mismos payloads;
+     - mismos call sites;
+     - mismos side effects (storage keys, broadcasts);
+     - diff manual o tests que lo documenten.
+   - Si hay **cualquier** divergencia funcional → posponer consolidación a un PR separado (no bloquea Fase 2 Core).
 
-6. **Límites 5k/10k**:
-   - Confirmar que los helpers de warning/bloqueo se implementan en Fase 3 (UX) y no en Fase 2 (core), o si deben vivir en el registry.
+5. **Comunicación del breaking change JSON v2** — CERRADA.
+   - Registrar en:
+     - `docs/releases/version-history.md` si existe el patrón de release notes en el proyecto;
+     - README/changelog si el patrón actual lo exige;
+     - comentario doc-block en el serializer `poi-json.ts` describiendo el cambio y el marker `export_format_version: "poi-export-json-v2"`.
+   - **No** añadir modal UX adicional en PR-EXPORT-2.
+
+6. **Límites 5k / 10k** — CERRADA.
+   - Helpers viven en **Fase 2 Core** (regla de contrato compartida).
+   - Fase 2:
+     - helper único `evaluatePoiExportSize(count): { level: 'ok' | 'warn' | 'block', thresholds: { warn: 5000, block: 10000 } }`;
+     - registry expone el límite y nivel (`opts.size = evaluatePoiExportSize(records.length)`);
+     - tests unitarios sobre el helper (límites exactos, edge cases 4999/5000/5001/9999/10000/10001);
+     - serializers **abortan** si `level === 'block'` (defensa en profundidad).
+   - Fase 3 UX consume el helper para mostrar warning > 5.000 y bloquear > 10.000.
+   - Export > 10.000 nunca se ejecuta cliente-side.
 
 ---
 
@@ -386,5 +419,6 @@ Criterio de salida Fase 2:
 - Fase 2 cierra todos los tests del §12 en verde.
 - Grep confirma serializers DTO-only y `ShareSheet` boundary.
 - `ExportPanel`, `SelectionActions` y popup `export-poi` usan el mismo pipeline.
-- Las 6 decisiones pendientes del §15 están ratificadas.
+- Las 6 decisiones ratificadas del §15 están implementadas tal cual.
 - Share sigue funcionando idéntico (smoke manual + contract test).
+
