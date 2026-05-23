@@ -305,28 +305,6 @@ export function FilterBar() {
 
   {/* (Aviso "hidden by draft" eliminado — ver comentario al inicio del componente) */}
 
-  {/* Stats row — desglose por nivel de curación. Solo visible en modo Mantener,
-      donde cada bucket habilita una acción de saneamiento sobre la capa. */}
-  {panelMode === 'maintain' && (
-    <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-      <div className="flex items-center gap-1 text-green-600" title="POIs enriquecidos con geo verificada (POI-9 + POI-10)">
-        <CheckCircle className="w-3 h-3" />
-        <span className="font-medium">{COUNT_FORMATTER.format(curationBuckets.completos)}</span> completos
-      </div>
-      {curationBuckets.conDeuda > 0 && (
-        <div className="flex items-center gap-1 text-amber-600" title="POIs enriquecidos con deuda geográfica pendiente (POI-5)">
-          <AlertCircle className="w-3 h-3" />
-          <span className="font-medium">{COUNT_FORMATTER.format(curationBuckets.conDeuda)}</span> con deuda
-        </div>
-      )}
-      {curationBuckets.sinEnriquecer > 0 && (
-        <div className="flex items-center gap-1 text-muted-foreground" title="POIs importados sin enriquecer (POI-0 + POI-1)">
-          <CircleDashed className="w-3 h-3" />
-          <span className="font-medium">{COUNT_FORMATTER.format(curationBuckets.sinEnriquecer)}</span> sin enriquecer
-        </div>
-      )}
-    </div>
-  )}
  </div>
 
   {/* Active filters summary - chips data-driven (todos los ejes) */}
