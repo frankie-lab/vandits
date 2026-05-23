@@ -78,6 +78,31 @@ export function FilterBar() {
     [filteredLocations, user?.id],
   );
 
+  // Ownership ratios (X/T, Xm/Tm, Xs/Ts) — ver
+  // docs/audits/selection-counter-ownership-ratios-plan.md.
+  // Universo = filteredLocations (ya respeta filtros + búsqueda + healthFilter
+  // + is_approved + colecciones + RLS). Selección = selectedLocations ∩ U,
+  // recortada para evitar X > T cuando hay selección fuera del filtro.
+  const ownershipRatios = useMemo(() => {
+    const uid = user?.id ?? null;
+    const T = filteredLocations.length;
+    let Tm = 0;
+    let Xm = 0;
+    let X = 0;
+    for (const loc of filteredLocations as any[]) {
+      const ownerId = (loc.ownerUserId ?? loc._docUserId ?? null) as string | null;
+      const mine = !!uid && ownerId === uid;
+      if (mine) Tm += 1;
+      if (selectedLocations.has(loc.id)) {
+        X += 1;
+        if (mine) Xm += 1;
+      }
+    }
+    const Ts = T - Tm;
+    const Xs = X - Xm;
+    return { T, Tm, Ts, X, Xm, Xs };
+  }, [filteredLocations, selectedLocations, user?.id]);
+
   // Aviso "hidden by draft" eliminado: tras la nueva regla de visibilidad
   // (mem://logic/map/visibility-rule-rls-only) los documentos en borrador
   // ya NO ocultan sus puntos del mapa global. Status es solo metadato editorial.
@@ -205,19 +230,44 @@ export function FilterBar() {
   <div className="flex items-center justify-between">
   <div className="flex flex-col">
     <div className="flex items-center gap-2">
-      <span className="text-2xl font-bold text-primary">{filteredCount}</span>
-      <span className="text-sm text-muted-foreground">
-        {filteredCount === stats.total ? 'ubicaciones' : `de ${stats.total} ubicaciones`}
-      </span>
+      {selectedCount > 0 ? (
+        <>
+          <span className="text-2xl font-bold text-primary">
+            {COUNT_FORMATTER.format(ownershipRatios.X)}
+          </span>
+          <span className="text-sm text-muted-foreground">
+            / {COUNT_FORMATTER.format(ownershipRatios.T)} seleccionados
+          </span>
+        </>
+      ) : (
+        <>
+          <span className="text-2xl font-bold text-primary">{filteredCount}</span>
+          <span className="text-sm text-muted-foreground">
+            {filteredCount === stats.total ? 'ubicaciones' : `de ${stats.total} ubicaciones`}
+          </span>
+        </>
+      )}
     </div>
     <div className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
-      <span className="text-emerald-600 font-medium">{bucketStats.catalogTotal}</span> catálogo
-      {' · '}
-      <span className="text-amber-600 font-medium">{bucketStats.workspaceTotal}</span> mesa
-      {bucketStats.followedTotal > 0 && (
+      {selectedCount > 0 ? (
         <>
+          <span className="text-emerald-600 font-medium">Míos</span>{' '}
+          {COUNT_FORMATTER.format(ownershipRatios.Xm)} / {COUNT_FORMATTER.format(ownershipRatios.Tm)}
           {' · '}
-          <span className="text-sky-600 font-medium">{bucketStats.followedTotal}</span> seguidos
+          <span className="text-sky-600 font-medium">Seguidos</span>{' '}
+          {COUNT_FORMATTER.format(ownershipRatios.Xs)} / {COUNT_FORMATTER.format(ownershipRatios.Ts)}
+        </>
+      ) : (
+        <>
+          <span className="text-emerald-600 font-medium">{bucketStats.catalogTotal}</span> catálogo
+          {' · '}
+          <span className="text-amber-600 font-medium">{bucketStats.workspaceTotal}</span> mesa
+          {bucketStats.followedTotal > 0 && (
+            <>
+              {' · '}
+              <span className="text-sky-600 font-medium">{bucketStats.followedTotal}</span> seguidos
+            </>
+          )}
         </>
       )}
     </div>
@@ -497,10 +547,21 @@ export function FilterBar() {
         <SelectionActions />
       )}
 
-      <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground">
-            <span className="font-medium text-foreground">{selectedCount}</span> seleccionados
+      <div className="flex items-center justify-between text-sm gap-2">
+        <div className="flex flex-col text-xs text-muted-foreground leading-tight">
+          <span>
+            <span className="font-medium text-foreground">
+              {COUNT_FORMATTER.format(ownershipRatios.X)}
+            </span>
+            {' / '}
+            {COUNT_FORMATTER.format(ownershipRatios.T)} seleccionados
+          </span>
+          <span className="text-[11px]">
+            <span className="text-emerald-600 font-medium">Míos</span>{' '}
+            {COUNT_FORMATTER.format(ownershipRatios.Xm)} / {COUNT_FORMATTER.format(ownershipRatios.Tm)}
+            {' · '}
+            <span className="text-sky-600 font-medium">Seguidos</span>{' '}
+            {COUNT_FORMATTER.format(ownershipRatios.Xs)} / {COUNT_FORMATTER.format(ownershipRatios.Ts)}
           </span>
         </div>
         <div className="flex gap-1">
