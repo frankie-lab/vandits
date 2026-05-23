@@ -22,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { EffectBadge } from '@/shared/components/ui/effect-badge';
+import { PoiP2RunnerButton } from '@/components/admin/PoiP2RunnerButton';
 
 interface ToolSpec {
   id: string;
