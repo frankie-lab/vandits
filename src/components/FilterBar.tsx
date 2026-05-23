@@ -234,6 +234,55 @@ export function FilterBar() {
 
   const [maintainTab, setMaintainTab] = useState<'debt' | 'unenriched'>('debt');
 
+  // Tab activa del árbol (Geo / Tipo / Tags / Legacy). Se PRESERVA al
+  // alternar Explorar ↔ Mantener (ver plan §3: persistencia de tab).
+  type TreeTab = 'geography' | 'classification' | 'tags' | 'types';
+  const [treeTab, setTreeTab] = useState<TreeTab>('geography');
+
+  // Universo activo (SoT del plan §1). Mantener→Con deuda = 'debt';
+  // Mantener→Sin enriquecer = 'unenriched'; resto = 'all'.
+  const activeModeUniverse: ActiveModeUniverse =
+    panelMode === 'maintain'
+      ? (maintainTab === 'debt' ? 'debt' : 'unenriched')
+      : 'all';
+
+  const allLocationsForUniverse = useMemo(
+    () => getAllLocations(),
+    // Reactivo a cambios reales del store (documentos / locations).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [getAllLocations, documents],
+  );
+
+  // Universo base resuelto + set de ids para intersecciones O(1).
+  const universeBaseLocations = useMemo(
+    () => resolveUniverseBase(activeModeUniverse, allLocationsForUniverse),
+    [activeModeUniverse, allLocationsForUniverse],
+  );
+  const universeBaseIds = useMemo(
+    () => new Set(universeBaseLocations.map((l) => l.id)),
+    [universeBaseLocations],
+  );
+
+  // effectiveActionSet (plan §1, ajuste obligatorio):
+  //   userSelection no vacía → universeBase ∩ treeSelection ∩ userSelection
+  //   userSelection vacía    → universeBase ∩ treeSelection
+  // `filteredLocations` ya aplica treeSelection (geo/tipo/tags/búsqueda). Lo
+  // intersectamos con universeBase. Para userSelection, sumamos el recorte
+  // sólo cuando existe.
+  const effectiveActionSet = useMemo(() => {
+    const base = filteredLocations.filter((l) => universeBaseIds.has(l.id));
+    if (selectedLocations.size === 0) return base;
+    return base.filter((l) => selectedLocations.has(l.id));
+  }, [filteredLocations, universeBaseIds, selectedLocations]);
+
+  // Universo del contador superior: refleja universeBase activo (plan §5).
+  const universeForCounter = useMemo(
+    () => filteredUniverse.filter((l: any) => universeBaseIds.has(l.id)),
+    [filteredUniverse, universeBaseIds],
+  );
+
+  const universeLabel = getUniverseBaseLabel(activeModeUniverse);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.sessionStorage.setItem(STORAGE_KEY, panelMode);
@@ -246,6 +295,16 @@ export function FilterBar() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.healthFilter]);
+
+  // "Seleccionar todo" del modo activo: selecciona universeBase ∩ treeSelection.
+  // No intersecta con userSelection (es justo lo que la materializa).
+  const handleSelectAllInMode = useCallback(() => {
+    const base = filteredLocations.filter((l) => universeBaseIds.has(l.id));
+    if (base.length === 0) return;
+    useLocationsStore.setState({ selectedLocations: new Set(base.map((l) => l.id)) });
+  }, [filteredLocations, universeBaseIds]);
+
+
 
 
   return (
