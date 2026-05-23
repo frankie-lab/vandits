@@ -22,7 +22,7 @@ function poiEnriched(id: string, owner = OWNER): GeoLocation {
     } as any,
     imageUrl: 'https://images.unsplash.com/photo-1?signature=abc&token=secret',
     tags: ['catedral'],
-  } as GeoLocation;
+  } as unknown as GeoLocation;
 }
 function poiUnshareable(id: string): GeoLocation {
   const p = poiEnriched(id); delete (p as any).enriched_data; return p;
@@ -36,7 +36,7 @@ describe('PR-EXPORT-2 QA E2E harness', () => {
     const out: Record<string, any> = {};
     for (const format of ['csv', 'kml', 'json', 'geojson'] as const) {
       const r = runPoiExport(
-        { locations: fixtures, format, scope: 'public', ctx: { currentUserId: OWNER }, documentName: 'qa-e2e', origin: 'panel' },
+        { locations: fixtures, format, scope: 'public', ctx: { currentUserId: OWNER }, documentName: 'qa-e2e', origin: 'panel', documentName: 'qa-e2e' },
         { confirmedOverWarn: false },
       );
       if (r.kind !== 'ok') { out[format] = { kind: r.kind }; continue; }
@@ -44,19 +44,19 @@ describe('PR-EXPORT-2 QA E2E harness', () => {
       out[format] = { kind: r.kind, eligible: r.eligibleCount, excluded: r.excludedCount, filename: r.filename, mime: r.mime, bytes: r.blob.size, sample: text.slice(0, 800), full: text };
     }
     const internal = runPoiExport(
-      { locations: fixtures, format: 'json', scope: 'internal', ctx: { currentUserId: OWNER }, origin: 'panel' },
+      { locations: fixtures, format: 'json', scope: 'internal', ctx: { currentUserId: OWNER }, origin: 'panel', documentName: 'qa-e2e' },
       { confirmedOverWarn: false },
     );
     const internalText = internal.kind === 'ok' ? await blobText(internal.blob) : '';
     const internalJson = internalText ? JSON.parse(internalText) : null;
 
     const big = Array.from({ length: 5500 }, (_, i) => poiEnriched(`big-${i}`));
-    const warn = runPoiExport({ locations: big, format: 'csv', scope: 'public', ctx: { currentUserId: OWNER }, origin: 'panel' }, { confirmedOverWarn: false });
-    const warnConfirmed = runPoiExport({ locations: big, format: 'csv', scope: 'public', ctx: { currentUserId: OWNER }, origin: 'panel' }, { confirmedOverWarn: true });
+    const warn = runPoiExport({ locations: big, format: 'csv', scope: 'public', ctx: { currentUserId: OWNER }, origin: 'panel', documentName: 'qa-e2e' }, { confirmedOverWarn: false });
+    const warnConfirmed = runPoiExport({ locations: big, format: 'csv', scope: 'public', ctx: { currentUserId: OWNER }, origin: 'panel', documentName: 'qa-e2e' }, { confirmedOverWarn: true });
     const huge = Array.from({ length: 10500 }, (_, i) => poiEnriched(`huge-${i}`));
     let blockedThrew = false; let blockedLimit = 0;
-    try { runPoiExport({ locations: huge, format: 'csv', scope: 'public', ctx: { currentUserId: OWNER }, origin: 'panel' }, { confirmedOverWarn: true }); }
-    catch (e) { if (e instanceof PoiExportSizeError) { blockedThrew = true; blockedLimit = e.verdict.block; } }
+    try { runPoiExport({ locations: huge, format: 'csv', scope: 'public', ctx: { currentUserId: OWNER }, origin: 'panel', documentName: 'qa-e2e' }, { confirmedOverWarn: true }); }
+    catch (e) { if (e instanceof PoiExportSizeError) { blockedThrew = true; blockedLimit = e.verdict.thresholds.block; } }
 
     const records = mapToPoiExportRecords(fixtures.slice(0, 2), 'public');
 
@@ -83,7 +83,7 @@ describe('PR-EXPORT-2 QA E2E harness', () => {
       registry: Object.keys(POI_EXPORTERS),
       internal_scope: { kind: internal.kind, envelope_keys: internalJson && Object.keys(internalJson), items: internalJson?.items?.length, first: internalJson?.items?.[0], excluded: internal.kind === 'ok' ? internal.excludedCount : undefined },
       limits: {
-        warn_5500_no_confirm: warn.kind === 'warn-pending' ? { kind: 'warn-pending', warn_at: warn.sizeVerdict.warn, block_at: warn.sizeVerdict.block, eligible: warn.partition.eligibleCount } : { kind: warn.kind },
+        warn_5500_no_confirm: warn.kind === 'warn-pending' ? { kind: 'warn-pending', warn_at: warn.sizeVerdict.thresholds.warn, block_at: warn.sizeVerdict.thresholds.block, eligible: warn.partition.eligibleCount } : { kind: warn.kind },
         warn_5500_confirmed: warnConfirmed.kind === 'ok' ? { kind: 'ok', eligible: warnConfirmed.eligibleCount } : { kind: warnConfirmed.kind },
         block_10500: blockedThrew ? { kind: 'threw-PoiExportSizeError', limit: blockedLimit } : { kind: 'did-not-block' },
       },
