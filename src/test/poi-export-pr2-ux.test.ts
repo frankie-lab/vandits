@@ -22,26 +22,15 @@ import {
 } from '@/domains/content/lib/poi-export-pipeline';
 import { POI_EXPORTERS } from '@/domains/content/lib/exporters';
 import { PoiExportSizeError } from '@/domains/content/lib/poi-export-record';
+import { OWNER_A, poi5, poi9 } from '@/test/fixtures/poi-export-fixtures';
 
-const OWNER = '11111111-1111-1111-1111-111111111111';
+const OWNER = OWNER_A;
 
-function poi(id: string, opts: { enriched?: boolean; owner?: string } = {}): GeoLocation {
-  const owner = opts.owner ?? OWNER;
-  return {
-    id,
-    name: id,
-    description: 'desc',
-    coordinates: { lat: 41.0, lng: 2.0 },
-    enrichedData: opts.enriched
-      ? {
-          descripcion: 'Texto IA',
-          etiquetas: ['tag-a'],
-        }
-      : undefined,
-    customData: { source: 'wikipedia', external_id: 'X', evil: 'NO' } as Record<string, string>,
-    ownerUserId: owner,
-    geoHealth: 'ok',
-  } as unknown as GeoLocation;
+function clonePoi9(id: string): GeoLocation {
+  return { ...poi9(OWNER), id, name: id };
+}
+function clonePoi5(id: string): GeoLocation {
+  return { ...poi5(OWNER), id, name: id };
 }
 
 describe('PR-EXPORT-2 Fase 3 · registry', () => {
