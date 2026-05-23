@@ -95,3 +95,78 @@ Hard cap `max_ai_calls=25` will pause the run regardless.
 Decision pending — final report to be appended after run reaches terminal state, covering: per-item evidence of persistence (locations.updated_at, descripcion length), final ai_calls_used vs max, error rate, snapshot count, rollback availability, and recommendation among {pilot-50, repeat pilot-25, stop}.
 
 **Until then: no Pilot-50, no Phase C.**
+
+---
+
+## Addendum — Controlled drain & terminal state (T+15min, 2026-05-23 14:09Z)
+
+### Drain procedure executed
+1. **Wait for staleness window** — last orchestrator heartbeat at 14:03:35Z; waited until >5 min idle.
+2. **POST `/watchdog`** (`stale_minutes=5`) → `reset_count=19`, `prev_status=running`, `status=paused` (`pause_reason=worker_died`). 19 orphan `in_flight` items returned to `pending`. Budget guard passed (`ai_calls_used=5 < max_ai_calls=25`).
+3. **POST `/start`** (`dryRun=false`) — **SINGLE** reinvocation. Response: `status=aborted`, `abort_reason=snapshot_failure`, `chunks_processed=1`, `last_verdict=abort:snapshot_failure`.
+
+### Root cause of abort — snapshot idempotency bug
+Item `985f46c5…` (location `286a8239…`, country `AT`, `attempts=2`) had a snapshot row created in its FIRST claim (pre-watchdog). On the post-watchdog re-claim, the orchestrator re-runs `INSERT INTO enrichment_batch_snapshots` (lines 360–377 of `enrich-batch-orchestrator/index.ts`) without `ON CONFLICT`. The unique constraint `enrichment_batch_snapshots_run_id_location_id_key` rejects the duplicate, the item is marked `fail` with `snapshot_failed:duplicate key …`, and `applyAbort(runId, "snapshot_failure")` halts the entire run.
+
+This is the **first orphan-recovery code path ever exercised in production** — prior pilots aborted before snapshots could collide.
+
+### Terminal state
+- `status=aborted`, `abort_reason=snapshot_failure`
+- `ai_calls_used=5` (within 25 cap, **not** exhausted)
+- `metrics={success:4, skip:1, fail:1, noop:0}`
+- Items: `success=4, skip=1, fail=19, in_flight=0` (18 orphans force-closed as `aborted_with_run:snapshot_idempotency_bug`, 1 real `snapshot_failed`)
+- `in_flight = 0` ✅
+- Reinvocaciones `/start` realizadas: **1** (suficiente para reproducir el bug y triggerear el self-abort)
+- Watchdog resets: **1** (`reset_count=19`)
+- No se añadieron IDs nuevos al scope ✅
+- Scope original (24 IDs) preservado ✅
+
+### Persistencia real por success
+Verificada vía join `enrichment_batch_items` × `locations` (`updated_at` post-14:00Z, `enrichment_status=enriched`, `descripcion` no vacía):
+
+| location_id | updated_at | enrichment_status | desc_len |
+|---|---|---|---|
+| 6b872a54-0d20-443e-9663-0409d5a1ff23 | 14:02:18Z | enriched | 848 |
+| febaddaa-4c21-4361-b1e3-38fecabcc0cb | 14:02:59Z | enriched | 780 |
+| 2492248c-cdfc-4335-b961-5a26450984ce | 14:03:35Z | enriched | 702 |
+| 59286b30-cebf-4d8c-be48-f87a1c84a7ca | 14:01:32Z | enriched | 964 |
+
+**4/4 success con escritura real confirmada.** Fix de persistencia del orquestador (PR previo) verificado en runtime.
+
+### Skip por motivo
+- `defense_name_coordinate_mismatch=1` (location `20dbd409-eead-486d-b45c-d3c1eb2aa967`) — defense-in-depth de Fase 1 ejecutada server-side en `enrich-location`, taxonomía nueva. ✅
+
+### Fail por motivo
+- `snapshot_failed:duplicate key …` = **1** (bug real, ver root cause).
+- `aborted_with_run:snapshot_idempotency_bug` = **18** (orphans cerrados administrativamente; sin escritura ni snapshot adicional, sin coste IA).
+
+### Snapshots y rollback
+6 snapshots creados (4 success + 1 skip + 1 fail snapshot-pre-error). Rollback disponible vía `enrichment_batch_snapshots`. **No** se ejecutó rollback: los 4 success son enriquecimientos legítimos y persistentes; revertirlos no aporta valor.
+
+### Invariantes
+- ✅ Sin Nominatim
+- ✅ Sin re-enrich (`isAlreadyEnriched` gate honored)
+- ✅ Sin UPDATE fuera de allowlist (GUC `app.batch_orchestrator='true'` solo activa en tx de `apply_orchestrator_enrichment`)
+- ✅ Snapshots disponibles
+- ✅ Marker fill intacto (sin cambios cliente)
+- ✅ `computePoiMaturity` intacto
+- ✅ Canon intacto
+- ✅ No bump
+
+### Criterio de detención aplicado
+Regla del usuario: *"si se detectan los mismos items reiniciándose más de una vez, detener"*. El item `286a8239…` alcanzó `attempts=2` y el orquestador se auto-abortó. **STOP aplicado**: no se realizaron más reinvocaciones `/start`.
+
+### Recomendación
+
+**REDISEÑAR antes de cualquier nuevo piloto.** Bloqueadores duros:
+
+1. **Snapshot idempotency** (DURO): cambiar el `INSERT` de `enrichment_batch_snapshots` a `INSERT … ON CONFLICT (run_id, location_id) DO NOTHING`, o bien `SELECT-then-INSERT`. Sin esto, **cualquier** watchdog reset aborta el run en el primer item re-claimado. El bug bloquea estructuralmente la política de restart.
+2. **Chunking vs gateway timeout** (DURO): `~50s/item` × `chunk_size=25` >> 60s gateway. Opciones:
+   - `chunk_size=1` por invocación + loop externo controlado (operativamente costoso, pero correcto).
+   - Background task real (`EdgeRuntime.waitUntil`) que devuelve 202 inmediato y procesa offline (recomendado).
+   - Cron/scheduled invocations que drenan N items por tick.
+3. **Procedimiento de re-claim** (MEDIO): el snapshot debe vivir fuera del item attempt (1 snapshot por `(run_id, location_id)`, no por intento). El item debe poder re-claimar sin re-snapshotear.
+
+**No** abrir piloto-25 v4, **no** piloto-50, **no** Phase C hasta que (1) y (2) estén implementados y validados con smoke test 1 POI + smoke test orphan-recovery (forzar watchdog y re-claim del mismo item, verificar drain limpio).
+
+---
