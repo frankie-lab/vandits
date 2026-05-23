@@ -420,7 +420,10 @@ async function processChunk(
       } else {
         // 3) PERSIST: write enriched_data back via allowlisted RPC.
         const enrichedPayload = respBody.data;
-        const { data: persistRows, error: persistErr } = await client.rpc(
+        // Use rpcClient (user auth context) so the SECURITY DEFINER RPC's
+        // has_role(auth.uid(), 'master') check resolves against the caller,
+        // not against the service role (which has auth.uid()=NULL).
+        const { data: persistRows, error: persistErr } = await rpcClient.rpc(
           "apply_orchestrator_enrichment",
           {
             _location_id: item.location_id,
