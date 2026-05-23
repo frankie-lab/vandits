@@ -18,7 +18,12 @@ function poiEnriched(id: string, owner = OWNER): GeoLocation {
     id, name: `POI ${id}`,
     description: 'Descripción importada plana.',
     coordinates: { lat: 40.4, lng: -3.7 },
+    latitude: 40.4, longitude: -3.7,
     ownerUserId: owner, is_approved: true,
+    visibility: 'public',
+    geoHealth: 'ok',
+    enrichmentStatus: 'enriched',
+    rawGeocode: { provider: 'photon', score: 0.9 },
     enriched_data: { descripcion: 'Texto enriquecido editorial.', categoria: 'monumento', rating: 4 } as any,
     raw_geocode: { provider: 'photon', hit: { foo: 'bar' } } as any,
     customData: {
