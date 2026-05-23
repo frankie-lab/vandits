@@ -68,7 +68,6 @@ export function FilterBar() {
   const filteredLocations = useFilteredLocations();
   // Universo visible/autorizado SIN recortar por selección. Es la base canónica
 
-  // Universo visible/autorizado SIN recortar por selección. Es la base canónica
   // de los denominadores T/Tm/Ts del contador y del desglose bucketStats —
   // garantiza que seleccionar no colapse los totales.
   // Ver docs/audits/selection-counter-ownership-ratios-plan.md.
