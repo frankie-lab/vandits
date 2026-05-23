@@ -258,10 +258,21 @@ export function ExportPanel({ source = null }: ExportPanelProps = {}) {
   };
 
   const disableButtons =
-    !selectedDocument || isExporting || eligibleCount === 0 || internalDisabled || blocked;
+    isExporting || eligibleCount === 0 || internalDisabled || blocked;
 
   return (
     <div className="space-y-4" data-export-panel="pr-export-2">
+      {/* Fuente resuelta — PR-EXPORT-2 Fase 3A */}
+      <div
+        className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-muted/30 px-3 py-2 text-xs"
+        data-export-source={resolution.origin}
+      >
+        <span className="text-muted-foreground truncate">{originLabel}</span>
+        <Badge variant="outline" className="text-[10px] shrink-0">
+          {candidateLocations.length} origen
+        </Badge>
+      </div>
+
       {/* Last export indicator */}
       {lastExport && (
         <motion.div
