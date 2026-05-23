@@ -237,11 +237,13 @@ export function FilterBar() {
     <div className="flex items-center gap-2">
       {selectedCount > 0 ? (
         <>
-          <span className="text-2xl font-bold text-primary">
+          <span className="text-lg font-semibold text-primary">
             {COUNT_FORMATTER.format(ownershipRatios.X)}
           </span>
+          <span className="text-lg font-semibold text-muted-foreground">
+            {' / '}{COUNT_FORMATTER.format(ownershipRatios.T)}
+          </span>
           <span className="text-sm text-muted-foreground">
-            / {COUNT_FORMATTER.format(ownershipRatios.T)}{' '}
             {ownershipRatios.X === 1 ? 'seleccionado' : 'seleccionados'}
           </span>
         </>
