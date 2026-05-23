@@ -6,6 +6,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
+import { useScopedLocations } from '@/components/filters/UniverseBaseContext';
+
 
 interface TagNode {
  name: string;
