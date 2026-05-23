@@ -6,10 +6,17 @@ const LOCAL_STORAGE_KEY = 'vandits-last-export';
 
 export interface ExportRecord {
  timestamp: string;
- format: 'kml' | 'csv' | 'json';
+ format: 'kml' | 'csv' | 'json' | 'geojson';
  target: 'mymaps' | 'gurumaps' | 'general';
  locationCount: number;
  locationIds: string[];
+ /** Optional PR-EXPORT-2 metadata (no exported content, only counters). */
+ meta?: {
+   scope?: 'public' | 'internal';
+   origin?: 'panel' | 'selection' | 'popup';
+   excludedCount?: number;
+   success?: boolean;
+ };
 }
 
 export interface ExportTracking {
