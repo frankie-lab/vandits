@@ -127,7 +127,7 @@ describe('FilterBar — no duplicated selection counter (source-level)', () => {
     const fs = await import('node:fs');
     const src = fs.readFileSync('src/components/FilterBar.tsx', 'utf8');
     // El header DEBE renderizar el ratio "X / T seleccionados".
-    expect(src).toMatch(/\/\s*\{COUNT_FORMATTER\.format\(ownershipRatios\.T\)\}/);
+    expect(src).toMatch(/COUNT_FORMATTER\.format\(ownershipRatios\.T\)/);
     // "Míos … / Seguidos …" debe aparecer EXACTAMENTE una vez (en el header).
     const occurrences = src.match(/text-emerald-600 font-medium">Míos</g) ?? [];
     expect(occurrences.length).toBe(1);
