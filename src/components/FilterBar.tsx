@@ -241,6 +241,7 @@ export function FilterBar() {
             {COUNT_FORMATTER.format(ownershipRatios.X)}
           </span>
           <span className="text-sm text-muted-foreground">
+            / {COUNT_FORMATTER.format(ownershipRatios.T)}{' '}
             {ownershipRatios.X === 1 ? 'seleccionado' : 'seleccionados'}
           </span>
         </>
