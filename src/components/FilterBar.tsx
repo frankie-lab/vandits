@@ -7,7 +7,7 @@ import { AppEmptyState } from '@/shared/components/ui';
 import { PanelModeTabs, type PanelMode } from './discovery/PanelModeTabs';
 import type { HealthFilter } from '@/types/location';
 import { useLocationsStore } from '@/domains/content';
-import { useFilteredLocations, useFilteredLocationsIgnoringHealth, useFilteredUniverseIgnoringSelection, useEnrichedStats } from '@/domains/content/hooks/use-filtered-locations';
+import { useFilteredLocations, useFilteredUniverseIgnoringSelection, useEnrichedStats } from '@/domains/content/hooks/use-filtered-locations';
 import { getBucketStats } from '@/domains/content/lib/location-bucket';
 import { useAuth } from '@/domains/identity';
 // matchesLocationFilters import removed — was only used by the deleted hiddenByDraft notice
@@ -46,9 +46,8 @@ import { loadLocationsFromDatabase } from '@/domains/content';
 import { HealthFilterActionCTA } from './discovery/HealthFilterActionCTA';
 import { useSelectionFitOnStart } from './discovery/use-selection-fit-on-start';
 import { useHealthFilterFit } from './discovery/use-health-filter-fit';
-import { getHealthBucketCounts } from '@/domains/content/lib/location-health-counts';
 import { toast } from 'sonner';
-import { runSelectable, resolveSelectableState } from '@/shared/interaction/selectable-kernel';
+
 
 const COUNT_FORMATTER = new Intl.NumberFormat('es-ES');
 
@@ -67,10 +66,8 @@ export function FilterBar() {
   const documents = useLocationsStore(s => s.documents);
   
   const filteredLocations = useFilteredLocations();
-  // Universo SIN healthFilter aplicado: alimenta los counts de los chips
-  // del eje Salud para que no se canibalicen entre sí.
-  const filteredIgnoringHealth = useFilteredLocationsIgnoringHealth();
   // Universo visible/autorizado SIN recortar por selección. Es la base canónica
+
   // de los denominadores T/Tm/Ts del contador y del desglose bucketStats —
   // garantiza que seleccionar no colapse los totales.
   // Ver docs/audits/selection-counter-ownership-ratios-plan.md.
@@ -434,99 +431,13 @@ export function FilterBar() {
           <span>sin enriquecer</span>
         </div>
       </div>
-      <Separator />
-      <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-        <HeartPulse className="w-3 h-3" />
-        Acciones sobre <span className="text-amber-600">con deuda</span>
-      </div>
-      <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin">
-        {(() => {
-          // healthFilter SÍ se aplica en el pipeline cliente
-          // (location-filtering.ts línea ~135). Por eso los counts de cada
-          // chip se calculan sobre `filteredIgnoringHealth`: el universo
-          // post-Geo/Tipo/Tags/búsqueda PERO antes del eje Salud, para que
-          // los chips no se canibalicen al activar uno.
-          const counts = getHealthBucketCounts(filteredIgnoringHealth);
-          const buckets: Array<{
-            id: HealthFilter | null;
-            label: string;
-            cssVar?: string;
-            count: number;
-          }> = [
-            { id: null,        label: 'Sin filtro',      count: counts.total },
-            { id: 'partial',   label: 'Rellenar huecos', cssVar: '--poi-health-partial',    count: counts.partial },
-            { id: 'chain',     label: 'Reparar cadena',  cssVar: '--poi-health-chain',      count: counts.chain },
-            { id: 'review',    label: 'Revisar',         cssVar: '--poi-health-review',     count: counts.review },
-            { id: 'hardError', label: 'Reintentar',      cssVar: '--poi-health-hard-error', count: counts.hardError },
-          ];
-          return buckets.map((b) => {
-            const active = (filters.healthFilter ?? null) === b.id;
-            // Pilot 1: Selectable kernel for disabled-state + observable
-            // click. FRICTION DOCUMENTED — these chips have toggle-off
-            // semantics on re-click of the active chip (clear filter).
-            // That is NOT replay; we route deselection through `onChange`
-            // and leave `onReplay` undefined. The kernel does not impose
-            // replay; see docs/interaction-pilot-1-diff.md §Friction.
-            const state = resolveSelectableState({ active, count: b.count });
-            const disabled = state === 'disabled';
-            return (
-              <Button
-                key={b.id ?? 'all'}
-                type="button"
-                variant={active ? 'default' : 'outline'}
-                size="sm"
-                disabled={disabled}
-                aria-disabled={disabled || undefined}
-                data-state={state}
-                onClick={() => {
-                  if (disabled) return;
-                  runSelectable({
-                    source: `filter-bar:health:${String(b.id ?? 'all')}`,
-                    wasActive: active,
-                    onAlways: () => {},
-                    onChange: () => {
-                      const next = { ...filters };
-                      if (b.id == null) {
-                        delete (next as Record<string, unknown>).healthFilter;
-                      } else {
-                        next.healthFilter = b.id;
-                      }
-                      setFilters(next);
-                    },
-                    onReplay: () => {
-                      // Toggle-off on re-click: clear the filter. This is
-                      // pre-existing behavior; replay-as-recenter is not
-                      // added here (would require touching cámara, out of
-                      // pilot scope).
-                      const next = { ...filters };
-                      delete (next as Record<string, unknown>).healthFilter;
-                      setFilters(next);
-                    },
-                  });
-                }}
-                className="h-7 px-2 text-xs gap-1.5 shrink-0"
-              >
-                {b.cssVar && (
-                  <span
-                    aria-hidden
-                    className="inline-block w-2 h-2 rounded-full"
-                    style={{ background: `hsl(var(${b.cssVar}))` }}
-                  />
-                )}
-                {b.label}
-                <span
-                  className={cn(
-                    'ml-0.5 tabular-nums text-[11px]',
-                    active ? 'opacity-90' : 'text-muted-foreground/80',
-                  )}
-                >
-                  {COUNT_FORMATTER.format(b.count)}
-                </span>
-              </Button>
-            );
-          });
-        })()}
-      </div>
+      {/* NOTA: la fila legacy "Acciones sobre con deuda" + 4 chips
+          (partial/chain/review/hardError) se retiró: era la taxonomía
+          Salud antigua, sustituida por los 3 buckets de arriba
+          (completos/con deuda/sin enriquecer). Hacer los buckets
+          clicables requiere añadir un eje `curationFilter` al pipeline
+          de filtrado y se aborda en un PR separado. */}
+
       <Separator />
       <div className="space-y-1.5">
         <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
