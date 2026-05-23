@@ -154,6 +154,7 @@ describe('FilterBar — no duplicated selection counter (source-level)', () => {
     // bucketStats y ownershipRatios deben alimentarse del universo, no de filteredLocations.
     expect(src).toMatch(/getBucketStats\(filteredUniverse/);
     expect(src).toMatch(/const T = filteredUniverse\.length/);
+    expect(src).toMatch(/bucketStats\.followedTotal/);
   });
 });
 

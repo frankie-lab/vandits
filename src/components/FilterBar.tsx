@@ -265,7 +265,7 @@ export function FilterBar() {
           {' · '}
           <span className="font-semibold tabular-nums">
             <span className="text-primary">{COUNT_FORMATTER.format(ownershipRatios.Xs)}</span>
-            <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(ownershipRatios.Ts)}</span>
+            <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(bucketStats.followedTotal)}</span>
           </span>{' '}
           <span className="text-sky-600 font-medium">Seguidos</span>
         </>
