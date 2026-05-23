@@ -1,13 +1,13 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { dispatchGlobalEvent } from '@/lib/global-events';
 import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, Trash2, Loader2, HeartPulse, CheckSquare, AlertCircle, CircleDashed } from 'lucide-react';
-import { getPoiCurationLevel } from '@/domains/content/lib/poi-curation-level';
 import { Separator } from '@/components/ui/separator';
 import { AppEmptyState } from '@/shared/components/ui';
 import { PanelModeTabs, type PanelMode } from './discovery/PanelModeTabs';
 import type { HealthFilter } from '@/types/location';
 import { useLocationsStore } from '@/domains/content';
 import { useFilteredLocations, useFilteredUniverseIgnoringSelection, useEnrichedStats } from '@/domains/content/hooks/use-filtered-locations';
+import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
 import { getBucketStats } from '@/domains/content/lib/location-bucket';
 import { useAuth } from '@/domains/identity';
 // matchesLocationFilters import removed — was only used by the deleted hiddenByDraft notice
@@ -72,7 +72,9 @@ export function FilterBar() {
   } = useLocationsStore();
 
   const getAllLocations = useLocationsStore(s => s.getAllLocations);
+  const getVisibleUniverseLocations = useLocationsStore(s => s.getVisibleUniverseLocations);
   const documents = useLocationsStore(s => s.documents);
+  const detachedVisibleLocations = useLocationsStore(s => s.detachedVisibleLocations);
   
   const filteredLocations = useFilteredLocations();
   // Universo visible/autorizado SIN recortar por selección. Es la base canónica
@@ -142,20 +144,20 @@ export function FilterBar() {
   const filteredCount = filteredLocations.length;
   const selectedCount = selectedLocations.size;
 
-  // Desglose por niveles de curación canónicos (POI-0/1/3/5/9/10) → 3 grupos accionables
-  const curationBuckets = useMemo(() => {
-    let completos = 0;   // POI-9 + POI-10 → enriched + geo OK
-    let conDeuda = 0;    // POI-5 → enriched con deuda objetiva (rings/geo parcial)
-    let sinEnriquecer = 0; // POI-0 + POI-1 → importado sin IA o vacío
-    for (const loc of filteredLocations) {
-      const { level } = getPoiCurationLevel(loc as any);
-      if (level === 9 || level === 10) completos++;
-      else if (level === 5) conDeuda++;
-      else if (level === 0 || level === 1) sinEnriquecer++;
-      else if (level === 3) conDeuda++; // POI-3 (raro) lo agrupamos con deuda
-    }
-    return { completos, conDeuda, sinEnriquecer };
-  }, [filteredLocations]);
+  // BLOQUEANTE: subtab/CTA/árbol DEBEN derivar del MISMO universeBase.
+  // Counts de los chips de subtab (Con deuda / Sin enriquecer) se calculan
+  // con `resolveUniverseBase` sobre la misma fuente que alimenta el árbol.
+  // Ver docs/audits/search-filter-maintain-tree-universe-counts-unification-postflight.md.
+  const allLocationsForUniverseSource = useMemo(
+    () => getVisibleUniverseLocations(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [getVisibleUniverseLocations, documents, detachedVisibleLocations],
+  );
+
+  const curationBuckets = useMemo(() => ({
+    conDeuda: resolveUniverseBase('debt', allLocationsForUniverseSource).length,
+    sinEnriquecer: resolveUniverseBase('unenriched', allLocationsForUniverseSource).length,
+  }), [allLocationsForUniverseSource]);
 
   // PR-4A.1 — Auto-fit del mapa cuando arranca una selección masiva (0 → N).
   // Internamente debounced 250ms y con guard "solo el primer fit".
@@ -248,12 +250,10 @@ export function FilterBar() {
       ? (maintainTab === 'debt' ? 'debt' : 'unenriched')
       : 'all';
 
-  const allLocationsForUniverse = useMemo(
-    () => getAllLocations(),
-    // Reactivo a cambios reales del store (documentos / locations).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [getAllLocations, documents],
-  );
+  // SoT del universo activo: misma fuente que `curationBuckets` y que los
+  // 4 árboles vía UniverseBaseProvider. Garantiza
+  //   subtab = CTA = Σ raíces árbol = universeBase.length.
+  const allLocationsForUniverse = allLocationsForUniverseSource;
 
   // Universo base resuelto + set de ids para intersecciones O(1).
   const universeBaseLocations = useMemo(
@@ -268,14 +268,16 @@ export function FilterBar() {
   // effectiveActionSet (plan §1, ajuste obligatorio):
   //   userSelection no vacía → universeBase ∩ treeSelection ∩ userSelection
   //   userSelection vacía    → universeBase ∩ treeSelection
-  // `filteredLocations` ya aplica treeSelection (geo/tipo/tags/búsqueda). Lo
-  // intersectamos con universeBase. Para userSelection, sumamos el recorte
-  // sólo cuando existe.
+  // PARTIMOS de universeBase (no de filteredLocations) y aplicamos los ejes
+  // del árbol vía matchesLocationFilters con includeHealth=false (el universo
+  // ya codifica deuda/no-enriquecido; no debe re-aplicarse).
   const effectiveActionSet = useMemo(() => {
-    const base = filteredLocations.filter((l) => universeBaseIds.has(l.id));
-    if (selectedLocations.size === 0) return base;
-    return base.filter((l) => selectedLocations.has(l.id));
-  }, [filteredLocations, universeBaseIds, selectedLocations]);
+    const treeFiltered = universeBaseLocations.filter((l) =>
+      matchesLocationFilters(l as any, filters, { includeHealth: false }),
+    );
+    if (selectedLocations.size === 0) return treeFiltered;
+    return treeFiltered.filter((l) => selectedLocations.has(l.id));
+  }, [universeBaseLocations, filters, selectedLocations]);
 
   // Universo del contador superior: refleja universeBase activo (plan §5).
   const universeForCounter = useMemo(
@@ -299,13 +301,15 @@ export function FilterBar() {
   }, [filters.healthFilter]);
 
   // "Seleccionar todo" del modo activo: selecciona universeBase ∩ treeSelection.
-  // No intersecta con userSelection (es justo lo que la materializa).
+  // Mismo predicado que `effectiveActionSet` sin userSelection.
   const handleSelectAllInMode = useCallback(() => {
-    const base = filteredLocations.filter((l) => universeBaseIds.has(l.id));
+    const base = universeBaseLocations.filter((l) =>
+      matchesLocationFilters(l as any, filters, { includeHealth: false }),
+    );
     if (base.length === 0) return;
     clearSelection();
     addLocationsToSelection(base.map((l) => l.id));
-  }, [filteredLocations, universeBaseIds, clearSelection, addLocationsToSelection]);
+  }, [universeBaseLocations, filters, clearSelection, addLocationsToSelection]);
 
 
 
