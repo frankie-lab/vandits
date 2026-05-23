@@ -56,7 +56,7 @@ describe('PR-EXPORT-2 Fase 3 · pipeline runPoiExport', () => {
     });
     expect(outcome.kind).toBe('ok');
     const r = outcome as PoiExportPipelineResult;
-    const text = await r.blob.text();
+    const text = await new Response(r.blob).text();
     const json = JSON.parse(text);
     expect(json.type).toBe('FeatureCollection');
     expect(json.export_format_version).toBe('poi-export-geojson-v1');
@@ -77,7 +77,7 @@ describe('PR-EXPORT-2 Fase 3 · pipeline runPoiExport', () => {
       origin: 'panel',
     });
     const r = outcome as PoiExportPipelineResult;
-    const json = JSON.parse(await r.blob.text());
+    const json = JSON.parse(await new Response(r.blob).text());
     expect(json.export_format_version).toBe('poi-export-json-v2');
     expect(Array.isArray(json.items)).toBe(true);
     expect(json.items[0].ownerUserId).toBeUndefined();
