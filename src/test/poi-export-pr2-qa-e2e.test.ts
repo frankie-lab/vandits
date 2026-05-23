@@ -98,7 +98,7 @@ describe('PR-EXPORT-2 QA E2E harness', () => {
       eligibility: {
         total: fixtures.length,
         public_eligible_ids: partPublic.eligible.map(p => p.id),
-        public_excluded_ids: partPublic.excluded.map(e => e.location.id),
+        public_excluded_ids: partPublic.excluded.map(e => e.loc.id),
         internal_eligible_ids: partInternal.eligible.map(p => p.id),
       },
       samples: {
