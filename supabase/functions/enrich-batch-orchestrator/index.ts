@@ -358,24 +358,28 @@ async function processChunk(
       continue;
     }
 
-    // 1) Pre-dispatch snapshot (rollback unit).
-    const { error: snapErr } = await client
-      .from("enrichment_batch_snapshots")
-      .insert({
-        run_id: runId,
-        location_id: item.location_id,
-        previous_enriched_data: (fresh as any).enriched_data ?? null,
-        previous_enrichment_status: (fresh as any).enrichment_status ?? null,
-      });
-    if (snapErr) {
+    // 1) Pre-dispatch snapshot (rollback unit). IDEMPOTENT: a re-claim
+    //    after watchdog reset MUST NOT abort the run. The first attempt
+    //    creates the canonical `previous_*` row; subsequent attempts are
+    //    a no-op (alreadyExisted=true) and preserve the original baseline.
+    //    Only a real DB error (permission denied, FK violation, etc.)
+    //    counts as a snapshot failure.
+    const snap = await recordPreDispatchSnapshot(client, {
+      runId,
+      locationId: item.location_id,
+      previousEnrichedData: (fresh as any).enriched_data ?? null,
+      previousEnrichmentStatus: (fresh as any).enrichment_status ?? null,
+    });
+    if (!snap.ok) {
       await client
         .from("enrichment_batch_items")
-        .update({ status: "fail", fail_reason: `snapshot_failed:${snapErr.message}`, finished_at: new Date().toISOString() })
+        .update({ status: "fail", fail_reason: `snapshot_failed:${snap.error}`, finished_at: new Date().toISOString() })
         .eq("id", item.item_id);
       await flushOne({ fail: 1, fail_reason: "snapshot_failed" }, 0);
       await applyAbort(client, runId, "snapshot_failure");
       return { continueLoop: false, verdict: "abort:snapshot_failure" };
     }
+    // snap.alreadyExisted === true is OK: a retry of the same item.
 
     // 2) Dispatch enrich-location. enrich-location is a PURE FUNCTION: it
     //    generates enriched data and returns it; it does NOT persist. The
