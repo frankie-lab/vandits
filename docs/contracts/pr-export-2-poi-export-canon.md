@@ -203,21 +203,22 @@ export type PoiExportRecord = {
 | `geography.province`               |   ✓    |    ✓     | `zone_id` resuelto |
 | `geography.municipality`           |   ✓    |    ✓     | |
 | `geography.locality`               |   ✓    |    ✓     | |
-| `classification.poiLevel`          |   ⚠    |    ✓     | Ver §15 (pregunta abierta) |
-| `classification.rootStatus` A/B/C/D|   ⚠    |    ✓     | Ver §15 (pregunta abierta) |
+| `classification.poiLevel`          |   ✗    |    ✓     | Internal-only en PR-EXPORT-2 (§15.2) |
+| `classification.rootStatus` A/B/C/D|   ✗    |    ✓     | Internal-only en PR-EXPORT-2 (§15.3) |
 | `classification.category`          |   ✓    |    ✓     | `effectivePlaceType` |
 | `classification.tags[]`            |   ✓    |    ✓     | Solo tags públicos filtrados (`filterPersonalTags`) |
-| `content.description`              |   ✓    |    ✓     | Solo `enriched_data.descripcion` canónica |
-| `content.imageUrl`                 |   ⚠    |    ✓     | Solo si validada como pública (§15) |
+| `content.description`              |   ✓    |    ✓     | Solo `enriched_data.descripcion` canónica; sanitización por formato (§15.10) |
+| `content.imageUrl`                 |   ⚠    |    ✓     | En `public` solo URLs públicas validadas, no firmadas (§15.4) |
 | `metadata.source`                  |   ✓    |    ✓     | Alto nivel, no URL interna |
 | `metadata.exportedAt`              |   ✓    |    ✓     | ISO timestamp |
 | `internal.countryCode`             |   ✗    |    ✓     | ISO alpha-2 |
 | `internal.enrichmentStatus`        |   ✗    |    ✓     | |
 | `internal.geoHealth`               |   ✗    |    ✓     | Resumen, no payload completo |
 | `customData[allowlisted]`          |   ✓    |    ✓     | Solo claves de §7 |
+| Envelope `collection {id,name,…}`  |   ✓    |    ✓     | Solo si origen es colección y hay permiso (§15.6). Vive en metadata del envelope, no en el record. |
 
-Leyenda: ✓ permitido · ✗ prohibido · ⚠ permitido con condiciones a
-resolver en §15.
+Leyenda: ✓ permitido · ✗ prohibido · ⚠ permitido con condición
+explícita.
 
 ---
 
