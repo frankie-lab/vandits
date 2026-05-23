@@ -547,42 +547,24 @@ export function FilterBar() {
         <SelectionActions />
       )}
 
-      <div className="flex items-center justify-between text-sm gap-2">
-        <div className="flex flex-col text-xs text-muted-foreground leading-tight">
-          <span>
-            <span className="font-medium text-foreground">
-              {COUNT_FORMATTER.format(ownershipRatios.X)}
-            </span>
-            {' / '}
-            {COUNT_FORMATTER.format(ownershipRatios.T)} seleccionados
-          </span>
-          <span className="text-[11px]">
-            <span className="text-emerald-600 font-medium">Míos</span>{' '}
-            {COUNT_FORMATTER.format(ownershipRatios.Xm)} / {COUNT_FORMATTER.format(ownershipRatios.Tm)}
-            {' · '}
-            <span className="text-sky-600 font-medium">Seguidos</span>{' '}
-            {COUNT_FORMATTER.format(ownershipRatios.Xs)} / {COUNT_FORMATTER.format(ownershipRatios.Ts)}
-          </span>
-        </div>
-        <div className="flex gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={selectAllLocations}
-            className="text-xs h-7"
-          >
-            Seleccionar todo
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearSelection}
-            className="text-xs h-7"
-            disabled={selectedCount === 0}
-          >
-            Limpiar
-          </Button>
-        </div>
+      <div className="flex items-center justify-end gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={selectAllLocations}
+          className="text-xs h-7"
+        >
+          Seleccionar todo
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={clearSelection}
+          className="text-xs h-7"
+          disabled={selectedCount === 0}
+        >
+          Limpiar
+        </Button>
       </div>
 
       {hasActiveChips && filteredCount > 0 && (
