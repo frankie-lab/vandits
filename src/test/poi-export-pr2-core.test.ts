@@ -137,8 +137,8 @@ describe('PR-EXPORT-2 · PoiExportRecord mapper', () => {
     const r = mapToPoiExportRecord(poi9(OWNER_A), 'public');
     expect(typeof r.coordinates.latitude).toBe('number');
     expect(typeof r.coordinates.longitude).toBe('number');
-    expect((r.coordinates as Record<string, unknown>).lat).toBeUndefined();
-    expect((r.coordinates as Record<string, unknown>).lng).toBeUndefined();
+    expect((r.coordinates as unknown as Record<string, unknown>).lat).toBeUndefined();
+    expect((r.coordinates as unknown as Record<string, unknown>).lng).toBeUndefined();
   });
 });
 
