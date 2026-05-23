@@ -77,6 +77,10 @@ const Index = () => {
 
   // ─── Modal-dialog states (NOT in right-panel registry) ───────────────────
   const [showExport, setShowExport] = useState(false);
+  // PR-EXPORT-2 Fase 3A — payload opcional propagado por `lovable:open-export-panel`.
+  const [exportPanelSource, setExportPanelSource] = useState<
+    import('@/domains/content/components/ExportPanel').ExportPanelSource | null
+  >(null);
   const [showBatchEnrichment, setShowBatchEnrichment] = useState(false);
   const [showCriteriaConfig, setShowCriteriaConfig] = useState(false);
 
