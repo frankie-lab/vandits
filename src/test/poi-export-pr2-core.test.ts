@@ -237,8 +237,16 @@ describe('PR-EXPORT-2 · serializers DTO-only', () => {
     ];
     for (const f of files) {
       const src = fs.readFileSync(path.resolve(f), 'utf8');
+      // Sólo se prohíben imports/usos reales de GeoLocation, no menciones en comentarios.
       expect(src).not.toMatch(/from\s+['"]@\/types\/location['"]/);
-      expect(src).not.toMatch(/GeoLocation/);
+      expect(src).not.toMatch(/^\s*import[^;]*\bGeoLocation\b/m);
+      // Quitar bloques de comentario antes de buscar usos en código.
+      const code = src
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .split('\n')
+        .map((l) => l.replace(/\/\/.*$/, ''))
+        .join('\n');
+      expect(code).not.toMatch(/\bGeoLocation\b/);
     }
   });
 });
