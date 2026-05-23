@@ -232,57 +232,85 @@ export function SelectionActions() {
     }
   };
 
-  // ---- 2. Exportar selección (PR-EXPORT-1: scope explícito siempre) ----
-  const handleExport = (format: ExportFormat, target: ExportTarget = 'general') => {
+  // ---- 2. Exportar selección (PR-EXPORT-2 pipeline canónico) ----
+  const handleExport = (format: PoiExportFormat, target: ExportTarget = 'general') => {
     if (resolvedLocations.length === 0) {
       toast.error('No hay puntos para exportar');
       return;
     }
+    const docName = selectedDocument?.name || 'seleccion';
     const ctx = { currentUserId };
-    const { eligible, excluded } = partitionForExport(resolvedLocations, exportScope, ctx);
-    if (eligible.length === 0) {
-      const summary = excluded
-        .slice(0, 3)
-        .map((e) => EXPORT_EXCLUSION_LABEL[e.reason])
-        .join(' · ');
-      toast.error(
-        exportScope === 'public'
-          ? `Ningún punto seleccionado es compartible. ${summary}`
-          : `Ningún punto exportable en modo interno (requiere ser del usuario actual). ${summary}`,
+
+    const exec = (confirmedOverWarn: boolean) =>
+      runPoiExport(
+        {
+          locations: resolvedLocations,
+          format,
+          scope: exportScope,
+          ctx,
+          documentName: docName,
+          target: format === 'kml' ? target : undefined,
+          origin: SELECTION_ORIGIN,
+        },
+        { confirmedOverWarn },
       );
-      return;
-    }
+
     try {
-      const docName = selectedDocument?.name || 'seleccion';
-      let content: string;
-      let mimeType: string;
-      let extension: string;
-      switch (format) {
-        case 'kml':
-          content = exportToKML(eligible, docName, target, exportScope, ctx, { scopeProvided: true });
-          mimeType = 'application/vnd.google-earth.kml+xml';
-          extension = 'kml';
-          break;
-        case 'csv':
-          content = exportToCSV(eligible, exportScope, ctx, { scopeProvided: true });
-          mimeType = 'text/csv';
-          extension = 'csv';
-          break;
-        case 'json':
-          content = exportToJSON(eligible, exportScope, ctx, { scopeProvided: true });
-          mimeType = 'application/json';
-          extension = 'json';
-          break;
+      let outcome = exec(false);
+
+      if (outcome.kind === 'no-eligible') {
+        const summary = outcome.partition.excluded
+          .slice(0, 3)
+          .map((e) => EXPORT_EXCLUSION_LABEL[e.reason])
+          .join(' · ');
+        toast.error(
+          exportScope === 'public'
+            ? `Ningún punto seleccionado es compartible. ${summary}`
+            : `Ningún punto exportable en modo interno (requiere ser del usuario actual). ${summary}`,
+        );
+        return;
       }
-      const targetSuffix = target !== 'general' ? `_${target}` : '';
-      const scopeSuffix = `_${exportScope}`;
-      const timestamp = new Date().toISOString().split('T')[0];
-      downloadBlob(content, mimeType, `${docName}_seleccion${scopeSuffix}${targetSuffix}_${timestamp}.${extension}`);
-      const excludedNote = excluded.length > 0 ? ` (${excluded.length} excluidos)` : '';
-      toast.success(`Exportados ${eligible.length} puntos en ${format.toUpperCase()}${excludedNote}`);
+      if (outcome.kind === 'warn-pending') {
+        const ok = window.confirm(
+          `Vas a exportar ${outcome.partition.eligibleCount} POIs (más de ${POI_EXPORT_SIZE_THRESHOLDS.warn}).\nEl archivo puede ser muy grande. ¿Continuar?`,
+        );
+        if (!ok) {
+          toast.message('Exportación cancelada');
+          return;
+        }
+        outcome = exec(true);
+        if (outcome.kind !== 'ok') {
+          toast.error('No se pudo ejecutar la exportación');
+          return;
+        }
+      }
+
+      downloadPoiExportBlob(outcome);
+      recordExport(format, target, outcome.exportedIds, {
+        scope: exportScope,
+        origin: SELECTION_ORIGIN,
+        excludedCount: outcome.excludedCount,
+        success: true,
+      });
+      const excludedNote =
+        outcome.excludedCount > 0 ? ` (${outcome.excludedCount} excluidos)` : '';
+      toast.success(
+        `Exportados ${outcome.eligibleCount} puntos en ${format.toUpperCase()}${excludedNote}`,
+      );
     } catch (err) {
-      console.error('Export error:', err);
-      toast.error('Error al exportar');
+      if (err instanceof PoiExportSizeError) {
+        toast.error(
+          `Export bloqueado: ${err.verdict.count} POIs supera el límite de ${err.verdict.thresholds.block}`,
+        );
+      } else {
+        console.error('Export error:', err);
+        toast.error('Error al exportar');
+      }
+      recordExport(format, target, [], {
+        scope: exportScope,
+        origin: SELECTION_ORIGIN,
+        success: false,
+      });
     }
   };
 
