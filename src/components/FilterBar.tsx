@@ -558,6 +558,17 @@ export function FilterBar() {
 
 
    </div>
+
+   {/* Footer fijo de acciones (effectiveActionSet). Aparece en los 4 modos:
+       Explorar, Mantener→Con deuda, Mantener→Sin enriquecer, Seleccionar.
+       Ver docs/audits/search-filter-maintain-tree-universe-plan.md §5/§6. */}
+   <EffectiveActionFooter
+     mode={activeModeUniverse}
+     locations={effectiveActionSet as any}
+     hasUserSelection={hasUserSelection}
+     scopeLabel={scopeLabel}
+     onClearSelection={clearSelection}
+   />
   </div>
   );
 }
