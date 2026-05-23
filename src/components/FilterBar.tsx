@@ -46,7 +46,14 @@ import { loadLocationsFromDatabase } from '@/domains/content';
 import { HealthFilterActionCTA } from './discovery/HealthFilterActionCTA';
 import { useSelectionFitOnStart } from './discovery/use-selection-fit-on-start';
 import { useHealthFilterFit } from './discovery/use-health-filter-fit';
+import { UniverseBaseProvider } from './filters/UniverseBaseContext';
+import {
+  resolveUniverseBase,
+  getUniverseBaseLabel,
+  type ActiveModeUniverse,
+} from '@/domains/content/lib/resolve-universe-base';
 import { toast } from 'sonner';
+
 
 
 const COUNT_FORMATTER = new Intl.NumberFormat('es-ES');
