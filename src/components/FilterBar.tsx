@@ -301,13 +301,15 @@ export function FilterBar() {
   }, [filters.healthFilter]);
 
   // "Seleccionar todo" del modo activo: selecciona universeBase ∩ treeSelection.
-  // No intersecta con userSelection (es justo lo que la materializa).
+  // Mismo predicado que `effectiveActionSet` sin userSelection.
   const handleSelectAllInMode = useCallback(() => {
-    const base = filteredLocations.filter((l) => universeBaseIds.has(l.id));
+    const base = universeBaseLocations.filter((l) =>
+      matchesLocationFilters(l as any, filters, { includeHealth: false }),
+    );
     if (base.length === 0) return;
     clearSelection();
     addLocationsToSelection(base.map((l) => l.id));
-  }, [filteredLocations, universeBaseIds, clearSelection, addLocationsToSelection]);
+  }, [universeBaseLocations, filters, clearSelection, addLocationsToSelection]);
 
 
 
