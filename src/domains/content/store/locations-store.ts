@@ -646,7 +646,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
     // --- Restrict to user-selected branch (Geography tree checkboxes) ---
     // Si el usuario marca ramas/puntos en "Buscar y Filtrar", el mapa muestra solo esos.
-    const sel = state.selectedLocations;
+    const sel = ignoreSelection ? null : state.selectedLocations;
     const restricted = sel && sel.size > 0
       ? filtered.filter(l => sel.has(l.id))
       : filtered;
