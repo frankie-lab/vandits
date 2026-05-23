@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { dispatchGlobalEvent } from '@/lib/global-events';
-import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, Trash2, Loader2, HeartPulse, CheckSquare } from 'lucide-react';
+import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, Trash2, Loader2, HeartPulse, CheckSquare, AlertCircle, CircleDashed } from 'lucide-react';
+import { getPoiCurationLevel } from '@/domains/content/lib/poi-curation-level';
 import { Separator } from '@/components/ui/separator';
 import { AppEmptyState } from '@/shared/components/ui';
 import { PanelModeTabs, type PanelMode } from './discovery/PanelModeTabs';
@@ -132,8 +133,23 @@ export function FilterBar() {
   setIsRefreshing(false);
   }
   }, [selectedDocument, updateDocumentLocations]);
- const filteredCount = filteredLocations.length;
+  const filteredCount = filteredLocations.length;
   const selectedCount = selectedLocations.size;
+
+  // Desglose por niveles de curación canónicos (POI-0/1/3/5/9/10) → 3 grupos accionables
+  const curationBuckets = useMemo(() => {
+    let completos = 0;   // POI-9 + POI-10 → enriched + geo OK
+    let conDeuda = 0;    // POI-5 → enriched con deuda objetiva (rings/geo parcial)
+    let sinEnriquecer = 0; // POI-0 + POI-1 → importado sin IA o vacío
+    for (const loc of filteredLocations) {
+      const { level } = getPoiCurationLevel(loc as any);
+      if (level === 9 || level === 10) completos++;
+      else if (level === 5) conDeuda++;
+      else if (level === 0 || level === 1) sinEnriquecer++;
+      else if (level === 3) conDeuda++; // POI-3 (raro) lo agrupamos con deuda
+    }
+    return { completos, conDeuda, sinEnriquecer };
+  }, [filteredLocations]);
 
   // PR-4A.1 — Auto-fit del mapa cuando arranca una selección masiva (0 → N).
   // Internamente debounced 250ms y con guard "solo el primer fit".
@@ -289,19 +305,25 @@ export function FilterBar() {
 
   {/* (Aviso "hidden by draft" eliminado — ver comentario al inicio del componente) */}
 
- {/* Stats row */}
- <div className="flex items-center gap-3 text-xs text-muted-foreground">
- <div className="flex items-center gap-1 text-amber-600">
- <Sparkles className="w-3 h-3" />
- <span className="font-medium">{stats.enriched}</span> enriquecidos
- </div>
- {stats.verified > 0 && (
- <div className="flex items-center gap-1 text-green-600">
- <CheckCircle className="w-3 h-3" />
- <span className="font-medium">{stats.verified}</span> verificados
- </div>
- )}
- </div>
+  {/* Stats row — desglose por nivel de curación (3 grupos accionables) */}
+  <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+    <div className="flex items-center gap-1 text-green-600" title="POIs enriquecidos con geo verificada (POI-9 + POI-10)">
+      <CheckCircle className="w-3 h-3" />
+      <span className="font-medium">{COUNT_FORMATTER.format(curationBuckets.completos)}</span> completos
+    </div>
+    {curationBuckets.conDeuda > 0 && (
+      <div className="flex items-center gap-1 text-amber-600" title="POIs enriquecidos con deuda geográfica pendiente (POI-5)">
+        <AlertCircle className="w-3 h-3" />
+        <span className="font-medium">{COUNT_FORMATTER.format(curationBuckets.conDeuda)}</span> con deuda
+      </div>
+    )}
+    {curationBuckets.sinEnriquecer > 0 && (
+      <div className="flex items-center gap-1 text-muted-foreground" title="POIs importados sin enriquecer (POI-0 + POI-1)">
+        <CircleDashed className="w-3 h-3" />
+        <span className="font-medium">{COUNT_FORMATTER.format(curationBuckets.sinEnriquecer)}</span> sin enriquecer
+      </div>
+    )}
+  </div>
  </div>
 
   {/* Active filters summary - chips data-driven (todos los ejes) */}
