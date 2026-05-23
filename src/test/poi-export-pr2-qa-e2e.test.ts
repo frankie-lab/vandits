@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { runPoiExport, PoiExportSizeError } from '@/domains/content/lib/poi-export-pipeline';
+import { runPoiExport } from '@/domains/content/lib/poi-export-pipeline';
+import { PoiExportSizeError } from '@/domains/content/lib/poi-export-record';
 import { POI_EXPORTERS } from '@/domains/content/lib/exporters';
 import { mapToPoiExportRecords } from '@/domains/content/lib/poi-export-mapper';
 import type { GeoLocation } from '@/types/location';
