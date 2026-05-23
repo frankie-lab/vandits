@@ -69,27 +69,32 @@ export function FilterBar() {
   // Universo SIN healthFilter aplicado: alimenta los counts de los chips
   // del eje Salud para que no se canibalicen entre sí.
   const filteredIgnoringHealth = useFilteredLocationsIgnoringHealth();
+  // Universo visible/autorizado SIN recortar por selección. Es la base canónica
+  // de los denominadores T/Tm/Ts del contador y del desglose bucketStats —
+  // garantiza que seleccionar no colapse los totales.
+  // Ver docs/audits/selection-counter-ownership-ratios-plan.md.
+  const filteredUniverse = useFilteredUniverseIgnoringSelection();
   const stats = useEnrichedStats();
   const { user } = useAuth();
-  // Desglose Catálogo / Mesa / Seguidos sobre el conjunto VISIBLE.
+  // Desglose Catálogo / Mesa / Seguidos sobre el UNIVERSO (no la selección).
   // Single Source of Truth: location.isApproved decide Catálogo (no doc.status).
   const bucketStats = useMemo(
-    () => getBucketStats(filteredLocations as any, user?.id),
-    [filteredLocations, user?.id],
+    () => getBucketStats(filteredUniverse as any, user?.id),
+    [filteredUniverse, user?.id],
   );
 
   // Ownership ratios (X/T, Xm/Tm, Xs/Ts) — ver
   // docs/audits/selection-counter-ownership-ratios-plan.md.
-  // Universo = filteredLocations (ya respeta filtros + búsqueda + healthFilter
-  // + is_approved + colecciones + RLS). Selección = selectedLocations ∩ U,
-  // recortada para evitar X > T cuando hay selección fuera del filtro.
+  // Denominadores T/Tm/Ts = `filteredUniverse` (sin recorte por selección).
+  // Numeradores X/Xm/Xs = intersección selección ∩ universo (ids fuera del
+  // universo no inflan X).
   const ownershipRatios = useMemo(() => {
     const uid = user?.id ?? null;
-    const T = filteredLocations.length;
+    const T = filteredUniverse.length;
     let Tm = 0;
     let Xm = 0;
     let X = 0;
-    for (const loc of filteredLocations as any[]) {
+    for (const loc of filteredUniverse as any[]) {
       const ownerId = (loc.ownerUserId ?? loc._docUserId ?? null) as string | null;
       const mine = !!uid && ownerId === uid;
       if (mine) Tm += 1;
@@ -101,7 +106,7 @@ export function FilterBar() {
     const Ts = T - Tm;
     const Xs = X - Xm;
     return { T, Tm, Ts, X, Xm, Xs };
-  }, [filteredLocations, selectedLocations, user?.id]);
+  }, [filteredUniverse, selectedLocations, user?.id]);
 
   // Aviso "hidden by draft" eliminado: tras la nueva regla de visibilidad
   // (mem://logic/map/visibility-rule-rls-only) los documentos en borrador
