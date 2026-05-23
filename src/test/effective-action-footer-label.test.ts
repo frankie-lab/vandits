@@ -22,8 +22,8 @@ describe('buildFooterLabel', () => {
 
   it('mode=unenriched sin selección', () => {
     expect(
-      buildFooterLabel({ mode: 'unenriched', count: 1302, hasUserSelection: false }),
-    ).toBe('Acciones sobre 1.302 POIs sin enriquecer');
+      buildFooterLabel({ mode: 'unenriched', count: 240, hasUserSelection: false }),
+    ).toBe('Acciones sobre 240 POIs sin enriquecer');
   });
 
   it('mode=debt con scopeLabel', () => {
