@@ -225,6 +225,8 @@ export function FilterBar() {
     return 'explore';
   };
   const [panelMode, setPanelMode] = useState<PanelMode>(inferInitialMode);
+  const [maintainTab, setMaintainTab] = useState<'debt' | 'unenriched'>('debt');
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.sessionStorage.setItem(STORAGE_KEY, panelMode);
