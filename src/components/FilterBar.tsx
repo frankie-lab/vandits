@@ -359,8 +359,8 @@ export function FilterBar() {
     onChange={setPanelMode}
     exploreActive={hasActiveChips}
     maintainActive={!!filters.healthFilter}
-    selectActive={selectedCount > 0}
   />
+
 
   {/* ── Modo Explorar: Geo / Tipo / Tags / Legacy ── */}
   {panelMode === 'explore' && (
