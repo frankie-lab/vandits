@@ -69,7 +69,7 @@ import { useLocationsStore } from '@/domains/content';
 import { useAuth } from '@/domains/identity';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { exportToKML, exportToCSV, exportToJSON } from '@/lib/kml-parser'; // (legacy unused — pipeline canónico abajo)
+// NOTE: serializers ya no se importan aquí — pipeline canónico abajo.
 import {
   EXPORT_EXCLUSION_LABEL,
 } from '@/domains/content/lib/poi-export-eligibility';
