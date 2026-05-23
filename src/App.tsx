@@ -13,6 +13,8 @@ import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
 import DuplicatePolicy from "./pages/DuplicatePolicy";
 import { AdminShell, AdminShellIndex } from "./pages/admin/AdminShell";
+// TEMPORARY MAINTENANCE TOOL — remove or keep hidden after P2 backlog drained.
+import PoiP2RunnerPage from "./pages/admin/dev/PoiP2RunnerPage";
 import { AdminRoutePage } from "./pages/admin/AdminRoutePage";
 import { GlobalLoadingBar } from "@/shared/loading";
 import { DesignSystemThemeProvider } from "@/design-system/runtime/theme-provider";
