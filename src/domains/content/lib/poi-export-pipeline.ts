@@ -68,7 +68,7 @@ export interface PoiExportPipelineInput {
 
 export interface PoiExportPipelinePartition {
   eligible: GeoLocation[];
-  excluded: Array<{ locationId: string; reason: ExportExclusionReason }>;
+  excluded: Array<{ loc: GeoLocation; reason: ExportExclusionReason }>;
   eligibleCount: number;
   excludedCount: number;
   totalCount: number;
