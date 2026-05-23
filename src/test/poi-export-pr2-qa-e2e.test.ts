@@ -54,6 +54,8 @@ describe('PR-EXPORT-2 QA E2E harness', () => {
     // === Direct mapper+serializer path (string payloads, jsdom-safe) ===
     const partPublic = partitionForExport(fixtures, 'public' as any, { currentUserId: OWNER });
     const partInternal = partitionForExport(fixtures, 'internal' as any, { currentUserId: OWNER });
+    const debugVerdict = evaluatePoiExport(fixtures[0], 'public' as any, { currentUserId: OWNER });
+    console.log('===PUBLIC-VERDICT-A===', JSON.stringify(debugVerdict));
     const recordsPublic = mapToPoiExportRecords(partPublic.eligible, 'public');
     const recordsInternal = mapToPoiExportRecords(partInternal.eligible, 'internal');
 
