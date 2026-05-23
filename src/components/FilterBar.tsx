@@ -59,16 +59,18 @@ import { toast } from 'sonner';
 const COUNT_FORMATTER = new Intl.NumberFormat('es-ES');
 
 export function FilterBar() {
-  const { 
-  filters, 
-  setFilters, 
+  const {
+  filters,
+  setFilters,
   selectedLocations,
   selectAllLocations,
   clearSelection,
+  addLocationsToSelection,
   selectByFilter,
   selectedDocument,
   updateDocumentLocations,
   } = useLocationsStore();
+
   const getAllLocations = useLocationsStore(s => s.getAllLocations);
   const documents = useLocationsStore(s => s.documents);
   
