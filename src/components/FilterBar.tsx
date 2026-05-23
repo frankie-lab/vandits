@@ -547,10 +547,21 @@ export function FilterBar() {
         <SelectionActions />
       )}
 
-      <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground">
-            <span className="font-medium text-foreground">{selectedCount}</span> seleccionados
+      <div className="flex items-center justify-between text-sm gap-2">
+        <div className="flex flex-col text-xs text-muted-foreground leading-tight">
+          <span>
+            <span className="font-medium text-foreground">
+              {COUNT_FORMATTER.format(ownershipRatios.X)}
+            </span>
+            {' / '}
+            {COUNT_FORMATTER.format(ownershipRatios.T)} seleccionados
+          </span>
+          <span className="text-[11px]">
+            <span className="text-emerald-600 font-medium">Míos</span>{' '}
+            {COUNT_FORMATTER.format(ownershipRatios.Xm)} / {COUNT_FORMATTER.format(ownershipRatios.Tm)}
+            {' · '}
+            <span className="text-sky-600 font-medium">Seguidos</span>{' '}
+            {COUNT_FORMATTER.format(ownershipRatios.Xs)} / {COUNT_FORMATTER.format(ownershipRatios.Ts)}
           </span>
         </div>
         <div className="flex gap-1">
