@@ -1,8 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { runPoiExport } from '@/domains/content/lib/poi-export-pipeline';
-import { PoiExportSizeError } from '@/domains/content/lib/poi-export-record';
+import { PoiExportSizeError, evaluatePoiExportSize } from '@/domains/content/lib/poi-export-record';
 import { POI_EXPORTERS } from '@/domains/content/lib/exporters';
+import { serializePoiCsv } from '@/domains/content/lib/exporters/poi-csv';
+import { serializePoiKml } from '@/domains/content/lib/exporters/poi-kml';
+import { serializePoiJson } from '@/domains/content/lib/exporters/poi-json';
+import { serializePoiGeoJson } from '@/domains/content/lib/exporters/poi-geojson';
 import { mapToPoiExportRecords } from '@/domains/content/lib/poi-export-mapper';
+import { partitionForExport } from '@/domains/content/lib/poi-export-eligibility';
 import type { GeoLocation } from '@/types/location';
 
 const OWNER = 'user-frankie';
@@ -29,40 +34,45 @@ function poiUnshareable(id: string): GeoLocation {
 }
 const fixtures = [poiEnriched('a'), poiEnriched('b'), poiEnriched('c', OTHER), poiUnshareable('d')];
 
-async function blobText(b: Blob) { return await b.text(); }
-
 describe('PR-EXPORT-2 QA E2E harness', () => {
-  it('captures payload samples + security + limits for audit doc', async () => {
-    const out: Record<string, any> = {};
-    for (const format of ['csv', 'kml', 'json', 'geojson'] as const) {
-      const r = runPoiExport(
-        { locations: fixtures, format, scope: 'public', ctx: { currentUserId: OWNER }, documentName: 'qa-e2e', origin: 'panel', documentName: 'qa-e2e' },
-        { confirmedOverWarn: false },
-      );
-      if (r.kind !== 'ok') { out[format] = { kind: r.kind }; continue; }
-      const text = await blobText(r.blob);
-      out[format] = { kind: r.kind, eligible: r.eligibleCount, excluded: r.excludedCount, filename: r.filename, mime: r.mime, bytes: r.blob.size, sample: text.slice(0, 800), full: text };
-    }
-    const internal = runPoiExport(
-      { locations: fixtures, format: 'json', scope: 'internal', ctx: { currentUserId: OWNER }, origin: 'panel', documentName: 'qa-e2e' },
+  it('captures payload samples + security + limits for audit doc', () => {
+    // === Pipeline shape (Blob path) ===
+    const pipelineOk = runPoiExport(
+      { locations: fixtures, format: 'csv', scope: 'public', ctx: { currentUserId: OWNER }, documentName: 'qa-e2e', origin: 'panel' },
       { confirmedOverWarn: false },
     );
-    const internalText = internal.kind === 'ok' ? await blobText(internal.blob) : '';
-    const internalJson = internalText ? JSON.parse(internalText) : null;
+    const pipelineInternalEmpty = runPoiExport(
+      { locations: [poiEnriched('z', OTHER)], format: 'json', scope: 'internal', ctx: { currentUserId: OWNER }, documentName: 'qa', origin: 'panel' },
+      {},
+    );
 
+    // === Direct mapper+serializer path (string payloads, jsdom-safe) ===
+    const partPublic = partitionForExport(fixtures, 'public' as any, { currentUserId: OWNER });
+    const partInternal = partitionForExport(fixtures, 'internal' as any, { currentUserId: OWNER });
+    const recordsPublic = mapToPoiExportRecords(partPublic.eligible, 'public');
+    const recordsInternal = mapToPoiExportRecords(partInternal.eligible, 'internal');
+
+    const csv = serializePoiCsv(recordsPublic, { scope: 'public' });
+    const kml = serializePoiKml(recordsPublic, { scope: 'public', documentName: 'qa-e2e', target: 'general' });
+    const json = serializePoiJson(recordsPublic, { scope: 'public' });
+    const geojson = serializePoiGeoJson(recordsPublic, { scope: 'public' });
+    const internalJsonStr = serializePoiJson(recordsInternal, { scope: 'internal' });
+    const internalJson = JSON.parse(internalJsonStr);
+    const jsonObj = JSON.parse(json);
+    const geojsonObj = JSON.parse(geojson);
+
+    // === Limits ===
     const big = Array.from({ length: 5500 }, (_, i) => poiEnriched(`big-${i}`));
-    const warn = runPoiExport({ locations: big, format: 'csv', scope: 'public', ctx: { currentUserId: OWNER }, origin: 'panel', documentName: 'qa-e2e' }, { confirmedOverWarn: false });
-    const warnConfirmed = runPoiExport({ locations: big, format: 'csv', scope: 'public', ctx: { currentUserId: OWNER }, origin: 'panel', documentName: 'qa-e2e' }, { confirmedOverWarn: true });
+    const warn = runPoiExport({ locations: big, format: 'csv', scope: 'public', ctx: { currentUserId: OWNER }, documentName: 'big', origin: 'panel' }, { confirmedOverWarn: false });
+    const warnConfirmed = runPoiExport({ locations: big, format: 'csv', scope: 'public', ctx: { currentUserId: OWNER }, documentName: 'big', origin: 'panel' }, { confirmedOverWarn: true });
     const huge = Array.from({ length: 10500 }, (_, i) => poiEnriched(`huge-${i}`));
     let blockedThrew = false; let blockedLimit = 0;
-    try { runPoiExport({ locations: huge, format: 'csv', scope: 'public', ctx: { currentUserId: OWNER }, origin: 'panel', documentName: 'qa-e2e' }, { confirmedOverWarn: true }); }
+    try { runPoiExport({ locations: huge, format: 'csv', scope: 'public', ctx: { currentUserId: OWNER }, documentName: 'huge', origin: 'panel' }, { confirmedOverWarn: true }); }
     catch (e) { if (e instanceof PoiExportSizeError) { blockedThrew = true; blockedLimit = e.verdict.thresholds.block; } }
+    const verdict5500 = evaluatePoiExportSize(5500);
 
-    const records = mapToPoiExportRecords(fixtures.slice(0, 2), 'public');
-
-    const allBytes = ['csv','kml','json','geojson'].map(f => out[f]?.full ?? '').join('\n---\n');
-    const geoJsonObj = out.geojson?.full ? JSON.parse(out.geojson.full) : null;
-    const jsonObj = out.json?.full ? JSON.parse(out.json.full) : null;
+    // === Security on emitted bytes (all 4 formats concatenated) ===
+    const allBytes = [csv, kml, json, geojson, internalJsonStr].join('\n---\n');
     const security = {
       no_ownerUserId: !/ownerUserId|user-frankie|user-other/.test(allBytes),
       no_raw_geocode: !/raw_geocode|"photon"/.test(allBytes),
@@ -70,38 +80,65 @@ describe('PR-EXPORT-2 QA E2E harness', () => {
       no_secret_internal: !/secret_internal|NO-DEBE-SALIR/.test(allBytes),
       no_session_token: !/session_token|SHOULD-NOT-LEAK/.test(allBytes),
       no_signed_image: !/signature=abc/.test(allBytes),
-      geojson_lng_lat_order: (() => { const c = geoJsonObj?.features?.[0]?.geometry?.coordinates; return Array.isArray(c) && Math.abs(c[0] - (-3.7)) < 0.01 && Math.abs(c[1] - 40.4) < 0.01; })(),
+      geojson_lng_lat_order: (() => { const c = geojsonObj?.features?.[0]?.geometry?.coordinates; return Array.isArray(c) && Math.abs(c[0] - (-3.7)) < 0.01 && Math.abs(c[1] - 40.4) < 0.01; })(),
       json_envelope_v2: jsonObj?.export_format_version === 'poi-export-json-v2',
     };
 
-    // strip `full` from console output
-    const outCompact = Object.fromEntries(Object.entries(out).map(([k, v]: any) => [k, { ...v, full: undefined }]));
-
     console.log('===QA-REPORT-START===');
     console.log(JSON.stringify({
-      formats: outCompact,
-      registry: Object.keys(POI_EXPORTERS),
-      internal_scope: { kind: internal.kind, envelope_keys: internalJson && Object.keys(internalJson), items: internalJson?.items?.length, first: internalJson?.items?.[0], excluded: internal.kind === 'ok' ? internal.excludedCount : undefined },
-      limits: {
-        warn_5500_no_confirm: warn.kind === 'warn-pending' ? { kind: 'warn-pending', warn_at: warn.sizeVerdict.thresholds.warn, block_at: warn.sizeVerdict.thresholds.block, eligible: warn.partition.eligibleCount } : { kind: warn.kind },
-        warn_5500_confirmed: warnConfirmed.kind === 'ok' ? { kind: 'ok', eligible: warnConfirmed.eligibleCount } : { kind: warnConfirmed.kind },
-        block_10500: blockedThrew ? { kind: 'threw-PoiExportSizeError', limit: blockedLimit } : { kind: 'did-not-block' },
+      pipeline_shape: {
+        ok_kind: pipelineOk.kind,
+        ok_eligible: pipelineOk.kind === 'ok' ? pipelineOk.eligibleCount : null,
+        ok_excluded: pipelineOk.kind === 'ok' ? pipelineOk.excludedCount : null,
+        ok_filename: pipelineOk.kind === 'ok' ? pipelineOk.filename : null,
+        ok_mime: pipelineOk.kind === 'ok' ? pipelineOk.mime : null,
+        internal_with_no_own_pois: pipelineInternalEmpty.kind,
       },
-      mapper_dto_keys: Object.keys(records[0] ?? {}),
-      mapper_custom_data_keys: Object.keys((records[0] as any)?.customData ?? {}),
+      registry_formats: Object.keys(POI_EXPORTERS),
+      eligibility: {
+        total: fixtures.length,
+        public_eligible_ids: partPublic.eligible.map(p => p.id),
+        public_excluded_ids: partPublic.excluded.map(e => e.location.id),
+        internal_eligible_ids: partInternal.eligible.map(p => p.id),
+      },
+      samples: {
+        csv: csv.slice(0, 600),
+        kml: kml.slice(0, 600),
+        json: json.slice(0, 700),
+        geojson: geojson.slice(0, 700),
+      },
+      internal_scope: {
+        envelope_keys: Object.keys(internalJson),
+        scope: internalJson.scope,
+        items_count: internalJson.items?.length,
+        first_item_keys: internalJson.items?.[0] ? Object.keys(internalJson.items[0]) : null,
+      },
+      limits: {
+        verdict_5500: verdict5500,
+        warn_pipeline_no_confirm: warn.kind === 'warn-pending' ? { kind: warn.kind, eligible: warn.partition.eligibleCount, warn_threshold: warn.sizeVerdict.thresholds.warn, block_threshold: warn.sizeVerdict.thresholds.block } : { kind: warn.kind },
+        warn_pipeline_confirmed: warnConfirmed.kind === 'ok' ? { kind: 'ok', eligible: warnConfirmed.eligibleCount } : { kind: warnConfirmed.kind },
+        block_10500: blockedThrew ? { kind: 'threw-PoiExportSizeError', block_threshold: blockedLimit } : { kind: 'did-not-block' },
+      },
+      mapper_dto: {
+        first_record_keys: Object.keys(recordsPublic[0] ?? {}),
+        custom_data_keys: Object.keys((recordsPublic[0] as any)?.customData ?? {}),
+      },
       security,
     }, null, 2));
     console.log('===QA-REPORT-END===');
 
+    // Hard asserts
     expect(security.no_ownerUserId).toBe(true);
     expect(security.no_raw_geocode).toBe(true);
+    expect(security.no_enriched_data_blob).toBe(true);
     expect(security.no_secret_internal).toBe(true);
     expect(security.no_session_token).toBe(true);
     expect(security.no_signed_image).toBe(true);
-    expect(security.json_envelope_v2).toBe(true);
     expect(security.geojson_lng_lat_order).toBe(true);
+    expect(security.json_envelope_v2).toBe(true);
     expect(blockedThrew).toBe(true);
     expect(warn.kind).toBe('warn-pending');
     expect(warnConfirmed.kind).toBe('ok');
+    expect(pipelineOk.kind).toBe('ok');
   });
 });
