@@ -92,7 +92,8 @@ export function useExportTracking() {
  const recordExport = useCallback((
  format: ExportRecord['format'],
  target: ExportRecord['target'],
- locationIds: string[]
+ locationIds: string[],
+ meta?: ExportRecord['meta'],
  ) => {
  const record: ExportRecord = {
  timestamp: new Date().toISOString(),
@@ -100,6 +101,7 @@ export function useExportTracking() {
  target,
  locationCount: locationIds.length,
  locationIds,
+ ...(meta ? { meta } : {}),
  };
  
  saveLastExport(record);
