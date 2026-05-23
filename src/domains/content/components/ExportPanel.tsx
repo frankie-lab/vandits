@@ -38,6 +38,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { useExportTracking } from '@/hooks/use-export-tracking';
+import type { GeoLocation } from '@/types/location';
 import {
   EXPORT_EXCLUSION_LABEL,
   type ExportExclusionReason,
@@ -57,6 +58,10 @@ import {
   downloadPoiExportBlob,
   type PoiExportOrigin,
 } from '@/domains/content/lib/poi-export-pipeline';
+import {
+  resolveExportCandidates,
+  describeExportOrigin,
+} from '@/domains/content/lib/export-source-resolver';
 
 const FORMATS: PoiExportFormat[] = ['kml', 'csv', 'json', 'geojson'];
 
