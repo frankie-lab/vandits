@@ -1,40 +1,87 @@
+/**
+ * ExportPanel — Fase 3 UX de PR-EXPORT-2.
+ *
+ * Toda la lógica vive en el pipeline canónico
+ * (`src/domains/content/lib/poi-export-pipeline.ts`):
+ *
+ *   partitionForExport → evaluatePoiExportSize →
+ *     mapToPoiExportRecords → POI_EXPORTERS[format] → Blob → download → tracking
+ *
+ * Este componente sólo:
+ *   - elige scope (default public);
+ *   - elige formato (KML/CSV/JSON/GeoJSON);
+ *   - muestra contador exportables/excluidos;
+ *   - muestra warning >5.000 y bloquea >10.000;
+ *   - invoca `runPoiExport` y `recordExport`.
+ *
+ * NUNCA importa serializers, mapper ni `GeoLocation` para serializar.
+ */
 import React, { useMemo, useState } from 'react';
-import { Download, FileJson, FileSpreadsheet, FileCode, Map as MapIcon, Mountain, Clock, AlertCircle, Check, ShieldAlert } from 'lucide-react';
+import {
+  FileJson,
+  FileSpreadsheet,
+  FileCode,
+  Map as MapIcon,
+  Mountain,
+  Clock,
+  AlertCircle,
+  Check,
+  ShieldAlert,
+  TriangleAlert,
+  Globe2,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocationsStore } from '@/domains/content';
 import { useAuth } from '@/domains/identity';
-import { exportToKML, exportToCSV, exportToJSON } from '@/lib/kml-parser';
-import { ExportFormat } from '@/types/location';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { useExportTracking } from '@/hooks/use-export-tracking';
 import {
-  partitionForExport,
   EXPORT_EXCLUSION_LABEL,
-  type ExportScope,
   type ExportExclusionReason,
 } from '@/domains/content/lib/poi-export-eligibility';
+import {
+  POI_EXPORTERS,
+  type PoiExportFormat,
+  type PoiExportScope,
+} from '@/domains/content/lib/exporters';
+import {
+  PoiExportSizeError,
+  POI_EXPORT_SIZE_THRESHOLDS,
+} from '@/domains/content/lib/poi-export-record';
+import {
+  runPoiExport,
+  previewPoiExport,
+  downloadPoiExportBlob,
+  type PoiExportOrigin,
+} from '@/domains/content/lib/poi-export-pipeline';
 
-const formatIcons: Record<ExportFormat, React.ReactNode> = {
+const FORMATS: PoiExportFormat[] = ['kml', 'csv', 'json', 'geojson'];
+
+const formatIcons: Record<PoiExportFormat, React.ReactNode> = {
   kml: <FileCode className="w-4 h-4" />,
   csv: <FileSpreadsheet className="w-4 h-4" />,
   json: <FileJson className="w-4 h-4" />,
+  geojson: <Globe2 className="w-4 h-4" />,
 };
 
-const formatLabels: Record<ExportFormat, string> = {
+const formatLabels: Record<PoiExportFormat, string> = {
   kml: 'KML',
   csv: 'CSV',
   json: 'JSON',
+  geojson: 'GeoJSON',
 };
 
-type ExportTarget = 'mymaps' | 'gurumaps' | 'general';
+type KmlTarget = 'mymaps' | 'gurumaps' | 'general';
+
+const ORIGIN: PoiExportOrigin = 'panel';
 
 export function ExportPanel() {
   const { selectedDocument, selectedLocations, getFilteredLocations } = useLocationsStore();
   const [isExporting, setIsExporting] = useState(false);
-  const [scope, setScope] = useState<ExportScope>('public');
+  const [scope, setScope] = useState<PoiExportScope>('public');
   const { user } = useAuth();
   const currentUserId = user?.id ?? null;
 
@@ -52,25 +99,37 @@ export function ExportPanel() {
       : getFilteredLocations();
   }, [selectedDocument, selectedLocations, getFilteredLocations]);
 
-  const partition = useMemo(
-    () => partitionForExport(candidateLocations, scope, { currentUserId }),
+  // Preview de elegibilidad + tamaño (sin serializar).
+  const preview = useMemo(
+    () =>
+      previewPoiExport({
+        locations: candidateLocations,
+        // format no afecta el preview de elegibilidad/tamaño; pasamos uno cualquiera.
+        format: 'csv',
+        scope,
+        ctx: { currentUserId },
+      }),
     [candidateLocations, scope, currentUserId],
   );
 
   const exclusionGroups = useMemo(() => {
     const map = new Map<ExportExclusionReason, number>();
-    for (const e of partition.excluded) {
+    for (const e of preview.excluded) {
       map.set(e.reason, (map.get(e.reason) ?? 0) + 1);
     }
     return Array.from(map.entries());
-  }, [partition.excluded]);
+  }, [preview.excluded]);
 
-  const eligibleCount = partition.eligible.length;
-  const totalCount = candidateLocations.length;
-
+  const eligibleCount = preview.eligibleCount;
+  const totalCount = preview.totalCount;
+  const sizeLevel = preview.sizeVerdict.level;
+  const blocked = sizeLevel === 'block';
   const internalDisabled = scope === 'internal' && !currentUserId;
 
-  const handleExport = async (format: ExportFormat, target: ExportTarget = 'general') => {
+  const handleExport = async (
+    format: PoiExportFormat,
+    target: KmlTarget = 'general',
+  ) => {
     if (!selectedDocument) {
       toast.error('No hay documento seleccionado');
       return;
@@ -79,66 +138,89 @@ export function ExportPanel() {
       toast.error('Inicia sesión para exportar en modo interno');
       return;
     }
-    if (eligibleCount === 0) {
-      toast.error(
-        scope === 'public'
-          ? 'Ningún POI cumple el contrato público (POI-9/10 + compartible)'
-          : 'Ningún POI exportable en modo interno (requiere ser del usuario actual)',
-      );
+    if (!POI_EXPORTERS[format]) {
+      toast.error(`Formato no soportado: ${format}`);
       return;
     }
 
     setIsExporting(true);
     try {
-      const ctx = { currentUserId };
-      let content: string;
-      let mimeType: string;
-      let extension: string;
+      const exec = (confirmedOverWarn: boolean) =>
+        runPoiExport(
+          {
+            locations: candidateLocations,
+            format,
+            scope,
+            ctx: { currentUserId },
+            documentName: selectedDocument.name,
+            target: format === 'kml' ? target : undefined,
+            origin: ORIGIN,
+          },
+          { confirmedOverWarn },
+        );
 
-      switch (format) {
-        case 'kml':
-          content = exportToKML(partition.eligible, selectedDocument.name, target, scope, ctx, { scopeProvided: true });
-          mimeType = 'application/vnd.google-earth.kml+xml';
-          extension = 'kml';
-          break;
-        case 'csv':
-          content = exportToCSV(partition.eligible, scope, ctx, { scopeProvided: true });
-          mimeType = 'text/csv';
-          extension = 'csv';
-          break;
-        case 'json':
-          content = exportToJSON(partition.eligible, scope, ctx, { scopeProvided: true });
-          mimeType = 'application/json';
-          extension = 'json';
-          break;
+      let outcome = exec(false);
+
+      if (outcome.kind === 'no-eligible') {
+        toast.error(
+          scope === 'public'
+            ? 'Ningún POI cumple el contrato público (POI-9/10 + compartible)'
+            : 'Ningún POI exportable en modo interno (requiere ser del usuario actual)',
+        );
+        return;
+      }
+      if (outcome.kind === 'warn-pending') {
+        const ok = window.confirm(
+          `Vas a exportar ${outcome.partition.eligibleCount} POIs (más de ${POI_EXPORT_SIZE_THRESHOLDS.warn}).\nEl archivo puede ser muy grande. ¿Continuar?`,
+        );
+        if (!ok) {
+          toast.message('Exportación cancelada');
+          return;
+        }
+        outcome = exec(true);
+        if (outcome.kind !== 'ok') {
+          toast.error('No se pudo ejecutar la exportación');
+          return;
+        }
       }
 
-      const targetSuffix = target !== 'general' ? `_${target}` : '';
-      const scopeSuffix = `_${scope}`;
-      const timestamp = new Date().toISOString().split('T')[0];
-      const blob = new Blob([content], { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${selectedDocument.name}${scopeSuffix}${targetSuffix}_${timestamp}.${extension}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      recordExport(format, target, partition.eligible.map((l) => l.id));
-      const excludedNote = partition.excluded.length > 0 ? ` (${partition.excluded.length} excluidos)` : '';
-      toast.success(`Exportados ${eligibleCount} POIs en ${format.toUpperCase()}${excludedNote}`);
+      downloadPoiExportBlob(outcome);
+      recordExport(format, target, outcome.exportedIds, {
+        scope,
+        origin: ORIGIN,
+        excludedCount: outcome.excludedCount,
+        success: true,
+      });
+      const excludedNote =
+        outcome.excludedCount > 0 ? ` (${outcome.excludedCount} excluidos)` : '';
+      toast.success(
+        `Exportados ${outcome.eligibleCount} POIs en ${format.toUpperCase()}${excludedNote}`,
+      );
     } catch (error) {
-      console.error('Export error:', error);
-      toast.error('Error al exportar');
+      if (error instanceof PoiExportSizeError) {
+        toast.error(
+          `Export bloqueado: ${error.verdict.count} POIs supera el límite de ${error.verdict.thresholds.block}`,
+        );
+      } else {
+        console.error('Export error:', error);
+        toast.error('Error al exportar');
+      }
+      recordExport(
+        format,
+        target,
+        [],
+        { scope, origin: ORIGIN, excludedCount: preview.excludedCount, success: false },
+      );
     } finally {
       setIsExporting(false);
     }
   };
 
+  const disableButtons =
+    !selectedDocument || isExporting || eligibleCount === 0 || internalDisabled || blocked;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-export-panel="pr-export-2">
       {/* Last export indicator */}
       {lastExport && (
         <motion.div
@@ -207,17 +289,20 @@ export function ExportPanel() {
             ? 'Sólo POI-9 / POI-10 con datos canónicos compartibles.'
             : 'Diagnóstico: cualquier nivel, pero sólo POIs de tu cuenta.'}
         </div>
-        <div className="flex items-center justify-between rounded-md border border-border/50 px-3 py-2 text-xs">
+        <div
+          className="flex items-center justify-between rounded-md border border-border/50 px-3 py-2 text-xs"
+          data-export-counter
+        >
           <span className="text-muted-foreground">Elegibles</span>
           <span className="font-medium">
-            {eligibleCount} / {totalCount}
+            <span data-export-eligible-count>{eligibleCount}</span> / <span data-export-total-count>{totalCount}</span>
           </span>
         </div>
         {exclusionGroups.length > 0 && (
-          <details className="text-xs">
+          <details className="text-xs" data-export-excluded>
             <summary className="cursor-pointer flex items-center gap-1.5 text-muted-foreground hover:text-foreground">
               <ShieldAlert className="w-3.5 h-3.5" />
-              {partition.excluded.length} excluidos · ver razones
+              <span data-export-excluded-count>{preview.excludedCount}</span> excluidos · ver razones
             </summary>
             <ul className="mt-2 pl-5 space-y-1 list-disc text-muted-foreground">
               {exclusionGroups.map(([reason, n]) => (
@@ -228,18 +313,43 @@ export function ExportPanel() {
             </ul>
           </details>
         )}
+        {sizeLevel === 'warn' && (
+          <div
+            className="flex items-start gap-2 rounded-md border border-amber-400/50 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-900 dark:text-amber-100"
+            data-export-size-warning
+          >
+            <TriangleAlert className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>
+              {eligibleCount} POIs supera {POI_EXPORT_SIZE_THRESHOLDS.warn.toLocaleString()}.
+              Se pedirá confirmación antes de descargar.
+            </span>
+          </div>
+        )}
+        {blocked && (
+          <div
+            className="flex items-start gap-2 rounded-md border border-destructive/60 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+            data-export-size-block
+          >
+            <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>
+              Export bloqueado: {eligibleCount.toLocaleString()} supera el
+              límite de {POI_EXPORT_SIZE_THRESHOLDS.block.toLocaleString()} POIs
+              por descarga.
+            </span>
+          </div>
+        )}
       </div>
 
       <Separator />
 
-      {/* Quick export for apps */}
+      {/* Quick export for apps (KML targets) */}
       <div className="space-y-3">
         <p className="text-sm font-medium">Exportar para aplicación</p>
         <div className="grid gap-2">
           <Button
             variant="outline"
             onClick={() => handleExport('kml', 'mymaps')}
-            disabled={!selectedDocument || isExporting || eligibleCount === 0 || internalDisabled}
+            disabled={disableButtons}
             className="justify-start gap-3 h-auto py-3"
           >
             <MapIcon className="w-5 h-5 text-blue-500" />
@@ -251,7 +361,7 @@ export function ExportPanel() {
           <Button
             variant="outline"
             onClick={() => handleExport('kml', 'gurumaps')}
-            disabled={!selectedDocument || isExporting || eligibleCount === 0 || internalDisabled}
+            disabled={disableButtons}
             className="justify-start gap-3 h-auto py-3"
           >
             <Mountain className="w-5 h-5 text-emerald-500" />
@@ -267,15 +377,16 @@ export function ExportPanel() {
 
       <div className="space-y-2">
         <p className="text-sm font-medium">Exportar ({eligibleCount} elegibles)</p>
-        <div className="flex flex-wrap gap-2">
-          {(['kml', 'csv', 'json'] as ExportFormat[]).map((format) => (
+        <div className="flex flex-wrap gap-2" data-export-formats>
+          {FORMATS.map((format) => (
             <Button
               key={format}
               variant="outline"
               size="sm"
               onClick={() => handleExport(format)}
-              disabled={!selectedDocument || isExporting || eligibleCount === 0 || internalDisabled}
+              disabled={disableButtons}
               className="gap-2"
+              data-export-format={format}
             >
               {formatIcons[format]}
               {formatLabels[format]}
