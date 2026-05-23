@@ -481,3 +481,54 @@ Conservación:
 - Gates Fase 1 inalterados (ya cableados, contract tests verdes).
 
 — Fin de la adenda v2 —
+
+---
+
+# Adenda v3 — Infra fix (2026-05-23T14:20Z)
+
+Cierra los dos bloqueos estructurales detectados en Pilot-25 v3 (Run
+`6b44e704-…`). Reemplaza dos decisiones implícitas del plan original.
+
+## A10. Snapshot pre-dispatch — idempotente
+
+- Reemplaza: `INSERT INTO enrichment_batch_snapshots` ciego (§4.2 del
+  plan original).
+- Nuevo contrato: `INSERT ... ON CONFLICT (run_id, location_id) DO
+  NOTHING` vía `recordPreDispatchSnapshot()` (`./snapshot.ts`).
+- Garantía: el primer snapshot por `(run_id, location_id)` es el
+  baseline canónico; cualquier retry posterior (watchdog, transient
+  error) es no-op y NO sobreescribe el `previous_*` original. Rollback
+  semántico preservado.
+- Errores reales (permission denied, FK violation) siguen abortando
+  el run con `snapshot_failure`. Sólo el caso "duplicate key" se
+  degrada a "alreadyExisted".
+
+## A11. Ejecución `/start` — background real (Option C)
+
+- Reemplaza: bucle síncrono dentro del HTTP handler (§5 del plan
+  original implicaba foreground).
+- Nuevo contrato: `/start` devuelve **202** inmediato, el bucle
+  procesa en background vía `EdgeRuntime.waitUntil(...)`.
+- `body.foreground === true` mantiene el modo síncrono para smoke
+  tests / harnesses puntuales.
+- Razón: gateway cancela invocaciones a ~60s y un chunk de 25 items
+  necesita ~1250s — síncrono garantiza huérfanos. Background + flush
+  incremental por ítem hace `/status` la única fuente de verdad.
+- Watchdog SIGUE siendo obligatorio: el worker background puede
+  morir por mantenimiento del runtime. Ahora la recuperación es
+  segura porque snapshot es idempotente (A10).
+
+## A12. Tests añadidos
+
+- `snapshot.test.ts` (6 tests, incluido el escenario exacto de
+  Pilot-25 v3 con los IDs reales).
+- Total suite: 30/30 PASS.
+
+## A13. Lo que la adenda v3 NO cambia
+
+- `max_ai_calls`, `max_runtime_minutes`, `max_error_rate_pct`, error
+  rate abort, pause-on-budget, allowlist trigger, RPC master-only:
+  TODOS sin cambios.
+- Canon, marker fill, `computePoiMaturity`, P1-w2: intactos.
+- Sin bump (cambios sólo edge function).
+
