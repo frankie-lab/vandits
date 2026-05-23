@@ -301,8 +301,11 @@ export function FilterBar() {
   const handleSelectAllInMode = useCallback(() => {
     const base = filteredLocations.filter((l) => universeBaseIds.has(l.id));
     if (base.length === 0) return;
-    useLocationsStore.setState({ selectedLocations: new Set(base.map((l) => l.id)) });
-  }, [filteredLocations, universeBaseIds]);
+    clearSelection();
+    addLocationsToSelection(base.map((l) => l.id));
+  }, [filteredLocations, universeBaseIds, clearSelection, addLocationsToSelection]);
+
+
 
 
 
