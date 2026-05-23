@@ -69,20 +69,30 @@ import { useLocationsStore } from '@/domains/content';
 import { useAuth } from '@/domains/identity';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { exportToKML, exportToCSV, exportToJSON } from '@/lib/kml-parser';
+import { exportToKML, exportToCSV, exportToJSON } from '@/lib/kml-parser'; // (legacy unused — pipeline canónico abajo)
 import {
-  partitionForExport,
   EXPORT_EXCLUSION_LABEL,
-  type ExportScope,
 } from '@/domains/content/lib/poi-export-eligibility';
 import {
+  runPoiExport,
+  downloadPoiExportBlob,
+  type PoiExportOrigin,
+} from '@/domains/content/lib/poi-export-pipeline';
+import {
+  PoiExportSizeError,
+  POI_EXPORT_SIZE_THRESHOLDS,
+  type PoiExportFormat,
+  type PoiExportScope,
+} from '@/domains/content/lib/poi-export-record';
+import { useExportTracking } from '@/hooks/use-export-tracking';
+import {
   GeoLocation,
-  ExportFormat,
   PLACE_TYPE_LABELS,
   PlaceType,
 } from '@/types/location';
 
 type ExportTarget = 'mymaps' | 'gurumaps' | 'general';
+const SELECTION_ORIGIN: PoiExportOrigin = 'selection';
 
 const PLACE_TYPES = Object.keys(PLACE_TYPE_LABELS) as PlaceType[];
 
