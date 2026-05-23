@@ -65,7 +65,7 @@ export function serializePoiCsv(
   if (verdict.level === 'block') throw new PoiExportSizeError(verdict);
 
   const { scope, collection } = options;
-  const headers =
+  const headers: string[] =
     scope === 'internal'
       ? [...BASE_HEADERS_INTERNAL]
       : [...BASE_HEADERS_PUBLIC];
@@ -83,6 +83,7 @@ export function serializePoiCsv(
   }
   const customHeaders = Array.from(customKeys).sort();
   headers.push(...customHeaders);
+
 
   const rows: string[] = [headers.join(',')];
 
