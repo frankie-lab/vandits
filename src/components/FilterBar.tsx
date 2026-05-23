@@ -52,6 +52,7 @@ import {
   getUniverseBaseLabel,
   type ActiveModeUniverse,
 } from '@/domains/content/lib/resolve-universe-base';
+import { EffectiveActionFooter } from './filters/EffectiveActionFooter';
 import { toast } from 'sonner';
 
 
@@ -312,13 +313,22 @@ export function FilterBar() {
   }, [universeBaseLocations, filters, clearSelection, addLocationsToSelection]);
 
 
+  // scopeLabel del footer: primer chip geográfico activo (label más profundo,
+  // p. ej. "France" si hay country, "Europe" si solo continente).
+  const scopeLabel = useMemo<string | null>(() => {
+    const geoChips = activeChips.filter((c) => c.axis === 'geography');
+    if (geoChips.length === 0) return null;
+    return geoChips[geoChips.length - 1].label;
+  }, [activeChips]);
+
+  const hasUserSelection = selectedLocations.size > 0;
 
 
 
 
   return (
   <div className="flex flex-col h-full min-h-0">
-   <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1">
+   <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1 pb-2">
     {/* Stats bar with prominent filter summary */}
     <div className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg p-3 space-y-2">
   {/* Result count - formato unificado X / Y etiqueta en ambos estados */}
@@ -548,6 +558,17 @@ export function FilterBar() {
 
 
    </div>
+
+   {/* Footer fijo de acciones (effectiveActionSet). Aparece en los 4 modos:
+       Explorar, Mantener→Con deuda, Mantener→Sin enriquecer, Seleccionar.
+       Ver docs/audits/search-filter-maintain-tree-universe-plan.md §5/§6. */}
+   <EffectiveActionFooter
+     mode={activeModeUniverse}
+     locations={effectiveActionSet as any}
+     hasUserSelection={hasUserSelection}
+     scopeLabel={scopeLabel}
+     onClearSelection={clearSelection}
+   />
   </div>
   );
 }
