@@ -28,9 +28,11 @@ export interface SerializePoiGeoJsonOptions {
 
 interface GeoJsonFeature {
   type: 'Feature';
-  geometry:
-    | { type: 'Point'; coordinates: [number, number] }
-    | { type: 'Point'; coordinates: [number, number, number] };
+  geometry: {
+    type: 'Point';
+    /** [lng, lat] o [lng, lat, altitude] — RFC 7946. */
+    coordinates: number[];
+  };
   properties: Omit<PoiExportRecord, 'coordinates'>;
 }
 
@@ -45,7 +47,7 @@ export interface GeoJsonFeatureCollection {
 
 function recordToFeature(r: PoiExportRecord): GeoJsonFeature {
   const { coordinates, ...rest } = r;
-  const coords: [number, number] | [number, number, number] =
+  const coords: number[] =
     typeof coordinates.altitude === 'number'
       ? [coordinates.longitude, coordinates.latitude, coordinates.altitude]
       : [coordinates.longitude, coordinates.latitude];
@@ -55,6 +57,7 @@ function recordToFeature(r: PoiExportRecord): GeoJsonFeature {
     properties: rest,
   };
 }
+
 
 export function buildPoiGeoJsonEnvelope(
   records: PoiExportRecord[],
