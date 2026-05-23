@@ -1,16 +1,15 @@
 import React from 'react';
-import { Compass, HeartPulse, CheckSquare } from 'lucide-react';
+import { Compass, HeartPulse } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 
-export type PanelMode = 'explore' | 'maintain' | 'select';
+export type PanelMode = 'explore' | 'maintain';
 
 interface Props {
   value: PanelMode;
   onChange: (mode: PanelMode) => void;
   exploreActive?: boolean;
   maintainActive?: boolean;
-  selectActive?: boolean;
 }
 
 const dot = (color: string) =>
@@ -19,19 +18,20 @@ const dot = (color: string) =>
 /**
  * PanelModeTabs (PR-4A)
  *
- * Single source of truth for panel intent: Explorar / Mantener / Seleccionar.
+ * Single source of truth for panel intent: Explorar / Mantener.
  * Filters describe the universe; CTAs execute actions — never mixed.
+ * (Modo "Seleccionar" retirado: bulk-actions ya viven en SelectionActions
+ * disparado por la selección del mapa.)
  */
 export function PanelModeTabs({
   value,
   onChange,
   exploreActive,
   maintainActive,
-  selectActive,
 }: Props) {
   return (
     <Tabs value={value} onValueChange={(v) => onChange(v as PanelMode)} className="w-full">
-      <TabsList className="grid w-full grid-cols-3 h-9">
+      <TabsList className="grid w-full grid-cols-2 h-9">
         <TabsTrigger value="explore" className="text-xs gap-1">
           <Compass className="w-3.5 h-3.5" />
           Explorar
@@ -41,11 +41,6 @@ export function PanelModeTabs({
           <HeartPulse className="w-3.5 h-3.5" />
           Mantener
           {maintainActive && <span className={dot('bg-pink-500')} />}
-        </TabsTrigger>
-        <TabsTrigger value="select" className="text-xs gap-1">
-          <CheckSquare className="w-3.5 h-3.5" />
-          Seleccionar
-          {selectActive && <span className={dot('bg-emerald-500')} />}
         </TabsTrigger>
       </TabsList>
     </Tabs>
