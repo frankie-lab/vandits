@@ -109,6 +109,34 @@ const Index = () => {
     registerVisibilityDebug();
   }, [user?.id]);
 
+  // PR-EXPORT-2 Fase 3A — bridge `lovable:open-export-panel`.
+  // Detail opcional: { locations?: GeoLocation[]; label?: string; scope?: 'public'|'internal' }.
+  // Sin payload mantiene el comportamiento previo (deriva del store).
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail as
+        | {
+            locations?: GeoLocation[];
+            label?: string;
+            scope?: 'public' | 'internal';
+          }
+        | undefined;
+      if (detail?.locations && Array.isArray(detail.locations) && detail.locations.length > 0) {
+        setExportPanelSource({
+          locations: detail.locations,
+          label: detail.label,
+          initialScope: detail.scope,
+        });
+      } else {
+        setExportPanelSource(null);
+      }
+      setShowExport(true);
+    };
+    window.addEventListener('lovable:open-export-panel', handler as EventListener);
+    return () => window.removeEventListener('lovable:open-export-panel', handler as EventListener);
+  }, []);
+
+
   // ─── Discovery controls ref ──────────────────────────────────────────────
   const discoveryControlsRef = useRef<DiscoveryControls | null>(null);
   const handleDiscoveryControlsReady = useCallback((controls: DiscoveryControls) => {
