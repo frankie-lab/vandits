@@ -225,6 +225,8 @@ export function FilterBar() {
     return 'explore';
   };
   const [panelMode, setPanelMode] = useState<PanelMode>(inferInitialMode);
+  const [maintainTab, setMaintainTab] = useState<'debt' | 'unenriched'>('debt');
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.sessionStorage.setItem(STORAGE_KEY, panelMode);
@@ -408,49 +410,58 @@ export function FilterBar() {
     </Tabs>
   )}
 
-  {/* ── Modo Mantener: Salud + CTA separado ── */}
+  {/* ── Modo Mantener: 2 sub-pestañas accionables (con deuda / sin enriquecer)
+       + contador read-only de "completos" como referencia. "Completos" NO es
+       pestaña porque no requiere acción de mantenimiento. ── */}
   {panelMode === 'maintain' && (
     <div className="space-y-2">
-      {/* Resumen de curación (3 buckets canónicos sobre el universo filtrado).
-          Es la vista general del eje Salud — read-only; los chips de abajo
-          permiten actuar sobre los sub-tipos de "con deuda". */}
-      <div className="flex items-center gap-3 text-xs flex-wrap px-1">
-        <div className="flex items-center gap-1 text-green-600" title="POIs enriquecidos con geo verificada (POI-9 + POI-10)">
-          <CheckCircle className="w-3 h-3" />
-          <span className="font-semibold tabular-nums">{COUNT_FORMATTER.format(curationBuckets.completos)}</span>
-          <span>completos</span>
-        </div>
-        <div className="flex items-center gap-1 text-amber-600" title="POIs enriquecidos con deuda geográfica pendiente (POI-5)">
-          <AlertCircle className="w-3 h-3" />
-          <span className="font-semibold tabular-nums">{COUNT_FORMATTER.format(curationBuckets.conDeuda)}</span>
-          <span>con deuda</span>
-        </div>
-        <div className="flex items-center gap-1 text-muted-foreground" title="POIs importados sin enriquecer (POI-0 + POI-1)">
-          <CircleDashed className="w-3 h-3" />
-          <span className="font-semibold tabular-nums">{COUNT_FORMATTER.format(curationBuckets.sinEnriquecer)}</span>
-          <span>sin enriquecer</span>
-        </div>
+      {/* Contador de referencia: completos (no accionable) */}
+      <div className="flex items-center gap-1 text-xs text-green-600 px-1" title="POIs enriquecidos con geo verificada (POI-9 + POI-10). No requieren mantenimiento.">
+        <CheckCircle className="w-3 h-3" />
+        <span className="font-semibold tabular-nums">{COUNT_FORMATTER.format(curationBuckets.completos)}</span>
+        <span>completos</span>
+        <span className="text-muted-foreground/70 ml-1">· sin acción pendiente</span>
       </div>
-      {/* NOTA: la fila legacy "Acciones sobre con deuda" + 4 chips
-          (partial/chain/review/hardError) se retiró: era la taxonomía
-          Salud antigua, sustituida por los 3 buckets de arriba
-          (completos/con deuda/sin enriquecer). Hacer los buckets
-          clicables requiere añadir un eje `curationFilter` al pipeline
-          de filtrado y se aborda en un PR separado. */}
 
-      <Separator />
-      <div className="space-y-1.5">
-        <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-          Acción sobre subconjunto
-        </div>
-        <HealthFilterActionCTA
-          healthFilter={filters.healthFilter ?? null}
-          filteredLocations={filteredLocations as any}
-          selectedLocationIds={selectedLocations}
-        />
-      </div>
+      <Tabs value={maintainTab} onValueChange={(v) => setMaintainTab(v as 'debt' | 'unenriched')} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 h-8">
+          <TabsTrigger value="debt" className="text-xs gap-1.5">
+            <AlertCircle className="w-3 h-3 text-amber-600" />
+            Con deuda
+            <span className="tabular-nums text-muted-foreground">{COUNT_FORMATTER.format(curationBuckets.conDeuda)}</span>
+          </TabsTrigger>
+          <TabsTrigger value="unenriched" className="text-xs gap-1.5">
+            <CircleDashed className="w-3 h-3" />
+            Sin enriquecer
+            <span className="tabular-nums text-muted-foreground">{COUNT_FORMATTER.format(curationBuckets.sinEnriquecer)}</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="debt" className="mt-2 space-y-1.5">
+          <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+            Acción sobre subconjunto
+          </div>
+          <HealthFilterActionCTA
+            healthFilter={filters.healthFilter ?? null}
+            filteredLocations={filteredLocations as any}
+            selectedLocationIds={selectedLocations}
+          />
+        </TabsContent>
+
+        <TabsContent value="unenriched" className="mt-2 space-y-1.5">
+          <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+            Acción sobre subconjunto
+          </div>
+          <div className="text-xs text-muted-foreground px-1 py-2">
+            {curationBuckets.sinEnriquecer > 0
+              ? `${COUNT_FORMATTER.format(curationBuckets.sinEnriquecer)} POIs importados sin enriquecer. La cola de enriquecimiento masivo se gestiona desde el panel de Imported Content.`
+              : 'No hay POIs sin enriquecer en el subconjunto actual.'}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )}
+
 
   {/* ── Modo Seleccionar: bulk actions + controles ── */}
   {panelMode === 'select' && (
