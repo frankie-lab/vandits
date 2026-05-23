@@ -118,6 +118,12 @@ interface LocationsState {
    */
   getVisibleUniverseLocations: () => GeoLocation[];
   getFilteredLocations: () => GeoLocation[];
+  /**
+   * Igual que `getFilteredLocations` pero SIN recortar por `selectedLocations`.
+   * Úsalo cuando necesites el universo visible/autorizado (denominadores del
+   * contador de FilterBar, faceting estable bajo selección, etc.).
+   */
+  getFilteredUniverse: () => GeoLocation[];
   getUniqueValues: (field: keyof GeoLocation) => string[];
   getUniqueTags: () => string[];
   getEnrichedStats: () => {
