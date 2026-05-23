@@ -419,7 +419,7 @@ export function FilterBar() {
 
 
       <Tabs value={maintainTab} onValueChange={(v) => setMaintainTab(v as 'debt' | 'unenriched')} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 h-8">
+        <TabsList className="grid grid-cols-2 w-full h-8 p-1">
           <TabsTrigger value="debt" className="text-xs gap-1.5">
             <AlertCircle className="w-3 h-3 text-amber-600" />
             Con deuda
