@@ -133,8 +133,23 @@ export function FilterBar() {
   setIsRefreshing(false);
   }
   }, [selectedDocument, updateDocumentLocations]);
- const filteredCount = filteredLocations.length;
+  const filteredCount = filteredLocations.length;
   const selectedCount = selectedLocations.size;
+
+  // Desglose por niveles de curación canónicos (POI-0/1/3/5/9/10) → 3 grupos accionables
+  const curationBuckets = useMemo(() => {
+    let completos = 0;   // POI-9 + POI-10 → enriched + geo OK
+    let conDeuda = 0;    // POI-5 → enriched con deuda objetiva (rings/geo parcial)
+    let sinEnriquecer = 0; // POI-0 + POI-1 → importado sin IA o vacío
+    for (const loc of filteredLocations) {
+      const { level } = getPoiCurationLevel(loc as any);
+      if (level === 9 || level === 10) completos++;
+      else if (level === 5) conDeuda++;
+      else if (level === 0 || level === 1) sinEnriquecer++;
+      else if (level === 3) conDeuda++; // POI-3 (raro) lo agrupamos con deuda
+    }
+    return { completos, conDeuda, sinEnriquecer };
+  }, [filteredLocations]);
 
   // PR-4A.1 — Auto-fit del mapa cuando arranca una selección masiva (0 → N).
   // Internamente debounced 250ms y con guard "solo el primer fit".
