@@ -27,6 +27,7 @@ import {
   type RunBudgetSnapshot,
   validateSeedConfig,
 } from "./budget.ts";
+import { recordPreDispatchSnapshot } from "./snapshot.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -357,24 +358,28 @@ async function processChunk(
       continue;
     }
 
-    // 1) Pre-dispatch snapshot (rollback unit).
-    const { error: snapErr } = await client
-      .from("enrichment_batch_snapshots")
-      .insert({
-        run_id: runId,
-        location_id: item.location_id,
-        previous_enriched_data: (fresh as any).enriched_data ?? null,
-        previous_enrichment_status: (fresh as any).enrichment_status ?? null,
-      });
-    if (snapErr) {
+    // 1) Pre-dispatch snapshot (rollback unit). IDEMPOTENT: a re-claim
+    //    after watchdog reset MUST NOT abort the run. The first attempt
+    //    creates the canonical `previous_*` row; subsequent attempts are
+    //    a no-op (alreadyExisted=true) and preserve the original baseline.
+    //    Only a real DB error (permission denied, FK violation, etc.)
+    //    counts as a snapshot failure.
+    const snap = await recordPreDispatchSnapshot(client, {
+      runId,
+      locationId: item.location_id,
+      previousEnrichedData: (fresh as any).enriched_data ?? null,
+      previousEnrichmentStatus: (fresh as any).enrichment_status ?? null,
+    });
+    if (!snap.ok) {
       await client
         .from("enrichment_batch_items")
-        .update({ status: "fail", fail_reason: `snapshot_failed:${snapErr.message}`, finished_at: new Date().toISOString() })
+        .update({ status: "fail", fail_reason: `snapshot_failed:${snap.error}`, finished_at: new Date().toISOString() })
         .eq("id", item.item_id);
       await flushOne({ fail: 1, fail_reason: "snapshot_failed" }, 0);
       await applyAbort(client, runId, "snapshot_failure");
       return { continueLoop: false, verdict: "abort:snapshot_failure" };
     }
+    // snap.alreadyExisted === true is OK: a retry of the same item.
 
     // 2) Dispatch enrich-location. enrich-location is a PURE FUNCTION: it
     //    generates enriched data and returns it; it does NOT persist. The
@@ -584,28 +589,84 @@ async function handleStart(req: Request, client: any, rpcClient: any, authHeader
     })
     .eq("id", runId);
 
-  const maxChunksPerInvocation = Number(body.maxChunksPerInvocation ?? 50);
-  let processed = 0;
-  let lastVerdict = "noop";
-  while (processed < maxChunksPerInvocation) {
-    const { continueLoop, verdict } = await processChunk(client, rpcClient, runId, dryRun, authHeader);
-    lastVerdict = verdict;
-    processed += 1;
-    if (!continueLoop) break;
+  // -------------------------------------------------------------------
+  // Chunking / background-execution fix (P2 infra-fix):
+  //
+  // The HTTP gateway cancels invocations at ~60s. Live dispatches average
+  // ~50s/item, so any chunk_size > 1 inevitably leaves items `in_flight`
+  // when the request is killed. Pilot-25 v3 reproduced this and then hit
+  // the snapshot-idempotency bug on the watchdog re-claim.
+  //
+  // Decision: REAL BACKGROUND EXECUTION via `EdgeRuntime.waitUntil`.
+  //   - /start returns 202 immediately with run_id + started=true.
+  //   - The processing loop runs detached until the run reaches a
+  //     terminal/paused state (completed | aborted | paused) or until
+  //     `maxChunksPerInvocation` (safety cap) is hit.
+  //   - Each chunk and each item flush its state to the DB synchronously
+  //     (`flushOne`), so /status is the authoritative progress source.
+  //   - `max_ai_calls`, manual pause, error_rate abort and the snapshot
+  //     idempotency fix continue to be enforced inside processChunk.
+  //   - Watchdog is still required for crash recovery; the background
+  //     task can be killed by edge-runtime maintenance just like a
+  //     foreground one.
+  //
+  // Fallback: if `body.foreground === true`, run synchronously and return
+  // the full result (used by tests / smoke flows that need a blocking
+  // call). Default is background.
+  // -------------------------------------------------------------------
+  const maxChunksPerInvocation = Number(body.maxChunksPerInvocation ?? 200);
+  const foreground: boolean = body.foreground === true;
+
+  const drain = async () => {
+    let processed = 0;
+    let lastVerdict = "noop";
+    while (processed < maxChunksPerInvocation) {
+      const { continueLoop, verdict } = await processChunk(client, rpcClient, runId, dryRun, authHeader);
+      lastVerdict = verdict;
+      processed += 1;
+      if (!continueLoop) break;
+    }
+    return { processed, lastVerdict };
+  };
+
+  if (foreground) {
+    const { processed, lastVerdict } = await drain();
+    const after = await loadRun(client, runId);
+    return json({
+      run_id: runId,
+      mode: "foreground",
+      chunks_processed: processed,
+      last_verdict: lastVerdict,
+      status: after.status,
+      pause_reason: after.pause_reason,
+      abort_reason: after.abort_reason,
+      ai_calls_used: after.ai_calls_used,
+      metrics: after.metrics,
+    });
   }
 
-
-  const after = await loadRun(client, runId);
+  // Background mode. `EdgeRuntime.waitUntil` keeps the worker alive until
+  // the promise resolves, even after the HTTP response is sent. Swallow
+  // and log any error so the worker never crashes silently.
+  const bgTask = drain().catch(async (e) => {
+    console.error("[orchestrator] background drain failed:", (e as Error).message);
+    try {
+      await applyPause(client, runId, `background_drain_error:${(e as Error).message}`);
+    } catch (_) { /* ignore */ }
+  });
+  // deno-lint-ignore no-explicit-any
+  const er = (globalThis as any).EdgeRuntime;
+  if (er && typeof er.waitUntil === "function") {
+    er.waitUntil(bgTask);
+  }
+  // Return immediately; /status is the source of truth from here on.
   return json({
     run_id: runId,
-    chunks_processed: processed,
-    last_verdict: lastVerdict,
-    status: after.status,
-    pause_reason: after.pause_reason,
-    abort_reason: after.abort_reason,
-    ai_calls_used: after.ai_calls_used,
-    metrics: after.metrics,
-  });
+    mode: "background",
+    started: true,
+    poll: `/enrich-batch-orchestrator/status?run_id=${runId}`,
+    status: "running",
+  }, 202);
 }
 
 

@@ -196,3 +196,20 @@ bloqueado hasta validar piloto-50 limpio.
 - Sin re-enrich (gate `already_enriched` en classifier).
 - Marker fill / computePoiMaturity / canon territorial intactos.
 - Snapshots disponibles, rollback documentado.
+
+---
+
+## Addendum v2 — 2026-05-23T14:20Z — Infra fix (snapshot idempotency + background drain)
+
+Two additional structural fixes landed after Pilot-25 v3 exposed them in production. Full report:
+`docs/audits/poi-identity-p2-orchestrator-infra-fix-report.md`.
+
+**TL;DR:**
+1. **Snapshot idempotency** — `INSERT` replaced with `UPSERT … ON CONFLICT (run_id, location_id) DO NOTHING` via new `recordPreDispatchSnapshot()` helper (`./snapshot.ts`). Watchdog re-claim no longer aborts the run. Original `previous_*` values preserved on retries. 6 new Deno tests, including the exact Pilot-25 v3 regression with real IDs.
+2. **Background drain** — `/start` returns **202** immediately and processes via `EdgeRuntime.waitUntil(...)`. Gateway 60s cancellation no longer leaves orphans. Foreground mode preserved via `body.foreground:true` for smoke/test harnesses.
+
+**No migration required** (`UNIQUE(run_id, location_id)` already exists in `20260522091857_…sql:92`). **No canon, marker fill, or computePoiMaturity changes. No bump.**
+
+Tests: 30/30 PASS. Deployed.
+
+Recommendation: smoke 1-POI + smoke orphan-recovery before any new pilot. NO piloto-25 v4 yet.
