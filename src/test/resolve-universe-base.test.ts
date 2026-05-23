@@ -45,7 +45,7 @@ const importedPartialGeo = {
 const enrichedHardError = {
   id: 'enriched-2',
   name: 'Enriched con hard error',
-  enrichedData: { descripcion: 'Texto IA' },
+  enrichedData: { descripcion: 'Otra descripción enriquecida con suficiente longitud para superar el umbral de isUnverifiableDescription que exige al menos 60 caracteres.' },
   geoHealth: 'empty',
 } as unknown as GeoLocation;
 
