@@ -636,7 +636,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
       // Geo breadcrumb filters (continent/country/region/...) se IGNORAN cuando
       // hay selección manual: la selección es transversal entre países/regiones.
-      const hasSelection = state.selectedLocations && state.selectedLocations.size > 0;
+      const hasSelection = !ignoreSelection && state.selectedLocations && state.selectedLocations.size > 0;
       if (!matchesLocationFilters(loc, state.filters, {
         includeGeo: !hasSelection,
       })) return false;
