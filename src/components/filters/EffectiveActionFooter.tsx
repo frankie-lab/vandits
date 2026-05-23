@@ -221,99 +221,96 @@ export function EffectiveActionFooter({
     >
       <div className="flex items-center justify-between gap-2">
         <div
-          className="text-[11px] font-medium text-muted-foreground truncate"
+          className="text-[11px] font-medium text-muted-foreground"
           data-testid="effective-action-footer-label"
         >
           {label}
         </div>
-        {busy && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground shrink-0" />}
+        {busy && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className="grid grid-cols-2 gap-1.5">
         <Button
           variant="default"
           size="sm"
-          className="h-8 text-xs gap-1.5 flex-1 min-w-0"
+          className="h-8 text-xs gap-1.5"
           onClick={onExportClick}
           disabled={disabled || busy !== null}
           data-action="footer-export"
-          title="Exportar subconjunto activo"
         >
-          <Download className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">Exportar</span>
+          <Download className="w-3.5 h-3.5" />
+          Exportar
         </Button>
 
         {showEnrich && (
           <Button
             variant="outline"
-            size="icon"
-            className="h-8 w-8 shrink-0 relative"
+            size="sm"
+            className="h-8 text-xs gap-1.5"
             onClick={onEnrichClick}
             disabled={busy !== null}
             data-action="footer-enrich"
             title={`Enriquecer ${enrichable.length} POIs sin descripción IA`}
-            aria-label={`Enriquecer IA (${enrichable.length})`}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[9px] leading-none px-1 py-0.5 rounded-full tabular-nums min-w-[14px] text-center">
-              {enrichable.length > 99 ? '99+' : enrichable.length}
-            </span>
+            Enriquecer IA
+            <span className="tabular-nums text-muted-foreground">({enrichable.length})</span>
           </Button>
         )}
 
         {mode === 'debt' && (
           <Button
             variant="outline"
-            size="icon"
-            className="h-8 w-8 shrink-0"
+            size="sm"
+            className="h-8 text-xs gap-1.5"
             disabled
             data-action="footer-debt-hint"
             title="Las acciones de deuda se ejecutan desde el CTA superior"
-            aria-label="Resolver deuda (CTA superior)"
           >
             <HeartPulse className="w-3.5 h-3.5" />
+            Resolver deuda (arriba)
           </Button>
         )}
 
+        {/* Etiquetar / Reclasificar — pospuestos en este PR.
+            Permanecen disponibles en `SelectionActions` cuando hay selección manual. */}
         <Button
           variant="ghost"
-          size="icon"
-          className="h-8 w-8 shrink-0"
+          size="sm"
+          className="h-8 text-xs gap-1.5"
           disabled
           data-action="footer-tag-disabled"
-          title="Etiquetar — disponible próximamente desde el footer"
-          aria-label="Etiquetar"
+          title="Disponible próximamente desde el footer. Usa la selección manual para etiquetar."
         >
           <TagIcon className="w-3.5 h-3.5" />
+          Etiquetar
         </Button>
         <Button
           variant="ghost"
-          size="icon"
-          className="h-8 w-8 shrink-0"
+          size="sm"
+          className="h-8 text-xs gap-1.5"
           disabled
           data-action="footer-reclassify-disabled"
-          title="Reclasificar — disponible próximamente desde el footer"
-          aria-label="Reclasificar"
+          title="Disponible próximamente desde el footer. Usa la selección manual para reclasificar."
         >
           <Layers className="w-3.5 h-3.5" />
+          Reclasificar
         </Button>
 
         {showDelete && (
           <Button
             variant="outline"
-            size="icon"
-            className="h-8 w-8 shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10"
+            size="sm"
+            className="h-8 text-xs gap-1.5 col-span-2 border-destructive/40 text-destructive hover:bg-destructive/10"
             onClick={() => setConfirmDelete(true)}
             disabled={busy !== null}
             data-action="footer-delete"
-            title={`Eliminar selección (${count})`}
-            aria-label={`Eliminar selección (${count})`}
           >
             <Trash2 className="w-3.5 h-3.5" />
+            Eliminar selección ({count})
           </Button>
         )}
       </div>
-
 
       {/* Confirmaciones tipadas */}
       <DestructiveConfirmDialog
