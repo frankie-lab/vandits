@@ -58,8 +58,8 @@ describe('PR-EXPORT-2 · PoiExportRecord mapper', () => {
   it('ownerUserId NUNCA aparece en el DTO (public ni internal)', () => {
     const pub = mapToPoiExportRecord(poi9(OWNER_A), 'public');
     const int = mapToPoiExportRecord(poi9(OWNER_A), 'internal');
-    expect((pub as Record<string, unknown>).ownerUserId).toBeUndefined();
-    expect((int as Record<string, unknown>).ownerUserId).toBeUndefined();
+    expect((pub as unknown as Record<string, unknown>).ownerUserId).toBeUndefined();
+    expect((int as unknown as Record<string, unknown>).ownerUserId).toBeUndefined();
   });
 
   it('public omite classification/enrichmentStatus/geoHealth', () => {
