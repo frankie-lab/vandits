@@ -109,3 +109,15 @@ describe('selection counter ownership ratios', () => {
     expect(r).toEqual({ T: 3, Tm: 3, Ts: 0, X: 1, Xm: 1, Xs: 0 });
   });
 });
+
+describe('selection counter UX copy', () => {
+  const label = (n: number) => (n === 1 ? 'seleccionado' : 'seleccionados');
+  it('singular when X === 1', () => {
+    expect(label(1)).toBe('seleccionado');
+  });
+  it('plural otherwise', () => {
+    expect(label(0)).toBe('seleccionados');
+    expect(label(2)).toBe('seleccionados');
+    expect(label(99)).toBe('seleccionados');
+  });
+});
