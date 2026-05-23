@@ -461,61 +461,38 @@ function applyExportGate(
   return result;
 }
 
+/**
+ * PR-EXPORT-2 — Estos call sites mantienen su firma legacy (compat con
+ * ExportPanel/SelectionActions/popup) pero DELEGAN al pipeline canónico
+ * DTO-only: `evaluatePoiExport → mapToPoiExportRecords → serialize*`.
+ *
+ * Los serializers ya NO leen `GeoLocation`. JSON pasa a envelope v2
+ * (`export_format_version: "poi-export-json-v2"`) — BREAKING change
+ * respecto al dump legacy de `GeoLocation` completo. Comunicado en
+ * `docs/contracts/pr-export-2-poi-export-canon.md` §15.
+ */
+import { mapToPoiExportRecords } from '@/domains/content/lib/poi-export-mapper';
+import {
+  serializePoiCsv,
+  serializePoiJson,
+  serializePoiKml,
+  type KmlExportTarget,
+} from '@/domains/content/lib/exporters';
+
+export type { KmlExportTarget };
+
 export function exportToKML(
   locations: GeoLocation[],
   documentName: string,
-  target: KMLExportTarget = 'general',
+  target: KmlExportTarget = 'general',
   scope: ExportScope = 'internal',
   ctx?: ExportContext,
   options: { scopeProvided?: boolean } = {},
 ): string {
   maybeWarnDefaultScope('exportToKML', options.scopeProvided === true);
   const filtered = applyExportGate(locations, scope, ctx, 'exportToKML');
-  const isGuru = target === 'gurumaps';
-  const placemarks = filtered
-    .map((loc) => {
-      const description = isGuru
-        ? formatEnrichedDescriptionPlain(loc)
-        : formatEnrichedDescription(loc);
-      const snippet = isGuru && loc.enrichedData
-        ? `<Snippet maxLines="2">${escapeXml(
-            [loc.enrichedData.nombre_lugar, loc.enrichedData.localizacion]
-              .filter(Boolean)
-              .join(' — '),
-          )}</Snippet>`
-        : '';
-      return `
-  <Placemark>
-    <name>${escapeXml(loc.name)}</name>
-    ${snippet}
-    ${description ? `<description><![CDATA[${description}]]></description>` : ''}
-    <ExtendedData>
-      <Data name="export_scope"><value>${scope}</value></Data>
-      ${loc.continent ? `<Data name="continent"><value>${escapeXml(loc.continent)}</value></Data>` : ''}
-      ${loc.country ? `<Data name="country"><value>${escapeXml(loc.country)}</value></Data>` : ''}
-      ${loc.region ? `<Data name="region"><value>${escapeXml(loc.region)}</value></Data>` : ''}
-      ${loc.zone ? `<Data name="zone"><value>${escapeXml(loc.zone)}</value></Data>` : ''}
-      ${loc.enrichedData ? `<Data name="enriched"><value>true</value></Data>` : ''}
-      ${loc.enrichedData?.etiquetas ? `<Data name="tags"><value>${escapeXml(loc.enrichedData.etiquetas.join(', '))}</value></Data>` : ''}
-      ${Object.entries(loc.customData || {})
-        .map(([key, value]) => `<Data name="${escapeXml(key)}"><value>${escapeXml(value)}</value></Data>`)
-        .join('')}
-    </ExtendedData>
-    <Point>
-      <coordinates>${loc.coordinates.lng},${loc.coordinates.lat}${loc.coordinates.altitude ? `,${loc.coordinates.altitude}` : ''}</coordinates>
-    </Point>
-  </Placemark>`;
-    })
-    .join('\n');
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
-  <Document>
-    <name>${escapeXml(documentName)}</name>
-    <atom:author><atom:name>vandits-${scope}</atom:name></atom:author>
-    ${placemarks}
-  </Document>
-</kml>`;
+  const records = mapToPoiExportRecords(filtered, scope);
+  return serializePoiKml(records, { scope, documentName, target });
 }
 
 export function exportToCSV(
@@ -526,27 +503,8 @@ export function exportToCSV(
 ): string {
   maybeWarnDefaultScope('exportToCSV', options.scopeProvided === true);
   const filtered = applyExportGate(locations, scope, ctx, 'exportToCSV');
-  const headers = ['name', 'description', 'latitude', 'longitude', 'altitude', 'continent', 'country', 'region', 'zone', 'export_scope'];
-  const customKeys = new Set<string>();
-  filtered.forEach((loc) => Object.keys(loc.customData || {}).forEach((k) => customKeys.add(k)));
-  const allHeaders = [...headers, ...Array.from(customKeys)];
-  const rows = filtered.map((loc) => {
-    const baseRow = [
-      loc.name,
-      loc.description || '',
-      loc.coordinates.lat.toString(),
-      loc.coordinates.lng.toString(),
-      loc.coordinates.altitude?.toString() || '',
-      loc.continent || '',
-      loc.country || '',
-      loc.region || '',
-      loc.zone || '',
-      scope,
-    ];
-    const customRow = Array.from(customKeys).map((key) => loc.customData?.[key] || '');
-    return [...baseRow, ...customRow].map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',');
-  });
-  return [allHeaders.join(','), ...rows].join('\n');
+  const records = mapToPoiExportRecords(filtered, scope);
+  return serializePoiCsv(records, { scope });
 }
 
 export function exportToJSON(
@@ -557,8 +515,10 @@ export function exportToJSON(
 ): string {
   maybeWarnDefaultScope('exportToJSON', options.scopeProvided === true);
   const filtered = applyExportGate(locations, scope, ctx, 'exportToJSON');
-  return JSON.stringify({ export_scope: scope, locations: filtered }, null, 2);
+  const records = mapToPoiExportRecords(filtered, scope);
+  return serializePoiJson(records, { scope });
 }
+
 
 function escapeXml(text: string): string {
   return text
