@@ -10,6 +10,8 @@ import {
  TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
+import { useScopedLocations } from '@/components/filters/UniverseBaseContext';
+
 
 interface ClassificationNode {
  code: string;
