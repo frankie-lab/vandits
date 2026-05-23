@@ -7,7 +7,7 @@ import { serializePoiKml } from '@/domains/content/lib/exporters/poi-kml';
 import { serializePoiJson } from '@/domains/content/lib/exporters/poi-json';
 import { serializePoiGeoJson } from '@/domains/content/lib/exporters/poi-geojson';
 import { mapToPoiExportRecords } from '@/domains/content/lib/poi-export-mapper';
-import { partitionForExport } from '@/domains/content/lib/poi-export-eligibility';
+import { partitionForExport, evaluatePoiExport } from '@/domains/content/lib/poi-export-eligibility';
 import type { GeoLocation } from '@/types/location';
 
 const OWNER = 'user-frankie';
