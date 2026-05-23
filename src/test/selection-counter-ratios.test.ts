@@ -172,6 +172,7 @@ describe('FilterBar — formato unificado X/Y siempre', () => {
     // Singular condicional eliminado.
     expect(src).not.toMatch(/'seleccionado'\s*:\s*'seleccionados'/);
   });
+});
 
 describe('selection counter — universo independiente de selección', () => {
   // Simula la separación entre universo (denominador) y selección
