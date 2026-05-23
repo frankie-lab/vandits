@@ -123,13 +123,11 @@ describe('selection counter UX copy', () => {
 });
 
 describe('FilterBar — no duplicated selection counter (source-level)', () => {
-  it('does not render "{X} / {T} seleccionados" template in bottom row', async () => {
+  it('header shows X / T seleccionados', async () => {
     const fs = await import('node:fs');
     const src = fs.readFileSync('src/components/FilterBar.tsx', 'utf8');
-    // El header sigue mostrando "{X} seleccionado(s)" (sin "/ T") — buscar el
-    // patrón viejo "/ {COUNT_FORMATTER.format(ownershipRatios.T)} seleccionados"
-    // que vivía en la fila inferior.
-    expect(src).not.toMatch(/\/\s*\{COUNT_FORMATTER\.format\(ownershipRatios\.T\)\}\s*seleccionados/);
+    // El header DEBE renderizar el ratio "X / T seleccionados".
+    expect(src).toMatch(/\/\s*\{COUNT_FORMATTER\.format\(ownershipRatios\.T\)\}/);
     // "Míos … / Seguidos …" debe aparecer EXACTAMENTE una vez (en el header).
     const occurrences = src.match(/text-emerald-600 font-medium">Míos</g) ?? [];
     expect(occurrences.length).toBe(1);
@@ -147,5 +145,83 @@ describe('FilterBar — no duplicated selection counter (source-level)', () => {
     const src = fs.readFileSync('src/components/FilterBar.tsx', 'utf8');
     expect(src).toMatch(/Filtros activos: mostrando/);
     expect(src).not.toMatch(/Los filtros activos muestran solo/);
+  });
+
+  it('ownershipRatios consume el universo independiente de selección', async () => {
+    const fs = await import('node:fs');
+    const src = fs.readFileSync('src/components/FilterBar.tsx', 'utf8');
+    expect(src).toMatch(/useFilteredUniverseIgnoringSelection/);
+    // bucketStats y ownershipRatios deben alimentarse del universo, no de filteredLocations.
+    expect(src).toMatch(/getBucketStats\(filteredUniverse/);
+    expect(src).toMatch(/const T = filteredUniverse\.length/);
+  });
+});
+
+describe('selection counter — universo independiente de selección', () => {
+  // Simula la separación entre universo (denominador) y selección
+  // (numerador) que ahora aplica FilterBar.
+  function computeWithUniverse(universe: LocLike[], selection: Set<string>, uid: string | null) {
+    return computeRatios(universe, selection, uid);
+  }
+
+  it('41 míos seleccionados sobre 5095 visibles (4739 míos / 356 seguidos)', () => {
+    const universe: LocLike[] = [
+      ...Array.from({ length: 4739 }, (_, i) => mine(`m-${i}`)),
+      ...Array.from({ length: 356 }, (_, i) => other(`o-${i}`)),
+    ];
+    const selection = new Set(Array.from({ length: 41 }, (_, i) => `m-${i}`));
+    const r = computeWithUniverse(universe, selection, UID);
+    expect(r).toEqual({ T: 5095, Tm: 4739, Ts: 356, X: 41, Xm: 41, Xs: 0 });
+  });
+
+  it('selección 100% seguidos no colapsa Tm', () => {
+    const universe: LocLike[] = [
+      ...Array.from({ length: 100 }, (_, i) => mine(`m-${i}`)),
+      ...Array.from({ length: 20 }, (_, i) => other(`o-${i}`)),
+    ];
+    const selection = new Set(['o-0', 'o-1', 'o-2']);
+    const r = computeWithUniverse(universe, selection, UID);
+    expect(r).toMatchObject({ T: 120, Tm: 100, Ts: 20, X: 3, Xm: 0, Xs: 3 });
+  });
+
+  it('selección parcial mixta reparte numeradores y mantiene denominadores', () => {
+    const universe: LocLike[] = [
+      ...Array.from({ length: 50 }, (_, i) => mine(`m-${i}`)),
+      ...Array.from({ length: 50 }, (_, i) => other(`o-${i}`)),
+    ];
+    const selection = new Set(['m-0', 'm-1', 'o-0', 'o-1', 'o-2']);
+    const r = computeWithUniverse(universe, selection, UID);
+    expect(r.T).toBe(100);
+    expect(r.Tm).toBe(50);
+    expect(r.Ts).toBe(50);
+    expect(r.X).toBe(5);
+    expect(r.Xm).toBe(2);
+    expect(r.Xs).toBe(3);
+  });
+
+  it('selección fuera del universo no infla X', () => {
+    const universe: LocLike[] = [mine('a'), mine('b'), other('x')];
+    const selection = new Set(['a', 'ghost-1', 'ghost-2']);
+    const r = computeWithUniverse(universe, selection, UID);
+    expect(r.X).toBe(1);
+    expect(r.T).toBe(3);
+  });
+
+  it('filtros que reducen el universo cambian T/Tm/Ts pero no la fórmula', () => {
+    const small: LocLike[] = [mine('a'), mine('b'), other('x')];
+    const selection = new Set(['a']);
+    const r = computeWithUniverse(small, selection, UID);
+    expect(r).toEqual({ T: 3, Tm: 2, Ts: 1, X: 1, Xm: 1, Xs: 0 });
+  });
+});
+
+describe('store contract — getFilteredUniverse', () => {
+  it('locations-store expone getFilteredUniverse y _computeFiltered con ignoreSelection', async () => {
+    const fs = await import('node:fs');
+    const src = fs.readFileSync('src/domains/content/store/locations-store.ts', 'utf8');
+    expect(src).toMatch(/getFilteredUniverse\s*:/);
+    expect(src).toMatch(/_computeFiltered\s*:\s*\(\s*\{\s*ignoreSelection/);
+    // El recorte por selección debe respetar el flag.
+    expect(src).toMatch(/ignoreSelection\s*\?\s*null\s*:\s*state\.selectedLocations/);
   });
 });
