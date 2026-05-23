@@ -154,7 +154,23 @@ describe('FilterBar — no duplicated selection counter (source-level)', () => {
     // bucketStats y ownershipRatios deben alimentarse del universo, no de filteredLocations.
     expect(src).toMatch(/getBucketStats\(filteredUniverse/);
     expect(src).toMatch(/const T = filteredUniverse\.length/);
-    expect(src).toMatch(/bucketStats\.followedTotal/);
+    // Denominador de "Seguidos" = stats.total (universo absoluto), no bucketStats.followedTotal.
+    expect(src).toMatch(/COUNT_FORMATTER\.format\(stats\.total\)/);
+  });
+});
+
+describe('FilterBar — formato unificado X/Y siempre', () => {
+  it('no renderiza ramas distintas por selectedCount en el contador', async () => {
+    const fs = await import('node:fs');
+    const src = fs.readFileSync('src/components/FilterBar.tsx', 'utf8');
+    // Las cadenas legacy "de N ubicaciones" y "catálogo · mesa" desaparecen.
+    expect(src).not.toMatch(/de \$\{stats\.total\} ubicaciones/);
+    expect(src).not.toMatch(/> catálogo</);
+    expect(src).not.toMatch(/> mesa</);
+    // Etiqueta unificada en plural.
+    expect(src).toMatch(/>seleccionados</);
+    // Singular condicional eliminado.
+    expect(src).not.toMatch(/'seleccionado'\s*:\s*'seleccionados'/);
   });
 });
 
