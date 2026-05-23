@@ -2057,6 +2057,42 @@ export type Database = {
         }
         Relationships: []
       }
+      poi_p2_runner_audit: {
+        Row: {
+          action: string
+          batch_size: number | null
+          created_at: string
+          id: string
+          reason: string | null
+          report_path: string | null
+          result: Json | null
+          run_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          batch_size?: number | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          report_path?: string | null
+          result?: Json | null
+          run_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          batch_size?: number | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          report_path?: string | null
+          result?: Json | null
+          run_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       preference_values: {
         Row: {
           id: string
