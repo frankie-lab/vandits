@@ -1,85 +1,74 @@
-# T1-fix — `*_resolved` como SoT textual cliente (patch)
+## Objetivo
 
-Refs: `docs/audits/t1-zone-text-null-with-zone-id-dry-run.md`, `docs/contracts/territorial-equivalence-canon.md`.
+Eliminar la asimetría visual y semántica entre el contador "sin selección" y "con selección" del `FilterBar`. Las dos vistas hablan del mismo universo de POIs y deben usar el mismo formato y vocabulario.
 
-## Cambios
+## Estado actual (problema)
 
-### 1. `src/types/location.ts` — `GeoLocation`
+```
+Sin selección:   4739 de 5095 ubicaciones
+                 4739 catálogo · 0 mesa
 
-Añadir campos opcionales (puramente aditivos, no breaking):
+Con selección:   1 / 4739 seleccionado
+                 1 / 4739 Míos · 0 / 0 Seguidos
+```
 
-- `continentResolved?: string`
-- `countryResolved?: string`
-- `regionResolved?: string`
-- `zoneResolved?: string`
-- `admin3Resolved?: string`
-- `localityResolved?: string`
+Tres incoherencias:
+- Formato distinto: `X de Y` vs `X / Y`.
+- Vocabularios distintos: `catálogo / mesa` vs `Míos / Seguidos`.
+- Denominador del bucket "Seguidos" siempre era `0` porque usaba `bucketStats.followedTotal` calculado sobre el subset filtrado.
 
-JSDoc señalando que `continent`/`country`/`region`/`zone`/`comarca`/`localidad` son **cache textual legacy** y que `*Resolved` (derivado de FK → `admin_areas.name` vía `v_locations_resolved`) es la fuente textual canónica.
+## Estado objetivo
 
-### 2. `src/domains/content/lib/db-transformers.ts`
+Formato único en ambas vistas: `X / Y etiqueta`.
 
-Dentro de `dbLocationToGeoLocation`:
+```
+Sin selección:   0 / 4739 seleccionados
+                 0 / 4739 Míos · 0 / 5095 Seguidos
 
-- Poblar los seis `*Resolved` desde `loc.*_resolved` directos (sin fallback — `undefined` si la vista no los trae).
-- Mantener `continent/country/region/zone` con `*_resolved || legacy` (ya existe).
-- Añadir mismo patrón a `comarca` (`loc.admin3_resolved || loc.admin_level_3`) y `localidad` (`loc.locality_resolved || loc.locality`).
+Con selección:   4247 / 4739 seleccionados
+                 4247 / 4739 Míos · 0 / 5095 Seguidos
+```
 
-### 3. `src/shared/geography/hierarchy.ts`
+### Definición de cada par X/Y
 
-En `getLocationHierarchy`, orden canónico por nivel:
+| Bucket | X (numerador) | Y (denominador) |
+|---|---|---|
+| Seleccionados | `selectedCount` | `filteredCount` (universo filtrado del usuario, p. ej. 4739) |
+| Míos | `ownershipRatios.Xm` | `filteredCount` (mismo universo filtrado) |
+| Seguidos | `ownershipRatios.Xs` | `stats.total` (universo absoluto del usuario, p. ej. 5095) |
 
-1. `loc.*Resolved` (FK SoT)
-2. legacy text (`loc.region`, `loc.zone`, `loc.comarca`, `loc.localidad`, `loc.country`, `loc.continent`, `loc.sublocalidad`)
-3. `enriched_data.datos_geograficos.*` (fallback)
+Reglas:
+- Cuando `selectedCount === 0`, numerador = 0 (no cambia el formato).
+- Etiquetas siempre `seleccionados` (plural, también con 1 y con 0; el plural en castellano no rompe nada y mantiene consistencia).
+- El denominador de "Seguidos" usa `stats.total` (total absoluto del universo del usuario, lo que hoy se muestra como "de 5095 ubicaciones"). Eso explica por qué `Seguidos` puede ser `0 / 5095` aunque "Míos" sea `4247 / 4739`: ejes ortogonales (origen vs propiedad).
+- Mismo tamaño tipográfico para X e Y. Color numerador = `text-primary`. Color denominador = `text-muted-foreground`. Etiquetas (`seleccionados` / `Míos` / `Seguidos`) en sus colores actuales.
 
-Niveles tratados: `continent`, `country`, `region`, `zone`, `admin_level_3`, `locality`. `sublocality` y `street` no cambian (no hay `*Resolved`).
+### Lo que se elimina
 
-`getFilledLocationHierarchy` no requiere cambios (delega en `getLocationHierarchy`).
+- La rama "sin selección" con `4739 de 5095 ubicaciones` desaparece.
+- El desglose `catálogo · mesa · seguidos` desaparece de esta línea (sigue existiendo en otros sitios del producto si los hubiera; no se tocan).
 
-### 4. Tests (Vitest)
+## Archivos a modificar
 
-`**src/test/db-transformers.test.ts**` (extender) — caso `{ zone_id: 'x', zone_resolved: 'Barcelona', zone: null }`:
+- `src/components/FilterBar.tsx` — colapsar las dos ramas (`selectedCount > 0` / `else`) en una sola estructura, con numeradores que valgan 0 cuando no haya selección. Líneas afectadas aproximadas: 234-285.
+- `src/test/selection-counter-ratios.test.ts` — añadir asserts del estado "sin selección" (numeradores en 0, denominadores correctos) y confirmar que `Seguidos` usa `stats.total` como denominador, no `bucketStats.followedTotal`.
 
-- `result.zone === 'Barcelona'`
-- `result.zoneResolved === 'Barcelona'`
-- Mismo patrón para `region`, `admin3`, `locality`.
+## Detalles técnicos
 
-`**src/test/geography-hierarchy-resolved.test.ts**` (nuevo):
+- `filteredCount`: ya disponible en FilterBar; es el subset filtrado del universo del usuario.
+- `stats.total`: viene de `useEnrichedStats()`; es el universo absoluto (la fuente del 5095).
+- `ownershipRatios.{Xm,Xs}`: ya calculados sobre el universo independiente de selección (PR previo). No se tocan.
+- No se cambia `getFilteredLocations()`, ni el cálculo de selección, ni `bucketStats`, ni `ExportPanel`, ni PR-EXPORT-2.
+- Sin cambios de schema, datos, backend, ni bump.
 
-- Sólo `zoneResolved` → hierarchy.zone correcto.
-- `zoneResolved` + legacy `zone` diferentes → gana `zoneResolved`.
-- Sólo legacy `zone` → fallback funciona.
-- Sólo `enriched_data.datos_geograficos.admin_nivel_2` → fallback final funciona.
-- Repetir el patrón para `region` / `admin_level_3` / `locality` (1 caso cada uno).
+## Verificación
 
-### 5. Documentación
+1. `selection-counter-ratios.test.ts` debe seguir en 21/21 PASS más los asserts añadidos del estado sin selección.
+2. Inspección visual en `/` con y sin selección: los tres ratios deben renderizarse con mismo tamaño y formato `X / Y etiqueta`.
+3. Comprobar que al seleccionar/deseleccionar todo, sólo cambian los numeradores, nunca los denominadores ni las etiquetas.
 
-`**docs/contracts/territorial-equivalence-canon.md**` — añadir sección "SoT textual cliente":
+## Fuera de alcance
 
-- `*Resolved` (vía `v_locations_resolved`) = SoT textual.
-- Legacy `loc.zone`/etc = cache denormalizada (no escribir desde cliente).
-- `enriched_data.datos_geograficos.*` = último fallback heurístico.
-- Orden canónico de lectura aplicado en `getLocationHierarchy`.
-
-`**docs/tech-debt.md**`:
-
-- Marcar **item 8 (T1-fix)** como APLICADO con fecha y ref de PR.
-- Dejar pendiente sub-item: inventario y migración progresiva de los ~30 call sites `.from('locations')` que no pasan por `v_locations_resolved` (riesgo: si pasan por `dbLocationToGeoLocation`, los `*Resolved` quedan `undefined` y la UI cae al legacy text).
-
-## Out of scope (explícito)
-
-- Migrar call sites `.from('locations')`.
-- Backfill SQL de `locations.zone`.
-- Tocar `v_locations_resolved`, edge functions, migraciones, datos, re-enrich.
-- Bump mayor; impacto = **patch**.
-
-## Orden de archivos a tocar
-
-1. `src/types/location.ts`
-2. `src/domains/content/lib/db-transformers.ts`
-3. `src/shared/geography/hierarchy.ts`
-4. `src/test/db-transformers.test.ts` (extend)
-5. `src/test/geography-hierarchy-resolved.test.ts` (new)
-6. `docs/contracts/territorial-equivalence-canon.md`
-7. `docs/tech-debt.md`
+- Renombrar "catálogo / mesa" en otros lugares del producto.
+- Tocar `getBucketStats`, `getFilteredLocations`, ExportPanel, PR-EXPORT-2.
+- Cualquier cambio en la línea de "Filtros activos" inferior (línea 315).
