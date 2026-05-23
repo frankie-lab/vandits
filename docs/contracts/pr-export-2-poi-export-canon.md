@@ -398,8 +398,12 @@ Reglas universales:
   **reportan en UI** como count + razón genérica (§10).
 - Selección parcialmente exportable: nunca abortar; exportar elegibles
   y mostrar excluidos.
-- `internal` requiere owner o capability futura
-  `export_poi_internal` (§15).
+- **`internal` = owner-only en PR-EXPORT-2** (decisión §15.8). NO se
+  crea capability `export_poi_internal` en este contrato; queda
+  pospuesta para una iteración futura.
+- Export de colección permite envelope `collection { id, name,
+  description? }` cuando el origen sea una colección y el usuario
+  tenga permiso sobre ella (decisión §15.6).
 
 ---
 
