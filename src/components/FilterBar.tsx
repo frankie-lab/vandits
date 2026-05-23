@@ -52,6 +52,7 @@ import {
   getUniverseBaseLabel,
   type ActiveModeUniverse,
 } from '@/domains/content/lib/resolve-universe-base';
+import { EffectiveActionFooter } from './filters/EffectiveActionFooter';
 import { toast } from 'sonner';
 
 
