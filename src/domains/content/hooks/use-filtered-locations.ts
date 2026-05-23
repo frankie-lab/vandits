@@ -22,6 +22,25 @@ export function useFilteredLocations(): GeoLocation[] {
 }
 
 /**
+ * Devuelve el universo visible/autorizado tras filtros, SIN recortar por
+ * `selectedLocations`. Lo consume el contador de FilterBar (ownershipRatios
+ * y bucketStats) para que los denominadores T/Tm/Ts reflejen siempre el
+ * universo y no colapsen al tamaño de la selección. La memoización omite
+ * deliberadamente `selectedLocations` en sus deps.
+ * Ver docs/audits/selection-counter-ownership-ratios-plan.md.
+ */
+export function useFilteredUniverseIgnoringSelection(): GeoLocation[] {
+  const docVersion = useLocationsStore(s => s._docVersion);
+  const filters = useLocationsStore(s => s.filters);
+  const currentUserId = useLocationsStore(s => s.currentUserId);
+
+  return useMemo(() => {
+    return useLocationsStore.getState().getFilteredUniverse();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docVersion, filters, currentUserId]);
+}
+
+/**
  * Devuelve `filteredLocations` IGNORANDO el eje Salud (`healthFilter`).
  * Lo usan los chips del eje Salud para mostrar su count individual sin
  * canibalizarse entre sí cuando uno está activo.
