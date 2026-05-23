@@ -64,7 +64,9 @@ publicados; algunas son hitos **reconstructed** para fijar memoria histórica.
   1.3.4        POI-10 corregido: curación objetiva (geoHealth=ok + enriched), sin exigir observación  (stable)
   1.3.5        Tooltips canónicos AppTooltip en leyenda compacta Madurez (chips 0–10)  (stable)
   1.3.16       T2A-wire Fase 1 — excepciones regionales canon territorial (PT-20/PT-30 sin Distrito)  (stable)
-  1.3.17       T2A-wire-regional-exceptions-edge — enforcement server-side `regionHasNoProvincia` en `resolve-admin-area` + cliente `resolveAllFks` consume `meta.region_iso_code`  ← versión actual (stable / current)
+  1.3.17       T2A-wire-regional-exceptions-edge — enforcement server-side `regionHasNoProvincia` en `resolve-admin-area` + cliente `resolveAllFks` consume `meta.region_iso_code`  (stable)
+  1.3.18       P0 World Canon Coverage (ola 1) — TERRITORIAL_CANON 39→49  (stable)
+  1.3.19       PR-EXPORT-2 — exportación canónica POI (CSV/KML/JSON v2/GeoJSON) basada en PoiExportRecord  ← versión actual (stable / current)
 
 
 2.x — Futuro
