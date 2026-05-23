@@ -109,3 +109,43 @@ describe('selection counter ownership ratios', () => {
     expect(r).toEqual({ T: 3, Tm: 3, Ts: 0, X: 1, Xm: 1, Xs: 0 });
   });
 });
+
+describe('selection counter UX copy', () => {
+  const label = (n: number) => (n === 1 ? 'seleccionado' : 'seleccionados');
+  it('singular when X === 1', () => {
+    expect(label(1)).toBe('seleccionado');
+  });
+  it('plural otherwise', () => {
+    expect(label(0)).toBe('seleccionados');
+    expect(label(2)).toBe('seleccionados');
+    expect(label(99)).toBe('seleccionados');
+  });
+});
+
+describe('FilterBar — no duplicated selection counter (source-level)', () => {
+  it('does not render "{X} / {T} seleccionados" template in bottom row', async () => {
+    const fs = await import('node:fs');
+    const src = fs.readFileSync('src/components/FilterBar.tsx', 'utf8');
+    // El header sigue mostrando "{X} seleccionado(s)" (sin "/ T") — buscar el
+    // patrón viejo "/ {COUNT_FORMATTER.format(ownershipRatios.T)} seleccionados"
+    // que vivía en la fila inferior.
+    expect(src).not.toMatch(/\/\s*\{COUNT_FORMATTER\.format\(ownershipRatios\.T\)\}\s*seleccionados/);
+    // "Míos … / Seguidos …" debe aparecer EXACTAMENTE una vez (en el header).
+    const occurrences = src.match(/text-emerald-600 font-medium">Míos</g) ?? [];
+    expect(occurrences.length).toBe(1);
+  });
+
+  it('keeps Seleccionar todo / Limpiar buttons', async () => {
+    const fs = await import('node:fs');
+    const src = fs.readFileSync('src/components/FilterBar.tsx', 'utf8');
+    expect(src).toMatch(/Seleccionar todo/);
+    expect(src).toMatch(/Limpiar/);
+  });
+
+  it('filter warning copy is the secondary variant', async () => {
+    const fs = await import('node:fs');
+    const src = fs.readFileSync('src/components/FilterBar.tsx', 'utf8');
+    expect(src).toMatch(/Filtros activos: mostrando/);
+    expect(src).not.toMatch(/Los filtros activos muestran solo/);
+  });
+});

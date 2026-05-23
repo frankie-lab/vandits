@@ -236,7 +236,7 @@ export function FilterBar() {
             {COUNT_FORMATTER.format(ownershipRatios.X)}
           </span>
           <span className="text-sm text-muted-foreground">
-            / {COUNT_FORMATTER.format(ownershipRatios.T)} seleccionados
+            {ownershipRatios.X === 1 ? 'seleccionado' : 'seleccionados'}
           </span>
         </>
       ) : (
@@ -296,11 +296,11 @@ export function FilterBar() {
  </div>
  </div>
 
-  {/* Warning when filters are very restrictive */}
+  {/* Warning when filters are very restrictive — secundario, no compite con la selección */}
   {filterReductionWarning && (
-  <div className="flex items-center gap-2 text-xs bg-amber-100 text-amber-800 rounded-md px-2 py-1.5">
-  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-  <span>Los filtros activos muestran solo {Math.round(filteredCount/stats.total*100)}% del total</span>
+  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground px-2 py-1">
+  <AlertTriangle className="w-3 h-3 shrink-0 text-amber-500/70" />
+  <span>Filtros activos: mostrando {Math.round(filteredCount/stats.total*100)}% del total</span>
   </div>
   )}
 
@@ -547,42 +547,24 @@ export function FilterBar() {
         <SelectionActions />
       )}
 
-      <div className="flex items-center justify-between text-sm gap-2">
-        <div className="flex flex-col text-xs text-muted-foreground leading-tight">
-          <span>
-            <span className="font-medium text-foreground">
-              {COUNT_FORMATTER.format(ownershipRatios.X)}
-            </span>
-            {' / '}
-            {COUNT_FORMATTER.format(ownershipRatios.T)} seleccionados
-          </span>
-          <span className="text-[11px]">
-            <span className="text-emerald-600 font-medium">Míos</span>{' '}
-            {COUNT_FORMATTER.format(ownershipRatios.Xm)} / {COUNT_FORMATTER.format(ownershipRatios.Tm)}
-            {' · '}
-            <span className="text-sky-600 font-medium">Seguidos</span>{' '}
-            {COUNT_FORMATTER.format(ownershipRatios.Xs)} / {COUNT_FORMATTER.format(ownershipRatios.Ts)}
-          </span>
-        </div>
-        <div className="flex gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={selectAllLocations}
-            className="text-xs h-7"
-          >
-            Seleccionar todo
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearSelection}
-            className="text-xs h-7"
-            disabled={selectedCount === 0}
-          >
-            Limpiar
-          </Button>
-        </div>
+      <div className="flex items-center justify-end gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={selectAllLocations}
+          className="text-xs h-7"
+        >
+          Seleccionar todo
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={clearSelection}
+          className="text-xs h-7"
+          disabled={selectedCount === 0}
+        >
+          Limpiar
+        </Button>
       </div>
 
       {hasActiveChips && filteredCount > 0 && (
