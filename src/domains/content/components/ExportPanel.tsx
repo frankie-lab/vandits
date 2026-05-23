@@ -83,10 +83,34 @@ type KmlTarget = 'mymaps' | 'gurumaps' | 'general';
 
 const ORIGIN: PoiExportOrigin = 'panel';
 
-export function ExportPanel() {
-  const { selectedDocument, selectedLocations, getFilteredLocations } = useLocationsStore();
+/**
+ * PR-EXPORT-2 Fase 3A — `source` opcional permite que el caller propague
+ * una selección explícita (toolbar global, bridge ShareSheet, popup,
+ * etc.) sin depender de `selectedDocument`. Si `source` es `null` o no
+ * se pasa, el panel cae a `selectedLocations` (cross-doc) y luego al
+ * universo filtrado del mapa.
+ */
+export interface ExportPanelSource {
+  locations: GeoLocation[];
+  /** Etiqueta opcional para el header del panel. */
+  label?: string;
+  /** Sugerencia opcional de scope inicial. */
+  initialScope?: PoiExportScope;
+}
+
+export interface ExportPanelProps {
+  source?: ExportPanelSource | null;
+}
+
+export function ExportPanel({ source = null }: ExportPanelProps = {}) {
+  const documents = useLocationsStore((s) => s.documents);
+  const selectedDocument = useLocationsStore((s) => s.selectedDocument);
+  const selectedLocations = useLocationsStore((s) => s.selectedLocations);
+  const getFilteredLocations = useLocationsStore((s) => s.getFilteredLocations);
   const [isExporting, setIsExporting] = useState(false);
-  const [scope, setScope] = useState<PoiExportScope>('public');
+  const [scope, setScope] = useState<PoiExportScope>(
+    source?.initialScope ?? 'public',
+  );
   const { user } = useAuth();
   const currentUserId = user?.id ?? null;
 
@@ -97,12 +121,20 @@ export function ExportPanel() {
     formatLastExportTime,
   } = useExportTracking();
 
-  const candidateLocations = useMemo(() => {
-    if (!selectedDocument) return [];
-    return selectedLocations.size > 0
-      ? selectedDocument.locations.filter((l) => selectedLocations.has(l.id))
-      : getFilteredLocations();
-  }, [selectedDocument, selectedLocations, getFilteredLocations]);
+  const resolution = useMemo(
+    () =>
+      resolveExportCandidates({
+        explicitLocations: source?.locations ?? null,
+        selectedIds: selectedLocations,
+        documents,
+        getFiltered: getFilteredLocations,
+      }),
+    [source, selectedLocations, documents, getFilteredLocations],
+  );
+
+  const candidateLocations = resolution.locations;
+  const originLabel =
+    source?.label ?? describeExportOrigin(resolution.origin, candidateLocations.length);
 
   // Preview de elegibilidad + tamaño (sin serializar).
   const preview = useMemo(
