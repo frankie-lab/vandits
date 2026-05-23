@@ -6,7 +6,7 @@ import { AppEmptyState } from '@/shared/components/ui';
 import { PanelModeTabs, type PanelMode } from './discovery/PanelModeTabs';
 import type { HealthFilter } from '@/types/location';
 import { useLocationsStore } from '@/domains/content';
-import { useFilteredLocations, useFilteredLocationsIgnoringHealth, useEnrichedStats } from '@/domains/content/hooks/use-filtered-locations';
+import { useFilteredLocations, useFilteredLocationsIgnoringHealth, useFilteredUniverseIgnoringSelection, useEnrichedStats } from '@/domains/content/hooks/use-filtered-locations';
 import { getBucketStats } from '@/domains/content/lib/location-bucket';
 import { useAuth } from '@/domains/identity';
 // matchesLocationFilters import removed — was only used by the deleted hiddenByDraft notice
