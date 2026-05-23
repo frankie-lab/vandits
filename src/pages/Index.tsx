@@ -77,6 +77,10 @@ const Index = () => {
 
   // ─── Modal-dialog states (NOT in right-panel registry) ───────────────────
   const [showExport, setShowExport] = useState(false);
+  // PR-EXPORT-2 Fase 3A — payload opcional propagado por `lovable:open-export-panel`.
+  const [exportPanelSource, setExportPanelSource] = useState<
+    import('@/domains/content/components/ExportPanel').ExportPanelSource | null
+  >(null);
   const [showBatchEnrichment, setShowBatchEnrichment] = useState(false);
   const [showCriteriaConfig, setShowCriteriaConfig] = useState(false);
 
@@ -104,6 +108,34 @@ const Index = () => {
     void initSessionCollectionVisibility(user.id);
     registerVisibilityDebug();
   }, [user?.id]);
+
+  // PR-EXPORT-2 Fase 3A — bridge `lovable:open-export-panel`.
+  // Detail opcional: { locations?: GeoLocation[]; label?: string; scope?: 'public'|'internal' }.
+  // Sin payload mantiene el comportamiento previo (deriva del store).
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail as
+        | {
+            locations?: GeoLocation[];
+            label?: string;
+            scope?: 'public' | 'internal';
+          }
+        | undefined;
+      if (detail?.locations && Array.isArray(detail.locations) && detail.locations.length > 0) {
+        setExportPanelSource({
+          locations: detail.locations,
+          label: detail.label,
+          initialScope: detail.scope,
+        });
+      } else {
+        setExportPanelSource(null);
+      }
+      setShowExport(true);
+    };
+    window.addEventListener('lovable:open-export-panel', handler as EventListener);
+    return () => window.removeEventListener('lovable:open-export-panel', handler as EventListener);
+  }, []);
+
 
   // ─── Discovery controls ref ──────────────────────────────────────────────
   const discoveryControlsRef = useRef<DiscoveryControls | null>(null);
@@ -284,14 +316,21 @@ const Index = () => {
         <PreferencesPage onClose={() => close('preferences')} />
       </FloatingPanel>
 
-      <Dialog open={showExport} onOpenChange={setShowExport}>
+      <Dialog
+        open={showExport}
+        onOpenChange={(open) => {
+          setShowExport(open);
+          if (!open) setExportPanelSource(null);
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-display">Exportar datos</DialogTitle>
           </DialogHeader>
-          <ExportPanel />
+          <ExportPanel source={exportPanelSource} />
         </DialogContent>
       </Dialog>
+
 
       <BatchEnrichmentPanel open={showBatchEnrichment} onOpenChange={setShowBatchEnrichment} />
       <Suspense fallback={null}>

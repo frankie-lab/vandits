@@ -38,6 +38,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { useExportTracking } from '@/hooks/use-export-tracking';
+import type { GeoLocation } from '@/types/location';
 import {
   EXPORT_EXCLUSION_LABEL,
   type ExportExclusionReason,
@@ -57,6 +58,10 @@ import {
   downloadPoiExportBlob,
   type PoiExportOrigin,
 } from '@/domains/content/lib/poi-export-pipeline';
+import {
+  resolveExportCandidates,
+  describeExportOrigin,
+} from '@/domains/content/lib/export-source-resolver';
 
 const FORMATS: PoiExportFormat[] = ['kml', 'csv', 'json', 'geojson'];
 
@@ -78,10 +83,34 @@ type KmlTarget = 'mymaps' | 'gurumaps' | 'general';
 
 const ORIGIN: PoiExportOrigin = 'panel';
 
-export function ExportPanel() {
-  const { selectedDocument, selectedLocations, getFilteredLocations } = useLocationsStore();
+/**
+ * PR-EXPORT-2 Fase 3A — `source` opcional permite que el caller propague
+ * una selección explícita (toolbar global, bridge ShareSheet, popup,
+ * etc.) sin depender de `selectedDocument`. Si `source` es `null` o no
+ * se pasa, el panel cae a `selectedLocations` (cross-doc) y luego al
+ * universo filtrado del mapa.
+ */
+export interface ExportPanelSource {
+  locations: GeoLocation[];
+  /** Etiqueta opcional para el header del panel. */
+  label?: string;
+  /** Sugerencia opcional de scope inicial. */
+  initialScope?: PoiExportScope;
+}
+
+export interface ExportPanelProps {
+  source?: ExportPanelSource | null;
+}
+
+export function ExportPanel({ source = null }: ExportPanelProps = {}) {
+  const documents = useLocationsStore((s) => s.documents);
+  const selectedDocument = useLocationsStore((s) => s.selectedDocument);
+  const selectedLocations = useLocationsStore((s) => s.selectedLocations);
+  const getFilteredLocations = useLocationsStore((s) => s.getFilteredLocations);
   const [isExporting, setIsExporting] = useState(false);
-  const [scope, setScope] = useState<PoiExportScope>('public');
+  const [scope, setScope] = useState<PoiExportScope>(
+    source?.initialScope ?? 'public',
+  );
   const { user } = useAuth();
   const currentUserId = user?.id ?? null;
 
@@ -92,12 +121,20 @@ export function ExportPanel() {
     formatLastExportTime,
   } = useExportTracking();
 
-  const candidateLocations = useMemo(() => {
-    if (!selectedDocument) return [];
-    return selectedLocations.size > 0
-      ? selectedDocument.locations.filter((l) => selectedLocations.has(l.id))
-      : getFilteredLocations();
-  }, [selectedDocument, selectedLocations, getFilteredLocations]);
+  const resolution = useMemo(
+    () =>
+      resolveExportCandidates({
+        explicitLocations: source?.locations ?? null,
+        selectedIds: selectedLocations,
+        documents,
+        getFiltered: getFilteredLocations,
+      }),
+    [source, selectedLocations, documents, getFilteredLocations],
+  );
+
+  const candidateLocations = resolution.locations;
+  const originLabel =
+    source?.label ?? describeExportOrigin(resolution.origin, candidateLocations.length);
 
   // Preview de elegibilidad + tamaño (sin serializar).
   const preview = useMemo(
@@ -130,8 +167,8 @@ export function ExportPanel() {
     format: PoiExportFormat,
     target: KmlTarget = 'general',
   ) => {
-    if (!selectedDocument) {
-      toast.error('No hay documento seleccionado');
+    if (candidateLocations.length === 0) {
+      toast.error('No hay POIs para exportar');
       return;
     }
     if (internalDisabled) {
@@ -145,6 +182,10 @@ export function ExportPanel() {
 
     setIsExporting(true);
     try {
+      const docName =
+        source?.label ||
+        selectedDocument?.name ||
+        (resolution.origin === 'selection' ? 'seleccion' : 'export');
       const exec = (confirmedOverWarn: boolean) =>
         runPoiExport(
           {
@@ -152,7 +193,7 @@ export function ExportPanel() {
             format,
             scope,
             ctx: { currentUserId },
-            documentName: selectedDocument.name,
+            documentName: docName,
             target: format === 'kml' ? target : undefined,
             origin: ORIGIN,
           },
@@ -217,10 +258,21 @@ export function ExportPanel() {
   };
 
   const disableButtons =
-    !selectedDocument || isExporting || eligibleCount === 0 || internalDisabled || blocked;
+    isExporting || eligibleCount === 0 || internalDisabled || blocked;
 
   return (
     <div className="space-y-4" data-export-panel="pr-export-2">
+      {/* Fuente resuelta — PR-EXPORT-2 Fase 3A */}
+      <div
+        className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-muted/30 px-3 py-2 text-xs"
+        data-export-source={resolution.origin}
+      >
+        <span className="text-muted-foreground truncate">{originLabel}</span>
+        <Badge variant="outline" className="text-[10px] shrink-0">
+          {candidateLocations.length} origen
+        </Badge>
+      </div>
+
       {/* Last export indicator */}
       {lastExport && (
         <motion.div
