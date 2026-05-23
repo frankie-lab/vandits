@@ -219,12 +219,12 @@ export function FilterBar() {
   const inferInitialMode = (): PanelMode => {
     if (typeof window === 'undefined') return 'explore';
     if (filters.healthFilter) return 'maintain';
-    if (selectedCount > 0) return 'select';
     const stored = window.sessionStorage.getItem(STORAGE_KEY) as PanelMode | null;
-    if (stored === 'explore' || stored === 'maintain' || stored === 'select') return stored;
+    if (stored === 'explore' || stored === 'maintain') return stored;
     return 'explore';
   };
   const [panelMode, setPanelMode] = useState<PanelMode>(inferInitialMode);
+
   const [maintainTab, setMaintainTab] = useState<'debt' | 'unenriched'>('debt');
 
   useEffect(() => {
