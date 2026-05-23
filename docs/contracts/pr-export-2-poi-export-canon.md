@@ -294,22 +294,26 @@ Todos los formatos consumen `PoiExportRecord[]`. Ninguno lee
 - Encoding UTF-8 + BOM opcional para Excel.
 - Escape correcto de `,`, `"`, `\n`, `\r`.
 - Campos anidados se aplanan: `geography_country`,
-  `classification_poiLevel`, etc.
+  `classification_category`, etc.
 - `tags[]` se serializan como `;`-separated string.
 - `customData[k]` se aplana como columnas `custom_<k>` sólo si la
   clave está en allowlist (§7).
+- `description` se exporta como **plaintext** (sin markdown ni HTML;
+  decisión §15.10).
 
 ### 8.2 KML
 
 - Un `<Placemark>` por POI.
 - `<Point><coordinates>lng,lat,0</coordinates></Point>`.
 - `<name>` sanitizado (escape XML).
-- `<description>` sanitizada (escape XML, sin HTML crudo de
-  `enriched_data`).
+- `<description>` **escaped/sanitized** (escape XML; sin HTML crudo
+  de `enriched_data`; decisión §15.10).
 - `<ExtendedData>` con `<Data name="…">` sólo para campos
   allowlisted.
 - Cabecera con `<Document><name>` y metadata `exportedAt`,
-  `export_scope`.
+  `export_scope`. Si el origen es colección con permiso, la cabecera
+  incluye `<Data name="collection_id">` / `<Data name="collection_name">`
+  (decisión §15.6).
 
 ### 8.3 JSON
 
@@ -320,10 +324,15 @@ Todos los formatos consumen `PoiExportRecord[]`. Ninguno lee
   "export_scope": "public",
   "exported_at": "2026-05-23T12:34:56.000Z",
   "count": 42,
+  "collection": { "id": "…", "name": "…", "description": "…" },
   "records": [ /* PoiExportRecord[] */ ]
 }
 ```
 
+- `collection` es **opcional**: solo presente si el origen es una
+  colección y el usuario tiene permiso (decisión §15.6).
+- `description` dentro de cada record va como **plaintext**
+  (decisión §15.10).
 - **Prohibido** exportar `GeoLocation` completo (regla dura). El
   `exportToJSON` actual debe migrar a `PoiExportRecord` en la
   implementación PR-EXPORT-2.
@@ -334,11 +343,16 @@ Todos los formatos consumen `PoiExportRecord[]`. Ninguno lee
 - `geometry`: `{ type: 'Point', coordinates: [longitude, latitude] }`
   (orden **GeoJSON canónico** `[lng, lat]`).
 - `properties`: todos los campos allowlisted de `PoiExportRecord`
-  excepto `coordinates` (ya en `geometry`).
+  excepto `coordinates` (ya en `geometry`). `description` como
+  plaintext (decisión §15.10).
 - `id` en `Feature.id` y duplicado en `properties.id` para
   compatibilidad.
-- Envelope `FeatureCollection` puede llevar `metadata` extra fuera del
-  estándar estricto si el consumidor lo tolera; default sin metadata.
+- Envelope `FeatureCollection` puede incluir miembro no estándar
+  `collection { id, name, description? }` cuando aplique
+  (decisión §15.6).
+- **Scope default**: `public` (decisión §15.5). `internal` solo por
+  selección explícita del usuario y con permiso (owner-only en
+  PR-EXPORT-2).
 
 ### 8.5 Exclusiones explícitas (fuera de PR-EXPORT-2)
 
@@ -348,7 +362,19 @@ Todos los formatos consumen `PoiExportRecord[]`. Ninguno lee
 - Backup full-account.
 - Export async server-side / edge jobs.
 - Storage + signed URLs.
-- GPX (queda pendiente decisión waypoint-only, §15).
+- GPX — pospuesto como futuro waypoint-only (decisión §15.9).
+- Exports síncronos cliente de **>10.000 POIs** — bloqueo duro;
+  requieren backend/async futuro (decisión §15.7).
+
+### 8.6 Límites de tamaño (cliente síncrono)
+
+| Tamaño selección | Comportamiento |
+|------------------|----------------|
+| ≤ 5.000 POIs     | Export normal sin advertencia. |
+| 5.001 – 10.000   | Warning UI obligatorio antes de descargar; usuario debe confirmar. |
+| > 10.000         | **Bloqueo duro**. No se serializa. Mensaje: "Fuera de alcance de PR-EXPORT-2; pendiente de export asíncrono". |
+
+Decisión §15.7.
 
 ---
 
