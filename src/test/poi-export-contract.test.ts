@@ -104,22 +104,21 @@ describe('PR-EXPORT-1 · kml-parser defensive assert', () => {
 
 });
 
-describe('PR-EXPORT-1 · C2 · scope explícito en call sites UI', () => {
-  it('ExportPanel y SelectionActions invocan exporters con scope', () => {
+describe('PR-EXPORT-1 · C2 · scope explícito en call sites UI (vía pipeline PR-EXPORT-2)', () => {
+  it('ExportPanel y SelectionActions usan runPoiExport con scope explícito y no llaman exporters legacy', () => {
     const files = [
       'src/domains/content/components/ExportPanel.tsx',
       'src/components/filters/SelectionActions.tsx',
     ];
     for (const rel of files) {
       const src = fs.readFileSync(path.resolve(rel), 'utf8');
-      const calls = src.match(/exportTo(KML|CSV|JSON)\s*\(/g) ?? [];
+      // PR-EXPORT-2: call sites usan el pipeline canónico, no exporters legacy directamente.
+      expect(src).not.toMatch(/\bexportTo(KML|CSV|JSON)\s*\(/);
+      // Deben invocar runPoiExport (pipeline canónico).
+      const calls = src.match(/runPoiExport\s*\(/g) ?? [];
       expect(calls.length).toBeGreaterThan(0);
-      // Cada invocación debe ir acompañada en su misma sentencia de "scope" o "scopeProvided".
-      const callRegex = /exportTo(?:KML|CSV|JSON)\s*\([^;]*\)/g;
-      const matches = src.match(callRegex) ?? [];
-      for (const m of matches) {
-        expect(m).toMatch(/scopeProvided\s*:\s*true/);
-      }
+      // El pipeline recibe scope explícito en su payload.
+      expect(src).toMatch(/scope\s*:/);
     }
   });
 });
