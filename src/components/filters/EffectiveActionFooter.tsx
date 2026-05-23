@@ -36,7 +36,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { DestructiveConfirmDialog } from '@/shared/components/ui/destructive-confirm-dialog';
 import { dispatchGlobalEvent } from '@/lib/global-events';
-import { isPointEnriched } from '@/domains/content/lib/is-point-enriched';
+import { isPointEnriched } from '@/domains/content/lib/point-visual-state';
 import type { GeoLocation } from '@/types/location';
 import {
   buildFooterLabel,
