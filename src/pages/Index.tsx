@@ -316,14 +316,21 @@ const Index = () => {
         <PreferencesPage onClose={() => close('preferences')} />
       </FloatingPanel>
 
-      <Dialog open={showExport} onOpenChange={setShowExport}>
+      <Dialog
+        open={showExport}
+        onOpenChange={(open) => {
+          setShowExport(open);
+          if (!open) setExportPanelSource(null);
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-display">Exportar datos</DialogTitle>
           </DialogHeader>
-          <ExportPanel />
+          <ExportPanel source={exportPanelSource} />
         </DialogContent>
       </Dialog>
+
 
       <BatchEnrichmentPanel open={showBatchEnrichment} onOpenChange={setShowBatchEnrichment} />
       <Suspense fallback={null}>
