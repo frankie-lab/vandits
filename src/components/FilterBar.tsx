@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { dispatchGlobalEvent } from '@/lib/global-events';
-import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, Trash2, Loader2, HeartPulse, CheckSquare } from 'lucide-react';
+import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, Trash2, Loader2, HeartPulse, CheckSquare, AlertCircle, CircleDashed } from 'lucide-react';
+import { getPoiCurationLevel } from '@/domains/content/lib/poi-curation-level';
 import { Separator } from '@/components/ui/separator';
 import { AppEmptyState } from '@/shared/components/ui';
 import { PanelModeTabs, type PanelMode } from './discovery/PanelModeTabs';
