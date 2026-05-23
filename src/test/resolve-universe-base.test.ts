@@ -24,7 +24,7 @@ import {
 const enriched = {
   id: 'enriched-1',
   name: 'Enriched POI',
-  enrichedData: { descripcion: 'Texto IA' },
+  enrichedData: { descripcion: 'Una descripción enriquecida con suficiente longitud para superar el umbral de isUnverifiableDescription que exige al menos 60 caracteres.' },
   geoHealth: 'ok',
 } as unknown as GeoLocation;
 
