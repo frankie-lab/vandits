@@ -415,13 +415,8 @@ export function FilterBar() {
        pestaña porque no requiere acción de mantenimiento. ── */}
   {panelMode === 'maintain' && (
     <div className="space-y-2">
-      {/* Contador de referencia: completos (no accionable) */}
-      <div className="flex items-center gap-1 text-xs text-green-600 px-1" title="POIs enriquecidos con geo verificada (POI-9 + POI-10). No requieren mantenimiento.">
-        <CheckCircle className="w-3 h-3" />
-        <span className="font-semibold tabular-nums">{COUNT_FORMATTER.format(curationBuckets.completos)}</span>
-        <span>completos</span>
-        <span className="text-muted-foreground/70 ml-1">· sin acción pendiente</span>
-      </div>
+
+
 
       <Tabs value={maintainTab} onValueChange={(v) => setMaintainTab(v as 'debt' | 'unenriched')} className="w-full">
         <TabsList className="grid w-full grid-cols-2 h-8">
