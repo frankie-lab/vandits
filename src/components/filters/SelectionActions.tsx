@@ -7,7 +7,7 @@
  *
  * Reutiliza:
  *   - edge function `batch-enrich` (mismo contrato que BatchEnrichmentPanel).
- *   - helpers `exportToKML / exportToCSV / exportToJSON` de `@/lib/kml-parser`.
+ *   - pipeline canónico `runPoiExport` (PR-EXPORT-2 Fase 3).
  *   - `supabase.from('locations').update(...).in('id', ids)` para bulk updates.
  */
 import React, { useMemo, useState } from 'react';
@@ -28,6 +28,7 @@ import {
   FileCode,
   FileSpreadsheet,
   FileJson,
+  Globe2,
   Map as MapIcon,
   Mountain,
   Plus,
@@ -68,34 +69,34 @@ import { useLocationsStore } from '@/domains/content';
 import { useAuth } from '@/domains/identity';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { exportToKML, exportToCSV, exportToJSON } from '@/lib/kml-parser';
+// NOTE: serializers ya no se importan aquí — pipeline canónico abajo.
 import {
-  partitionForExport,
   EXPORT_EXCLUSION_LABEL,
-  type ExportScope,
 } from '@/domains/content/lib/poi-export-eligibility';
 import {
+  runPoiExport,
+  downloadPoiExportBlob,
+  type PoiExportOrigin,
+} from '@/domains/content/lib/poi-export-pipeline';
+import {
+  PoiExportSizeError,
+  POI_EXPORT_SIZE_THRESHOLDS,
+  type PoiExportFormat,
+  type PoiExportScope,
+} from '@/domains/content/lib/poi-export-record';
+import { useExportTracking } from '@/hooks/use-export-tracking';
+import {
   GeoLocation,
-  ExportFormat,
   PLACE_TYPE_LABELS,
   PlaceType,
 } from '@/types/location';
 
 type ExportTarget = 'mymaps' | 'gurumaps' | 'general';
+const SELECTION_ORIGIN: PoiExportOrigin = 'selection';
 
 const PLACE_TYPES = Object.keys(PLACE_TYPE_LABELS) as PlaceType[];
 
-function downloadBlob(content: string, mimeType: string, filename: string) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
+// (downloadBlob legacy retirado — download lo hace `downloadPoiExportBlob`)
 
 export function SelectionActions() {
   const documents = useLocationsStore((s) => s.documents);
@@ -132,7 +133,8 @@ export function SelectionActions() {
   const [isWorking, setIsWorking] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [tagPopoverOpen, setTagPopoverOpen] = useState(false);
-  const [exportScope, setExportScope] = useState<ExportScope>('public');
+  const [exportScope, setExportScope] = useState<PoiExportScope>('public');
+  const { recordExport } = useExportTracking();
   const { user } = useAuth();
   const currentUserId = user?.id ?? null;
 
@@ -220,57 +222,85 @@ export function SelectionActions() {
     }
   };
 
-  // ---- 2. Exportar selección (PR-EXPORT-1: scope explícito siempre) ----
-  const handleExport = (format: ExportFormat, target: ExportTarget = 'general') => {
+  // ---- 2. Exportar selección (PR-EXPORT-2 pipeline canónico) ----
+  const handleExport = (format: PoiExportFormat, target: ExportTarget = 'general') => {
     if (resolvedLocations.length === 0) {
       toast.error('No hay puntos para exportar');
       return;
     }
+    const docName = selectedDocument?.name || 'seleccion';
     const ctx = { currentUserId };
-    const { eligible, excluded } = partitionForExport(resolvedLocations, exportScope, ctx);
-    if (eligible.length === 0) {
-      const summary = excluded
-        .slice(0, 3)
-        .map((e) => EXPORT_EXCLUSION_LABEL[e.reason])
-        .join(' · ');
-      toast.error(
-        exportScope === 'public'
-          ? `Ningún punto seleccionado es compartible. ${summary}`
-          : `Ningún punto exportable en modo interno (requiere ser del usuario actual). ${summary}`,
+
+    const exec = (confirmedOverWarn: boolean) =>
+      runPoiExport(
+        {
+          locations: resolvedLocations,
+          format,
+          scope: exportScope,
+          ctx,
+          documentName: docName,
+          target: format === 'kml' ? target : undefined,
+          origin: SELECTION_ORIGIN,
+        },
+        { confirmedOverWarn },
       );
-      return;
-    }
+
     try {
-      const docName = selectedDocument?.name || 'seleccion';
-      let content: string;
-      let mimeType: string;
-      let extension: string;
-      switch (format) {
-        case 'kml':
-          content = exportToKML(eligible, docName, target, exportScope, ctx, { scopeProvided: true });
-          mimeType = 'application/vnd.google-earth.kml+xml';
-          extension = 'kml';
-          break;
-        case 'csv':
-          content = exportToCSV(eligible, exportScope, ctx, { scopeProvided: true });
-          mimeType = 'text/csv';
-          extension = 'csv';
-          break;
-        case 'json':
-          content = exportToJSON(eligible, exportScope, ctx, { scopeProvided: true });
-          mimeType = 'application/json';
-          extension = 'json';
-          break;
+      let outcome = exec(false);
+
+      if (outcome.kind === 'no-eligible') {
+        const summary = outcome.partition.excluded
+          .slice(0, 3)
+          .map((e) => EXPORT_EXCLUSION_LABEL[e.reason])
+          .join(' · ');
+        toast.error(
+          exportScope === 'public'
+            ? `Ningún punto seleccionado es compartible. ${summary}`
+            : `Ningún punto exportable en modo interno (requiere ser del usuario actual). ${summary}`,
+        );
+        return;
       }
-      const targetSuffix = target !== 'general' ? `_${target}` : '';
-      const scopeSuffix = `_${exportScope}`;
-      const timestamp = new Date().toISOString().split('T')[0];
-      downloadBlob(content, mimeType, `${docName}_seleccion${scopeSuffix}${targetSuffix}_${timestamp}.${extension}`);
-      const excludedNote = excluded.length > 0 ? ` (${excluded.length} excluidos)` : '';
-      toast.success(`Exportados ${eligible.length} puntos en ${format.toUpperCase()}${excludedNote}`);
+      if (outcome.kind === 'warn-pending') {
+        const ok = window.confirm(
+          `Vas a exportar ${outcome.partition.eligibleCount} POIs (más de ${POI_EXPORT_SIZE_THRESHOLDS.warn}).\nEl archivo puede ser muy grande. ¿Continuar?`,
+        );
+        if (!ok) {
+          toast.message('Exportación cancelada');
+          return;
+        }
+        outcome = exec(true);
+        if (outcome.kind !== 'ok') {
+          toast.error('No se pudo ejecutar la exportación');
+          return;
+        }
+      }
+
+      downloadPoiExportBlob(outcome);
+      recordExport(format, target, outcome.exportedIds, {
+        scope: exportScope,
+        origin: SELECTION_ORIGIN,
+        excludedCount: outcome.excludedCount,
+        success: true,
+      });
+      const excludedNote =
+        outcome.excludedCount > 0 ? ` (${outcome.excludedCount} excluidos)` : '';
+      toast.success(
+        `Exportados ${outcome.eligibleCount} puntos en ${format.toUpperCase()}${excludedNote}`,
+      );
     } catch (err) {
-      console.error('Export error:', err);
-      toast.error('Error al exportar');
+      if (err instanceof PoiExportSizeError) {
+        toast.error(
+          `Export bloqueado: ${err.verdict.count} POIs supera el límite de ${err.verdict.thresholds.block}`,
+        );
+      } else {
+        console.error('Export error:', err);
+        toast.error('Error al exportar');
+      }
+      recordExport(format, target, [], {
+        scope: exportScope,
+        origin: SELECTION_ORIGIN,
+        success: false,
+      });
     }
   };
 
@@ -529,9 +559,13 @@ export function SelectionActions() {
               <FileSpreadsheet className="w-4 h-4 mr-2" />
               CSV
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('json')}>
+            <DropdownMenuItem onClick={() => handleExport('json')} data-export-format="json">
               <FileJson className="w-4 h-4 mr-2" />
               JSON
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExport('geojson')} data-export-format="geojson">
+              <Globe2 className="w-4 h-4 mr-2" />
+              GeoJSON
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
