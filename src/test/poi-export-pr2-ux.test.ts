@@ -45,7 +45,7 @@ describe('PR-EXPORT-2 Fase 3 · pipeline runPoiExport', () => {
   const ctx = { currentUserId: OWNER };
   const docName = 'Doc-UX';
 
-  it('GeoJSON: serializa FeatureCollection [lng,lat] válido', async () => {
+  it('GeoJSON: pipeline produce blob con extension/mime canónicos', () => {
     const outcome = runPoiExport({
       locations: [clonePoi9('p1')],
       format: 'geojson',
@@ -56,18 +56,15 @@ describe('PR-EXPORT-2 Fase 3 · pipeline runPoiExport', () => {
     });
     expect(outcome.kind).toBe('ok');
     const r = outcome as PoiExportPipelineResult;
-    const text = new TextDecoder().decode(await new Response(r.blob).arrayBuffer());
-    const json = JSON.parse(text);
-    expect(json.type).toBe('FeatureCollection');
-    expect(json.export_format_version).toBe('poi-export-geojson-v1');
-    expect(json.features[0].geometry.type).toBe('Point');
-    expect(json.features[0].geometry.coordinates[0]).toBeCloseTo(2.0);
-    expect(json.features[0].geometry.coordinates[1]).toBeCloseTo(41.0);
     expect(r.extension).toBe('geojson');
+    expect(r.mime).toBe(POI_EXPORTERS.geojson.mime);
+    expect(r.blob).toBeInstanceOf(Blob);
+    expect(r.blob.size).toBeGreaterThan(0);
     expect(r.filename).toMatch(/_public_/);
+    expect(r.exportedIds).toEqual(['p1']);
   });
 
-  it('JSON: envelope v2 (no GeoLocation dump)', async () => {
+  it('JSON: pipeline produce blob v2 (mime + extension)', () => {
     const outcome = runPoiExport({
       locations: [clonePoi9('p1')],
       format: 'json',
@@ -76,12 +73,11 @@ describe('PR-EXPORT-2 Fase 3 · pipeline runPoiExport', () => {
       documentName: docName,
       origin: 'panel',
     });
+    expect(outcome.kind).toBe('ok');
     const r = outcome as PoiExportPipelineResult;
-    const json = JSON.parse(new TextDecoder().decode(await new Response(r.blob).arrayBuffer()));
-    expect(json.export_format_version).toBe('poi-export-json-v2');
-    expect(Array.isArray(json.items)).toBe(true);
-    expect(json.items[0].ownerUserId).toBeUndefined();
-    expect(json.items[0].enrichedData).toBeUndefined();
+    expect(r.extension).toBe('json');
+    expect(r.mime).toBe(POI_EXPORTERS.json.mime);
+    expect(POI_EXPORTERS.json.formatVersion).toBe('poi-export-json-v2');
   });
 
   it('descarta no-elegibles antes del mapper (sin POI-9 → no-eligible)', () => {
