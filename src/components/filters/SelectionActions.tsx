@@ -569,9 +569,13 @@ export function SelectionActions() {
               <FileSpreadsheet className="w-4 h-4 mr-2" />
               CSV
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('json')}>
+            <DropdownMenuItem onClick={() => handleExport('json')} data-export-format="json">
               <FileJson className="w-4 h-4 mr-2" />
               JSON
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExport('geojson')} data-export-format="geojson">
+              <Globe2 className="w-4 h-4 mr-2" />
+              GeoJSON
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
