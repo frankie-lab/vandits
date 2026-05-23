@@ -27,6 +27,7 @@ import {
   type RunBudgetSnapshot,
   validateSeedConfig,
 } from "./budget.ts";
+import { recordPreDispatchSnapshot } from "./snapshot.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
