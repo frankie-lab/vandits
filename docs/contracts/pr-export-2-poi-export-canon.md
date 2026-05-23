@@ -255,7 +255,8 @@ Lista no exhaustiva de prohibidos por defecto:
 `customData` es un sobre abierto. **Nunca** se exporta entero.
 
 ```ts
-// Propuesta inicial — sujeta a §15
+// Allowlist inicial conservadora — decisión §15.1.
+// Cualquier campo adicional REQUIERE auditoría explícita antes de añadirse.
 export const CUSTOM_DATA_EXPORT_ALLOWLIST = {
   public: [
     'source',
@@ -266,7 +267,6 @@ export const CUSTOM_DATA_EXPORT_ALLOWLIST = {
     'source',
     'external_id',
     'user_label',
-    // futuros campos operativos previa revisión
   ] as const,
 };
 ```
@@ -277,7 +277,8 @@ Reglas:
 - Valores no serializables (functions, symbols, DOM nodes) → omitidos.
 - Estado personal (`visited`, `user_rating`) NO va en `customData`
   exportable. Personal state no influye en export (PR-EXPORT-1).
-- Nombres concretos se pulen tras revisión de datos reales (§15).
+- Ampliar el allowlist requiere auditoría documentada (no se permiten
+  añadidos ad-hoc en PR-EXPORT-2).
 
 ---
 
