@@ -66,9 +66,8 @@ export function FilterBar() {
   const documents = useLocationsStore(s => s.documents);
   
   const filteredLocations = useFilteredLocations();
-  // Universo SIN healthFilter aplicado: alimenta los counts de los chips
-  // del eje Salud para que no se canibalicen entre sí.
-  const filteredIgnoringHealth = useFilteredLocationsIgnoringHealth();
+  // Universo visible/autorizado SIN recortar por selección. Es la base canónica
+
   // Universo visible/autorizado SIN recortar por selección. Es la base canónica
   // de los denominadores T/Tm/Ts del contador y del desglose bucketStats —
   // garantiza que seleccionar no colapse los totales.
