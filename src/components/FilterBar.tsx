@@ -78,6 +78,31 @@ export function FilterBar() {
     [filteredLocations, user?.id],
   );
 
+  // Ownership ratios (X/T, Xm/Tm, Xs/Ts) — ver
+  // docs/audits/selection-counter-ownership-ratios-plan.md.
+  // Universo = filteredLocations (ya respeta filtros + búsqueda + healthFilter
+  // + is_approved + colecciones + RLS). Selección = selectedLocations ∩ U,
+  // recortada para evitar X > T cuando hay selección fuera del filtro.
+  const ownershipRatios = useMemo(() => {
+    const uid = user?.id ?? null;
+    const T = filteredLocations.length;
+    let Tm = 0;
+    let Xm = 0;
+    let X = 0;
+    for (const loc of filteredLocations as any[]) {
+      const ownerId = (loc.ownerUserId ?? loc._docUserId ?? null) as string | null;
+      const mine = !!uid && ownerId === uid;
+      if (mine) Tm += 1;
+      if (selectedLocations.has(loc.id)) {
+        X += 1;
+        if (mine) Xm += 1;
+      }
+    }
+    const Ts = T - Tm;
+    const Xs = X - Xm;
+    return { T, Tm, Ts, X, Xm, Xs };
+  }, [filteredLocations, selectedLocations, user?.id]);
+
   // Aviso "hidden by draft" eliminado: tras la nueva regla de visibilidad
   // (mem://logic/map/visibility-rule-rls-only) los documentos en borrador
   // ya NO ocultan sus puntos del mapa global. Status es solo metadato editorial.
