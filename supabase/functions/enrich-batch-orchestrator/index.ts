@@ -571,12 +571,16 @@ async function handleStart(req: Request, client: any, rpcClient: any, authHeader
   }
 
   // Phase B pilot guard: live dispatches require strict scope cap.
+  // Raised 50→250 to enable Pilot-100 and subsequent 250-item drain tandas
+  // (per escalation policy approved 2026-05-23). Stop conditions, watchdog
+  // and snapshot idempotency remain unchanged; operator still bounds each
+  // run via max_ai_calls in the seed payload.
   if (!dryRun) {
-    if ((run.scope_count ?? 0) > 50) {
-      return json({ error: "phase_b_pilot_scope_cap", limit: 50, actual: run.scope_count }, 403);
+    if ((run.scope_count ?? 0) > 250) {
+      return json({ error: "phase_b_pilot_scope_cap", limit: 250, actual: run.scope_count }, 403);
     }
-    if ((run.max_ai_calls ?? 0) > 50) {
-      return json({ error: "phase_b_pilot_max_ai_calls_cap", limit: 50, actual: run.max_ai_calls }, 403);
+    if ((run.max_ai_calls ?? 0) > 250) {
+      return json({ error: "phase_b_pilot_max_ai_calls_cap", limit: 250, actual: run.max_ai_calls }, 403);
     }
   }
 
