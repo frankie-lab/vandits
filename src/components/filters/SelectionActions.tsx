@@ -7,7 +7,7 @@
  *
  * Reutiliza:
  *   - edge function `batch-enrich` (mismo contrato que BatchEnrichmentPanel).
- *   - helpers `exportToKML / exportToCSV / exportToJSON` de `@/lib/kml-parser`.
+ *   - pipeline canónico `runPoiExport` (PR-EXPORT-2 Fase 3).
  *   - `supabase.from('locations').update(...).in('id', ids)` para bulk updates.
  */
 import React, { useMemo, useState } from 'react';
