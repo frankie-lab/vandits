@@ -296,11 +296,11 @@ export function FilterBar() {
  </div>
  </div>
 
-  {/* Warning when filters are very restrictive */}
+  {/* Warning when filters are very restrictive — secundario, no compite con la selección */}
   {filterReductionWarning && (
-  <div className="flex items-center gap-2 text-xs bg-amber-100 text-amber-800 rounded-md px-2 py-1.5">
-  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-  <span>Los filtros activos muestran solo {Math.round(filteredCount/stats.total*100)}% del total</span>
+  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground px-2 py-1">
+  <AlertTriangle className="w-3 h-3 shrink-0 text-amber-500/70" />
+  <span>Filtros activos: mostrando {Math.round(filteredCount/stats.total*100)}% del total</span>
   </div>
   )}
 
