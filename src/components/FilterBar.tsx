@@ -72,7 +72,9 @@ export function FilterBar() {
   } = useLocationsStore();
 
   const getAllLocations = useLocationsStore(s => s.getAllLocations);
+  const getVisibleUniverseLocations = useLocationsStore(s => s.getVisibleUniverseLocations);
   const documents = useLocationsStore(s => s.documents);
+  const detachedVisibleLocations = useLocationsStore(s => s.detachedVisibleLocations);
   
   const filteredLocations = useFilteredLocations();
   // Universo visible/autorizado SIN recortar por selección. Es la base canónica
