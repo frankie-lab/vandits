@@ -98,6 +98,18 @@ const App = () => (
             <Route path=":tab" element={<AdminRoutePage />} />
           </Route>
 
+          {/* TEMPORARY MAINTENANCE TOOL — /admin/dev/poi-p2-runner.
+              Master-only + run_internal_tooling. Hidden from menus.
+              Remove or keep hidden after P2 backlog is drained. */}
+          <Route
+            path="/admin/dev/poi-p2-runner"
+            element={
+              <ProtectedRoute>
+                <PoiP2RunnerPage />
+              </ProtectedRoute>
+            }
+          />
+
  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
  <Route path="*" element={<NotFound />} />
  </Routes>
