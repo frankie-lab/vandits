@@ -250,12 +250,10 @@ export function FilterBar() {
       ? (maintainTab === 'debt' ? 'debt' : 'unenriched')
       : 'all';
 
-  const allLocationsForUniverse = useMemo(
-    () => getAllLocations(),
-    // Reactivo a cambios reales del store (documentos / locations).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [getAllLocations, documents],
-  );
+  // SoT del universo activo: misma fuente que `curationBuckets` y que los
+  // 4 árboles vía UniverseBaseProvider. Garantiza
+  //   subtab = CTA = Σ raíces árbol = universeBase.length.
+  const allLocationsForUniverse = allLocationsForUniverseSource;
 
   // Universo base resuelto + set de ids para intersecciones O(1).
   const universeBaseLocations = useMemo(
@@ -270,14 +268,16 @@ export function FilterBar() {
   // effectiveActionSet (plan §1, ajuste obligatorio):
   //   userSelection no vacía → universeBase ∩ treeSelection ∩ userSelection
   //   userSelection vacía    → universeBase ∩ treeSelection
-  // `filteredLocations` ya aplica treeSelection (geo/tipo/tags/búsqueda). Lo
-  // intersectamos con universeBase. Para userSelection, sumamos el recorte
-  // sólo cuando existe.
+  // PARTIMOS de universeBase (no de filteredLocations) y aplicamos los ejes
+  // del árbol vía matchesLocationFilters con includeHealth=false (el universo
+  // ya codifica deuda/no-enriquecido; no debe re-aplicarse).
   const effectiveActionSet = useMemo(() => {
-    const base = filteredLocations.filter((l) => universeBaseIds.has(l.id));
-    if (selectedLocations.size === 0) return base;
-    return base.filter((l) => selectedLocations.has(l.id));
-  }, [filteredLocations, universeBaseIds, selectedLocations]);
+    const treeFiltered = universeBaseLocations.filter((l) =>
+      matchesLocationFilters(l as any, filters, { includeHealth: false }),
+    );
+    if (selectedLocations.size === 0) return treeFiltered;
+    return treeFiltered.filter((l) => selectedLocations.has(l.id));
+  }, [universeBaseLocations, filters, selectedLocations]);
 
   // Universo del contador superior: refleja universeBase activo (plan §5).
   const universeForCounter = useMemo(
