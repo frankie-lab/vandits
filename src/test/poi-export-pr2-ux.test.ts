@@ -47,7 +47,7 @@ describe('PR-EXPORT-2 Fase 3 · pipeline runPoiExport', () => {
 
   it('GeoJSON: serializa FeatureCollection [lng,lat] válido', async () => {
     const outcome = runPoiExport({
-      locations: [poi('p1', { enriched: true })],
+      locations: [clonePoi9('p1')],
       format: 'geojson',
       scope: 'public',
       ctx,
@@ -69,7 +69,7 @@ describe('PR-EXPORT-2 Fase 3 · pipeline runPoiExport', () => {
 
   it('JSON: envelope v2 (no GeoLocation dump)', async () => {
     const outcome = runPoiExport({
-      locations: [poi('p1', { enriched: true })],
+      locations: [clonePoi9('p1')],
       format: 'json',
       scope: 'public',
       ctx,
@@ -86,7 +86,7 @@ describe('PR-EXPORT-2 Fase 3 · pipeline runPoiExport', () => {
 
   it('descarta no-elegibles antes del mapper (sin POI-9 → no-eligible)', () => {
     const outcome = runPoiExport({
-      locations: [poi('p1', { enriched: false })],
+      locations: [clonePoi5('p1')],
       format: 'csv',
       scope: 'public',
       ctx,
@@ -97,7 +97,7 @@ describe('PR-EXPORT-2 Fase 3 · pipeline runPoiExport', () => {
   });
 
   it('warn-pending sobre 5000 sin confirmación', () => {
-    const locs = Array.from({ length: 5001 }, (_, i) => poi(`p${i}`, { enriched: true }));
+    const locs = Array.from({ length: 5001 }, (_, i) => clonePoi9(`p${i}`));
     const outcome = runPoiExport(
       { locations: locs, format: 'csv', scope: 'public', ctx, documentName: docName, origin: 'panel' },
       { confirmedOverWarn: false },
@@ -106,7 +106,7 @@ describe('PR-EXPORT-2 Fase 3 · pipeline runPoiExport', () => {
   });
 
   it('block sobre 10000 (PoiExportSizeError) incluso con confirmedOverWarn', () => {
-    const locs = Array.from({ length: 10001 }, (_, i) => poi(`p${i}`, { enriched: true }));
+    const locs = Array.from({ length: 10001 }, (_, i) => clonePoi9(`p${i}`));
     expect(() =>
       runPoiExport(
         { locations: locs, format: 'csv', scope: 'public', ctx, documentName: docName, origin: 'panel' },
@@ -117,7 +117,7 @@ describe('PR-EXPORT-2 Fase 3 · pipeline runPoiExport', () => {
 
   it('preview expone eligibleCount / excludedCount / sizeVerdict', () => {
     const p = previewPoiExport({
-      locations: [poi('a', { enriched: true }), poi('b', { enriched: false })],
+      locations: [clonePoi9('a'), clonePoi5('b')],
       format: 'csv',
       scope: 'public',
       ctx,
