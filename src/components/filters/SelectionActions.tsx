@@ -28,6 +28,7 @@ import {
   FileCode,
   FileSpreadsheet,
   FileJson,
+  Globe2,
   Map as MapIcon,
   Mountain,
   Plus,
