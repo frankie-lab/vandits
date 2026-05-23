@@ -254,14 +254,18 @@ export function FilterBar() {
         </>
       )}
     </div>
-    <div className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
+    <div className="text-xs text-muted-foreground mt-1 leading-tight">
       {selectedCount > 0 ? (
         <>
-          <span className="text-emerald-600 font-medium">Míos</span>{' '}
-          {COUNT_FORMATTER.format(ownershipRatios.Xm)} / {COUNT_FORMATTER.format(ownershipRatios.Tm)}
+          <span className="font-semibold tabular-nums text-foreground">
+            {COUNT_FORMATTER.format(ownershipRatios.Xm)} / {COUNT_FORMATTER.format(ownershipRatios.Tm)}
+          </span>{' '}
+          <span className="text-emerald-600 font-medium">Míos</span>
           {' · '}
-          <span className="text-sky-600 font-medium">Seguidos</span>{' '}
-          {COUNT_FORMATTER.format(ownershipRatios.Xs)} / {COUNT_FORMATTER.format(ownershipRatios.Ts)}
+          <span className="font-semibold tabular-nums text-foreground">
+            {COUNT_FORMATTER.format(ownershipRatios.Xs)} / {COUNT_FORMATTER.format(ownershipRatios.Ts)}
+          </span>{' '}
+          <span className="text-sky-600 font-medium">Seguidos</span>
         </>
       ) : (
         <>
