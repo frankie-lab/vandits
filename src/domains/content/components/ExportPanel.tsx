@@ -167,8 +167,8 @@ export function ExportPanel({ source = null }: ExportPanelProps = {}) {
     format: PoiExportFormat,
     target: KmlTarget = 'general',
   ) => {
-    if (!selectedDocument) {
-      toast.error('No hay documento seleccionado');
+    if (candidateLocations.length === 0) {
+      toast.error('No hay POIs para exportar');
       return;
     }
     if (internalDisabled) {
@@ -182,6 +182,10 @@ export function ExportPanel({ source = null }: ExportPanelProps = {}) {
 
     setIsExporting(true);
     try {
+      const docName =
+        source?.label ||
+        selectedDocument?.name ||
+        (resolution.origin === 'selection' ? 'seleccion' : 'export');
       const exec = (confirmedOverWarn: boolean) =>
         runPoiExport(
           {
@@ -189,7 +193,7 @@ export function ExportPanel({ source = null }: ExportPanelProps = {}) {
             format,
             scope,
             ctx: { currentUserId },
-            documentName: selectedDocument.name,
+            documentName: docName,
             target: format === 'kml' ? target : undefined,
             origin: ORIGIN,
           },
