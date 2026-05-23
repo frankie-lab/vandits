@@ -97,6 +97,10 @@ export function InternalToolsPanel() {
       data-internal-registry="v1"
       className="flex-1 min-h-0 flex flex-col gap-3 overflow-y-auto bg-muted/30 p-4"
     >
+      {/* P2 Auto-Enrich quick-access (temporary). Hidden from product nav;
+          visible only to holders of `run_internal_tooling` (master). */}
+      <PoiP2RunnerButton />
+
       {/* Registry table — sin card introductoria; el PanelEffectHeader ya marca
           "internal / read-only" arriba. Densidad técnica deliberada. */}
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground/70 px-1 flex items-center gap-2">
