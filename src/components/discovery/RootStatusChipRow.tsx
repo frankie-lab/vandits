@@ -124,6 +124,7 @@ export function RootStatusChipRow({
       {LETTERS.map((letter) => {
         const isActive = active.includes(letter);
         const count = counts[letter];
+        if (count === 0 && !isActive) return null;
         const label = LETTER_LABEL[letter];
         return (
           <button
