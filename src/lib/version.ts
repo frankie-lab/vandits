@@ -1,9 +1,9 @@
 // VANDITS Application Version
-// v1.1.1 - April 2026
+// v1.4.1 - May 2026
 
-export const APP_VERSION = '1.1.1';
+export const APP_VERSION = '1.4.1';
 export const APP_NAME = 'VANDITS';
-export const APP_BUILD_DATE = '2026-04-19';
+export const APP_BUILD_DATE = '2026-05-24';
 
 export const VERSION_INFO = {
   version: APP_VERSION,
