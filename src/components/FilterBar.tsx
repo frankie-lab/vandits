@@ -9,7 +9,7 @@ import { useLocationsStore } from '@/domains/content';
 import { useFilteredLocations, useFilteredUniverseIgnoringSelection, useEnrichedStats } from '@/domains/content/hooks/use-filtered-locations';
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
 import { getBucketStats } from '@/domains/content/lib/location-bucket';
-import { useAuth } from '@/domains/identity';
+import { useAuth, useCapability } from '@/domains/identity';
 // matchesLocationFilters import removed — was only used by the deleted hiddenByDraft notice
 import { supabase } from '@/integrations/supabase/client';
 
@@ -773,6 +773,10 @@ function DebtAwareFooter({
     [activeSet, hasUserSelection],
   );
 
+  // PR-INLINE-3.1 — capabilities para Geo Maintenance handoff desde footer.
+  const canViewGeoMaintenance = useCapability('view_geo_maintenance').allowed;
+  const canRunGeoBackfill = useCapability('run_geo_backfill').allowed;
+
   return (
     <>
       <EffectiveActionFooter
@@ -785,13 +789,17 @@ function DebtAwareFooter({
           mode === 'debt'
             ? () => {
                 // PR-INLINE-3: abre SOLO el modal de confirmación.
-                // NO abrir DebtResolutionPanel — sacado del flujo principal.
+                // PR-INLINE-3.1: el footer solo invoca onResolveDebt si
+                // repairableCount > 0 — no se abre modal sin reparables.
                 setDebtModalOpen(true);
               }
             : undefined
         }
         onSelectAll={handleSelectAllInMode}
+        canViewGeoMaintenance={canViewGeoMaintenance}
+        canRunGeoBackfill={canRunGeoBackfill}
       />
+
 
       {mode === 'debt' && (
         <HealthRepairPreviewDialog
