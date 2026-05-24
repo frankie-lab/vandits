@@ -153,7 +153,7 @@ describe('PR-INLINE-3.1 — footer sin reparables no abre HealthRepairPreviewDia
 
   it('4. Más acciones incluye Geo Maintenance B (si hay B + capability) y Abrir en mapa', () => {
     mount({ ids: ['b1', 'b2', 'c1'], canView: true, canRun: true });
-    fireEvent.click(screen.getByTestId('footer-more-actions'));
+    openMenu();
     expect(screen.getByTestId('footer-menu-geo-maintenance-b')).toBeInTheDocument();
     expect(screen.getByTestId('footer-menu-focus-map')).toBeInTheDocument();
     expect(screen.getByTestId('footer-menu-export-non-repairable')).toBeInTheDocument();
@@ -161,7 +161,7 @@ describe('PR-INLINE-3.1 — footer sin reparables no abre HealthRepairPreviewDia
 
   it('5. Abrir en mapa usa requestSubsetFit (helper canónico) con reason canon', () => {
     mount({ ids: ['b1', 'c1'], canView: false, canRun: false });
-    fireEvent.click(screen.getByTestId('footer-more-actions'));
+    openMenu();
     fireEvent.click(screen.getByTestId('footer-menu-focus-map'));
     expect(requestSubsetFitMock).toHaveBeenCalledTimes(1);
     expect(requestSubsetFitMock.mock.calls[0][0]).toEqual(['b1', 'c1']);
@@ -192,7 +192,7 @@ describe('PR-INLINE-3.1 — footer sin reparables no abre HealthRepairPreviewDia
     mount({ ids: ['b1', 'c1', 'a1'], canView: true, canRun: true, onResolveDebt });
     // Cualquier click razonable en footer no debe invocar onResolveDebt.
     fireEvent.click(screen.getByTestId('footer-primary-export'));
-    fireEvent.click(screen.getByTestId('footer-more-actions'));
+    openMenu();
     fireEvent.click(screen.getByTestId('footer-menu-focus-map'));
     expect(onResolveDebt).not.toHaveBeenCalled();
   });
@@ -200,7 +200,7 @@ describe('PR-INLINE-3.1 — footer sin reparables no abre HealthRepairPreviewDia
   it('8. 0 reparables → supabase.rpc NUNCA se invoca', () => {
     mount({ ids: ['b1', 'c1', 'a1'], canView: true, canRun: true });
     fireEvent.click(screen.getByTestId('footer-primary-export'));
-    fireEvent.click(screen.getByTestId('footer-more-actions'));
+    openMenu();
     fireEvent.click(screen.getByTestId('footer-menu-focus-map'));
     expect(rpcMock).not.toHaveBeenCalled();
   });
@@ -224,7 +224,7 @@ describe('PR-INLINE-3.1 — footer sin reparables no abre HealthRepairPreviewDia
     });
     // Con reparables, la opción "Exportar no reparables" NO está visible
     // (showDebtExtras requiere repairableCount === 0).
-    fireEvent.click(screen.getByTestId('footer-more-actions'));
+    openMenu();
     expect(screen.queryByTestId('footer-menu-export-non-repairable')).toBeNull();
     dispatchSpy.mockRestore();
   });
@@ -232,7 +232,7 @@ describe('PR-INLINE-3.1 — footer sin reparables no abre HealthRepairPreviewDia
   it('11. 0 reparables: "Exportar no reparables" emite event SIN incluir D+partial/chain', () => {
     const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
     mount({ ids: ['b1', 'b2', 'c1', 'a1'], canView: false, canRun: false });
-    fireEvent.click(screen.getByTestId('footer-more-actions'));
+    openMenu();
     fireEvent.click(screen.getByTestId('footer-menu-export-non-repairable'));
     const calls = dispatchSpy.mock.calls
       .map((c) => c[0])
