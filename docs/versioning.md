@@ -88,34 +88,46 @@ Ejemplos:
 
 ## Fuentes de verdad
 
-Toda versión publicada debe estar reflejada de forma consistente en:
+**Single Source of Truth (SoT) canónica de la versión publicada:**
 
-- `package.json` (`"version"`).
-- `src/lib/app-version.ts` (`APP_VERSION` / `APP_VERSION_LABEL`).
-- `README.md` (título, badges y sección de estado).
-- README changelog section or `CHANGELOG.md` if/when extracted.
-- `docs/releases/version-history.md`.
-- `docs/tech-debt.md` cuando el release resuelva o cree deuda.
+```
+src/lib/app-version.ts → APP_VERSION
+```
 
-La versión visible en el UX principal se muestra debajo del logo VANDITS y
-debe salir de `src/lib/app-version.ts`. En cualquier release real,
-`APP_VERSION`, `package.json`, README y `docs/releases/version-history.md`
-deben actualizarse juntos. No se permite hardcodear `vX.Y.Z` en componentes
-de UI: deben consumir `APP_VERSION` / `APP_VERSION_LABEL`.
+Todas las demás superficies se derivan o se validan contra ella:
 
-Divergencia entre estas fuentes es deuda técnica documentada en
-`docs/tech-debt.md` (ítem 1).
+| Superficie | Regla |
+|---|---|
+| `package.json` → `version` | Debe coincidir con `APP_VERSION`. |
+| `README.md` título `# VANDITS vX.Y.Z` | Debe coincidir con `APP_VERSION`. |
+| `README.md` badge `VANDITS-vX.Y.Z-blue` | Debe coincidir con `APP_VERSION`. |
+| `README.md` sección Changelog (entrada superior `### vX.Y.Z`) | Debe coincidir con `APP_VERSION`. |
+| `docs/releases/version-history.md` fila inferior del árbol `1.x` | Debe coincidir con `APP_VERSION`. |
+| `docs/tech-debt.md` | Se actualiza solo si el release resuelve o crea deuda. |
 
----
+**Enforcement automático**: el contract test
+`src/test/version-parity.test.ts` (corre en `unit.yml`, sin secrets) hace
+build rojo ante cualquier divergencia, incluida la reintroducción de
+literales `vX.Y.Z` hardcodeados en `src/lib/version.ts` (regresión
+histórica que arrastraba `v1.1.1`).
 
-## Checklist de release
+**Cómo hacer un bump**: NUNCA editar `APP_VERSION` ni el README a mano.
+Usar el script idempotente:
 
-- [ ] `package.json` actualizado si hay release real.
-- [ ] README actualizado si cambia la versión pública.
-- [ ] README changelog section or `CHANGELOG.md` if/when extracted, actualizado.
-- [ ] `docs/releases/version-history.md` actualizado si aparece nuevo hito.
-- [ ] `docs/tech-debt.md` actualizado si se resuelve o crea deuda técnica.
-- [ ] Tests/lint documentados si no pasan por deuda preexistente.
+```text
+bun scripts/release/bump-version.ts <patch|minor|major> "PR-XYZ — nota"
+```
+
+El script actualiza atómicamente los 4 ficheros y deja indicado el
+comando `git tag` que el operador debe ejecutar (los tags se crean fuera
+de Lovable).
+
+La versión visible en el UX principal se muestra debajo del logo VANDITS
+y debe consumir `APP_VERSION` / `APP_VERSION_LABEL`. Está PROHIBIDO
+hardcodear `vX.Y.Z` en componentes de UI o en cualquier fichero de
+`src/lib/version.ts`.
+
+
 
 ---
 
