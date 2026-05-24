@@ -104,12 +104,22 @@ describe('PR-COUNTS-2 — source-level guard (BLOQUEANTE)', () => {
   });
 
   it('subtab y header comparten EXACTAMENTE la misma fuente (allLocationsForUniverseSource)', () => {
-    // Ambos call sites deben pasar el mismo identificador.
+    // Ambos call sites deben resolver al MISMO array. Hoy: el header usa
+    // `allLocationsForUniverse` y el subtab usa `allLocationsForUniverseSource`,
+    // pero existe el alias `const allLocationsForUniverse = allLocationsForUniverseSource;`
+    // que garantiza identidad referencial.
     const subtabSource = /resolveUniverseBase\(\s*['"]debt['"]\s*,\s*([A-Za-z_$][\w$]*)/.exec(src);
     const headerSource = /resolveUniverseBase\(\s*activeModeUniverse\s*,\s*([A-Za-z_$][\w$]*)/.exec(src);
     expect(subtabSource?.[1]).toBeTruthy();
     expect(headerSource?.[1]).toBeTruthy();
-    expect(subtabSource?.[1]).toBe(headerSource?.[1]);
+    const subId = subtabSource![1];
+    const hdrId = headerSource![1];
+    if (subId !== hdrId) {
+      // Debe existir alias directo en una de las dos direcciones.
+      const aliasA = new RegExp(`const\\s+${hdrId}\\s*=\\s*${subId}\\b`);
+      const aliasB = new RegExp(`const\\s+${subId}\\s*=\\s*${hdrId}\\b`);
+      expect(aliasA.test(src) || aliasB.test(src)).toBe(true);
+    }
   });
 
   it('no reaparece getVisibleUniverseLocations como fuente de subtab/header', () => {
