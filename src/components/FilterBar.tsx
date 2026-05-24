@@ -94,29 +94,12 @@ export function FilterBar() {
   );
 
   // Ownership ratios (X/T, Xm/Tm, Xs/Ts) — ver
-  // docs/audits/selection-counter-ownership-ratios-plan.md.
-  // Denominadores T/Tm/Ts = `filteredUniverse` (sin recorte por selección).
-  // Numeradores X/Xm/Xs = intersección selección ∩ universo (ids fuera del
-  // universo no inflan X).
-  const ownershipRatios = useMemo(() => {
-    const uid = user?.id ?? null;
-    const T = filteredUniverse.length;
-    let Tm = 0;
-    let Xm = 0;
-    let X = 0;
-    for (const loc of filteredUniverse as any[]) {
-      const ownerId = (loc.ownerUserId ?? loc._docUserId ?? null) as string | null;
-      const mine = !!uid && ownerId === uid;
-      if (mine) Tm += 1;
-      if (selectedLocations.has(loc.id)) {
-        X += 1;
-        if (mine) Xm += 1;
-      }
-    }
-    const Ts = T - Tm;
-    const Xs = X - Xm;
-    return { T, Tm, Ts, X, Xm, Xs };
-  }, [filteredUniverse, selectedLocations, user?.id]);
+  // docs/audits/search-filter-selection-state-cross-mode-postflight.md.
+  // BLOQUEANTE (regla A): X y T se calculan SIEMPRE sobre el universeBase
+  // del modo activo, NUNCA sobre `filteredUniverse`. Esto garantiza que la
+  // selección de otro modo NO se contamine en el header al cambiar de pestaña.
+  // La derivación real vive más abajo (necesita `universeBaseLocations`).
+
 
   // Aviso "hidden by draft" eliminado: tras la nueva regla de visibilidad
   // (mem://logic/map/visibility-rule-rls-only) los documentos en borrador
