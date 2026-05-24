@@ -719,7 +719,7 @@ export function FilterBar() {
         <PlaceTypeFilter />
       </TabsContent>
     </Tabs>
-    <DebtSelectionStatusBar />
+    {/* DebtSelectionStatusBar movido a la fila superior (PR-MAINTAIN-FOOTER-2) */}
    </>
   </>
   </>
