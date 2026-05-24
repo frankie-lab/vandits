@@ -173,6 +173,29 @@ export function GeographyBackfillPanel() {
   const [loadingUniverse, setLoadingUniverse] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  // PR-ROOT-STATUS-B · Handoff scoped (preview-confirm requerido).
+  const [handoff, setHandoff] = useState<GeoMaintenanceHandoffPayload | null>(null);
+  const handoffAppliedAtRef = useRef<number>(0);
+  useEffect(() => {
+    // Drena pending al montar (caso: el evento se despachó antes del mount).
+    const pending = consumePendingGeoMaintenanceHandoff();
+    if (pending) setHandoff(pending);
+    // Suscribe a futuros eventos mientras el panel esté montado.
+    return subscribeGeoMaintenanceHandoff((payload) => setHandoff(payload));
+  }, []);
+  // Aplica el handoff a `selectedIds` cuando llega o cuando cambia el universo.
+  // Tras-reset por user/mode change, vuelve a re-aplicar si el handoff sigue vivo.
+  useEffect(() => {
+    if (!handoff || handoff.locationIds.length === 0) return;
+    if (handoff.emittedAt === handoffAppliedAtRef.current) return;
+    setSelectedIds(new Set(handoff.locationIds));
+    handoffAppliedAtRef.current = handoff.emittedAt;
+  }, [handoff, mode]);
+  const clearHandoff = useCallback(() => {
+    setHandoff(null);
+    setSelectedIds(new Set());
+  }, []);
+
   const healthFilter = useMemo(() => modeToHealthFilter(mode), [mode]);
   const universeTotal = useMemo(() => sumByHealth(summary, healthFilter), [summary, healthFilter]);
 
