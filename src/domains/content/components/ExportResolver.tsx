@@ -235,6 +235,17 @@ export function ExportResolverBody({
     return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
   }, [preview.excluded]);
 
+  // PR-EXPORT-4: contadores derivados por scope.
+  const foreignCount = useMemo(
+    () => preview.excluded.filter((e) => e.reason === 'not-owner').length,
+    [preview.excluded],
+  );
+  const technicalCount = useMemo(
+    () => preview.excluded.filter((e) => e.reason !== 'not-owner').length,
+    [preview.excluded],
+  );
+  const scopeCopy = scope === 'internal' ? SCOPE_COPY.internal : SCOPE_COPY.public;
+
   const internalDisabled = scope === 'internal' && !currentUserId;
   const sizeLevel = preview.sizeVerdict.level;
   const isLarge = sizeLevel === 'warn';
