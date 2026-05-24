@@ -505,38 +505,21 @@ export function FilterBar() {
    <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1 pb-2">
     {/* Stats bar with prominent filter summary */}
     <div className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg p-3 space-y-2">
-  {/* Result count - formato unificado X / Y etiqueta en ambos estados */}
-   <div className="flex items-center justify-between">
-   <div className="flex flex-col">
-     <div className="flex items-center gap-2">
-       <span className="text-lg font-semibold leading-none tabular-nums">
-         <span className="text-primary">{COUNT_FORMATTER.format(ownershipRatios.X)}</span>
-         <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(ownershipRatios.T)}</span>
-       </span>
-       <span className="text-sm text-muted-foreground leading-none">seleccionados{universeLabel ? ` (${universeLabel})` : ''}</span>
-     </div>
-     <div className="text-xs mt-1 leading-tight">
-       <span className="font-semibold tabular-nums">
-         <span className="text-primary">{COUNT_FORMATTER.format(ownershipRatios.Xm)}</span>
-         <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(ownershipRatios.Tm)}</span>
-       </span>{' '}
-       <span className="text-emerald-600 font-medium">Míos</span>
-       {' · '}
-       <span className="font-semibold tabular-nums">
-         <span className="text-primary">{COUNT_FORMATTER.format(ownershipRatios.Xs)}</span>
-         <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(ownershipRatios.Ts)}</span>
-       </span>{' '}
-       <span className="text-sky-600 font-medium">Seguidos</span>
-     </div>
-   </div>
-    <TopCounterSelectionControls
-      hasUserSelection={hasUserSelection}
-      canSelect={effectiveActionSet.length > 0}
-      onSelectAll={handleSelectAllInMode}
-      onClearGlobal={clearSelection}
-    />
-
+  {/* Fila de contadores canónica única (PR-MAINTAIN-FOOTER-2) */}
+  <TopCounterRow
+    T={ownershipRatios.T}
+    Tm={ownershipRatios.Tm}
+    Ts={ownershipRatios.Ts}
+    globalX={ownershipRatios.X}
+    globalXm={ownershipRatios.Xm}
+    globalXs={ownershipRatios.Xs}
+    universeLabel={universeLabel}
+    canSelect={effectiveActionSet.length > 0}
+    onSelectAll={handleSelectAllInMode}
+    onClearGlobal={clearSelection}
+  />
  </div>
+
 
   {/* Aviso de filtros restrictivos eliminado: aparecía/desaparecía según umbral y rompía la altura de la fila. */}
 
