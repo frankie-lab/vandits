@@ -1,130 +1,134 @@
-# PR-EXPORT-3 — Export Resolver UX
-
 ## Objetivo
-Sustituir la UX actual de export de POIs (ExportPanel + bloque de export dentro de SelectionActions, ambos con `window.confirm` agresivo) por un único componente `<ExportResolver>` que sienta el export como gestión legítima de datos propios, manteniendo intacto el pipeline canónico (`evaluatePoiExport`, `partitionForExport`, `runPoiExport`, serializers, scopes, thresholds 5k/10k, DTO, RLS, share contract).
+Corregir la UX de exportación para que exportar POIs propios sea una acción legítima, clara y amable, y para que el flujo real cumpla el canon ya documentado.
 
-## Alcance estricto
-Sólo UX y wiring. Ningún cambio en:
-- `poi-export-eligibility.ts` (helpers, scopes, razones)
-- `poi-export-pipeline.ts` (partition, sizeVerdict, runPoiExport)
-- `exporters/*` (KML/CSV/JSON/GeoJSON)
-- `kml-parser.ts` defensive gate
-- contrato `docs/contracts/poi-export-contract.md` (PR-EXPORT-1)
-- RLS, edge functions, schema
+## Diagnóstico real del repo
+El problema que reportas es correcto: la UX nueva no es la única surface activa.
 
-## Arquitectura propuesta
+### Estado actual encontrado
+- `src/domains/content/components/ExportResolver.tsx`
+  - Sí implementa una UX amistosa base.
+  - No usa `typed-token` ni `window.confirm`.
+  - Respeta formatos reales desde `POI_EXPORTERS`.
+  - Muestra copy de propiedad: "Vandits creará una copia portable...".
+- `src/domains/content/components/ExportPanel.tsx`
+  - Ya delega en `ExportResolverBody`.
+- `src/components/filters/SelectionActions.tsx`
+  - Ya delega en `ExportResolverDialog`.
+- `src/components/filters/EffectiveActionFooter.tsx`
+  - Sigue teniendo el flujo legacy prohibido.
+  - Mantiene `DestructiveConfirmDialog` con token `EXPORTAR`.
+  - Mantiene threshold propio `EXPORT_CONFIRM_THRESHOLD = 250`.
+  - Abre export sólo después de una confirmación agresiva.
+  - Este es el incumplimiento principal del PR.
+- `src/pages/Index.tsx`
+  - El evento `lovable:open-export-panel` sigue abriendo el diálogo con `ExportPanel`, así que el footer legacy termina entrando tarde al resolver, pero pasando antes por la confirmación punitiva.
 
-### 1. Nuevo componente único
-`src/domains/content/components/ExportResolver.tsx`
+### Conclusión
+Hoy conviven dos capas:
+1. una UX nueva correcta en `ExportResolver`
+2. un gate legacy agresivo en `EffectiveActionFooter`
 
-Props:
-```
-{
-  open, onOpenChange,
-  source: { kind: 'selection'|'filters'|'collection'|'explicit',
-            label: string,
-            locations: GeoLocation[],
-            collection?: { id; name; description? } },
-  initialScope?: 'public'|'internal',  // default 'internal'
-  initialFormat?: 'kml'|'csv'|'json'|'geojson',
-  kmlTarget?: 'general'|'mymaps'|'gurumaps',
-}
-```
+Por eso el usuario sigue viendo una experiencia de exportación sospechosa aunque parte del refactor sí existe.
 
-Internamente usa `previewPoiExport(...)` (ya existe en pipeline) para todas las cifras y `runPoiExport(...)` + `downloadPoiExportBlob(...)` para ejecutar. Registra vía `useExportTracking().recordExport(...)` con `meta.origin = source.kind`.
+## Plan de corrección
 
-### 2. Estructura visual (un único Dialog)
+### 1. Eliminar por completo la confirmación destructiva del path de export
+Quitar en `EffectiveActionFooter` todo lo específico de export que contradice el canon:
+- `EXPORT_CONFIRM_THRESHOLD = 250`
+- estado `confirmExport`
+- `DestructiveConfirmDialog` con token `EXPORTAR`
+- cualquier copy de "confirmar exportación grande"
 
+Resultado esperado:
+- pulsar “Exportar” abre directamente el flujo de exportación,
+- sin typed-token,
+- sin confirmación punitiva,
+- sin semántica de peligro.
+
+### 2. Hacer que ExportResolver sea la SoT visual real en todos los entry points
+Mantener el patrón ya empezado y cerrarlo del todo:
+- `ExportPanel` sigue como wrapper inline de `ExportResolverBody`
+- `SelectionActions` sigue usando `ExportResolverDialog`
+- `EffectiveActionFooter` deja de tener una UX propia de confirmación y se limita a abrir el resolver mediante el evento existente
+
+Resultado esperado:
+- un único lenguaje,
+- un único comportamiento,
+- un único sistema de thresholds percibidos por el usuario.
+
+### 3. Alinear la UX visible con los thresholds canónicos reales
+Respetar estrictamente lo ya documentado:
+- `<5000`: sin warning de tamaño
+- `5000–10000`: aviso amable, no destructivo
+- `>10000`: bloqueo amable con alternativas
+
+Corrección específica del caso reportado:
+- 1309 POIs no debe mostrar warning,
+- no debe pedir confirmación,
+- debe entrar directo al resolver con resumen y opciones.
+
+### 4. Completar el resolver para que el primer estado visible sea útil, no defensivo
+Ajustar `ExportResolver` para que el estado inicial priorice claridad operativa:
+- resumen del contexto de exportación
+- origen explícito (`selección`, `filtros`, `colección`, etc.)
+- total candidatos / elegibles / no incluidos
+- alcance (`Mis datos` vs `Compartible`)
+- formatos disponibles reales
+- copy de propiedad visible y estable
+- explicación de exclusiones en lenguaje humano
+
+Si falta algo del contrato UX, lo cerraré dentro del mismo componente, no fuera.
+
+### 5. Endurecer los tests para cubrir el surface que hoy se escapó
+Actualizar y ampliar contract tests para que no vuelva a pasar:
+- `EffectiveActionFooter` no puede contener `EXPORTAR` typed-token en export
+- `EffectiveActionFooter` no puede usar `DestructiveConfirmDialog` para export
+- `EffectiveActionFooter` no puede usar threshold 250 para export
+- el path completo de export debe delegar al resolver
+- casos `<5000` no muestran warning de tamaño
+
+También revisaré los tests actuales porque ahora cubren `SelectionActions` y `ExportPanel`, pero no blindan suficientemente `EffectiveActionFooter`.
+
+### 6. Sin tocar lo que el PR excluye
+Se mantiene fuera de alcance:
+- elegibilidad
+- pipeline de export
+- helpers de tamaño
+- serializers
+- RLS
+- GPX
+- jobs background
+- export history persistente
+- cambios de contrato share/export
+
+## Archivos objetivo
+- `src/components/filters/EffectiveActionFooter.tsx`
+- `src/domains/content/components/ExportResolver.tsx`
+- `src/test/pr-export-3-resolver-ux.test.ts`
+- `src/test/poi-export-pr2-ux.test.ts`
+- cualquier test adicional de footer/export si hace falta blindaje específico
+
+## Resultado esperado
+Al pulsar “Exportar”, cualquier surface de la app debe llevar a un flujo único y amable donde el usuario entienda:
+- qué va a exportar
+- en qué formato
+- qué queda fuera
+- por qué queda fuera
+- que sus ubicaciones seguirán en Vandits
+
+## Detalles técnicos
 ```text
-┌───────────────────────────────────────────┐
-│  Exportar tus ubicaciones                 │
-│  Vandits creará una copia portable.       │
-│  Tus ubicaciones seguirán disponibles.    │
-├───────────────────────────────────────────┤
-│  Origen: <selección | filtros | col.>     │
-│  Total: N   Elegibles: M   No incluidos:K │
-│  Países/zonas: ES, PT, FR (si disponible) │
-│  Tamaño estimado: ~X MB                   │
-├───────────────────────────────────────────┤
-│  Scope                                    │
-│   ( ) Compartible      ( ) Mis datos      │
-│   tooltip / micro-copy bajo cada uno      │
-├───────────────────────────────────────────┤
-│  Formato                                  │
-│  [KML] [CSV] [JSON] [GeoJSON]             │
-│  (sub-target sólo si KML)                 │
-├───────────────────────────────────────────┤
-│  Payload                                  │
-│  (sólo opciones reales del pipeline)      │
-├───────────────────────────────────────────┤
-│  ▸ Ver detalles de no incluidos (k)       │
-│     [razón legible] · N POIs              │
-├───────────────────────────────────────────┤
-│  [Cancelar]            [Generar archivo]  │
-└───────────────────────────────────────────┘
+EffectiveActionFooter
+  Exportar
+    -> lovable:open-export-panel
+      -> Index Dialog
+        -> ExportPanel
+          -> ExportResolverBody
+
+SelectionActions
+  Exportar
+    -> ExportResolverDialog
+      -> ExportResolverBody
 ```
 
-Estados:
-- `idle` → muestra preview reactiva al cambiar scope/format
-- `confirm-large` (warn 5k–10k) → banner amable + CTA `Generar archivo` (sin typed-token, sin window.confirm)
-- `blocked` (>10k) → mensaje calmado + alternativas: "reducir filtros", "exportar por país", "exportar por colección" (sólo copy + acciones que cierren el diálogo; trocear queda en backlog)
-- `running` → spinner + "Preparando archivo…" + format + N POIs
-- `success` → "Archivo generado" + cierre auto (toast sonner)
-- `error` → mensaje humano + retry
-
-### 3. Mapeo de razones a copy humano
-Mapa local `EXPORT_REASON_HUMAN` reutilizando `EXPORT_EXCLUSION_LABEL` (es-ES) pero con copy producto:
-- `not-owner` → "Pertenece a otra persona"
-- `not-enriched` → "Aún sin ficha"
-- `editorial-only-1b` → "Sólo material editorial, no compartible"
-- `not-shareable` → "Aún no listo para compartir"
-- `curation-level-below-9` → "Aún en proceso de curación"
-- `invalid-coordinates` → "Coordenadas inválidas"
-
-Agrupados por razón + contador. Colapsado por defecto.
-
-### 4. Formatos
-Render desde `POI_EXPORTERS` (ya existe). GPX **no aparece** (no hay serializer). Sin promesas vacías.
-
-### 5. Payload toggles
-Sólo se renderiza el toggle si el pipeline lo soporta hoy. KML: `target` (general/mymaps/gurumaps). Resto: ninguna opción real → sección oculta. Nada de placebos.
-
-### 6. Caso 3614 POIs propios
-Con `scope=internal` y owner = current user, `previewPoiExport` devuelve `eligibleCount=3614, sizeVerdict.level='warn'`. UX:
-- Sin diálogo destructivo, sin typed-token.
-- Banner ámbar suave: "Vas a generar un archivo con 3614 ubicaciones. Puede tardar unos segundos."
-- CTA primario `Generar archivo`.
-- Click → `runPoiExport({ confirmedOverWarn: true })` → download → toast success.
-
-### 7. Wiring (sustituir, no duplicar)
-- `ExportPanel.tsx`: reescrito como wrapper fino que monta `<ExportResolver source={{ kind:'filters'|'collection', ... }}>`. Mantiene su API pública para no romper imports (`src/pages/Index.tsx`, `FilterBar.tsx`, `domains/content/components/index.ts`).
-- `SelectionActions.tsx`: el bloque de export (líneas ~250–300, incluido el `window.confirm`) se sustituye por apertura de `<ExportResolver source={{ kind:'selection', locations: selectedLocations }}>`. Resto de acciones (move, delete, etc.) intactas.
-- `domains/sharing/index.ts` y `Index.tsx`: sólo si re-exportan ExportPanel, sin cambio de API.
-
-### 8. Tests (nuevos / actualizados)
-Nuevo `src/test/pr-export-3-resolver-ux.test.ts`:
-1. 3614 POIs propios con scope=internal → no renderiza typed-token ni `window.confirm`; renderiza CTA "Generar archivo".
-2. Render muestra `Total / Elegibles / No incluidos` con cifras correctas.
-3. Scope=internal con owner ajeno → excluidos clasificados como `not-owner` con copy humano.
-4. Scope=public con mezcla → excluidos agrupados por razón visible bajo "Ver detalles".
-5. >10000 elegibles → estado `blocked`, sin botón `Generar archivo`, con alternativas listadas.
-6. GPX no aparece en la lista de formatos.
-7. Pipeline invocado con `scopeProvided: true` (contract test existente sigue verde).
-
-Actualizar `poi-export-pr2-ux.test.ts` y `poi-export-pr2-wiring.test.ts` para apuntar al nuevo componente (mismo pipeline subyacente). Static grep en `poi-export-contract.test.ts` no se toca (C2 sigue verde porque el resolver llama `runPoiExport` con scope explícito).
-
-### 9. Docs + memoria + versión
-- `docs/contracts/poi-export-canon.md`: marcar PR-EXPORT-3 como implementado, fijar el contrato de UX (sin typed-token, copy canon, estados, mapa de razones).
-- `mem/logic/export/poi-export-canon.md`: nota corta "UX implementada en PR-EXPORT-3, `<ExportResolver>` es SoT UI".
-- `mem://index.md`: actualizar la línea de export-canon si procede.
-- `scripts/release/bump-version.ts patch` + entrada en `docs/releases/version-history.md` (`v1.5.4 — PR-EXPORT-3 Export Resolver UX`).
-
-## Fuera de alcance (backlog, sin tocar)
-GPX serializer (PR-EXPORT-7), trocear >10k (PR-EXPORT-8), background job (PR-EXPORT-9), ExportHistory persistente (PR-EXPORT-6), Vandits package (PR-EXPORT-10), colección compartible (PR-EXPORT-11).
-
-## Postcondición (engineering discipline)
-- Tests verdes (incluido contract test PR-EXPORT-1 y nuevo PR-EXPORT-3).
-- `APP_VERSION` bumped a v1.5.4.
-- `version-history.md` actualizado.
-- Memoria sincronizada.
-- Sin nuevos `window.confirm` ni typed-token en path de export.
+La corrección consiste en eliminar el gate legacy previo al resolver, no en cambiar el pipeline canónico.

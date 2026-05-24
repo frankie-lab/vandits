@@ -50,10 +50,14 @@ const exportPanelPath = path.resolve(
 const selectionActionsPath = path.resolve(
   'src/components/filters/SelectionActions.tsx',
 );
+const footerPath = path.resolve(
+  'src/components/filters/EffectiveActionFooter.tsx',
+);
 
 const RESOLVER_SRC = fs.readFileSync(resolverPath, 'utf8');
 const PANEL_SRC = fs.readFileSync(exportPanelPath, 'utf8');
 const SELECTION_SRC = fs.readFileSync(selectionActionsPath, 'utf8');
+const FOOTER_SRC = fs.readFileSync(footerPath, 'utf8');
 
 describe('PR-EXPORT-3 · 3614 POIs propios — caso canon', () => {
   const ctx = { currentUserId: OWNER_A };
@@ -205,5 +209,32 @@ describe('PR-EXPORT-3 · unificación de UI (un solo Resolver)', () => {
     expect(SELECTION_SRC).not.toMatch(/FileSpreadsheet/);
     expect(SELECTION_SRC).not.toMatch(/FileJson/);
     expect(SELECTION_SRC).not.toMatch(/Globe2/);
+  });
+});
+
+describe('PR-EXPORT-3 · EffectiveActionFooter sin UX destructiva en export', () => {
+  it('NO contiene typed-token "EXPORTAR" ni helper de confirmación de export', () => {
+    // El token "EXPORTAR" sólo podría aparecer como `token="EXPORTAR"` del
+    // DestructiveConfirmDialog legacy. Cualquier mención literal está prohibida.
+    expect(FOOTER_SRC).not.toMatch(/token=["']EXPORTAR["']/);
+    expect(FOOTER_SRC).not.toMatch(/confirmExport/);
+    expect(FOOTER_SRC).not.toMatch(/setConfirmExport/);
+  });
+
+  it('NO define un threshold local de export (EXPORT_CONFIRM_THRESHOLD)', () => {
+    // El sizing canon (warn 5k / block 10k) lo aplica el resolver.
+    expect(FOOTER_SRC).not.toMatch(/EXPORT_CONFIRM_THRESHOLD/);
+  });
+
+  it('NO monta un DestructiveConfirmDialog cuyo título sea de exportación', () => {
+    expect(FOOTER_SRC).not.toMatch(/Confirmar exportaci[oó]n/i);
+    expect(FOOTER_SRC).not.toMatch(/Escribe "EXPORTAR"/);
+  });
+
+  it('Export delega en `lovable:open-export-panel` (sin scope forzado)', () => {
+    expect(FOOTER_SRC).toMatch(/lovable:open-export-panel/);
+    // Ya no se fuerza scope: 'public' desde el footer; el resolver
+    // inicia en "Mis datos" (internal) y el usuario alterna libremente.
+    expect(FOOTER_SRC).not.toMatch(/scope:\s*['"]public['"]/);
   });
 });
