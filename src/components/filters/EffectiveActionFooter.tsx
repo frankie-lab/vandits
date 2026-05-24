@@ -206,6 +206,77 @@ export function EffectiveActionFooter({
     }
   };
 
+  // ---- PR-INLINE-3.1 — partición debt: solo abrir modal si hay reparables ----
+  const debtPartition = useMemo(
+    () => (mode === 'debt' ? partitionRepairScopeByRootStatus(locations, 'debt') : null),
+    [mode, locations],
+  );
+  const repairableCount = debtPartition?.repairableIds.length ?? 0;
+  const systemDebtIds = useMemo(
+    () => (debtPartition ? debtPartition.systemDebt.map((l) => l.id) : []),
+    [debtPartition],
+  );
+  const allAreSystemDebt =
+    mode === 'debt' && count > 0 && systemDebtIds.length === count;
+
+  // ---- Geo Maintenance handoff (B + capability) ----
+  const canHandoffGeoMaintenance =
+    canViewGeoMaintenance && canRunGeoBackfill && systemDebtIds.length > 0;
+
+  const doGeoMaintenance = (ids: string[], label: string) => {
+    if (ids.length === 0) return;
+    dispatchGeoMaintenanceHandoff({
+      locationIds: ids,
+      source: 'health-repair-triage',
+      label,
+    });
+    navigateToGeoMaintenance();
+  };
+  const onGeoMaintenancePrimary = () => {
+    doGeoMaintenance(
+      systemDebtIds,
+      `Mantener · Grupo B · ${systemDebtIds.length} puntos`,
+    );
+  };
+  const onGeoMaintenanceSubgroup = () => {
+    doGeoMaintenance(
+      systemDebtIds,
+      `Mantener · Subgrupo B · ${systemDebtIds.length} puntos`,
+    );
+  };
+
+  // ---- Abrir en mapa (helper canónico requestSubsetFit) ----
+  const onFocusInMap = () => {
+    if (count === 0) return;
+    requestSubsetFit(
+      locations.map((l) => l.id),
+      { mode: 'always', reason: 'health-filter' },
+    );
+  };
+
+  // ---- Exportar no reparables (debt sin reparables) ----
+  const nonRepairableLocations = useMemo(() => {
+    if (!debtPartition) return [];
+    return [
+      ...debtPartition.nonRepairableByType,
+      ...debtPartition.review,
+      ...debtPartition.identityIncomplete,
+      ...debtPartition.systemDebt,
+    ];
+  }, [debtPartition]);
+  const doExportNonRepairable = () => {
+    if (nonRepairableLocations.length === 0) return;
+    window.dispatchEvent(
+      new CustomEvent('lovable:open-export-panel', {
+        detail: {
+          locations: nonRepairableLocations,
+          label: `${exportLabel} · no reparables`,
+          scope: 'public',
+        },
+      }),
+    );
+  };
+
   // ---- Primary por modo ----
   type Primary = {
     label: string;
@@ -218,13 +289,38 @@ export function EffectiveActionFooter({
   };
   const primary: Primary = (() => {
     if (mode === 'debt') {
+      // Caso 1: hay reparables → Reparar N (abre modal de confirmación).
+      if (repairableCount > 0) {
+        return {
+          label: 'Reparar',
+          icon: Wrench,
+          onClick: () => onResolveDebt?.(),
+          disabled: disabled || !onResolveDebt,
+          dataAction: 'footer-primary-resolve-debt',
+          testid: 'footer-primary-resolve-debt',
+          count: repairableCount,
+        };
+      }
+      // Caso 2: 0 reparables + todo B + capability → Geo Maintenance.
+      if (allAreSystemDebt && canHandoffGeoMaintenance) {
+        return {
+          label: 'Geo Maintenance',
+          icon: Wrench,
+          onClick: onGeoMaintenancePrimary,
+          disabled: disabled,
+          dataAction: 'footer-primary-geo-maintenance',
+          testid: 'footer-primary-geo-maintenance',
+          count: systemDebtIds.length,
+        };
+      }
+      // Caso 3: 0 reparables resto → Exportar.
       return {
-        label: 'Resolver deuda',
-        icon: Wrench,
-        onClick: () => onResolveDebt?.(),
-        disabled: disabled || !onResolveDebt,
-        dataAction: 'footer-primary-resolve-debt',
-        testid: 'footer-primary-resolve-debt',
+        label: 'Exportar',
+        icon: Download,
+        onClick: onExportClick,
+        disabled: disabled || busy !== null,
+        dataAction: 'footer-primary-export',
+        testid: 'footer-primary-export',
       };
     }
     if (mode === 'unenriched') {
@@ -249,9 +345,31 @@ export function EffectiveActionFooter({
   })();
   const PrimaryIcon = primary.icon;
 
+  // ---- Hint debt sin reparables ----
+  const debtNoRepairablesHint = (() => {
+    if (mode !== 'debt' || repairableCount > 0 || disabled) return null;
+    // Si el primary YA es una acción positiva (Geo Maintenance), no hace
+    // falta el hint negativo.
+    if (primary.testid === 'footer-primary-geo-maintenance') return null;
+    const hasAlternatives = canHandoffGeoMaintenance;
+    return hasAlternatives
+      ? 'No hay POIs reparables automáticamente en este subconjunto.'
+      : 'No hay reparación automática disponible.';
+  })();
+
   const showEnrichInMenu = mode === 'all' && enrichCount > 0;
-  const showExportInMenu = mode !== 'all';
+  const showExportInMenu = mode !== 'all' && primary.testid !== 'footer-primary-export';
+  const showDebtExtras = mode === 'debt' && repairableCount === 0 && !disabled;
+  const showGeoMaintenanceInMenu =
+    showDebtExtras &&
+    canHandoffGeoMaintenance &&
+    primary.testid !== 'footer-primary-geo-maintenance';
+  const showFocusInMapInMenu = showDebtExtras;
+  const showExportNonRepairableInMenu =
+    showDebtExtras && nonRepairableLocations.length > 0;
   const moreDisabled = disabled;
+
+
 
   return (
     <div
