@@ -14,6 +14,96 @@ export type Database = {
   }
   public: {
     Tables: {
+      _catalog_pt_districts_snapshot_2026_05_21: {
+        Row: {
+          id: string
+          is_placeholder: boolean
+          snapshot_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          is_placeholder: boolean
+          snapshot_at?: string
+          updated_at: string
+        }
+        Update: {
+          id?: string
+          is_placeholder?: boolean
+          snapshot_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      _catalog_pt_ra_concelhos_snapshot_2026_05_21: {
+        Row: {
+          depth: number | null
+          id: string | null
+          is_placeholder: boolean | null
+          parent_id: string | null
+          path: string[] | null
+          snapshot_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          depth?: number | null
+          id?: string | null
+          is_placeholder?: boolean | null
+          parent_id?: string | null
+          path?: string[] | null
+          snapshot_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          depth?: number | null
+          id?: string | null
+          is_placeholder?: boolean | null
+          parent_id?: string | null
+          path?: string[] | null
+          snapshot_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      _locations_ra_concelhos_snapshot_2026_05_21: {
+        Row: {
+          admin3_id: string | null
+          id: string | null
+          locality_id: string | null
+          region: string | null
+          region_id: string | null
+          snapshot_at: string | null
+          sublocality_id: string | null
+          updated_at: string | null
+          zone: string | null
+          zone_id: string | null
+        }
+        Insert: {
+          admin3_id?: string | null
+          id?: string | null
+          locality_id?: string | null
+          region?: string | null
+          region_id?: string | null
+          snapshot_at?: string | null
+          sublocality_id?: string | null
+          updated_at?: string | null
+          zone?: string | null
+          zone_id?: string | null
+        }
+        Update: {
+          admin3_id?: string | null
+          id?: string | null
+          locality_id?: string | null
+          region?: string | null
+          region_id?: string | null
+          snapshot_at?: string | null
+          sublocality_id?: string | null
+          updated_at?: string | null
+          zone?: string | null
+          zone_id?: string | null
+        }
+        Relationships: []
+      }
       achievement_definitions: {
         Row: {
           category: string
@@ -601,6 +691,157 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      enrichment_batch_items: {
+        Row: {
+          attempts: number
+          claimed_at: string | null
+          country_code: string | null
+          fail_reason: string | null
+          finished_at: string | null
+          id: string
+          location_id: string
+          run_id: string
+          skip_reason: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          claimed_at?: string | null
+          country_code?: string | null
+          fail_reason?: string | null
+          finished_at?: string | null
+          id?: string
+          location_id: string
+          run_id: string
+          skip_reason?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          claimed_at?: string | null
+          country_code?: string | null
+          fail_reason?: string | null
+          finished_at?: string | null
+          id?: string
+          location_id?: string
+          run_id?: string
+          skip_reason?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrichment_batch_items_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "enrichment_batch_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      enrichment_batch_runs: {
+        Row: {
+          abort_reason: string | null
+          ai_calls_used: number
+          chunk_size: number
+          confirm_full_run: boolean
+          created_at: string
+          created_by: string | null
+          finished_at: string | null
+          id: string
+          label: string
+          max_ai_calls: number
+          max_error_rate_pct: number
+          max_runtime_minutes: number
+          metrics: Json
+          pause_reason: string | null
+          pause_seconds: number
+          scope_count: number
+          source_csv_path: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          abort_reason?: string | null
+          ai_calls_used?: number
+          chunk_size?: number
+          confirm_full_run?: boolean
+          created_at?: string
+          created_by?: string | null
+          finished_at?: string | null
+          id?: string
+          label: string
+          max_ai_calls?: number
+          max_error_rate_pct?: number
+          max_runtime_minutes?: number
+          metrics?: Json
+          pause_reason?: string | null
+          pause_seconds?: number
+          scope_count?: number
+          source_csv_path?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          abort_reason?: string | null
+          ai_calls_used?: number
+          chunk_size?: number
+          confirm_full_run?: boolean
+          created_at?: string
+          created_by?: string | null
+          finished_at?: string | null
+          id?: string
+          label?: string
+          max_ai_calls?: number
+          max_error_rate_pct?: number
+          max_runtime_minutes?: number
+          metrics?: Json
+          pause_reason?: string | null
+          pause_seconds?: number
+          scope_count?: number
+          source_csv_path?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      enrichment_batch_snapshots: {
+        Row: {
+          id: string
+          location_id: string
+          previous_enriched_data: Json | null
+          previous_enrichment_status: string | null
+          run_id: string
+          taken_at: string
+        }
+        Insert: {
+          id?: string
+          location_id: string
+          previous_enriched_data?: Json | null
+          previous_enrichment_status?: string | null
+          run_id: string
+          taken_at?: string
+        }
+        Update: {
+          id?: string
+          location_id?: string
+          previous_enriched_data?: Json | null
+          previous_enrichment_status?: string | null
+          run_id?: string
+          taken_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrichment_batch_snapshots_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "enrichment_batch_runs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       enrichment_criteria: {
         Row: {
@@ -1277,6 +1518,7 @@ export type Database = {
           document_id: string | null
           enriched_data: Json | null
           enrichment_status: string | null
+          external_refs: Json | null
           geo_confidence: number | null
           geo_health: string | null
           geo_resolved_at: string | null
@@ -1322,6 +1564,7 @@ export type Database = {
           document_id?: string | null
           enriched_data?: Json | null
           enrichment_status?: string | null
+          external_refs?: Json | null
           geo_confidence?: number | null
           geo_health?: string | null
           geo_resolved_at?: string | null
@@ -1367,6 +1610,7 @@ export type Database = {
           document_id?: string | null
           enriched_data?: Json | null
           enrichment_status?: string | null
+          external_refs?: Json | null
           geo_confidence?: number | null
           geo_health?: string | null
           geo_resolved_at?: string | null
@@ -1810,6 +2054,42 @@ export type Database = {
           refresh_count?: number
           updated_at?: string
           version?: number
+        }
+        Relationships: []
+      }
+      poi_p2_runner_audit: {
+        Row: {
+          action: string
+          batch_size: number | null
+          created_at: string
+          id: string
+          reason: string | null
+          report_path: string | null
+          result: Json | null
+          run_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          batch_size?: number | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          report_path?: string | null
+          result?: Json | null
+          run_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          batch_size?: number | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          report_path?: string | null
+          result?: Json | null
+          run_id?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -3222,19 +3502,6 @@ export type Database = {
       }
     }
     Views: {
-      v_geo_coverage: {
-        Row: {
-          avg_confidence: number | null
-          resolved: number | null
-          total: number | null
-          user_id: string | null
-          with_admin1: number | null
-          with_country: number | null
-          with_postal: number | null
-          with_timezone: number | null
-        }
-        Relationships: []
-      }
       v_location_geo_health: {
         Row: {
           admin_level_3: string | null
@@ -3341,6 +3608,7 @@ export type Database = {
           document_id: string | null
           enriched_data: Json | null
           enrichment_status: string | null
+          external_refs: Json | null
           geo_confidence: number | null
           geo_health: string | null
           geo_resolved_at: string | null
@@ -3360,6 +3628,7 @@ export type Database = {
           raw_geocode: Json | null
           region: string | null
           region_id: string | null
+          region_iso_code: string | null
           region_resolved: string | null
           street_name: string | null
           sublocality: string | null
@@ -3453,36 +3722,63 @@ export type Database = {
         Args: { _parent_id: string }
         Returns: number
       }
-      _compute_location_geo_health: {
-        Args: {
-          _c_iso: string
-          _c_name: string
-          _c_parent: string
-          _continent_id: string
-          _country_code: string
-          _country_id: string
-          _country_str: string
-          _lat: number
-          _lng: number
-          _r_name: string
-          _r_parent: string
-          _region_id: string
-          _region_str: string
-          _z_name: string
-          _z_parent: string
-          _zone_id: string
-          _zone_str: string
-        }
-        Returns: string
-      }
+      _compute_location_geo_health:
+        | {
+            Args: {
+              _c_iso: string
+              _c_name: string
+              _c_parent: string
+              _continent_id: string
+              _country_code: string
+              _country_id: string
+              _country_str: string
+              _lat: number
+              _lng: number
+              _r_name: string
+              _r_parent: string
+              _region_id: string
+              _region_str: string
+              _z_name: string
+              _z_parent: string
+              _zone_id: string
+              _zone_str: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _c_iso: string
+              _c_name: string
+              _c_parent: string
+              _continent_id: string
+              _country_code: string
+              _country_id: string
+              _country_str: string
+              _enrichment_status: string
+              _lat: number
+              _lng: number
+              _r_name: string
+              _r_parent: string
+              _raw_geocode: Json
+              _region_id: string
+              _region_str: string
+              _z_name: string
+              _z_parent: string
+              _zone_id: string
+              _zone_str: string
+            }
+            Returns: string
+          }
       _compute_location_geo_health_lookup: {
         Args: {
           _continent_id: string
           _country_code: string
           _country_id: string
           _country_str: string
+          _enrichment_status: string
           _lat: number
           _lng: number
+          _raw_geocode: Json
           _region_id: string
           _region_str: string
           _zone_id: string
@@ -3746,6 +4042,21 @@ export type Database = {
           username: string
         }[]
       }
+      apply_orchestrator_enrichment: {
+        Args: {
+          _enriched_data: Json
+          _enrichment_status?: string
+          _location_id: string
+        }
+        Returns: {
+          descripcion_length: number
+          descripcion_present: boolean
+          enrichment_status: string
+          id: string
+          updated_at: string
+        }[]
+      }
+      batch_orchestrator_health: { Args: never; Returns: Json }
       can_view_deleted_location: {
         Args: { loc_row: Database["public"]["Tables"]["locations"]["Row"] }
         Returns: boolean
@@ -3772,11 +4083,20 @@ export type Database = {
           updated_count: number
         }[]
       }
+      claim_batch_items: {
+        Args: { _chunk_size?: number; _run_id: string }
+        Returns: {
+          country_code: string
+          item_id: string
+          location_id: string
+        }[]
+      }
       cleanup_old_deleted_locations: { Args: never; Returns: number }
       count_locations_with_broken_geo_chain: {
         Args: { _user_id: string }
         Returns: number
       }
+      count_masters: { Args: never; Returns: number }
       enqueue_health_repair: {
         Args: { _action: string; _location_ids: string[]; _scope_mode: string }
         Returns: {
@@ -3857,7 +4177,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      is_curator: { Args: { _user_id: string }; Returns: boolean }
       locations_with_broken_geo_chain: {
         Args: { _limit?: number; _offset?: number; _user_id: string }
         Returns: {
@@ -3886,6 +4205,10 @@ export type Database = {
       }
       refresh_locations_admin_cache: { Args: never; Returns: number }
       refresh_user_stats: { Args: { _user_id: string }; Returns: undefined }
+      restart_stale_batch_items: {
+        Args: { _run_id: string; _stale_minutes?: number }
+        Returns: number
+      }
       upsert_trunk_place: {
         Args: {
           _enriched_by?: string
@@ -3901,24 +4224,27 @@ export type Database = {
     Enums: {
       app_permission:
         | "manage_users"
-        | "manage_criteria"
+        | "manage_editorial_criteria"
         | "run_global_enrichment"
-        | "view_all_locations"
-        | "edit_all_locations"
         | "delete_any_location"
-        | "manage_documents"
-        | "view_analytics"
         | "moderate_content"
-        | "upload_files"
-        | "add_locations"
-      app_role:
-        | "master"
-        | "admin"
-        | "user"
-        | "moderator"
-        | "editor"
-        | "supervisor"
-        | "curator"
+        | "manage_permissions"
+        | "manage_marker_config"
+        | "manage_route_engine"
+        | "manage_icon_library"
+        | "manage_enrichment_config"
+        | "view_audit_log"
+        | "manage_data_sources"
+        | "run_image_recovery"
+        | "inspect_design_system"
+        | "purge_user"
+        | "open_back_office"
+        | "assign_master"
+        | "run_internal_tooling"
+        | "view_geo_maintenance"
+        | "run_geo_backfill"
+        | "run_geo_canonicalize"
+      app_role: "master" | "admin" | "moderator" | "editor"
       collection_item_type: "place" | "waypoint" | "route"
       data_source_kind: "search" | "enrichment" | "scraper"
       document_import_status:
@@ -4106,26 +4432,28 @@ export const Constants = {
     Enums: {
       app_permission: [
         "manage_users",
-        "manage_criteria",
+        "manage_editorial_criteria",
         "run_global_enrichment",
-        "view_all_locations",
-        "edit_all_locations",
         "delete_any_location",
-        "manage_documents",
-        "view_analytics",
         "moderate_content",
-        "upload_files",
-        "add_locations",
+        "manage_permissions",
+        "manage_marker_config",
+        "manage_route_engine",
+        "manage_icon_library",
+        "manage_enrichment_config",
+        "view_audit_log",
+        "manage_data_sources",
+        "run_image_recovery",
+        "inspect_design_system",
+        "purge_user",
+        "open_back_office",
+        "assign_master",
+        "run_internal_tooling",
+        "view_geo_maintenance",
+        "run_geo_backfill",
+        "run_geo_canonicalize",
       ],
-      app_role: [
-        "master",
-        "admin",
-        "user",
-        "moderator",
-        "editor",
-        "supervisor",
-        "curator",
-      ],
+      app_role: ["master", "admin", "moderator", "editor"],
       collection_item_type: ["place", "waypoint", "route"],
       data_source_kind: ["search", "enrichment", "scraper"],
       document_import_status: [
