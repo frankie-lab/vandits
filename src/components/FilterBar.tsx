@@ -685,11 +685,12 @@ export function FilterBar() {
      onClearSelection={clearSelection}
      onResolveDebt={
        activeModeUniverse === 'debt'
-         ? () => setDebtModalOpen(true)
+         ? () => setDebtPanelOpen(true)
          : undefined
      }
      onSelectAll={handleSelectAllInMode}
    />
+   )}
 
    {/* Modal agregado "Resolver deuda" — montado SIEMPRE que el universo sea
        `debt`, independientemente de que HealthFilterActionCTA esté montado.
