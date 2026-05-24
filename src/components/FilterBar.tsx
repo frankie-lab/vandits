@@ -140,14 +140,14 @@ export function FilterBar() {
   // Importante: NO usar `getVisibleUniverseLocations()` aquí (ese es el
   // universo de mapa, fuente B, e incluye detached/no-aprobados).
   const allLocationsForUniverseSource = useMemo(
-    () => getVisibleCatalogUniverse(getAllLocations() as any, user?.id ?? null),
+    () => getVisibleCatalogUniverse(getAllLocations(), user?.id ?? null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [getAllLocations, documents, user?.id],
   );
 
   const curationBuckets = useMemo(() => ({
-    conDeuda: resolveUniverseBase('debt', allLocationsForUniverseSource as any).length,
-    sinEnriquecer: resolveUniverseBase('unenriched', allLocationsForUniverseSource as any).length,
+    conDeuda: resolveUniverseBase('debt', allLocationsForUniverseSource).length,
+    sinEnriquecer: resolveUniverseBase('unenriched', allLocationsForUniverseSource).length,
   }), [allLocationsForUniverseSource]);
 
   // PR-4A.1 — Auto-fit del mapa cuando arranca una selección masiva (0 → N).
