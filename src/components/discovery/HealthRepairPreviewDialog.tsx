@@ -311,6 +311,25 @@ export function HealthRepairPreviewDialog({
     onOpenChange(false);
   };
 
+  /**
+   * Handoff Root Status B → GeographyBackfillPanel.
+   * NO ejecuta backfill: solo despacha evento con IDs y navega al panel
+   * destino, donde el usuario debe confirmar explícitamente.
+   */
+  const handleOpenGeoMaintenance = React.useCallback(
+    (ids: string[], groupTitle: string) => {
+      if (ids.length === 0) return;
+      dispatchGeoMaintenanceHandoff({
+        locationIds: ids,
+        source: 'health-repair-triage',
+        label: `Resolver deuda · ${groupTitle} · ${ids.length} ${ids.length === 1 ? 'punto' : 'puntos'}`,
+      });
+      onOpenChange(false);
+      navigateToGeoMaintenance();
+    },
+    [onOpenChange],
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
