@@ -1,4 +1,4 @@
-# VANDITS v1.4.5
+# VANDITS v1.4.6
 
 <!--
   ┌──────────────────────────────────────────────────────────────┐
@@ -13,7 +13,7 @@
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.4.5-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.4.6-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -104,6 +104,9 @@ Ver [`docs/`](./docs/) para documentación técnica completa.
 > versiones más recientes, sincronizado por
 > `scripts/release/bump-version.ts` y verificado por
 > `src/test/version-parity.test.ts`.
+
+### v1.4.6 (2026-05-24)
+- PR-IDENTITY-ROOT-DOC-1: contract A/B/C/D doc DRAFT→ACTIVE reflejando runtime ya materializado (Deno SoT + cliente espejo + fixtures + parity test + filtro UI + partición salud)
 
 ### v1.4.5 (2026-05-24)
 - Versioning hardening: SoT única en `src/lib/app-version.ts`, parity test en CI
