@@ -208,16 +208,14 @@ describe('DebtResolutionPanel — Phase 1', () => {
     const groupB = container.querySelector(
       '[data-debt-group="systemDebt"]',
     ) as HTMLElement;
-    const btn = within(groupB).getByTestId
-      ? null
-      : (groupB.querySelector(
-          '[data-debt-group-action="export"]',
-        ) as HTMLButtonElement);
+    const btn = groupB.querySelector(
+      '[data-debt-group-action="export"]',
+    ) as HTMLButtonElement;
     expect(btn).not.toBeNull();
-    fireEvent.click(btn!);
+    fireEvent.click(btn);
     window.removeEventListener('lovable:open-export-panel', handler);
     expect(events).toHaveLength(1);
-    expect(events[0].ids.sort()).toEqual(['b-1', 'b-2']);
+    expect(events[0].ids.slice().sort()).toEqual(['b-1', 'b-2']);
     expect(events[0].scope).toBe('internal');
   });
 
@@ -240,16 +238,18 @@ describe('DebtResolutionPanel — Phase 1', () => {
 
   it('mapa POI llama requestSubsetFit con [id] único', () => {
     const { container } = renderPanel();
+    // repairable es el grupo abierto por defecto.
     const row = container.querySelector(
-      '[data-debt-poi-id="b-1"]',
+      '[data-debt-poi-id="d-partial-1"]',
     ) as HTMLElement;
+    expect(row).not.toBeNull();
     const btn = row.querySelector(
       '[data-debt-row-action="map"]',
     ) as HTMLButtonElement;
     fireEvent.click(btn);
     expect(requestSubsetFitMock).toHaveBeenCalledTimes(1);
     const [ids, opts] = requestSubsetFitMock.mock.calls[0];
-    expect(ids).toEqual(['b-1']);
+    expect(ids).toEqual(['d-partial-1']);
     expect((opts as { reason: string }).reason).toBe(
       'debt-sidepanel-row-focus',
     );
@@ -258,14 +258,15 @@ describe('DebtResolutionPanel — Phase 1', () => {
   it('popup POI llama setFocusedLocation(id)', () => {
     const { container } = renderPanel();
     const row = container.querySelector(
-      '[data-debt-poi-id="c-1"]',
+      '[data-debt-poi-id="d-chain-1"]',
     ) as HTMLElement;
+    expect(row).not.toBeNull();
     const btn = row.querySelector(
       '[data-debt-row-action="popup"]',
     ) as HTMLButtonElement;
     fireEvent.click(btn);
     expect(setFocusedLocationMock).toHaveBeenCalledTimes(1);
-    expect(setFocusedLocationMock).toHaveBeenCalledWith('c-1');
+    expect(setFocusedLocationMock).toHaveBeenCalledWith('d-chain-1');
   });
 
   it('SIN capability: no aparece Geo Maintenance en B', () => {
