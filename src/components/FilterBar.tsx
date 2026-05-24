@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { dispatchGlobalEvent } from '@/lib/global-events';
-import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, Trash2, Loader2, HeartPulse, CheckSquare, AlertCircle, CircleDashed } from 'lucide-react';
+import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, Trash2, Loader2, HeartPulse, CheckSquare, AlertCircle, CircleDashed, Shield } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { AppEmptyState } from '@/shared/components/ui';
 import { PanelModeTabs, type PanelMode } from './discovery/PanelModeTabs';
@@ -431,6 +431,7 @@ export function FilterBar() {
             classification: 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200',
             search: 'bg-muted text-muted-foreground hover:bg-muted/80',
             health: 'bg-pink-100 text-pink-700 hover:bg-pink-200',
+            rootStatus: 'bg-slate-200 text-slate-700 hover:bg-slate-300',
           };
           const IconByAxis: Record<FilterAxis, typeof MapPin> = {
             geography: MapPin,
@@ -439,6 +440,7 @@ export function FilterBar() {
             classification: Layers,
             search: Search,
             health: HeartPulse,
+            rootStatus: Shield,
           };
           const Icon = IconByAxis[chip.axis];
           return (
