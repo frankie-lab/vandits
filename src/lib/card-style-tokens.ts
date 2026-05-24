@@ -64,6 +64,8 @@ export const TAG_COLORS = {
   classification: { bg: '#eef2ff', text: '#4338ca', border: '#c7d2fe', hoverBg: '#e0e7ff' },
   thematic: { bg: '#faf5ff', text: '#7c3aed', border: '#e9d5ff', hoverBg: '#e9d5ff' },
   personal: { bg: '#fef3c7', text: '#92400e', border: '#fde68a', hoverBg: '#fde68a' },     // tw: bg-amber-100 text-amber-800 border-amber-200
+  // P-POPUP-12 — cultural context family (Wikidata violet, heredado del antiguo slot `clasificacion`).
+  cultural: { bg: '#ede9fe', text: '#5b21b6', border: '#ddd6fe', hoverBg: '#ddd6fe' },
 } as const;
 
 // ─── Spacing / Layout ─────────────────────────────────────────────────────────

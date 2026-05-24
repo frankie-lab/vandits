@@ -36,6 +36,7 @@ const STATE_KEYS = [
   'visitedFilter',
   'semanticResultIds',
   'healthFilter',
+  'rootStatus',
 ] as const;
 
 /** Claves del eje "Clasificación" (NO se tocan en resetAllFilters). */
@@ -135,6 +136,7 @@ export function countActiveStateFilters(filters: FilterCriteria): number {
   if (filters.visitedFilter && filters.visitedFilter !== 'all') count++;
   if (filters.semanticResultIds && filters.semanticResultIds.length > 0) count++;
   if (filters.healthFilter) count++;
+  if (filters.rootStatus && filters.rootStatus.length > 0) count++;
   return count;
 }
 
@@ -155,13 +157,27 @@ export const countActiveExplorationFilters = countActiveStateFilters;
 // en removeFilterChip. Nada más se toca en la UI.
 // ============================================================================
 
-export type FilterAxis = 'geography' | 'placeType' | 'tag' | 'classification' | 'search' | 'health';
+export type FilterAxis =
+  | 'geography'
+  | 'placeType'
+  | 'tag'
+  | 'classification'
+  | 'search'
+  | 'health'
+  | 'rootStatus';
 
 const HEALTH_LABELS: Record<NonNullable<FilterCriteria['healthFilter']>, string> = {
   partial: 'Rellenar huecos',
   chain: 'Reparar cadena',
   review: 'Revisar',
   hardError: 'Reintentar',
+};
+
+const ROOT_STATUS_LABELS: Record<'A' | 'B' | 'C' | 'D', string> = {
+  A: 'Root A · incompleto',
+  B: 'Root B · sistema',
+  C: 'Root C · revisar',
+  D: 'Root D · sano',
 };
 
 export type ActiveFilterChip = {
@@ -291,6 +307,24 @@ export function getActiveFilterChips(
         return next;
       },
     });
+  }
+
+  // Root Status A/B/C/D (PR-FILTER-ROOTSTATUS-2). Multi-select → un chip por letra.
+  if (filters.rootStatus && filters.rootStatus.length > 0) {
+    for (const letter of filters.rootStatus) {
+      chips.push({
+        axis: 'rootStatus',
+        id: `rootStatus:${letter}`,
+        label: ROOT_STATUS_LABELS[letter],
+        remove: (f) => {
+          const next = { ...f };
+          const rest = (next.rootStatus ?? []).filter((x) => x !== letter);
+          if (rest.length === 0) delete (next as Record<string, unknown>).rootStatus;
+          else next.rootStatus = rest;
+          return next;
+        },
+      });
+    }
   }
 
   return chips;

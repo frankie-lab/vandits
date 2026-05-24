@@ -17,6 +17,8 @@ import { toast } from 'sonner';
 import { resolveAllFks } from '@/shared/geography/resolve-admin-fks';
 import { enrichmentFailureStore } from '@/domains/content/hooks/use-enrichment-failure';
 import { parseEnrichmentError } from '@/domains/content/lib/enrichment-error-kind';
+import { emitEnrichmentPhase } from '@/components/map/popup-enrichment-phase-bus';
+import { inspectWgs84Coord, isValidWgs84Coord } from '@/shared/geography/coord-validity';
 
 export interface TriggerEnrichOptions {
   /** When true, force re-generation (semantically the popup's `regenerate`). */
@@ -32,13 +34,20 @@ export interface TriggerEnrichOptions {
   focusAfter?: boolean;
   /** When true, bypass server-side name↔coordinate coherence validation. */
   skipValidation?: boolean;
+  /**
+   * P-POPUP-17: when true, do NOT emit `location:enrichment-phase` events.
+   * Reserved for orchestrators (e.g. `advancePoiCurationUntilBlocked`) that
+   * already own the popup operational state across multiple stages and must
+   * prevent the overlay from flickering mid-pipeline.
+   */
+  silent?: boolean;
 }
 
 export async function triggerEnrichLocation(
   locationId: string,
   opts: TriggerEnrichOptions = {},
 ): Promise<{ success: boolean; error?: string }> {
-  const { focusAfter = false, regenerate = false, skipValidation = false } = opts;
+  const { focusAfter = false, regenerate = false, skipValidation = false, silent = false } = opts;
 
   // 1. Resolve the location from the store.
   const documents = useLocationsStore.getState().documents;
@@ -68,16 +77,41 @@ export async function triggerEnrichLocation(
     return { success: true };
   }
 
+  // R1 — WGS84 entry gate. Sin coords válidas no se enriquece: el LLM
+  // inventaría geografía sobre (0,0) o sobre coords corruptas y `places_trunk`
+  // cachearía la basura. Ver docs/contracts/enrichment-coord-coherence-contract.md.
+  const coordCheck = inspectWgs84Coord(location.coordinates?.lat, location.coordinates?.lng);
+  if (!coordCheck.valid) {
+    toast.error(
+      `Coordenadas inválidas (${coordCheck.reason}). Reasigna una ubicación válida antes de enriquecer.`,
+      { duration: 6000 },
+    );
+    return { success: false, error: `invalid_coordinates:${coordCheck.reason}` };
+  }
+
+
   const verb = regenerate ? 'Re-enriqueciendo' : 'Enriqueciendo';
   const successMsg = regenerate ? 'Ficha re-enriquecida' : 'Ficha enriquecida';
   const toastId = toast.loading(`${verb} ${location.name}...`);
+
+  // P-POPUP-17 — broadcast start. Listener mounts the popup overlay only
+  // if the popup of this id is currently in the DOM. `silent:true` callers
+  // (orchestrators) skip this and own the operational state themselves.
+  if (!silent) {
+    emitEnrichmentPhase({
+      id: locationId,
+      phase: 'start',
+      label: regenerate ? 'Re-enriqueciendo POI…' : 'Enriqueciendo POI…',
+    });
+  }
 
   try {
     let enrichedData: any = null;
     let trunkHit = false;
 
     // ─── 1) Tronco global: si NO es regenerate, intentar reusar ficha troncal fresca
-    if (!regenerate) {
+    // R7 (Fase 7): defensa cliente — no consultar places_trunk con coords inválidas.
+    if (!regenerate && isValidWgs84Coord(location.coordinates.lat, location.coordinates.lng)) {
       const { data: trunkRows } = await supabase.rpc('lookup_trunk_place', {
         _latitude: location.coordinates.lat,
         _longitude: location.coordinates.lng,
@@ -255,7 +289,8 @@ export async function triggerEnrichLocation(
     if (updateError) throw updateError;
 
     // ─── 3) Tronco: si se generó nuevo (o regenerate), upsert al tronco global
-    if (!trunkHit) {
+    // R7 (Fase 7): defensa cliente — no contaminar places_trunk con coords inválidas.
+    if (!trunkHit && isValidWgs84Coord(location.coordinates.lat, location.coordinates.lng)) {
       try {
         await supabase.rpc('upsert_trunk_place', {
           _name: location.name,
@@ -308,5 +343,11 @@ export async function triggerEnrichLocation(
     console.error('[triggerEnrichLocation] error:', error);
     toast.error('Error al enriquecer', { id: toastId });
     return { success: false, error: error instanceof Error ? error.message : 'unknown' };
+  } finally {
+    // P-POPUP-17 — always release the operational overlay paired with the
+    // `start` we emitted above, regardless of success / failure / branch.
+    if (!silent) {
+      emitEnrichmentPhase({ id: locationId, phase: 'end' });
+    }
   }
 }

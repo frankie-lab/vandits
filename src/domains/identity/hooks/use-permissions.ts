@@ -1,31 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { CAPABILITIES, type Capability, type AppPermission } from '@/domains/identity/capabilities';
 
-// Tipos de roles y permisos (deben coincidir con el enum de la base de datos)
+// Tipos de roles (catálogo activo PR-ADMIN-AUDIT-3 Fase A). Ver `src/domains/identity/types.ts`.
 export type AppRole = 'master' | 'admin' | 'moderator' | 'editor';
 
-export type AppPermission =
-  | 'manage_users'
-  | 'manage_editorial_criteria'
-  | 'run_global_enrichment'
-  | 'delete_any_location'
-  | 'moderate_content'
-  | 'manage_permissions'
-  | 'manage_marker_config'
-  | 'manage_route_engine'
-  | 'manage_icon_library'
-  | 'manage_enrichment_config'
-  | 'view_audit_log'
-  | 'manage_data_sources'
-  | 'run_image_recovery'
-  | 'inspect_design_system'
-  | 'purge_user'
-  | 'open_back_office'
-  | 'assign_master'
-  | 'run_internal_tooling'
-  | 'view_geo_maintenance'
-  | 'run_geo_backfill'
-  | 'run_geo_canonicalize';
+// Re-export del SoT único de capabilities (PR-BACKOFFICE-GOVERNANCE F1).
+// SoT real = enum `public.app_permission`. Mirror TS = `capabilities.ts`.
+export { CAPABILITIES, type Capability, type AppPermission };
 
 interface PermissionsState {
  roles: AppRole[];
@@ -60,8 +42,9 @@ export function usePermissions() {
 
  const roles = (rolesData || []).map(r => r.role as AppRole);
 
-      // Si no tiene roles, asignar 'user' por defecto
-  if (roles.length === 0) {
+      // Sin roles asignados = usuario base sin capabilities (canon RBAC PR-ADMIN-AUDIT-3).
+      // Antes se asignaba 'user' implícito; ahora se devuelve roles=[] explícito.
+ if (roles.length === 0) {
  setState({ roles: [], permissions: [], loading: false, error: null });
  return;
  }
@@ -146,4 +129,15 @@ export function useHasPermission(permission: AppPermission): boolean {
 export function useHasRole(role: AppRole): boolean {
  const { hasRole, loading } = usePermissions();
  return !loading && hasRole(role);
+}
+
+/**
+ * Capabilities-first gate. Returns { allowed, loading }.
+ * Canon RBAC PR-ADMIN-AUDIT (Step 3): frontend admin surfaces deben consumir
+ * capabilities, no roles. Equivalente cliente del predicado server-side
+ * `public.has_permission(uid, cap)`.
+ */
+export function useCapability(capability: Capability): { allowed: boolean; loading: boolean } {
+  const { hasPermission, loading } = usePermissions();
+  return { allowed: !loading && hasPermission(capability), loading };
 }

@@ -118,6 +118,12 @@ interface LocationsState {
    */
   getVisibleUniverseLocations: () => GeoLocation[];
   getFilteredLocations: () => GeoLocation[];
+  /**
+   * Igual que `getFilteredLocations` pero SIN recortar por `selectedLocations`.
+   * Úsalo cuando necesites el universo visible/autorizado (denominadores del
+   * contador de FilterBar, faceting estable bajo selección, etc.).
+   */
+  getFilteredUniverse: () => GeoLocation[];
   getUniqueValues: (field: keyof GeoLocation) => string[];
   getUniqueTags: () => string[];
   getEnrichedStats: () => {
@@ -420,7 +426,17 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     return annotated;
   },
 
-  getFilteredLocations: () => {
+  getFilteredLocations: () => (get() as any)._computeFiltered({ ignoreSelection: false }),
+
+  /**
+   * Universo visible/autorizado tras filtros, SIN aplicar el recorte por
+   * `selectedLocations`. Lo consume el contador de FilterBar para que los
+   * denominadores T/Tm/Ts no colapsen al tamaño de la selección.
+   * Ver docs/audits/selection-counter-ownership-ratios-plan.md.
+   */
+  getFilteredUniverse: () => (get() as any)._computeFiltered({ ignoreSelection: true }),
+
+  _computeFiltered: ({ ignoreSelection }: { ignoreSelection: boolean }) => {
     const state = get();
 
     // Kill switch: if all points are hidden via layer visibility, return nothing
@@ -626,7 +642,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
       // Geo breadcrumb filters (continent/country/region/...) se IGNORAN cuando
       // hay selección manual: la selección es transversal entre países/regiones.
-      const hasSelection = state.selectedLocations && state.selectedLocations.size > 0;
+      const hasSelection = !ignoreSelection && state.selectedLocations && state.selectedLocations.size > 0;
       if (!matchesLocationFilters(loc, state.filters, {
         includeGeo: !hasSelection,
       })) return false;
@@ -636,7 +652,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
     // --- Restrict to user-selected branch (Geography tree checkboxes) ---
     // Si el usuario marca ramas/puntos en "Buscar y Filtrar", el mapa muestra solo esos.
-    const sel = state.selectedLocations;
+    const sel = ignoreSelection ? null : state.selectedLocations;
     const restricted = sel && sel.size > 0
       ? filtered.filter(l => sel.has(l.id))
       : filtered;

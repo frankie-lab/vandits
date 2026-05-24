@@ -1,18 +1,21 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, Trash2, Loader2, HeartPulse, CheckSquare } from 'lucide-react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { dispatchGlobalEvent } from '@/lib/global-events';
+import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, Trash2, Loader2, HeartPulse, CheckSquare, AlertCircle, CircleDashed, Shield } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { AppEmptyState } from '@/shared/components/ui';
 import { PanelModeTabs, type PanelMode } from './discovery/PanelModeTabs';
 import type { HealthFilter } from '@/types/location';
 import { useLocationsStore } from '@/domains/content';
-import { useFilteredLocations, useFilteredLocationsIgnoringHealth, useEnrichedStats } from '@/domains/content/hooks/use-filtered-locations';
+import { useFilteredLocations, useFilteredUniverseIgnoringSelection, useEnrichedStats } from '@/domains/content/hooks/use-filtered-locations';
+import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
 import { getBucketStats } from '@/domains/content/lib/location-bucket';
-import { useAuth } from '@/domains/identity';
+import { useAuth, useCapability } from '@/domains/identity';
 // matchesLocationFilters import removed — was only used by the deleted hiddenByDraft notice
 import { supabase } from '@/integrations/supabase/client';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -39,43 +42,70 @@ import {
   getActiveFilterChips,
   type FilterAxis,
 } from '@/domains/content/lib/filter-presets';
+import { classifyPoiRootStatusForLocation } from '@/domains/content/lib/poi-identity-root-status-client';
 import { CLASSIFICATION_TREE } from './filters/ClassificationTree';
 import { loadLocationsFromDatabase } from '@/domains/content';
 import { HealthFilterActionCTA } from './discovery/HealthFilterActionCTA';
+import { HealthRepairPreviewDialog } from './discovery/HealthRepairPreviewDialog';
+import { DebtResolutionPanel } from './discovery/DebtResolutionPanel';
 import { useSelectionFitOnStart } from './discovery/use-selection-fit-on-start';
 import { useHealthFilterFit } from './discovery/use-health-filter-fit';
-import { getHealthBucketCounts } from '@/domains/content/lib/location-health-counts';
+import { RootStatusChipRow } from './discovery/RootStatusChipRow';
+import { UniverseBaseProvider } from './filters/UniverseBaseContext';
+import { DebtSelectionProvider, useDebtSelection } from './filters/DebtSelectionContext';
+import { DebtSelectionStatusBar } from './filters/DebtSelectionStatusBar';
+import {
+  resolveUniverseBase,
+  getUniverseBaseLabel,
+  type ActiveModeUniverse,
+} from '@/domains/content/lib/resolve-universe-base';
+import { getVisibleCatalogUniverse } from '@/domains/content/lib/visible-catalog-universe';
+import { EffectiveActionFooter } from './filters/EffectiveActionFooter';
 import { toast } from 'sonner';
-import { runSelectable, resolveSelectableState } from '@/shared/interaction/selectable-kernel';
+
+
 
 const COUNT_FORMATTER = new Intl.NumberFormat('es-ES');
 
 export function FilterBar() {
-  const { 
-  filters, 
-  setFilters, 
+  const {
+  filters,
+  setFilters,
   selectedLocations,
   selectAllLocations,
   clearSelection,
+  addLocationsToSelection,
   selectByFilter,
   selectedDocument,
   updateDocumentLocations,
   } = useLocationsStore();
+
   const getAllLocations = useLocationsStore(s => s.getAllLocations);
   const documents = useLocationsStore(s => s.documents);
   
   const filteredLocations = useFilteredLocations();
-  // Universo SIN healthFilter aplicado: alimenta los counts de los chips
-  // del eje Salud para que no se canibalicen entre sí.
-  const filteredIgnoringHealth = useFilteredLocationsIgnoringHealth();
+  // Universo visible/autorizado SIN recortar por selección. Es la base canónica
+
+  // de los denominadores T/Tm/Ts del contador y del desglose bucketStats —
+  // garantiza que seleccionar no colapse los totales.
+  // Ver docs/audits/selection-counter-ownership-ratios-plan.md.
+  const filteredUniverse = useFilteredUniverseIgnoringSelection();
   const stats = useEnrichedStats();
   const { user } = useAuth();
-  // Desglose Catálogo / Mesa / Seguidos sobre el conjunto VISIBLE.
+  // Desglose Catálogo / Mesa / Seguidos sobre el UNIVERSO (no la selección).
   // Single Source of Truth: location.isApproved decide Catálogo (no doc.status).
   const bucketStats = useMemo(
-    () => getBucketStats(filteredLocations as any, user?.id),
-    [filteredLocations, user?.id],
+    () => getBucketStats(filteredUniverse as any, user?.id),
+    [filteredUniverse, user?.id],
   );
+
+  // Ownership ratios (X/T, Xm/Tm, Xs/Ts) — ver
+  // docs/audits/search-filter-selection-state-cross-mode-postflight.md.
+  // BLOQUEANTE (regla A): X y T se calculan SIEMPRE sobre el universeBase
+  // del modo activo, NUNCA sobre `filteredUniverse`. Esto garantiza que la
+  // selección de otro modo NO se contamine en el header al cambiar de pestaña.
+  // La derivación real vive más abajo (necesita `universeBaseLocations`).
+
 
   // Aviso "hidden by draft" eliminado: tras la nueva regla de visibilidad
   // (mem://logic/map/visibility-rule-rls-only) los documentos en borrador
@@ -101,8 +131,47 @@ export function FilterBar() {
   setIsRefreshing(false);
   }
   }, [selectedDocument, updateDocumentLocations]);
- const filteredCount = filteredLocations.length;
+  const filteredCount = filteredLocations.length;
   const selectedCount = selectedLocations.size;
+
+  // BLOQUEANTE: subtab/CTA/árbol DEBEN derivar del MISMO universeBase.
+  // Counts de los chips de subtab (Con deuda / Sin enriquecer) se calculan
+  // con `resolveUniverseBase` sobre la misma fuente que alimenta el árbol.
+  // Ver docs/audits/search-filter-maintain-tree-universe-counts-unification-postflight.md.
+  //
+  // PR-COUNTS-1: la fuente canónica para contadores de catálogo (header,
+  // subtabs, ownershipRatios, árbol) es `catalogVisibleUniverse` —
+  // `myCatalog + followedCatalog` aprobados. Coincide con la base del top
+  // bar (`getBucketStats(getAllLocations(), uid).catalogTotal`) y cierra el
+  // gap 5095 vs 5100. Ver `docs/contracts/poi-counts-canon.md` §3.A.
+  // Importante: NO usar `getVisibleUniverseLocations()` aquí (ese es el
+  // universo de mapa, fuente B, e incluye detached/no-aprobados).
+  const allLocationsForUniverseSource = useMemo(
+    () => getVisibleCatalogUniverse(getAllLocations(), user?.id ?? null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [getAllLocations, documents, user?.id],
+  );
+
+  const curationBuckets = useMemo(() => ({
+    conDeuda: resolveUniverseBase('debt', allLocationsForUniverseSource).length,
+    sinEnriquecer: resolveUniverseBase('unenriched', allLocationsForUniverseSource).length,
+  }), [allLocationsForUniverseSource]);
+
+  // PR-FILTER-ROOTSTATUS-2.2 §C — el desglose A/B/C/D vive ahora en una fila
+  // compacta (`RootStatusChipRow`) sobre el árbol, en TODOS los universos
+  // (Explorar / Con deuda / Sin enriquecer / + Selección). Los counts se
+  // calculan dentro del row a partir del scope que recibe (`universeBase`
+  // o `universeBase ∩ selection`). Mantenemos `debtRootStatusCounts` como
+  // alias para no romper invariante I2 (A+B+C+D ≡ subtab Con deuda) en
+  // tests/diagnóstico, derivado del MISMO universeBase('debt').
+  const debtRootStatusCounts = useMemo(() => {
+    const counts: Record<'A' | 'B' | 'C' | 'D', number> = { A: 0, B: 0, C: 0, D: 0 };
+    const universe = resolveUniverseBase('debt', allLocationsForUniverseSource);
+    for (const loc of universe as any[]) {
+      counts[classifyPoiRootStatusForLocation(loc).rootStatus] += 1;
+    }
+    return counts;
+  }, [allLocationsForUniverseSource]);
 
   // PR-4A.1 — Auto-fit del mapa cuando arranca una selección masiva (0 → N).
   // Internamente debounced 250ms y con guard "solo el primer fit".
@@ -134,7 +203,7 @@ export function FilterBar() {
  
       // Clear filters and refresh data
  setFilters({});
- window.dispatchEvent(new CustomEvent('trash-updated'));
+ dispatchGlobalEvent('trash-updated');
  window.dispatchEvent(new CustomEvent('store-updated'));
  } catch (error) {
  console.error('Bulk delete error:', error);
@@ -175,12 +244,91 @@ export function FilterBar() {
   const inferInitialMode = (): PanelMode => {
     if (typeof window === 'undefined') return 'explore';
     if (filters.healthFilter) return 'maintain';
-    if (selectedCount > 0) return 'select';
     const stored = window.sessionStorage.getItem(STORAGE_KEY) as PanelMode | null;
-    if (stored === 'explore' || stored === 'maintain' || stored === 'select') return stored;
+    if (stored === 'explore' || stored === 'maintain') return stored;
     return 'explore';
   };
   const [panelMode, setPanelMode] = useState<PanelMode>(inferInitialMode);
+
+  const [maintainTab, setMaintainTab] = useState<'debt' | 'unenriched'>('debt');
+
+  // Tab activa del árbol (Geo / Tipo / Tags / Legacy). Se PRESERVA al
+  // alternar Explorar ↔ Mantener (ver plan §3: persistencia de tab).
+  type TreeTab = 'geography' | 'classification' | 'tags' | 'types';
+  const [treeTab, setTreeTab] = useState<TreeTab>('geography');
+
+  // Universo activo (SoT del plan §1). Mantener→Con deuda = 'debt';
+  // Mantener→Sin enriquecer = 'unenriched'; resto = 'all'.
+  const activeModeUniverse: ActiveModeUniverse =
+    panelMode === 'maintain'
+      ? (maintainTab === 'debt' ? 'debt' : 'unenriched')
+      : 'all';
+
+  // SoT del universo activo: misma fuente que `curationBuckets` y que los
+  // 4 árboles vía UniverseBaseProvider. Garantiza
+  //   subtab = CTA = Σ raíces árbol = universeBase.length.
+  const allLocationsForUniverse = allLocationsForUniverseSource;
+
+  // Universo base resuelto + set de ids para intersecciones O(1).
+  const universeBaseLocations = useMemo(
+    () => resolveUniverseBase(activeModeUniverse, allLocationsForUniverse),
+    [activeModeUniverse, allLocationsForUniverse],
+  );
+  const universeBaseIds = useMemo(
+    () => new Set(universeBaseLocations.map((l) => l.id)),
+    [universeBaseLocations],
+  );
+
+  // effectiveActionSet (plan §1, ajuste obligatorio):
+  //   userSelection no vacía → universeBase ∩ treeSelection ∩ userSelection
+  //   userSelection vacía    → universeBase ∩ treeSelection
+  // PR-INLINE-3: `treeFilteredBase` se expone aparte para que el footer pueda
+  // intersectar con la selección LOCAL del panel "Con deuda" (debt selection),
+  // que es aislada de `selectedLocations` global.
+  const treeFilteredBase = useMemo(
+    () =>
+      universeBaseLocations.filter((l) =>
+        matchesLocationFilters(l as any, filters, { includeHealth: false }),
+      ),
+    [universeBaseLocations, filters],
+  );
+  const effectiveActionSet = useMemo(() => {
+    if (selectedLocations.size === 0) return treeFilteredBase;
+    return treeFilteredBase.filter((l) => selectedLocations.has(l.id));
+  }, [treeFilteredBase, selectedLocations]);
+
+  // Universo del contador superior: refleja universeBase activo (plan §5).
+  const universeForCounter = useMemo(
+    () => filteredUniverse.filter((l: any) => universeBaseIds.has(l.id)),
+    [filteredUniverse, universeBaseIds],
+  );
+
+  // Ownership ratios (X/T, Xm/Tm, Xs/Ts) — derivados del universeBase activo.
+  // Regla A (cross-mode): selection ∩ universeBase. Ids fuera del universo
+  // del modo activo NO inflan X, y T = universeBase.length (no filteredUniverse).
+  // Ver docs/audits/search-filter-selection-state-cross-mode-postflight.md.
+  const ownershipRatios = useMemo(() => {
+    const uid = user?.id ?? null;
+    const T = universeBaseLocations.length;
+    let Tm = 0;
+    let Xm = 0;
+    let X = 0;
+    for (const loc of universeBaseLocations as any[]) {
+      const ownerId = (loc.ownerUserId ?? loc._docUserId ?? null) as string | null;
+      const mine = !!uid && ownerId === uid;
+      if (mine) Tm += 1;
+      if (selectedLocations.has(loc.id)) {
+        X += 1;
+        if (mine) Xm += 1;
+      }
+    }
+    const Ts = T - Tm;
+    const Xs = X - Xm;
+    return { T, Tm, Ts, X, Xm, Xs };
+  }, [universeBaseLocations, selectedLocations, user?.id]);
+
+  const universeLabel = getUniverseBaseLabel(activeModeUniverse);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.sessionStorage.setItem(STORAGE_KEY, panelMode);
@@ -194,82 +342,146 @@ export function FilterBar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.healthFilter]);
 
+  // "Seleccionar todo" del modo activo: selecciona universeBase ∩ treeSelection.
+  // Mismo predicado que `effectiveActionSet` sin userSelection.
+  const handleSelectAllInMode = useCallback(() => {
+    const base = universeBaseLocations.filter((l) =>
+      matchesLocationFilters(l as any, filters, { includeHealth: false }),
+    );
+    if (base.length === 0) return;
+    clearSelection();
+    addLocationsToSelection(base.map((l) => l.id));
+  }, [universeBaseLocations, filters, clearSelection, addLocationsToSelection]);
+
+
+  // scopeLabel del footer: primer chip geográfico activo (label más profundo,
+  // p. ej. "France" si hay country, "Europe" si solo continente).
+  const scopeLabel = useMemo<string | null>(() => {
+    const geoChips = activeChips.filter((c) => c.axis === 'geography');
+    if (geoChips.length === 0) return null;
+    return geoChips[geoChips.length - 1].label;
+  }, [activeChips]);
+
+  const hasUserSelection = selectedLocations.size > 0;
+
+  // Opener registrado por HealthFilterActionCTA — sólo se usa cuando hay un
+  // `filters.healthFilter` puntual activo (partial/chain/hardError/review).
+  // El modal AGREGADO de "Resolver deuda" (universo debt) NO depende de este
+  // ref: lo abre `FilterBar` directamente via `debtModalOpen` + dialog
+  // montado abajo. Esto cierra la regresión donde `HealthFilterActionCTA`
+  // retornaba `null` por `!healthFilter` y el botón "Resolver deuda" del
+  // footer quedaba como noop.
+  const openHealthRepairRef = useRef<() => void>(() => {});
+  const registerHealthRepairOpen = useCallback((open: () => void) => {
+    openHealthRepairRef.current = open;
+  }, []);
+
+  // Estado local del modal agregado "Resolver deuda" (universo debt).
+  // Fase 1 sub-panel: el modal queda como FALLBACK/CONFIRMACIÓN de D repair,
+  // ya no es la vista primaria. La vista primaria es `DebtResolutionPanel`,
+  // controlada por `debtPanelOpen`.
+  const [debtModalOpen, setDebtModalOpen] = useState(false);
+  const [debtPanelOpen, setDebtPanelOpen] = useState(false);
+
+  // Cerrar subpanel al salir del universo debt (cambio de modo/tab).
+  useEffect(() => {
+    if (activeModeUniverse !== 'debt' && debtPanelOpen) {
+      setDebtPanelOpen(false);
+    }
+  }, [activeModeUniverse, debtPanelOpen]);
+
+  // Scope agregado para el modal: se construye desde `effectiveActionSet`
+  // (universeBase ∩ treeSelection [∩ userSelection]). `mode='selection'` si
+  // hay selección manual, `mode='filtered'` en caso contrario.
+  const debtScope = useMemo(() => ({
+    ids: effectiveActionSet.map((l) => l.id),
+    total: effectiveActionSet.length,
+    mode: (hasUserSelection ? 'selection' : 'filtered') as 'selection' | 'filtered',
+    locations: effectiveActionSet,
+  }), [effectiveActionSet, hasUserSelection]);
+
+
+
+
+
 
   return (
+  <UniverseBaseProvider mode={activeModeUniverse} allLocations={allLocationsForUniverse}>
+  <DebtSelectionProvider>
   <div className="flex flex-col h-full min-h-0">
-   <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1">
+   <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1 pb-2">
     {/* Stats bar with prominent filter summary */}
     <div className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg p-3 space-y-2">
- {/* Result count - prominent */}
-  <div className="flex items-center justify-between">
-  <div className="flex flex-col">
-    <div className="flex items-center gap-2">
-      <span className="text-2xl font-bold text-primary">{filteredCount}</span>
-      <span className="text-sm text-muted-foreground">
-        {filteredCount === stats.total ? 'ubicaciones' : `de ${stats.total} ubicaciones`}
-      </span>
-    </div>
-    <div className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
-      <span className="text-emerald-600 font-medium">{bucketStats.catalogTotal}</span> catálogo
-      {' · '}
-      <span className="text-amber-600 font-medium">{bucketStats.workspaceTotal}</span> mesa
-      {bucketStats.followedTotal > 0 && (
-        <>
-          {' · '}
-          <span className="text-sky-600 font-medium">{bucketStats.followedTotal}</span> seguidos
-        </>
-      )}
-    </div>
+  {/* Result count - formato unificado X / Y etiqueta en ambos estados */}
+   <div className="flex items-center justify-between">
+   <div className="flex flex-col">
+     <div className="flex items-center gap-2">
+       <span className="text-lg font-semibold leading-none tabular-nums">
+         <span className="text-primary">{COUNT_FORMATTER.format(ownershipRatios.X)}</span>
+         <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(ownershipRatios.T)}</span>
+       </span>
+       <span className="text-sm text-muted-foreground leading-none">seleccionados{universeLabel ? ` (${universeLabel})` : ''}</span>
+     </div>
+     <div className="text-xs mt-1 leading-tight">
+       <span className="font-semibold tabular-nums">
+         <span className="text-primary">{COUNT_FORMATTER.format(ownershipRatios.Xm)}</span>
+         <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(ownershipRatios.Tm)}</span>
+       </span>{' '}
+       <span className="text-emerald-600 font-medium">Míos</span>
+       {' · '}
+       <span className="font-semibold tabular-nums">
+         <span className="text-primary">{COUNT_FORMATTER.format(ownershipRatios.Xs)}</span>
+         <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(ownershipRatios.Ts)}</span>
+       </span>{' '}
+       <span className="text-sky-600 font-medium">Seguidos</span>
+     </div>
+   </div>
+   <div className="flex items-center gap-1">
+   {hasActiveChips && (
+  <Button
+  variant="outline"
+  size="sm"
+  onClick={clearAllFilters}
+  className="h-7 px-2 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
+  >
+  <RotateCcw className="w-3 h-3" />
+  Quitar filtros
+  </Button>
+  )}
+  <label
+  className={cn(
+  "flex items-center h-7 px-2 cursor-pointer",
+  (!hasUserSelection && effectiveActionSet.length === 0) && "opacity-50 cursor-not-allowed"
+  )}
+  title={hasUserSelection ? 'Deseleccionar todo' : 'Seleccionar todo el subconjunto activo'}
+  >
+  <Switch
+  checked={hasUserSelection}
+  disabled={!hasUserSelection && effectiveActionSet.length === 0}
+  onCheckedChange={(checked) => {
+  if (checked) handleSelectAllInMode();
+  else clearSelection();
+  }}
+  />
+  </label>
   </div>
-  <div className="flex items-center gap-1">
-  {hasActiveChips && (
- <Button
- variant="outline"
- size="sm"
- onClick={clearAllFilters}
- className="h-7 px-2 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
- >
- <RotateCcw className="w-3 h-3" />
- Quitar filtros
- </Button>
- )}
- <Button
- variant="ghost"
- size="sm"
- onClick={refreshData}
- disabled={isRefreshing}
- className="h-7 px-2"
- >
- <RefreshCw className={cn("w-3.5 h-3.5", isRefreshing && "animate-spin")} />
- </Button>
- </div>
  </div>
 
-  {/* Warning when filters are very restrictive */}
-  {filterReductionWarning && (
-  <div className="flex items-center gap-2 text-xs bg-amber-100 text-amber-800 rounded-md px-2 py-1.5">
-  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-  <span>Los filtros activos muestran solo {Math.round(filteredCount/stats.total*100)}% del total</span>
-  </div>
-  )}
+  {/* Aviso de filtros restrictivos eliminado: aparecía/desaparecía según umbral y rompía la altura de la fila. */}
 
   {/* (Aviso "hidden by draft" eliminado — ver comentario al inicio del componente) */}
 
- {/* Stats row */}
- <div className="flex items-center gap-3 text-xs text-muted-foreground">
- <div className="flex items-center gap-1 text-amber-600">
- <Sparkles className="w-3 h-3" />
- <span className="font-medium">{stats.enriched}</span> enriquecidos
- </div>
- {stats.verified > 0 && (
- <div className="flex items-center gap-1 text-green-600">
- <CheckCircle className="w-3 h-3" />
- <span className="font-medium">{stats.verified}</span> verificados
- </div>
- )}
- </div>
  </div>
 
+  {debtPanelOpen ? (
+    <DebtResolutionPanel
+      scope={debtScope as any}
+      currentUserId={user?.id ?? null}
+      onBack={() => setDebtPanelOpen(false)}
+      onOpenRepairConfirm={() => setDebtModalOpen(true)}
+    />
+  ) : (
+  <>
   {/* Active filters summary - chips data-driven (todos los ejes) */}
   {hasActiveChips && (
     <div className="bg-muted/50 rounded-lg p-2 space-y-1.5">
@@ -286,6 +498,7 @@ export function FilterBar() {
             classification: 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200',
             search: 'bg-muted text-muted-foreground hover:bg-muted/80',
             health: 'bg-pink-100 text-pink-700 hover:bg-pink-200',
+            rootStatus: 'bg-slate-200 text-slate-700 hover:bg-slate-300',
           };
           const IconByAxis: Record<FilterAxis, typeof MapPin> = {
             geography: MapPin,
@@ -294,6 +507,7 @@ export function FilterBar() {
             classification: Layers,
             search: Search,
             health: HeartPulse,
+            rootStatus: Shield,
           };
           const Icon = IconByAxis[chip.axis];
           return (
@@ -323,12 +537,100 @@ export function FilterBar() {
     onChange={setPanelMode}
     exploreActive={hasActiveChips}
     maintainActive={!!filters.healthFilter}
-    selectActive={selectedCount > 0}
   />
 
-  {/* ── Modo Explorar: Geo / Tipo / Tags / Legacy ── */}
-  {panelMode === 'explore' && (
-    <Tabs defaultValue="geography" className="w-full">
+
+  {/* === Sub-tabs de Mantener (solo cuando panelMode='maintain') ===
+      Selecciona el universo base (debt vs unenriched). El árbol Geo/Tipo/Tags/
+      Legacy se renderiza igual debajo, scope cambia vía UniverseBaseProvider. */}
+  {panelMode === 'maintain' && (
+    <Tabs value={maintainTab} onValueChange={(v) => setMaintainTab(v as 'debt' | 'unenriched')} className="w-full">
+      <TabsList className="grid grid-cols-2 w-full h-8 p-1">
+        <TabsTrigger value="debt" className="text-xs gap-1.5">
+          <AlertCircle className="w-3 h-3 text-amber-600" />
+          Con deuda
+          <span className="tabular-nums text-muted-foreground">{COUNT_FORMATTER.format(curationBuckets.conDeuda)}</span>
+        </TabsTrigger>
+        <TabsTrigger value="unenriched" className="text-xs gap-1.5">
+          <CircleDashed className="w-3 h-3" />
+          Sin enriquecer
+          <span className="tabular-nums text-muted-foreground">{COUNT_FORMATTER.format(curationBuckets.sinEnriquecer)}</span>
+        </TabsTrigger>
+      </TabsList>
+      {/* PR-FILTER-ROOTSTATUS-2.2 §C — el desglose A/B/C/D ya NO vive aquí
+          dentro del subtab debt; ahora se renderiza como `RootStatusChipRow`
+          generalizado sobre el árbol (debajo), disponible en Explorar, Con
+          deuda, Sin enriquecer y cuando hay selección activa. */}
+    </Tabs>
+  )}
+
+  {/* === Árbol unificado Geo / Tipo / Tags / Legacy ===
+      Plan §3: las tres vistas (Explorar, Con deuda, Sin enriquecer) usan la
+      MISMA estructura. UniverseBaseProvider/DebtSelectionProvider se elevaron
+      al outer wrapper (PR-INLINE-3) para que el footer pueda leer la
+      selección local del panel debt. */}
+  <>
+   <>
+    {panelMode === 'maintain' && (
+      <div className="space-y-1.5 mt-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+            Acción sobre {universeLabel ?? 'subconjunto'}
+            <span className="ml-1 normal-case tabular-nums text-muted-foreground/70">
+              ({COUNT_FORMATTER.format(effectiveActionSet.length)})
+            </span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSelectAllInMode}
+            disabled={effectiveActionSet.length === 0 && selectedLocations.size === 0}
+            className="h-6 px-2 text-[11px] gap-1"
+          >
+            <CheckSquare className="w-3 h-3" />
+            Seleccionar todo
+          </Button>
+        </div>
+        {maintainTab === 'debt' ? (
+          <HealthFilterActionCTA
+            healthFilter={filters.healthFilter ?? null}
+            filteredLocations={effectiveActionSet as any}
+            selectedLocationIds={selectedLocations}
+            registerOpen={registerHealthRepairOpen}
+          />
+
+        ) : (
+          <div className="text-xs text-muted-foreground px-1 py-2">
+            {effectiveActionSet.length > 0
+              ? `${COUNT_FORMATTER.format(effectiveActionSet.length)} POIs sin enriquecer en el subconjunto activo. La cola de enriquecimiento masivo se gestiona desde el panel de Imported Content.`
+              : 'No hay POIs sin enriquecer en el subconjunto actual.'}
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* PR-FILTER-ROOTSTATUS-2.2 §C — fila compacta A/B/C/D sobre el árbol.
+        Disponible en TODOS los universos. Scope = universeBase, o
+        universeBase ∩ selection si hay selección activa. */}
+    <RootStatusChipRow
+      scopeLocations={
+        selectedLocations.size === 0
+          ? (universeBaseLocations as unknown[])
+          : (universeBaseLocations as any[]).filter((l) => selectedLocations.has(l.id))
+      }
+      filters={filters}
+      setFilters={setFilters}
+      scopeLabel={
+        panelMode === 'maintain'
+          ? (maintainTab === 'debt' ? 'Con deuda' : 'Sin enriquecer')
+          : 'Explorar'
+      }
+      selectionActive={selectedLocations.size > 0}
+      testId={`root-status-chip-row-${panelMode === 'maintain' ? maintainTab : 'explore'}`}
+    />
+
+    <Tabs value={treeTab} onValueChange={(v) => setTreeTab(v as TreeTab)} className="w-full mt-2">
+
       <TabsList className="grid w-full grid-cols-4 h-9">
         {(() => {
           const hasAxis = (axis: FilterAxis) => activeChips.some((c) => c.axis === axis);
@@ -372,204 +674,156 @@ export function FilterBar() {
         <PlaceTypeFilter />
       </TabsContent>
     </Tabs>
+    <DebtSelectionStatusBar />
+   </>
+  </>
+  </>
   )}
 
-  {/* ── Modo Mantener: Salud + CTA separado ── */}
-  {panelMode === 'maintain' && (
-    <div className="space-y-2">
-      <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-        <HeartPulse className="w-3 h-3" />
-        Filtro de salud
-      </div>
-      <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin">
-        {(() => {
-          // healthFilter SÍ se aplica en el pipeline cliente
-          // (location-filtering.ts línea ~135). Por eso los counts de cada
-          // chip se calculan sobre `filteredIgnoringHealth`: el universo
-          // post-Geo/Tipo/Tags/búsqueda PERO antes del eje Salud, para que
-          // los chips no se canibalicen al activar uno.
-          const counts = getHealthBucketCounts(filteredIgnoringHealth);
-          const buckets: Array<{
-            id: HealthFilter | null;
-            label: string;
-            cssVar?: string;
-            count: number;
-          }> = [
-            { id: null,        label: 'Sin filtro',      count: counts.total },
-            { id: 'partial',   label: 'Rellenar huecos', cssVar: '--poi-health-partial',    count: counts.partial },
-            { id: 'chain',     label: 'Reparar cadena',  cssVar: '--poi-health-chain',      count: counts.chain },
-            { id: 'review',    label: 'Revisar',         cssVar: '--poi-health-review',     count: counts.review },
-            { id: 'hardError', label: 'Reintentar',      cssVar: '--poi-health-hard-error', count: counts.hardError },
-          ];
-          return buckets.map((b) => {
-            const active = (filters.healthFilter ?? null) === b.id;
-            // Pilot 1: Selectable kernel for disabled-state + observable
-            // click. FRICTION DOCUMENTED — these chips have toggle-off
-            // semantics on re-click of the active chip (clear filter).
-            // That is NOT replay; we route deselection through `onChange`
-            // and leave `onReplay` undefined. The kernel does not impose
-            // replay; see docs/interaction-pilot-1-diff.md §Friction.
-            const state = resolveSelectableState({ active, count: b.count });
-            const disabled = state === 'disabled';
-            return (
-              <Button
-                key={b.id ?? 'all'}
-                type="button"
-                variant={active ? 'default' : 'outline'}
-                size="sm"
-                disabled={disabled}
-                aria-disabled={disabled || undefined}
-                data-state={state}
-                onClick={() => {
-                  if (disabled) return;
-                  runSelectable({
-                    source: `filter-bar:health:${String(b.id ?? 'all')}`,
-                    wasActive: active,
-                    onAlways: () => {},
-                    onChange: () => {
-                      const next = { ...filters };
-                      if (b.id == null) {
-                        delete (next as Record<string, unknown>).healthFilter;
-                      } else {
-                        next.healthFilter = b.id;
-                      }
-                      setFilters(next);
-                    },
-                    onReplay: () => {
-                      // Toggle-off on re-click: clear the filter. This is
-                      // pre-existing behavior; replay-as-recenter is not
-                      // added here (would require touching cámara, out of
-                      // pilot scope).
-                      const next = { ...filters };
-                      delete (next as Record<string, unknown>).healthFilter;
-                      setFilters(next);
-                    },
-                  });
-                }}
-                className="h-7 px-2 text-xs gap-1.5 shrink-0"
-              >
-                {b.cssVar && (
-                  <span
-                    aria-hidden
-                    className="inline-block w-2 h-2 rounded-full"
-                    style={{ background: `hsl(var(${b.cssVar}))` }}
-                  />
-                )}
-                {b.label}
-                <span
-                  className={cn(
-                    'ml-0.5 tabular-nums text-[11px]',
-                    active ? 'opacity-90' : 'text-muted-foreground/80',
-                  )}
-                >
-                  {COUNT_FORMATTER.format(b.count)}
-                </span>
-              </Button>
-            );
-          });
-        })()}
-      </div>
-      <Separator />
-      <div className="space-y-1.5">
-        <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-          Acción sobre subconjunto
-        </div>
-        <HealthFilterActionCTA
-          healthFilter={filters.healthFilter ?? null}
-          filteredLocations={filteredLocations as any}
-          selectedLocationIds={selectedLocations}
-        />
-      </div>
-    </div>
-  )}
 
-  {/* ── Modo Seleccionar: bulk actions + controles ── */}
-  {panelMode === 'select' && (
-    <div className="space-y-2">
-      {selectedCount === 0 ? (
-        <AppEmptyState
-          icon={<CheckSquare />}
-          title="Sin selección"
-          description="Selecciona puntos en el mapa o usa Seleccionar todo / Seleccionar filtrados."
-        />
-      ) : (
-        <SelectionActions />
-      )}
 
-      <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground">
-            <span className="font-medium text-foreground">{selectedCount}</span> seleccionados
-          </span>
-        </div>
-        <div className="flex gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={selectAllLocations}
-            className="text-xs h-7"
-          >
-            Seleccionar todo
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearSelection}
-            className="text-xs h-7"
-            disabled={selectedCount === 0}
-          >
-            Limpiar
-          </Button>
-        </div>
-      </div>
 
-      {hasActiveChips && filteredCount > 0 && (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => selectByFilter(filters)}
-            className="flex-1 text-xs"
-          >
-            Seleccionar {filteredCount} puntos filtrados
-          </Button>
-          {filteredCount < stats.total && selectedCount > 0 && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  disabled={isDeleting}
-                  className="h-8 w-8 shrink-0 border-red-300 text-red-600 hover:bg-red-50"
-                  title={`Eliminar ${filteredCount} ubicaciones`}
-                >
-                  {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>¿Eliminar {filteredCount} ubicaciones?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Se moverán a la papelera. Podrás restaurarlas en los próximos 30 días.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleBulkDelete}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Eliminar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
-        </div>
-      )}
-    </div>
-  )}
    </div>
+
+   {/* Footer fijo de acciones (PR-INLINE-3): wrapper que conoce la selección
+       local del panel "Con deuda" y la usa para recalcular activeSet sin
+       contaminar `selectedLocations` global. El primary "Resolver deuda" abre
+       el modal de confirmación HealthRepairPreviewDialog directamente — NO
+       abre la pantalla secundaria DebtResolutionPanel (sacada del flujo). */}
+   {!debtPanelOpen && (
+     <DebtAwareFooter
+       mode={activeModeUniverse}
+       treeFilteredBase={treeFilteredBase as any}
+       globalSelectedLocations={selectedLocations}
+       hasGlobalSelection={hasUserSelection}
+       scopeLabel={scopeLabel}
+       clearGlobalSelection={clearSelection}
+       handleSelectAllInMode={handleSelectAllInMode}
+       debtModalOpen={debtModalOpen}
+       setDebtModalOpen={setDebtModalOpen}
+       currentUserId={user?.id ?? null}
+     />
+   )}
+
   </div>
+  </DebtSelectionProvider>
+  </UniverseBaseProvider>
   );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * DebtAwareFooter (PR-INLINE-3)
+ * Renderiza EffectiveActionFooter + HealthRepairPreviewDialog leyendo la
+ * selección LOCAL del panel debt. Si el usuario tiene checkboxes inline
+ * marcados (mode='debt'), el footer opera sobre ese subconjunto. Fuera de
+ * debt, cae a la selección global (selectedLocations).
+ * ───────────────────────────────────────────────────────────────────────── */
+function DebtAwareFooter({
+  mode,
+  treeFilteredBase,
+  globalSelectedLocations,
+  hasGlobalSelection,
+  scopeLabel,
+  clearGlobalSelection,
+  handleSelectAllInMode,
+  debtModalOpen,
+  setDebtModalOpen,
+  currentUserId,
+}: {
+  mode: ActiveModeUniverse;
+  treeFilteredBase: any[];
+  globalSelectedLocations: Set<string>;
+  hasGlobalSelection: boolean;
+  scopeLabel: string | null;
+  clearGlobalSelection: () => void;
+  handleSelectAllInMode: () => void;
+  debtModalOpen: boolean;
+  setDebtModalOpen: (open: boolean) => void;
+  currentUserId: string | null;
+}) {
+  const debtSel = useDebtSelectionFromCtx();
+  const debtSelectionSize = mode === 'debt' ? (debtSel?.size ?? 0) : 0;
+
+  const activeSet = useMemo(() => {
+    if (mode === 'debt' && debtSelectionSize > 0 && debtSel) {
+      return treeFilteredBase.filter((l) => debtSel.isSelected(l.id));
+    }
+    if (globalSelectedLocations.size === 0) return treeFilteredBase;
+    return treeFilteredBase.filter((l) => globalSelectedLocations.has(l.id));
+  }, [mode, debtSelectionSize, debtSel, treeFilteredBase, globalSelectedLocations]);
+
+  const hasUserSelection =
+    mode === 'debt' ? debtSelectionSize > 0 : hasGlobalSelection;
+
+  const onClearSelection = useCallback(() => {
+    if (mode === 'debt' && debtSelectionSize > 0 && debtSel) {
+      debtSel.clear();
+      return;
+    }
+    clearGlobalSelection();
+  }, [mode, debtSelectionSize, debtSel, clearGlobalSelection]);
+
+  const scope = useMemo(
+    () => ({
+      ids: activeSet.map((l: any) => l.id),
+      total: activeSet.length,
+      mode: (hasUserSelection ? 'selection' : 'filtered') as 'selection' | 'filtered',
+      locations: activeSet,
+    }),
+    [activeSet, hasUserSelection],
+  );
+
+  // PR-INLINE-3.1 — capabilities para Geo Maintenance handoff desde footer.
+  const canViewGeoMaintenance = useCapability('view_geo_maintenance').allowed;
+  const canRunGeoBackfill = useCapability('run_geo_backfill').allowed;
+
+  return (
+    <>
+      <EffectiveActionFooter
+        mode={mode}
+        locations={activeSet as any}
+        hasUserSelection={hasUserSelection}
+        scopeLabel={scopeLabel}
+        onClearSelection={onClearSelection}
+        onResolveDebt={
+          mode === 'debt'
+            ? () => {
+                // PR-INLINE-3: abre SOLO el modal de confirmación.
+                // PR-INLINE-3.1: el footer solo invoca onResolveDebt si
+                // repairableCount > 0 — no se abre modal sin reparables.
+                setDebtModalOpen(true);
+              }
+            : undefined
+        }
+        onSelectAll={handleSelectAllInMode}
+        canViewGeoMaintenance={canViewGeoMaintenance}
+        canRunGeoBackfill={canRunGeoBackfill}
+      />
+
+
+      {mode === 'debt' && (
+        <HealthRepairPreviewDialog
+          open={debtModalOpen}
+          onOpenChange={(open) => {
+            setDebtModalOpen(open);
+            // Tras confirmar (modal cierra), limpiar selección local debt.
+            if (!open && debtSelectionSize > 0 && debtSel) {
+              // No limpiamos automáticamente: la confirmación de éxito vive
+              // dentro del modal y el usuario puede querer iterar. Sólo el
+              // botón "Limpiar selección" o cambio de modo invalida.
+            }
+          }}
+          filter="debt"
+          scope={scope as any}
+          currentUserId={currentUserId}
+        />
+      )}
+    </>
+  );
+}
+
+// Helper local: evita romper si el provider no está montado (defensa en
+// profundidad — DebtSelectionProvider DEBE estar montado por el wrapper).
+function useDebtSelectionFromCtx() {
+  return useDebtSelection();
 }

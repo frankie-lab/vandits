@@ -1,6 +1,7 @@
 // Shared helpers for all geo file parsers (KML/GPX/GeoJSON/CSV)
 // Owns the unified ParsedGeoContent contract + a single mapper to KMLDocument.
 import { GeoLocation, KMLDocument, ImportedRoute } from '@/types/location';
+import { applyCanonToParsed } from '@/shared/import/canon-validator';
 
 // ============================================================================
 // Unified contract — every parser MUST populate this to its full capacity
@@ -222,15 +223,24 @@ export function toKMLDocument(parsed: ParsedGeoContent): KMLDocument {
       // preserve raw timestamp inside customData too so nothing is ever lost
       customData.timestamp = p.timestamp.toISOString();
     }
+    // T2A-wire — single point of canon application for all file parsers.
+    // Strips forbidden levels (zone in hasProvincia=false countries) and
+    // promotes admin3→locality where municipioField='locality'. Idempotent;
+    // unknown ISO2 = passthrough.
+    const canoned = applyCanonToParsed({
+      country: p.country,
+      region: p.region,
+      zone: p.zone,
+    });
     return {
       id: p.id,
       name: (p.name ?? '').trim(),
       description: p.description,
       coordinates: p.coordinates,
       continent: p.continent ?? getContinent(p.coordinates.lat, p.coordinates.lng),
-      country: p.country,
-      region: p.region,
-      zone: p.zone,
+      country: canoned.country ?? undefined,
+      region: canoned.region ?? undefined,
+      zone: canoned.zone ?? undefined,
       customData: Object.keys(customData).length > 0 ? customData : undefined,
       createdAt: p.timestamp || now,
       updatedAt: now,

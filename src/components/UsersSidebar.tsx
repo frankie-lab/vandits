@@ -79,21 +79,19 @@ interface UsersSidebarProps {
  onOpen?: () => void;
 }
 
+// PR-BACKOFFICE-UX-CLOSURE-1: 4 roles activos. `supervisor` purgado.
 const roleIcons: Record<string, React.ReactNode> = {
- master: <Crown className="w-3 h-3 text-amber-500" />,
- admin: <Shield className="w-3 h-3 text-blue-500" />,
- editor: <Edit3 className="w-3 h-3 text-green-500" />,
- moderator: <UserCheck className="w-3 h-3 text-purple-500" />,
- supervisor: <Eye className="w-3 h-3 text-orange-500" />,
+  master: <Crown className="w-3 h-3 text-amber-500" />,
+  admin: <Shield className="w-3 h-3 text-blue-500" />,
+  editor: <Edit3 className="w-3 h-3 text-green-500" />,
+  moderator: <UserCheck className="w-3 h-3 text-purple-500" />,
 };
 
 const roleColors: Record<string, string> = {
- master: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
- admin: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
- editor: 'bg-green-500/20 text-green-400 border-green-500/30',
- moderator: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
- supervisor: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
- user: 'bg-muted text-muted-foreground border-border',
+  master: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  admin: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  editor: 'bg-green-500/20 text-green-400 border-green-500/30',
+  moderator: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
 };
 
 export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
@@ -457,11 +455,14 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  }, [users, searchTerm, currentUser?.id, relationFilter]);
 
  const getPrimaryRole = (roles: string[]): string => {
- const priority = ['master', 'admin', 'moderator', 'supervisor', 'editor', 'user'];
+    // Canon RBAC PR-BACKOFFICE-UX-CLOSURE-1: 4 roles activos (master/admin/moderator/editor).
+    // Si el usuario no tiene rol asignado, se devuelve cadena vacía y el render
+    // muestra el badge neutro/sin rol.
+    const priority = ['master', 'admin', 'moderator', 'editor'];
  for (const role of priority) {
  if (roles.includes(role)) return role;
  }
- return 'user';
+ return '';
  };
 
   const getFollowButton = (user: UserWithStats) => {

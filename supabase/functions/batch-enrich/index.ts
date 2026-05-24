@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { inspectWgs84Coord, isValidWgs84Coord } from "../_shared/coord-validity.ts";
+import { classifyPoiIdentityRootStatus } from "../_shared/poi-identity-root-status.ts";
 
 // Declare EdgeRuntime for TypeScript
 declare const EdgeRuntime: {
@@ -174,7 +176,25 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         return;
       }
 
-      // ===== SKIP ALREADY-ENRICHED (transversal rule: los verdes no se reenriquecen) =====
+      // ===== POI-Identity Root Status §2.2/§2.3 GATE =====
+      // Only root='D' eligible POIs may reach the LLM. Everything else is
+      // a silent noop-skip (no error, no retry, no fail count). Contract:
+      // docs/audits/poi-identity-p1-p2-parallel-execution-plan.md §2.2 / §2.3.
+      const identity = classifyPoiIdentityRootStatus(location);
+      if (!identity.eligibleForAutoEnrich) {
+        processedIds.push(locationId);
+        console.log(
+          '[poi-identity] skip',
+          locationId,
+          location.name,
+          `root=${identity.root}`,
+          `reason=${identity.skipReason}`,
+          identity.detail ?? '',
+        );
+        return;
+      }
+
+      // ===== SKIP ALREADY-ENRICHED (defensive — classifier already catches this) =====
       const existingDesc = (location.enriched_data as { descripcion?: string } | null)?.descripcion;
       if (typeof existingDesc === 'string' && existingDesc.trim().length > 0) {
         processedIds.push(locationId);
@@ -182,14 +202,32 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         return;
       }
 
+      // ===== R1 — WGS84 entry gate. Coords inválidas NO enriquecen.
+      // Contrato: docs/contracts/enrichment-coord-coherence-contract.md.
+      const coordCheck = inspectWgs84Coord(location.latitude, location.longitude);
+      if (!coordCheck.valid) {
+        errorIds.push(locationId);
+        errorMessages[locationId] = {
+          kind: 'invalid_coordinates',
+          message: `Coordenadas inválidas (${coordCheck.reason}). Requiere geocoding antes de enriquecer.`,
+          reason: coordCheck.reason,
+        };
+        console.warn('Skip invalid coords:', location.name, locationId, coordCheck.reason);
+        return;
+      }
+
       // ===== TRUNK LOOKUP (places_trunk) =====
+      // R7 (Fase 7): defensa servidor — no consultar tronco con coords inválidas.
       try {
-        const { data: trunkRows, error: trunkErr } = await supabase.rpc('lookup_trunk_place', {
-          _latitude: location.latitude,
-          _longitude: location.longitude,
-          _place_type: location.place_type ?? null,
-          _max_distance_meters: 250,
-        });
+        const trunkCoordsOk = isValidWgs84Coord(location.latitude, location.longitude);
+        const { data: trunkRows, error: trunkErr } = trunkCoordsOk
+          ? await supabase.rpc('lookup_trunk_place', {
+              _latitude: location.latitude,
+              _longitude: location.longitude,
+              _place_type: location.place_type ?? null,
+              _max_distance_meters: 250,
+            })
+          : { data: null, error: null };
         if (!trunkErr) {
           const trunk = Array.isArray(trunkRows) ? trunkRows[0] : null;
           if (trunk?.is_fresh && trunk?.enriched_data) {
@@ -250,6 +288,7 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
               'Authorization': `Bearer ${supabaseKey}`,
             },
             body: JSON.stringify({
+              locationId, // PR cableado: revalidación servidor-side just-before-write
               location: {
                 name: location.name,
                 description: location.description,
@@ -303,29 +342,134 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
           }
 
           if (geocodedData) {
+            // R3 — persistir geografía estructurada SOLO desde el snapshot canónico
+            // devuelto por `resolve-coordinates` (vía `enrich-location._geocoded`).
+            // Contrato: docs/contracts/enrichment-coord-coherence-contract.md (Fase 2).
             if (geocodedData.country) updateData.country = geocodedData.country;
             if (geocodedData.region) updateData.region = geocodedData.region;
             if (geocodedData.zone) updateData.zone = geocodedData.zone;
             if (geocodedData.continent) updateData.continent = geocodedData.continent;
+            if (geocodedData.country_code) updateData.country_code = geocodedData.country_code;
+            if (geocodedData.postal_code) updateData.postal_code = geocodedData.postal_code;
+            if (geocodedData.timezone) updateData.timezone = geocodedData.timezone;
+            if (geocodedData.geo_source) updateData.geo_source = geocodedData.geo_source;
+            if (typeof geocodedData.geo_confidence === 'number') updateData.geo_confidence = geocodedData.geo_confidence;
+            if (geocodedData.geo_resolved_at) updateData.geo_resolved_at = geocodedData.geo_resolved_at;
+            if (geocodedData.raw_geocode) updateData.raw_geocode = geocodedData.raw_geocode;
+            const ids = geocodedData.ids ?? {};
+            if (ids.continent_id) updateData.continent_id = ids.continent_id;
+            if (ids.country_id) updateData.country_id = ids.country_id;
+            if (ids.region_id) updateData.region_id = ids.region_id;
+            if (ids.zone_id) updateData.zone_id = ids.zone_id;
+            if (ids.admin3_id) updateData.admin3_id = ids.admin3_id;
+            if (ids.locality_id) updateData.locality_id = ids.locality_id;
+            if (ids.sublocality_id) updateData.sublocality_id = ids.sublocality_id;
           }
 
           await supabase.from('locations').update(updateData).eq('id', locationId);
 
           try {
-            await supabase.rpc('upsert_trunk_place', {
-              _name: location.name,
-              _latitude: location.latitude,
-              _longitude: location.longitude,
-              _place_type: (updateData.place_type as string) ?? location.place_type ?? null,
-              _enriched_data: enrichData.data,
-              _enriched_by: location.owner_user_id ?? null,
-            });
+            // R7 (Fase 7): defensa servidor — no contaminar tronco con coords inválidas.
+            if (isValidWgs84Coord(location.latitude, location.longitude)) {
+              await supabase.rpc('upsert_trunk_place', {
+                _name: location.name,
+                _latitude: location.latitude,
+                _longitude: location.longitude,
+                _place_type: (updateData.place_type as string) ?? location.place_type ?? null,
+                _enriched_data: enrichData.data,
+                _enriched_by: location.owner_user_id ?? null,
+              });
+            }
           } catch (e) {
             console.warn('Trunk upsert failed (non-fatal):', e);
           }
 
           processedIds.push(locationId);
           console.log('Enriched location:', location.name, geocodedData ? '(with geocoding)' : '', derivedPlaceType ? `[${derivedPlaceType}]` : '');
+        } else if (enrichData.validation_required && enrichData.reason === 'reverse_geocode_failed') {
+          // R3 — reverse-geocode falló. NO se llamó al LLM. No reintentar como rate-limit.
+          throw Object.assign(new Error(enrichData.message || 'Reverse-geocode falló'), {
+            __structured: {
+              kind: 'reverse_geocode_failed',
+              reason: 'reverse_geocode_failed',
+              providedName: enrichData.providedName ?? location.name,
+              coords: enrichData.coords ?? { lat: location.latitude, lng: location.longitude },
+            },
+          });
+        } else if (enrichData.validation_required && enrichData.reason === 'identity_lookup_unavailable') {
+          // R9 — Fase 3: lookups de identidad nombre↔coords caídos. HARD BLOCK. NO LLM.
+          throw Object.assign(new Error(enrichData.message || 'Lookups de identidad no disponibles'), {
+            __structured: {
+              kind: 'identity_lookup_unavailable',
+              reason: 'identity_lookup_unavailable',
+              providedName: enrichData.providedName ?? location.name,
+              coords: enrichData.coords ?? { lat: location.latitude, lng: location.longitude },
+            },
+          });
+        } else if (enrichData.validation_required && enrichData.reason === 'name_coordinate_mismatch') {
+          // R9 — Fase 3: nombre no coincide con coords. NO LLM.
+          throw Object.assign(new Error(enrichData.message || 'Nombre↔coords no coinciden'), {
+            __structured: {
+              kind: 'name_coordinate_mismatch',
+              reason: 'name_coordinate_mismatch',
+              providedName: enrichData.providedName ?? location.name,
+              coords: enrichData.coords ?? { lat: location.latitude, lng: location.longitude },
+              nearby: Array.isArray(enrichData.nearby) ? enrichData.nearby : [],
+            },
+          });
+        } else if (enrichData.validation_required && enrichData.reason === 'name_found_elsewhere') {
+          // R9 — Fase 3: nombre encontrado en otra ubicación. NO LLM.
+          throw Object.assign(new Error(enrichData.message || 'Nombre encontrado en otra ubicación'), {
+            __structured: {
+              kind: 'name_found_elsewhere',
+              reason: 'name_found_elsewhere',
+              providedName: enrichData.providedName ?? location.name,
+              coords: enrichData.coords ?? { lat: location.latitude, lng: location.longitude },
+              candidates: Array.isArray(enrichData.candidates) ? enrichData.candidates : [],
+            },
+          });
+        } else if (enrichData.validation_required && enrichData.reason === 'geo_narrative_mismatch') {
+          // R6 — Fase 6: la narrativa IA contradice la geografía canónica.
+          // Persistimos `enrichment_status='quarantine'` + `custom_data.enrichment_block`
+          // y NO escribimos `enriched_data` final.
+          try {
+            const { data: existingRow } = await supabase
+              .from('locations')
+              .select('custom_data')
+              .eq('id', locationId)
+              .maybeSingle();
+            const existingCustom = (existingRow?.custom_data ?? {}) as Record<string, unknown>;
+            await supabase
+              .from('locations')
+              .update({
+                enrichment_status: 'quarantine',
+                custom_data: {
+                  ...existingCustom,
+                  enrichment_block: {
+                    reason: 'geo_narrative_mismatch',
+                    level: enrichData.level ?? null,
+                    expected: enrichData.expected ?? null,
+                    got: enrichData.got ?? null,
+                    source: enrichData.source ?? null,
+                    at: new Date().toISOString(),
+                  },
+                },
+              })
+              .eq('id', locationId);
+          } catch (e) {
+            console.warn('[R6] failed to persist quarantine block (non-fatal):', e);
+          }
+          throw Object.assign(new Error(enrichData.message || 'Narrativa IA incoherente con geografía canónica'), {
+            __structured: {
+              kind: 'geo_narrative_mismatch',
+              reason: 'geo_narrative_mismatch',
+              level: enrichData.level ?? null,
+              expected: enrichData.expected ?? null,
+              got: enrichData.got ?? null,
+              source: enrichData.source ?? null,
+              providedName: enrichData.providedName ?? location.name,
+            },
+          });
         } else if (enrichData.validation_required) {
           throw Object.assign(new Error('Validación requerida (nombre/coordenadas)'), {
             __structured: {
@@ -334,6 +478,7 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
               providedName: location.name,
             },
           });
+
         } else if (enrichData.success === false && enrichData.reason === 'name_coordinate_mismatch') {
           throw Object.assign(new Error(enrichData.message || 'Nombre y coordenadas no coinciden'), {
             __structured: {

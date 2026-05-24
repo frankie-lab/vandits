@@ -14,7 +14,6 @@ import { getMarkerSizeConfig, getBaseSize, getHoverSize } from './useMarkerSizeC
 import { getMarkerStateRules, getStateColor, getStateShadow, getStateBorderWidth } from './useMarkerStateRules';
 import { getPointConfigKey } from '@/domains/content/lib/point-visual-state';
 import {
-  getPointHealthRings,
   getCoherenceGlyph,
   getCoherenceGlyphPath,
   RING_COLORS,
@@ -27,16 +26,16 @@ import { getOwnerIdentityColor } from './owner-stroke';
 import { getOwnerIdentityOklch } from '@/stores/owner-identity-store';
 import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
 import { resolveMarkerGrammar } from '@/domains/content/lib/poi-marker-grammar';
+import { resolvePoiVisualGrammar } from '@/domains/content/lib/poi-visual-grammar';
+import { getPoiMaturityColor } from '@/domains/content/lib/poi-maturity-color';
 
 // ── Neutral palettes for non-owner / non-followed shapes ───────────────
-// PR-POI-SOURCE-5: app POIs (diamond) y source POIs (hexagon) usan paletas
-// neutras — la paleta de estado (verde/gris/naranja) está reservada a
-// `own`. Tokens preliminares hasta exponer `--poi-app-*` y `--poi-source-*`
-// en `design-system/tokens/source/poi.json`.
-const APP_NEUTRAL_FILL = 'hsl(220 13% 46%)';
-const APP_NEUTRAL_STROKE = 'hsl(220 13% 88%)';
-const SOURCE_NEUTRAL_FILL = 'hsl(220 9% 38%)';
-const SOURCE_NEUTRAL_STROKE = 'hsl(220 9% 86%)';
+// PR-MAP-CANON-2: tokens en `design-system/tokens/source/poi.json` →
+// `poi.neutral.{app,source}.{fill,stroke}`. Cero literal HSL aquí.
+const APP_NEUTRAL_FILL = `hsl(${tokens.poi.neutral.app.fill})`;
+const APP_NEUTRAL_STROKE = `hsl(${tokens.poi.neutral.app.stroke})`;
+const SOURCE_NEUTRAL_FILL = `hsl(${tokens.poi.neutral.source.fill})`;
+const SOURCE_NEUTRAL_STROKE = `hsl(${tokens.poi.neutral.source.stroke})`;
 
 // ── Followed POI debug helpers ──────────────────────────────────────────
 // Activos solo en DEV o si la URL incluye `?debug=poi-icon`. En producción
@@ -78,14 +77,13 @@ const getModeScaleForZoom = (zoom: number, mode: MarkerRenderMode): number => {
 
 /**
  * Sombra base por modo. Doble capa SOLO en standard/rich; compact mantiene
- * sombra simple para no ensuciar vistas de densidad. Tokenizado en
- * `poi.shadow.{compact,standard,rich}`.
+ * sombra simple. PR-MAP-CANON-2: única SoT = `poi.shadow.{compact,standard,
+ * rich}` en `poi.json`. Sin fallback literal.
  */
 const getShadowForMode = (mode: MarkerRenderMode): string => {
-  const shadowTokens = (tokens as any)?.poi?.shadow;
-  if (mode === 'rich') return shadowTokens?.rich ?? 'drop-shadow(0 1px 1px rgba(0,0,0,0.35)) drop-shadow(0 3px 6px rgba(0,0,0,0.22))';
-  if (mode === 'standard') return shadowTokens?.standard ?? 'drop-shadow(0 1px 1px rgba(0,0,0,0.35)) drop-shadow(0 3px 6px rgba(0,0,0,0.22))';
-  return shadowTokens?.compact ?? 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
+  if (mode === 'rich') return tokens.poi.shadow.rich;
+  if (mode === 'standard') return tokens.poi.shadow.standard;
+  return tokens.poi.shadow.compact;
 };
 
 /**
@@ -221,22 +219,39 @@ export const createCustomIcon = (
   // sync defensivo desde call-sites paralelos).
   const renderMode: MarkerRenderMode = isFocused ? 'rich' : getRenderModeForZoom(currentZoom);
 
-  // ── Pipeline canónico (PR-POI-SOURCE-5) ────────────────────────────────
-  // Single source of truth para FORMA + DECORACIONES = `resolveMarkerGrammar`.
-  // El renderer NO decide forma por heurística (owner === viewer); lee la
-  // gramática resuelta y la pinta. Mantiene comportamiento legacy para
-  // own/followed; añade diamond (app) y hexagon (source).
+  // ── Pipeline canónico (PR-MAP-CANON-1) ─────────────────────────────────
+  // Single source of truth para FORMA + DECORACIONES + ESTADO + RINGS +
+  // CURATION = `resolvePoiVisualGrammar`. El renderer NO compone; lee la
+  // gramática resuelta y la pinta. PR-MAP-CANON-3 introducirá diferenciación
+  // visual por nivel POI-N — hoy `visualGrammar.curation` se computa pero
+  // no se pinta para preservar comportamiento (no-op visual).
   const ownerUid = location
     ? getLocationOwnerUserId(location as { ownerUserId?: string | null; _docUserId?: string | null })
     : null;
-  const grammar = location
-    ? resolveMarkerGrammar(currentUserId, location)
+  const visualGrammar = location
+    ? resolvePoiVisualGrammar(currentUserId, location)
     : null;
+  const grammar = visualGrammar?.grammar
+    ?? (location ? resolveMarkerGrammar(currentUserId, location) : null);
   const grammarShape = grammar?.shape ?? 'circle';
   const isFollowedPoi = grammarShape === 'inverted-triangle';
   const isAppPoi = grammarShape === 'diamond';
   const isSourcePoi = grammarShape === 'hexagon';
   const isNonOwnShape = isFollowedPoi || isAppPoi || isSourcePoi;
+  // CANON ABSOLUTO (v1.3.10): para TODO POI propio, el fill SoT es
+  // `poi.maturity[computePoiMaturity(loc)]`. Sin fallback a
+  // `entry.fill_color`, `poi.state.*`, `poi.level.*` ni `getPointVisualState`.
+  // Aplica a micro, compact, standard y rich. Si `visualGrammar.levelVisual`
+  // existe lo usamos (ya proviene de `getPoiMaturityColor` vía la gramática);
+  // si por alguna razón no existe pero el POI es propio (paletteScope='state'),
+  // recalculamos defensivamente desde el mismo helper canónico — NUNCA caemos
+  // a paletas legacy.
+  const isOwnPoi = grammar?.paletteScope === 'state';
+  const ownMaturityFill = isOwnPoi && location
+    ? (visualGrammar?.levelVisual
+        ? `hsl(${visualGrammar.levelVisual.fillHsl})`
+        : getPoiMaturityColor(location).fill)
+    : null;
 
   if (grammar && !grammar.allowCollectionTint) {
     collectionTint = null;
@@ -253,14 +268,18 @@ export const createCustomIcon = (
     });
   }
   if (renderMode === 'micro') {
-    // Rampa explícita por zoom (z≤3→2, z4→3, z5→4). Cap micro = 4px en
-    // z5 antes de saltar a SVG compact en z6. La pertenencia (`isOwn`)
-    // se diferencia solo por halo más marcado, nunca por diámetro.
+    // Rampa explícita por zoom. SoT = `poi.microDot.byZoom` en `poi.json`.
+    // Cap micro = z5 antes de saltar a SVG compact en z6. La pertenencia
+    // (`isOwn`) se diferencia solo por halo, nunca por diámetro.
+    const microByZoom = (tokens as any)?.poi?.microDot?.byZoom;
     const microSize =
-      currentZoom <= 3 ? 2 :
-      currentZoom === 4 ? 3 :
-      4; // z5 — último escalón micro antes de compact
-    const dot = entry.fill_color;
+      currentZoom <= 3 ? Number(microByZoom?.z3OrLess ?? 2) :
+      currentZoom === 4 ? Number(microByZoom?.z4 ?? 3) :
+      Number(microByZoom?.z5 ?? 4);
+    // CANON ABSOLUTO (v1.3.10): own micro dot fill = `poi.maturity[N]`.
+    // Sin fallback a `entry.fill_color`. Followed/app/source no entran
+    // aquí (ya retornan antes con sus shapes propias).
+    const dot = ownMaturityFill ?? entry.fill_color;
     const haloStyle = isOwn ? '' : 'opacity:0.85;';
     // Followed micro: triángulo invertido CSS, fill = identidad (sin borde).
     if (isFollowedPoi) {
@@ -310,7 +329,6 @@ export const createCustomIcon = (
   // En `standard` (z9–11) vuelven gradiente + doble sombra.
   // En `rich` (z≥12) se añade polaroid hero.
   // Followed/app/source: NUNCA muestran rings ni tint (curated-only sharing).
-  const skipHealthRings = grammar ? !grammar.allowHealthRings : isFollowedPoi;
   const skipGradient = renderMode === 'compact' || isNonOwnShape;
 
 
@@ -329,19 +347,29 @@ export const createCustomIcon = (
   const size = Math.max(6, Math.round(baseSize * modeScale));
   const hoverSize = baseHover ? Math.max(size, Math.round(baseHover * modeScale)) : baseHover;
 
-  // Anillos de salud (rojo error / amarillo cadena rota / naranja vacío),
-  // apilados de dentro hacia fuera por orden de severidad. Helper único:
-  // `getPointHealthRings`. La regla "verde nunca marca error" vive dentro
-  // de `hasEnrichmentFailure` y aquí se respeta automáticamente.
-  const healthRings = skipHealthRings ? [] : getPointHealthRings(location, currentUserId);
+  // Anillos de salud — PR-MAP-CANON-3.1.
+  // Camino canónico: `visualGrammar.levelVisual.showStateRing` decide si se
+  // pintan rings. En V1 sólo `poi-5` activa contorno; el resto de niveles
+  // (incluidos `poi-1a`/`poi-3` con deuda objetiva) NO pintan rings aunque
+  // `getPointHealthRings` los compute (la deuda sigue alimentando panel
+  // salud / repair / contadores — solo cambia la representación visual).
+  //
+  // Compat temporal: si llega un call-site sin `visualGrammar` (no debería
+  // tras PR-MAP-CANON-1/2), el fallback es "sin rings". No es contrato
+  // estable — el camino normal exige `visualGrammar`.
+  const levelAllowsRings = visualGrammar?.levelVisual?.showStateRing === true;
+  const healthRings = levelAllowsRings
+    ? (visualGrammar?.healthRings ?? [])
+    : [];
   const ringCount = healthRings.length;
   const ringPad = ringCount > 0 ? ringCount * RING_GAP + 2 : 0;
   const containerSize = size + ringPad * 2;
 
+  // PR-MAP-CANON-2: animaciones tokenizadas en `poi.animation.{celebrate,pulse}`.
   const animationStyle = isRecentlyEnriched
-    ? 'animation: enriched-celebrate 3.5s ease-out;'
+    ? `animation: ${tokens.poi.animation.celebrate};`
     : isFocused
-    ? 'animation: pulse 1s ease-in-out infinite;'
+    ? `animation: ${tokens.poi.animation.pulse};`
     : '';
 
   const currentState = isRecentlyEnriched ? 'recent' : isFocused ? 'focused' : isSelected ? 'selected' : 'normal';
@@ -349,22 +377,25 @@ export const createCustomIcon = (
   // Solo aporta un halo blanco sutil + borde algo más grueso. Focused/recent
   // siguen pudiendo modular color porque actúan sobre 1 punto puntual.
   const isMassSelect = currentState === 'selected';
-  // Halo de propiedad (Ola 2): los puntos del usuario reciben un drop-shadow
-  // blanco fino (~1px) que se acumula con el shadow base. No altera color ni
-  // tamaño en compact/standard/rich — solo da prioridad visual sutil.
-  const ownHalo = isOwn && !isMassSelect ? ' drop-shadow(0 0 0 1px rgba(255,255,255,0.9))' : '';
-  const shadow = (isMassSelect
-    ? 'drop-shadow(0 0 0 1.5px rgba(255,255,255,0.95)) drop-shadow(0 1px 3px rgba(0,0,0,0.35))'
-    : currentState !== 'normal'
-      ? getStateShadow(currentState, '#000000', stateRules)
-      : getShadowForMode(renderMode)) + ownHalo;
+  // Halo de propiedad (Ola 2): PR-MAP-CANON-2 — tokenizado en `poi.halo.own`.
+  const ownHalo = isOwn && !isMassSelect ? ` ${tokens.poi.halo.own}` : '';
+  // Fase A (v1.3.7): selección/focus/recent NO altera el fill POI-N.
+  // Se usa un halo externo blanco+sombra (mismo patrón que mass-select)
+  // para señalar el estado sin contaminar el color del disco.
+  const HALO_EXTERNAL =
+    'drop-shadow(0 0 0 2px hsl(var(--background))) ' +
+    'drop-shadow(0 0 0 3px rgba(0,0,0,0.55)) ' +
+    'drop-shadow(0 1px 3px rgba(0,0,0,0.35))';
+  const shadow = (currentState !== 'normal'
+    ? HALO_EXTERNAL
+    : getShadowForMode(renderMode)) + ownHalo;
   const baseBorderWidth = getStateBorderWidth(currentState, stateRules);
   const borderWidth = isMassSelect ? Math.max(2, baseBorderWidth) : baseBorderWidth;
 
-  const applyStateColor = (hex: string): string => {
-    if (currentState === 'normal' || isMassSelect) return hex;
-    return getStateColor(hex, currentState, stateRules);
-  };
+  // Fase A (v1.3.7): el fill canónico POI-N nunca se mezcla con color de
+  // estado. `applyStateColor` queda como identidad para no propagar cambios
+  // a las ramas SVG (pin gradient / dot gradient).
+  const applyStateColor = (hex: string): string => hex;
 
   // Regla canónica por zoom (ver `mem://style/map/zoom-driven-hero`):
   //   • La imagen Hero aparece SOLO en el hover Polaroid (z≥14) y como
@@ -373,8 +404,17 @@ export const createCustomIcon = (
   //   La antigua `focused-thumbnail-rule` queda deprecada.
 
 
-  const baseColor = entry.fill_color;
-  const baseColorLight = entry.fill_color_light || adjustHslLightness(baseColor, 15);
+  // CANON ABSOLUTO (v1.3.10) — Para TODO POI propio (paletteScope='state'),
+  // el fill del disco viene de `poi.maturity[computePoiMaturity(loc)]` a
+  // través de `ownMaturityFill` (SoT única). `entry.fill_color` queda como
+  // fallback SÓLO para no-state (formas no-propias que no entran por la
+  // rama de followed/app/source). `entry` sigue gobernando tamaño / hover /
+  // borde — eso NO es color, sigue válido.
+  const levelVisual = visualGrammar?.levelVisual ?? null;
+  const baseColor = ownMaturityFill ?? entry.fill_color;
+  const baseColorLight = ownMaturityFill
+    ? adjustHslLightness(baseColor, 15)
+    : (entry.fill_color_light || adjustHslLightness(baseColor, 15));
   const scaleRatio = hoverSize ? hoverSize / size : 1;
   const hoverAttr = scaleRatio > 1
     ? `onmouseenter="this.style.transform='scale(${scaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'"`
@@ -415,10 +455,10 @@ export const createCustomIcon = (
     // (Lucide MapPin/Type) — cero React per marker.
     const glyph = getCoherenceGlyph(location);
     const glyphHtml = glyph
-      ? `<div style="position:absolute; top:-4px; right:-4px; width:14px; height:14px; border-radius:50%; background:hsl(var(--poi-health-review) / 0.95); display:flex; align-items:center; justify-content:center; pointer-events:none; box-shadow:0 0 0 1.5px hsl(var(--background));"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${getCoherenceGlyphPath(glyph)}</svg></div>`
+      ? `<div style="position:absolute; top:-3px; right:-3px; width:10px; height:10px; border-radius:50%; background:hsl(var(--poi-health-review) / 0.85); display:flex; align-items:center; justify-content:center; pointer-events:none; box-shadow:0 0 0 1px hsl(var(--background));"><svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${getCoherenceGlyphPath(glyph)}</svg></div>`
       : '';
     polaroidHtml = `
-      <div class="poi-hero-marker poi-hero-marker--addon${ownClass}" style="position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%); width:${polaroidW}px; height:${polaroidH}px; pointer-events:none; --marker-state-color:${entry.fill_color};">
+      <div class="poi-hero-marker poi-hero-marker--addon${ownClass}" style="position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%); width:${polaroidW}px; height:${polaroidH}px; pointer-events:none; --marker-state-color:${baseColor};">
         <div class="poi-hero-marker__card">
           <div class="poi-hero-marker__photo">
             <div class="poi-hero-marker__placeholder">${placeholderSvg}</div>

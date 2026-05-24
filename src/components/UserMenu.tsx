@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { addGlobalEventListener } from '@/lib/global-events';
 import { 
   User, 
   Settings, 
@@ -108,6 +109,7 @@ import { useExportTracking } from '@/hooks/use-export-tracking';
 import { useDuplicateCount } from '@/hooks/use-duplicate-count';
 import { supabase } from '@/integrations/supabase/client';
 import { APP_VERSION, APP_BUILD_DATE } from '@/lib/version';
+import { ADMIN_TABS, isRouteModeTab, getAdminTabPath } from '@/components/admin/admin-tabs';
 
 
 interface UserMenuProps {
@@ -189,19 +191,21 @@ export function UserMenu({
 
   useEffect(() => {
     const handleTrashUpdate = () => fetchTrashCount();
-    window.addEventListener('trash-updated', handleTrashUpdate);
+    const offTrash = addGlobalEventListener('trash-updated', handleTrashUpdate);
     window.addEventListener('focus', handleTrashUpdate);
     return () => {
-      window.removeEventListener('trash-updated', handleTrashUpdate);
+      offTrash();
       window.removeEventListener('focus', handleTrashUpdate);
     };
   }, [fetchTrashCount]);
   const { modifiedCount, formatLastExportTime, lastExport } = useExportTracking();
  
-  // Check if user can access admin features
- const canAccessAdmin = hasPermission('manage_users') || isAdmin() || isMaster();
- const canManageCriteria = hasPermission('manage_editorial_criteria') || isAdmin() || isMaster();
- const canRunEnrichment = hasPermission('run_global_enrichment') || isAdmin() || isMaster();
+  // Capabilities-first gates (PR-ADMIN-AUDIT Step 3).
+  // `open_back_office` controla la visibilidad del submenu entero.
+  // Cada item dentro se filtra por su propia capability.
+ const canAccessAdmin = hasPermission('open_back_office') || hasPermission('manage_users');
+ const canManageCriteria = hasPermission('manage_editorial_criteria');
+ const canRunEnrichment = hasPermission('run_global_enrichment');
  
  const handleToggleSounds = (e: React.MouseEvent) => {
  e.preventDefault();
@@ -475,61 +479,26 @@ export function UserMenu({
   </DropdownMenuSubTrigger>
   <DropdownMenuPortal>
   <DropdownMenuSubContent className="w-64 z-[1002]">
-  
-  <DropdownMenuItem onClick={() => onOpenAdmin?.('users')} className="cursor-pointer">
-  <Users className="w-4 h-4 mr-2 text-purple-500" />
-  Gestión de usuarios
-  </DropdownMenuItem>
+  {/* Capabilities-first: iterate declarative table, filter by hasPermission. */}
+  {ADMIN_TABS.filter(tab => hasPermission(tab.capability)).map(tab => {
+    const Icon = tab.icon;
+    // PR-BACKOFFICE-UX-CANON-3: tabs en routeMode='route' navegan a /admin/<key>
+    // en lugar de abrir el modal AdminPanel.
+    const onSelect = isRouteModeTab(tab)
+      ? () => navigate(getAdminTabPath(tab.key))
+      : () => onOpenAdmin?.(tab.key);
+    return (
+      <DropdownMenuItem
+        key={tab.key}
+        onClick={onSelect}
+        className="cursor-pointer"
+      >
+        <Icon className={`w-4 h-4 mr-2 ${tab.iconClass}`} />
+        {tab.label}
+      </DropdownMenuItem>
+    );
+  })}
 
-  {isMaster() && (
-  <>
-  <DropdownMenuItem onClick={() => onOpenAdmin?.('permissions')} className="cursor-pointer">
-  <SlidersHorizontal className="w-4 h-4 mr-2 text-blue-500" />
-  Permisos por rol
-  </DropdownMenuItem>
-
-
-               <DropdownMenuItem onClick={() => onOpenAdmin?.('markers')} className="cursor-pointer">
-               <Ruler className="w-4 h-4 mr-2 text-orange-500" />
-               Tamaños de marcadores
-               </DropdownMenuItem>
-
-               <DropdownMenuItem onClick={() => onOpenAdmin?.('routes')} className="cursor-pointer">
-               <RouteIcon className="w-4 h-4 mr-2 text-primary" />
-               Motor de rutas
-               </DropdownMenuItem>
-
-               <DropdownMenuItem onClick={() => onOpenAdmin?.('icons')} className="cursor-pointer">
-               <Settings className="w-4 h-4 mr-2 text-indigo-500" />
-               Galería de iconos
-               </DropdownMenuItem>
-
-               <DropdownMenuItem onClick={() => onOpenAdmin?.('enrichment')} className="cursor-pointer">
-               <FileText className="w-4 h-4 mr-2 text-emerald-500" />
-               Estructura de fichas
-               </DropdownMenuItem>
-
-               <DropdownMenuItem onClick={() => onOpenAdmin?.('geography')} className="cursor-pointer">
-               <Compass className="w-4 h-4 mr-2 text-amber-500" />
-               Mantenimiento geográfico (Admin)
-               </DropdownMenuItem>
-
-               <DropdownMenuItem onClick={() => onOpenAdmin?.('sources')} className="cursor-pointer">
-               <Database className="w-4 h-4 mr-2 text-cyan-500" />
-               Fuentes de datos
-               </DropdownMenuItem>
-
-               <DropdownMenuItem onClick={() => onOpenAdmin?.('image-recovery')} className="cursor-pointer">
-               <ImageIcon className="w-4 h-4 mr-2 text-amber-500" />
-               Recuperar imágenes faltantes
-               </DropdownMenuItem>
-
-               <DropdownMenuItem onClick={() => onOpenAdmin?.('design-system')} className="cursor-pointer">
-               <Palette className="w-4 h-4 mr-2 text-fuchsia-500" />
-               Design System
-               </DropdownMenuItem>
-   </>
-   )}
 
   <DropdownMenuSeparator />
   

@@ -27,9 +27,20 @@ export function dbLocationToGeoLocation(loc: any): GeoLocation {
     country: loc.country_resolved || loc.country || undefined,
     region: loc.region_resolved || loc.region || undefined,
     zone: loc.zone_resolved || loc.zone || undefined,
-    comarca: loc.admin_level_3 || undefined,
-    localidad: loc.locality || undefined,
+    comarca: loc.admin3_resolved || loc.admin_level_3 || undefined,
+    localidad: loc.locality_resolved || loc.locality || undefined,
     sublocalidad: loc.sublocality || undefined,
+    // T1-fix — SoT textual derivado de FK (v_locations_resolved). Ver
+    // docs/contracts/territorial-equivalence-canon.md § "SoT textual cliente".
+    continentResolved: loc.continent_resolved || undefined,
+    countryResolved: loc.country_resolved || undefined,
+    regionResolved: loc.region_resolved || undefined,
+    zoneResolved: loc.zone_resolved || undefined,
+    admin3Resolved: loc.admin3_resolved || undefined,
+    localityResolved: loc.locality_resolved || undefined,
+    // T2A-wire — iso_code canónico de la región (PT-20, PT-30, ES-CT, ...).
+    // Vehículo data-driven para excepciones regionales del canon territorial.
+    regionIsoCode: loc.region_iso_code || undefined,
     placeType: (loc.place_type as GeoLocation['placeType']) || undefined,
     customData: Object.keys(mergedCustomData).length ? mergedCustomData : undefined,
     enrichedData: (loc.enriched_data as unknown as EnrichedLocationData) || undefined,
@@ -39,6 +50,21 @@ export function dbLocationToGeoLocation(loc: any): GeoLocation {
     documentId: loc.document_id || undefined,
     ownerUserId: loc.owner_user_id ?? null,
     isApproved: loc.is_approved ?? false,
+    externalRefs: (loc.external_refs as GeoLocation['externalRefs']) || undefined,
+    // PR-FILTER-ROOTSTATUS-2 — pass-through para el clasificador Root Status.
+    // Cuando la vista no los expone, el clasificador cae a la rama
+    // conservadora Deno (normalmente B).
+    countryCode: loc.country_code ?? null,
+    countryId: loc.country_id ?? null,
+    regionId: loc.region_id ?? null,
+    metadata: (loc.metadata as Record<string, unknown>) ?? null,
+    // Fase 3.1 canon v3 — preservar señales geo crudas del DB para que
+    // `computePoiMaturity` pueda graduar POI-4+. Antes se perdían en el
+    // mapping (todos los enriched caían en POI-3 por ausencia de raw_geocode).
+    rawGeocode: loc.raw_geocode ?? null,
+    geoResolvedAt: loc.geo_resolved_at ?? null,
+    geoConfidence: loc.geo_confidence ?? null,
+    geoSource: loc.geo_source ?? null,
     createdAt: new Date(loc.created_at),
     updatedAt: new Date(loc.updated_at),
   };

@@ -12,6 +12,11 @@ import {
   stripGeoMetaAndDateKeys,
   toKMLDocument,
 } from './parsers/shared';
+import {
+  evaluatePoiExport,
+  type ExportScope,
+  type ExportContext,
+} from '@/domains/content/lib/poi-export-eligibility';
 import { splitDescriptionParagraphs } from '@/shared/enrichment/format-description';
 
 function extractCoordinatesPair(coordString: string): { lat: number; lng: number; altitude?: number } | null {
@@ -391,82 +396,129 @@ function formatEnrichedDescriptionPlain(loc: GeoLocation): string {
 
 export type KMLExportTarget = 'general' | 'mymaps' | 'gurumaps';
 
+/**
+ * PR-EXPORT-1 — Filtro defensivo del motor. Aplica el contrato canónico
+ * `evaluatePoiExport` antes de serializar. Es defensa en profundidad: la
+ * puerta primaria está en los call sites de UI (ExportPanel, SelectionActions),
+ * pero si alguien añade un call site nuevo sin filtrar, este assert evita
+ * fugas (descarte silencioso + console.warn agregado).
+ *
+ * Compat: `scope` default = `'internal'`. ExportPanel y SelectionActions
+ * pasan scope explícito SIEMPRE. Llamadas sin scope explícito emiten warn
+ * único por sesión.
+ */
+
+const warnedDefaultScope = new Set<string>();
+function maybeWarnDefaultScope(fnName: string, scopeProvided: boolean): void {
+  if (scopeProvided) return;
+  if (warnedDefaultScope.has(fnName)) return;
+  warnedDefaultScope.add(fnName);
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[kml-parser] ${fnName} invocado sin scope explícito — compat temporal (PR-EXPORT-1). Fix call site para pasar scope: 'public' | 'internal'.`,
+  );
+}
+
+function applyExportGate(
+  locations: GeoLocation[],
+  scope: ExportScope,
+  ctx: ExportContext | undefined,
+  fnName: string,
+): GeoLocation[] {
+  // Sin ctx (compat/test/legacy): NO chequeo de owner para internal.
+  // Para public siempre chequeamos elegibilidad porque no requiere ctx.
+  if (scope === 'public') {
+    const result: GeoLocation[] = [];
+    let dropped = 0;
+    for (const loc of locations) {
+      const r = evaluatePoiExport(loc, 'public', ctx ?? { currentUserId: null });
+      if (r.eligible) result.push(loc);
+      else dropped++;
+    }
+    if (dropped > 0) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[kml-parser] ${fnName} scope='public': descartados ${dropped}/${locations.length} POIs no elegibles (defensa en profundidad).`,
+      );
+    }
+    return result;
+  }
+  // scope === 'internal'
+  if (!ctx) return locations; // compat sin ctx
+  const result: GeoLocation[] = [];
+  let dropped = 0;
+  for (const loc of locations) {
+    const r = evaluatePoiExport(loc, 'internal', ctx);
+    if (r.eligible) result.push(loc);
+    else dropped++;
+  }
+  if (dropped > 0) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[kml-parser] ${fnName} scope='internal': descartados ${dropped}/${locations.length} POIs no elegibles (no-owner u otras razones).`,
+    );
+  }
+  return result;
+}
+
+/**
+ * PR-EXPORT-2 — Estos call sites mantienen su firma legacy (compat con
+ * ExportPanel/SelectionActions/popup) pero DELEGAN al pipeline canónico
+ * DTO-only: `evaluatePoiExport → mapToPoiExportRecords → serialize*`.
+ *
+ * Los serializers ya NO leen `GeoLocation`. JSON pasa a envelope v2
+ * (`export_format_version: "poi-export-json-v2"`) — BREAKING change
+ * respecto al dump legacy de `GeoLocation` completo. Comunicado en
+ * `docs/contracts/pr-export-2-poi-export-canon.md` §15.
+ */
+import { mapToPoiExportRecords } from '@/domains/content/lib/poi-export-mapper';
+import {
+  serializePoiCsv,
+  serializePoiJson,
+  serializePoiKml,
+  type KmlExportTarget,
+} from '@/domains/content/lib/exporters';
+
+export type { KmlExportTarget };
+
 export function exportToKML(
   locations: GeoLocation[],
   documentName: string,
-  target: KMLExportTarget = 'general',
+  target: KmlExportTarget = 'general',
+  scope: ExportScope = 'internal',
+  ctx?: ExportContext,
+  options: { scopeProvided?: boolean } = {},
 ): string {
-  const isGuru = target === 'gurumaps';
-  const placemarks = locations
-    .map((loc) => {
-      const description = isGuru
-        ? formatEnrichedDescriptionPlain(loc)
-        : formatEnrichedDescription(loc);
-      const snippet = isGuru && loc.enrichedData
-        ? `<Snippet maxLines="2">${escapeXml(
-            [loc.enrichedData.nombre_lugar, loc.enrichedData.localizacion]
-              .filter(Boolean)
-              .join(' — '),
-          )}</Snippet>`
-        : '';
-      return `
-  <Placemark>
-    <name>${escapeXml(loc.name)}</name>
-    ${snippet}
-    ${description ? `<description><![CDATA[${description}]]></description>` : ''}
-    <ExtendedData>
-      ${loc.continent ? `<Data name="continent"><value>${escapeXml(loc.continent)}</value></Data>` : ''}
-      ${loc.country ? `<Data name="country"><value>${escapeXml(loc.country)}</value></Data>` : ''}
-      ${loc.region ? `<Data name="region"><value>${escapeXml(loc.region)}</value></Data>` : ''}
-      ${loc.zone ? `<Data name="zone"><value>${escapeXml(loc.zone)}</value></Data>` : ''}
-      ${loc.enrichedData ? `<Data name="enriched"><value>true</value></Data>` : ''}
-      ${loc.enrichedData?.etiquetas ? `<Data name="tags"><value>${escapeXml(loc.enrichedData.etiquetas.join(', '))}</value></Data>` : ''}
-      ${Object.entries(loc.customData || {})
-        .map(([key, value]) => `<Data name="${escapeXml(key)}"><value>${escapeXml(value)}</value></Data>`)
-        .join('')}
-    </ExtendedData>
-    <Point>
-      <coordinates>${loc.coordinates.lng},${loc.coordinates.lat}${loc.coordinates.altitude ? `,${loc.coordinates.altitude}` : ''}</coordinates>
-    </Point>
-  </Placemark>`;
-    })
-    .join('\n');
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>${escapeXml(documentName)}</name>
-    ${placemarks}
-  </Document>
-</kml>`;
+  maybeWarnDefaultScope('exportToKML', options.scopeProvided === true);
+  const filtered = applyExportGate(locations, scope, ctx, 'exportToKML');
+  const records = mapToPoiExportRecords(filtered, scope);
+  return serializePoiKml(records, { scope, documentName, target });
 }
 
-export function exportToCSV(locations: GeoLocation[]): string {
-  const headers = ['name', 'description', 'latitude', 'longitude', 'altitude', 'continent', 'country', 'region', 'zone'];
-  const customKeys = new Set<string>();
-  locations.forEach((loc) => Object.keys(loc.customData || {}).forEach((k) => customKeys.add(k)));
-  const allHeaders = [...headers, ...Array.from(customKeys)];
-  const rows = locations.map((loc) => {
-    const baseRow = [
-      loc.name,
-      loc.description || '',
-      loc.coordinates.lat.toString(),
-      loc.coordinates.lng.toString(),
-      loc.coordinates.altitude?.toString() || '',
-      loc.continent || '',
-      loc.country || '',
-      loc.region || '',
-      loc.zone || '',
-    ];
-    const customRow = Array.from(customKeys).map((key) => loc.customData?.[key] || '');
-    return [...baseRow, ...customRow].map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',');
-  });
-  return [allHeaders.join(','), ...rows].join('\n');
+export function exportToCSV(
+  locations: GeoLocation[],
+  scope: ExportScope = 'internal',
+  ctx?: ExportContext,
+  options: { scopeProvided?: boolean } = {},
+): string {
+  maybeWarnDefaultScope('exportToCSV', options.scopeProvided === true);
+  const filtered = applyExportGate(locations, scope, ctx, 'exportToCSV');
+  const records = mapToPoiExportRecords(filtered, scope);
+  return serializePoiCsv(records, { scope });
 }
 
-export function exportToJSON(locations: GeoLocation[]): string {
-  return JSON.stringify(locations, null, 2);
+export function exportToJSON(
+  locations: GeoLocation[],
+  scope: ExportScope = 'internal',
+  ctx?: ExportContext,
+  options: { scopeProvided?: boolean } = {},
+): string {
+  maybeWarnDefaultScope('exportToJSON', options.scopeProvided === true);
+  const filtered = applyExportGate(locations, scope, ctx, 'exportToJSON');
+  const records = mapToPoiExportRecords(filtered, scope);
+  return serializePoiJson(records, { scope });
 }
+
 
 function escapeXml(text: string): string {
   return text

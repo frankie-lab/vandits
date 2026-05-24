@@ -1,21 +1,19 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense, lazy } from 'react';
+const PermissionsMatrixPanel = lazy(() => import('./admin/PermissionsMatrixPanel').then(m => ({ default: m.PermissionsMatrixPanel })));
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Shield, Users, Settings, ChevronDown, ChevronRight, Check, Loader2, Search, UserPlus, Trash2, MapPin, ExternalLink, Route as RouteIcon } from 'lucide-react';
+import { X, Shield, ChevronDown, ChevronRight, Loader2, Search, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-import { MarkerSizeManager } from './MarkerSizeManager';
-import { RouteSettingsPanelContent } from './RouteSettingsPanel';
-import { IconLibraryManager } from './IconLibraryManager';
-import { EnrichmentCardConfig } from '@/domains/content/components';
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { usePermissions, AppRole, AppPermission } from '@/domains/identity';
+import { usePermissions, type AppRole } from '@/domains/identity';
+// PR-BACKOFFICE-DEAD-SURFACES-1 H2 — CAPABILITIES/CAPABILITY_LABELS no se usan
+// aquí. La matriz canon vive en PermissionsMatrixPanel.
 import {
  AlertDialog,
  AlertDialogAction,
@@ -26,14 +24,13 @@ import {
  AlertDialogHeader,
  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { DestructiveConfirmDialog } from '@/shared/components/ui/destructive-confirm-dialog';
 
-import { AuditPanel } from './AuditPanel';
-import { GeographyBackfillPanel } from './admin/GeographyBackfillPanel';
-import { DataSourcesPanel } from './admin/DataSourcesPanel';
-import { RecoverImagesPanel } from './admin/RecoverImagesPanel';
-import { DesignSystemPanel } from './admin/DesignSystemPanel';
+import { ADMIN_TABS, getAdminTab, isRouteModeTab, getAdminTabPath, type AdminTabKey } from './admin/admin-tabs';
+import { PanelEffectHeader } from './admin/PanelEffectHeader';
+import { AdminGate } from './admin/AdminGate';
 
-type AdminTab = 'users' | 'permissions' | 'markers' | 'routes' | 'icons' | 'enrichment' | 'audit' | 'geography' | 'sources' | 'image-recovery' | 'design-system';
+type AdminTab = AdminTabKey;
 
 interface AdminPanelProps {
  onClose: () => void;
@@ -49,91 +46,64 @@ interface UserWithRoles {
  roles: AppRole[];
 }
 
-interface RolePermission {
- role: AppRole;
- permission: AppPermission;
-}
+// PR-BACKOFFICE-DEAD-SURFACES-1 H2 — `RolePermission`, `ALL_PERMISSIONS`,
+// `PERMISSION_LABELS` removed. La matriz canon vive en PermissionsMatrixPanel.
 
 const ROLE_LABELS: Record<AppRole, string> = {
- master: 'Master',
- admin: 'Administrador',
- moderator: 'Moderador',
- editor: 'Editor',
+  master: 'Master',
+  admin: 'Administrador',
+  moderator: 'Moderador',
+  editor: 'Editor',
 };
 
 const ROLE_COLORS: Record<AppRole, string> = {
- master: 'bg-purple-500',
- admin: 'bg-red-500',
- moderator: 'bg-orange-500',
- editor: 'bg-blue-500',
+  master: 'bg-purple-500',
+  admin: 'bg-red-500',
+  moderator: 'bg-orange-500',
+  editor: 'bg-blue-500',
 };
 
-const PERMISSION_LABELS: Record<AppPermission, string> = {
- manage_users: 'Gestionar usuarios',
- manage_editorial_criteria: 'Gestionar criterios editoriales',
- run_global_enrichment: 'Enriquecimiento global',
- delete_any_location: 'Eliminar ubicaciones',
- moderate_content: 'Moderar contenido',
- manage_permissions: 'Gestionar permisos',
- manage_marker_config: 'Configurar markers',
- manage_route_engine: 'Configurar motor de rutas',
- manage_icon_library: 'Gestionar librería de iconos',
- manage_enrichment_config: 'Configurar enriquecimiento',
- view_audit_log: 'Ver auditoría',
- manage_data_sources: 'Gestionar fuentes de datos',
- run_image_recovery: 'Recuperar imágenes',
- inspect_design_system: 'Inspeccionar design system',
- purge_user: 'Purgar usuarios',
- open_back_office: 'Acceder a BackOffice',
- assign_master: 'Asignar rol Master',
- run_internal_tooling: 'Herramientas internas',
- view_geo_maintenance: 'Ver mantenimiento geo',
- run_geo_backfill: 'Ejecutar geo backfill',
- run_geo_canonicalize: 'Ejecutar geo canonicalize',
-};
-
+// Canon RBAC PR-BACKOFFICE-UX-CLOSURE-1: 4 roles activos. `user`/`supervisor`/`curator` purgados del enum.
 const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor'];
-const ALL_PERMISSIONS: AppPermission[] = [
- 'manage_users',
- 'manage_editorial_criteria',
- 'run_global_enrichment',
- 'delete_any_location',
- 'moderate_content',
- 'manage_permissions',
- 'manage_marker_config',
- 'manage_route_engine',
- 'manage_icon_library',
- 'manage_enrichment_config',
- 'view_audit_log',
- 'manage_data_sources',
- 'run_image_recovery',
- 'inspect_design_system',
- 'purge_user',
- 'open_back_office',
- 'assign_master',
- 'run_internal_tooling',
- 'view_geo_maintenance',
- 'run_geo_backfill',
- 'run_geo_canonicalize',
-];
 
 export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
- const { isMaster, hasPermission, loading: permissionsLoading } = usePermissions();
+ const navigate = useNavigate();
+ const { hasPermission, loading: permissionsLoading } = usePermissions();
+
+ // PR-BACKOFFICE-UX-CANON-3: si el tab solicitado vive ahora en una ruta
+ // dedicada `/admin/<key>`, redirige y cierra el modal en lugar de montarlo
+ // dentro de AdminPanel. Deep-link de cualquier call site sigue funcionando.
+ useEffect(() => {
+   const spec = getAdminTab(defaultTab as AdminTabKey | undefined);
+   if (spec && isRouteModeTab(spec)) {
+     navigate(getAdminTabPath(spec.key));
+     onClose();
+   }
+   // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [defaultTab]);
  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
  const [users, setUsers] = useState<UserWithRoles[]>([]);
- const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
+ // PR-BACKOFFICE-DEAD-SURFACES-1 H2 — `rolePermissions` legacy state removed.
+ // La matriz canon vive en `PermissionsMatrixPanel` con su propio fetch.
  const [loading, setLoading] = useState(true);
  const [searchTerm, setSearchTerm] = useState('');
  const [expandedRoles, setExpandedRoles] = useState<Set<AppRole>>(new Set());
  const [savingRole, setSavingRole] = useState<string | null>(null);
- const [userToDelete, setUserToDelete] = useState<UserWithRoles | null>(null);
+ // PR-BACKOFFICE-CLEANUP-REALITY-1 — `userToDelete` removed (dead UI: never set).
  const [userToPurge, setUserToPurge] = useState<UserWithRoles | null>(null);
- const [purging, setPurging] = useState(false);
  const [purgeStep, setPurgeStep] = useState<'idle' | 'loading-preview' | 'preview' | 'executing' | 'done'>('idle');
  const [purgePreview, setPurgePreview] = useState<{ targetUser: string; locations: number; documents: number; notes: number; photos: number; achievements: number } | null>(null);
  const [purgeProgress, setPurgeProgress] = useState(0);
+ // PR-BACKOFFICE-GOVERNANCE F3 — confirmación tipada para asignar/revocar master.
+ const [pendingMasterToggle, setPendingMasterToggle] = useState<{ user: UserWithRoles; hasRole: boolean } | null>(null);
+ // PR-BACKOFFICE-DEAD-SURFACES-1 H2 — `pendingPermissionToggle` legacy removed.
 
- const canManageUsers = hasPermission('manage_users');
+ // PR-ADMIN-AUDIT Step 3: role-management requires manage_permissions (master-only),
+ // NOT manage_users (which admins also hold). Prevents admin → master self-escalation.
+ const canManageRoles = hasPermission('manage_permissions');
+ const canPurgeUsers = hasPermission('purge_user');
+ // PR-BACKOFFICE-GOVERNANCE F2: assigning/revoking 'master' is a separate gate.
+ const canAssignMaster = hasPermission('assign_master');
 
  const fetchData = useCallback(async () => {
  setLoading(true);
@@ -163,16 +133,8 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
 
  setUsers(usersWithRoles);
 
-      const { data: permissions, error: permError } = await supabase
- .from('role_permissions')
- .select('role, permission');
-
- if (permError) throw permError;
-
- setRolePermissions((permissions || []).map(p => ({
- role: p.role as AppRole,
- permission: p.permission as AppPermission,
- })));
+  // PR-BACKOFFICE-DEAD-SURFACES-1 H2 — role_permissions fetch removed.
+  // PermissionsMatrixPanel hace su propio fetch dedicado.
  } catch (error: any) {
  console.error('Error fetching admin data:', error);
  toast.error('Error al cargar datos');
@@ -263,8 +225,14 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  };
 
  const toggleUserRole = async (userId: string, role: AppRole, hasRole: boolean) => {
- if (!canManageUsers && !isMaster()) {
- toast.error('No tienes permisos para gestionar usuarios');
+ if (!canManageRoles) {
+ toast.error('Solo los Masters pueden modificar roles');
+ return;
+ }
+
+ // PR-BACKOFFICE-GOVERNANCE F2: el rol master requiere assign_master.
+ if (role === 'master' && !canAssignMaster) {
+ toast.error('No tienes capability "assign_master" para tocar el rol Master');
  return;
  }
 
@@ -276,6 +244,18 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  }
  }
 
+ // F3 — Asignar/revocar master exige typed-token. Diferimos al diálogo.
+ if (role === 'master') {
+ const user = users.find(u => u.id === userId);
+ if (!user) return;
+ setPendingMasterToggle({ user, hasRole });
+ return;
+ }
+
+ await executeRoleToggle(userId, role, hasRole);
+ };
+
+ const executeRoleToggle = async (userId: string, role: AppRole, hasRole: boolean) => {
  setSavingRole(`${userId}-${role}`);
  try {
  if (hasRole) {
@@ -308,42 +288,21 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  }
  };
 
- const togglePermission = async (role: AppRole, permission: AppPermission, hasPermission: boolean) => {
- if (!isMaster()) {
- toast.error('Solo los Masters pueden modificar permisos');
- return;
- }
- setSavingRole(`${role}-${permission}`);
- try {
- if (hasPermission) {
- const { error } = await supabase.from('role_permissions').delete().eq('role', role).eq('permission', permission);
- if (error) throw error;
- toast.success('Permiso eliminado');
- } else {
- const { error } = await supabase.from('role_permissions').insert({ role, permission });
- if (error) throw error;
- toast.success('Permiso añadido');
- }
- setRolePermissions(prev => {
- if (hasPermission) return prev.filter(rp => !(rp.role === role && rp.permission === permission));
- return [...prev, { role, permission }];
- });
- } catch (error: any) {
- console.error('Error toggling permission:', error);
- toast.error('Error al modificar permiso');
- } finally {
- setSavingRole(null);
- }
- };
+ // PR-BACKOFFICE-DEAD-SURFACES-1 H2 — togglePermission/executePermissionToggle/
+ // roleHasPermission removed. La matriz canon (PermissionsMatrixPanel) es la
+ // única ruta para mutar role_permissions. Evita doble fuente de verdad.
 
  const filteredUsers = users.filter(u =>
  u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
  u.display_name?.toLowerCase().includes(searchTerm.toLowerCase())
  );
 
- const roleHasPermission = (role: AppRole, permission: AppPermission): boolean => {
- return rolePermissions.some(rp => rp.role === role && rp.permission === permission);
- };
+ // PR-BACKOFFICE-UX-CANON-3: no montar UI si el tab vive en ruta dedicada;
+ // el useEffect superior ya disparó la navegación + onClose.
+ const _redirectSpec = getAdminTab(defaultTab as AdminTabKey | undefined);
+ if (_redirectSpec && isRouteModeTab(_redirectSpec)) {
+   return null;
+ }
 
  if (permissionsLoading) {
  return (
@@ -356,7 +315,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  );
  }
 
- if (!canManageUsers && !isMaster()) {
+ if (!hasPermission('open_back_office') && !hasPermission('manage_users')) {
  return (
  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-modal flex items-center justify-center bg-foreground/50 overlay-respect-progress" onClick={onClose}>
  <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-card rounded-xl shadow-2xl p-8 max-w-md mx-4" onClick={e => e.stopPropagation()}>
@@ -374,19 +333,17 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   className="fixed inset-0 z-modal flex items-center justify-center bg-foreground/50 p-4 overlay-respect-progress"
   onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
   >
-   <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
-    className={`bg-card rounded-xl shadow-2xl w-full overflow-hidden flex flex-col h-full max-h-full ${
-     (defaultTab || 'users') === 'geography' || (defaultTab || 'users') === 'design-system' || (defaultTab || 'users') === 'image-recovery'
-       ? 'max-w-6xl'
-       : 'max-w-4xl'
-    }`}
-   >
+    <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
+     className={`bg-card rounded-xl shadow-2xl w-full overflow-hidden flex flex-col h-full max-h-full ${
+      getAdminTab(defaultTab as AdminTabKey)?.wide ? 'max-w-6xl' : 'max-w-4xl'
+     }`}
+    >
   <div className="flex items-center justify-between p-4 border-b">
   <div className="flex items-center gap-3">
   <div className="p-2 bg-primary/10 rounded-lg"><Shield className="w-5 h-5 text-primary" /></div>
   <div>
   <h2 className="text-lg font-bold">
-  {{ users: 'Gestión de usuarios', permissions: 'Permisos por rol', markers: 'Tamaños de marcadores', routes: 'Motor de rutas', icons: 'Galería de iconos', enrichment: 'Configuración de fichas', audit: 'Auditoría de preferencias', geography: 'Mantenimiento geográfico (Admin)', sources: 'Fuentes de datos', 'image-recovery': 'Recuperar imágenes faltantes', 'design-system': 'Design System' }[defaultTab || 'users'] || 'Panel de Administración'}
+  {getAdminTab((defaultTab || 'users') as AdminTabKey)?.label ?? 'Panel de Administración'}
   </h2>
   <p className="text-sm text-muted-foreground">Back Office</p>
   </div>
@@ -421,7 +378,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  <div className="text-sm text-muted-foreground truncate">@{user.username}</div>
  </div>
  <div className="flex items-center gap-2 flex-wrap justify-end">
- {ALL_ROLES.map(role => {
+  {ALL_ROLES.map(role => {
  const hasRole = user.roles.includes(role);
  const isSaving = savingRole === `${user.id}-${role}`;
  return (
@@ -432,7 +389,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  );
  })}
  </div>
- {isMaster() && (
+ {canPurgeUsers && (
  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handlePurgePreview(user); }}
  className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0" title="Limpiar usuario">
  <Trash2 className="w-4 h-4" />
@@ -446,99 +403,35 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   </div>
   )}
 
-  {isMaster() && defaultTab === 'permissions' && (
-  <div className="flex-1 overflow-hidden min-h-0 flex flex-col p-4">
- <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-8">
- <div className="space-y-4 pr-4">
- {ALL_ROLES.map(role => {
- const isExpanded = expandedRoles.has(role);
- return (
- <div key={role} className="border rounded-lg overflow-hidden">
- <button onClick={() => { setExpandedRoles(prev => { const next = new Set(prev); if (next.has(role)) next.delete(role); else next.add(role); return next; }); }}
- className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
- <div className="flex items-center gap-3">
- <Badge className={`${ROLE_COLORS[role]} text-primary-foreground`}>{ROLE_LABELS[role]}</Badge>
- <span className="text-sm text-muted-foreground">{rolePermissions.filter(rp => rp.role === role).length} permisos</span>
- </div>
- {isExpanded ? <ChevronDown className="w-5 h-5 text-muted-foreground" /> : <ChevronRight className="w-5 h-5 text-muted-foreground" />}
- </button>
- <AnimatePresence>
- {isExpanded && (
- <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="border-t overflow-hidden">
- <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
- {ALL_PERMISSIONS.map(permission => {
- const hasPerm = roleHasPermission(role, permission);
- const isSaving = savingRole === `${role}-${permission}`;
- return (
- <label key={permission} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/30 cursor-pointer">
- {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Checkbox checked={hasPerm} onCheckedChange={() => togglePermission(role, permission, hasPerm)} />}
- <span className="text-sm">{PERMISSION_LABELS[permission]}</span>
- </label>
- );
- })}
- </div>
- </motion.div>
- )}
- </AnimatePresence>
- </div>
- );
- })}
- </div>
- </div>
-  </div>
-  )}
-
-  {isMaster() && defaultTab === 'markers' && (
-  <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><MarkerSizeManager /></div>
-  )}
-
-  {isMaster() && defaultTab === 'routes' && (
-  <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><RouteSettingsPanelContent /></div>
-  )}
-
-   {isMaster() && defaultTab === 'icons' && (
-   <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><IconLibraryManager /></div>
+   {hasPermission('manage_permissions') && defaultTab === 'permissions' && (
+   <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+     <PanelEffectHeader capability="manage_permissions" label="Permisos por rol" />
+     <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
+       <PermissionsMatrixPanel />
+     </Suspense>
+   </div>
    )}
 
-   {isMaster() && defaultTab === 'enrichment' && (
-    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><EnrichmentCardConfig /></div>
-    )}
-
-    {isMaster() && defaultTab === 'audit' && (
-    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><AuditPanel /></div>
-    )}
-
-    {isMaster() && defaultTab === 'geography' && (
-    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><GeographyBackfillPanel /></div>
-    )}
-
-    {isMaster() && defaultTab === 'sources' && (
-    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><DataSourcesPanel /></div>
-    )}
-
-    {isMaster() && defaultTab === 'image-recovery' && (
-    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><RecoverImagesPanel /></div>
-    )}
-
-    {isMaster() && defaultTab === 'design-system' && (
-    <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><DesignSystemPanel /></div>
-    )}
+  {/* Declarative tab bodies — gated per-tab by capability (PR-ADMIN-AUDIT Step 3). */}
+  {ADMIN_TABS.filter(tab => tab.Component && tab.key === defaultTab).map(tab => {
+    const Body = tab.Component!;
+    return (
+      <AdminGate key={tab.key} capability={tab.capability}>
+        <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
+          <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+            <PanelEffectHeader capability={tab.capability} label={tab.label} />
+            <Body />
+          </div>
+        </Suspense>
+      </AdminGate>
+    );
+  })}
    </div>
  </motion.div>
 
- {/* Confirmación de eliminación */}
- <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
- <AlertDialogContent>
- <AlertDialogHeader>
- <AlertDialogTitle>¿Eliminar todos los roles?</AlertDialogTitle>
- <AlertDialogDescription>Esto eliminará todos los roles de {userToDelete?.display_name || userToDelete?.username}. El usuario quedará como usuario básico.</AlertDialogDescription>
- </AlertDialogHeader>
- <AlertDialogFooter>
- <AlertDialogCancel>Cancelar</AlertDialogCancel>
- <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Eliminar roles</AlertDialogAction>
- </AlertDialogFooter>
- </AlertDialogContent>
- </AlertDialog>
+  {/* PR-BACKOFFICE-CLEANUP-REALITY-1 — diálogo legacy "eliminar todos los roles"
+      removido: `userToDelete` nunca llegó a setearse en runtime, era dead UI. */}
+
 
  {/* Confirmación de limpieza de usuario */}
  <AlertDialog open={!!userToPurge} onOpenChange={() => { if (purgeStep !== 'executing') { setUserToPurge(null); setPurgeStep('idle'); setPurgePreview(null); setPurgeProgress(0); } }}>
@@ -583,17 +476,86 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  </AlertDialogDescription>
  </AlertDialogHeader>
  {purgeStep === 'preview' && (
- <AlertDialogFooter>
- <AlertDialogCancel>Cancelar</AlertDialogCancel>
- <Button variant="destructive" onClick={handlePurgeExecute}
- disabled={!purgePreview || (purgePreview.locations === 0 && purgePreview.documents === 0 && purgePreview.notes === 0 && purgePreview.photos === 0 && purgePreview.achievements === 0)}>
- Sí, limpiar usuario
- </Button>
- </AlertDialogFooter>
+ <PurgeTokenFooter
+ username={userToPurge?.username ?? ''}
+ disabled={!purgePreview || (purgePreview.locations === 0 && purgePreview.documents === 0 && purgePreview.notes === 0 && purgePreview.photos === 0 && purgePreview.achievements === 0)}
+ onConfirm={handlePurgeExecute}
+ />
  )}
  {purgeStep === 'loading-preview' && (<AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel></AlertDialogFooter>)}
  </AlertDialogContent>
  </AlertDialog>
-  </motion.div>
-  );
+
+ {/* F3 — Asignar/revocar rol master con typed-token. */}
+ <DestructiveConfirmDialog
+ open={!!pendingMasterToggle}
+ onOpenChange={(next) => { if (!next) setPendingMasterToggle(null); }}
+ title={pendingMasterToggle?.hasRole ? '¿Revocar rol Master?' : '¿Asignar rol Master?'}
+ description={pendingMasterToggle ? (
+ <p>
+ {pendingMasterToggle.hasRole ? 'Vas a revocar' : 'Vas a asignar'} el rol{' '}
+ <strong>Master</strong> a{' '}
+ <strong>{pendingMasterToggle.user.display_name || pendingMasterToggle.user.username}</strong>.
+ {' '}El rol Master tiene acceso total y puede modificar permisos del resto de roles.
+ </p>
+ ) : null}
+ token="MASTER"
+ confirmLabel={pendingMasterToggle?.hasRole ? 'Revocar Master' : 'Asignar Master'}
+ onConfirm={async () => {
+ if (!pendingMasterToggle) return;
+ const { user, hasRole } = pendingMasterToggle;
+ setPendingMasterToggle(null);
+ await executeRoleToggle(user.id, 'master', hasRole);
+ }}
+ />
+
+ {/* PR-BACKOFFICE-DEAD-SURFACES-1 H2 — Diálogo legacy de permission-toggle eliminado.
+     La matriz canon (PermissionsMatrixPanel) tiene su propio DestructiveConfirmDialog. */}
+   </motion.div>
+   );
+}
+
+/**
+ * F3 — Footer del diálogo de purge con typed-token "PURGAR <username>".
+ * Se separa para no romper la accesibilidad del AlertDialog cuando el step cambia.
+ */
+function PurgeTokenFooter({
+ username,
+ disabled,
+ onConfirm,
+}: {
+ username: string;
+ disabled: boolean;
+ onConfirm: () => void;
+}) {
+ const token = `PURGAR ${username}`;
+ const [typed, setTyped] = useState('');
+ const matches = typed === token;
+ return (
+ <div className="space-y-2">
+ <label className="text-xs text-muted-foreground block">
+ Para continuar, escribe{' '}
+ <code className="px-1 py-0.5 rounded bg-muted text-foreground font-mono text-[11px]">{token}</code>{' '}
+ exactamente.
+ </label>
+ <Input
+ value={typed}
+ onChange={(e) => setTyped(e.target.value)}
+ placeholder={token}
+ autoFocus
+ className="font-mono"
+ data-testid="purge-token-input"
+ />
+ <AlertDialogFooter>
+ <AlertDialogCancel>Cancelar</AlertDialogCancel>
+ <Button
+ variant="destructive"
+ disabled={disabled || !matches}
+ onClick={onConfirm}
+ >
+ Sí, limpiar usuario
+ </Button>
+ </AlertDialogFooter>
+ </div>
+ );
 }

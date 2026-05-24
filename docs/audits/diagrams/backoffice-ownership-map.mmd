@@ -1,0 +1,14 @@
+%% Ownership domains → surfaces + capability gates.
+graph TD
+  Identity --> users(users · manage_users)
+  Identity --> permissions(permissions · manage_permissions [master])
+  Runtime --> markers(markers · manage_marker_config)
+  Runtime --> routes(routes · manage_route_engine)
+  Runtime --> icons(icons · manage_icon_library)
+  Editorial --> enrichment(enrichment · manage_enrichment_config)
+  Providers --> sources(sources · manage_data_sources)
+  Geo --> geography(geography · view_geo_maintenance / run_geo_backfill / run_geo_canonicalize [master])
+  Geo --> image_recovery(image-recovery · run_image_recovery)
+  Diagnostics --> audit(audit · view_audit_log)
+  Diagnostics --> design_system(design-system · inspect_design_system [master])
+  InternalTooling --> internal_tools(internal-tools · run_internal_tooling [master])

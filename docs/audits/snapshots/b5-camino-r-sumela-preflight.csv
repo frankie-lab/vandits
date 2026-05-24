@@ -1,0 +1,2 @@
+id,name,latitude,longitude,deleted_at,raw_geocode,enrichment_status,geo_health,geo_source,geo_confidence,geo_resolved_at,country,country_code,postal_code,timezone,continent_id,country_id,region_id,zone_id,admin3_id,locality_id,sublocality_id
+b41a33d7-10e7-45c0-9cc9-f95fbd775d13,Monasterio de Sumela,40.690064,39.658438,,,enriched,partial,,,,Turquía,TR,,,3359210b-3571-4eb1-9a7b-435ad8732b58,8b1938c0-465c-45ad-81f3-d36673413b6b,cb91693f-9046-4752-8a35-171c42486249,,,b9d7e1f4-b0b0-44ef-8a93-36f8c9bf6db2,

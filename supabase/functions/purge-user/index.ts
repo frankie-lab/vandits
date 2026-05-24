@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireCapability } from "../_shared/require-capability.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,49 +12,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const {
-      data: { user },
-      error: authError,
-    } = await userClient.auth.getUser();
-
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Invalid authentication" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const { data: roles } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id);
-
-    const isAdminOrMaster = roles?.some(
-      (r: { role: string }) => r.role === "master" || r.role === "admin"
-    );
-
-    if (!isAdminOrMaster) {
-      return new Response(JSON.stringify({ error: "Forbidden: admin role required" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const gate = await requireCapability(req, "purge_user");
+    if (gate instanceof Response) return gate;
+    const { userId: callerId, adminClient } = gate;
 
     const { targetUserId, mode, confirmSelf } = await req.json();
     if (!targetUserId || typeof targetUserId !== "string") {
@@ -65,7 +25,7 @@ Deno.serve(async (req) => {
     }
 
     // Allow self-purge only with explicit confirmation
-    if (targetUserId === user.id && !confirmSelf) {
+    if (targetUserId === callerId && !confirmSelf) {
       return new Response(
         JSON.stringify({ error: "Cannot purge your own account", requiresSelfConfirm: true }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -78,6 +38,25 @@ Deno.serve(async (req) => {
       .select("username, display_name")
       .eq("id", targetUserId)
       .single();
+
+    // PR-BACKOFFICE-GOVERNANCE F2 — last-master guard: refuse to purge the only master.
+    {
+      const { data: targetRoles } = await adminClient
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", targetUserId);
+      const targetIsMaster = (targetRoles ?? []).some((r: { role: string }) => r.role === "master");
+      if (targetIsMaster) {
+        const { data: countData, error: countErr } = await adminClient.rpc("count_masters");
+        const masters = typeof countData === "number" ? countData : 0;
+        if (countErr || masters <= 1) {
+          return new Response(
+            JSON.stringify({ error: "Cannot remove the last master operator", lastMaster: true }),
+            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
 
     // Get documents
     const { data: docs, error: docsError } = await adminClient

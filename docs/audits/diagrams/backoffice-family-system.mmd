@@ -1,0 +1,31 @@
+%% PR-BACKOFFICE-DISCOVERY-DOSSIER-1 — 7 interaction families → member surfaces.
+graph LR
+  subgraph CONFIG_simple
+    icons[icons]
+    markers[markers]
+  end
+  subgraph CONFIG_dense
+    permissions[permissions]
+    sources[sources]
+    enrichment[enrichment]
+  end
+  subgraph CONFIG_plus_DIAG
+    routes[routes]
+  end
+  subgraph OPERATION_plus_OBSERVABILITY
+    geography[geography]
+    image_recovery[image-recovery]
+  end
+  subgraph DATA_INSPECTOR
+    audit[audit]
+    design_system[design-system]
+    users[users]
+  end
+  subgraph CONFIRM_destructive
+    purge_user[purge-user]
+    perm_toggle[permissions-toggle]
+    geo_canon[geo-canonicalize]
+  end
+  subgraph DEBUG_registry
+    internal_tools[internal-tools]
+  end

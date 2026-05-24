@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { PLACE_TYPE_LABELS, PlaceType } from '@/types/location';
 import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
+import { useScopedLocations } from '@/components/filters/UniverseBaseContext';
+
 import { 
  Building2, 
  Mountain, 
@@ -61,7 +63,8 @@ const PLACE_TYPE_COLORS: Record<PlaceType, string> = {
 export function PlaceTypeFilter() {
  const { getAllLocations, filters, setFilters } = useLocationsStore();
 
- const allLocations = getAllLocations();
+ const allLocations = useScopedLocations(getAllLocations());
+
 
   const placeTypeCounts = useMemo(() => {
   if (allLocations.length === 0) return new Map<PlaceType, number>();

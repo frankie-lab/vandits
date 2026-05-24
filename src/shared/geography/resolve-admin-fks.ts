@@ -15,6 +15,12 @@
  * de solo strings legacy.
  */
 import { supabase } from '@/integrations/supabase/client';
+import {
+  getCountryCanon,
+  allowsRegionEqualsZone,
+  regionHasNoProvincia,
+} from '@/shared/geography/territorial-canon';
+import { nameToIso2 } from '@/shared/geo/country-iso';
 
 export interface AdminAreaInput {
   continent?: string | null;
@@ -91,13 +97,77 @@ export async function resolveAdminFks(input: AdminAreaInput): Promise<AdminAreaI
       },
     });
     if (error) throw error;
-    const ids: AdminAreaIds = { ...EMPTY_IDS, ...(data?.ids ?? {}) };
+    const rawIds: AdminAreaIds = { ...EMPTY_IDS, ...(data?.ids ?? {}) };
+    const meta = (data?.meta ?? null) as ResolveAdminAreaMeta | null;
+    // T2A-wire — sanitización data-driven según TERRITORIAL_CANON.
+    const ids = applyCanonToResolvedFks(rawIds, input, meta);
     adminCache.set(key, ids);
     return { ...ids };
   } catch (err) {
     console.warn('[resolveAdminFks] failed, returning nulls:', err);
     return { ...EMPTY_IDS };
   }
+}
+
+interface ResolveAdminAreaMeta {
+  region_iso_code?: string | null;
+  canon?: { iso2?: string | null; regionForbidsProvincia?: boolean } | null;
+}
+
+/**
+ * T2A-wire — Post-procesa los IDs resueltos según el canon territorial.
+ *
+ * Defensa en profundidad: aunque la edge `resolve-admin-area` devuelva FKs
+ * para niveles "imposibles" en el país (e.g. `zone_id` para SE/NO/BR/AU/JP),
+ * aquí se descartan. Reglas §1, §1.b, §4 del contrato territorial.
+ *
+ * Idempotente. País desconocido = passthrough (fallback legacy).
+ */
+function applyCanonToResolvedFks(
+  ids: AdminAreaIds,
+  input: AdminAreaInput,
+  meta?: ResolveAdminAreaMeta | null,
+): AdminAreaIds {
+  const iso2 = nameToIso2(input.country ?? null);
+  const canon = getCountryCanon(iso2);
+  if (!canon) return ids;
+
+  const out: AdminAreaIds = { ...ids };
+
+  // §1: hasProvincia=false ⇒ zone_id SIEMPRE null.
+  if (!canon.hasProvincia && out.zone_id) {
+    out.zone_id = null;
+  }
+
+  // §1: municipioField='locality' ⇒ admin3_id SIEMPRE null; promueve a locality_id.
+  if (canon.municipioField === 'locality' && out.admin3_id) {
+    if (!out.locality_id) out.locality_id = out.admin3_id;
+    out.admin3_id = null;
+  }
+
+  // §4: region==zone sólo si la región está en whitelist uniprovincial.
+  if (out.zone_id && out.region_id && out.zone_id === out.region_id) {
+    const legit = allowsRegionEqualsZone(canon.iso2, input.region ?? '');
+    if (!legit) out.zone_id = null;
+  }
+
+  // T2A-wire (§1.b) — Excepción regional: regionsWithoutProvincia.
+  // El edge `resolve-admin-area` resuelve `region_iso_code` desde
+  // `admin_areas.iso_code` y lo expone en `meta`. Aquí se aplica defensa en
+  // profundidad: si la región prohíbe provincia ⇒ descartar zone_id.
+  // El veto autoritativo ya se aplicó server-side; este bloque garantiza
+  // consistencia si meta llega pero los ids no fueron saneados (back-compat).
+  const regionIsoCode = meta?.region_iso_code ?? null;
+  if (regionIsoCode && regionHasNoProvincia(canon.iso2, regionIsoCode) && out.zone_id) {
+    console.warn('[resolveAdminFks] canon-region-zone-forbidden', {
+      iso2: canon.iso2,
+      regionIsoCode,
+      droppedZoneId: true,
+    });
+    out.zone_id = null;
+  }
+
+  return out;
 }
 
 async function ensureTypesLoaded(): Promise<void> {

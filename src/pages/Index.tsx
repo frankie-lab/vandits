@@ -45,6 +45,10 @@ import { useDocumentFocus } from '@/domains/content/hooks/use-document-focus';
 import { useRouteOrchestration } from '@/domains/routes/hooks/use-route-orchestration';
 import { useRouteFocusBus } from '@/domains/routes/hooks/use-route-focus-bus';
 import { useRightPanel } from '@/hooks/use-right-panel';
+import { useWelcomeCardEvents } from '@/hooks/use-welcome-card-events';
+import { usePendingValidationEvents } from '@/hooks/use-pending-validation-events';
+import { useIndexGlobalEvents } from '@/hooks/use-index-global-events';
+import { useRoutePanelBridge } from '@/hooks/use-route-panel-bridge';
 
 // Discovery orchestrator
 import { DiscoveryOrchestrator, type DiscoveryControls } from '@/domains/discovery/components/DiscoveryOrchestrator';
@@ -61,7 +65,7 @@ const UsersSidebar = lazy(() => import('@/components/UsersSidebar').then(m => ({
 const Index = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { isMaster } = usePermissions();
+  const { hasPermission } = usePermissions();
 
   // ─── Right panel registry (mutual exclusion) ─────────────────────────────
   const { isOpen, open, close, toggle, payload } = useRightPanel();
@@ -73,6 +77,10 @@ const Index = () => {
 
   // ─── Modal-dialog states (NOT in right-panel registry) ───────────────────
   const [showExport, setShowExport] = useState(false);
+  // PR-EXPORT-2 Fase 3A — payload opcional propagado por `lovable:open-export-panel`.
+  const [exportPanelSource, setExportPanelSource] = useState<
+    import('@/domains/content/components/ExportPanel').ExportPanelSource | null
+  >(null);
   const [showBatchEnrichment, setShowBatchEnrichment] = useState(false);
   const [showCriteriaConfig, setShowCriteriaConfig] = useState(false);
 
@@ -80,8 +88,9 @@ const Index = () => {
   const [criteriaVersion, setCriteriaVersion] = useState(0);
   const [notesLocation, setNotesLocation] = useState<GeoLocation | null>(null);
   const [showNotesEditor, setShowNotesEditor] = useState(false);
-  const [pendingValidationsCount, setPendingValidationsCount] = useState(0);
-  const [pendingValidationNames, setPendingValidationNames] = useState<string[]>([]);
+  // pendingValidations: estado + listener extraídos a `usePendingValidationEvents`
+  // (deuda técnica ítem 5, segunda extracción incremental).
+  const { pendingValidationsCount, pendingValidationNames } = usePendingValidationEvents();
   const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string; coordinates: { lat: number; lng: number } } | null>(null);
 
   // ─── Itineraries / Collections panel sub-tabs ───────────────────────────
@@ -100,6 +109,34 @@ const Index = () => {
     registerVisibilityDebug();
   }, [user?.id]);
 
+  // PR-EXPORT-2 Fase 3A — bridge `lovable:open-export-panel`.
+  // Detail opcional: { locations?: GeoLocation[]; label?: string; scope?: 'public'|'internal' }.
+  // Sin payload mantiene el comportamiento previo (deriva del store).
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail as
+        | {
+            locations?: GeoLocation[];
+            label?: string;
+            scope?: 'public' | 'internal';
+          }
+        | undefined;
+      if (detail?.locations && Array.isArray(detail.locations) && detail.locations.length > 0) {
+        setExportPanelSource({
+          locations: detail.locations,
+          label: detail.label,
+          initialScope: detail.scope,
+        });
+      } else {
+        setExportPanelSource(null);
+      }
+      setShowExport(true);
+    };
+    window.addEventListener('lovable:open-export-panel', handler as EventListener);
+    return () => window.removeEventListener('lovable:open-export-panel', handler as EventListener);
+  }, []);
+
+
   // ─── Discovery controls ref ──────────────────────────────────────────────
   const discoveryControlsRef = useRef<DiscoveryControls | null>(null);
   const handleDiscoveryControlsReady = useCallback((controls: DiscoveryControls) => {
@@ -114,49 +151,25 @@ const Index = () => {
   useLinkedLocationIds();
 
   // ─── Welcome-card CTAs (emitted by LocationMap empty-state) ──────────────
-  useEffect(() => {
-    const onOpenUpload = () => open('importedContent', { tab: 'upload' });
-    const onOpenProfile = (e: Event) => {
-      const tab = (e as CustomEvent<{ tab?: string }>).detail?.tab ?? 'map';
-      open('profileEditor', { tab });
-    };
-    const onOpenGeography = () => open('adminPanel', { tab: 'geography' });
-    const onOpenDataSources = () => open('adminPanel', { tab: 'image-recovery' });
-    window.addEventListener('vandits:open-upload', onOpenUpload);
-    window.addEventListener('vandits:open-profile', onOpenProfile as EventListener);
-    window.addEventListener('admin:open-geography', onOpenGeography);
-    window.addEventListener('admin:open-data-sources', onOpenDataSources);
-    return () => {
-      window.removeEventListener('vandits:open-upload', onOpenUpload);
-      window.removeEventListener('vandits:open-profile', onOpenProfile as EventListener);
-      window.removeEventListener('admin:open-geography', onOpenGeography);
-      window.removeEventListener('admin:open-data-sources', onOpenDataSources);
-    };
-  }, [open]);
+  // Extraído a `useWelcomeCardEvents` (deuda técnica ítem 5, primera extracción
+  // incremental). Mantiene contratos de eventos globales sin cambios.
+  useWelcomeCardEvents();
 
   // ─── Domain hooks ─────────────────────────────────────────────────────────
   const routeOrch = useRouteOrchestration(allRoutes);
 
   // Route panels (routes list & builder) live in the right-panel registry.
-  // Bridge their open/close to the orchestration hook to keep its internal
-  // logic untouched.
+  // Puente extraído a `useRoutePanelBridge` (deuda técnica ítem 5, tercera
+  // extracción incremental). Contratos sin cambios.
   const routesPanelOpen = isOpen('routes');
   const routeBuilderOpen = isOpen('routeBuilder');
-  useEffect(() => {
-    if (routesPanelOpen !== routeOrch.showRoutesPanel) {
-      routeOrch.setShowRoutesPanel(routesPanelOpen);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routesPanelOpen]);
-  useEffect(() => {
-    // When orchestration opens the builder programmatically, reflect in registry
-    if (routeOrch.showRouteBuilder && !routeBuilderOpen) {
-      open('routeBuilder');
-    } else if (!routeOrch.showRouteBuilder && routeBuilderOpen) {
-      close('routeBuilder');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeOrch.showRouteBuilder]);
+  useRoutePanelBridge({
+    routesPanelOpen,
+    routeBuilderOpen,
+    routeOrch,
+    open,
+    close,
+  });
 
   const { handlePopupAction } = usePopupActions({
     loadFromDatabase,
@@ -175,42 +188,15 @@ const Index = () => {
   }, [user, authLoading, navigate]);
 
   // ─── Event listeners ──────────────────────────────────────────────────────
-  useEffect(() => {
-    const handleCriteriaChange = () => setCriteriaVersion(v => v + 1);
-    window.addEventListener('enrichment-criteria-changed', handleCriteriaChange);
-    return () => window.removeEventListener('enrichment-criteria-changed', handleCriteriaChange);
-  }, []);
-
-  useEffect(() => {
-    const handleOpenCategories = () => open('categories');
-    window.addEventListener('import:open-categories', handleOpenCategories);
-    return () => window.removeEventListener('import:open-categories', handleOpenCategories);
-  }, [open]);
-
-  useEffect(() => {
-    const handleFollowChanged = async () => {
-      console.log('[Index] Follow changed, refreshing map data...');
-      await new Promise(resolve => setTimeout(resolve, 500));
-      await loadFromDatabase();
-    };
-    window.addEventListener('lovable:follow-changed', handleFollowChanged);
-    return () => window.removeEventListener('lovable:follow-changed', handleFollowChanged);
-  }, [loadFromDatabase]);
-
-  useEffect(() => {
-    const handleValidationsUpdate = (e: CustomEvent<{ count: number; names: string[] }>) => {
-      setPendingValidationsCount(e.detail.count);
-      setPendingValidationNames(e.detail.names || []);
-    };
-    window.addEventListener('pending-validations-updated', handleValidationsUpdate as EventListener);
-    return () => window.removeEventListener('pending-validations-updated', handleValidationsUpdate as EventListener);
-  }, []);
-
-  useEffect(() => {
-    const handler = (e: Event) => handlePopupAction(e as CustomEvent);
-    window.addEventListener('popup-action', handler);
-    return () => window.removeEventListener('popup-action', handler);
-  }, [handlePopupAction]);
+  // Listeners globales extraídos a `useIndexGlobalEvents` (deuda técnica
+  // ítem 5, tercera extracción incremental). Contratos de eventos y payloads
+  // sin cambios. `pending-validations-updated` vive en `usePendingValidationEvents`.
+  useIndexGlobalEvents({
+    setCriteriaVersion,
+    open,
+    loadFromDatabase,
+    handlePopupAction,
+  });
 
   // Document focus + route focus delegated to dedicated hooks
   useDocumentFocus({
@@ -330,14 +316,21 @@ const Index = () => {
         <PreferencesPage onClose={() => close('preferences')} />
       </FloatingPanel>
 
-      <Dialog open={showExport} onOpenChange={setShowExport}>
+      <Dialog
+        open={showExport}
+        onOpenChange={(open) => {
+          setShowExport(open);
+          if (!open) setExportPanelSource(null);
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-display">Exportar datos</DialogTitle>
           </DialogHeader>
-          <ExportPanel />
+          <ExportPanel source={exportPanelSource} />
         </DialogContent>
       </Dialog>
+
 
       <BatchEnrichmentPanel open={showBatchEnrichment} onOpenChange={setShowBatchEnrichment} />
       <Suspense fallback={null}>
@@ -389,7 +382,7 @@ const Index = () => {
           locationName={photoUploadLocation.name}
           locationCoordinates={photoUploadLocation.coordinates}
           hasUserImage={false}
-          isAdminOrMaster={isMaster()}
+          canSetOfficialImage={hasPermission('moderate_content')}
           onPhotoUpdated={() => setPhotoUploadLocation(null)}
           defaultVisibility="private"
         />

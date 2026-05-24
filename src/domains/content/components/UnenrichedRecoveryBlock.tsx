@@ -43,6 +43,7 @@ import {
 import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
 import { useLocationsStore } from '@/domains/content';
 import { searchWikiCandidates } from '@/domains/content/lib/wiki-name-search';
+import { buildAdoptUpdatePayload } from '@/domains/content/lib/adopt-candidate-payload';
 import { useAuth } from '@/domains/identity/hooks/use-auth';
 import { NearbyPanel } from './PointContextActions';
 
@@ -190,19 +191,26 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
     }
     setBusy(true);
     try {
+      // Helper puro centraliza la política Fase A: external_refs SOLO cuando
+      // el candidato es Google con placeId. Ver mem://logic/sharing/external-maps-url
+      // y src/domains/content/lib/adopt-candidate-payload.ts
+      const { update: updatePayload, wroteGooglePlaceId } = buildAdoptUpdatePayload({
+        prevExternalRefs: (location.externalRefs ?? null) as Record<string, unknown> | null,
+        candidate: c,
+      });
+      const mergedExternalRefs = wroteGooglePlaceId
+        ? (updatePayload.external_refs as Record<string, unknown>)
+        : undefined;
+
       const { error } = await supabase
         .from('locations')
-        .update({
-          name,
-          latitude: c.lat,
-          longitude: c.lng,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', location.id);
       if (error) throw error;
       useLocationsStore.getState().updateLocation(location.id, {
         name,
         coordinates: { ...location.coordinates, lat: c.lat, lng: c.lng },
+        ...(mergedExternalRefs ? { externalRefs: mergedExternalRefs as GeoLocation['externalRefs'] } : {}),
         updatedAt: new Date(),
       });
       const result = await triggerEnrichLocation(location.id, {
@@ -384,32 +392,36 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
     </div>
   ) : null;
 
-  // Sin conflicto: bloque simple Enriquecer + Contexto cercano.
+  // POI-1b — sin conflicto: el bloque ES la acción. Auto-launch del panel
+  // Contexto cercano al abrir el popup, sin botón intermedio. NearbyPanel
+  // dispara `searchNearby` una vez en mount; popup-recovery-mount preserva
+  // identidad del root mientras el host [data-recovery-root] no cambie, por
+  // lo que reabrir/regenerar el popup en el mismo host no produce segundo
+  // disparo. Ver P-POI-CURATION-2.1 + mem://logic/poi/curation-levels.
   if (!parsed) {
+    const autoNearby = user ? (
+      <div className="mt-0" data-nearby-autofire="1">
+        <NearbyPanel
+          location={nearbyLocationRow}
+          docId={fresh.documentId ?? null}
+          userId={user.id}
+          variant="inline"
+          mismatch={nearbyMismatch}
+          onClose={() => { /* no-op: el bloque ES el cuerpo, no se cierra */ }}
+          onLocationUpdated={() => { /* store ya se actualiza por canal canónico */ }}
+          onLocationMerged={() => { /* idem */ }}
+        />
+      </div>
+    ) : null;
     return (
-      <div className="rounded-lg border bg-muted/40 border-border/60 flex flex-col">
-        <div className="flex items-center gap-2 px-2 pt-2 pb-2">
+      <div className="flex flex-col gap-2" data-recovery-surface="flat">
+        <div className="flex items-center px-1">
           <span className="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-md bg-amber-100 text-amber-900 text-[11px] font-medium border border-amber-300 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800">
             <AlertCircle className="w-3.5 h-3.5" />
             Sin localización clara
           </span>
-          
         </div>
-        {!showNearby && (
-          <div className="mx-2 mb-2 flex items-center gap-1.5">
-            <Button
-              size="sm"
-              variant="default"
-              className="h-7 text-[11px] px-2 gap-1 flex-1"
-              onClick={handleOpenContext}
-              disabled={busy}
-            >
-              <Compass className="w-3 h-3" />
-              Contexto cercano
-            </Button>
-          </div>
-        )}
-        {inlineNearby}
+        {autoNearby}
       </div>
     );
   }
@@ -478,7 +490,7 @@ export function UnenrichedRecoveryBlock({ location, variant = 'card' }: Props) {
                   type="button"
                   onClick={() => handleAdoptCandidate(c)}
                   disabled={busy || searching}
-                  className="group w-full text-left flex items-start gap-2 py-1.5 px-1 hover:bg-muted/40 transition-colors disabled:opacity-50 rounded"
+                  className="group w-full text-left flex items-start gap-2 py-1.5 px-0 hover:bg-muted/40 transition-colors disabled:opacity-50 rounded"
                   title="Usar este lugar y enriquecer"
                 >
                   <div className="flex-1 min-w-0">

@@ -35,7 +35,11 @@ import { getCollectionsForLocation } from '@/domains/content/store/location-coll
 import { getCollectionChipColors } from '@/shared/lib/collection-chip-color';
 import { filterPersonalTags } from '@/domains/content/lib/personal-tags-filter';
 import { resolvePoiSource } from '@/domains/content/lib/poi-source';
-import { buildGeoHeaderHtml } from '@/shared/popup/geo-header';
+import {
+  getPoiCurationLevel,
+  PRIMARY_ACTION_LABEL,
+} from '@/domains/content/lib/poi-curation-level';
+import { buildGeoHeaderHtml, buildTerritorialBreadcrumbHtml } from '@/shared/popup/geo-header';
 import {
   getCanonicalPopupTags,
   tagSlug,
@@ -134,22 +138,10 @@ export function isPopupSourceMetadataV1On(): boolean {
   return POPUP_SOURCE_METADATA_V1_DEFAULT;
 }
 
-/**
- * P2-FIX-B — Temporary deployment signal visible in preview/staging.
- * `import.meta.env.DEV` is false in Lovable preview (built like prod), so the
- * earlier badge never showed. This gate stays true on lovable.app + localhost
- * (where rollout is being validated) and on opt-in `?diag=1`. Will be
- * retired once P-POPUP-2 is fully ratified in production.
- */
-function isPopupDiagBadgeVisible(): boolean {
-  try {
-    if (typeof window === 'undefined') return false;
-    const host = window.location?.hostname ?? '';
-    if (host.includes('lovable.app') || host === 'localhost' || host === '127.0.0.1') return true;
-    if (window.location?.search?.includes('diag=1')) return true;
-  } catch { /* noop */ }
-  return false;
-}
+// P-POPUP-15 — `isPopupDiagBadgeVisible` retirada: los badges
+// `P-POPUP-2 ON` / `P-POPUP-3 ON` ya no se renderizan en runtime
+// (ni en preview, ni con ?diag=1, ni en producción). Los atributos
+// `data-popup-*` del root se conservan como hooks de test.
 
 // ─── Card Config Cache ──────────────────────────────────────────────────────
 // Source of truth: `app_settings.enrichment_card_config` always normalized
@@ -254,21 +246,26 @@ function wrapCollapsibleSection(
   const isCollapsible = sectionCfg?.collapsible ?? false;
   const defaultOpen = sectionCfg?.defaultOpen ?? false;
 
+  // P-POPUP-11 — Secundarios discretos: sin tarjeta, sin fondo, sin borde
+  // completo. Sólo un separador superior fino que actúa como divisor entre
+  // secundarios consecutivos. Padding vertical reducido; nada de chrome tipo
+  // CTA. Mantenemos API y handlers; sólo bajamos peso visual.
+  const sectionGap = Math.round((CARD.sectionGap ?? 8) / 2);
   if (!isCollapsible) {
-    return `<div style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
-      `<div style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; border-bottom: 1px solid ${COLOR.border};">` +
+    return `<div style="border-top: 1px solid hsl(var(--border) / 0.6); margin-bottom: ${sectionGap}px;">` +
+      `<div style="display: flex; align-items: center; gap: 6px; padding: 6px 0;">` +
         headerHtml +
       '</div>' +
       bodyHtml +
     '</div>';
   }
 
-  return `<details${defaultOpen ? ' open' : ''} style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
-    `<summary style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; cursor: pointer; list-style: none; user-select: none;">` +
+  return `<details${defaultOpen ? ' open' : ''} style="border-top: 1px solid hsl(var(--border) / 0.6); margin-bottom: ${sectionGap}px;">` +
+    `<summary style="display: flex; align-items: center; gap: 6px; padding: 6px 0; background: transparent; cursor: pointer; list-style: none; user-select: none;">` +
       headerHtml +
       `<span style="font-size: 10px; color: ${COLOR.muted}; transition: transform 0.2s;">▶</span>` +
     '</summary>' +
-    `<div style="border-top: 1px solid ${COLOR.border};">` + bodyHtml + '</div>' +
+    `<div>` + bodyHtml + '</div>' +
   '</details>';
 }
 
@@ -295,14 +292,14 @@ export function buildCollectionsMetadataSegment(location: GeoLocation): string {
   const nameSpans = inline.map((c) => {
     const safeName = String(c.name ?? '').replace(/"/g, '&quot;');
     const safeId = String(c.id ?? '').replace(/"/g, '&quot;');
-    return `<span class="collection-filter-chip" data-collection-id="${safeId}" data-collection-name="${safeName}" title="Colección: ${safeName}">${safeName}</span>`;
+    return `<span class="collection-filter-chip" data-collection-id="${safeId}" data-collection-name="${safeName}" title="Colección: ${safeName}" style="cursor: pointer; color: hsl(var(--muted-foreground)); text-decoration: none; border-bottom: 1px solid hsl(var(--muted-foreground) / 0.35); transition: border-color 0.15s;" onmouseover="this.style.borderBottomColor='hsl(var(--muted-foreground) / 0.7)'" onmouseout="this.style.borderBottomColor='hsl(var(--muted-foreground) / 0.35)'">${safeName}</span>`;
   }).join(', ');
   let overflowHtml = '';
   if (overflow.length > 0) {
     const overflowNames = overflow.map((c) => String(c.name ?? '')).join(', ').replace(/"/g, '&quot;');
     overflowHtml = ` <span title="${overflowNames}" style="opacity: 0.8;">+${overflow.length}</span>`;
   }
-  return `<span data-popup-collections-meta="${location.id}" style="display: inline-flex; align-items: center; gap: 4px; color: hsl(var(--foreground));">${BOOKMARK_SVG}<span>${nameSpans}${overflowHtml}</span></span>`;
+  return `<span data-popup-collections-meta="${location.id}" style="display: inline-flex; align-items: center; gap: 4px; color: hsl(var(--muted-foreground));"><span>${nameSpans}${overflowHtml}</span></span>`;
 }
 
 // ─── Collection Chips placeholder (P-POPUP-4E: no-op) ──────────────────────
@@ -400,31 +397,16 @@ export function buildPersonalStateBlock(
     visitedBtn = `<button class="popup-action-btn" data-action="toggle-visited" data-location-id="${location.id}" title="${visitedTitle}" style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; background: ${visitedBg}; color: ${visitedFg}; border: 1px solid ${visitedBorder}; border-radius: 9999px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;">${iconHtml}<span>${visitedLabel}</span></button>`;
   }
 
-  // Stars helper (compacto, sin glow).
-  const starsControl = (ratingValue: number) => [1, 2, 3, 4, 5].map((star) => {
-    const active = ratingValue >= star;
-    const color = active ? 'hsl(var(--state-warning))' : 'hsl(var(--surface-border))';
-    return `<button class="popup-action-btn" data-action="set-rating" data-location-id="${location.id}" data-rating="${star}" title="Valorar ${star} estrella${star > 1 ? 's' : ''}" style="background: none; border: none; padding: 0; cursor: pointer; font-size: 13px; line-height: 1; color: ${color};">${active ? '\u2605' : '\u2606'}</button>`;
-  }).join('');
+  // P-POPUP-14 — El rating personal (★ del usuario) YA NO vive aquí. Se ha
+  // unificado dentro de `buildEnrichmentRatingBlock` como segunda fila del
+  // bloque único de ratings ("Rating del POI" / "Tu valoración"). Este
+  // helper conserva sólo el toggle de visitado.
+  // Variables `canRate` / `userRating` quedan como referencia documental;
+  // su consumo migra al bloque unificado.
+  void canRate; void userRating;
 
-  // Rating block — colapsado por defecto si user_rating=0 y se permite valorar.
-  let ratingHtml = '';
-  if (canRate) {
-    if (userRating > 0) {
-      // Modo expandido: 5★ + botón clear.
-      ratingHtml = `<span data-personal-rating-state="expanded" style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal">${starsControl(userRating)}<button class="popup-action-btn" data-action="clear-rating" data-location-id="${location.id}" title="Quitar valoración" style="background: none; border: none; padding: 0 0 0 4px; cursor: pointer; font-size: 10px; color: hsl(var(--text-secondary));">\u2715</button></span>`;
-    } else {
-      // Modo colapsado: affordance textual "Valorar" + control oculto que se
-      // revela inline al click (sin re-render, sin sacudida visual).
-      const expandJs = "var p=this.parentNode;this.style.display='none';var x=p.querySelector('[data-personal-rating-state=\\'expanded\\']');if(x){x.style.display='inline-flex';}";
-      ratingHtml = `<span style="display: inline-flex; align-items: center; gap: 6px;">`
-        + `<button type="button" data-personal-rating-state="collapsed" onclick="${expandJs}" style="background: none; border: none; padding: 0; cursor: pointer; font-size: 10px; color: hsl(var(--text-secondary)); text-decoration: underline; text-underline-offset: 2px;">Valorar</button>`
-        + `<span data-personal-rating-state="expanded" style="display: none; align-items: center; gap: 2px;" title="Tu valoración personal">${starsControl(0)}</span>`
-        + `</span>`;
-    }
-  }
-
-  const row = [verifiedBadge, visitedBtn, ratingHtml].filter(Boolean).join('');
+  const row = [verifiedBadge, visitedBtn].filter(Boolean).join('');
+  if (!row) return '';
   return `
 <div data-popup-personal-state="${location.id}" style="display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 ${CARD.sectionGap}px 0; padding: 6px 8px; background: hsl(var(--surface-muted) / 0.5); border-radius: 8px;">${row}</div>`;
 }
@@ -443,6 +425,166 @@ export interface PopupOwnership {
   viewerUid?: string | null;
   /** Mapa uid -> username opcional para etiquetas legibles en hashtags. */
   usernameLookup?: (uid: string) => string | null | undefined;
+}
+
+// ─── P-POPUP-14 — Unified ratings block (helper único) ────────────────
+//
+// Slot semántico `enrichmentRating` del composer canónico. Reemplaza la
+// presentación legacy de "chip IA suelto + barra Valorar separada" por un
+// único bloque editorial con DOS filas alineadas:
+//
+//   Row 1 — "Rating del POI"  ……………………………………………  ★★★★☆
+//   Row 2 — "Tu valoración"   ……………………………………………  ★★★★★   (sólo si visitado)
+//
+// Reglas (canon P-POPUP-14):
+//   - Ambas filas pertenecen al mismo bloque visual (background único).
+//   - Texto/leyenda a la izquierda; estrellas alineadas a la derecha.
+//   - Row 1 lee `enriched.indice_interes` (read-only). Si no hay rating
+//     IA y no es curator point → la fila se omite.
+//   - Row 2 lee `customData.user_rating` y `customData.visited`.
+//     Sólo se renderiza si `visited === 'true'` (y no curator / no nearby).
+//     Si visitado sin user_rating → affordance discreta "Valorar" inline.
+//     Si visitado con user_rating → 5★ + clear.
+//   - Curator points conservan `weighted-rating-container` + `data-ai-rating`
+//     (compat con tests/handlers legacy) embebido en la Row 1.
+//   - Si ninguna fila aplica → devuelve ''.
+//
+// NO toca: schema, handlers (`set-rating`/`clear-rating`/`toggle-visited`),
+// visited/pending, composer slots, hero, footer, taxonomy, marker grammar.
+//
+// Ver `docs/popups/p-popup-7a2-rating-contract.md` (concepts) y
+// `mem://logic/popup/rating-taxonomy`.
+export function buildEnrichmentRatingBlock(
+  location: GeoLocation,
+  enriched: { indice_interes?: number | null; indice_interes_notas?: string | null } | null | undefined,
+  ownership: { isCuratorPoint: boolean; isOwn?: boolean; canEditLocation?: boolean },
+): string {
+  const rating = Number(enriched?.indice_interes ?? 0);
+  const notas = enriched?.indice_interes_notas ?? '';
+  const isCurator = !!ownership.isCuratorPoint;
+  const isNearby = isNearbyPopupContext(location.id);
+
+  // Estado personal del viewer.
+  const isVisited = location.customData?.visited === 'true';
+  const userRating = parseInt(location.customData?.user_rating || '0', 10) || 0;
+  const visitRelevance = isVisited
+    ? calculateVisitRelevance(
+        location.customData?.visited_verified_at,
+        location.customData?.oldest_geotagged_photo_date,
+      )
+    : null;
+  // P-POPUP-14.2: Row 2 SIEMPRE existe salvo curator/nearby. `visited`
+  // gobierna si es editable (verde activo) o pendiente (gris disabled),
+  // NO si la fila aparece.
+  const showUserRow = !isCurator && !isNearby;
+  const userRowState: 'not-visited' | 'visited-empty' | 'visited-rated' = !isVisited
+    ? 'not-visited'
+    : userRating > 0
+      ? 'visited-rated'
+      : 'visited-empty';
+  void visitRelevance; // reservado para futura señal de confianza visual
+
+  // Helpers visuales (compartidos por ambas filas).
+  const labelStyle = `flex: 1 1 auto; min-width: 0; font-size: 11px; color: ${tk('hsl(var(--text-secondary))', '#6b7280')};`;
+  const starColor = (active: boolean, palette: 'amber' | 'success') => {
+    if (active) {
+      return palette === 'success'
+        ? tk('hsl(var(--state-success))', '#16a34a')
+        : tk('hsl(var(--state-warning))', '#b45309');
+    }
+    return tk('hsl(var(--surface-border))', '#d1d5db');
+  };
+  const renderStaticStars = (value: number, palette: 'amber' | 'success') =>
+    [1, 2, 3, 4, 5]
+      .map((star) => `<span style="font-size: 14px; line-height: 1; color: ${starColor(star <= value, palette)};">${star <= value ? '\u2605' : '\u2606'}</span>`)
+      .join('');
+
+  // ─── Row 1 — Rating del POI ─────────────────────────────────────────
+  let row1 = '';
+  if (isCurator) {
+    // Compat: mantenemos `weighted-rating-container` + `data-ai-rating` para
+    // handlers/tests legacy, pero ahora dentro del layout label↔stars.
+    row1 = `
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+  <span style="${labelStyle}">Rating del POI</span>
+  <div
+    class="weighted-rating-container"
+    data-location-id="${location.id}"
+    data-ai-rating="${rating || 0}"
+    style="display: inline-flex; align-items: center; gap: 6px;"
+    title="Rating ponderado: 50% IA + 50% Comunidad"
+  >
+    <span class="weighted-rating-stars" style="display: inline-flex; gap: 1px;">${renderStaticStars(rating, 'success')}</span>
+    <span class="weighted-rating-value" style="font-size: 10px; font-weight: 600; color: ${tk('hsl(var(--state-success))', '#166534')};">${rating ? rating.toFixed(1) : '-'}</span>
+    <span class="weighted-rating-breakdown" style="font-size: 9px; color: ${tk('hsl(var(--text-secondary))', '#6b7280')}; display: none;">(IA: ${rating || '-'} | Com: -)</span>
+  </div>
+</div>`;
+  } else if (rating > 0) {
+    row1 = `
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;" title="${notas || 'Índice de interés IA'}">
+  <span style="${labelStyle}">Rating del POI</span>
+  <span style="display: inline-flex; gap: 1px;">${renderStaticStars(rating, 'amber')}</span>
+</div>`;
+  }
+
+  // ─── Row 2 — Estado personal (P-POPUP-14.2) ─────────────────────────
+  // Siempre presente salvo curator/nearby. 3 estados visuales:
+  //   not-visited   → label "Pendiente", 5☆ gris, read-only.
+  //   visited-empty → label "Pendiente de valoración", 5☆ verde, interactivo.
+  //   visited-rated → label "Tu valoración", ★ verde + clear, interactivo.
+  let row2 = '';
+  if (showUserRow) {
+    const successColor = tk('hsl(var(--state-success))', '#16a34a');
+    const mutedStarColor = tk('hsl(var(--surface-border))', '#d1d5db');
+    const mutedTextColor = tk('hsl(var(--text-secondary) / 0.7)', '#9ca3af');
+    const labelTextColor = tk('hsl(var(--text-secondary))', '#6b7280');
+
+    let labelText = '';
+    let starsHtml = '';
+    const labelColor = userRowState === 'not-visited' ? mutedTextColor : labelTextColor;
+
+    if (userRowState === 'not-visited') {
+      labelText = 'Pendiente';
+      const stars = [1, 2, 3, 4, 5]
+        .map(
+          () =>
+            `<span aria-hidden="true" style="font-size: 13px; line-height: 1; color: ${mutedStarColor}; opacity: 0.7;">\u2606</span>`,
+        )
+        .join('');
+      starsHtml = `<span data-personal-rating-state="not-visited" aria-disabled="true" title="Marca como visitado para poder valorar" style="display: inline-flex; align-items: center; gap: 2px; cursor: default;">${stars}</span>`;
+    } else if (userRowState === 'visited-empty') {
+      labelText = 'Pendiente de valoración';
+      const interactiveStars = [1, 2, 3, 4, 5]
+        .map(
+          (star) =>
+            `<button class="popup-action-btn" data-action="set-rating" data-location-id="${location.id}" data-rating="${star}" title="Valorar ${star} estrella${star > 1 ? 's' : ''}" style="background: none; border: none; padding: 0; cursor: pointer; font-size: 13px; line-height: 1; color: ${successColor}; opacity: 0.55;">\u2606</button>`,
+        )
+        .join('');
+      starsHtml = `<span data-personal-rating-state="visited-empty" style="display: inline-flex; align-items: center; gap: 2px;" title="Valorar este lugar">${interactiveStars}</span>`;
+    } else {
+      labelText = 'Tu valoración';
+      const interactiveStars = [1, 2, 3, 4, 5]
+        .map((star) => {
+          const active = userRating >= star;
+          const color = active ? successColor : mutedStarColor;
+          const opacity = active ? '1' : '0.55';
+          return `<button class="popup-action-btn" data-action="set-rating" data-location-id="${location.id}" data-rating="${star}" title="Valorar ${star} estrella${star > 1 ? 's' : ''}" style="background: none; border: none; padding: 0; cursor: pointer; font-size: 13px; line-height: 1; color: ${color}; opacity: ${opacity};">${active ? '\u2605' : '\u2606'}</button>`;
+        })
+        .join('');
+      starsHtml = `<span data-personal-rating-state="visited-rated" style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal">${interactiveStars}<button class="popup-action-btn" data-action="clear-rating" data-location-id="${location.id}" title="Quitar valoración" style="background: none; border: none; padding: 0 0 0 4px; cursor: pointer; font-size: 10px; color: ${labelTextColor};">\u2715</button></span>`;
+    }
+
+    row2 = `
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+  <span style="${labelStyle.replace(`color: ${tk('hsl(var(--text-secondary))', '#6b7280')};`, `color: ${labelColor};`)}">${labelText}</span>
+  ${starsHtml}
+</div>`;
+  }
+
+  if (!row1 && !row2) return '';
+
+  return `
+<div data-popup-enrichment-rating="${location.id}" data-popup-ratings-block="v1" style="display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; margin: 0 0 ${CARD.sectionGap}px 0; background: hsl(var(--surface-muted) / 0.5); border-radius: 8px;">${row1}${row2}</div>`;
 }
 
 // ─── Source Hashtags (PR-POI-SOURCE-6) ─────────────────────────────────
@@ -659,7 +801,7 @@ export function buildOwnEnrichedMetadataLineHtml(location: GeoLocation): string 
       const dd = String(d.getDate()).padStart(2, '0');
       const mm = String(d.getMonth() + 1).padStart(2, '0');
       const yyyy = d.getFullYear();
-      datePart = `Añadido ${dd}/${mm}/${yyyy}`;
+      datePart = `<span style="font-style: italic;">Añadido ${dd}/${mm}/${yyyy}</span>`;
     }
   }
 
@@ -680,11 +822,7 @@ export function buildOwnEnrichedMetadataLineHtml(location: GeoLocation): string 
   const collectionsSeg = buildCollectionsMetadataSegment(location);
   const inner = [datePart, collectionsSeg, viaSegment].filter(Boolean).join(' <span aria-hidden="true">·</span> ');
 
-  return `<div data-popup-own-added="${location.id}"${prov.type ? ` data-popup-source-metadata="${location.id}" data-source-metadata-type="${prov.type}"` : ''} style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 ${CARD.sectionGap}px 0; font-size: 11px; line-height: 1.3; color: hsl(var(--muted-foreground));" title="${prov.type ? 'Añadido a tu red — incluye fuente original' : 'Fecha en que añadiste este punto a tu red'}">
-<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-<circle cx="12" cy="12" r="10"/>
-<polyline points="12 6 12 12 16 14"/>
-</svg>
+  return `<div data-popup-own-added="${location.id}"${prov.type ? ` data-popup-source-metadata="${location.id}" data-source-metadata-type="${prov.type}"` : ''} style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 10px 0; font-size: 11px; line-height: 1.4; color: hsl(var(--muted-foreground));" title="${prov.type ? 'Añadido a tu red — incluye fuente original' : 'Fecha en que añadiste este punto a tu red'}">
 <span>${inner}</span>
 </div>`;
 }
@@ -787,18 +925,17 @@ export function resolveVisitedPresentationState(
       )
     : null;
 
-  // Canon simplificado (sesión 2026-05-16):
-  //   - El overlay sobre la hero SIEMPRE se muestra cuando hay hero válida y
-  //     no es curator/nearby. Su etiqueta varía:
-  //       visited=true  → "✓ Visitado"
-  //       visited=false → "○ Pendiente"
-  //   - El bloque inferior ya no renderiza ningún control de visitado: el
-  //     overlay sustituye al pill/inline previos. Sólo queda rating.
-  //   - Si NO hay hero, fallback inferior mínimo (pill en bloque personal).
-  const showHeroOverlay = hasHero && !isCurator && !isNearby;
+  // P-POPUP-15 — Hero queda SOLO para imagen + acciones foto. El estado
+  // personal (visited/pendiente/rating) vive EXCLUSIVAMENTE en el bloque
+  // canónico de ratings (P-POPUP-14.2). Tanto el overlay sobre la hero
+  // como el pill de fallback en `buildPersonalStateBlock` quedan
+  // desactivados por contrato. Los flags se preservan en la interfaz
+  // (no-op = false) para no romper consumidores externos.
+  const showHeroOverlay = false;
   const showInlineVisited = false;
-  const showVisitedPill = !isCurator && !isNearby && !showHeroOverlay;
-  const showVerifiedOnHero = showHeroOverlay && isVisited && !!visitRelevance;
+  const showVisitedPill = false;
+  const showVerifiedOnHero = false;
+  void hasHero; void isCurator; void isNearby; void isVisited; void visitRelevance;
 
   return {
     isVisited,
@@ -825,47 +962,21 @@ export function isVisitedHeroOverlayActive(
   return resolveVisitedPresentationState(location, ownership, enriched).showHeroOverlay;
 }
 
+/**
+ * P-POPUP-15 — Contrato no-op. El overlay visited/pendiente del hero ha sido
+ * retirado: el estado personal vive exclusivamente en el bloque canónico de
+ * ratings (P-POPUP-14.2). Se mantiene el export para no romper consumidores
+ * externos. Devuelve siempre cadena vacía.
+ */
 export function buildVisitedHeroOverlay(
-  location: GeoLocation,
-  ownership?: PopupOwnership | null,
-  enriched?: any,
-  state?: VisitedPresentationState,
+  _location: GeoLocation,
+  _ownership?: PopupOwnership | null,
+  _enriched?: any,
+  _state?: VisitedPresentationState,
 ): string {
-  const st = state ?? resolveVisitedPresentationState(location, ownership, enriched);
-  if (!st.showHeroOverlay) return '';
-
-  const isVisited = st.isVisited;
-  const visitRelevance = st.visitRelevance;
-
-  // P-POPUP-7D — Badge icon-only 24x24. Sin label, sin verified visual.
-  // Verified queda diferido (ver docs/popups/p-popup-7d-validation.md).
-  const visitedColor = tk('hsl(var(--state-success))', '#16a34a');
-  const pendingColor = tk('hsl(var(--text-primary))', '#ffffff');
-  // P-POPUP-7D safe-area: contraste reforzado contra fotos claras.
-  const bg = 'rgba(0,0,0,0.5)';
-  const borderColor = 'rgba(255,255,255,0.4)';
-
-  const iconColor = isVisited ? visitedColor : pendingColor;
-  const iconHtml = isVisited
-    ? svgIcon('check', { size: 14, color: iconColor })
-    // `circle` icon (Lucide) — outlined empty ring for "Pendiente".
-    : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>`;
-
-  // Verified NO se renderiza visualmente en el hero chrome (P-POPUP-7D).
-  // Tooltip puede incluir relevance pero el badge queda icon-only.
-  let titleSuffix = '';
-  if (isVisited && visitRelevance) {
-    titleSuffix = ` · ${visitRelevance.label} (${formatTimeAgo(visitRelevance.daysAgo)})`;
-  }
-
-  const title = isVisited
-    ? `Visitado${titleSuffix} · click para quitar`
-    : 'Pendiente · click para marcar visitado';
-
-  // P-POPUP-7D — Posición delegada a .popup-hero-chrome--bl (safe-area canónica).
-  // NO añadir position/bottom/left/top/right inline aquí — guardrail anti-regresión.
-  return `<button class="popup-action-btn popup-hero-visited-badge popup-hero-chrome popup-hero-chrome--bl" data-action="toggle-visited" data-location-id="${location.id}" data-visited-hero-overlay="true" data-visited-state="${isVisited ? 'visited' : 'pending'}" aria-label="${title}" title="${title}" style="width: 24px; height: 24px; padding: 0; background: ${bg}; border: 1px solid ${borderColor}; border-radius: 9999px; cursor: pointer; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 1px 3px rgba(0,0,0,0.45); line-height: 0; justify-content: center;">${iconHtml}</button>`;
+  return '';
 }
+
 
 // ─── Image Section ───────────────────────────────────────────────────────────
 
@@ -1014,12 +1125,13 @@ title="${hasUserImage ? 'Cambiar foto' : 'Añadir foto'}"
 </div>`;
   }
 
-  const __overlayHtml = buildVisitedHeroOverlay(location, ownership, enriched, visitedState);
+  // P-POPUP-15 — Overlay visited/pendiente retirado del hero. El estado
+  // personal vive exclusivamente en el ratings block (P-POPUP-14.2).
+  void visitedState;
 
   return `<div class="popup-hero" style="margin: 0 -12px 0 -12px; position: relative;">
 ${imageHtml}
 ${buttonHtml}
-${__overlayHtml}
 </div>`;
 }
 
@@ -1039,7 +1151,15 @@ export function createPopupContent(
   // como proxy de "enriquecido" (puede contener stubs sin `descripcion`).
   const isEnriched = isPointEnriched(location);
   const canRegenerate = canEnrich && (!isEnriched || locationUpdatedAt < criteriaTimestamp);
-  const enriched = location.enrichedData;
+  // P-POI-CURATION-2 — Verdict ÚNICO. Body y footer derivan del mismo
+  // objeto en el mismo render pass (commit visual atómico). Si cambia
+  // `bodyBlocker`, cuerpo + footer se reconstruyen consistentes.
+  const curationVerdict = getPoiCurationLevel(location);
+  // P-POPUP-13 — Unified renderer: el shell canónico es el único shell.
+  // `enriched` se normaliza a objeto vacío cuando el POI no está enriquecido
+  // (o `enriched_data` es null) para que el composer canónico pueda emitir
+  // fragments vacíos por campo sin bifurcar el árbol visual.
+  const enriched: any = location.enrichedData ?? {};
   const locationName = (enriched?.nombre_lugar && enriched.nombre_lugar !== 'null') ? enriched.nombre_lugar : location.name;
   const hasClassification = !!enriched?.clasificacion?.codigo;
 
@@ -1141,111 +1261,141 @@ box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 </div>
 ` : '';
 
-  const actionButtonsHtml = `
-${progressBarHtml}
-${(canEditLocation && !isOwn && !isCuratorPoint) ? adminEditWarning : ''}
-<div style="display: flex; gap: 4px; margin-top: 8px; padding-top: 8px; padding-bottom: 6px; border-top: 1px solid #e5e7eb;">
-${isCuratorPoint ? `
-<div style="flex: 2; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 10px; background: #f0fdf4; color: #166534; border: none; border-radius: 4px; font-size: 11px; font-weight: 500;">
-<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-<circle cx="12" cy="12" r="10"/>
-<polyline points="12 6 12 12 16 14"/>
-</svg>
-Enriquecido ${location.updatedAt ? formatRegistrationDate(location.updatedAt) : ''}
+  // P-POPUP-11.1 — Footer action hierarchy refinement.
+  // Grid 32px | 1fr | 32px → par central [Re-enriquecer][Notas] ópticamente
+  // centrado; borrar icon-only a la derecha; pie informativo "Enriquecido ·
+  // <fecha>" en segunda línea (muted, sin pill, sin border).
+  const showEnrichedFooterLine = (isEnriched || isCuratorPoint) && !!location.updatedAt;
+  const enrichedFooterLine = showEnrichedFooterLine ? `
+<div style="text-align: center; font-size: 10px; color: hsl(var(--muted-foreground)); margin-top: 6px; letter-spacing: 0.01em;">
+Enriquecido · ${formatRegistrationDate(location.updatedAt!)}
 </div>
-` : `
-${canEditLocation ? `
-${isEnriched ? `
-<!-- Enriched: date label + re-enrich button -->
-<div style="flex: 2; display: flex; align-items: center; gap: 4px;">
-<div style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 8px; background: #f0fdf4; color: #166534; border-radius: 4px; font-size: 10px; font-weight: 500;">
-<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-<polyline points="20 6 9 17 4 12"></polyline>
-</svg>
-Enriquecido ${location.updatedAt ? formatRegistrationDate(location.updatedAt) : ''}
-</div>
-<button 
-class="popup-action-btn" 
-data-action="enrich" 
+` : '';
+
+  const reEnrichBtnHtml = (!isCuratorPoint && canEditLocation && isEnriched) ? `
+<button
+class="popup-action-btn"
+data-action="enrich"
 data-location-id="${location.id}"
-style="display: flex; align-items: center; justify-content: center; gap: 3px; padding: 6px 10px; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; border: none; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.15s; white-space: nowrap;"
-onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(139, 92, 246, 0.4)'"
-onmouseout="this.style.transform='none';this.style.boxShadow='none'"
+style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 28px; padding: 0 12px; background: hsl(var(--primary) / 0.10); color: hsl(var(--primary)); border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: background 0.15s; white-space: nowrap;"
+onmouseover="this.style.background='hsl(var(--primary) / 0.18)'"
+onmouseout="this.style.background='hsl(var(--primary) / 0.10)'"
 title="Regenerar ficha completa con IA"
 >
-<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/>
 </svg>
 Re-enriquecer
 </button>
-</div>
-` : `
-<!-- Not enriched: NO duplicate enrich button here.
-     The single CTA "Enriquecer" lives in <UnenrichedRecoveryBlock>, mounted in
-     [data-recovery-root] by popup-recovery-mount.ts. Avoiding the duplicate
-     keeps the contract single-source-of-truth and prevents divergent UX
-     (different focusAfter, different refresh behavior). See
-     mem://logic/content/enrichment-trigger-unified. -->
-`}
-` : ''}
-`}
-${canEditOwn ? `
-<button 
-class="popup-action-btn" 
-data-action="add-notes" 
+` : '';
+
+  const notesBtnHtml = canEditOwn ? `
+<button
+class="popup-action-btn"
+data-action="add-notes"
 data-location-id="${location.id}"
-style="flex: ${canEditLocation ? '1' : '1'}; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 4px 6px; background: ${hasNotes ? '#fef3c7' : '#f3f4f6'}; color: ${hasNotes ? '#92400e' : '#374151'}; border: none; border-radius: 3px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
-onmouseover="this.style.background='${hasNotes ? '#fde68a' : '#e5e7eb'}';this.style.transform='translateY(-1px)'"
-onmouseout="this.style.background='${hasNotes ? '#fef3c7' : '#f3f4f6'}';this.style.transform='none'"
+style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 28px; padding: 0 12px; background: hsl(var(--muted)); color: hsl(var(--foreground)); border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: background 0.15s; white-space: nowrap;"
+onmouseover="this.style.background='hsl(var(--muted) / 0.7)'"
+onmouseout="this.style.background='hsl(var(--muted))'"
 title="${hasNotes ? 'Editar notas' : 'Añadir notas'}"
 >
-<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
 <polyline points="14 2 14 8 20 8"/>
 <line x1="16" y1="13" x2="8" y2="13"/>
 <line x1="16" y1="17" x2="8" y2="17"/>
-<line x1="10" y1="9" x2="8" y2="9"/>
 </svg>
-Notas
+Notas${hasNotes ? ` <span style="width:4px; height:4px; border-radius:50%; background: hsl(var(--primary) / 0.6); display:inline-block; margin-left:2px;"></span>` : ''}
 </button>
-<button 
-class="popup-action-btn" 
-data-action="delete-location" 
+` : '';
+
+  // Overflow menu trigger ("..."): agrupa acciones de salida (Abrir en Google
+  // Maps, Abrir en Apple Maps, Exportar este POI) y `Borrar POI` al fondo
+  // como destructive. Sustituye al botón aislado de borrar — `Borrar` sigue
+  // existiendo, descubrible dentro del menú "...". Ver
+  // `src/components/map/popup-overflow-menu.ts`.
+  const overflowBtnHtml = `
+<button
+class="popup-action-btn"
+data-action="popup-overflow"
 data-location-id="${location.id}"
 data-location-name="${location.name}"
-style="display: flex; align-items: center; justify-content: center; padding: 4px 8px; background: #fef2f2; color: #dc2626; border: none; border-radius: 3px; cursor: pointer; transition: all 0.15s;"
-onmouseover="this.style.background='#fee2e2';this.style.transform='translateY(-1px)'"
-onmouseout="this.style.background='#fef2f2';this.style.transform='none'"
-title="Mover a la papelera"
+aria-label="Más acciones"
+style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; background: transparent; color: hsl(var(--muted-foreground)); border: none; border-radius: 6px; cursor: pointer; transition: background 0.15s, color 0.15s;"
+onmouseover="this.style.background='hsl(var(--muted))';this.style.color='hsl(var(--foreground))'"
+onmouseout="this.style.background='transparent';this.style.color='hsl(var(--muted-foreground))'"
+title="Más acciones"
 >
-<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="12" cy="12" r="1"/>
+<circle cx="19" cy="12" r="1"/>
+<circle cx="5" cy="12" r="1"/>
 </svg>
 </button>
-` : ''}
-</div>
 `;
 
+
+  // P-POI-CURATION-2 — `curationVerdict` se hoistó al inicio de
+  // `createPopupContent` para garantizar commit atómico body↔footer.
+  const showCurationPrimary =
+    !isCuratorPoint &&
+    !isNearbyPopupContext(location.id) &&
+    curationVerdict.primaryAction !== 'none';
+  const curationPrimaryBtnHtml = showCurationPrimary ? `
+<button
+class="popup-action-btn"
+data-action="curation-primary"
+data-curation-action="${curationVerdict.primaryAction}"
+data-curation-level="${curationVerdict.level}"
+data-location-id="${location.id}"
+style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.15s; margin-bottom: 8px;"
+onmouseover="this.style.background='hsl(var(--primary) / 0.85)'"
+onmouseout="this.style.background='hsl(var(--primary))'"
+title="${PRIMARY_ACTION_LABEL[curationVerdict.primaryAction]}"
+>${PRIMARY_ACTION_LABEL[curationVerdict.primaryAction]}</button>
+` : '';
+
+  const actionButtonsHtml = `
+${curationPrimaryBtnHtml}
+${progressBarHtml}
+${(canEditLocation && !isOwn && !isCuratorPoint) ? adminEditWarning : ''}
+<div style="display: grid; grid-template-columns: 32px 1fr 32px; align-items: center; gap: 8px;">
+<div aria-hidden="true"></div>
+<div style="display: flex; justify-content: center; align-items: center; gap: 8px;">
+${reEnrichBtnHtml}
+${notesBtnHtml}
+</div>
+<div style="display: flex; justify-content: flex-end; align-items: center;">
+${overflowBtnHtml}
+</div>
+</div>
+${enrichedFooterLine}
+`;
+
+  // P-POPUP-13 — Add-to-collection en lenguaje muted (sin gradient verde,
+  // sin shadow, sin translateY). Mismo registro tipográfico que notesBtn.
   const addToCollectionBtnHtml = (!isOwn && !isCuratorPoint) ? `
-<button 
-class="popup-action-btn" 
-data-action="add-to-collection" 
+<button
+class="popup-action-btn"
+data-action="add-to-collection"
 data-location-id="${location.id}"
 data-location-name="${location.name}"
-style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; background: linear-gradient(135deg, #16a34a, #22c55e); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);"
-onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(22, 163, 74, 0.4)'"
-onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 8px rgba(22, 163, 74, 0.3)'"
+style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; background: hsl(var(--muted)); color: hsl(var(--foreground)); border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.15s; margin-top: 8px; margin-bottom: 4px;"
+onmouseover="this.style.background='hsl(var(--muted) / 0.7)'"
+onmouseout="this.style.background='hsl(var(--muted))'"
 title="Añadir este punto a tu colección personal"
 >
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 <path d="M12 5v14M5 12h14"/>
 </svg>
 Añadir a mi colección
 </button>
 ` : '';
 
-  // Si tiene ficha enriquecida (descripcion IA real), mostrarla.
-  if (isEnriched && enriched) {
+  // P-POPUP-13 — Renderer único: el shell canónico se aplica a TODOS los
+  // POIs. `enriched` normalizado a objeto vacío decide qué fragments existen,
+  // nunca qué sistema visual se usa. Sin rama legacy.
+  {
     const localizacionLinks = parseLocalizacionToLinks(enriched.localizacion, location);
     const popupId = `popup-${location.id.slice(0, 8)}`;
     const cardCfg = getCardConfig();
@@ -1264,7 +1414,7 @@ Añadir a mi colección
     const visitedState = resolveVisitedPresentationState(location, ownershipInfo, enriched);
 
     return `
-<div id="${popupId}" data-popup-version="${isPopupGeoCanonicalV1On() ? 'geo-canonical-v1' : 'legacy'}" data-popup-geo-canonical="${isPopupGeoCanonicalV1On() ? 'true' : 'false'}" data-popup-ownership-strip="${(isOwn && isPopupOwnershipStripV1On()) ? 'v1' : 'legacy'}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: ${POPUP_MAX_HEIGHT}; overflow: hidden;">${isPopupDiagBadgeVisible() && isPopupGeoCanonicalV1On() ? `<div style="position: absolute; top: 4px; left: 4px; z-index: 10; padding: 2px 6px; border-radius: 4px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.85; pointer-events: none;" title="P-POPUP-2 canonical geo header + 4-bucket tag dedupe ACTIVE (preview/staging signal — will retire after ratification)">P-POPUP-2 ON</div>` : ''}${isPopupDiagBadgeVisible() && isOwn && isPopupOwnershipStripV1On() ? `<div style="position: absolute; top: 4px; left: 88px; z-index: 10; padding: 2px 6px; border-radius: 4px; background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.85; pointer-events: none;" title="P-POPUP-3A ownership-strip ACTIVE (own enriched only; preview/staging signal — will retire after ratification)">P-POPUP-3 ON</div>` : ''}
+<div id="${popupId}" data-popup-version="${isPopupGeoCanonicalV1On() ? 'geo-canonical-v1' : 'legacy'}" data-popup-geo-canonical="${isPopupGeoCanonicalV1On() ? 'true' : 'false'}" data-popup-ownership-strip="${(isOwn && isPopupOwnershipStripV1On()) ? 'v1' : 'legacy'}" data-popup-operational-state="idle" data-popup-active-blocker="${curationVerdict.bodyBlocker}" data-popup-curation-level="${curationVerdict.level}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: ${POPUP_MAX_HEIGHT}; overflow: hidden;"><!-- P-POPUP-15: diag badges removed from runtime; data-popup-* remain as test hooks -->
 ${statusBarHtml}
 
 <!-- Hero (fija, no participa en el scroll) -->
@@ -1273,29 +1423,32 @@ ${buildImageSection(location, enriched, ownershipInfo, visitedState)}
 </div>
 
 <!-- Cuerpo desplazable -->
-<div class="popup-scroll-body" style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;">
+<div class="popup-scroll-body" data-popup-scroll-body="v1" style="position: relative; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;">
 <div style="padding: 16px 16px 8px 16px;">
 <!-- Nombre + Badge propiedad -->
 <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
-<h3 style="margin: 0; font-size: ${FONT.title}px; font-weight: 700; color: ${COLOR.foreground}; line-height: 1.3; flex: 1;">
+<h3 style="margin: 0; font-size: ${FONT.title}px; font-weight: 700; color: ${COLOR.foreground}; line-height: 1.2; letter-spacing: -0.01em; flex: 1;">
 ${locationName || 'Sin nombre'}
 </h3>
 ${(isOwn && isPopupOwnershipStripV1On()) ? '' : ownershipBadgeHtml}
 </div>
 
-<!-- Geo header (P-POPUP-2: canonical chips bajo flag, fallback a localizacionLinks italic legacy) -->
+<!-- P-POPUP-9 — Territorial breadcrumb (global→local) sustituye chips azules.
+     Fallback legacy: localizacionLinks italic cuando el flag canonico esta off. -->
 ${isPopupGeoCanonicalV1On()
-  ? `<div style="margin: 0 0 12px 0;">${buildGeoHeaderHtml(location, { background: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' })}</div>`
+  ? `<div style="margin: 0 0 4px 0;">${buildTerritorialBreadcrumbHtml(location)}</div>`
   : `<p style="margin: 0 0 12px 0; font-size: ${FONT.subtitle}px; line-height: 1.4; color: ${COLOR.muted}; font-style: italic;">${localizacionLinks}</p>`}
 
 <!-- Botón para añadir a colección (solo para puntos de seguidos) -->
 ${addToCollectionBtnHtml}
 
-<!-- Índice IA + Botones de interacción -->
-<div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px; padding: 8px; background: ${tk('hsl(var(--surface-muted))', '#f9fafb')}; border-radius: 8px;">
+<!-- P-POPUP-7A.3 — Cabecera limpia: SOLO warning de validación de visita.
+     El rating IA (enrichmentRating) bajó al slot post-descripción del
+     composer canónico vía buildEnrichmentRatingBlock. -->
 ${!isCuratorPoint ? `
+<div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px;">
 <!-- Warning de validación (oculto por defecto) -->
-<div id="visit-validation-warning-${location.id}" style="display: none; width: 100%; padding: 8px; background: ${tk('hsl(var(--state-warning) / 0.2)', 'linear-gradient(135deg, #fef3c7, #fde68a)')}; border: 1px solid ${tk('hsl(var(--state-warning) / 0.5)', '#fcd34d')}; border-radius: 8px; margin-bottom: 4px;">
+<div id="visit-validation-warning-${location.id}" style="display: none; width: 100%; padding: 8px; background: ${tk('hsl(var(--state-warning) / 0.2)', 'linear-gradient(135deg, #fef3c7, #fde68a)')}; border: 1px solid ${tk('hsl(var(--state-warning) / 0.5)', '#fcd34d')}; border-radius: 8px;">
 <p style="margin: 0 0 4px 0; font-size: 11px; font-weight: 600; color: ${tk('hsl(var(--state-warning))', '#92400e')};">No se puede validar la visita</p>
 <p id="visit-distance-text-${location.id}" style="margin: 0 0 6px 0; font-size: 10px; color: ${tk('hsl(var(--state-warning))', '#a16207')};"></p>
 <div style="font-size: 9px; color: ${tk('hsl(var(--state-warning))', '#78350f')}; border-top: 1px solid ${tk('hsl(var(--state-warning) / 0.5)', '#fcd34d')}; padding-top: 6px;">
@@ -1306,38 +1459,8 @@ ${!isCuratorPoint ? `
 </ul>
 </div>
 </div>
-` : ''}
-
-<div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
-${isCuratorPoint ? `
-<!-- Rating ponderado para puntos de curador -->
-<div 
-class="weighted-rating-container" 
-data-location-id="${location.id}" 
-data-ai-rating="${enriched.indice_interes || 0}"
-style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: ${tk('hsl(var(--state-success) / 0.12)', 'linear-gradient(135deg, #f0fdf4, #dcfce7)')}; border: 1px solid ${tk('hsl(var(--state-success) / 0.4)', '#86efac')}; border-radius: 12px;"
-title="Rating ponderado: 50% IA + 50% Comunidad"
->
-<span style="font-size: 10px; font-weight: 500; color: ${tk('hsl(var(--state-success))', '#166534')};">Valoración</span>
-<span class="weighted-rating-stars" style="display: inline-flex; gap: 1px;">
-${[1, 2, 3, 4, 5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= (enriched.indice_interes || 0) ? tk('hsl(var(--state-success))', '#16a34a') : tk('hsl(var(--surface-border))', '#d1d5db')};">${star <= (enriched.indice_interes || 0) ? '★' : '☆'}</span>`).join('')}
-</span>
-<span class="weighted-rating-value" style="font-size: 10px; font-weight: 600; color: ${tk('hsl(var(--state-success))', '#166534')};">${enriched.indice_interes ? enriched.indice_interes.toFixed(1) : '-'}</span>
-<span class="weighted-rating-breakdown" style="font-size: 9px; color: ${tk('hsl(var(--text-secondary))', '#6b7280')}; display: none;">(IA: ${enriched.indice_interes || '-'} | Com: -)</span>
-</div>
-` : `
-${enriched.indice_interes ? `
-<div style="display: inline-flex; align-items: center; gap: 2px; padding: 3px 8px; background: ${tk('hsl(var(--state-warning) / 0.2)', 'linear-gradient(135deg, #fef3c7, #fde68a)')}; border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés IA'}">
-${[1, 2, 3, 4, 5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= enriched.indice_interes ? tk('hsl(var(--state-warning))', '#b45309') : tk('hsl(var(--surface-border))', '#d1d5db')};">${star <= enriched.indice_interes ? '★' : '☆'}</span>`).join('')}
 </div>
 ` : ''}
-`}
-
-<!-- P-POPUP-7A: Visited + personal rating bajados al slot post-descripción.
-     Aquí permanece SOLO el rating IA (POI metadata, no user state). -->
-
-</div>
-</div>
 
 ${(() => {
   // P-POPUP-3A → own enriched: línea "Añadido dd/mm/yyyy" (sin literal ownership).
@@ -1364,27 +1487,39 @@ ${buildCollectionChipsPlaceholder(location)}
 ${buildPersonalTagsBlock(location)}
 
 ${(() => {
-  // Render enriched sections following the order/enablement persisted in the
-  // editor (Configuración de fichas) — single source of truth.
+  // P-POPUP-7A.1 — Compose enriched body en DOS niveles:
+  //   (1) el switch produce SOLO fragments por fieldKey (sin orquestación);
+  //   (2) un composer único decide la jerarquía final.
+  //
+  // CONTRATO TRANSVERSAL: `field_order` (card config) NO puede alterar la
+  // jerarquía semántica principal del popup. La tripleta canónica
+  //   descripcion → rating (personal state) → observacion
+  // queda CONGELADA, independiente de cualquier orden persistido en la
+  // editor de fichas. El resto de fields respeta `orderedKeys`.
+  // Ver docs/popups/p-popup-7a-validation.md (§ 7A.1).
   const orderedKeys = cardCfg.orderedKeys;
 
-  // P-POPUP-7A — flag para insertar el bloque de estado personal una sola vez,
-  // justo debajo de `descripcion`. Si la card config no incluye `descripcion`,
-  // el bloque se emite al final (fallback).
   // P-POPUP-7B — `heroOverlayActive` colapsa el bloque inferior a inline
-  // `✓ Visitado` cuando el overlay sobre la hero está activo (visited + hay
-  // hero image). El verified badge vive sólo en el overlay.
-  // P-POPUP-7B (unificación) — reutiliza el state ya resuelto arriba.
+  // `✓ Visitado` cuando el overlay sobre la hero está activo.
   const heroOverlayActive = visitedState.showHeroOverlay;
   const personalStateCtx = { isOwn, isCuratorPoint, canEditLocation, heroOverlayActive };
-  let personalStateRendered = false;
-  const personalStateOnce = () => {
-    if (personalStateRendered) return '';
-    personalStateRendered = true;
-    return buildPersonalStateBlock(location, personalStateCtx);
-  };
+  // P-POPUP-7A.3 — slots semánticos disjuntos (composer canónico).
+  // P-POPUP-14 — el slot enrichmentRating ahora produce el bloque unificado
+  // de ratings (Row1 POI + Row2 "Tu valoración" si visitado). Por eso recibe
+  // también el contexto del viewer (isOwn / canEditLocation).
+  const enrichmentRatingFragment = buildEnrichmentRatingBlock(
+    location,
+    enriched,
+    { isCuratorPoint, isOwn, canEditLocation },
+  );
+  const personalStateFragment = buildPersonalStateBlock(location, personalStateCtx);
 
-  const mappedBody = orderedKeys.map(fieldKey => {
+  // Claves cuya posición decide el composer canónico (NO `field_order`).
+  const CANONICAL_KEYS = new Set(['descripcion', 'observacion']);
+
+  // (1) Extracción: el switch SOLO produce fragments por fieldKey.
+  //     Cero orquestación, cero side-effects ordinales.
+  const renderFragment = (fieldKey: string): string => {
     switch (fieldKey) {
       case 'nombre_lugar':
       case 'localizacion':
@@ -1392,50 +1527,40 @@ ${(() => {
         return '';
       
       case 'clasificacion': {
-        // P-POPUP-6A — taxonomy canonical representation = chips (see `case 'etiquetas'`).
-        // The textual breadcrumb (codigo + categoria + separator + subcategoria) is removed to avoid
-        // duplicating taxonomy in two formats. The catalog code (e.g. "2.5.x") is also
-        // dropped — internal catalog metadata with no value for a human viewer.
-        // This slot now renders ONLY the cultural_context (Wikidata) chip. If absent,
-        // the block is omitted entirely (no empty container).
-        const cc = (enriched as any)?.cultural_context;
-        if (!cc?.type_label) return '';
-        const culturalChip = `<span title="${cc.type_label} (Wikidata)" style="display: inline-flex; align-items: center; gap: 4px; background: ${tk('hsl(270 60% 95%)', '#ede9fe')}; color: ${tk('hsl(270 70% 35%)', '#5b21b6')}; padding: ${CARD.tagPadding}; border-radius: ${CARD.tagRadius}; font-size: ${FONT.badge}px; font-weight: 500;">${cc.type_label}</span>`;
-        return `
-<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: ${CARD.sectionGap}px;">
-  ${culturalChip}
-</div>`;
+        // P-POPUP-12 — el cultural_context se traslada al bloque taxonómico
+        // editorial (case 'etiquetas') como 4ª familia. Este slot queda inerte
+        // para preservar el orden del composer sin duplicar el chip violeta.
+        return '';
       }
 
       
       case 'punto_destacado':
         if (!enriched.punto_destacado) return '';
         return `
-<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0; background: ${HIGHLIGHT.bgColor}; border-left: ${HIGHLIGHT.borderWidth}px solid ${HIGHLIGHT.borderColor}; padding: ${HIGHLIGHT.padding}; border-radius: ${HIGHLIGHT.borderRadius};">
-  <p style="margin: 0; font-size: ${FONT.body}px; font-weight: 500; color: ${COLOR.foreground}; line-height: 1.45;">${enriched.punto_destacado}</p>
+<div style="clear: both; display: block; margin: 0 0 16px 0; background: transparent; border-left: ${HIGHLIGHT.borderWidth}px solid ${HIGHLIGHT.borderColor}; padding: 4px 0 4px 16px;">
+  <p style="margin: 0; font-family: Georgia, Charter, 'Iowan Old Style', 'Palatino Linotype', serif; font-size: 14px; font-weight: 500; color: ${COLOR.foreground}; line-height: 1.6; letter-spacing: normal;">${enriched.punto_destacado}</p>
 </div>`;
       
       case 'descripcion': {
-        const desc = enriched.descripcion
+        // P-POPUP-13 — degradación graciosa: si no hay `enriched.descripcion`
+        // (POI no enriquecido), usamos `location.description` con el mismo
+        // estilo editorial. Si tampoco existe, fragment vacío.
+        const text = enriched.descripcion || (!isEnriched ? (location.description || '') : '');
+        const desc = text
           ? `
-<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0;">
-  <div style="font-size: ${FONT.label}px; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; color: ${COLOR.muted}; margin-bottom: 4px;">Descripción</div>
-  <div class="vandits-description-body">
-    ${descriptionToHtmlParagraphs(enriched.descripcion, `margin: 0 0 8px 0; font-size: ${FONT.body}px; color: ${COLOR.bodyText}; line-height: 1.625;`)}
-  </div>
-  <span style="font-size: ${FONT.charCount}px; color: ${COLOR.muted};">${enriched.descripcion?.length || 0} caracteres</span>
+<div class="vandits-description-body" style="clear: both; display: block; margin: 4px 0 16px 0;">
+  ${descriptionToHtmlParagraphs(text, `margin: 0 0 12px 0; font-size: ${FONT.body}px; color: ${COLOR.bodyText}; line-height: 1.7; letter-spacing: 0.005em;`)}
 </div>`
           : '';
-        // P-POPUP-7A — bloque de estado personal SIEMPRE bajo `descripcion`.
-        return desc + personalStateOnce();
+        // P-POPUP-7A.1 — el switch ya NO compone; el rating se ancla en el composer.
+        return desc;
       }
       
       case 'observacion':
         if (!enriched.observacion) return '';
         return `
-<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0; background: ${OBSERVATION.bgColor}; padding: ${OBSERVATION.padding}; border-radius: ${OBSERVATION.borderRadius};">
-  <div style="font-size: ${FONT.label}px; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; color: ${COLOR.muted}; margin-bottom: 2px;">Observación</div>
-  <p style="margin: 0; font-size: ${FONT.body}px; color: ${COLOR.obsText}; line-height: 1.5;">${enriched.observacion}</p>
+<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0; background: ${OBSERVATION.bgColor}; padding: 12px 14px; border-radius: ${OBSERVATION.borderRadius};">
+  <p style="margin: 0; font-size: ${FONT.body}px; color: ${COLOR.obsText}; line-height: 1.65;"><span style="font-style: italic; color: ${COLOR.muted}; margin-right: 6px;">Nota:</span>${enriched.observacion}</p>
 </div>`;
       
       case 'etiquetas_personales':
@@ -1445,83 +1570,64 @@ ${(() => {
       case 'etiquetas': {
         if (!cardCfg.include_tags) return '';
 
-        // P-POPUP-2 — canonical 4-bucket dedupe path (flag-gated).
-        // - Removes `etiquetas_geograficas` from chips (covered by geo header).
-        // - Dedupes taxonomy ↔ semantic ↔ user by slug.
-        // - Caps overflow per `POPUP_TAG_CAPS`.
-        if (isPopupGeoCanonicalV1On()) {
-          const collectionSlugsForLoc = getCollectionsForLocation(location.id)
-            .map(c => tagSlug(c.name ?? ''))
-            .filter(Boolean);
-          const userPreFiltered = filterPersonalTags(location.id, enriched?.etiquetas_personales);
-          const buckets = getCanonicalPopupTags(location, collectionSlugsForLoc, userPreFiltered);
-          const parts: string[] = [];
+        // P-POPUP-12 — Canon de taxonomía editorial estructurada.
+        // Cuatro familias (taxonomy / semantic / user / cultural), cada una
+        // con límite duro de 5 (`POPUP_TAG_CAPS`). Sin overflow visual `+N`,
+        // sin <details>, sin nube de chips. Familias separadas por divisores
+        // horizontales y centradas. Colecciones y geografía NO viven aquí.
+        const collectionSlugsForLoc = getCollectionsForLocation(location.id)
+          .map(c => tagSlug(c.name ?? ''))
+          .filter(Boolean);
+        const userPreFiltered = filterPersonalTags(location.id, enriched?.etiquetas_personales);
+        const buckets = getCanonicalPopupTags(location, collectionSlugsForLoc, userPreFiltered);
 
-          const renderBucket = (
-            items: string[],
-            cap: number,
-            type: 'classification' | 'thematic' | 'personal',
-            filterType: 'searchTerm' | 'tag',
-          ) => {
-            if (!items.length) return;
-            const visible = items.slice(0, cap);
-            const overflow = items.length - visible.length;
-            const chips = visible.map(t => inlineTagBadge(
-              `#${String(t).replace('#', '').replace(/\s+/g, '')}`,
-              type,
-              { filterType, filterValue: String(t).replace('#', '') },
-            )).join('');
-            const overflowChip = overflow > 0
-              ? `<span title="+${overflow} más" style="padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 500; background: ${COLOR.secondary}; color: ${COLOR.muted};">+${overflow}</span>`
-              : '';
-            parts.push(`<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">${chips}${overflowChip}</div>`);
-          };
+        const familyRows: string[] = [];
 
-          if (!isCuratorPoint) {
-            renderBucket(buckets.taxonomy, POPUP_TAG_CAPS.taxonomy, 'classification', 'searchTerm');
-            renderBucket(buckets.semantic, POPUP_TAG_CAPS.semantic, 'thematic', 'tag');
-            renderBucket(buckets.user, POPUP_TAG_CAPS.user, 'personal', 'tag');
-          }
+        const renderFamilyChips = (
+          items: string[],
+          cap: number,
+          palette: 'classification' | 'thematic' | 'personal' | 'cultural',
+          filterType: 'searchTerm' | 'tag',
+        ) => {
+          if (!items.length) return;
+          const visible = items.slice(0, cap);
+          const chips = visible.map(t => inlineTagBadge(
+            `#${String(t).replace('#', '').replace(/\s+/g, '')}`,
+            palette,
+            { filterType, filterValue: String(t).replace('#', '') },
+          )).join('');
+          familyRows.push(
+            `<div data-tag-family="${palette}" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 8px 4px;">${chips}</div>`,
+          );
+        };
 
-          if (parts.length === 0) return '';
-          return `<div style="margin-bottom: ${CARD.sectionGap}px;">` + parts.join('') + '</div>';
+        if (!isCuratorPoint) {
+          renderFamilyChips(buckets.taxonomy, POPUP_TAG_CAPS.taxonomy, 'classification', 'searchTerm');
+          renderFamilyChips(buckets.semantic, POPUP_TAG_CAPS.semantic, 'thematic', 'tag');
+          renderFamilyChips(buckets.user, POPUP_TAG_CAPS.user, 'personal', 'tag');
         }
 
-        // ── Legacy path (flag OFF, default in prod) ───────────────────────
-        const parts: string[] = [];
+        // Cultural context = 4ª familia. Chip único derivado de
+        // `enriched.cultural_context.type_label` (Wikidata).
+        const cc = (enriched as any)?.cultural_context;
+        if (cc?.type_label) {
+          renderFamilyChips(
+            [String(cc.type_label)],
+            POPUP_TAG_CAPS.cultural,
+            'cultural',
+            'searchTerm',
+          );
+        }
 
-        // Geographic tags
-        if (enriched.etiquetas_geograficas?.length) {
-          parts.push('<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">' +
-            enriched.etiquetas_geograficas.map((tag: string) => 
-              inlineTagBadge(`#${tag.replace('#', '').replace(/\s+/g, '')}`, 'geo', { filterType: 'tag', filterValue: tag.replace('#', '') })
-            ).join('') + '</div>');
-        }
-        
-        // Classification tags
-        if (!isCuratorPoint && enriched.clasificacion?.codigo) {
-          const classTags: string[] = [];
-          if (enriched.clasificacion.categoria_principal) classTags.push(inlineTagBadge(`#${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '').replace(/\s+/g, '')}`, 'classification', { filterType: 'searchTerm', filterValue: enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '') }));
-          if (enriched.clasificacion.subcategoria) classTags.push(inlineTagBadge(`#${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '').replace(/\s+/g, '')}`, 'classification', { filterType: 'searchTerm', filterValue: enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '') }));
-          if (enriched.clasificacion.tipo_especifico) classTags.push(inlineTagBadge(`#${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '').replace(/\s+/g, '')}`, 'classification', { filterType: 'searchTerm', filterValue: enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '') }));
-          if (classTags.length) parts.push('<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">' + classTags.join('') + '</div>');
-        }
-        
-        // Thematic hashtags
-        if (!isCuratorPoint && enriched.etiquetas?.length) {
-          const filteredTags = enriched.etiquetas.filter((tag: string) => !enriched.etiquetas_geograficas?.some((gt: string) => gt.toLowerCase() === tag.toLowerCase()));
-          if (filteredTags.length) {
-            parts.push('<div style="display: flex; gap: 4px; flex-wrap: wrap;">' +
-              filteredTags.map((tag: string) => 
-                inlineTagBadge(`#${tag.replace('#', '').replace(/\s+/g, '')}`, 'thematic', { filterType: 'tag', filterValue: tag.replace('#', '') })
-              ).join('') + '</div>');
-          }
-        }
-        
-        if (parts.length === 0) return '';
-        return `<div style="margin-bottom: ${CARD.sectionGap}px;">` + parts.join('') + '</div>';
+        if (familyRows.length === 0) return '';
+
+        // Separador entre familias (N-1 dividers para N familias).
+        const divider = `<div style="border-top: 1px solid hsl(var(--border) / 0.6); margin: 0 8px;"></div>`;
+        const composed = familyRows.join(divider);
+
+        return `<div data-popup-taxonomy-block="v1" style="margin-bottom: ${CARD.sectionGap}px; text-align: center;">${composed}</div>`;
       }
-      
+
       case 'datos_geograficos':
         if (!enriched.datos_geograficos) return '';
         return (() => {
@@ -1608,218 +1714,136 @@ ${(() => {
       default:
         return '';
     }
-  }).join('\n');
-  // P-POPUP-7A — fallback: si la card config no incluye `descripcion`, emitir
-  // el bloque de estado personal al final (antes del footer).
-  return mappedBody + personalStateOnce();
+  };
+
+  // (2) Composición canónica: la jerarquía la decide el composer, NO el switch
+  //     y NO `field_order`.
+  //
+  //     Bloque semántico congelado (transversal):
+  //         descripcion → rating (personal state) → observacion
+  //
+  //     El resto de fields respeta `orderedKeys`. Si una de las claves canónicas
+  //     no aparece en `orderedKeys` (admin la desactivó) o produce fragment vacío,
+  //     se preserva el slot lógico para que el rating siga entre descripción y
+  //     observación cuando ambas existan, y los fallbacks documentados se
+  //     mantengan cuando alguna (o ambas) falten.
+  const fragments = new Map<string, string>();
+  for (const k of orderedKeys) fragments.set(k, renderFragment(k));
+
+
+
+  const descFragment = fragments.get('descripcion') ?? '';
+  const obsFragment = fragments.get('observacion') ?? '';
+
+
+  // P-POPUP-7A.3 — Anclaje del bloque canónico (tripleta extendida):
+  //     description → enrichmentRating → userPersonalState → observation
+  //   Reducciones (compactar adyacentes preservando orden 1→2→3→4):
+  //     - desc + enrich + personal + obs  → 1+2+3+4
+  //     - desc + obs                       → 1   +4   (enrich/personal vacíos)
+  //     - sólo obs                         → 2+3+4 (enrich/personal antes)
+  //     - sólo desc                        → 1+2+3
+  //     - ninguna desc/obs                 → 2+3 (fallback)
+  const canonicalParts = [descFragment, enrichmentRatingFragment, personalStateFragment, obsFragment]
+    .filter(Boolean);
+  const canonicalBlock = canonicalParts.join('');
+
+  // Posición del bloque canónico = posición del PRIMER fieldKey canónico
+  // presente en `orderedKeys`. Los fields no canónicos conservan su slot
+  // relativo en `field_order`. Si no hay claves canónicas en orderedKeys,
+  // los slots semánticos (enrich + personal) se anclan al final.
+  const firstCanonicalIdx = orderedKeys.findIndex((k) => CANONICAL_KEYS.has(k));
+  let anchorEmitted = false;
+  const composed: string[] = [];
+  if (firstCanonicalIdx === -1) {
+    for (const k of orderedKeys) composed.push(fragments.get(k) ?? '');
+    composed.push(enrichmentRatingFragment, personalStateFragment);
+  } else {
+    orderedKeys.forEach((k) => {
+      if (CANONICAL_KEYS.has(k)) {
+        if (!anchorEmitted) {
+          composed.push(canonicalBlock);
+          anchorEmitted = true;
+        }
+        // Las claves canónicas no se emiten individualmente: viven en el bloque.
+        return;
+      }
+      composed.push(fragments.get(k) ?? '');
+    });
+  }
+
+  return composed.join('\n');
+
+
 })()}
-
-${locationUpdatedAt > 0 ? `
-<div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${tk('hsl(var(--text-secondary))', '#9ca3af')}; margin-top: 8px; padding-top: 8px; border-top: 1px dashed ${tk('hsl(var(--surface-border))', '#e5e7eb')};">
-<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-<circle cx="12" cy="12" r="10"/>
-<polyline points="12 6 12 12 16 14"/>
-</svg>
-<span>Ficha IA actualizada: ${new Date(locationUpdatedAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+${(!isEnriched) ? (() => {
+  // P-POPUP-13 — Fallback body (POI sin enriched.descripcion): customData
+  // filtrado renderizado en lenguaje discreto. SIN overflow textual, SIN
+  // bordes legacy grises, SIN eyebrow uppercase agresivo. Mismo registro
+  // tipográfico que el resto del shell canónico.
+  const filteredCustomData = Object.entries(location.customData || {})
+    .filter(([key]) => !['user_image_url', 'user_image_visibility', 'has_notes', 'notes', 'visited', 'user_rating'].includes(key));
+  if (filteredCustomData.length === 0) return '';
+  const rowsHtml = filteredCustomData.map(([key, value]) => `
+<div style="display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid hsl(var(--border) / 0.4);">
+<span style="color: hsl(var(--muted-foreground)); font-size: 12px; min-width: 80px; font-weight: 500;">${key}</span>
+<span style="color: hsl(var(--foreground)); font-size: 12px; flex: 1;">${value}</span>
+</div>`).join('');
+  return `
+<details data-popup-fallback-customdata="v1" style="margin: 8px 16px 12px 16px; border-top: 1px solid hsl(var(--border) / 0.6); padding-top: 8px;">
+<summary style="cursor: pointer; font-size: 11px; color: hsl(var(--muted-foreground)); letter-spacing: 0.02em; padding: 4px 0; list-style: none;">Datos adicionales (${filteredCustomData.length})</summary>
+<div style="margin-top: 6px;">${rowsHtml}</div>
+</details>`;
+})() : ''}
+<!-- P-POI-CURATION-2.10 — Two-rail body. Cierra AQUÍ el wrapper editorial
+     (padding: 16px) que envuelve prosa/hero/breadcrumb/ratings/descripción.
+     Los slots interactivos (recovery-root, route-waypoint actions) se emiten
+     como hijos DIRECTOS del popup-scroll-body, full-width, sin gutter
+     editorial heredado y SIN márgenes negativos. Ver
+     docs/contracts/popup-contract.md (Two-rail body) y
+     mem://style/popup/two-rail-body. -->
 </div>
-` : ''}
+<!-- Slot interactivo full-width: UnenrichedRecoveryBlock (hydrated by
+     LocationMap on popupopen). Solo se monta si el POI no está enriquecido.
+     Edge-to-edge del scroll-body; el NearbyPanel inline (padX=px-0,
+     rootClass con border-t superior) está preparado para esta posición. -->
+${curationVerdict.bodyBlocker === 'enrich-from-context' ? `<div data-recovery-root="${location.id}" style="margin: 0 8px 8px 8px;"></div>` : ''}
+${(() => {
+  const pt = (location.placeType ?? '').toString();
+  const isRouteWaypoint = pt === 'route_waypoint' || pt.startsWith('route_') || location.customData?.is_route_waypoint === 'true';
+  if (!(isOwn && canEditLocation && isRouteWaypoint)) return '';
+  // P-POPUP-13 — Route-waypoint actions en lenguaje muted P-POPUP-11.1.
+  // P-POI-CURATION-2.10 — Slot interactivo full-width: ya autocontenido con
+  // `margin: 8px 16px` propio (su carril es de botones, no editorial).
+  const btn = (action: string, label: string, title: string, svg: string, extra: string = '') => `
+<button class="popup-action-btn" data-action="${action}" data-location-id="${location.id}" ${extra}
+style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 30px; padding: 0 8px; background: hsl(var(--muted)); color: hsl(var(--foreground)); border: none; border-radius: 6px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;"
+onmouseover="this.style.background='hsl(var(--muted) / 0.7)'" onmouseout="this.style.background='hsl(var(--muted))'"
+title="${title}">${svg}${label}</button>`;
+  return `
+<div data-route-waypoint-actions="v1" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 16px 8px 16px;">
+${btn('view-nearby', 'Contexto cercano', 'Explorar puntos de interés cercanos', '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/></svg>')}
+${btn('duplicate-point', 'Duplicar', 'Crear una copia de este punto', '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>', `data-location-name="${location.name}"`)}
+${btn('merge-nearby', 'Fusionar', 'Fusionar con un punto cercano', '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/></svg>')}
+${btn('reclassify-type', 'Reclasificar', 'Cambiar el tipo de lugar', '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>')}
+</div>`;
+})()}
+</div>
 
-<!-- Botones de acción -->
+<!-- P-POPUP-11 — Footer persistente: estado IA + acciones técnicas. Sibling
+     del hero y del scroll body, flex-shrink:0 → siempre visible aunque el
+     body haga scroll. Estado IA único (no duplicado en el body). -->
+<div data-popup-footer="v1" style="flex-shrink: 0; border-top: 1px solid hsl(var(--border)); background: hsl(var(--muted) / 0.4); padding: 8px 12px;">
 ${actionButtonsHtml}
-</div>
 </div>
 </div>
 `;
   }
 
-  // Fallback: mostrar datos originales
-  const ownershipInfo: PopupOwnership = {
-    isOwn,
-    ownerName,
-    isFollowing: ownership?.isFollowing,
-    curatorId: ownership?.curatorId,
-    curatorIcon: ownership?.curatorIcon,
-    curatorColor: ownership?.curatorColor,
-    curatorAvatar: ownership?.curatorAvatar,
-  };
-
-  // P-POPUP-7B (unificación) — single source of truth para el estado
-  // visited en la rama legacy (enriched=null intencional).
-  const visitedStateLegacy = resolveVisitedPresentationState(location, ownershipInfo, null);
-
-  const filteredCustomData = Object.entries(location.customData || {})
-    .filter(([key]) => !['user_image_url', 'user_image_visibility', 'has_notes', 'notes', 'visited', 'user_rating'].includes(key));
-
-  const customDataHtml = filteredCustomData
-    .slice(0, 6)
-    .map(([key, value]) => `
-<div style="display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid #f0f0f0;">
-<span style="color: #666; font-size: 12px; min-width: 80px; font-weight: 500;">${key}</span>
-<span style="color: #333; font-size: 12px; flex: 1;">${value}</span>
-</div>
-`).join('');
-
-  const moreDataCount = filteredCustomData.length - 6;
-
-  return `
-<div data-popup-version="${isPopupGeoCanonicalV1On() ? 'geo-canonical-v1' : 'legacy'}" data-popup-geo-canonical="${isPopupGeoCanonicalV1On() ? 'true' : 'false'}" style="width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: ${POPUP_MAX_HEIGHT}; overflow: hidden;">${isPopupDiagBadgeVisible() && isPopupGeoCanonicalV1On() ? `<div style="position: absolute; top: 4px; left: 4px; z-index: 10; padding: 2px 6px; border-radius: 4px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.85; pointer-events: none;" title="P-POPUP-2 canonical geo header + 4-bucket tag dedupe ACTIVE (preview/staging signal — will retire after ratification)">P-POPUP-2 ON</div>` : ''}
-${statusBarHtml}
-
-<div style="flex-shrink: 0;">
-${buildImageSection(location, null, ownershipInfo, visitedStateLegacy)}
-</div>
-
-<div class="popup-scroll-body" style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;">
-<div style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb;">
-<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
-<h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #1a1a1a; line-height: 1.3; flex: 1;">
-${location.name}
-</h3>
-${ownershipBadgeHtml}
-</div>
-${isPopupGeoCanonicalV1On()
-  ? buildGeoHeaderHtml(location, { background: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' })
-  : `<div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
-${location.continent ? `<span class="filter-link" data-filter-type="continent" data-filter-value="${location.continent}" style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">${location.continent}</span>` : ''}
-${location.country ? `<span class="filter-link" data-filter-type="country" data-filter-value="${location.country}" style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'">${location.country}</span>` : ''}
-${location.region ? `<span class="filter-link" data-filter-type="region" data-filter-value="${location.region}" style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#fde68a'" onmouseout="this.style.background='#fef3c7'">${location.region}</span>` : ''}
-${location.zone ? `<span class="filter-link" data-filter-type="zone" data-filter-value="${location.zone}" style="background: #f3e8ff; color: #7c3aed; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">${location.zone}</span>` : ''}
-</div>`}
-
-${(!isOwn && !isCuratorPoint) ? `
-<button 
-class="popup-action-btn" 
-data-action="add-to-collection" 
-data-location-id="${location.id}"
-data-location-name="${location.name}"
-style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; background: linear-gradient(135deg, #16a34a, #22c55e); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-top: 12px; box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);"
-onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(22, 163, 74, 0.4)'"
-onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 8px rgba(22, 163, 74, 0.3)'"
-title="Añadir este punto a tu colección personal"
->
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-<path d="M12 5v14M5 12h14"/>
-</svg>
-Añadir a mi colección
-</button>
-` : ''}
-
-<!-- P-POPUP-7A: Visited + personal rating bajados al slot post-descripcion.
-     Ver buildPersonalStateBlock debajo del bloque de descripcion. -->
-</div>
-
-${location.description ? `
-<div style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; background: #fafafa;">
-<p style="margin: 0; font-size: 13px; color: #4b5563; line-height: 1.5; white-space: pre-wrap; max-height: 150px; overflow-y: auto;">
-${location.description}
-</p>
-</div>
-` : ''}
-
-${buildPersonalStateBlock(location, { isOwn, isCuratorPoint, canEditLocation, heroOverlayActive: visitedStateLegacy.showHeroOverlay })}
-
-${isNearbyPopupContext(location.id) ? '' : buildSourceHashtagsBlock(location, ownership)}
-${isNearbyPopupContext(location.id) ? '' : buildCollectionChipsPlaceholder(location)}
-${isNearbyPopupContext(location.id) ? '' : buildPersonalTagsBlock(location)}
-
-<div style="padding: 12px 16px;">
-${isNearbyPopupContext(location.id) ? '' : `
-<div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
-<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-<circle cx="12" cy="10" r="3"></circle>
-</svg>
-<span style="font-size: 12px; color: #6b7280;">
-${location.coordinates.lat.toFixed(6)}, ${location.coordinates.lng.toFixed(6)}
-</span>
-</div>
-
-${customDataHtml ? `
-<div style="margin-top: 12px;">
-<div style="font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
-Datos adicionales
-</div>
-${customDataHtml}
-${moreDataCount > 0 ? `<div style="font-size: 11px; color: #9ca3af; padding-top: 8px;">+${moreDataCount} campos más</div>` : ''}
-</div>
-` : ''}
-`}
-
-${(() => {
-  const pt = (location.placeType ?? '').toString();
-  const isRouteWaypoint = pt === 'route_waypoint' || pt.startsWith('route_') || location.customData?.is_route_waypoint === 'true';
-  return (isOwn && canEditLocation && isRouteWaypoint);
-})() ? `
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 10px; margin-bottom: 6px;">
-<button 
-class="popup-action-btn" 
-data-action="view-nearby" 
-data-location-id="${location.id}"
-style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 7px 6px; background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; border: 1px solid #fcd34d; border-radius: 6px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.15s;"
-onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 2px 8px rgba(245,158,11,0.3)'"
-onmouseout="this.style.transform='none';this.style.boxShadow='none'"
-title="Explorar puntos de interés cercanos"
->
-<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-<path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/>
-</svg>
-Contexto cercano
-</button>
-<button 
-class="popup-action-btn" 
-data-action="duplicate-point" 
-data-location-id="${location.id}"
-data-location-name="${location.name}"
-style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 7px 6px; background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
-onmouseover="this.style.transform='translateY(-1px)';this.style.background='#e5e7eb'"
-onmouseout="this.style.transform='none';this.style.background='#f3f4f6'"
-title="Crear una copia de este punto"
->
-<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
-</svg>
-Duplicar
-</button>
-<button 
-class="popup-action-btn" 
-data-action="merge-nearby" 
-data-location-id="${location.id}"
-style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 7px 6px; background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
-onmouseover="this.style.transform='translateY(-1px)';this.style.background='#e5e7eb'"
-onmouseout="this.style.transform='none';this.style.background='#f3f4f6'"
-title="Fusionar con un punto cercano"
->
-<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-<path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/>
-</svg>
-Fusionar
-</button>
-<button 
-class="popup-action-btn" 
-data-action="reclassify-type" 
-data-location-id="${location.id}"
-style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 7px 6px; background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
-onmouseover="this.style.transform='translateY(-1px)';this.style.background='#e5e7eb'"
-onmouseout="this.style.transform='none';this.style.background='#f3f4f6'"
-title="Cambiar el tipo de lugar"
->
-<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-<path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/>
-</svg>
-Reclasificar
-</button>
-</div>
-` : ''}
-
-<!-- Mount point for UnenrichedRecoveryBlock (hydrated by LocationMap on popupopen).
-     Helper único: per-POI recovery block. Solo se monta si el POI no está enriquecido. -->
-<div data-recovery-root="${location.id}" style="margin: 0 0 8px 0;"></div>
-
-${actionButtonsHtml}
-</div>
-</div>
-</div>
-`;
+  // P-POPUP-13 — La rama legacy visual fue eliminada. El shell canónico
+  // (hero → scroll-body → footer persistente) aplica a TODOS los POIs.
+  // Si llegamos aquí es por error de control de flujo: devolvemos string vacío.
+  return '';
 }
 
 // P-POPUP-7B DEV AUTODIAGNOSIS — module-level, dev-only. Removed in fix commit.

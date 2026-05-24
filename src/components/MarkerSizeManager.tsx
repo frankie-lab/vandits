@@ -11,6 +11,7 @@ import { updateMarkerSizeConfig, type MarkerSizeMap } from '@/components/map/use
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MarkerStateRulesPanel } from './MarkerStateRulesPanel';
+import { EffectBadge } from '@/shared/components/ui/effect-badge';
 
 interface MarkerConfig {
   id: string;
@@ -281,11 +282,20 @@ function MarkerSizeList() {
 export function MarkerSizeManager() {
   const stop = (e: React.SyntheticEvent) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); };
   return (
-    <Tabs defaultValue="sizes" className="flex flex-col h-full min-h-0" onValueChange={() => {}}>
-      <TabsList className="shrink-0 mx-4 mt-2" onClick={stop} onPointerDown={stop} onMouseDown={stop}>
-        <TabsTrigger value="sizes" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}><Ruler className="w-3 h-3 mr-1" /> Tamaños</TabsTrigger>
-        <TabsTrigger value="states" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}><Palette className="w-3 h-3 mr-1" /> Norma de estados</TabsTrigger>
-      </TabsList>
+    <Tabs defaultValue="sizes" className="flex flex-col h-full min-h-0">
+      <div className="shrink-0 px-4 pt-2 pb-1 border-b border-border">
+        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+          <EffectBadge kind="cache-delay" detail="~5s para todos los usuarios" />
+        </div>
+        <TabsList onClick={stop} onPointerDown={stop} onMouseDown={stop}>
+          <TabsTrigger value="sizes" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}>
+            <Ruler className="w-3 h-3 mr-1" /> Tamaños y colores por tipo
+          </TabsTrigger>
+          <TabsTrigger value="states" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}>
+            <Palette className="w-3 h-3 mr-1" /> Reglas de estado visual
+          </TabsTrigger>
+        </TabsList>
+      </div>
       <TabsContent value="sizes" className="flex-1 min-h-0 overflow-y-auto mt-0">
         <MarkerSizeList />
       </TabsContent>

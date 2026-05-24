@@ -1,134 +1,74 @@
-# P-POPUP-7D — Hero chrome safe-area (solución transversal)
+## Objetivo
 
-Cierre de P-POPUP-7D como **contrato único** para cualquier overlay flotante sobre `.popup-hero`. No es un ajuste de offsets del badge.
+Eliminar la asimetría visual y semántica entre el contador "sin selección" y "con selección" del `FilterBar`. Las dos vistas hablan del mismo universo de POIs y deben usar el mismo formato y vocabulario.
 
-## Problema raíz
+## Estado actual (problema)
 
-`.popup-hero` vive dentro de `.leaflet-popup-content-wrapper`, que tiene `border-radius` + `overflow: hidden`. Cualquier overlay con offset menor al radio entra en la zona curva y se clipea. Hoy cada chrome resuelve esto a mano con un número distinto:
+```
+Sin selección:   4739 de 5095 ubicaciones
+                 4739 catálogo · 0 mesa
 
-| Chrome | Posición actual | Origen |
+Con selección:   1 / 4739 seleccionado
+                 1 / 4739 Míos · 0 / 0 Seguidos
+```
+
+Tres incoherencias:
+- Formato distinto: `X de Y` vs `X / Y`.
+- Vocabularios distintos: `catálogo / mesa` vs `Míos / Seguidos`.
+- Denominador del bucket "Seguidos" siempre era `0` porque usaba `bucketStats.followedTotal` calculado sobre el subset filtrado.
+
+## Estado objetivo
+
+Formato único en ambas vistas: `X / Y etiqueta`.
+
+```
+Sin selección:   0 / 4739 seleccionados
+                 0 / 4739 Míos · 0 / 5095 Seguidos
+
+Con selección:   4247 / 4739 seleccionados
+                 4247 / 4739 Míos · 0 / 5095 Seguidos
+```
+
+### Definición de cada par X/Y
+
+| Bucket | X (numerador) | Y (denominador) |
 |---|---|---|
-| Badge visited/pending | `bottom: 6px; left: 6px` (inline) | `buildVisitedHeroOverlay` (~L864) → **clipeado** |
-| Wrapper foto upload/delete | `bottom: 12px; right: 16px` (inline) | `buildImageSection` (~L983) |
-| Curator avatar overlay | `bottom: 8px; right: 8px` (inline) | `buildImageSection` branch curator (~L889) |
+| Seleccionados | `selectedCount` | `filteredCount` (universo filtrado del usuario, p. ej. 4739) |
+| Míos | `ownershipRatios.Xm` | `filteredCount` (mismo universo filtrado) |
+| Seguidos | `ownershipRatios.Xs` | `stats.total` (universo absoluto del usuario, p. ej. 5095) |
 
-No hay contrato. Cada futuro badge o menú repetiría la negociación.
+Reglas:
+- Cuando `selectedCount === 0`, numerador = 0 (no cambia el formato).
+- Etiquetas siempre `seleccionados` (plural, también con 1 y con 0; el plural en castellano no rompe nada y mantiene consistencia).
+- El denominador de "Seguidos" usa `stats.total` (total absoluto del universo del usuario, lo que hoy se muestra como "de 5095 ubicaciones"). Eso explica por qué `Seguidos` puede ser `0 / 5095` aunque "Míos" sea `4247 / 4739`: ejes ortogonales (origen vs propiedad).
+- Mismo tamaño tipográfico para X e Y. Color numerador = `text-primary`. Color denominador = `text-muted-foreground`. Etiquetas (`seleccionados` / `Míos` / `Seguidos`) en sus colores actuales.
 
-## Contrato
+### Lo que se elimina
 
-Una sola fuente de verdad:
+- La rama "sin selección" con `4739 de 5095 ubicaciones` desaparece.
+- El desglose `catálogo · mesa · seguidos` desaparece de esta línea (sigue existiendo en otros sitios del producto si los hubiera; no se tocan).
 
-```text
-.popup-hero
-  └─ overlay con clase .popup-hero-chrome + .popup-hero-chrome--{tl|tr|bl|br}
-       offset = var(--popup-hero-chrome-inset)
-       gap interno = var(--popup-hero-chrome-gap)
-```
+## Archivos a modificar
 
-Regla: **prohibido** `position: absolute` + offsets numéricos sueltos sobre la hero. Si el `border-radius` del popup wrapper cambia, se ajusta el token y todos los overlays se reubican a la vez.
+- `src/components/FilterBar.tsx` — colapsar las dos ramas (`selectedCount > 0` / `else`) en una sola estructura, con numeradores que valgan 0 cuando no haya selección. Líneas afectadas aproximadas: 234-285.
+- `src/test/selection-counter-ratios.test.ts` — añadir asserts del estado "sin selección" (numeradores en 0, denominadores correctos) y confirmar que `Seguidos` usa `stats.total` como denominador, no `bucketStats.followedTotal`.
 
-## Cambios
+## Detalles técnicos
 
-### 1. Token único
+- `filteredCount`: ya disponible en FilterBar; es el subset filtrado del universo del usuario.
+- `stats.total`: viene de `useEnrichedStats()`; es el universo absoluto (la fuente del 5095).
+- `ownershipRatios.{Xm,Xs}`: ya calculados sobre el universo independiente de selección (PR previo). No se tocan.
+- No se cambia `getFilteredLocations()`, ni el cálculo de selección, ni `bucketStats`, ni `ExportPanel`, ni PR-EXPORT-2.
+- Sin cambios de schema, datos, backend, ni bump.
 
-`src/design-system/tokens/source/popup.json` — extender el bloque `hero`:
+## Verificación
 
-```json
-"hero": {
-  "ratio":       { "value": "16 / 9", "_css": "--popup-hero-ratio" },
-  "chromeInset": { "value": "12px",   "_css": "--popup-hero-chrome-inset" },
-  "chromeGap":   { "value": "8px",    "_css": "--popup-hero-chrome-gap" }
-}
-```
+1. `selection-counter-ratios.test.ts` debe seguir en 21/21 PASS más los asserts añadidos del estado sin selección.
+2. Inspección visual en `/` con y sin selección: los tres ratios deben renderizarse con mismo tamaño y formato `X / Y etiqueta`.
+3. Comprobar que al seleccionar/deseleccionar todo, sólo cambian los numeradores, nunca los denominadores ni las etiquetas.
 
-`chromeInset = 12px` cubre con holgura el radio actual (`rounded-lg` = 8px del wrapper) más margen ergonómico. La pipeline `npm run tokens:build` regenera `src/design-system/tokens/build/tokens.css` (corre en predev/prebuild — no se toca).
+## Fuera de alcance
 
-### 2. Clase común en `src/index.css`
-
-Junto al bloque P-POPUP-7C ya existente:
-
-```css
-/* P-POPUP-7D — Hero chrome safe-area.
-   Contrato único para CUALQUIER overlay flotante sobre .popup-hero
-   (badge visited, controles foto, curator overlay, futuros menús/badges).
-   Ningún componente vuelve a hardcodear bottom/left/right/top sobre la hero. */
-.popup-hero { position: relative; }
-
-.popup-hero-chrome {
-  position: absolute;
-  z-index: 2;
-  pointer-events: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--popup-hero-chrome-gap, 8px);
-}
-.popup-hero-chrome--tl { top:    var(--popup-hero-chrome-inset, 12px); left:  var(--popup-hero-chrome-inset, 12px); }
-.popup-hero-chrome--tr { top:    var(--popup-hero-chrome-inset, 12px); right: var(--popup-hero-chrome-inset, 12px); }
-.popup-hero-chrome--bl { bottom: var(--popup-hero-chrome-inset, 12px); left:  var(--popup-hero-chrome-inset, 12px); }
-.popup-hero-chrome--br { bottom: var(--popup-hero-chrome-inset, 12px); right: var(--popup-hero-chrome-inset, 12px); }
-```
-
-`.popup-hero-controls` (reveal-on-hover, P-POPUP-7C) se mantiene intacta — sólo gestiona **opacidad/visibilidad**. La nueva clase gestiona **posición**. Las dos se combinan en el mismo nodo.
-
-### 3. Aplicar a los tres chromes existentes
-
-`src/components/map/map-popups.ts`:
-
-**a) Badge visited/pending** (`buildVisitedHeroOverlay`, ~L864):
-- Quitar del inline `style`: `position`, `bottom`, `left`, `z-index`, `pointer-events`, `display`, `align-items`, `justify-content`.
-- Añadir `popup-hero-chrome popup-hero-chrome--bl` al `class` existente.
-- Conservar: `width/height: 24px`, fondo translúcido, border, blur, icon ✓/○, `data-action="toggle-visited"`, `data-location-id`, `data-visited-hero-overlay`, `data-visited-state`, `aria-label`, `title`.
-- Subir alpha de fondo a `rgba(0,0,0,0.5)` y borde a `rgba(255,255,255,0.4)` para mejorar contraste contra fotos claras (ajuste de contraste, no de posición — la posición es 100% sistema).
-
-**b) Wrapper controles foto** (`buildImageSection`, ~L983):
-- Quitar inline `position: absolute; bottom: 12px; right: 16px; display: flex; gap: 8px`.
-- Mantener `class="popup-hero-controls"` (reveal-on-hover).
-- Añadir `popup-hero-chrome popup-hero-chrome--br` al mismo div.
-- El `gap` interno entre upload/delete pasa a `--popup-hero-chrome-gap` (8px, mismo valor).
-
-**c) Curator avatar overlay** (`buildImageSection` branch curator, ~L889):
-- Quitar `position: absolute; bottom: 8px; right: 8px` inline.
-- Aplicar `class="popup-hero-chrome popup-hero-chrome--br"` al div del avatar.
-- Resto (tamaño 40×40, sombra, borde de color curator) intacto.
-
-### 4. Tests
-
-`src/test/popup-hero-chrome.test.ts` — añadir asserts:
-1. `.popup-hero` contiene un elemento con clases `popup-hero-chrome popup-hero-chrome--bl` y `data-action="toggle-visited"`.
-2. `.popup-hero` contiene un elemento con clases `popup-hero-chrome popup-hero-chrome--br` que envuelve los botones `data-action="upload-photo"` (y `delete-photo` cuando hay foto del usuario).
-3. **Negative assert sistémico**: ningún descendiente directo de `.popup-hero` con clase `popup-hero-chrome` declara `position:`, `bottom:`, `top:`, `left:` o `right:` en su atributo `style` inline — la posición proviene EXCLUSIVAMENTE de la clase. Esto es el guardrail anti-regresión que impide volver a meter offsets ad-hoc.
-
-`src/test/popup-visited-hero-overlay.test.ts` — actualizar los asserts existentes de `bottom: 6px` / `left: 6px` inline → verificar la presencia de `popup-hero-chrome--bl`. Resto (24×24, ausencia de spans Visitado/Pendiente, aria-label, 1 sólo `<svg>` con `visited_verified_at`) intacto.
-
-Otras suites (`popup-visited-presentation-state`, `popup-personal-state-hierarchy`, parity, hero-chrome existente) sin cambios.
-
-### 5. QA visual
-
-POI con hero visible, viewport 1244×1111:
-1. Estado **visitado** → ✓ verde completamente dentro del recorte de la hero, esquina inferior-izquierda. Sin clipping.
-2. Estado **pendiente** → ○ blanco visible con contraste correcto sobre foto clara y oscura.
-3. **Hover** sobre la hero → botones foto upload/delete aparecen en bottom-right (reveal P-POPUP-7C intacto), sin clipping.
-4. POI **curator con avatar** → avatar en bottom-right, sin clipping.
-5. Tap/click fuera → cierra popup (sin regresión vs P-POPUP-7D base).
-
-Capturas: reposo (badge solo) + hover (badge + controles foto) + curator (avatar). Adjuntas al doc de validación.
-
-### 6. Documentación
-
-Reescribir la sección de cierre de `docs/popups/p-popup-7d-validation.md` añadiendo **"Hero chrome safe-area (canon transversal)"**:
-
-- Token `--popup-hero-chrome-inset` (12px) y `--popup-hero-chrome-gap` (8px) — única fuente de verdad para chrome sobre la hero.
-- Clases `.popup-hero-chrome` + `.popup-hero-chrome--{tl|tr|bl|br}` — único anclaje permitido.
-- Regla: cualquier overlay futuro (badges, menús ⋯, indicadores) aplica la misma clase. Prohibido `position: absolute` + offsets sueltos sobre `.popup-hero`.
-- Chromes migrados en esta PR: badge visited, controles foto upload/delete, curator avatar overlay.
-- Si el `border-radius` del popup wrapper cambia, sólo se ajusta el token.
-
-Crear memoria `mem://style/popup/hero-chrome-safe-area` referenciando el contrato + actualizar `mem://index.md` (sección Memories) con `[Hero chrome safe-area](mem://style/popup/hero-chrome-safe-area)`.
-
-## Fuera de scope (no se toca)
-
-Handlers, lógica visited toggle, rating, schema, taxonomy, collections, provenance, geo, lifecycle, marker grammar, F2, React migration, PopupShell, paridad renderer↔resolver (P-POPUP-7B), `closeButton: false` (P-POPUP-7D base), reveal-on-hover (`.popup-hero-controls` sigue gobernando opacidad, esta PR sólo separa "posición" de "visibilidad").
-
-## Entregable
-
-P-POPUP-7D cierra como **canon transversal "hero chrome safe-area"**: un token, una clase, cuatro variantes, tres chromes existentes migrados, contrato testeado con guardrail anti-regresión y documentado como memoria de proyecto.
+- Renombrar "catálogo / mesa" en otros lugares del producto.
+- Tocar `getBucketStats`, `getFilteredLocations`, ExportPanel, PR-EXPORT-2.
+- Cualquier cambio en la línea de "Filtros activos" inferior (línea 315).

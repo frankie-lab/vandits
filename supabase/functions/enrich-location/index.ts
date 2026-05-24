@@ -9,7 +9,12 @@ import { buildEnrichmentSchema } from "../_shared/build-enrichment-schema.ts";
 import { extractCulturalContext } from "../_shared/cultural-context.ts";
 import { isUnverifiableLLMOutput } from "../_shared/llm-unverifiable.ts";
 import { compareCountries } from "../_shared/country-iso.ts";
+import { inspectWgs84Coord } from "../_shared/coord-validity.ts";
+import { classifyPoiIdentityRootStatus } from "../_shared/poi-identity-root-status.ts";
+import { assertNameCoordinateIdentity } from "../_shared/name-coord-identity.ts";
 import { getEnabledSourceCodes, isSourceEnabled } from "../_shared/data-sources.ts";
+import { sanitizeAiEnrichmentPayload } from "../_shared/ai-payload-sanitizer.ts";
+import { assertGeoCoherence } from "../_shared/geo-coherence.ts";
 import {
   searchImageFromSources as sharedImageSearch,
   type ImageSourceCode,
@@ -1665,7 +1670,10 @@ async function getGlobalEnrichmentConfig(): Promise<EnrichmentCardConfigV2> {
   }
 }
 
-// Profile-specific enrichment preferences (curator or druid overrides)
+// Profile-specific enrichment preferences (placeholder — PR-ADMIN-AUDIT-3 Fase A).
+// Las tablas `curators`/`druids` fueron purgadas en migraciones anteriores y los
+// `curatorId`/`druidId` se eliminaron del contrato de entrada. Mantenemos el tipo
+// con shape vacío para no romper los merges posteriores `profilePrefs?.<key>`.
 interface ProfileEnrichmentPrefs {
   enrichment_expected_nature?: string;
   enrichment_search_radius_meters?: number;
@@ -1683,44 +1691,7 @@ interface ProfileEnrichmentPrefs {
   enrichment_exclude_keywords?: string[];
 }
 
-// Fetch profile-specific preferences (curator or druid)
-async function getProfilePreferences(profileType: 'curator' | 'druid', profileId: string): Promise<ProfileEnrichmentPrefs | null> {
-  try {
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      console.log('Supabase credentials not available for profile lookup');
-      return null;
-    }
-    
-    const table = profileType === 'curator' ? 'curators' : 'druids';
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${profileId}&select=enrichment_expected_nature,enrichment_search_radius_meters,enrichment_include_contact,enrichment_show_sources,enrichment_correct_coordinates,enrichment_tone,enrichment_min_length,enrichment_custom_prompt,enrichment_include_image,enrichment_include_web,enrichment_include_tags,enrichment_include_interest_index,enrichment_focus_keywords,enrichment_exclude_keywords`, {
-      headers: {
-        'apikey': SUPABASE_SERVICE_ROLE_KEY,
-        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      },
-    });
-    
-    if (!response.ok) {
-      console.error(`Failed to fetch ${profileType} preferences:`, response.status);
-      return null;
-    }
-    
-    const data = await response.json();
-    if (data && data.length > 0) {
-      console.log(`${profileType} preferences loaded:`, data[0]);
-      return data[0] as ProfileEnrichmentPrefs;
-    }
-    
-    return null;
-  } catch (error) {
-    console.error(`Error fetching ${profileType} preferences:`, error);
-    return null;
-  }
-}
-
-// Build tone instructions based on curator preference
+// Build tone instructions
 function getToneInstructions(tone: string): string {
   const toneMap: Record<string, string> = {
     'tecnico': `TONO TÉCNICO:
@@ -1782,15 +1753,71 @@ serve(async (req) => {
       });
     }
 
-    const { location: rawLocation, generateImage = true, imageSources, curatorId, druidId, skipValidation = false, confirmedCandidate } = parsed as {
+    // PR-ADMIN-AUDIT-3 Fase A: `curatorId`/`druidId` retirados del contrato.
+    // Las tablas `curators`/`druids` fueron purgadas en migraciones anteriores.
+    const { location: rawLocation, generateImage = true, imageSources, skipValidation = false, confirmedCandidate, locationId } = parsed as {
       location: IncomingLocation;
       generateImage?: boolean;
       imageSources?: string[];
-      curatorId?: string;
-      druidId?: string;
       skipValidation?: boolean;
       confirmedCandidate?: string;
+      locationId?: string;
     };
+
+    // ===== POI-Identity Root Status revalidation =====
+    // If a `locationId` is provided (batch path + cable-aware clients), re-read
+    // the row from DB and re-classify just before any IA/write happens. This
+    // closes the enqueue→write race window: if A/B/C/canon_gap/hardError/
+    // already_enriched/in_progress/fixture/under_review/unresolved appeared
+    // between enqueue and now, we skip silently (200 + skipReason).
+    // Contract: docs/audits/poi-identity-p1-p2-parallel-execution-plan.md §2.2/§2.3.
+    if (typeof locationId === 'string' && /^[0-9a-f-]{36}$/i.test(locationId)) {
+      try {
+        const REVAL_URL = Deno.env.get('SUPABASE_URL')!;
+        const REVAL_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.49.1');
+        const revalClient = createClient(REVAL_URL, REVAL_KEY);
+        const { data: fresh } = await revalClient
+          .from('locations')
+          .select('id,name,latitude,longitude,country_code,country_id,region_id,geo_health,enrichment_status,is_approved,deleted_at,owner_user_id,enriched_data,metadata')
+          .eq('id', locationId)
+          .maybeSingle();
+        if (fresh) {
+          const verdict = classifyPoiIdentityRootStatus(fresh);
+          if (!verdict.eligibleForAutoEnrich) {
+            console.log(
+              '[poi-identity:reval] skip',
+              locationId,
+              `root=${verdict.root}`,
+              `reason=${verdict.skipReason}`,
+              verdict.detail ?? '',
+            );
+            return new Response(
+              JSON.stringify({
+                success: false,
+                reason: 'identity_root_skip',
+                root: verdict.root,
+                skipReason: verdict.skipReason,
+                detail: verdict.detail ?? null,
+                message: 'POI no elegible para auto-enrich tras revalidación (POI-Identity Root Status).',
+              }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+            );
+          }
+        }
+      } catch (e) {
+        console.warn('[poi-identity:reval] could not revalidate, aborting to be safe:', e);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            reason: 'identity_root_revalidation_failed',
+            message: 'No se pudo revalidar el POI-Identity Root Status. Abort por seguridad.',
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    }
+
 
     const location = normalizeLocation(rawLocation);
     if (!location) {
@@ -1799,12 +1826,21 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    // Coordinate range validation
+    // R1 — canonical WGS84 entry gate (rejects (0,0) Null Island, out-of-range, NaN).
+    // See docs/contracts/enrichment-coord-coherence-contract.md.
     const { lat, lng } = location.coordinates;
-    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      return new Response(JSON.stringify({ error: 'Coordinates out of range' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    const coordCheck = inspectWgs84Coord(lat, lng);
+    if (!coordCheck.valid) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'invalid_coordinates',
+          reason: coordCheck.reason,
+          validation_required: true,
+          message: 'Coordenadas inválidas: el POI no puede enriquecerse hasta que se reasigne una ubicación válida.',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
     }
     // Name length cap
     if (typeof location.name !== 'string' || location.name.length === 0 || location.name.length > 300) {
@@ -1822,22 +1858,174 @@ serve(async (req) => {
       );
     }
 
+    // R3 — `resolve-coordinates` es source-of-truth geográfico (pre-LLM).
+    // Contrato: docs/contracts/enrichment-coord-coherence-contract.md (Fase 2).
+    // Si Nominatim/reverse-geocode falla, NO se llama al LLM y NO se persiste nada.
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    let canonicalGeo: {
+      canonical: Record<string, unknown> | null;
+      ids: Record<string, string | null>;
+      country_code: string | null;
+      postal_code: string | null;
+      timezone: string | null;
+      geo_source: string;
+      geo_confidence: number;
+      raw_geocode: Record<string, unknown> | null;
+      geo_resolved_at: string;
+    } | null = null;
+    try {
+      const rcRes = await fetch(`${SUPABASE_URL}/functions/v1/resolve-coordinates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SERVICE_KEY}`,
+          'apikey': SERVICE_KEY,
+        },
+        body: JSON.stringify({ latitude: lat, longitude: lng }),
+      });
+      if (!rcRes.ok) {
+        const txt = await rcRes.text();
+        console.warn('[R3] resolve-coordinates failed', rcRes.status, txt.slice(0, 200));
+        return new Response(
+          JSON.stringify({
+            success: false,
+            validation_required: true,
+            reason: 'reverse_geocode_failed',
+            message: 'Reverse-geocode no pudo resolver geografía canónica para estas coordenadas. POI no se enriquece hasta que se reasigne o se reintente.',
+            providedName: location.name,
+            coords: { lat, lng },
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      const rcJson = await rcRes.json();
+      if (!rcJson?.canonical) {
+        console.warn('[R3] resolve-coordinates returned no canonical', rcJson);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            validation_required: true,
+            reason: 'reverse_geocode_failed',
+            message: 'Reverse-geocode no devolvió geografía canónica. POI no se enriquece.',
+            providedName: location.name,
+            coords: { lat, lng },
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      canonicalGeo = {
+        canonical: rcJson.canonical,
+        ids: rcJson.ids ?? {},
+        country_code: rcJson.country_code ?? null,
+        postal_code: rcJson.postal_code ?? null,
+        timezone: rcJson.timezone ?? null,
+        geo_source: rcJson.geo_source ?? 'nominatim',
+        geo_confidence: typeof rcJson.geo_confidence === 'number' ? rcJson.geo_confidence : 0,
+        raw_geocode: rcJson.raw_geocode ?? rcJson.canonical,
+        geo_resolved_at: new Date().toISOString(),
+      };
+      console.log('[R3] canonical geo resolved', {
+        country: canonicalGeo.canonical?.country,
+        region: canonicalGeo.canonical?.region,
+        confidence: canonicalGeo.geo_confidence,
+      });
+    } catch (e) {
+      console.error('[R3] resolve-coordinates threw', e);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          validation_required: true,
+          reason: 'reverse_geocode_failed',
+          message: 'Reverse-geocode no disponible. POI no se enriquece.',
+          providedName: location.name,
+          coords: { lat, lng },
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // R9 — Name ↔ coordinate identity gate (Fase 3).
+    // Contract: docs/contracts/enrichment-coord-coherence-contract.md.
+    // Runs AFTER R1 (coords) and R3 (canonical geo). Any non-`ok` status
+    // blocks the LLM. Lookup failure is a HARD BLOCK (no soft-fail).
+    try {
+      const identity = await assertNameCoordinateIdentity({
+        name: location.name,
+        lat,
+        lng,
+        supabaseUrl: SUPABASE_URL,
+        serviceKey: SERVICE_KEY,
+      });
+      if (identity.status === 'identity_lookup_unavailable') {
+        console.warn('[R9] identity_lookup_unavailable', { reason: identity.reason });
+        return new Response(
+          JSON.stringify({
+            success: false,
+            validation_required: true,
+            reason: 'identity_lookup_unavailable',
+            message: 'Lookups de identidad nombre↔coords no disponibles. POI no se enriquece.',
+            providedName: location.name,
+            coords: { lat, lng },
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      if (identity.status === 'name_coordinate_mismatch') {
+        console.warn('[R9] name_coordinate_mismatch', { name: location.name });
+        return new Response(
+          JSON.stringify({
+            success: false,
+            validation_required: true,
+            reason: 'name_coordinate_mismatch',
+            message: 'El nombre no coincide con ningún POI cercano a estas coordenadas.',
+            providedName: location.name,
+            coords: { lat, lng },
+            nearby: identity.nearby ?? [],
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      if (identity.status === 'name_found_elsewhere') {
+        console.warn('[R9] name_found_elsewhere', { name: location.name });
+        return new Response(
+          JSON.stringify({
+            success: false,
+            validation_required: true,
+            reason: 'name_found_elsewhere',
+            message: 'El nombre existe en ubicaciones distintas a las coordenadas aportadas.',
+            providedName: location.name,
+            coords: { lat, lng },
+            candidates: identity.candidates ?? [],
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      console.log('[R9] identity gate ok', { matched: identity.matched?.name ?? null });
+    } catch (e) {
+      console.error('[R9] identity gate threw', e);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          validation_required: true,
+          reason: 'identity_lookup_unavailable',
+          message: 'Gate de identidad nombre↔coords falló de forma inesperada. POI no se enriquece.',
+          providedName: location.name,
+          coords: { lat, lng },
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     // 1. Fetch GLOBAL config from app_settings (base for ALL profiles)
     const globalConfig = await getGlobalEnrichmentConfig();
     console.log('Global enrichment config:', globalConfig.tone, globalConfig.min_length);
 
-    // 2. Fetch profile-specific overrides (curator or druid)
-    let profilePrefs: ProfileEnrichmentPrefs | null = null;
-    let profileType: string = 'user';
-    if (curatorId) {
-      profileType = 'curator';
-      console.log('Fetching preferences for curator:', curatorId);
-      profilePrefs = await getProfilePreferences('curator', curatorId);
-    } else if (druidId) {
-      profileType = 'druid';
-      console.log('Fetching preferences for druid:', druidId);
-      profilePrefs = await getProfilePreferences('druid', druidId);
-    }
+    // 2. Profile-specific overrides — retirado en PR-ADMIN-AUDIT-3 Fase A.
+    //    Las tablas `curators`/`druids` ya no existen; merges posteriores usan
+    //    fallback global (`profilePrefs?.<key> ?? globalConfig.<key>`).
+    const profilePrefs: ProfileEnrichmentPrefs | null = null;
+    const profileType: string = 'user';
     
     // 3. Merge: profile overrides > global config (v2 card schema)
     const activeFieldKeys = new Set(getActiveFields(globalConfig).map((f) => f.key));
@@ -1905,10 +2093,14 @@ serve(async (req) => {
     console.log('Fetching data from multiple sources in parallel...');
 
     const [geocodeResult, wikipediaResult, wikidataResult, geonamesResult] = await Promise.all([
-      // Nominatim/OSM para reverse geocoding (solo si falta país/región)
-      (useNominatim && (!location.country || !location.region))
-        ? reverseGeocodeLocation(location.coordinates.lat, location.coordinates.lng)
-        : Promise.resolve({ country: location.country, region: location.region, zone: location.zone, continent: location.continent }),
+      // R3: geografía estructurada SIEMPRE viene del canónico ya resuelto arriba.
+      // Nominatim directo (`reverseGeocodeLocation`) queda deprecado en el path principal.
+      Promise.resolve({
+        country: (canonicalGeo!.canonical as any).country ?? undefined,
+        region: (canonicalGeo!.canonical as any).region ?? undefined,
+        zone: (canonicalGeo!.canonical as any).zone ?? undefined,
+        continent: (canonicalGeo!.canonical as any).continent ?? undefined,
+      }),
 
       // Wikipedia para extractos y artículos
       useWikipedia ? searchWikipedia(location.name, location.coordinates) : Promise.resolve(null),
@@ -1919,34 +2111,15 @@ serve(async (req) => {
       // GeoNames para topónimos (opcional, requiere username)
       useGeoNames ? searchGeoNames(location.name, location.coordinates) : Promise.resolve(null),
     ]);
-    
-    // Consolidar datos geográficos
+
+    // R3 — Consolidar datos geográficos EXCLUSIVAMENTE desde canonical (no caller, no IA).
+    // GeoNames/Wikidata NO pueden sobrescribir country/region/zone/continent.
     let geoData = {
-      country: location.country || geocodeResult?.country,
-      region: location.region || geocodeResult?.region,
-      zone: location.zone || geocodeResult?.zone,
-      continent: location.continent || geocodeResult?.continent,
+      country: geocodeResult?.country,
+      region: geocodeResult?.region,
+      zone: geocodeResult?.zone,
+      continent: geocodeResult?.continent,
     };
-    
-    // Enriquecer con GeoNames si disponible
-    if (geonamesResult) {
-      if (!geoData.country && geonamesResult.countryName) {
-        geoData.country = geonamesResult.countryName;
-      }
-      if (!geoData.region && geonamesResult.adminName1) {
-        geoData.region = geonamesResult.adminName1;
-      }
-      if (!geoData.zone && (geonamesResult.adminName2 || geonamesResult.adminName3)) {
-        geoData.zone = geonamesResult.adminName2 || geonamesResult.adminName3;
-      }
-    }
-    
-    console.log('Data sources fetched:', {
-      geocoding: !!geocodeResult?.country,
-      wikipedia: !!wikipediaResult?.extract,
-      wikidata: !!wikidataResult?.wikidataId,
-      geonames: !!geonamesResult?.geonameId,
-    });
 
     // ========== PRE-VALIDATION PHASE ==========
     // Check if we need to validate the location before enrichment
@@ -2179,6 +2352,13 @@ PRINCIPIO DE VALIDACIÓN (OBLIGATORIO):
 - El nombre, la localización y los datos históricos/geográficos deben ser coherentes con esas coordenadas.
 - Si existe web oficial, referencia institucional o identificador público, debe indicarse.
 - Los datos no verificados se omiten (nunca se indica "no verificado").
+
+GEOGRAFÍA ESTRUCTURADA (PROHIBIDO — R4 Fase 4):
+- NO emitas datos_geograficos.coordenadas, pais, continente, admin_nivel_1, admin_nivel_2, admin_nivel_3, localidad ni sublocalidad.
+- Esa información la aporta el sistema desde reverse-geocode; cualquier campo de esos será DESCARTADO antes de persistir.
+- Solo puedes emitir datos_geograficos.lugar_interes (y direccion_postal si es verificable).
+- El contenido editorial va en descripcion, datos_clave y etiquetas.
+- NUNCA uses placeholders del tipo "(sin región)", "(sin provincia)", "(sin comarca)" o "(sin localidad)". Si no tienes el dato, OMITE el campo.
 ${natureInstructions}
 ${coordCorrectionInstructions}
 ${toneInstructions}
@@ -2352,22 +2532,86 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
         }
         
         enrichedData = JSON.parse(cleanContent.trim());
-        
+
+        // R4 + R5 (Fase 4): la IA NO puede emitir geografía estructurada ni
+        // placeholders evasivos. Sanitizar el payload ANTES de cualquier
+        // lógica de merge o persistencia. Backend nunca hace merge silencioso
+        // de campos prohibidos.
+        {
+          const { sanitized, report } = sanitizeAiEnrichmentPayload(enrichedData);
+          if (report.removedGeoFields.length || report.removedPlaceholders.length) {
+            console.warn('[R4] AI payload sanitized', {
+              name: location.name,
+              removedGeoFields: report.removedGeoFields,
+              removedPlaceholders: report.removedPlaceholders,
+            });
+          }
+          enrichedData = sanitized;
+        }
+
         if (!enrichedData.etiquetas) {
           enrichedData.etiquetas = [];
         }
-        
+
+        // R6 — Fase 6: gate de coherencia IA ↔ geografía canónica.
+        // Si la narrativa generada por el LLM contradice país/región resueltos
+        // por reverse-geocode, NO persistimos como enriched. El caller
+        // (batch-enrich) recibe `geo_narrative_mismatch` y marca el POI como
+        // `enrichment_status='quarantine'` con `custom_data.enrichment_block`.
+        if (!skipValidation) {
+          const coherence = assertGeoCoherence(
+            {
+              country: geoData.country,
+              countryCode: (geoData as { countryCode?: string }).countryCode,
+              region: geoData.region,
+              locality: (geoData as { locality?: string }).locality,
+            },
+            {
+              descripcion: enrichedData?.descripcion,
+              datos_clave: enrichedData?.datos_clave,
+              tags: enrichedData?.etiquetas,
+              datos_geograficos: enrichedData?.datos_geograficos,
+            },
+          );
+          if (!coherence.ok) {
+            console.log(
+              `[R6] ABORT geo_narrative_mismatch level=${coherence.level} ` +
+              `expected="${coherence.expected}" got="${coherence.got}" ` +
+              `source=${coherence.source} for "${location.name}"`,
+            );
+            return new Response(
+              JSON.stringify({
+                success: false,
+                validation_required: true,
+                reason: 'geo_narrative_mismatch',
+                level: coherence.level,
+                expected: coherence.expected,
+                got: coherence.got,
+                source: coherence.source,
+                providedName: location.name,
+                providedCoords: location.coordinates,
+                message:
+                  `La narrativa del POI menciona "${coherence.got}" pero las coordenadas resuelven a "${coherence.expected}".`,
+              }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+            );
+          }
+        }
+
+
+
         // Merge/enhance datos_geograficos from AI with Nominatim data
         // AI provides refined location info (lugar_interes, sublocalidad, direccion_postal)
         // Nominatim provides base geographic hierarchy
         const aiGeoData = enrichedData.datos_geograficos || {};
-        
-        // Prioridad INVERTIDA: Nominatim (derivado de coords) manda; la IA
-        // solo entra si Nominatim no resolvió nada. Esto evita que el LLM
-        // "invente" un país/región a partir del nombre cuando las coords
-        // caen en mar/desierto/otro país.
-        let finalPais = geoData.country || aiGeoData.pais;
-        let finalContinente = geoData.continent || aiGeoData.continente;
+
+        // R4: la geografía estructurada (pais/continente/admin_*/localidad/
+        // sublocalidad/coordenadas) viene EXCLUSIVAMENTE de reverse-geocode.
+        // El sanitizer ya descartó esos campos del payload IA; los siguientes
+        // valores nunca toman fallback de la IA (los `|| aiGeoData.*` se
+        // eliminaron deliberadamente — ver contrato Fase 4).
+        let finalPais = geoData.country;
+        let finalContinente = geoData.continent;
         
         // Si tenemos país pero no continente válido, inferir del mapa
         if (finalPais && (!finalContinente || finalContinente === 'Desconocido')) {
@@ -2468,14 +2712,18 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
           );
         }
 
+        // R4: geografía estructurada SOLO desde reverse-geocode (canonical).
+        // De `aiGeoData` solo se aceptan `lugar_interes` y `direccion_postal`
+        // (el sanitizer ya descartó el resto; mantenemos el acceso explícito
+        // para dejar el contrato visible en el código).
         const mergedGeoData: any = {
           continente: finalContinente,
           pais: finalPais,
-          admin_nivel_1: geoData.region || aiGeoData.admin_nivel_1,
-          admin_nivel_2: geoData.zone || aiGeoData.admin_nivel_2,
-          admin_nivel_3: aiGeoData.admin_nivel_3,
-          localidad: aiGeoData.localidad,
-          sublocalidad: aiGeoData.sublocalidad,
+          admin_nivel_1: geoData.region,
+          admin_nivel_2: geoData.zone,
+          admin_nivel_3: (geoData as any).admin3,
+          localidad: (geoData as any).locality,
+          sublocalidad: (geoData as any).sublocality,
           // Calle: SOLO el dato verificado de Nominatim (geoData.street). Nunca lo que invente la IA.
           calle: (geoData as any).street,
           lugar_interes: aiGeoData.lugar_interes || location.name,
@@ -2555,7 +2803,19 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
         });
         
         // Store geocoded geographic data in enrichedData for database update
-        enrichedData._geocoded = geoData;
+        // R3 — snapshot canónico completo para que batch-enrich persista solo desde reverse-geocode.
+        // R4 — `_geocoded` NUNCA toma datos de la IA: todas las claves vienen de `canonicalGeo`.
+        enrichedData._geocoded = {
+          ...geoData,
+          country_code: canonicalGeo!.country_code,
+          postal_code: canonicalGeo!.postal_code,
+          timezone: canonicalGeo!.timezone,
+          geo_source: canonicalGeo!.geo_source,
+          geo_confidence: canonicalGeo!.geo_confidence,
+          geo_resolved_at: canonicalGeo!.geo_resolved_at,
+          raw_geocode: canonicalGeo!.raw_geocode,
+          ids: canonicalGeo!.ids,
+        };
         
         // Añadir información de las fuentes consultadas
         enrichedData._fuentes_consultadas = {

@@ -248,6 +248,16 @@ export interface GeoLocation {
  lng: number;
  altitude?: number;
  };
+ /**
+  * Cache textual legacy de la cadena administrativa. Estos campos se mantienen
+  * por compatibilidad con código existente. La fuente canónica (SoT) en cliente
+  * son los campos `*Resolved` (derivados de FK → `admin_areas.name` vía
+  * `v_locations_resolved`). Ver `docs/contracts/territorial-equivalence-canon.md`
+  * sección "SoT textual cliente" y `docs/audits/t1-zone-text-null-with-zone-id-dry-run.md`.
+  *
+  * Consumers deben preferir `*Resolved` cuando exista. `getLocationHierarchy`
+  * aplica el orden canónico (`*Resolved` → legacy → `enriched_data.datos_geograficos.*`).
+  */
  continent?: string;
  country?: string;
  region?: string;
@@ -256,6 +266,29 @@ export interface GeoLocation {
   localidad?: string;
   sublocalidad?: string;
   street?: string;
+  /**
+   * SoT textual derivado de FK → `admin_areas.name` por `v_locations_resolved`.
+   * `undefined` cuando la consulta no pasa por la vista (p.ej. `.from('locations')`
+   * directo). En ese caso `getLocationHierarchy` cae al campo legacy.
+   *
+   * NOTA: la vista actual sólo expone los 4 niveles superiores
+   * (continent/country/region/zone). `admin3Resolved` y `localityResolved`
+   * quedan reservados para cuando la vista los exponga (deuda separada).
+   */
+  continentResolved?: string;
+  countryResolved?: string;
+  regionResolved?: string;
+  zoneResolved?: string;
+  admin3Resolved?: string;
+  localityResolved?: string;
+  /**
+   * T2A-wire — `iso_code` canónico de la región (admin_nivel_1) tipo `PT-20`,
+   * `PT-30`, `ES-CT`, etc. Derivado en `v_locations_resolved` desde
+   * `admin_areas.iso_code` por `region_id`. Usado por
+   * `regionHasNoProvincia()` para aplicar excepciones regionales del canon
+   * (p.ej. Açores/Madeira sin distrito) sin hardcode en componentes.
+   */
+  regionIsoCode?: string;
  placeType?: PlaceType;
  visibility?: LocationVisibility;
  customData?: Record<string, string>;
@@ -268,7 +301,20 @@ export interface GeoLocation {
   * anillo amarillo "cadena rota" sobre el marker. Ver
   * `mem://style/map/health-rings-rule`.
   */
- geoHealth?: 'ok' | 'broken' | 'partial' | 'stale_name' | 'empty' | null;
+  geoHealth?: 'ok' | 'broken' | 'partial' | 'stale_name' | 'empty' | 'hardError' | null;
+  /**
+   * Raw geocoder payload (cache de `locations.raw_geocode`). Señal para
+   * destrabar POI-4+ en `computePoiMaturity`. Ver
+   * `docs/contracts/poi-maturity-visual-contract.md` y Fase 3.1 de
+   * `docs/contracts/marker-fill-canon-v3.md`.
+   */
+  rawGeocode?: unknown;
+  /** Timestamp ISO de resolución geo (cache de `locations.geo_resolved_at`). */
+  geoResolvedAt?: string | null;
+  /** Confianza 0..1 del geocoder (cache de `locations.geo_confidence`). */
+  geoConfidence?: number | null;
+  /** Fuente del geocoder (cache de `locations.geo_source`). */
+  geoSource?: string | null;
   /** ID del documento de origen */
   documentId?: string;
   /**
@@ -279,6 +325,27 @@ export interface GeoLocation {
   ownerUserId?: string | null;
   /** Whether this location is approved for the general map */
   isApproved?: boolean;
+  /**
+   * Optional, opt-in external references namespaced by provider. Read-only
+   * in v1; no writer is wired yet. Consumed by the maps URL resolver
+   * (`src/domains/sharing/lib/external-maps-url.ts`).
+   */
+  externalRefs?: {
+    maps?: {
+      google?: { placeId?: string; url?: string; verifiedAt?: string };
+      apple?: { url?: string; verifiedAt?: string };
+    };
+  };
+  /**
+   * Pass-through opcional de columnas crudas usadas por el clasificador
+   * Root Status A/B/C/D (`classifyPoiRootStatusForLocation`). Si no están
+   * presentes, el clasificador cae a la rama conservadora Deno.
+   * Ver `docs/audits/search-filter-root-status-filter-plan.md` §5.1.
+   */
+  countryCode?: string | null;
+  countryId?: string | null;
+  regionId?: string | null;
+  metadata?: Record<string, unknown> | null;
  createdAt: Date;
  updatedAt: Date;
 }
@@ -325,6 +392,15 @@ export type VisualStateFilter = 'enriched' | 'imported' | 'empty';
  */
 export type HealthFilter = 'partial' | 'chain' | 'review' | 'hardError';
 
+/**
+ * Eje "Root Status" (identidad / responsabilidad operativa).
+ * A=incompleto real (usuario), B=falta canon/backfill (sistema),
+ * C=incoherente (revisión), D=coherente (apto auto-enrich).
+ * Multi-select. Ortogonal a POI-N y a health rings.
+ * Ver `docs/audits/search-filter-root-status-filter-plan.md`.
+ */
+export type RootStatusFilter = 'A' | 'B' | 'C' | 'D';
+
 export type FilterCriteria = {
   allPointsHidden?: boolean; // Kill switch: when true, getFilteredLocations returns []
   continent?: string;
@@ -353,7 +429,13 @@ export type FilterCriteria = {
   visualState?: VisualStateFilter;
   // Eje "Salud operativa" canónico (Health Rings v2). Single-select.
   // Delega en `getPointHealthRings(loc)`; ver `mem://logic/discovery/health-filter-axis`.
-  healthFilter?: HealthFilter;
+   healthFilter?: HealthFilter;
+   /**
+    * Eje "Root Status" (PR-FILTER-ROOTSTATUS-2). Multi-select A/B/C/D.
+    * Derivado en cliente vía `classifyPoiRootStatusForLocation`. No muta
+    * marker palette ni health rings ni POI-N.
+    */
+   rootStatus?: RootStatusFilter[];
   // Filtro de propietario
  ownershipFilter?: OwnershipFilter;
   // Filtro de visita

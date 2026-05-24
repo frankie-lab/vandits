@@ -16,6 +16,8 @@ import type { GeoLocation } from '@/types/location';
 import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
 import { canonicalCountry, canonicalContinent } from '@/shared/geography/canonical-names';
 import { continentLabelFromCoords } from '@/shared/geography/continent-bbox';
+import { getCountryCanon, allowsRegionEqualsZone, regionHasNoProvincia } from '@/shared/geography/territorial-canon';
+import { nameToIso2 } from '@/shared/geo/country-iso';
 
 export const HIERARCHY_LEVELS = [
   'continent',
@@ -82,13 +84,27 @@ export function getLocationHierarchy(
   const continentFallback = (typeof lat === 'number' && typeof lng === 'number')
     ? continentLabelFromCoords(lat, lng)
     : undefined;
+  // T1-fix — orden canónico por nivel: *Resolved (FK SoT) → legacy text →
+  // enriched_data.datos_geograficos.*. Ver
+  // docs/contracts/territorial-equivalence-canon.md § "SoT textual cliente".
+  const countryName = canonicalCountry(norm(loc.countryResolved ?? loc.country ?? gd?.pais));
+  // T2A-wire (§1.b) — Excepciones regionales: regiones declaradas SIN
+  // provincia/distrito (p.ej. PT-20 Açores, PT-30 Madeira) NO deben emitir
+  // zone, ni leer `loc.zone`, ni caer a `enriched_data.admin_nivel_2`. Así se
+  // neutraliza el revive legacy (caso Madalena → Lisboa) sin tocar datos.
+  const iso2Pre = nameToIso2(countryName ?? null);
+  const skipZoneByRegion = regionHasNoProvincia(iso2Pre, loc.regionIsoCode);
   const raw = {
-    continent: canonicalContinent(norm(loc.continent ?? gd?.continente)) ?? continentFallback,
-    country: canonicalCountry(norm(loc.country ?? gd?.pais)),
-    region: norm(loc.region ?? gd?.admin_nivel_1),
-    zone: norm(loc.zone ?? gd?.admin_nivel_2),
-    admin_level_3: norm((loc as any).comarca ?? gd?.admin_nivel_3),
-    locality: norm((loc as any).localidad ?? gd?.localidad),
+    // Fallback bbox dentro de canonicalContinent: garantiza que `Europa`/`África`
+    // devueltos por `continentLabelFromCoords` (etiquetas en español) se fusionen
+    // con `Europe`/`Africa` y no aparezcan nodos duplicados en el árbol Geo.
+    // Ver docs/audits/t1-geography-tree-postfix-visual-audit.md §2.2.
+    continent: canonicalContinent(norm(loc.continentResolved ?? loc.continent ?? gd?.continente) ?? continentFallback),
+    country: countryName,
+    region: norm(loc.regionResolved ?? loc.region ?? gd?.admin_nivel_1),
+    zone: skipZoneByRegion ? undefined : norm(loc.zoneResolved ?? loc.zone ?? gd?.admin_nivel_2),
+    admin_level_3: norm(loc.admin3Resolved ?? (loc as any).comarca ?? gd?.admin_nivel_3),
+    locality: norm(loc.localityResolved ?? (loc as any).localidad ?? gd?.localidad),
     sublocality: norm((loc as any).sublocalidad ?? gd?.sublocalidad),
     street: norm(gd?.calle),
   } as Record<HierarchyLevel, string | undefined>;
@@ -96,6 +112,25 @@ export function getLocationHierarchy(
   // para que la UI tenga un único bucket por nivel ausente.
   for (const lv of HIERARCHY_LEVELS) {
     if (isPlaceholderValue(raw[lv])) raw[lv] = undefined;
+  }
+  // T2A-wire — aplica TERRITORIAL_CANON data-driven:
+  //   §1: `hasProvincia=false` ⇒ omite nivel zone.
+  //   §4: region == zone legitimado por whitelist uniprovincial ⇒ colapsa
+  //        zone en region (el árbol queda con un único nivel etiquetado).
+  // País desconocido = passthrough.
+  const iso2 = nameToIso2(raw.country ?? null);
+  const canon = getCountryCanon(iso2);
+  if (canon) {
+    if (!canon.hasProvincia) {
+      raw.zone = undefined;
+    } else if (
+      raw.region &&
+      raw.zone &&
+      raw.region.localeCompare(raw.zone, undefined, { sensitivity: 'base' }) === 0 &&
+      allowsRegionEqualsZone(canon.iso2, raw.region)
+    ) {
+      raw.zone = undefined;
+    }
   }
   return raw;
 }

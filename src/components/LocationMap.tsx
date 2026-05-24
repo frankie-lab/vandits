@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
 import { MapScaleBar } from './MapScaleBar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { AppTooltip } from '@/shared/components/ui/AppTooltip';
 import { useMapCenterConfig, MapCenterConfig } from './MapCenterSettings';
 import { ZOOM_THRESHOLDS } from '@/design-system/map/rules/zoom-thresholds';
 
@@ -58,6 +59,9 @@ import {
   type VisitRelevanceInfo,
 } from './map/map-utils';
 import { createCustomIcon, getRenderModeForZoom, setCurrentRenderMode, setCurrentZoom, syncRenderModeFromMap, type MarkerRenderMode } from './map/map-icons';
+import MaturityBadgeLayer from './map/MaturityBadgeLayer';
+import MaturityDiagnosticsControl from './map/MaturityDiagnosticsControl';
+import { usePoiMaturityDiagnostics } from '@/hooks/use-poi-maturity-diagnostics';
 import { buildHoverTooltipHtml } from './map/map-tooltip';
 import { onMarkerSizeConfigChange, getMarkerSizeConfig } from './map/useMarkerSizeConfig';
 import {
@@ -687,6 +691,22 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
    // Get current user ID for ownership detection
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
+  // PR-MATURITY-OVERLAY (v1.2.18): diagnóstico admin-only, OFF por defecto.
+  // Suscribe a `map-render-mode-changed` para refrescar la capa de badges
+  // cuando cambia el modo de render (igual frecuencia que zoomend).
+  const maturityDiag = usePoiMaturityDiagnostics();
+  const [maturityRenderMode, setMaturityRenderMode] = useState<MarkerRenderMode>('standard');
+  useEffect(() => {
+    if (!maturityDiag.enabled) return;
+    const sync = () => {
+      const z = mapRef.current?.getZoom();
+      if (typeof z === 'number') setMaturityRenderMode(getRenderModeForZoom(z));
+    };
+    sync();
+    window.addEventListener('map-render-mode-changed', sync);
+    return () => window.removeEventListener('map-render-mode-changed', sync);
+  }, [maturityDiag.enabled]);
+
   // V2 Map Bridge — provides MapFeature[] when Phase D flag is active
   const { v2Features, shouldUseV2Render, v2Loading, refreshV2 } = useV2MapBridge({
     userId: currentUserId,
@@ -698,9 +718,9 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
   const getLayersRef = useRef(layerVis.getLayers);
   getLayersRef.current = layerVis.getLayers;
   
-   // Get admin status for enrichment permissions (only master/admin can enrich)
-  const { isAdmin } = usePermissions();
-  const canEnrichLocations = isAdmin();
+   // PR-ADMIN-AUDIT Step 3: capability-gated (replaces isAdmin() role check)
+  const { hasPermission } = usePermissions();
+  const canEnrichLocations = hasPermission('run_global_enrichment');
   
   const [userDisplayName, setUserDisplayName] = useState<string | null>(null);
   const [lastSeenAt, setLastSeenAt] = useState<Date | null>(null);
@@ -2763,7 +2783,20 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
  <div ref={mapContainerRef} className="h-full w-full" />
  
  {/* Custom scale bar */}
- <MapScaleBar map={mapRef.current} units={measurementUnits} />
+  <MapScaleBar map={mapRef.current} units={measurementUnits} />
+
+  {/* PR-MATURITY-OVERLAY (v1.2.18): admin-only, OFF por defecto. */}
+  <MaturityDiagnosticsControl />
+  {maturityDiag.enabled && (
+    <MaturityBadgeLayer
+      map={mapRef.current}
+      locations={markerLocations}
+      viewerUid={currentUserId}
+      renderMode={maturityRenderMode}
+      enabled={maturityDiag.enabled}
+    />
+  )}
+  
  
  {/* "Ver N ubicaciones" — integrado en la pill inferior derecha (ver bloque legend) */}
    {/* Locate-me button moved to FloatingToolbar (top bar). State broadcast via 'map-locate-state'. */}
@@ -2801,20 +2834,51 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
  )}
  </div>
  
-  {/* Legend items — círculos (forma canónica de POI propio: regla "Forma POI por origen"). */}
-  <div className="flex items-center gap-1.5">
-  <span className="inline-block w-2.5 h-2.5 rounded-full ring-1 ring-white/80 shadow-sm" style={{ backgroundColor: '#22c55e' }} />
-  <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Final</span>
-  </div>
-  <div className="flex items-center gap-1.5">
-  <span className="inline-block w-2.5 h-2.5 rounded-full ring-1 ring-white/80 shadow-sm" style={{ backgroundColor: '#9ca3af' }} />
-  <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Importado</span>
-  </div>
-  <div className="flex items-center gap-1.5">
-  <span className="inline-block w-2.5 h-2.5 rounded-full ring-1 ring-white/80 shadow-sm" style={{ backgroundColor: '#f97316' }} />
-  <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Vacío</span>
-  </div>
-  </div>
+    {/* Legend (v1.3.5) — única norma vigente: madurez POI-0..POI-10.
+        Cada número se pinta con el token `poi.maturity.<nivel>` (SoT del
+        fill del marker propio desde v1.3.1). Tooltip canónico por nivel
+        vía AppTooltip + `title` accesible. Sin cambios de layout/color. */}
+    <>
+      <span
+        className={cn(
+          'pr-2 border-r border-border/50 text-[10px] uppercase tracking-wide',
+          mapTheme === 'dark' ? 'text-gray-400' : 'text-muted-foreground',
+        )}
+      >
+        Madurez
+      </span>
+      <div className="flex items-center gap-1">
+        {([
+          [0, 'Sin dato útil'],
+          [1, 'Solo coordenadas'],
+          [2, 'Solo nombre'],
+          [3, 'Nombre + coordenadas válidas'],
+          [4, 'Identidad confirmada'],
+          [5, 'País / continente resuelto'],
+          [6, 'Región / zona resuelta'],
+          [7, 'Descripción enriquecida'],
+          [8, 'Media validada'],
+          [9, 'Categoría / tags validados'],
+          [10, 'Curado completo'],
+        ] as const).map(([lvl, label]) => {
+          const tip = `POI-${lvl} · ${label}`;
+          return (
+            <AppTooltip key={lvl} content={tip} side="top">
+              <span
+                title={tip}
+                aria-label={tip}
+                role="img"
+                className="inline-flex items-center justify-center w-4 h-4 rounded-sm text-[9px] font-semibold leading-none text-white/95 ring-1 ring-black/10 shadow-sm tabular-nums cursor-default"
+                style={{ backgroundColor: `hsl(var(--poi-maturity-${lvl}))` }}
+              >
+                {lvl}
+              </span>
+            </AppTooltip>
+          );
+        })}
+      </div>
+    </>
+   </div>
  </div>
 
       {/* Catalog loading card — replaces welcome popup while initial sync is in flight */}

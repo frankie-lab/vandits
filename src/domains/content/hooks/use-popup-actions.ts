@@ -3,16 +3,34 @@
  * Domain: Content
  * Handles all map popup actions (enrich, delete, visited, rating, photo, adopt).
  */
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
+import { dispatchGlobalEvent } from '@/lib/global-events';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content';
 import { usePermissions } from '@/domains/identity';
+import { useAuth } from '@/domains/identity/hooks/use-auth';
 import { GeoLocation } from '@/types/location';
 import { toast } from 'sonner';
 import { dualWriteVisited, dualWriteRating, dualWriteAdopt } from '@/domains/v2/dual-write-user-place';
 import { userPlaceService } from '@/services/user-place.service';
 import { getV2Flags } from '@/hooks/use-v2-flags';
 import { triggerEnrichLocation } from '@/domains/content/lib/enrich-location';
+import { useGeocodingJobStore } from '@/stores/geocoding-job-store';
+import {
+  setPopupOperationalState,
+  clearPopupOperationalState,
+  isPopupOperational,
+  getPopupIdForLocation,
+} from '@/components/map/popup-operational-state';
+import { subscribePopupEnrichmentPhase } from '@/components/map/popup-enrichment-phase-bus';
+import {
+  openPopupOverflowMenu,
+  type OverflowMenuItem,
+} from '@/components/map/popup-overflow-menu';
+import { openGoogleMaps, openAppleMaps } from '@/domains/sharing/lib/channel-adapters';
+import { buildExternalMapLink } from '@/domains/sharing/lib/external-maps-url';
+import { exportToKML } from '@/lib/kml-parser';
+import { evaluatePoiExport } from '@/domains/content/lib/poi-export-eligibility';
 
 interface UsePopupActionsOptions {
   loadFromDatabase: () => Promise<void>;
@@ -21,8 +39,27 @@ interface UsePopupActionsOptions {
 }
 
 export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUpload }: UsePopupActionsOptions) {
-  const { isMaster } = usePermissions();
+  const { hasPermission } = usePermissions();
+  const { user } = useAuth();
+  const currentUserId = user?.id ?? null;
+  // PR-ADMIN-AUDIT Step 3: visited-verification bypass gated by master-only capability
+  // (`delete_any_location` is the only existing master-only operational cap; semantic
+  // mismatch documented — revisit in PR-ADMIN-AUDIT-4 if a dedicated cap is added).
+  const canBypassVisitVerification = () => hasPermission('delete_any_location');
   const { documents, updateLocation } = useLocationsStore();
+
+  // P-POPUP-17 — single global listener that drives popup operational
+  // overlay (P-POPUP-16) for ANY enrichment mutation over the open POI,
+  // regardless of entry point (batch, document tab, general list, retry,
+  // realtime, in-popup action, adopt-nearby orchestrator).
+  useEffect(() => {
+    const unsub = subscribePopupEnrichmentPhase();
+    return () => {
+      try { unsub?.(); } catch { /* noop */ }
+    };
+  }, []);
+
+
 
   const handleToggleVisited = useCallback(async (location: GeoLocation, newVisited: boolean, distance?: number) => {
     try {
@@ -110,10 +147,21 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
       return;
     }
 
+
     if (action === 'enrich' || action === 'quick-classify' || action === 'regenerate') {
-      // Delegate to the centralized helper so popup, doc-list and general-list
-      // all share identical behavior. See src/domains/content/lib/enrich-location.ts
-      await triggerEnrichLocation(locationId, { regenerate: action === 'regenerate' });
+      // P-POPUP-16: operational loading state (in-place, no remount).
+      const popupId = getPopupIdForLocation(locationId);
+      if (isPopupOperational(popupId)) return;
+      setPopupOperationalState(popupId, 'loading', {
+        label: action === 'regenerate' ? 'Re-enriqueciendo POI…' : 'Enriqueciendo POI…',
+      });
+      try {
+        // Delegate to the centralized helper so popup, doc-list and general-list
+        // all share identical behavior. See src/domains/content/lib/enrich-location.ts
+        await triggerEnrichLocation(locationId, { regenerate: action === 'regenerate' });
+      } finally {
+        clearPopupOperationalState(popupId);
+      }
     } else if (action === 'delete-location') {
       const locationName = (event.detail as any).locationName || location.name;
       const toastId = toast.loading(`Moviendo "${locationName}" a la papelera...`);
@@ -128,10 +176,104 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
 
         toast.success(`"${locationName}" movido a la papelera`, { id: toastId });
         await loadFromDatabase();
-        window.dispatchEvent(new CustomEvent('trash-updated'));
+        dispatchGlobalEvent('trash-updated');
       } catch (error) {
         console.error('Delete location error:', error);
         toast.error('Error al eliminar', { id: toastId });
+      }
+    } else if (action === 'popup-overflow') {
+      // Footer overflow menu (Re-enriquecer · Notas · ...).
+      // Items: Abrir en Google Maps, Abrir en Apple Maps, Exportar este POI,
+      // Borrar POI (destructive, separator). `Borrar` solo visible para owner.
+      const trigger = document.querySelector<HTMLElement>(
+        `button[data-action="popup-overflow"][data-location-id="${locationId}"]`,
+      );
+      if (!trigger) return;
+
+      const coords = location.coordinates;
+      const hasCoords = !!coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng);
+      const ownership = useLocationsStore.getState().getLocationOwnership(locationId, currentUserId);
+      const isOwn = ownership?.isOwn === true;
+      const canEditOwn = isOwn;
+
+      // Export gating: internal (owner) o public (POI compartible).
+      const exportScope: 'internal' | 'public' = isOwn ? 'internal' : 'public';
+      const exportEval = evaluatePoiExport(location, exportScope, { currentUserId });
+      const canExport = exportEval.eligible;
+
+      const icon = (svg: string) =>
+        `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">${svg}</svg>`;
+
+      // PR-SHARE-EXT-MAPS-2: labels dinámicos según confidence
+      // (high="Abrir", medium="Buscar", low="Abrir coordenadas").
+      const googleLink = buildExternalMapLink(location, 'google');
+      const appleLink = buildExternalMapLink(location, 'apple');
+
+      const items: OverflowMenuItem[] = [
+        {
+          action: 'open-google-maps',
+          label: googleLink.label ?? 'Abrir en Google Maps',
+          icon: icon('<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>'),
+          visible: !!googleLink.url,
+        },
+        {
+          action: 'open-apple-maps',
+          label: appleLink.label ?? 'Abrir en Apple Maps',
+          icon: icon('<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>'),
+          visible: !!appleLink.url,
+        },
+        {
+          action: 'export-poi',
+          label: 'Exportar este POI',
+          icon: icon('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'),
+          visible: canExport,
+        },
+        {
+          action: 'delete-location',
+          label: 'Borrar POI',
+          icon: icon('<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'),
+          visible: canEditOwn,
+          destructive: true,
+          separatorBefore: true,
+        },
+      ];
+
+      openPopupOverflowMenu({
+        trigger,
+        items,
+        locationId,
+        locationName: location.name,
+      });
+    } else if (action === 'open-google-maps') {
+      openGoogleMaps(location);
+    } else if (action === 'open-apple-maps') {
+      openAppleMaps(location);
+    } else if (action === 'export-poi') {
+      try {
+        const isOwn = useLocationsStore.getState().getLocationOwnership(locationId, currentUserId)?.isOwn === true;
+        const exportScope: 'internal' | 'public' = isOwn ? 'internal' : 'public';
+        const ctx = { currentUserId };
+        const evalRes = evaluatePoiExport(location, exportScope, ctx);
+        if (!evalRes.eligible) {
+          toast.error('Este POI no es exportable en este modo');
+          return;
+        }
+        const content = exportToKML([location], location.name || 'poi', 'general', exportScope, ctx, { scopeProvided: true });
+        const blob = new Blob([content], { type: 'application/vnd.google-earth.kml+xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const safeName = (location.name || 'poi').replace(/[^\w\-]+/g, '_').slice(0, 40);
+        const ts = new Date().toISOString().split('T')[0];
+        a.href = url;
+        a.download = `${safeName}_${exportScope}_${ts}.kml`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success('POI exportado a KML');
+      } catch (err) {
+        console.error('Export POI error:', err);
+        toast.error('Error al exportar');
       }
     } else if (action === 'add-notes') {
       onOpenNotes(location);
@@ -239,7 +381,7 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
             };
           }
 
-          if (isMaster()) {
+          if (canBypassVisitVerification()) {
             await handleToggleVisited(targetLocation, true);
             toast.success('Marcado como visitado (Master)');
             await loadFromDatabase();
@@ -324,7 +466,7 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
       }
 
       // Own point — normal visited logic
-      if (isMaster()) {
+      if (canBypassVisitVerification()) {
         await handleToggleVisited(location, true);
         toast.success('Marcado como visitado (Master)');
         return;
@@ -640,8 +782,81 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
       window.dispatchEvent(new CustomEvent('open-reclassify', {
         detail: { locationId, location }
       }));
+    } else if (action === 'curation-primary') {
+      // P-POI-CURATION-2 — Real wiring for the unified curation primary button.
+      // Sub-action comes from `data-curation-action` propagated by the
+      // dispatcher in `setupActionClickHandler` (map-popup-handlers.ts).
+      // No silent no-op: every branch produces real work or explicit feedback.
+      const curationAction = (event.detail as any).curationAction as string | undefined;
+      const popupId = getPopupIdForLocation(locationId);
+      if (isPopupOperational(popupId)) return;
+
+      if (curationAction === 'validate-geo') {
+        // P-POI-CURATION-3 (Fase 1): el botón "Validar geografía" arranca el
+        // pipeline continuo validate-geo → recompute → enrich → recompute
+        // hasta el siguiente bloqueo real o estado sano. El overlay
+        // P-POPUP-16 cubre TODO el pipeline; el orquestador muta el `label`
+        // in-place ("Validando geografía…" → "Curando POI…"). El toast final
+        // es el ÚNICO mensaje que ve el usuario para este flujo.
+        setPopupOperationalState(popupId, 'loading', { label: 'Validando geografía…' });
+        try {
+          const { advancePoiCurationUntilBlocked } = await import(
+            '@/domains/content/lib/advance-poi-curation'
+          );
+          const result = await advancePoiCurationUntilBlocked(
+            locationId,
+            'validate-geo',
+            popupId,
+          );
+          if (result.blocker === 'none') {
+            toast.success(result.message);
+          } else {
+            toast.message(result.message);
+          }
+        } catch (err) {
+          console.error('[advance-poi-curation] error:', err);
+          toast.error('No se pudo curar el POI');
+        } finally {
+          clearPopupOperationalState(popupId);
+        }
+        return;
+      }
+
+      if (curationAction === 'rate-experience') {
+        // Scroll/focus visible ratings block when present; otherwise prompt
+        // user to mark as visited first.
+        const visited = location.customData?.visited === 'true';
+        const block = document.querySelector<HTMLElement>(
+          `[data-popup-ratings-block="v1"][data-popup-enrichment-rating="${locationId}"]`,
+        ) ?? document.querySelector<HTMLElement>('[data-popup-ratings-block="v1"]');
+        if (block) {
+          try {
+            block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } catch { /* jsdom */ }
+          block.setAttribute('data-popup-ratings-focus', 'pulse');
+          setTimeout(() => block.removeAttribute('data-popup-ratings-focus'), 1500);
+          if (!visited) {
+            toast.message('Primero marca el POI como visitado para valorar tu experiencia.');
+          }
+        } else {
+          toast.message(
+            visited
+              ? 'Bloque de valoración no disponible en este popup.'
+              : 'Primero marca el POI como visitado para valorar tu experiencia.',
+          );
+        }
+        return;
+      }
+
+      const pendingLabels: Record<string, string> = {
+        'resolve-conflict': 'Resolver conflicto: acción pendiente de implementar',
+        'heal-poi': 'Sanar POI: acción pendiente de implementar',
+      };
+      toast.message(
+        pendingLabels[curationAction ?? ''] ?? 'Acción de curación pendiente de implementar',
+      );
     }
-  }, [documents, updateLocation, isMaster, handleToggleVisited, loadFromDatabase, onOpenNotes, onOpenPhotoUpload]);
+  }, [documents, updateLocation, hasPermission, handleToggleVisited, loadFromDatabase, onOpenNotes, onOpenPhotoUpload]);
 
   return { handlePopupAction };
 }

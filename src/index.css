@@ -350,13 +350,17 @@
   border: none !important;
 }
 
-/* Collection visibility tint: outer ring around the marker, never covering it. */
+/* Collection visibility tint: outer ring around the marker, never covering it.
+   Fase A (v1.3.7): dashed para subordinar el tinte frente al fill POI-N.
+   v1.3.8: opacity 0.45 → 0.60 para recuperar legibilidad de pertenencia
+   a colección sin volver a competir con el fill (el patrón dashed mantiene
+   la jerarquía visual). No toca lógica de colecciones, solo render. */
 .collection-tint-ring {
   position: absolute;
-  inset: 0;
+  inset: -3px;
   border-radius: 9999px;
-  border: var(--collection-ring-width, 2px) solid var(--collection-tint, #ffffff);
-  opacity: 0.8;
+  border: 2px solid var(--collection-tint, #ffffff);
+  opacity: 1;
   pointer-events: none;
   box-sizing: border-box;
 }
@@ -580,4 +584,20 @@ body.is-blocking-load .leaflet-container {
   .popup-hero .popup-hero-controls {
     opacity: 1;
   }
+}
+
+/* P-POPUP-16 — Operational loading state (in-place overlay).
+   Canon: data-popup-operational-state="idle|loading|error" on popup root.
+   G1: overlay is absolute over scroll body; siblings dim via opacity only.
+   G2: never mutates root/body identity nor their innerHTML structure. */
+@keyframes popup-op-spin { to { transform: rotate(360deg); } }
+[data-popup-operational-state="loading"] [data-popup-scroll-body="v1"] > *:not(.popup-operational-overlay) {
+  opacity: var(--popup-loading-opacity, 0.5);
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 120ms ease;
+}
+[data-popup-operational-state="loading"] [data-popup-footer="v1"] button {
+  pointer-events: none;
+  opacity: 0.6;
 }

@@ -1,0 +1,19 @@
+%% Surfaces → writes/reads → downstream consumers (evidence-backed only).
+graph LR
+  users -->|RPC purge-user / user_roles| auth_users[(auth.users + user_roles)]
+  permissions -->|role_permissions toggle| role_permissions[(role_permissions)]
+  role_permissions --> has_permission{{has_permission(uid,cap)}}
+  has_permission --> useCapability_client
+  has_permission --> requireCapability_edge
+  markers -->|app_settings.marker_config| app_settings[(app_settings)]
+  routes -->|app_settings.route_engine / per-user override| app_settings
+  icons -->|app_settings.icon_library| app_settings
+  enrichment -->|app_settings.enrichment_card_config| app_settings
+  sources -->|data_sources| data_sources[(data_sources)]
+  data_sources --> enrich_location_edge
+  geography -->|geocoding_jobs| geocoding_jobs[(geocoding_jobs)]
+  geography -->|canonicalize-admin-areas edge| canonical_admin
+  image_recovery -->|image-recovery-job-tick edge| recovery_jobs[(recovery_jobs)]
+  design_system -->|design-system drafts/publish| ds_runtime
+  audit -->|read-only| preferences_bus
+  internal_tools -->|invoke edges ad-hoc| edges[[supabase edge fns]]

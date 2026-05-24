@@ -56,6 +56,23 @@
       "standard": { "value": "drop-shadow(0 1px 1px rgba(0,0,0,0.35)) drop-shadow(0 3px 6px rgba(0,0,0,0.22))", "_css": "--poi-shadow-standard" },
       "rich":     { "value": "drop-shadow(0 1px 1px rgba(0,0,0,0.35)) drop-shadow(0 3px 6px rgba(0,0,0,0.22))", "_css": "--poi-shadow-rich" }
     },
+    "halo": {
+      "own": { "value": "drop-shadow(0 0 0 1px rgba(255,255,255,0.9))", "_css": "--poi-halo-own" }
+    },
+    "animation": {
+      "celebrate": { "value": "enriched-celebrate 3.5s ease-out", "_css": "--poi-animation-celebrate" },
+      "pulse":     { "value": "pulse 1s ease-in-out infinite",     "_css": "--poi-animation-pulse" }
+    },
+    "neutral": {
+      "app": {
+        "fill":   { "value": "220 13% 46%", "_css": "--poi-neutral-app-fill" },
+        "stroke": { "value": "220 13% 88%", "_css": "--poi-neutral-app-stroke" }
+      },
+      "source": {
+        "fill":   { "value": "220 9% 38%", "_css": "--poi-neutral-source-fill" },
+        "stroke": { "value": "220 9% 86%", "_css": "--poi-neutral-source-stroke" }
+      }
+    },
     "hero": {
       "size":         { "value": "40px",    "_css": "--poi-hero-size" },
       "thumbSize":    { "value": "24px",    "_css": "--poi-thumb-size" },
@@ -63,7 +80,35 @@
       "borderWidth":  { "value": "2px",     "_css": "--poi-hero-border-width" }
     },
     "microDot": {
-      "size":  { "value": "6px", "_css": "--poi-micro-dot-size" }
+      "size":  { "value": "6px", "_css": "--poi-micro-dot-size" },
+      "byZoom": {
+        "z3OrLess": { "value": 2, "_css": "--poi-micro-dot-z3" },
+        "z4":       { "value": 3, "_css": "--poi-micro-dot-z4" },
+        "z5":       { "value": 4, "_css": "--poi-micro-dot-z5" }
+      }
+    },
+    "level": {
+      "0":  { "value": "0 65% 50%",   "_css": "--poi-level-0" },
+      "1a": { "value": "24 95% 53%",  "_css": "--poi-level-1a" },
+      "1b": { "value": "38 92% 50%",  "_css": "--poi-level-1b" },
+      "3":  { "value": "0 80% 38%",   "_css": "--poi-level-3" },
+      "5":  { "value": "75 55% 42%",  "_css": "--poi-level-5" },
+      "9":  { "value": "142 71% 45%", "_css": "--poi-level-9" },
+      "10": { "value": "142 71% 45%", "_css": "--poi-level-10" }
+    },
+    "maturity": {
+      "$schema": "POI maturity palette (POI-0..POI-10). Producto-aprobada v2 (gris→amarillo→ámbar→verde). Canon v3 Fase 2 (v1.3.1): SoT cromática del fill del marker propio vía `getPoiMaturityColor` → `resolvePoiVisualGrammar.levelVisual.fillHsl` → `createCustomIcon`. También consumido por el overlay admin-gated `MaturityBadgeLayer`. Ver docs/contracts/marker-fill-canon-v3.md + docs/contracts/poi-maturity-visual-contract.md §2.",
+      "0":  { "value": "220 8% 55%",   "_css": "--poi-maturity-0" },
+      "1":  { "value": "30 10% 60%",   "_css": "--poi-maturity-1" },
+      "2":  { "value": "30 10% 48%",   "_css": "--poi-maturity-2" },
+      "3":  { "value": "50 55% 65%",   "_css": "--poi-maturity-3" },
+      "4":  { "value": "50 90% 55%",   "_css": "--poi-maturity-4" },
+      "5":  { "value": "48 96% 48%",   "_css": "--poi-maturity-5" },
+      "6":  { "value": "38 90% 60%",   "_css": "--poi-maturity-6" },
+      "7":  { "value": "32 92% 50%",   "_css": "--poi-maturity-7" },
+      "8":  { "value": "80 60% 50%",   "_css": "--poi-maturity-8" },
+      "9":  { "value": "130 50% 50%",  "_css": "--poi-maturity-9" },
+      "10": { "value": "142 71% 38%",  "_css": "--poi-maturity-10" }
     }
   }
 }

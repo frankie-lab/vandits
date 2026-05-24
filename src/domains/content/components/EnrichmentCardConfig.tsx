@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Save, RotateCcw, Loader2, Eye, EyeOff, GripVertical, BookOpen, Microscope, Sparkles, Landmark, MessageCircle, Hash, Globe, Phone, Star, Image, BookMarked, Ruler, MapPin, Camera, ExternalLink, FlaskConical, Map, Clock, Shield, Link, DollarSign, Navigation, ChevronRight } from 'lucide-react';
+import { Save, RotateCcw, Loader2, Eye, EyeOff, GripVertical, BookOpen, Microscope, Sparkles, Landmark, MessageCircle, Hash, Globe, Phone, Star, Image, BookMarked, Ruler, MapPin, Camera, ExternalLink, FlaskConical, Map, Clock, Shield, Link, DollarSign, Navigation, ChevronRight, AlertTriangle, Database, Wand2 } from 'lucide-react';
 import { GEO_LABELS, KEY_DATA_LABELS, TAG_COLORS, DEFAULT_COLLAPSIBLE_SECTIONS, CollapsibleSectionConfig } from '@/lib/card-style-tokens';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { invalidateCardConfig } from '@/components/map/map-popups';
+import { EffectBadge } from '@/shared/components/ui/effect-badge';
 
 /* ── Types ── */
 interface CardField {
@@ -769,8 +770,9 @@ export function EnrichmentCardConfig() {
           <p className="text-[11px] text-muted-foreground">Campos, orden, tono y configuración del enriquecimiento</p>
         </div>
         <div className="flex gap-1.5">
-          <Button variant="outline" size="sm" onClick={handleTestEnrich} disabled={enriching || hasChanges} className="h-7 px-2 text-xs" title={hasChanges ? 'Guarda primero los cambios' : 'Enriquecer ficha de ejemplo con la config actual'}>
-            {enriching ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <FlaskConical className="w-3 h-3 mr-1" />}
+          <Button variant="outline" size="sm" onClick={handleTestEnrich} disabled={enriching || hasChanges} className="h-7 px-2 text-xs gap-1" title={hasChanges ? 'Guarda primero los cambios' : 'Diagnóstico (no persistente): enriquece una ficha de ejemplo con la config actual y muestra el resultado en el preview.'}>
+            {enriching ? <Loader2 className="w-3 h-3 animate-spin" /> : <FlaskConical className="w-3 h-3" />}
+            <span className="px-1 py-0 rounded bg-muted/60 text-foreground/70 text-[9px] font-semibold uppercase tracking-wide">Diag</span>
             Probar
           </Button>
           <Button variant="ghost" size="sm" onClick={handleReset} disabled={!hasChanges || saving} className="h-7 px-2 text-xs">
@@ -800,239 +802,235 @@ export function EnrichmentCardConfig() {
           </div>
         </div>
 
-        {/* RIGHT: Config panel */}
-        <div className="overflow-y-auto px-4 py-3 space-y-4">
-          {/* Tone */}
-          <div className="space-y-2">
-            <Label className="text-xs font-semibold text-foreground">Tono de redacción</Label>
-            <Select value={config.tone} onValueChange={(v) => setConfig(prev => ({ ...prev, tone: v }))}>
-              <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder="Seleccionar tono">
-                  {(() => {
-                    const selected = TONE_OPTIONS.find(t => t.value === config.tone);
-                    if (!selected) return null;
-                    const SelIcon = selected.Icon;
-                    return (
-                      <span className="flex items-center gap-2">
-                        <SelIcon className="w-3.5 h-3.5 shrink-0" />
-                        {selected.label}
-                      </span>
-                    );
-                  })()}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="z-[9999]" position="popper" sideOffset={4}>
-                {TONE_OPTIONS.map(t => {
-                  const TIcon = t.Icon;
+        {/* RIGHT: Config panel — SPLIT en 3 dominios (PR-BACKOFFICE-UX-CANON-2)
+            1) Render de ficha       → inmediato (popups recargan via invalidateCardConfig)
+            2) Política editorial IA → solo nuevos enriquecimientos (requiere re-enrich)
+            3) Proveedores de imagen → ahora en "Fuentes de datos" (provider orchestration) */}
+        <div className="overflow-y-auto px-4 py-3 space-y-6">
+
+          {/* ═══════════════════════════════════════════════════════════════
+              SECCIÓN 1 · RENDER DE FICHA — efecto inmediato
+              ═══════════════════════════════════════════════════════════════ */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4 text-emerald-500" />
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">Render de ficha</h4>
+              </div>
+              <EffectBadge kind="immediate" detail="popups recargan al guardar" />
+
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-snug">
+              Afecta cómo se pintan los popups del mapa. Al guardar, todos los POIs ya enriquecidos reflejan los cambios sin re-enriquecer.
+            </p>
+
+            {/* Toggles de módulos opcionales (render-side) */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Módulos visibles</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: 'include_tags', label: 'Hashtags', Icon: Hash },
+                  { key: 'include_web', label: 'Web referencia', Icon: Globe },
+                  { key: 'include_contact', label: 'Datos contacto', Icon: Phone },
+                  { key: 'include_interest_index', label: 'Índice interés', Icon: Star },
+                  { key: 'show_sources', label: 'Fuentes', Icon: BookMarked },
+                ].map(item => (
+                  <div key={item.key} className="flex items-center gap-2 px-2 py-1.5 rounded border border-border">
+                    <item.Icon className="w-4 h-4 text-muted-foreground" />
+                    <Label className="text-[10px] flex-1">{item.label}</Label>
+                    <Switch
+                      checked={config[item.key as keyof EnrichmentConfig] as boolean}
+                      onCheckedChange={(v) => setConfig(prev => ({ ...prev, [item.key]: v }))}
+                      className="scale-75 origin-right"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Orden de campos */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Orden de campos</Label>
+              <p className="text-[10px] text-muted-foreground">Reordena con flechas. Desactiva campos opcionales.</p>
+              <div className="space-y-1">
+                {sortedFields.map((field, idx) => {
+                  const isCore = ['nombre_lugar', 'clasificacion', 'descripcion'].includes(field.key);
                   return (
-                    <SelectItem key={t.value} value={t.value} className="text-xs">
-                      <span className="flex items-center gap-2">
-                        <TIcon className="w-3.5 h-3.5 shrink-0" />
-                        {t.label}
-                      </span>
-                    </SelectItem>
+                    <div
+                      key={field.key}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded border transition-all ${
+                        field.enabled ? 'border-border bg-card' : 'border-border/50 bg-muted/30 opacity-60'
+                      }`}
+                    >
+                      <GripVertical className="w-3 h-3 text-muted-foreground shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[11px] font-medium text-foreground">{field.label}</span>
+                        <span className="text-[9px] text-muted-foreground ml-2">{field.description}</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => moveField(field.key, 'up')}
+                          disabled={idx === 0}
+                          className="text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-30 px-1"
+                        >▲</button>
+                        <button
+                          onClick={() => moveField(field.key, 'down')}
+                          disabled={idx === sortedFields.length - 1}
+                          className="text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-30 px-1"
+                        >▼</button>
+                        {!isCore && (
+                          <Switch
+                            checked={field.enabled}
+                            onCheckedChange={() => toggleField(field.key)}
+                            className="scale-[0.6] origin-right"
+                          />
+                        )}
+                        {isCore && <Badge variant="secondary" className="text-[8px] px-1">requerido</Badge>}
+                      </div>
+                    </div>
                   );
                 })}
-              </SelectContent>
-            </Select>
-            <p className="text-[10px] text-muted-foreground">
-              {TONE_OPTIONS.find(t => t.value === config.tone)?.desc}
-            </p>
-          </div>
-
-          <Separator />
-
-          {/* Min length */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs font-semibold">Longitud mínima descripción</Label>
-              <span className="text-xs font-mono text-foreground">{config.min_length} chars</span>
-            </div>
-            <Slider
-              min={500}
-              max={5000}
-              step={100}
-              value={[config.min_length]}
-              onValueChange={([v]) => setConfig(prev => ({ ...prev, min_length: v }))}
-            />
-            <div className="flex justify-between text-[9px] text-muted-foreground">
-              <span>500 (breve)</span>
-              <span>2000 (estándar)</span>
-              <span>5000 (extenso)</span>
-            </div>
-            <p className="text-[10px] text-muted-foreground leading-snug pt-1">
-              Los cambios de longitud y de campos sólo se aplican al volver a enriquecer cada punto. Los puntos ya enriquecidos conservan su contenido anterior hasta re-enriquecerlos.
-            </p>
-          </div>
-
-          <Separator />
-
-          {/* Image Sources Section */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Camera className="w-4 h-4 text-muted-foreground" />
-                <Label className="text-xs font-semibold">Imagen automática</Label>
               </div>
-              <Switch
-                checked={config.include_image}
-                onCheckedChange={(v) => setConfig(prev => ({ ...prev, include_image: v }))}
-                className="scale-75 origin-right"
+            </div>
+          </section>
+
+          {/* ═══════════════════════════════════════════════════════════════
+              SECCIÓN 2 · POLÍTICA EDITORIAL IA — solo nuevos enriquecimientos
+              ═══════════════════════════════════════════════════════════════ */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <div className="flex items-center gap-2">
+                <Wand2 className="w-4 h-4 text-amber-500" />
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">Política editorial IA</h4>
+              </div>
+              <EffectBadge kind="future-only" detail="POIs ya enriquecidos no cambian" />
+
+            </div>
+            <div className="flex items-start gap-2 px-2 py-2 rounded bg-amber-500/5 border border-amber-500/20">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <p className="text-[10px] text-amber-800 dark:text-amber-300 leading-snug">
+                Estos cambios solo se aplican al <span className="font-semibold">próximo</span> enriquecimiento de cada POI.
+                Los POIs ya enriquecidos conservan su contenido hasta re-enriquecerlos manualmente desde su popup o vía recovery masivo.
+              </p>
+            </div>
+
+            {/* Tone */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-foreground">Tono de redacción</Label>
+              <Select value={config.tone} onValueChange={(v) => setConfig(prev => ({ ...prev, tone: v }))}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Seleccionar tono">
+                    {(() => {
+                      const selected = TONE_OPTIONS.find(t => t.value === config.tone);
+                      if (!selected) return null;
+                      const SelIcon = selected.Icon;
+                      return (
+                        <span className="flex items-center gap-2">
+                          <SelIcon className="w-3.5 h-3.5 shrink-0" />
+                          {selected.label}
+                        </span>
+                      );
+                    })()}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="z-[9999]" position="popper" sideOffset={4}>
+                  {TONE_OPTIONS.map(t => {
+                    const TIcon = t.Icon;
+                    return (
+                      <SelectItem key={t.value} value={t.value} className="text-xs">
+                        <span className="flex items-center gap-2">
+                          <TIcon className="w-3.5 h-3.5 shrink-0" />
+                          {t.label}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground">
+                {TONE_OPTIONS.find(t => t.value === config.tone)?.desc}
+              </p>
+            </div>
+
+            {/* Min length */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Longitud mínima descripción</Label>
+                <span className="text-xs font-mono text-foreground">{config.min_length} chars</span>
+              </div>
+              <Slider
+                min={500}
+                max={5000}
+                step={100}
+                value={[config.min_length]}
+                onValueChange={([v]) => setConfig(prev => ({ ...prev, min_length: v }))}
+              />
+              <div className="flex justify-between text-[9px] text-muted-foreground">
+                <span>500 (breve)</span>
+                <span>2000 (estándar)</span>
+                <span>5000 (extenso)</span>
+              </div>
+            </div>
+
+            {/* Editorial flags */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Banderas editoriales</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: 'include_image', label: 'Buscar imagen', Icon: Camera },
+                  { key: 'correct_coordinates', label: 'Corregir coords.', Icon: Ruler },
+                ].map(item => (
+                  <div key={item.key} className="flex items-center gap-2 px-2 py-1.5 rounded border border-border">
+                    <item.Icon className="w-4 h-4 text-muted-foreground" />
+                    <Label className="text-[10px] flex-1">{item.label}</Label>
+                    <Switch
+                      checked={config[item.key as keyof EnrichmentConfig] as boolean}
+                      onCheckedChange={(v) => setConfig(prev => ({ ...prev, [item.key]: v }))}
+                      className="scale-75 origin-right"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Prompt */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Instrucciones personalizadas</Label>
+              <p className="text-[10px] text-muted-foreground">Prompt adicional inyectado en todas las nuevas fichas.</p>
+              <Textarea
+                value={config.custom_prompt}
+                onChange={(e) => setConfig(prev => ({ ...prev, custom_prompt: e.target.value }))}
+                placeholder="Ej: Enfatizar la accesibilidad del lugar para personas con movilidad reducida..."
+                className="text-xs min-h-[60px]"
               />
             </div>
-            <p className="text-[10px] text-muted-foreground">
-              Busca automáticamente una imagen representativa del lugar en fuentes externas.
-            </p>
-            {config.include_image && (
-              <div className="space-y-1.5 pl-1">
-                <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                  Fuentes sin API key (gratis, libres de uso)
-                </Label>
-                {IMAGE_SOURCES.filter(s => s.key !== 'user_uploaded').map(src => {
-                  const isActive = config.image_sources.includes(src.key);
-                  return (
-                    <div key={src.key} className="flex items-center gap-2 px-2 py-1.5 rounded border border-border">
-                      <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-[10px] font-medium text-foreground">{src.label}</span>
-                        <span className="text-[9px] text-muted-foreground ml-1.5">{src.description}</span>
-                      </div>
-                      <Switch
-                        checked={isActive}
-                        onCheckedChange={(v) => {
-                          setConfig(prev => ({
-                            ...prev,
-                            image_sources: v
-                              ? [...prev.image_sources, src.key]
-                              : prev.image_sources.filter(s => s !== src.key),
-                          }));
-                        }}
-                        className="scale-[0.6] origin-right shrink-0"
-                      />
-                    </div>
-                  );
-                })}
-                <Label className="text-[10px] text-muted-foreground uppercase tracking-wider pt-2 block">
-                  Manual
-                </Label>
-                {IMAGE_SOURCES.filter(s => s.key === 'user_uploaded').map(src => {
-                  const isActive = config.image_sources.includes(src.key);
-                  return (
-                    <div key={src.key} className="flex items-center gap-2 px-2 py-1.5 rounded border border-border">
-                      <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-[10px] font-medium text-foreground">{src.label}</span>
-                        <span className="text-[9px] text-muted-foreground ml-1.5">{src.description}</span>
-                      </div>
-                      <Switch
-                        checked={isActive}
-                        onCheckedChange={(v) => {
-                          setConfig(prev => ({
-                            ...prev,
-                            image_sources: v
-                              ? [...prev.image_sources, src.key]
-                              : prev.image_sources.filter(s => s !== src.key),
-                          }));
-                        }}
-                        className="scale-[0.6] origin-right shrink-0"
-                      />
-                    </div>
-                  );
-                })}
-                <p className="text-[9px] text-muted-foreground leading-snug pt-1">
-                  Filtro automático: prioriza fotografías horizontales del lugar y descarta banderas, escudos, mapas, retratos, libros y logotipos.
-                </p>
+          </section>
+
+          {/* ═══════════════════════════════════════════════════════════════
+              SECCIÓN 3 · PROVEEDORES DE IMAGEN — movidos a Fuentes de datos
+              ═══════════════════════════════════════════════════════════════ */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <div className="flex items-center gap-2">
+                <Database className="w-4 h-4 text-cyan-500" />
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">Proveedores de imagen</h4>
               </div>
-            )}
-          </div>
-
-          <Separator />
-
-          {/* Toggles */}
-          <div className="space-y-2">
-            <Label className="text-xs font-semibold">Módulos opcionales</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { key: 'include_tags', label: 'Hashtags', Icon: Hash },
-                { key: 'include_web', label: 'Web referencia', Icon: Globe },
-                { key: 'include_contact', label: 'Datos contacto', Icon: Phone },
-                { key: 'include_interest_index', label: 'Índice interés', Icon: Star },
-                { key: 'show_sources', label: 'Fuentes', Icon: BookMarked },
-                { key: 'correct_coordinates', label: 'Corregir coords.', Icon: Ruler },
-              ].map(item => (
-                <div key={item.key} className="flex items-center gap-2 px-2 py-1.5 rounded border border-border">
-                  <item.Icon className="w-4 h-4 text-muted-foreground" />
-                  <Label className="text-[10px] flex-1">{item.label}</Label>
-                  <Switch
-                    checked={config[item.key as keyof EnrichmentConfig] as boolean}
-                    onCheckedChange={(v) => setConfig(prev => ({ ...prev, [item.key]: v }))}
-                    className="scale-75 origin-right"
-                  />
-                </div>
-              ))}
+              <Badge variant="outline" className="text-[9px] border-cyan-500/40 text-cyan-700 dark:text-cyan-400">
+                Movido a Fuentes
+              </Badge>
             </div>
-          </div>
-
-          <Separator />
-
-          {/* Field Order */}
-          <div className="space-y-2">
-            <Label className="text-xs font-semibold">Orden de campos</Label>
-            <p className="text-[10px] text-muted-foreground">Arrastra o usa las flechas para reordenar. Desactiva campos opcionales.</p>
-            <div className="space-y-1">
-              {sortedFields.map((field, idx) => {
-                const isCore = ['nombre_lugar', 'clasificacion', 'descripcion'].includes(field.key);
-                return (
-                  <div
-                    key={field.key}
-                    className={`flex items-center gap-2 px-2 py-1.5 rounded border transition-all ${
-                      field.enabled ? 'border-border bg-card' : 'border-border/50 bg-muted/30 opacity-60'
-                    }`}
-                  >
-                    <GripVertical className="w-3 h-3 text-muted-foreground shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[11px] font-medium text-foreground">{field.label}</span>
-                      <span className="text-[9px] text-muted-foreground ml-2">{field.description}</span>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={() => moveField(field.key, 'up')}
-                        disabled={idx === 0}
-                        className="text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-30 px-1"
-                      >▲</button>
-                      <button
-                        onClick={() => moveField(field.key, 'down')}
-                        disabled={idx === sortedFields.length - 1}
-                        className="text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-30 px-1"
-                      >▼</button>
-                      {!isCore && (
-                        <Switch
-                          checked={field.enabled}
-                          onCheckedChange={() => toggleField(field.key)}
-                          className="scale-[0.6] origin-right"
-                        />
-                      )}
-                      {isCore && <Badge variant="secondary" className="text-[8px] px-1">requerido</Badge>}
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="px-3 py-3 rounded border border-cyan-500/20 bg-cyan-500/5">
+              <p className="text-[11px] text-foreground leading-snug">
+                La gestión de proveedores de imagen (Wikimedia, Wikipedia, Wikidata, Openverse, OSM…) y su prioridad ahora vive en{' '}
+                <span className="font-semibold">Back Office → Fuentes de datos → Imágenes</span>.
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-1.5 leading-snug">
+                Allí se ven los <span className="font-semibold">kill-switch</span> globales (provider orchestration) junto a los proveedores
+                de búsqueda, enriquecimiento y scrapers — sin duplicar UI ni precedencia.
+              </p>
             </div>
-          </div>
+          </section>
 
-          <Separator />
-
-          {/* Custom Prompt */}
-          <div className="space-y-2">
-            <Label className="text-xs font-semibold">Instrucciones personalizadas</Label>
-            <p className="text-[10px] text-muted-foreground">Prompt adicional que se inyecta en todas las fichas.</p>
-            <Textarea
-              value={config.custom_prompt}
-              onChange={(e) => setConfig(prev => ({ ...prev, custom_prompt: e.target.value }))}
-              placeholder="Ej: Enfatizar la accesibilidad del lugar para personas con movilidad reducida..."
-              className="text-xs min-h-[60px]"
-            />
-          </div>
         </div>
       </div>
     </div>

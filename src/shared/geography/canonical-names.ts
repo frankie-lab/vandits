@@ -18,6 +18,11 @@ const COUNTRY_ALIASES: Record<string, string> = {
   // Español → inglés (forma canónica de admin_areas)
   'Francia': 'France',
   'España': 'Spain',
+  // ASCII fallback (sin diacríticos) — observado en fixtures `beta-partial-*`
+  // donde `country_id` no fue resuelto. Sin esto, "Espana" aparece como nodo
+  // separado de "Spain" en GeographyTree. Ver
+  // docs/audits/geo-country-alias-tree-audit.md.
+  'Espana': 'Spain',
   'Italia': 'Italy',
   'Alemania': 'Germany',
   'Marruecos': 'Morocco',

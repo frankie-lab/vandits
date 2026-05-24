@@ -22,8 +22,8 @@
 // `created_by = admin.uid` y `user_id = target.uid`; el cron sigue
 // procesando con permisos de service role como hasta ahora.
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Loader2, Play, Square, Wrench, RotateCcw, Plus, AlertTriangle, Info } from 'lucide-react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { Loader2, Play, Square, Wrench, RotateCcw, Plus, AlertTriangle, Info, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -33,6 +33,15 @@ import { GeographyScopeTree } from './GeographyScopeTree';
 import { AdminBrokenUsersList, type BrokenUser } from './AdminBrokenUsersList';
 import { cn } from '@/lib/utils';
 import type { GeoLocation } from '@/types/location';
+// PR-BACKOFFICE-DEAD-SURFACES-1 H4 — observabilidad por capability (localStorage).
+import { useOperationHistory, type OperationHandle } from './observability/useOperationHistory';
+import { operationKeyForCapability } from './PanelEffectHeader';
+// PR-ROOT-STATUS-B · Handoff scoped desde HealthRepairPreviewDialog.
+import {
+  consumePendingGeoMaintenanceHandoff,
+  subscribeGeoMaintenanceHandoff,
+  type GeoMaintenanceHandoffPayload,
+} from '@/shared/events/geo-maintenance-handoff';
 
 // UI-level mode. "review" colapsa los antiguos reconcile/overwrite; un toggle
 // secundario decide si se fuerza la reescritura.
@@ -125,6 +134,31 @@ export function GeographyBackfillPanel() {
   const [, forceTick] = useState(0);
   const job = useGeocodingJobStore();
 
+  // PR-BACKOFFICE-DEAD-SURFACES-1 H4 — observability del job de backfill.
+  const opHistory = useOperationHistory(operationKeyForCapability('run_geo_backfill'));
+  const opHandleRef = useRef<OperationHandle | null>(null);
+  const prevRunningRef = useRef(false);
+  useEffect(() => {
+    const running = job.running;
+    if (prevRunningRef.current && !running && opHandleRef.current) {
+      const stopped = job.stopping;
+      const last = job.lastResult;
+      const failed = last?.failed ?? job.failedThisBatch ?? 0;
+      const processed = last?.totalProcessed ?? job.totalProcessed ?? 0;
+      const updated = last?.totalUpdated ?? job.totalUpdated ?? 0;
+      opHandleRef.current.complete({
+        status: stopped
+          ? 'cancelled'
+          : last?.status === 'failed'
+            ? 'error'
+            : 'ok',
+        summary: `processed=${processed} updated=${updated} failed=${failed}`,
+      });
+      opHandleRef.current = null;
+    }
+    prevRunningRef.current = running;
+  }, [job.running, job.stopping, job.lastResult, job.totalProcessed, job.totalUpdated, job.failedThisBatch]);
+
   // Admin detection ---------------------------------------------------------
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [selfUserId, setSelfUserId] = useState<string | null>(null);
@@ -138,6 +172,29 @@ export function GeographyBackfillPanel() {
   const [universeLocations, setUniverseLocations] = useState<GeoLocation[]>([]);
   const [loadingUniverse, setLoadingUniverse] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // PR-ROOT-STATUS-B · Handoff scoped (preview-confirm requerido).
+  const [handoff, setHandoff] = useState<GeoMaintenanceHandoffPayload | null>(null);
+  const handoffAppliedAtRef = useRef<number>(0);
+  useEffect(() => {
+    // Drena pending al montar (caso: el evento se despachó antes del mount).
+    const pending = consumePendingGeoMaintenanceHandoff();
+    if (pending) setHandoff(pending);
+    // Suscribe a futuros eventos mientras el panel esté montado.
+    return subscribeGeoMaintenanceHandoff((payload) => setHandoff(payload));
+  }, []);
+  // Aplica el handoff a `selectedIds` cuando llega o cuando cambia el universo.
+  // Tras-reset por user/mode change, vuelve a re-aplicar si el handoff sigue vivo.
+  useEffect(() => {
+    if (!handoff || handoff.locationIds.length === 0) return;
+    if (handoff.emittedAt === handoffAppliedAtRef.current) return;
+    setSelectedIds(new Set(handoff.locationIds));
+    handoffAppliedAtRef.current = handoff.emittedAt;
+  }, [handoff, mode]);
+  const clearHandoff = useCallback(() => {
+    setHandoff(null);
+    setSelectedIds(new Set());
+  }, []);
 
   const healthFilter = useMemo(() => modeToHealthFilter(mode), [mode]);
   const universeTotal = useMemo(() => sumByHealth(summary, healthFilter), [summary, healthFilter]);
@@ -342,6 +399,12 @@ export function GeographyBackfillPanel() {
         // recalcule el universo entero del modo.
         healthFilter: useExplicit ? undefined : healthFilter,
       });
+
+      // PR-BACKOFFICE-DEAD-SURFACES-1 H4 — abre handle de observability;
+      // se cierra en el useEffect al transicionar running=false.
+      opHandleRef.current = opHistory.start(
+        `${toBackendMode(mode, forceOverwrite)} · ${useExplicit ? `${total} ids` : userLabel} · n=${total}`,
+      );
     } catch (err) {
       console.error('[backfill-start]', err);
       toast.error('No se pudo lanzar el backfill');
@@ -362,18 +425,56 @@ export function GeographyBackfillPanel() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-4 p-4 overflow-hidden">
-      {/* Subheader: framing del panel como consola admin */}
-      <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 text-xs text-muted-foreground leading-relaxed">
-        <p>
-          Operaciones <strong className="text-foreground">globales y masivas</strong> sobre jerarquías administrativas.
-          {' '}Para reparaciones puntuales usa <strong className="text-foreground">Salud</strong> en el mapa
-          (chips bajo el filtro principal).
-        </p>
-      </div>
+      {/* PR-BACKOFFICE-CLEANUP-REALITY-1 — intro card "Tres modelos operativos
+          distintos" eliminada: el PanelEffectHeader ya marca efectos + ámbito. */}
+
+
+      <CanonicalizeOneShotCard />
+
+      {/* PR-ROOT-STATUS-B · Banner de handoff scoped desde Resolver deuda → Grupo B.
+          NO ejecuta backfill: solo preselecciona y exige confirmación humana en
+          el botón "Lanzar sobre selección" (paso 3). */}
+      {handoff && handoff.locationIds.length > 0 && (
+        <section
+          data-testid="geo-maintenance-handoff-banner"
+          data-handoff-source={handoff.source}
+          data-handoff-count={handoff.locationIds.length}
+          className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex items-start gap-3"
+        >
+          <Wrench className="w-4 h-4 mt-0.5 text-amber-600 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+              {handoff.label}
+            </div>
+            <div className="text-xs text-amber-800/80 dark:text-amber-200/80 mt-0.5 leading-snug">
+              Se han preseleccionado <strong className="tabular-nums">{handoff.locationIds.length}</strong>{' '}
+              {handoff.locationIds.length === 1 ? 'punto' : 'puntos'}. Revisa el modo y
+              pulsa <em>Lanzar sobre selección</em> abajo para confirmar y ejecutar el backfill.
+              Nada se ha escrito todavía.
+            </div>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-[11px] shrink-0"
+            onClick={clearHandoff}
+            data-testid="geo-maintenance-handoff-discard"
+          >
+            <X className="w-3 h-3 mr-1" />
+            Descartar
+          </Button>
+        </section>
+      )}
 
       {/* PASO 1 — Modo de normalización (3 tarjetas a ancho completo) */}
       <section className="rounded-lg border bg-muted/10">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3">
+        <div className="px-3 pt-3 pb-1 flex items-center justify-between">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Operaciones masivas · paso 1: modo
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 pt-1">
           {(Object.keys(MODE_META) as Mode[]).map((m) => {
             const meta = MODE_META[m];
             const Icon = meta.icon;
@@ -801,5 +902,115 @@ function LastResultCard({
         Finalizado {formatRelative(result.finishedAt)}
       </div>
     </div>
+  );
+}
+
+// ─── Canonicalize one-shot (PR-BACKOFFICE-UX-CANON-5) ──────────────────────
+// Surface explícita para `run_geo_canonicalize` (master-only). Antes esta
+// edge no tenía UI y la capability quedaba huérfana.
+import { DestructiveConfirmDialog } from '@/shared/components/ui/destructive-confirm-dialog';
+import { EffectBadge } from '@/shared/components/ui/effect-badge';
+import { useCapability } from '@/domains/identity';
+import { ShieldAlert } from 'lucide-react';
+
+function CanonicalizeOneShotCard() {
+  const { allowed: canRun } = useCapability('run_geo_canonicalize');
+  const [busy, setBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [lastResult, setLastResult] = useState<{ merged: number; dryRun: boolean } | null>(null);
+  const [dryRun, setDryRun] = useState(true);
+  // PR-BACKOFFICE-DEAD-SURFACES-1 H4 — observability del one-shot.
+  const opHistory = useOperationHistory(operationKeyForCapability('run_geo_canonicalize'));
+
+  if (!canRun) return null;
+
+  const run = async () => {
+    setBusy(true);
+    const handle = opHistory.start(dryRun ? 'dry-run' : 'destructive');
+    try {
+      const { data, error } = await supabase.functions.invoke('canonicalize-admin-areas', {
+        body: { dryRun },
+      });
+      if (error) throw error;
+      const merged = (data as { merged?: number })?.merged ?? 0;
+      setLastResult({ merged, dryRun });
+      handle.complete({
+        status: 'ok',
+        summary: `${dryRun ? 'dry-run' : 'executed'} · merged=${merged}`,
+      });
+      toast.success(
+        dryRun
+          ? `Dry-run: ${merged} fusiones detectadas (sin escribir)`
+          : `Canonicalize ejecutado: ${merged} áreas fusionadas`,
+      );
+    } catch (e) {
+      console.error('[canonicalize-admin-areas]', e);
+      handle.complete({
+        status: 'error',
+        summary: e instanceof Error ? e.message : String(e),
+      });
+      toast.error('No se pudo ejecutar canonicalize');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="rounded-lg border-2 border-destructive/30 bg-destructive/5 p-4">
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <ShieldAlert className="w-4 h-4 text-destructive shrink-0" />
+            <h3 className="text-sm font-semibold">Canonicalize admin_areas · one-shot</h3>
+            <EffectBadge kind="deferred" detail="Refresca cache de locations al final" />
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
+            Deduplica admin_areas por iso_code y por (parent, nombre normalizado), repuntera 8 FKs en
+            <code className="px-1 mx-0.5 rounded bg-muted text-foreground/80">locations</code>, fusiona hijos
+            y registra en <code className="px-1 rounded bg-muted text-foreground/80">place_merge_history</code>.
+            Destructivo · master-only.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 mt-3">
+        <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={dryRun}
+            onChange={(e) => setDryRun(e.target.checked)}
+            className="rounded"
+          />
+          <span>Dry-run (no escribir, solo contar)</span>
+        </label>
+        <Button
+          variant={dryRun ? 'outline' : 'destructive'}
+          size="sm"
+          disabled={busy}
+          onClick={() => (dryRun ? run() : setConfirmOpen(true))}
+          className="text-xs"
+        >
+          {busy ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Play className="w-3 h-3 mr-1" />}
+          {dryRun ? 'Lanzar dry-run' : 'Lanzar canonicalize (destructivo)'}
+        </Button>
+        {lastResult && (
+          <span className="text-[11px] text-muted-foreground">
+            Último: {lastResult.dryRun ? 'dry-run' : 'ejecutado'} · {lastResult.merged} fusiones
+          </span>
+        )}
+      </div>
+
+      <DestructiveConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Canonicalize destructivo"
+        description="Vas a fusionar admin_areas duplicadas y repuntear FKs en locations. Operación no reversible."
+        token="CANONICALIZE"
+        onConfirm={async () => {
+          setConfirmOpen(false);
+          await run();
+        }}
+      />
+    </section>
   );
 }

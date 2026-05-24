@@ -14,10 +14,17 @@ import {
 } from '@/components/ui/tooltip';
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
 import { getLocationHierarchy, getFilledLocationHierarchy, UNCLASSIFIED_VALUE, HIERARCHY_LEVELS, LEVEL_PLACEHOLDER_LABELS, compareGeoTreeNodes, type HierarchyLevel } from '@/shared/geography/hierarchy';
+import { hasProvincia, regionHasNoProvincia } from '@/shared/geography/territorial-canon';
+import { nameToIso2 } from '@/shared/geo/country-iso';
+import { useScopedLocations, useUniverseBase } from '@/components/filters/UniverseBaseContext';
+import { TreePoiRow } from '@/components/filters/TreePoiRow';
+import { useDebtSelection } from '@/components/filters/DebtSelectionContext';
 
-type TreeLevel = 'continent' | 'country' | 'region' | 'zone' | 'comarca' | 'localidad' | 'sublocalidad' | 'calle';
 
-interface TreeNode {
+
+export type TreeLevel = 'continent' | 'country' | 'region' | 'zone' | 'comarca' | 'localidad' | 'sublocalidad' | 'calle';
+
+export interface TreeNode {
  name: string;
  count: number;
  totalCount: number;
@@ -27,11 +34,119 @@ interface TreeNode {
  ids: string[];
 }
 
+/**
+ * T2A-wire — Colapsa el nivel Provincia en países con `hasProvincia=false`.
+ *
+ * Estructura del árbol: continent(0) → country(1) → region(2) → zone(3) →
+ * admin3(4) → locality(5) → sublocality(6) → street(7).
+ *
+ * Para países §1 sin provincia, los nodos `zone` que cuelgan de cada
+ * `region` son TODOS placeholder `(sin provincia)` (regla
+ * `getLocationHierarchy`). Este collapse sustituye `region.children` (zones)
+ * por sus nietos (admin3/locality/...), reescribiendo paths para omitir el
+ * segmento zone. Las regiones se preservan.
+ *
+ * Itera a nivel REGIÓN — NO a nivel país. País desconocido = no-op.
+ * Tree multi-país queda con jerarquía mixta (algunos países muestran
+ * Provincia, otros no), exactamente como el canon exige.
+ */
+export function stripZoneSegmentFromPaths(node: TreeNode, countryPathLen: number): TreeNode {
+  // Path indexing: continent(0), country(1) → countryPathLen=2; region(2),
+  // zone(3). Quita el índice `countryPathLen + 1` = posición de zone.
+  const zoneIdx = countryPathLen + 1;
+  const newPath = node.path.length > zoneIdx
+    ? [...node.path.slice(0, zoneIdx), ...node.path.slice(zoneIdx + 1)]
+    : node.path;
+  return {
+    ...node,
+    path: newPath,
+    children: node.children.map((c) => stripZoneSegmentFromPaths(c, countryPathLen)),
+  };
+}
+
+export function collapseZoneForCountriesWithoutProvincia(nodes: TreeNode[]): void {
+  for (const continentNode of nodes) {
+    for (const countryNode of continentNode.children) {
+      const iso2 = nameToIso2(countryNode.name);
+      if (!iso2) continue;
+      if (hasProvincia(iso2)) continue;
+      // Para cada región del país, sustituye sus hijos zone (placeholder)
+      // por los nietos (admin3/locality/...), con paths reescritos.
+      for (const regionNode of countryNode.children) {
+        const promoted: TreeNode[] = [];
+        for (const zoneNode of regionNode.children) {
+          for (const grandchild of zoneNode.children) {
+            promoted.push(stripZoneSegmentFromPaths(grandchild, countryNode.path.length));
+          }
+        }
+        regionNode.children = promoted.sort(compareGeoTreeNodes);
+      }
+    }
+  }
+}
+
+/**
+ * T2A-wire (§1.b) — Colapso del nivel Provincia para regiones declaradas
+ * SIN provincia/distrito dentro de un país que en general sí tiene provincia
+ * (caso PT-20 Açores, PT-30 Madeira).
+ *
+ * `regionIsoIndex` mapea `regionLabel` (texto que se ve en el árbol, derivado
+ * de `regionResolved`/`region`) → `regionIsoCode` (`PT-20`, `PT-30`, ...).
+ * Se construye fuera de aquí desde `filteredLocations` para no hardcodear
+ * nombres en el componente.
+ *
+ * Para cada región cuyo iso_code está en `regionsWithoutProvincia` del
+ * `CountryCanon`, sustituye `region.children` (zones placeholder o legacy)
+ * por sus nietos (admin3/locality/...), reescribiendo paths con
+ * `stripZoneSegmentFromPaths`. País desconocido / región sin iso_code = no-op.
+ *
+ * Se invoca DESPUÉS de `collapseZoneForCountriesWithoutProvincia`.
+ */
+export function collapseZoneForRegionsWithoutProvincia(
+  nodes: TreeNode[],
+  regionIsoIndex: ReadonlyMap<string, string>,
+): void {
+  for (const continentNode of nodes) {
+    for (const countryNode of continentNode.children) {
+      const iso2 = nameToIso2(countryNode.name);
+      if (!iso2) continue;
+      for (const regionNode of countryNode.children) {
+        // Indexamos por `country/region` para evitar colisiones de nombre
+        // entre países distintos (p.ej. "Norte" puede existir en múltiples).
+        const key = `${countryNode.name}/${regionNode.name}`;
+        const regionIso = regionIsoIndex.get(key);
+        if (!regionHasNoProvincia(iso2, regionIso)) continue;
+        const promoted: TreeNode[] = [];
+        for (const zoneNode of regionNode.children) {
+          for (const grandchild of zoneNode.children) {
+            promoted.push(stripZoneSegmentFromPaths(grandchild, countryNode.path.length));
+          }
+        }
+        regionNode.children = promoted.sort(compareGeoTreeNodes);
+      }
+    }
+  }
+}
+
 export function GeographyTree() {
  const { getAllLocations, filters, setFilters, selectedLocations, navigateToGeoNode, toggleGeoBranchSelection } = useLocationsStore();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
-  const allLocations = getAllLocations();
+  // Universo base activo (Explorar=all / Mantener→Con deuda / Sin enriquecer).
+  // Si no hay UniverseBaseProvider, cae a `getAllLocations()` (comportamiento legacy).
+  const allLocations = useScopedLocations(getAllLocations());
+  const universeCtx = useUniverseBase();
+  // PR-INLINE-1: solo en `Mantener → Con deuda` activamos POI rows inline
+  // bajo nodos hoja del árbol. En el resto de modos, comportamiento legacy.
+  const inlinePoisEnabled = universeCtx?.mode === 'debt';
+  const debtSel = useDebtSelection();
+  const locationsById = useMemo(() => {
+    const map = new Map<string, typeof allLocations[number]>();
+    for (const l of allLocations) map.set(l.id, l);
+    return map;
+  }, [allLocations]);
+
+
   const totalUnclassified = useMemo(
     () => allLocations.filter((l) => {
       const h = getLocationHierarchy(l);
@@ -91,11 +206,18 @@ export function GeographyTree() {
 
  const nodes: TreeNode[] = [];
  const continentMap = new Map<string, TreeNode>();
+ // T2A-wire (§1.b) — Índice `country/regionLabel → regionIsoCode` para que
+ // el colapso regional sea data-driven (sin hardcodear PT-20/PT-30/Açores).
+ // Llave compuesta evita colisiones de nombre entre países (p.ej. "Norte").
+ const regionIsoIndex = new Map<string, string>();
 
  filteredLocations.forEach(loc => {
  // Path COMPLETO de 8 niveles, con placeholders canónicos para los
  // niveles ausentes. Esto garantiza padre = suma(hijos).
  const h = getFilledLocationHierarchy(loc);
+ if (loc.regionIsoCode && h.country && h.region) {
+ regionIsoIndex.set(`${h.country}/${h.region}`, loc.regionIsoCode);
+ }
 
  let parentChildren = nodes;
  const accumPath: string[] = [];
@@ -145,8 +267,21 @@ export function GeographyTree() {
   };
   sortNodes(nodes);
 
- return nodes;
- }, [filteredLocations, totalTree]);
+  // T2A-wire — colapso del nivel Provincia en países con hasProvincia=false.
+  // Recorre los nodos `country` y, si el ISO2 del país no admite provincia
+  // canónica, sustituye los hijos zone (todos placeholder tras la regla del
+  // canon en hierarchy.ts) por sus nietos. El invariante padre=Σ(hijos) se
+  // mantiene porque la zona placeholder agrupa el 100% de los puntos.
+  collapseZoneForCountriesWithoutProvincia(nodes);
+
+  // T2A-wire (§1.b) — Después del colapso por país, colapsa también el
+  // nivel zone bajo regiones declaradas SIN provincia/distrito (PT-20
+  // Açores, PT-30 Madeira). Data-driven vía `regionIsoIndex` +
+  // `regionHasNoProvincia` — sin literales en este componente.
+  collapseZoneForRegionsWithoutProvincia(nodes, regionIsoIndex);
+
+  return nodes;
+  }, [filteredLocations, totalTree]);
 
  const toggleExpand = (path: string) => {
  const newExpanded = new Set(expandedNodes);
@@ -260,54 +395,76 @@ export function GeographyTree() {
  const pathKey = node.path.join('/');
  const isExpanded = expandedNodes.has(pathKey);
  const hasChildren = node.children.length > 0;
+ // PR-INLINE-1: leaves (sin children) con POIs se vuelven expandibles SÓLO
+ // en universo `debt`, para mostrar filas POI inline.
+ const showInlinePois = inlinePoisEnabled && !hasChildren && node.ids.length > 0;
+ const isExpandable = hasChildren || showInlinePois;
  const selected = isSelected(node);
  const inPath = isInPath(node);
  const isFiltered = hasNonGeoFilters && node.count < node.totalCount;
 
- const ids = node.ids;
- const selectedInBranch = ids.reduce((acc, id) => acc + (selectedLocations.has(id) ? 1 : 0), 0);
- const allSelected = ids.length > 0 && selectedInBranch === ids.length;
- const someSelected = selectedInBranch > 0 && !allSelected;
+	const ids = node.ids;
+	// PR-INLINE-2: en modo `debt` con DebtSelectionProvider activo, el checkbox
+	// del nodo opera la selección LOCAL aislada (no toca `selectedLocations`
+	// global). En cualquier otro modo: comportamiento legacy global.
+	const useLocalSel = inlinePoisEnabled && !!debtSel;
+	let allSelected: boolean;
+	let someSelected: boolean;
+	if (useLocalSel && debtSel) {
+		const gs = debtSel.groupState(ids);
+		allSelected = gs === 'all';
+		someSelected = gs === 'partial';
+	} else {
+		const selectedInBranch = ids.reduce((acc, id) => acc + (selectedLocations.has(id) ? 1 : 0), 0);
+		allSelected = ids.length > 0 && selectedInBranch === ids.length;
+		someSelected = selectedInBranch > 0 && !allSelected;
+	}
 
- return (
- <div key={pathKey} className="w-full min-w-0 max-w-full overflow-hidden">
- <div
-  className={cn(
- "flex items-center gap-1.5 py-1.5 px-2 pr-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors w-full min-w-0 max-w-full box-border overflow-hidden",
- selected && "bg-primary/10 text-primary font-medium ring-1 ring-primary/30",
- inPath && !selected && "text-primary/80"
- )}
- style={{ paddingLeft: `${depth * 12 + 8}px` }}
- >
- {hasChildren ? (
- <button
- onClick={(e) => {
- e.stopPropagation();
- toggleExpand(pathKey);
- }}
- className="p-0.5 hover:bg-muted rounded shrink-0"
- >
- {isExpanded ? (
- <ChevronDown className="w-3 h-3 text-muted-foreground" />
- ) : (
- <ChevronRight className="w-3 h-3 text-muted-foreground" />
- )}
- </button>
- ) : (
- <span className="w-4" />
- )}
+	return (
+		<div key={pathKey} className="w-full min-w-0 max-w-full overflow-hidden">
+			<div
+				className={cn(
+					"flex items-center gap-1.5 py-1.5 px-2 pr-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors w-full min-w-0 max-w-full box-border overflow-hidden",
+					selected && "bg-primary/10 text-primary font-medium ring-1 ring-primary/30",
+					inPath && !selected && "text-primary/80"
+				)}
+				style={{ paddingLeft: `${depth * 12 + 8}px` }}
+			>
+				{isExpandable ? (
+					<button
+						onClick={(e) => {
+							e.stopPropagation();
+							toggleExpand(pathKey);
+						}}
+						className="p-0.5 hover:bg-muted rounded shrink-0"
+					>
+						{isExpanded ? (
+							<ChevronDown className="w-3 h-3 text-muted-foreground" />
+						) : (
+							<ChevronRight className="w-3 h-3 text-muted-foreground" />
+						)}
+					</button>
+				) : (
+					<span className="w-4" />
+				)}
 
- {ids.length > 0 && (
- <Checkbox
- checked={allSelected ? true : someSelected ? 'indeterminate' : false}
-   onCheckedChange={(v) => {
-   toggleGeoBranchSelection(ids, !!v);
-   }}
- onClick={(e) => e.stopPropagation()}
- className="h-3.5 w-3.5 shrink-0"
- aria-label={`Seleccionar ${node.name}`}
- />
- )}
+				{ids.length > 0 && (
+					<Checkbox
+						checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+						onCheckedChange={(v) => {
+							if (useLocalSel && debtSel) {
+								// Tri-state local: all → deselect all; none/partial → select all visibles.
+								debtSel.toggleGroup(ids);
+							} else {
+								toggleGeoBranchSelection(ids, !!v);
+							}
+						}}
+						onClick={(e) => e.stopPropagation()}
+						className="h-3.5 w-3.5 shrink-0"
+						aria-label={`Seleccionar ${node.name}`}
+						data-tree-group-checkbox={useLocalSel ? 'local' : 'global'}
+					/>
+				)}
 
  
   <button
@@ -358,6 +515,25 @@ export function GeographyTree() {
  {node.children.map(child => renderNode(child, depth + 1))}
  </div>
  )}
+ {isExpanded && showInlinePois && (
+   <div
+     className="w-full min-w-0 max-w-full overflow-hidden"
+     data-tree-poi-group={pathKey}
+     data-tree-poi-group-count={node.ids.length}
+   >
+     {node.ids.map((id) => {
+       const loc = locationsById.get(id);
+       if (!loc) return null;
+       return (
+         <TreePoiRow
+           key={id}
+           loc={loc}
+           indentPx={(depth + 1) * 12 + 8}
+         />
+       );
+     })}
+   </div>
+ )}
  </div>
  );
  };
@@ -372,6 +548,7 @@ export function GeographyTree() {
  filters.localidad,
  filters.sublocalidad,
  ].filter(Boolean);
+
 
  if (allLocations.length === 0) {
  return (

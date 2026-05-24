@@ -12,6 +12,11 @@
 // so callers that only pass `country: "FR"` end up with the right `continent_id` too.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { shouldDropZone } from '../_shared/zone-region-guard.ts';
+import {
+  regionHasNoProvincia,
+  getCountryCanon,
+} from '../_shared/territorial-canon.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -275,7 +280,68 @@ Deno.serve(async (req) => {
       if (!isPlaceholder) lastDefinedIdx = i;
     }
 
-    return new Response(JSON.stringify({ ids }), {
+    // R8 (Fase 7): zone ≠ region — si el caller envió la misma cadena como
+    // región y como provincia/zona, NO asignamos zone_id (queda NULL).
+    // region_id permanece intacto. No duplicamos la región como provincia.
+    if (shouldDropZone(body.zone, body.region)) {
+      ids['zone_id'] = null;
+    }
+
+    // T2A-wire §1.b — Excepciones regionales (regionsWithoutProvincia).
+    // Lookup iso_code de country & region resueltos para aplicar veto via
+    // canon (sin hardcode de PT-20/PT-30). Adicional: 1 SELECT cuando hay
+    // region_id, 0 round-trips si la región no se resolvió.
+    let regionIsoCode: string | null = null;
+    let countryIsoCode: string | null = null;
+    let regionForbidsProvincia = false;
+    const regionId = ids['region_id'];
+    const countryId = ids['country_id'];
+    if (regionId || countryId) {
+      try {
+        const lookupIds = [regionId, countryId].filter((x): x is string => !!x);
+        const { data: isoRows } = await supabase
+          .from('admin_areas')
+          .select('id, iso_code')
+          .in('id', lookupIds);
+        if (isoRows) {
+          for (const row of isoRows) {
+            if (row.id === regionId) regionIsoCode = (row as any).iso_code ?? null;
+            if (row.id === countryId) countryIsoCode = (row as any).iso_code ?? null;
+          }
+        }
+      } catch (e) {
+        console.warn('[resolve-admin-area] iso_code lookup failed', e);
+      }
+    }
+    // Derivar iso2 país: prioriza iso_code canónico; fallback a body.country si ISO2.
+    const iso2Candidate = countryIsoCode && countryIsoCode.length >= 2
+      ? countryIsoCode.slice(0, 2).toUpperCase()
+      : (typeof body.country === 'string' && ISO2_RE.test(body.country.trim())
+          ? body.country.trim().toUpperCase()
+          : null);
+    if (iso2Candidate && regionIsoCode && regionHasNoProvincia(iso2Candidate, regionIsoCode)) {
+      regionForbidsProvincia = true;
+      if (ids['zone_id']) {
+        console.warn('[resolve-admin-area] canon-region-zone-forbidden', {
+          iso2: iso2Candidate,
+          regionIsoCode,
+          droppedZoneId: true,
+        });
+        ids['zone_id'] = null;
+      }
+    }
+    const canonForCountry = iso2Candidate ? getCountryCanon(iso2Candidate) : null;
+
+    return new Response(JSON.stringify({
+      ids,
+      meta: {
+        region_iso_code: regionIsoCode,
+        canon: {
+          iso2: canonForCountry?.iso2 ?? null,
+          regionForbidsProvincia,
+        },
+      },
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });

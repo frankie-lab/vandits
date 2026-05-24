@@ -1,22 +1,23 @@
 /**
- * HealthRepairPreviewDialog — Modal de previsualización + confirmación.
+ * HealthRepairPreviewDialog — Triage operativo por grupos.
  *
- * - `partial` y `chain` muestran botón `Confirmar reparación` que llama a
- *   `enqueue_health_repair` (RPC SECURITY DEFINER). Encola en
- *   `geocoding_jobs` (reusa job running o crea uno) y escribe en
- *   `health_repair_actions` (audit log).
- * - `hardError` y `review` siguen sin escritura (flujo per-POI).
+ * Plan: docs/audits/health-repair-triage-dialog-plan.md
  *
- * PR-1 curated sharing (2026-05-13): la columna "Solo lectura · seguido" y
- * la separación reparables vs seguidos desaparecen. Tras la curated boundary
- * los seguidos sólo entran al pipeline si pasan `isShareablePoi` (incluye
- * `geo_health = 'ok'`), por lo que jamás aparecen aquí. Todo lo que se ve
- * es propio y accionable. Ver `mem://logic/sharing/curated-only-rule`.
+ * - Cada grupo (Reparable / Sistema B / Revisión C / Incompleto A /
+ *   No reparable por tipo) recibe acciones reales: Exportar grupo + Abrir
+ *   grupo en mapa. Cada POI: Abrir en mapa.
+ * - La reparación automática (`enqueue_health_repair`) sigue limitada
+ *   estrictamente a D ∩ {partial, chain} via `partitionRepairScopeByRootStatus`.
+ *   A/B/C/no-reparables NUNCA entran en `_location_ids`.
+ * - Exportar usa `lovable:open-export-panel` (scope `'internal'`).
+ * - Abrir en mapa usa `requestSubsetFit` (ya canónico).
+ * - No se añade botón "Geo Maintenance" en grupo B (acción futura, ver plan §3).
  *
- * Ver `mem://logic/discovery/health-filter-axis`.
+ * Ver `mem://logic/discovery/health-filter-axis` y
+ * `mem://logic/sharing/curated-only-rule`.
  */
 import * as React from 'react';
-import { Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download, Loader2, MapPin, Wrench } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -27,50 +28,137 @@ import {
 } from '@/design-system/primitives/dialog';
 import { Button } from '@/design-system/primitives/button';
 import { Badge } from '@/design-system/primitives/badge';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useGeocodingJobStore } from '@/stores/geocoding-job-store';
-import type { HealthFilter } from '@/types/location';
+import type { GeoLocation, HealthFilter } from '@/types/location';
 import {
   type HealthScopeResult,
   scopeModeLabel,
 } from '@/domains/discovery/lib/health-filter-scope';
 import { getHierarchyBreadcrumb } from '@/shared/geography/hierarchy';
+import { getPointHealthRings } from '@/domains/content/lib/point-health-rings';
 import { requestSubsetFit } from '@/components/map/subset-fit';
+import { useCapability } from '@/domains/identity/hooks/use-permissions';
+import {
+  dispatchGeoMaintenanceHandoff,
+  navigateToGeoMaintenance,
+} from '@/shared/events/geo-maintenance-handoff';
+import {
+  partitionRepairScopeByRootStatus,
+  type RepairPartition,
+  type RepairFilterMode,
+  type RepairGroupKey,
+} from './health-repair-partition';
 
-const FILTER_TITLES: Record<HealthFilter, string> = {
+const FILTER_TITLES: Record<RepairFilterMode, string> = {
   partial:   'Rellenar huecos',
   chain:     'Reparar cadenas',
   hardError: 'Reintentar',
   review:    'Revisar manualmente',
+  debt:      'Resolver deuda',
 };
 
-const FILTER_CSS_VAR: Record<HealthFilter, string> = {
+const FILTER_CSS_VAR: Record<RepairFilterMode, string> = {
   partial:   '--poi-health-partial',
   chain:     '--poi-health-chain',
   hardError: '--poi-health-hard-error',
   review:    '--poi-health-review',
+  debt:      '--poi-health-partial',
 };
 
-const FILTER_HELP: Record<HealthFilter, string> = {
-  partial:   'Estos puntos tienen niveles administrativos incompletos. La reparación masiva intentará rellenar los huecos vía geocoding.',
-  chain:     'Estos puntos tienen la cadena administrativa rota o desactualizada. La reparación masiva re-resolverá los FKs desde sus coordenadas.',
-  hardError: 'Estos puntos fallaron por error técnico (timeout, sin créditos, red). La acción de reintento llegará en un próximo PR.',
-  review:    'Estos puntos requieren revisión manual (incoherencia nombre/coords, sin verificar). Abre cada uno desde el mapa o desde la lista para resolverlo individualmente.',
+/**
+ * Filtros que pueden disparar escritura en BD. En modo agregado `'debt'`
+ * el partitioner ya intersecta D con rings reales partial/chain.
+ */
+const REPAIRABLE: ReadonlySet<RepairFilterMode> = new Set<RepairFilterMode>([
+  'partial',
+  'chain',
+  'debt',
+]);
+
+type DisplayGroupKey = Exclude<
+  keyof RepairPartition,
+  'repairableIds' | 'repairablePartialIds' | 'repairableChainIds' | 'total'
+>;
+
+const GROUP_META: Record<
+  DisplayGroupKey,
+  { title: string; help: string; recommendation: string; rootBadge: string }
+> = {
+  repairable: {
+    title: 'Reparables automáticamente',
+    help: 'Identidad D + deuda partial/chain. Se encolan en reparación masiva.',
+    recommendation: 'Reparación automática',
+    rootBadge: 'D',
+  },
+  identityIncomplete: {
+    title: 'Incompleto real (A)',
+    help: 'Falta identidad básica (nombre o coords). Completa identidad antes de cualquier reparación.',
+    recommendation: 'Completar identidad por POI',
+    rootBadge: 'A',
+  },
+  systemDebt: {
+    title: 'Deuda de sistema (B)',
+    help: 'Falta canon/backfill del lado sistema. Envía esta selección a Mantenimiento Geográfico — allí se previsualiza y confirma antes de ejecutar.',
+    recommendation: 'Abrir en Geo Maintenance',
+    rootBadge: 'B',
+  },
+  review: {
+    title: 'Revisión (C)',
+    help: 'Nombre/coords incoherente. Abre cada POI desde el mapa para resolverlo.',
+    recommendation: 'Revisar por POI',
+    rootBadge: 'C',
+  },
+  nonRepairableByType: {
+    title: 'No reparables por tipo',
+    help: 'Identidad D pero deuda activa es hardError/review o sin rings — flujo per-POI.',
+    recommendation: 'Resolver por POI',
+    rootBadge: 'D',
+  },
 };
 
-const PREVIEW_LIMIT = 10;
-
-/** Sólo estos dos disparan escritura en BD. */
-const REPAIRABLE: ReadonlySet<HealthFilter> = new Set<HealthFilter>(['partial', 'chain']);
+const GROUP_ORDER: readonly DisplayGroupKey[] = [
+  'repairable',
+  'identityIncomplete',
+  'systemDebt',
+  'review',
+  'nonRepairableByType',
+];
 
 export interface HealthRepairPreviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  filter: HealthFilter;
+  filter: RepairFilterMode;
   scope: HealthScopeResult;
-  /** Mantenido por compat — ya no se usa para distinguir reparable vs lectura. */
   currentUserId?: string | null;
+}
+
+function dispatchExport(locations: GeoLocation[], label: string) {
+  if (locations.length === 0) return;
+  window.dispatchEvent(
+    new CustomEvent('lovable:open-export-panel', {
+      detail: { locations, label, scope: 'internal' as const },
+    }),
+  );
+}
+
+function fitToIds(ids: string[], reason: string) {
+  if (ids.length === 0) return;
+  requestSubsetFit(ids, { mode: 'always', reason });
+}
+
+function ringChips(loc: GeoLocation): string[] {
+  try {
+    return getPointHealthRings(loc) ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export function HealthRepairPreviewDialog({
@@ -79,25 +167,32 @@ export function HealthRepairPreviewDialog({
   filter,
   scope,
 }: HealthRepairPreviewDialogProps) {
-  const sample = React.useMemo(
-    () => scope.locations.slice(0, PREVIEW_LIMIT),
-    [scope.locations],
+  const partition = React.useMemo(
+    () => partitionRepairScopeByRootStatus(scope.locations, filter),
+    [scope.locations, filter],
   );
-  const remainder = Math.max(0, scope.total - sample.length);
+
+  // PR-ROOT-STATUS-B · Gating del puente a Geo Maintenance.
+  // Requiere AMBAS capabilities: ver el panel destino y poder lanzar el job.
+  // Si falta cualquiera, el botón NO se renderiza (regla dura del contrato).
+  const canViewGeoMaintenance = useCapability('view_geo_maintenance').allowed;
+  const canRunGeoBackfill = useCapability('run_geo_backfill').allowed;
+  const geoMaintenanceHandoffEnabled = canViewGeoMaintenance && canRunGeoBackfill;
+
   const isRepairableFilter = REPAIRABLE.has(filter);
+  const repairableCount = partition.repairableIds.length;
 
   const [submitting, setSubmitting] = React.useState(false);
   const [exhausted, setExhausted] = React.useState(false);
-  const canConfirm =
-    isRepairableFilter && scope.total > 0 && !submitting && !exhausted;
 
-  // Reset exhausted state when scope or filter changes
+  const canConfirm =
+    isRepairableFilter && repairableCount > 0 && !submitting && !exhausted;
+
   React.useEffect(() => {
     setExhausted(false);
   }, [filter, scope.mode, scope.total]);
 
-  // Auto-focus mapa al subconjunto del preview (PR-4A.1).
-  // Único trigger automático aprobado dentro del workflow de salud.
+  // Auto-focus mapa al subconjunto del preview al abrir.
   const idsKey = scope.ids.join('|');
   React.useEffect(() => {
     if (!open) return;
@@ -110,23 +205,65 @@ export function HealthRepairPreviewDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, idsKey]);
 
+  // Estado de expansión por grupo. Reparable abierto si N>0; resto cerrado.
+  const initialOpen = React.useMemo<Record<DisplayGroupKey, boolean>>(() => {
+    return {
+      repairable: partition.repairable.length > 0,
+      identityIncomplete: false,
+      systemDebt: false,
+      review: false,
+      nonRepairableByType: false,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, partition.repairable.length]);
+  const [openGroups, setOpenGroups] = React.useState<Record<DisplayGroupKey, boolean>>(initialOpen);
+  React.useEffect(() => {
+    setOpenGroups(initialOpen);
+  }, [initialOpen]);
+
   const handleConfirm = React.useCallback(async () => {
-    if (!isRepairableFilter || scope.ids.length === 0) return;
+    if (!isRepairableFilter || partition.repairableIds.length === 0) return;
     setSubmitting(true);
     try {
-      const { data, error } = await supabase.rpc('enqueue_health_repair', {
-        _action: filter,
-        _scope_mode: scope.mode,
-        _location_ids: scope.ids,
-      });
-      if (error) throw error;
-      const row = Array.isArray(data) ? data[0] : data;
-      const enq = row?.enqueued_count ?? 0;
-      if (enq > 0) {
-        if (row?.job_id) {
-          await useGeocodingJobStore.getState().attachToJob(row.job_id);
+      type CallSpec = { action: 'partial' | 'chain'; ids: string[] };
+      const calls: CallSpec[] = [];
+      if (filter === 'debt') {
+        if (partition.repairablePartialIds.length > 0) {
+          calls.push({ action: 'partial', ids: partition.repairablePartialIds });
         }
-        toast.success(`Encolados ${enq} ${enq === 1 ? 'punto' : 'puntos'} para reparación`);
+        if (partition.repairableChainIds.length > 0) {
+          calls.push({ action: 'chain', ids: partition.repairableChainIds });
+        }
+      } else {
+        calls.push({
+          action: filter as 'partial' | 'chain',
+          ids: partition.repairableIds,
+        });
+      }
+
+      let totalEnqueued = 0;
+      let firstJobId: string | null = null;
+
+      for (const call of calls) {
+        const { data, error } = await supabase.rpc('enqueue_health_repair', {
+          _action: call.action,
+          _scope_mode: scope.mode,
+          _location_ids: call.ids,
+        });
+        if (error) throw error;
+        const row = Array.isArray(data) ? data[0] : data;
+        const enq = row?.enqueued_count ?? 0;
+        totalEnqueued += enq;
+        if (!firstJobId && row?.job_id) firstJobId = row.job_id;
+      }
+
+      if (totalEnqueued > 0) {
+        if (firstJobId) {
+          await useGeocodingJobStore.getState().attachToJob(firstJobId);
+        }
+        toast.success(
+          `Encolados ${totalEnqueued} ${totalEnqueued === 1 ? 'punto' : 'puntos'} para reparación`,
+        );
         onOpenChange(false);
       } else {
         toast.info('Sin puntos elegibles ahora mismo. Acción auditada.');
@@ -140,11 +277,80 @@ export function HealthRepairPreviewDialog({
     } finally {
       setSubmitting(false);
     }
-  }, [filter, scope.ids, scope.mode, onOpenChange, isRepairableFilter]);
+  }, [
+    filter,
+    partition.repairableIds,
+    partition.repairablePartialIds,
+    partition.repairableChainIds,
+    scope.mode,
+    onOpenChange,
+    isRepairableFilter,
+  ]);
+
+  let confirmLabel: string;
+  if (submitting) confirmLabel = 'Encolando…';
+  else if (exhausted) confirmLabel = 'Sin acciones disponibles';
+  else if (!isRepairableFilter || repairableCount === 0)
+    confirmLabel = 'No hay POIs reparables automáticamente';
+  else
+    confirmLabel = `Reparar automáticamente ${repairableCount} ${repairableCount === 1 ? 'POI' : 'POIs'}`;
+
+  // Conjuntos para exportación global.
+  const nonRepairableLocations = React.useMemo<GeoLocation[]>(
+    () => [
+      ...partition.identityIncomplete,
+      ...partition.systemDebt,
+      ...partition.review,
+      ...partition.nonRepairableByType,
+    ],
+    [partition],
+  );
+
+  const closeAfter = (fn: () => void) => () => {
+    fn();
+    onOpenChange(false);
+  };
+
+  /**
+   * Handoff Root Status B → GeographyBackfillPanel.
+   * NO ejecuta backfill: solo despacha evento con IDs y navega al panel
+   * destino, donde el usuario debe confirmar explícitamente.
+   */
+  const handleOpenGeoMaintenance = React.useCallback(
+    (ids: string[], groupTitle: string) => {
+      if (ids.length === 0) return;
+      dispatchGeoMaintenanceHandoff({
+        locationIds: ids,
+        source: 'health-repair-triage',
+        label: `Resolver deuda · ${groupTitle} · ${ids.length} ${ids.length === 1 ? 'punto' : 'puntos'}`,
+      });
+      onOpenChange(false);
+      navigateToGeoMaintenance();
+    },
+    [onOpenChange],
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent
+        className="max-w-2xl"
+        data-testid="health-repair-preview-dialog"
+        data-filter-mode={filter}
+        data-repairable-count={repairableCount}
+        data-repairable-partial-count={partition.repairablePartialIds.length}
+        data-repairable-chain-count={partition.repairableChainIds.length}
+        data-total={partition.total}
+        data-submitting={submitting ? 'true' : 'false'}
+        data-exhausted={exhausted ? 'true' : 'false'}
+        aria-busy={submitting}
+      >
+        <div aria-live="polite" className="sr-only" data-testid="health-repair-status">
+          {submitting
+            ? 'Encolando reparación…'
+            : exhausted
+              ? 'Sin acciones disponibles'
+              : ''}
+        </div>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span
@@ -152,62 +358,198 @@ export function HealthRepairPreviewDialog({
               className="inline-block w-2.5 h-2.5 rounded-full"
               style={{ background: `hsl(var(${FILTER_CSS_VAR[filter]}))` }}
             />
-            {FILTER_TITLES[filter]} — {scope.total} {scope.total === 1 ? 'punto' : 'puntos'}
+            {FILTER_TITLES[filter]} — {partition.total} {partition.total === 1 ? 'punto' : 'puntos'}
           </DialogTitle>
           <DialogDescription className="flex items-center gap-2 flex-wrap">
             <Badge variant="outline" className="text-xs">
               Modo: {scopeModeLabel(scope.mode)}
             </Badge>
-            <span className="text-xs text-muted-foreground">
-              {isRepairableFilter
-                ? 'Previsualización antes de encolar'
-                : 'Previsualización · sin escritura en BD'}
-            </span>
+            <Badge variant="outline" className="text-xs">
+              Reparables: {repairableCount} / {partition.total}
+            </Badge>
           </DialogDescription>
         </DialogHeader>
 
         <p className="text-xs text-muted-foreground leading-relaxed">
-          {FILTER_HELP[filter]}
+          Solo los reparables automáticamente se encolan. El resto requiere flujo específico.
         </p>
 
-        {sample.length === 0 ? (
+        {partition.total === 0 ? (
           <div className="text-sm text-muted-foreground py-6 text-center">
             No hay puntos en el subconjunto.
           </div>
         ) : (
-          <ul className="divide-y divide-border rounded-md border max-h-72 overflow-y-auto">
-            {sample.map((loc) => {
-              const breadcrumb = getHierarchyBreadcrumb(loc);
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+            {GROUP_ORDER.map((key) => {
+              const list = partition[key];
+              if (list.length === 0) return null;
+              const meta = GROUP_META[key];
+              const isOpen = openGroups[key];
+              const ids = list.map((l) => l.id);
               return (
-                <li key={loc.id} className="px-3 py-2 flex items-start gap-2">
-                  <span
-                    aria-hidden
-                    className="inline-block w-2 h-2 rounded-full mt-1.5 shrink-0"
-                    style={{ background: `hsl(var(${FILTER_CSS_VAR[filter]}))` }}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium truncate">
-                      {loc.name || 'Sin nombre'}
+                <Collapsible
+                  key={key}
+                  open={isOpen}
+                  onOpenChange={(o) =>
+                    setOpenGroups((prev) => ({ ...prev, [key]: o }))
+                  }
+                  className="rounded-md border bg-muted/30"
+                  data-triage-group={key}
+                  data-triage-group-count={list.length}
+                >
+                  <div className="px-3 py-2 border-b bg-muted/40 flex items-center justify-between gap-2">
+                    <CollapsibleTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 text-left flex-1 min-w-0"
+                      >
+                        {isOpen ? (
+                          <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+                        ) : (
+                          <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+                        )}
+                        <span className="text-xs font-semibold truncate">{meta.title}</span>
+                        <Badge variant="outline" className="text-[10px] tabular-nums">
+                          {list.length}
+                        </Badge>
+                      </button>
+                    </CollapsibleTrigger>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {key === 'systemDebt' &&
+                        geoMaintenanceHandoffEnabled &&
+                        ids.length > 0 && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-[11px]"
+                            onClick={() => handleOpenGeoMaintenance(ids, meta.title)}
+                            data-triage-group-action="geo-maintenance"
+                            title="Abrir estos puntos en Mantenimiento Geográfico (allí se confirma antes de ejecutar)"
+                          >
+                            <Wrench className="w-3 h-3 mr-1" />
+                            Abrir en Geo Maintenance
+                          </Button>
+                        )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-[11px]"
+                        onClick={closeAfter(() =>
+                          dispatchExport(list, `Resolver deuda · ${meta.title}`),
+                        )}
+                        data-triage-group-action="export"
+                      >
+                        <Download className="w-3 h-3 mr-1" />
+                        Exportar
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-[11px]"
+                        onClick={closeAfter(() =>
+                          fitToIds(ids, 'health-triage-open-group'),
+                        )}
+                        data-triage-group-action="map"
+                      >
+                        <MapPin className="w-3 h-3 mr-1" />
+                        Mapa
+                      </Button>
                     </div>
-                    {breadcrumb && (
-                      <div className="text-xs text-muted-foreground truncate">
-                        {breadcrumb}
-                      </div>
-                    )}
                   </div>
-                </li>
+                  <div className="px-3 py-1.5 text-[11px] text-muted-foreground leading-snug">
+                    {meta.help} · <span className="italic">Acción recomendada: {meta.recommendation}</span>
+                  </div>
+                  <CollapsibleContent>
+                    <ul className="divide-y divide-border/60">
+                      {list.map((loc) => {
+                        const breadcrumb = getHierarchyBreadcrumb(loc);
+                        const rings = ringChips(loc);
+                        return (
+                          <li
+                            key={loc.id}
+                            className="px-3 py-1.5 flex items-center gap-2"
+                            data-triage-poi-id={loc.id}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-medium truncate flex items-center gap-1.5">
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 leading-none">
+                                  {meta.rootBadge}
+                                </Badge>
+                                <span className="truncate">{loc.name || 'Sin nombre'}</span>
+                              </div>
+                              {breadcrumb && (
+                                <div className="text-[10px] text-muted-foreground truncate">
+                                  {breadcrumb}
+                                </div>
+                              )}
+                              {rings.length > 0 && (
+                                <div className="text-[10px] text-muted-foreground flex flex-wrap gap-1 mt-0.5">
+                                  {rings.map((r) => (
+                                    <span
+                                      key={r}
+                                      className="px-1 rounded bg-muted text-[9px]"
+                                    >
+                                      {r}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0 shrink-0"
+                              title="Abrir en mapa"
+                              aria-label={`Abrir ${loc.name || loc.id} en el mapa`}
+                              onClick={closeAfter(() =>
+                                fitToIds([loc.id], 'health-triage-open-poi'),
+                              )}
+                              data-triage-poi-action="map"
+                            >
+                              <MapPin className="w-3 h-3" />
+                            </Button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </CollapsibleContent>
+                </Collapsible>
               );
             })}
-          </ul>
+          </div>
         )}
 
-        {remainder > 0 && (
-          <p className="text-xs text-muted-foreground text-center">
-            … y {remainder} más
-          </p>
-        )}
-
-        <DialogFooter>
+        <DialogFooter className="flex-wrap gap-2 sm:gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={submitting || partition.total === 0}
+            onClick={closeAfter(() =>
+              dispatchExport(scope.locations, 'Resolver deuda · Todo el scope'),
+            )}
+            data-triage-export-target="all"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Exportar todo ({partition.total})
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={submitting || nonRepairableLocations.length === 0}
+            onClick={closeAfter(() =>
+              dispatchExport(nonRepairableLocations, 'Resolver deuda · No reparables'),
+            )}
+            data-triage-export-target="non-repairable"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Exportar no reparables ({nonRepairableLocations.length})
+          </Button>
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
@@ -215,18 +557,17 @@ export function HealthRepairPreviewDialog({
           >
             Cerrar
           </Button>
-          {isRepairableFilter && (
-            <Button
-              variant="default"
-              onClick={handleConfirm}
-              disabled={!canConfirm}
-            >
-              {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {exhausted
-                ? 'Sin acciones disponibles'
-                : `Reparar (${scope.total})`}
-            </Button>
-          )}
+          <Button
+            variant="default"
+            onClick={handleConfirm}
+            disabled={!canConfirm}
+            data-testid="health-repair-confirm"
+            data-action="confirm"
+            data-repairable-ids-count={repairableCount}
+          >
+            {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            {confirmLabel}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

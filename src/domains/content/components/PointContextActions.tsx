@@ -5,6 +5,7 @@ import {
   Search, ExternalLink, ChevronLeft, Crosshair,
   Building2, Landmark, Anchor, UtensilsCrossed, TreePine, Mountain,
   Replace, Bookmark, Fuel, Coffee, BedDouble, Eye, ParkingCircle, Armchair,
+  AlertCircle, RefreshCw,
 } from 'lucide-react';
 import { PlaceType, PLACE_TYPE_LABELS } from '@/types/location';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,8 @@ import { toast } from 'sonner';
 import { RenormalizeButton } from '@/shared/geography/RenormalizeButton';
 import { NearbyResultCard } from '@/shared/components/ui/nearby-result-card';
 import { setNearbyPopupContextId } from '@/domains/content/lib/nearby-popup-context';
+import { canReplaceCurrentPoi } from '@/domains/content/lib/can-replace-current-poi';
+import { Plus, X } from 'lucide-react';
 
 interface LocationRow {
   id: string;
@@ -83,8 +86,12 @@ export interface NearbyPanelProps {
     nameLocation?: { lat: number; lng: number; title: string; url: string; distanceKm: number };
   } | null;
   /**
-   * 'sidebar' = ocupa toda la altura disponible (Sheet/DocumentFocusView).
-   * 'inline'  = bloque acotado (~60vh) dentro del popup del POI.
+   * 'sidebar' = ocupa toda la altura disponible (Sheet/DocumentFocusView) y
+   *             gestiona su propio scroll vertical.
+   * 'inline'  = bloque en flujo natural dentro del popup del POI. El popup
+   *             es el ÚNICO owner del scroll vertical; este modo NO impone
+   *             max-h ni overflow propios y usa cap + "Ver más / Ver menos"
+   *             en lugar de scroll anidado. Ver P-POI-CURATION-2.2.
    *             Por defecto 'sidebar' para no romper consumidores existentes.
    */
   variant?: 'sidebar' | 'inline';
@@ -182,17 +189,24 @@ function NearbyPointCard({
   enriching: boolean;
   disabled: boolean;
 }) {
+  // P-POI-CURATION-2.3 — meta limpia: solo place_type visible (coords ya las
+  // tiene la tarjeta del POI actual y son ruido en la lista). Las coords
+  // quedan disponibles vía title/aria para QA/accesibilidad.
+  const placeTypeMeta = point.place_type || undefined;
+  const ariaLabel = `${point.name} · ${point.distance_m}m · ${point.latitude.toFixed(4)}, ${point.longitude.toFixed(4)}`;
   return (
     <NearbyResultCard
       name={point.name}
+      density="compact"
       distanceLabel={`${point.distance_m}m`}
-      metaLabel={`${point.latitude.toFixed(4)}, ${point.longitude.toFixed(4)}`}
+      metaLabel={placeTypeMeta}
+      ariaLabel={ariaLabel}
       actionAlwaysVisible={enriching}
       action={
         <Button
           size="icon"
-          variant="default"
-          className="h-8 w-8 rounded-md p-0 shadow-sm"
+          variant={enriching ? 'default' : 'ghost'}
+          className="h-7 w-6 rounded-md p-0"
           disabled={disabled}
           onClick={onEnrich}
           title="Enriquecer aquí"
@@ -200,7 +214,7 @@ function NearbyPointCard({
         >
           {enriching
             ? <Loader2 className="w-4 h-4 animate-spin" />
-            : <Sparkles className="w-4 h-4" />}
+            : <Sparkles className="w-3.5 h-3.5" />}
         </Button>
       }
     />
@@ -212,17 +226,40 @@ function NearbyPointCard({
 export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', onClose, onLocationUpdated, onLocationMerged }: NearbyPanelProps) {
   const [nearbyPoints, setNearbyPoints] = useState<NearbyPoint[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(true);
+  const [errorNearby, setErrorNearby] = useState(false);
   const [enriching, setEnriching] = useState(false);
   const [mergeMode, setMergeMode] = useState(false);
   const [radiusMeters, setRadiusMeters] = useState(500);
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
   const [replacingPoint, setReplacingPoint] = useState(false);
   const [savingPersonal, setSavingPersonal] = useState(false);
-  const [wantReplace, setWantReplace] = useState(false);
-  const [wantPersonal, setWantPersonal] = useState(false);
+  // P-POI-CURATION-2.12 — Fila seleccionada: acción primaria contextual +
+  // secundaria opcional. `extraPersonal` solo aplica cuando la primaria es
+  // "Reemplazar" (POI reparable); en ese caso, expande el category picker
+  // para guardar TAMBIÉN el candidato como POI personal independiente.
+  const [extraPersonal, setExtraPersonal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [executingActions, setExecutingActions] = useState(false);
   const [adoptingId, setAdoptingId] = useState<string | null>(null);
+  // P-POI-CURATION-2.2 — cap inicial inline para evitar listas largas que
+  // generen presión visual sin recurrir a scroll anidado.
+  const [expandedList, setExpandedList] = useState(false);
+  const INLINE_VISIBLE_DEFAULT = 6;
+  // Reset cap on POI change / radius change para no heredar "Ver más" entre POIs.
+  useEffect(() => { setExpandedList(false); }, [location.id, radiusMeters]);
+
+  // P-POI-CURATION-2.7 — Buscador manual inline: refinamiento sin remount.
+  // Vacío => modo automático (grupos). >=2 chars => modo búsqueda (lista plana
+  // filtrada client-side sobre nearbyPoints). El header (radio + input + punto
+  // actual) permanece estable; solo cambia la zona de resultados.
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+  // Reset query al cambiar de POI; no al cambiar radio (la query sobrevive).
+  useEffect(() => { setSearchQuery(''); setDebouncedQuery(''); }, [location.id]);
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
   const documents = useLocationsStore(state => state.documents);
   const selectedRef = useRef<HTMLDivElement | null>(null);
@@ -277,6 +314,7 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
 
   const searchNearby = useCallback(async () => {
     setLoadingNearby(true);
+    setErrorNearby(false);
     setNearbyPoints([]);
     try {
       const degRadius = (radiusMeters / 111320) * 1.2; // approximate, with margin
@@ -371,6 +409,7 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
       dispatchMapMarkers(results, { lat: location.latitude, lng: location.longitude }, radiusMeters);
     } catch (e) {
       console.error('Error searching nearby:', e);
+      setErrorNearby(true);
       toast.error('Error buscando puntos cercanos');
     } finally {
       setLoadingNearby(false);
@@ -482,13 +521,25 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
     } catch { toast.error('Error al fusionar'); }
   };
 
-  // Replace the original imported point with a nearby point's real data
+  // P-POI-CURATION-2.13 — Adopción nearby + re-curación canónica.
+  //
+  // Para `own`: sigue siendo merge con soft-delete + onClose (el POI abierto
+  // deja de existir, no aplica re-curación).
+  //
+  // Para `osm` / `followed`: promoción de identidad in-place. El popup
+  // permanece abierto durante TODO el pipeline y se re-cura sobre la nueva
+  // identidad reutilizando `advancePoiCurationUntilBlocked`:
+  //   1. UPDATE name/lat/lng/place_type + reset enriched_data + status=pending
+  //   2. updateLocation(store) in-place — sin remount del popup
+  //   3. enrichmentFailureStore.invalidate(id)
+  //   4. setNearbyPopupContextId(null) — ya somos el POI, no la vista de vecino
+  //   5. advancePoiCurationUntilBlocked → validate-geo → enrich → recompute
+  //   6. Toast final según blocker
   const handleReplaceWithPoint = async (nearbyPoint: NearbyPoint) => {
     setReplacingPoint(true);
     try {
       if (nearbyPoint.source === 'own') {
-        // The nearby point already exists in user's collection — merge by soft-deleting original
-        // Transfer enrichment data if the original has it and the target doesn't
+        // Merge clásico — el POI abierto deja de existir.
         const mergedData: Record<string, any> = {};
         if (!nearbyPoint.enriched_data && location.enriched_data) {
           mergedData.enriched_data = location.enriched_data;
@@ -497,46 +548,76 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
         if (Object.keys(mergedData).length > 0) {
           await supabase.from('locations').update(mergedData).eq('id', nearbyPoint.id);
         }
-        // Soft-delete the original
         await supabase.from('locations').update({ deleted_at: new Date().toISOString() }).eq('id', location.id);
         onLocationMerged(nearbyPoint.id, location.id);
         toast.success(`Fusionado con "${nearbyPoint.name}" (original eliminado)`);
-      } else {
-        // OSM/followed — update the original point with the nearby data
-        const { error } = await supabase.from('locations').update({
-          name: nearbyPoint.name,
-          latitude: nearbyPoint.latitude,
-          longitude: nearbyPoint.longitude,
-          description: nearbyPoint.description || location.description,
-          place_type: nearbyPoint.place_type || location.place_type,
-          updated_at: new Date().toISOString(),
-        }).eq('id', location.id);
-        if (error) throw error;
-
-        const updated = {
-          ...location,
-          name: nearbyPoint.name,
-          latitude: nearbyPoint.latitude,
-          longitude: nearbyPoint.longitude,
-          description: nearbyPoint.description || location.description,
-          place_type: nearbyPoint.place_type || location.place_type,
-        };
-        onLocationUpdated(updated);
-        useLocationsStore.getState().updateLocation(location.id, {
-          name: nearbyPoint.name,
-          coordinates: { lat: nearbyPoint.latitude, lng: nearbyPoint.longitude },
-          description: nearbyPoint.description || location.description || undefined,
-        });
-        toast.success(`Punto reemplazado por "${nearbyPoint.name}"`);
-
-        // OSM identity → trigger AI enrichment now that we have a real name
-        if (nearbyPoint.source === 'osm') {
-          const { triggerEnrichLocation } = await import('@/domains/content/lib/enrich-location');
-          triggerEnrichLocation(location.id).catch(() => {});
-        }
+        clearMapMarkers();
+        onClose();
+        return;
       }
-      clearMapMarkers();
-      onClose();
+
+      // ── osm / followed: promoción de identidad + re-curación in-place ──
+      const { error } = await supabase.from('locations').update({
+        name: nearbyPoint.name,
+        latitude: nearbyPoint.latitude,
+        longitude: nearbyPoint.longitude,
+        description: null,
+        place_type: nearbyPoint.place_type || location.place_type,
+        enriched_data: null,
+        enrichment_status: 'pending',
+        updated_at: new Date().toISOString(),
+      }).eq('id', location.id);
+      if (error) throw error;
+
+      const updated = {
+        ...location,
+        name: nearbyPoint.name,
+        latitude: nearbyPoint.latitude,
+        longitude: nearbyPoint.longitude,
+        description: null,
+        place_type: nearbyPoint.place_type || location.place_type,
+        enriched_data: null,
+        enrichment_status: 'pending',
+      };
+      onLocationUpdated(updated);
+      useLocationsStore.getState().updateLocation(location.id, {
+        name: nearbyPoint.name,
+        coordinates: { lat: nearbyPoint.latitude, lng: nearbyPoint.longitude },
+        description: undefined,
+        enrichedData: undefined,
+        enrichmentStatus: 'pending' as any,
+        placeType: (nearbyPoint.place_type || location.place_type) as any,
+      });
+
+      // Invalidar caches relacionadas antes de relanzar curación.
+      enrichmentFailureStore.invalidate(location.id);
+      setNearbyPopupContextId(null);
+
+      // Re-curación end-to-end. El popup NO se cierra, queda con overlay
+      // P-POPUP-16 hasta el final del pipeline.
+      const { getPopupIdForLocation } = await import('@/components/map/popup-operational-state');
+      const { advancePoiCurationUntilBlocked } = await import(
+        '@/domains/content/lib/advance-poi-curation'
+      );
+      const popupId = getPopupIdForLocation(location.id);
+      try {
+        const result = await advancePoiCurationUntilBlocked(
+          location.id,
+          'validate-geo',
+          popupId,
+        );
+        if (result.blocker === 'none') {
+          toast.success(`POI re-curado como "${nearbyPoint.name}"`);
+        } else {
+          toast.message(result.message);
+        }
+      } catch (e) {
+        console.error('[adopt-nearby-recuration] error:', e);
+        toast.error('No se pudo re-curar el POI');
+      } finally {
+        const { clearPopupOperationalState } = await import('@/components/map/popup-operational-state');
+        clearPopupOperationalState(popupId);
+      }
     } catch {
       toast.error('Error al reemplazar punto');
     } finally {
@@ -597,17 +678,26 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
     }
   };
 
-  // Execute all selected actions for a point
+  // P-POI-CURATION-2.12 — Ejecuta la decisión de la fila seleccionada.
+  // La acción primaria depende de si el POI actual es reparable:
+  //   reparable  → replace (+ opcional: guardar personal si extraPersonal).
+  //   no rep.    → guardar personal (única primaria posible).
   const handleExecuteActions = async (nearbyPoint: NearbyPoint) => {
+    const replaceable = canReplaceCurrentPoi(location, { mismatch });
     setExecutingActions(true);
     try {
-      if (wantReplace) await handleReplaceWithPoint(nearbyPoint);
-      if (wantPersonal && selectedCategory) {
-        const preset = PERSONAL_CATEGORY_PRESETS.find(p => p.label === selectedCategory);
-        if (preset) await handleSaveAsPersonal(nearbyPoint, preset.label, preset.defaultPlaceType);
-      }
-      if (!wantReplace) {
-        // If we didn't replace (which already closes), just show success
+      if (replaceable) {
+        await handleReplaceWithPoint(nearbyPoint);
+        if (extraPersonal && selectedCategory) {
+          const preset = PERSONAL_CATEGORY_PRESETS.find(p => p.label === selectedCategory);
+          if (preset) await handleSaveAsPersonal(nearbyPoint, preset.label, preset.defaultPlaceType);
+        }
+        // handleReplaceWithPoint ya hace clearMapMarkers + onClose
+      } else {
+        if (selectedCategory) {
+          const preset = PERSONAL_CATEGORY_PRESETS.find(p => p.label === selectedCategory);
+          if (preset) await handleSaveAsPersonal(nearbyPoint, preset.label, preset.defaultPlaceType);
+        }
         clearMapMarkers();
         onClose();
       }
@@ -620,15 +710,13 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
     // Toggle: si la fila ya estaba seleccionada, deselecciona y limpia foco.
     if (selectedPointId === point.id) {
       setSelectedPointId(null);
-      setWantReplace(false);
-      setWantPersonal(false);
+      setExtraPersonal(false);
       setSelectedCategory(null);
       setNearbyPopupContextId(null);
       return;
     }
     setSelectedPointId(point.id);
-    setWantReplace(false);
-    setWantPersonal(false);
+    setExtraPersonal(false);
     setSelectedCategory(null);
     // Marca el id como "abierto desde Contexto cercano" ANTES de focar,
     // para que el popup se renderice ya en su variante reducida.
@@ -640,6 +728,8 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
       detail: { lat: point.latitude, lng: point.longitude, zoom: 17 },
     }));
   };
+
+
 
   const selectedPoint = nearbyPoints.find(p => p.id === selectedPointId) || null;
   const suggestedCategory = selectedPoint ? suggestCategory(selectedPoint.place_type) : null;
@@ -671,27 +761,33 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
   };
 
   const isInline = variant === 'inline';
-  // Inline: el popup-root (popup-scroll-body) gestiona el ÚNICO scroll. No
-  // imponer max-h ni overflow aquí — ver mem://ui/map/popup-dimensions-and-scrolling.
+  // P-POI-CURATION-2.2 — Inline: el popup-scroll-body es el ÚNICO owner del
+  // scroll vertical. Aquí NO se impone max-h ni overflow-y; el bloque fluye
+  // como contenido natural del cuerpo del popup. Ver
+  // mem://ui/map/popup-dimensions-and-scrolling y docs/contracts/poi-curation-levels.md.
   const rootClass = isInline
-    ? 'flex min-h-0 w-full min-w-0 flex-col overflow-hidden border-t border-border/60 bg-background'
+    ? 'flex w-full min-w-0 flex-col border-t border-border/60 bg-background'
     : 'flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overflow-x-hidden';
-  const inlineRootStyle = isInline
-    ? {
-        maxHeight: 'calc(100dvh - var(--top-header-h, 72px) - var(--bottom-overlay-safe-h, 0px) - 24px)',
-      }
-    : undefined;
-  const padX = isInline ? 'px-1.5' : 'px-3';
+  const inlineRootStyle = undefined;
+  // P-POI-CURATION-2.3 — Inline edge-to-edge: el bloque ocupa todo el ancho útil
+  // del popup-content (sin padding horizontal propio). El popup-shell ya define
+  // su propio padding para hero/breadcrumb; aquí maximizamos área de lectura
+  // para nombres largos sin tocar `CARD.maxWidth`.
+  const padX = isInline ? 'px-0' : 'px-3';
 
   return (
-    <div className={rootClass} style={inlineRootStyle}>
+    <div
+      className={rootClass}
+      style={inlineRootStyle}
+      data-nearby-scroll-owner={isInline ? 'popup' : 'self'}
+    >
       {/* Header */}
-      <div className={`space-y-1 overflow-x-hidden border-b bg-muted/30 ${padX} py-2`}>
+      <div className={`overflow-x-hidden border-b border-border/40 ${padX} pt-2 pb-2.5`}>
 
-
-        {/* Radius slider */}
-        <div className="flex items-center gap-2 px-1 pt-1 overflow-hidden">
-          <span className="text-[10px] text-muted-foreground whitespace-nowrap">Radio</span>
+        {/* Radius slider — compactado para reducir tensión visual y dejar
+            que el buscador respire abajo. */}
+        <div className="flex items-center gap-2 px-1 overflow-hidden">
+          <span className="text-[11px] uppercase tracking-wide text-muted-foreground/80 whitespace-nowrap">Radio</span>
           <Slider
             value={[radiusMeters]}
             onValueChange={([v]) => setRadiusMeters(v)}
@@ -702,26 +798,73 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
             trackClassName="h-[3px]"
             thumbClassName="h-3.5 w-3.5 border"
           />
-          <span className="text-[10px] font-medium tabular-nums w-10 text-right shrink-0">{radiusMeters}m</span>
+          <span className="text-[10px] tabular-nums w-10 text-right shrink-0 text-muted-foreground">{radiusMeters}m</span>
         </div>
+
+        {/* P-POI-CURATION-2.9 — Buscador manual inline con jerarquía propia.
+            Sub-bloque separado del slider de Radio por divisor sutil
+            (border-t border-border/30). Input con presencia vertical
+            (h-8, text-[13px]) y contraste reforzado (bg-muted/60). Sigue
+            siendo única excepción a la flat surface dentro del header:
+            affordance de control activo, no sub-card editorial.
+            Flujo legible: Radio → Buscar/refinar → Resultados.
+            Vacío => modo automático. >=2 chars => modo búsqueda. */}
+        {!loadingNearby && !errorNearby && (
+          <div className="mt-3 pt-3 border-t border-border/30">
+            <div
+              className="flex items-center gap-2 h-8 px-2.5 rounded-md bg-muted/60 border border-border/70 focus-within:border-primary/60 focus-within:bg-background transition-colors"
+              data-nearby-search-input
+            >
+              <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar otro punto cercano…"
+                className="flex-1 min-w-0 bg-transparent border-0 p-0 text-[13px] placeholder:text-muted-foreground/70 focus:outline-none focus:ring-0"
+                aria-label="Buscar otro punto cercano"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="shrink-0 h-6 w-6 rounded inline-flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground text-[14px] leading-none"
+                  aria-label="Limpiar búsqueda"
+                  data-nearby-search-clear
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Current point card */}
+      {/* Current point — renglón editorial sin caja. P-POI-CURATION-2.4:
+          el POI activo es la referencia principal, reconocible por eyebrow
+          + tipografía + icono en color primary, no por un contenedor card. */}
       <div className={`min-w-0 shrink-0 ${padX} pt-3`}>
-        <div className="w-full min-w-0 overflow-hidden rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <Navigation className="w-3.5 h-3.5 text-primary" />
-            <span className="min-w-0 truncate text-[12px] font-semibold">{location.name}</span>
-            {location.place_type && <Badge variant="secondary" className="h-4 shrink-0 text-[9px]">{location.place_type}</Badge>}
+        <div
+          className="flex flex-col gap-0.5 border-l-2 border-primary/60 pl-2"
+          data-current-point-surface="flat"
+        >
+          <span className="text-[9px] font-semibold uppercase tracking-wider text-primary/80">
+            Punto actual
+          </span>
+          <div className="flex min-w-0 items-baseline gap-2">
+            <Navigation className="w-3.5 h-3.5 text-primary shrink-0 self-center" />
+            <span className="min-w-0 truncate text-[13px] font-semibold text-foreground">
+              {location.name}
+            </span>
+            {location.place_type && (
+              <span className="shrink-0 text-[10px] text-muted-foreground">
+                · {location.place_type}
+              </span>
+            )}
+            <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/80">
+              {hasRealEnrichment(location) ? 'Ya enriquecido' : 'Sin enriquecer'}
+            </span>
           </div>
-          <p className="text-[10px] text-muted-foreground pl-5">
-            {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
-          </p>
-          {hasRealEnrichment(location) ? (
-            <p className="text-[10px] text-amber-600 pl-5 flex items-center gap-1"><Sparkles className="w-2.5 h-2.5" /> Ya enriquecido</p>
-          ) : (
-            <p className="text-[10px] text-muted-foreground pl-5">Sin enriquecer</p>
-          )}
         </div>
       </div>
 
@@ -764,12 +907,36 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
         </div>
       )}
 
-      {/* Results — inline: scroll interno para no desbordar el alto visible del popup; card: scroll propio */}
-      <div className={`flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden ${padX} pb-8 pt-3`} style={isInline ? { overscrollBehavior: 'contain' } : undefined}>
+      {/* Results — inline: flujo natural sin scroll propio (popup es único owner);
+          card: scroll propio dentro del Sheet/Dialog. Ver P-POI-CURATION-2.2. */}
+      <div
+        className={
+          isInline
+            ? `w-full min-w-0 overflow-x-hidden ${padX} pb-4 pt-3`
+            : `flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden ${padX} pb-8 pt-3`
+        }
+        data-nearby-results
+        data-nearby-overflow={isInline ? 'none' : 'auto'}
+      >
         {loadingNearby ? (
-          <div className="flex items-center justify-center py-8 gap-2">
+          <div className="flex items-center justify-center py-8 gap-2" data-nearby-state="loading">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Buscando cercanos...</span>
+            <span className="text-sm text-muted-foreground">Buscando puntos cercanos…</span>
+          </div>
+        ) : errorNearby ? (
+          <div className="text-center py-6 space-y-2" data-nearby-state="error">
+            <AlertCircle className="w-7 h-7 mx-auto text-amber-600" />
+            <p className="text-sm text-muted-foreground">No se pudo cargar el contexto cercano.</p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-[11px] gap-1.5"
+              onClick={() => searchNearby()}
+              data-nearby-action="retry"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Reintentar
+            </Button>
           </div>
         ) : nearbyPoints.length === 0 ? (
           <div className="text-center py-8 space-y-2">
@@ -794,9 +961,48 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
               </button>
             ))}
           </div>
-        ) : (
-          <div className="min-w-0 space-y-2 pb-8">
-            {groupByCategory(nearbyPoints).map(group => (
+        ) : (() => {
+          // P-POI-CURATION-2.2 — cap inicial inline + "Ver más / Ver menos"
+          // sustituye al scroll anidado. En variant card no se capa.
+          // P-POI-CURATION-2.7 — manual search refinement
+          const isSearchMode = debouncedQuery.length >= 2;
+          const _normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const _filtered = isSearchMode
+            ? nearbyPoints.filter(p => _normalize(p.name || '').includes(_normalize(debouncedQuery)))
+            : nearbyPoints;
+          type GroupRow = ReturnType<typeof groupByCategory>[number];
+          const allGroups: GroupRow[] = isSearchMode
+            ? [{ category: '__search__' as any, meta: { label: 'Resultados para "' + debouncedQuery + '"', icon: <Search className="w-3 h-3" />, order: 0 } as any, points: _filtered.slice().sort((a, b) => a.distance_m - b.distance_m) }]
+            : groupByCategory(_filtered);
+          const cap = (isInline && !expandedList && !isSearchMode) ? INLINE_VISIBLE_DEFAULT : Infinity;
+          const cappedGroups: GroupRow[] = [];
+          let shown = 0;
+          for (const g of allGroups) {
+            if (shown >= cap) break;
+            const remaining = cap - shown;
+            const pts = remaining >= g.points.length ? g.points : g.points.slice(0, remaining);
+            cappedGroups.push({ ...g, points: pts });
+            shown += pts.length;
+          }
+          const hidden = _filtered.length - shown;
+          const showToggle = isInline && !isSearchMode && (hidden > 0 || expandedList);
+          if (isSearchMode && _filtered.length === 0) {
+            return (
+              <div className="min-w-0 text-center py-6 space-y-1" data-nearby-search-results="1" data-nearby-search-empty="1">
+                <p className="text-[12px] text-muted-foreground">Sin resultados para "{debouncedQuery}" en {radiusMeters}m</p>
+                <p className="text-[10px] text-muted-foreground/70">Prueba ampliar el radio o cambiar el termino.</p>
+              </div>
+            );
+          }
+          return (
+          <div
+            className="min-w-0 space-y-2 pb-2"
+            data-nearby-list
+            data-nearby-visible-count={shown}
+            data-nearby-mode={isSearchMode ? 'search' : 'auto'}
+            {...(isSearchMode ? { 'data-nearby-search-results': '1' } : {})}
+          >
+            {cappedGroups.map(group => (
               <div key={group.category} className="min-w-0">
                 <div className="mb-2 flex min-w-0 items-center gap-1.5 text-muted-foreground">
                   {group.meta.icon}
@@ -817,73 +1023,129 @@ export function NearbyPanel({ location, userId, mismatch, variant = 'sidebar', o
                         disabled={adoptingId !== null}
                         onEnrich={(e) => { e.stopPropagation(); handleAdoptNearby(p); }}
                       />
-                      {selectedPointId === p.id && (
-                        <div className="space-y-2 px-3 pb-3">
-                          <div className="flex items-center gap-1 text-[10px] text-primary">
-                            <Crosshair className="w-3 h-3" />
-                            <span>Seleccionado en mapa</span>
-                          </div>
-                          {/* Actions as inline checkboxes */}
-                          <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-                            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-foreground hover:text-primary transition-colors">
-                              <input
-                                type="checkbox"
-                                className="h-3.5 w-3.5 rounded border-border accent-primary"
-                                checked={wantReplace}
-                                onChange={() => setWantReplace(!wantReplace)}
-                              />
-                              <Replace className="w-3 h-3 shrink-0" />
-                              <span>Reemplazar importado</span>
-                            </label>
-                            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-foreground hover:text-primary transition-colors">
-                              <input
-                                type="checkbox"
-                                className="h-3.5 w-3.5 rounded border-border accent-primary"
-                                checked={wantPersonal}
-                                onChange={() => { setWantPersonal(!wantPersonal); if (wantPersonal) setSelectedCategory(null); }}
-                              />
-                              <Bookmark className="w-3 h-3 shrink-0" />
-                              <span>Punto personal</span>
-                            </label>
-                          </div>
-                          {/* Category picker when "Punto personal" is checked */}
-                          {wantPersonal && (
-                            <div className="flex flex-wrap gap-1 rounded-md border border-border bg-muted/30 p-2" onClick={(e) => e.stopPropagation()}>
-                              {PERSONAL_CATEGORY_PRESETS.map((preset) => (
-                                <Button
-                                  key={preset.label}
-                                  variant={selectedCategory === preset.label ? 'default' : 'outline'}
-                                  size="sm"
-                                  className="h-6 text-[10px] gap-1 px-2"
-                                  onClick={() => setSelectedCategory(selectedCategory === preset.label ? null : preset.label)}
-                                >
-                                  {preset.icon}
-                                  {preset.label}
-                                </Button>
-                              ))}
+                      {selectedPointId === p.id && (() => {
+                        // P-POI-CURATION-2.12 — Canon de decisión:
+                        // primaria contextual (replace si reparable, si no
+                        // personal) + secundaria opcional (solo en replace).
+                        const replaceable = canReplaceCurrentPoi(location, { mismatch });
+                        const showExtra = replaceable && extraPersonal;
+                        const needsCategory = (replaceable && extraPersonal) || !replaceable;
+                        const ctaDisabled =
+                          executingActions || (needsCategory && !selectedCategory);
+                        const primaryLabel = replaceable
+                          ? (showExtra && selectedCategory
+                              ? 'Reemplazar y guardar personal'
+                              : 'Usar como este punto')
+                          : 'Guardar como punto personal';
+                        const PrimaryIcon = replaceable ? Replace : Bookmark;
+                        return (
+                          <div
+                            className="flex flex-col gap-2 px-3 pb-3"
+                            data-selected-row-actions="v1"
+                            data-replaceable={replaceable ? 'true' : 'false'}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center gap-1 text-[10px] text-primary">
+                              <Crosshair className="w-3 h-3" />
+                              <span>Seleccionado en mapa</span>
                             </div>
-                          )}
-                          {/* Save button */}
-                          {(wantReplace || (wantPersonal && selectedCategory)) && (
+
+                            {/* PRIMARIA — botón sólido, full-width. Acción única. */}
                             <Button
                               size="sm"
-                              className="w-full h-7 text-[11px] gap-1.5"
-                              disabled={executingActions || (wantPersonal && !selectedCategory)}
+                              className="h-8 w-full gap-1.5 text-[12px]"
+                              disabled={ctaDisabled}
+                              data-selected-row-primary={replaceable ? 'replace' : 'personal'}
                               onClick={(e) => { e.stopPropagation(); handleExecuteActions(p); }}
                             >
-                              {executingActions ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                              Guardar{wantReplace && wantPersonal ? ' ambas acciones' : ''}
+                              {executingActions
+                                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                : <PrimaryIcon className="w-3.5 h-3.5" />}
+                              {primaryLabel}
                             </Button>
-                          )}
-                        </div>
-                      )}
+
+                            {/* SECUNDARIA — solo cuando la primaria es replace.
+                                Link discreto que expande el category picker. */}
+                            {replaceable && !extraPersonal && (
+                              <button
+                                type="button"
+                                className="self-start inline-flex items-center gap-1 text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                                data-selected-row-secondary="expand-personal"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExtraPersonal(true);
+                                }}
+                              >
+                                <Plus className="w-3 h-3" />
+                                Guardar también como punto personal
+                              </button>
+                            )}
+
+                            {/* Category picker — para primaria personal
+                                (siempre) o para secundaria expandida. */}
+                            {needsCategory && (
+                              <div className="flex flex-col gap-1.5" data-personal-category-picker>
+                                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                                  <span>Categoría</span>
+                                  {replaceable && extraPersonal && (
+                                    <button
+                                      type="button"
+                                      className="inline-flex items-center gap-0.5 hover:text-foreground"
+                                      data-selected-row-secondary="cancel-personal"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExtraPersonal(false);
+                                        setSelectedCategory(null);
+                                      }}
+                                      aria-label="Cancelar guardar personal"
+                                    >
+                                      <X className="w-3 h-3" />
+                                      cancelar
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {PERSONAL_CATEGORY_PRESETS.map((preset) => (
+                                    <Button
+                                      key={preset.label}
+                                      variant={selectedCategory === preset.label ? 'default' : 'outline'}
+                                      size="sm"
+                                      className="h-6 gap-1 px-2 text-[10px]"
+                                      onClick={() => setSelectedCategory(
+                                        selectedCategory === preset.label ? null : preset.label,
+                                      )}
+                                    >
+                                      {preset.icon}
+                                      {preset.label}
+                                    </Button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>
               </div>
             ))}
+            {showToggle && (
+              <div className="pt-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-full text-[11px] text-muted-foreground hover:text-foreground"
+                  onClick={() => setExpandedList(v => !v)}
+                  data-nearby-action={expandedList ? 'collapse' : 'expand'}
+                >
+                  {expandedList ? 'Ver menos' : `Ver más (${hidden} restantes)`}
+                </Button>
+              </div>
+            )}
           </div>
-        )}
+          );
+        })()}
         </div>
 
       {/* Footer */}

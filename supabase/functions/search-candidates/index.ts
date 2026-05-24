@@ -20,6 +20,7 @@ const corsHeaders = {
 };
 import { getEnabledSourceCodes } from '../_shared/data-sources.ts';
 import { searchVillageCatalogs } from '../_shared/village-catalogs/index.ts';
+import { mapGooglePlace } from './google-places-mapper.ts';
 
 type SourceCode =
   | 'wikipedia-es'
@@ -41,6 +42,15 @@ interface Candidate {
   locality?: string;
   region?: string;
   country?: string;
+  /**
+   * Identidad externa estructurada cuando la fuente la expone.
+   * Hoy sólo poblado por `google-places` (Places API New) → `places.id`.
+   * Otras fuentes lo dejan undefined.
+   * Consumido por <UnenrichedRecoveryBlock> para persistir
+   * `external_refs.maps.google.placeId` al adoptar el candidato.
+   */
+  placeId?: string;
+  provider?: 'google';
 }
 
 interface Body {
@@ -250,15 +260,8 @@ async function searchGooglePlaces(
     const data = await res.json();
     const places: any[] = data?.places ?? [];
     return places
-      .filter((p) => p?.location?.latitude && p?.location?.longitude)
-      .map((p) => ({
-        name: p.displayName?.text || term,
-        lat: p.location.latitude,
-        lng: p.location.longitude,
-        country: p.formattedAddress,
-        url: p.websiteUri || `https://www.google.com/maps/place/?q=place_id:${p.id}`,
-        source: 'google-places' as const,
-      }));
+      .map((p) => mapGooglePlace(p, term))
+      .filter((c): c is NonNullable<typeof c> => c !== null);
   } catch {
     return [];
   }
