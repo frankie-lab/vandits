@@ -238,7 +238,7 @@ export function HealthRepairPreviewDialog({
   else
     confirmLabel = `Confirmar reparación de ${repairableCount} ${repairableCount === 1 ? 'POI reparable' : 'POIs reparables'}`;
 
-  const groupOrder: Array<Exclude<keyof RepairPartition, 'repairableIds' | 'total'>> = [
+  const groupOrder: Array<Exclude<keyof RepairPartition, 'repairableIds' | 'repairablePartialIds' | 'repairableChainIds' | 'total'>> = [
     'repairable',
     'identityIncomplete',
     'systemDebt',
@@ -251,7 +251,10 @@ export function HealthRepairPreviewDialog({
       <DialogContent
         className="max-w-lg"
         data-testid="health-repair-preview-dialog"
+        data-filter-mode={filter}
         data-repairable-count={repairableCount}
+        data-repairable-partial-count={partition.repairablePartialIds.length}
+        data-repairable-chain-count={partition.repairableChainIds.length}
         data-total={partition.total}
         data-submitting={submitting ? 'true' : 'false'}
         data-exhausted={exhausted ? 'true' : 'false'}
