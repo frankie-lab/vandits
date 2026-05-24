@@ -50,6 +50,9 @@ vi.mock('@/stores/geocoding-job-store', () => ({
 
 vi.mock('@/components/map/subset-fit', () => ({ requestSubsetFit: vi.fn() }));
 vi.mock('@/shared/geography/hierarchy', () => ({ getHierarchyBreadcrumb: () => '' }));
+vi.mock('@/domains/identity/hooks/use-permissions', () => ({
+  useCapability: () => ({ allowed: false, loading: false }),
+}));
 
 // id-prefix → rootStatus + rings.
 //   a* → A, b* → B, c* → C, dp* → D+partial, dc* → D+chain,
