@@ -69,7 +69,8 @@ publicados; algunas son hitos **reconstructed** para fijar memoria histórica.
   1.3.19       PR-EXPORT-2 — exportación canónica POI (CSV/KML/JSON v2/GeoJSON) basada en PoiExportRecord  (stable)
   1.4.0        Discovery: árbol unificado + Root Status A/B/C/D + footer contextual + triage Resolver deuda + counts unificados  (stable)
   1.4.1        Root Status B → Geo Maintenance scoped (bridge UX/operativo, sin escritura desde modal)  (stable)
-  1.4.2        DebtResolutionPanel Fase 1 — subvista lateral "Resolver deuda" en Buscar y Filtrar; modal queda como fallback/confirmación  ← versión actual (stable / current)
+  1.4.2        DebtResolutionPanel Fase 1 — subvista lateral "Resolver deuda" en Buscar y Filtrar; modal queda como fallback/confirmación  (stable)
+  1.4.3        Mantener → Con deuda opera inline; "Resolver deuda" abre directamente modal de confirmación (DebtResolutionPanel fuera del flujo principal); footer respeta selección local debt  ← versión actual (stable / current)
 
 
 2.x — Futuro
