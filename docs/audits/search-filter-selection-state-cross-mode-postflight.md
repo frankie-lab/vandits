@@ -144,3 +144,26 @@ Listo para cerrar. La regla "estado cruzado entre pestañas" queda
 formalizada: header y footer derivan SIEMPRE del `universeBase` activo;
 Eliminar usa `destructiveActionSet`; los subtabs comparten SoT con el
 árbol y el footer.
+
+---
+
+## Cerrado para alcance cross-mode header/selection fix
+
+Validación visual ejecutada en los 5 casos canónicos (Explorar, Con deuda
+sin/with selección, switch a Sin enriquecer, Sin enriquecer sin selección):
+**PASS** en todos para el alcance del fix.
+
+Confirmado:
+
+- Header usa `universeBase` activo.
+- Míos / Seguidos usan `Tm` / `Ts` derivados del `universeBase` activo.
+- Cambio Con deuda ↔ Sin enriquecer recalcula sin contaminación.
+- "Eliminar" sólo aparece con selección manual (`destructiveActionSet`).
+- "Seleccionar todo" materializa correctamente el `universeBase` activo.
+- Footer usa `effectiveActionSet` / `destructiveActionSet` correctamente.
+
+Divergencia residual aislada al **subtab "Con deuda" (22 vs 18)** queda
+**fuera de alcance** de este PR. Tracked en
+`docs/audits/search-filter-debt-subtab-count-mismatch-ticket.md`.
+
+**Estado: CERRADO** para el alcance cross-mode header/selection fix.
