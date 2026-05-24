@@ -817,5 +817,5 @@ function DebtAwareFooter({
 // Helper local: evita romper si el provider no está montado (defensa en
 // profundidad — DebtSelectionProvider DEBE estar montado por el wrapper).
 function useDebtSelectionFromCtx() {
-  return useDebtSelectionCtx();
+  return useDebtSelection();
 }
