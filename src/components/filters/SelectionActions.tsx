@@ -25,12 +25,6 @@ import {
   Eye,
   EyeOff,
   FolderInput,
-  FileCode,
-  FileSpreadsheet,
-  FileJson,
-  Globe2,
-  Map as MapIcon,
-  Mountain,
   Plus,
   X,
 } from 'lucide-react';
@@ -66,33 +60,14 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLocationsStore } from '@/domains/content';
-import { useAuth } from '@/domains/identity';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-// NOTE: serializers ya no se importan aquí — pipeline canónico abajo.
-import {
-  EXPORT_EXCLUSION_LABEL,
-} from '@/domains/content/lib/poi-export-eligibility';
-import {
-  runPoiExport,
-  downloadPoiExportBlob,
-  type PoiExportOrigin,
-} from '@/domains/content/lib/poi-export-pipeline';
-import {
-  PoiExportSizeError,
-  POI_EXPORT_SIZE_THRESHOLDS,
-  type PoiExportFormat,
-  type PoiExportScope,
-} from '@/domains/content/lib/poi-export-record';
-import { useExportTracking } from '@/hooks/use-export-tracking';
+import { ExportResolverDialog } from '@/domains/content/components/ExportResolver';
 import {
   GeoLocation,
   PLACE_TYPE_LABELS,
   PlaceType,
 } from '@/types/location';
-
-type ExportTarget = 'mymaps' | 'gurumaps' | 'general';
-const SELECTION_ORIGIN: PoiExportOrigin = 'selection';
 
 const PLACE_TYPES = Object.keys(PLACE_TYPE_LABELS) as PlaceType[];
 
