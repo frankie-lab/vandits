@@ -21,6 +21,23 @@ vi.mock('sonner', () => ({
 }));
 vi.mock('@/lib/global-events', () => ({ dispatchGlobalEvent: vi.fn() }));
 
+// PR-INLINE-3.1: este test asume que mode='debt' SIEMPRE muestra primary
+// "Resolver deuda" + dropdown con "Exportar". Para que eso siga siendo
+// cierto, todos los locs del fixture deben clasificarse como D + ring
+// 'partial' (= repairable). Sin esto, repairableCount=0 y el primary cambia
+// a Exportar (lo que oculta el item duplicado del dropdown).
+vi.mock('@/domains/content/lib/poi-identity-root-status-client', () => ({
+  classifyPoiRootStatusForLocation: () => ({
+    rootStatus: 'D',
+    eligibleForAutoEnrich: true,
+    reason: 'test-pr-inline-3-1-shim',
+  }),
+}));
+vi.mock('@/domains/content/lib/point-health-rings', () => ({
+  getPointHealthRings: () => ['partial'],
+}));
+
+
 // Polyfills jsdom para Radix DropdownMenu (pointer capture + scrollIntoView).
 beforeEach(() => {
   if (!(Element.prototype as any).hasPointerCapture) {
