@@ -1,4 +1,4 @@
-# VANDITS v1.5.0
+# VANDITS v1.5.1
 
 <!--
   ┌──────────────────────────────────────────────────────────────┐
@@ -13,7 +13,7 @@
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.5.0-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.5.1-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -104,6 +104,9 @@ Ver [`docs/`](./docs/) para documentación técnica completa.
 > versiones más recientes, sincronizado por
 > `scripts/release/bump-version.ts` y verificado por
 > `src/test/version-parity.test.ts`.
+
+### v1.5.1 (2026-05-24)
+- PR-MAINTAIN-FOOTER-1: Mantener footer primary = Resolver (nunca Exportar); 1 POI abre popup canónico, N POIs abre HealthRepairPreviewDialog; Exportar demoted a menú
 
 ### v1.5.0 (2026-05-24)
 - PR-IDENTITY-ROOT-PERSIST-1: persistencia A/B/C/D en locations (columna identity_root_status + identity_skip_reason + trigger BEFORE INSERT/UPDATE + backfill 5447 filas + índice parcial). Mirror SQL del clasificador Deno/cliente con paridad de orden de decisión y canon ISO2.
