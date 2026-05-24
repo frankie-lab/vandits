@@ -508,15 +508,18 @@ export function ExportResolverBody({
         )}
       </div>
 
-      {/* Razones de exclusión (colapsado por defecto) */}
-      {exclusionGroups.length > 0 && (
+      {/* Razones de exclusión — SÓLO en scope=public (PR-EXPORT-4).
+          En internal no aplica: "Mis datos" sólo distingue propios
+          válidos / no propios / errores técnicos, que ya viven en el
+          resumen de arriba. */}
+      {scope === 'public' && exclusionGroups.length > 0 && (
         <div className="space-y-2" data-export-exclusion-details>
           <button
             type="button"
             onClick={() => setShowExclusionDetails((v) => !v)}
             className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
           >
-            {showExclusionDetails ? 'Ocultar detalles' : 'Ver detalles de no incluidos'}
+            {showExclusionDetails ? 'Ocultar detalles' : 'Ver razones de exclusión'}
           </button>
           {showExclusionDetails && (
             <ul className="text-xs space-y-1 pl-1" data-export-exclusion-list>
@@ -526,7 +529,7 @@ export function ExportResolverBody({
                   className="flex items-center justify-between rounded border border-border/50 px-2 py-1.5"
                   data-export-exclusion-reason={reason}
                 >
-                  <span className="text-muted-foreground">{REASON_HUMAN[reason]}</span>
+                  <span className="text-muted-foreground">{REASON_HUMAN_PUBLIC[reason]}</span>
                   <Badge variant="outline" className="text-[10px]">
                     {n}
                   </Badge>
@@ -536,6 +539,7 @@ export function ExportResolverBody({
           )}
         </div>
       )}
+
 
       {/* Aviso de tamaño grande (5k–10k) — calmado, sin typed-token */}
       {isLarge && !isBlocked && (
