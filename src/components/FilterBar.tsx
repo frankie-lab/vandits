@@ -356,12 +356,31 @@ export function FilterBar() {
 
   const hasUserSelection = selectedLocations.size > 0;
 
-  // Opener registrado por HealthFilterActionCTA — permite al footer abrir el
-  // HealthRepairPreviewDialog vía callback directo (sin window.dispatchEvent).
+  // Opener registrado por HealthFilterActionCTA — sólo se usa cuando hay un
+  // `filters.healthFilter` puntual activo (partial/chain/hardError/review).
+  // El modal AGREGADO de "Resolver deuda" (universo debt) NO depende de este
+  // ref: lo abre `FilterBar` directamente via `debtModalOpen` + dialog
+  // montado abajo. Esto cierra la regresión donde `HealthFilterActionCTA`
+  // retornaba `null` por `!healthFilter` y el botón "Resolver deuda" del
+  // footer quedaba como noop.
   const openHealthRepairRef = useRef<() => void>(() => {});
   const registerHealthRepairOpen = useCallback((open: () => void) => {
     openHealthRepairRef.current = open;
   }, []);
+
+  // Estado local del modal agregado "Resolver deuda" (universo debt).
+  const [debtModalOpen, setDebtModalOpen] = useState(false);
+
+  // Scope agregado para el modal: se construye desde `effectiveActionSet`
+  // (universeBase ∩ treeSelection [∩ userSelection]). `mode='selection'` si
+  // hay selección manual, `mode='filtered'` en caso contrario.
+  const debtScope = useMemo(() => ({
+    ids: effectiveActionSet.map((l) => l.id),
+    total: effectiveActionSet.length,
+    mode: (hasUserSelection ? 'selection' : 'filtered') as 'selection' | 'filtered',
+    locations: effectiveActionSet,
+  }), [effectiveActionSet, hasUserSelection]);
+
 
 
 
