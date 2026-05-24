@@ -55,6 +55,12 @@ vi.mock('@/components/map/subset-fit', () => ({
 }));
 vi.mock('@/shared/geography/hierarchy', () => ({ getHierarchyBreadcrumb: () => '' }));
 
+// PR-ROOT-STATUS-B · default-deny: este test file no concede capabilities,
+// por lo que el botón "Abrir en Geo Maintenance" no debe aparecer.
+vi.mock('@/domains/identity/hooks/use-permissions', () => ({
+  useCapability: () => ({ allowed: false, loading: false }),
+}));
+
 // id-prefix → rootStatus + rings.
 //   a* → A, b* → B, c* → C, dp* → D+partial, dc* → D+chain,
 //   dh* → D+hardError, dn* → D+sin rings.
