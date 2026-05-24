@@ -101,20 +101,24 @@ export function RootStatusChipRow({
     setFilters(updated);
   };
 
+  const visibleLetters = LETTERS.filter(
+    (l) => counts[l] > 0 || active.includes(l),
+  );
+
   return (
     <div
-      className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-slate-100 bg-slate-50/60 px-2 py-1.5"
+      className="mt-2 flex items-center gap-2 min-w-0"
       data-testid={testId ?? 'root-status-chip-row'}
       data-scope-total={total}
       data-selection-active={selectionActive ? 'true' : 'false'}
     >
-      {/* Scope label — inline, compact */}
+      {/* Scope label — inline, single line */}
       <div
         className="flex items-center gap-1.5 shrink-0"
         title="Estado de identidad del POI — capa independiente de salud/visibilidad"
       >
         <Shield className="w-3.5 h-3.5 text-slate-400" />
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">
           Estado
         </span>
         {(scopeLabel || selectionActive) && (
@@ -124,30 +128,35 @@ export function RootStatusChipRow({
         )}
       </div>
 
-      {/* Chips — wrap to next line instead of horizontal scroll */}
-      <div className="flex flex-wrap items-center gap-1 min-w-0">
-        {LETTERS.map((letter) => {
+      {/* Segmented tabs — single line, no wrap, no scroll */}
+      <div
+        role="tablist"
+        className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shrink-0"
+      >
+        {visibleLetters.map((letter, idx) => {
           const isActive = active.includes(letter);
           const count = counts[letter];
-          if (count === 0 && !isActive) return null;
           const label = LETTER_LABEL[letter];
           return (
             <button
               key={letter}
+              role="tab"
+              aria-selected={isActive}
               type="button"
               onClick={() => toggle(letter)}
               className={cn(
-                'shrink-0 inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] font-medium transition-all',
+                'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors whitespace-nowrap',
+                idx > 0 && 'ml-0.5',
                 isActive
-                  ? 'bg-slate-900 text-white border-slate-900'
-                  : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50',
+                  ? 'bg-slate-900 text-white'
+                  : 'text-slate-600 hover:bg-slate-100',
               )}
               data-testid={`root-status-chip-${letter}`}
               data-root-letter={letter}
               data-active={isActive}
-              title={`${LETTER_TITLE[letter]} (${count})`}
+              title={LETTER_TITLE[letter]}
             >
-              <span className="whitespace-nowrap">{label}</span>
+              <span>{label}</span>
               <span
                 className={cn(
                   'inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded text-[10px] font-semibold tabular-nums',
@@ -164,5 +173,6 @@ export function RootStatusChipRow({
       </div>
     </div>
   );
+
 
 }
