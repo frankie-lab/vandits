@@ -1,6 +1,6 @@
 ---
-name: POI export content model (PR-EXPORT-5)
-description: Modelo por capas A–H scope-aware/format-aware. Serializers consumen buildPoiExportContent; capa H forbidden.
+name: POI export content model (PR-EXPORT-5/6)
+description: Modelo por capas A–H scope-aware/format-aware + renderer KML target-aware (gurumaps default | generic HTML).
 type: feature
 ---
 
