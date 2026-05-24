@@ -431,6 +431,42 @@ export function GeographyBackfillPanel() {
 
       <CanonicalizeOneShotCard />
 
+      {/* PR-ROOT-STATUS-B · Banner de handoff scoped desde Resolver deuda → Grupo B.
+          NO ejecuta backfill: solo preselecciona y exige confirmación humana en
+          el botón "Lanzar sobre selección" (paso 3). */}
+      {handoff && handoff.locationIds.length > 0 && (
+        <section
+          data-testid="geo-maintenance-handoff-banner"
+          data-handoff-source={handoff.source}
+          data-handoff-count={handoff.locationIds.length}
+          className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex items-start gap-3"
+        >
+          <Wrench className="w-4 h-4 mt-0.5 text-amber-600 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+              {handoff.label}
+            </div>
+            <div className="text-xs text-amber-800/80 dark:text-amber-200/80 mt-0.5 leading-snug">
+              Se han preseleccionado <strong className="tabular-nums">{handoff.locationIds.length}</strong>{' '}
+              {handoff.locationIds.length === 1 ? 'punto' : 'puntos'}. Revisa el modo y
+              pulsa <em>Lanzar sobre selección</em> abajo para confirmar y ejecutar el backfill.
+              Nada se ha escrito todavía.
+            </div>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-[11px] shrink-0"
+            onClick={clearHandoff}
+            data-testid="geo-maintenance-handoff-discard"
+          >
+            <X className="w-3 h-3 mr-1" />
+            Descartar
+          </Button>
+        </section>
+      )}
+
       {/* PASO 1 — Modo de normalización (3 tarjetas a ancho completo) */}
       <section className="rounded-lg border bg-muted/10">
         <div className="px-3 pt-3 pb-1 flex items-center justify-between">
