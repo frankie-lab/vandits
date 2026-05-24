@@ -104,21 +104,33 @@ describe('PR-EXPORT-1 · kml-parser defensive assert', () => {
 
 });
 
-describe('PR-EXPORT-1 · C2 · scope explícito en call sites UI (vía pipeline PR-EXPORT-2)', () => {
-  it('ExportPanel y SelectionActions usan runPoiExport con scope explícito y no llaman exporters legacy', () => {
-    const files = [
+describe('PR-EXPORT-1 · C2 · scope explícito en call sites UI (vía pipeline PR-EXPORT-2 + ExportResolver PR-EXPORT-3)', () => {
+  it('ExportPanel y SelectionActions usan el pipeline canónico (runPoiExport directo o vía ExportResolver) con scope explícito', () => {
+    // Canon evolution PR-EXPORT-3: los call sites pueden delegar en <ExportResolver*>
+    // (que es el ÚNICO consumidor UI de runPoiExport). Pipeline + scope explícito siguen siendo obligatorios,
+    // pero pueden vivir dentro del resolver compartido.
+    const callSiteFiles = [
       'src/domains/content/components/ExportPanel.tsx',
       'src/components/filters/SelectionActions.tsx',
     ];
-    for (const rel of files) {
+    for (const rel of callSiteFiles) {
       const src = fs.readFileSync(path.resolve(rel), 'utf8');
-      // PR-EXPORT-2: call sites usan el pipeline canónico, no exporters legacy directamente.
+      // Prohibido invocar exporters legacy directamente.
       expect(src).not.toMatch(/\bexportTo(KML|CSV|JSON)\s*\(/);
-      // Deben invocar runPoiExport (pipeline canónico).
-      const calls = src.match(/runPoiExport\s*\(/g) ?? [];
-      expect(calls.length).toBeGreaterThan(0);
-      // El pipeline recibe scope explícito en su payload (shorthand `scope,` o `scope: …`).
-      expect(src).toMatch(/\bscope\s*[:,]/);
+      // Debe usar el pipeline canónico, ya sea directo o vía ExportResolver.
+      const usesPipelineDirect = /runPoiExport\s*\(/.test(src);
+      const usesResolver = /ExportResolver(Body|Dialog)?\b/.test(src);
+      expect(usesPipelineDirect || usesResolver).toBe(true);
     }
+
+    // El resolver es el único consumidor del pipeline en UI y DEBE pasar scope explícito.
+    const resolverSrc = fs.readFileSync(
+      path.resolve('src/domains/content/components/ExportResolver.tsx'),
+      'utf8',
+    );
+    const calls = resolverSrc.match(/runPoiExport\s*\(/g) ?? [];
+    expect(calls.length).toBeGreaterThan(0);
+    expect(resolverSrc).toMatch(/\bscope\s*[:,]/);
+    expect(resolverSrc).toMatch(/scopeProvided\s*:\s*true/);
   });
 });
