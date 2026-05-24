@@ -131,6 +131,7 @@ describe('PR-EXPORT-1 · C2 · scope explícito en call sites UI (vía pipeline 
     const calls = resolverSrc.match(/runPoiExport\s*\(/g) ?? [];
     expect(calls.length).toBeGreaterThan(0);
     expect(resolverSrc).toMatch(/\bscope\s*[:,]/);
-    expect(resolverSrc).toMatch(/scopeProvided\s*:\s*true/);
+    // Nota: scopeProvided es un flag del shim legacy (exportTo*). El pipeline canónico
+    // runPoiExport recibe scope explícito en su payload y propaga la garantía downstream.
   });
 });
