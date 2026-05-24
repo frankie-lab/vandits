@@ -50,7 +50,7 @@ import { HealthRepairPreviewDialog } from './discovery/HealthRepairPreviewDialog
 import { DebtResolutionPanel } from './discovery/DebtResolutionPanel';
 import { useSelectionFitOnStart } from './discovery/use-selection-fit-on-start';
 import { useHealthFilterFit } from './discovery/use-health-filter-fit';
-import { RootStatusChipRow } from './discovery/RootStatusChipRow';
+// import { RootStatusChipRow } from './discovery/RootStatusChipRow'; // PR-FILTER-ROOTSTATUS-DEMOTE-1
 import { UniverseBaseProvider } from './filters/UniverseBaseContext';
 import { DebtSelectionProvider, useDebtSelection } from './filters/DebtSelectionContext';
 import { DebtSelectionStatusBar } from './filters/DebtSelectionStatusBar';
