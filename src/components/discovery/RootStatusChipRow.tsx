@@ -53,9 +53,10 @@ const LETTERS: ReadonlyArray<RootStatusLetter> = ['A', 'B', 'C', 'D'];
 const LETTER_LABEL: Record<RootStatusLetter, string> = {
   A: 'Incompleto',
   B: 'Falta canon',
-  C: 'Revisar a mano',
-  D: 'Listo para auto',
+  C: 'Revisar',
+  D: 'Listo',
 };
+
 
 const LETTER_TITLE: Record<RootStatusLetter, string> = {
   A: 'Incompleto · falta identidad básica (nombre o coordenadas)',
