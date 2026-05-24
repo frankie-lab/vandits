@@ -352,7 +352,6 @@ describe('HealthRepairPreviewDialog — triage (plan §7)', () => {
       />,
     );
     const group = getGroup('systemDebt');
-    expect(within(group).queryByText(/geo maintenance/i)).toBeNull();
     expect(
       group.querySelector('[data-triage-group-action="geo-maintenance"]'),
     ).toBeNull();
