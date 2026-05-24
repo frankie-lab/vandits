@@ -436,24 +436,13 @@ export function FilterBar() {
        <span className="text-sky-600 font-medium">Seguidos</span>
      </div>
    </div>
-   <div className="flex items-center gap-1">
-  <label
-  className={cn(
-  "flex items-center h-7 px-2 cursor-pointer",
-  (!hasUserSelection && effectiveActionSet.length === 0) && "opacity-50 cursor-not-allowed"
-  )}
-  title={hasUserSelection ? 'Deseleccionar todo' : 'Seleccionar todo el subconjunto activo'}
-  >
-  <Switch
-  checked={hasUserSelection}
-  disabled={!hasUserSelection && effectiveActionSet.length === 0}
-  onCheckedChange={(checked) => {
-  if (checked) handleSelectAllInMode();
-  else clearSelection();
-  }}
-  />
-  </label>
-  </div>
+    <TopCounterSelectionControls
+      hasUserSelection={hasUserSelection}
+      canSelect={effectiveActionSet.length > 0}
+      onSelectAll={handleSelectAllInMode}
+      onClearGlobal={clearSelection}
+    />
+
  </div>
 
   {/* Aviso de filtros restrictivos eliminado: aparecía/desaparecía según umbral y rompía la altura de la fila. */}
