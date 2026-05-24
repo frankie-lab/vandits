@@ -47,6 +47,7 @@ import { CLASSIFICATION_TREE } from './filters/ClassificationTree';
 import { loadLocationsFromDatabase } from '@/domains/content';
 import { HealthFilterActionCTA } from './discovery/HealthFilterActionCTA';
 import { HealthRepairPreviewDialog } from './discovery/HealthRepairPreviewDialog';
+import { DebtResolutionPanel } from './discovery/DebtResolutionPanel';
 import { useSelectionFitOnStart } from './discovery/use-selection-fit-on-start';
 import { useHealthFilterFit } from './discovery/use-health-filter-fit';
 import { RootStatusChipRow } from './discovery/RootStatusChipRow';
@@ -370,7 +371,18 @@ export function FilterBar() {
   }, []);
 
   // Estado local del modal agregado "Resolver deuda" (universo debt).
+  // Fase 1 sub-panel: el modal queda como FALLBACK/CONFIRMACIÓN de D repair,
+  // ya no es la vista primaria. La vista primaria es `DebtResolutionPanel`,
+  // controlada por `debtPanelOpen`.
   const [debtModalOpen, setDebtModalOpen] = useState(false);
+  const [debtPanelOpen, setDebtPanelOpen] = useState(false);
+
+  // Cerrar subpanel al salir del universo debt (cambio de modo/tab).
+  useEffect(() => {
+    if (activeModeUniverse !== 'debt' && debtPanelOpen) {
+      setDebtPanelOpen(false);
+    }
+  }, [activeModeUniverse, debtPanelOpen]);
 
   // Scope agregado para el modal: se construye desde `effectiveActionSet`
   // (universeBase ∩ treeSelection [∩ userSelection]). `mode='selection'` si
