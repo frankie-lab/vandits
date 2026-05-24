@@ -526,6 +526,31 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
     };
     window.addEventListener('itinerary-focus', handleItineraryFocus);
 
+    // PR-MAINTAIN-FOOTER-1: abrir popup canónico de un POI por id.
+    // Emitido por EffectiveActionFooter cuando en Mantener · Con deuda hay
+    // exactamente 1 POI seleccionado → "Resolver" abre su popup in-place.
+    // Reintenta hasta ~1.2s para esperar a que el marker esté montado
+    // (pudo haber sido culled por viewport antes del requestSubsetFit).
+    const handleOpenPoiPopup = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { locationId?: string } | undefined;
+      const id = detail?.locationId;
+      if (!id) return;
+      let attempts = 0;
+      const tryOpen = () => {
+        const marker = markersRef.current.get(id);
+        if (marker) {
+          try { marker.openPopup(); } catch {}
+          return;
+        }
+        attempts += 1;
+        if (attempts < 12) window.setTimeout(tryOpen, 100);
+      };
+      // Defer slightly to give requestSubsetFit time to fit + render markers.
+      window.setTimeout(tryOpen, 250);
+    };
+    window.addEventListener('lovable:open-poi-popup', handleOpenPoiPopup);
+
+
    return () => {
      window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
      
