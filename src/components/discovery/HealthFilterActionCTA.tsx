@@ -34,15 +34,27 @@ export interface HealthFilterActionCTAProps {
   healthFilter: HealthFilter | null | undefined;
   filteredLocations: GeoLocation[];
   selectedLocationIds: Set<string>;
+  /**
+   * Expone el opener del HealthRepairPreviewDialog al padre (p.ej. FilterBar
+   * para que EffectiveActionFooter pueda invocarlo via callback directo,
+   * sin recurrir a window.dispatchEvent).
+   */
+  registerOpen?: (open: () => void) => void;
 }
 
 export function HealthFilterActionCTA({
   healthFilter,
   filteredLocations,
   selectedLocationIds,
+  registerOpen,
 }: HealthFilterActionCTAProps) {
   const [onlyVisible, setOnlyVisible] = React.useState(false);
   const [open, setOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    registerOpen?.(() => setOpen(true));
+  }, [registerOpen]);
+
 
   const visibleLocationIds = useDiscoveryStore((s) => s.visibleLocationIds);
   const { user } = useAuth();
