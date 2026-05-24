@@ -1524,6 +1524,8 @@ export type Database = {
           geo_resolved_at: string | null
           geo_source: string | null
           id: string
+          identity_root_status: string | null
+          identity_skip_reason: string | null
           is_approved: boolean
           latitude: number
           locality_id: string | null
@@ -1570,6 +1572,8 @@ export type Database = {
           geo_resolved_at?: string | null
           geo_source?: string | null
           id?: string
+          identity_root_status?: string | null
+          identity_skip_reason?: string | null
           is_approved?: boolean
           latitude: number
           locality_id?: string | null
@@ -1616,6 +1620,8 @@ export type Database = {
           geo_resolved_at?: string | null
           geo_source?: string | null
           id?: string
+          identity_root_status?: string | null
+          identity_skip_reason?: string | null
           is_approved?: boolean
           latitude?: number
           locality_id?: string | null
@@ -3722,6 +3728,13 @@ export type Database = {
         Args: { _parent_id: string }
         Returns: number
       }
+      _compute_identity_root_status: {
+        Args: { _loc: Database["public"]["Tables"]["locations"]["Row"] }
+        Returns: {
+          root: string
+          skip_reason: string
+        }[]
+      }
       _compute_location_geo_health:
         | {
             Args: {
@@ -3808,6 +3821,7 @@ export type Database = {
         Returns: boolean
       }
       _is_admin_or_master: { Args: { _uid: string }; Returns: boolean }
+      _is_canon_country_iso2: { Args: { _iso2: string }; Returns: boolean }
       _merge_admin_area: {
         Args: { _canonical: string; _orphan: string }
         Returns: undefined
