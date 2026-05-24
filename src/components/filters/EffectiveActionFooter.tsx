@@ -223,10 +223,9 @@ export function EffectiveActionFooter({
     () => (debtPartition ? debtPartition.systemDebt.map((l) => l.id) : []),
     [debtPartition],
   );
-  const allAreSystemDebt =
-    mode === 'debt' && count > 0 && systemDebtIds.length === count;
-
   // ---- Geo Maintenance handoff (B + capability) ----
+  // PR-MAINTAIN-FOOTER-1: ya no compite por primary; sólo aparece en "Más
+  // acciones" como handoff opcional cuando hay subgrupo B + capability.
   const canHandoffGeoMaintenance =
     canViewGeoMaintenance && canRunGeoBackfill && systemDebtIds.length > 0;
 
@@ -239,10 +238,10 @@ export function EffectiveActionFooter({
     });
     navigateToGeoMaintenance();
   };
-  const onGeoMaintenancePrimary = () => {
+  const onGeoMaintenanceSubgroup = () => {
     doGeoMaintenance(
       systemDebtIds,
-      `Mantener · Grupo B · ${systemDebtIds.length} puntos`,
+      `Mantener · Subgrupo B · ${systemDebtIds.length} puntos`,
     );
   };
   const onGeoMaintenanceSubgroup = () => {
