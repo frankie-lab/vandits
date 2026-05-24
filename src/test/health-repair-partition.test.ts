@@ -21,10 +21,12 @@ vi.mock('@/domains/content/lib/point-health-rings', () => ({
 }));
 
 import { classifyPoiRootStatusForLocation } from '@/domains/content/lib/poi-identity-root-status-client';
+import { getPointHealthRings } from '@/domains/content/lib/point-health-rings';
 import { partitionRepairScopeByRootStatus } from '@/components/discovery/health-repair-partition';
 import type { GeoLocation } from '@/types/location';
 
 const mockClassify = classifyPoiRootStatusForLocation as unknown as ReturnType<typeof vi.fn>;
+const mockRings = getPointHealthRings as unknown as ReturnType<typeof vi.fn>;
 
 function loc(id: string): GeoLocation {
   return { id, name: id, latitude: 0, longitude: 0 } as unknown as GeoLocation;
@@ -38,8 +40,14 @@ function setRoots(map: Record<string, 'A' | 'B' | 'C' | 'D'>) {
   }));
 }
 
+function setRings(map: Record<string, Array<'partial' | 'chain' | 'review' | 'hardError'>>) {
+  mockRings.mockImplementation((l: GeoLocation) => map[l.id] ?? []);
+}
+
 beforeEach(() => {
   mockClassify.mockReset();
+  mockRings.mockReset();
+  mockRings.mockImplementation(() => []);
 });
 
 describe('partitionRepairScopeByRootStatus — repairableIds', () => {
