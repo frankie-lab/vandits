@@ -52,6 +52,7 @@ import {
   getUniverseBaseLabel,
   type ActiveModeUniverse,
 } from '@/domains/content/lib/resolve-universe-base';
+import { getVisibleCatalogUniverse } from '@/domains/content/lib/visible-catalog-universe';
 import { EffectiveActionFooter } from './filters/EffectiveActionFooter';
 import { toast } from 'sonner';
 
