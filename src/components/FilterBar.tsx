@@ -52,6 +52,8 @@ import { useSelectionFitOnStart } from './discovery/use-selection-fit-on-start';
 import { useHealthFilterFit } from './discovery/use-health-filter-fit';
 import { RootStatusChipRow } from './discovery/RootStatusChipRow';
 import { UniverseBaseProvider } from './filters/UniverseBaseContext';
+import { DebtSelectionProvider } from './filters/DebtSelectionContext';
+import { DebtSelectionStatusBar } from './filters/DebtSelectionStatusBar';
 import {
   resolveUniverseBase,
   getUniverseBaseLabel,
@@ -561,6 +563,7 @@ export function FilterBar() {
       MISMA estructura. UniverseBaseProvider recorta el universo base que ven
       los 4 árboles (vía useScopedLocations). Tab activa persiste entre modos. */}
   <UniverseBaseProvider mode={activeModeUniverse} allLocations={allLocationsForUniverse}>
+   <DebtSelectionProvider>
     {panelMode === 'maintain' && (
       <div className="space-y-1.5 mt-2">
         <div className="flex items-center justify-between gap-2">
@@ -664,6 +667,8 @@ export function FilterBar() {
         <PlaceTypeFilter />
       </TabsContent>
     </Tabs>
+    <DebtSelectionStatusBar />
+   </DebtSelectionProvider>
   </UniverseBaseProvider>
   </>
   )}
