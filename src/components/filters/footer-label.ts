@@ -40,6 +40,8 @@ export function buildFooterLabel({
       return `Acciones sobre ${n} POIs con deuda${scope}`;
     case 'unenriched':
       return `Acciones sobre ${n} POIs sin enriquecer${scope}`;
+    case 'user-action':
+      return `${n} POIs requieren tu revisión${scope}`;
     case 'all':
     default:
       return `Acciones sobre ${n} POIs${scope}`;
