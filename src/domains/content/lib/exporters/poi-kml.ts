@@ -116,7 +116,10 @@ export function serializePoiKml(
   const docName = collection?.name ?? documentName;
   const docDesc = collection?.description;
 
-  const placemarks = records.map(renderPlacemark).join('\n');
+  const target = options.target;
+  const placemarks = records
+    .map((r) => renderPlacemark(r, { target }))
+    .join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
