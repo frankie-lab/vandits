@@ -269,6 +269,30 @@ export function FilterBar() {
     [filteredUniverse, universeBaseIds],
   );
 
+  // Ownership ratios (X/T, Xm/Tm, Xs/Ts) — derivados del universeBase activo.
+  // Regla A (cross-mode): selection ∩ universeBase. Ids fuera del universo
+  // del modo activo NO inflan X, y T = universeBase.length (no filteredUniverse).
+  // Ver docs/audits/search-filter-selection-state-cross-mode-postflight.md.
+  const ownershipRatios = useMemo(() => {
+    const uid = user?.id ?? null;
+    const T = universeBaseLocations.length;
+    let Tm = 0;
+    let Xm = 0;
+    let X = 0;
+    for (const loc of universeBaseLocations as any[]) {
+      const ownerId = (loc.ownerUserId ?? loc._docUserId ?? null) as string | null;
+      const mine = !!uid && ownerId === uid;
+      if (mine) Tm += 1;
+      if (selectedLocations.has(loc.id)) {
+        X += 1;
+        if (mine) Xm += 1;
+      }
+    }
+    const Ts = T - Tm;
+    const Xs = X - Xm;
+    return { T, Tm, Ts, X, Xm, Xs };
+  }, [universeBaseLocations, selectedLocations, user?.id]);
+
   const universeLabel = getUniverseBaseLabel(activeModeUniverse);
 
   useEffect(() => {
