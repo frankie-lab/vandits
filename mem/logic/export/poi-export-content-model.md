@@ -19,7 +19,10 @@ Pipeline:
 `GeoLocation → mapToPoiExportRecord (adjunta layeredContent vía buildPoiExportContent) → serializers prefieren layeredContent`.
 
 Serializers:
-- **KML**: `<description>` con `<![CDATA[…]]>` HTML construido por `buildKmlDescriptionHtml`. Whitelist `<p>/<b>/<i>/<img>/<a>/<br/>`. Orden: imagen → highlight → longDescription → ubicación territorial → categoría+tags → observación → fuentes → footer "Generado por Vandits · {ISO}". ExtendedData estructurada se mantiene.
+- **KML (PR-EXPORT-6)**: serializer delega en `renderExportDescription(content, { format:'kml', target, scope })` (`src/domains/content/lib/exporters/render-export-description.ts`). Targets canónicos:
+  - `gurumaps` *(DEFAULT)* → `buildGuruMapsDescription` (plain-text móvil-first, `\n\n` entre bloques, sin tags HTML, emoji separador `📍🏷📝🔗`, truncation por frase, máx 5 tags / 3 links, soft 900 / hard 1200 chars, footer `— Vandits · YYYY-MM-DD`, sanitización `]]>` via split `]]]]><![CDATA[>`). Imagen OMITIDA del cuerpo (GuruMaps no la renderiza fiable) pero presente en `<ExtendedData><Data name="image_url">`.
+  - `generic` (alias `general`/`mymaps`) → `buildKmlDescriptionHtml` (HTML whitelist `<p>/<b>/<i>/<img>/<a>/<br/>`, footer `Generado por Vandits · {ISO}`).
+  Ambos envuelven en `<![CDATA[…]]>`. Llamadas legacy sin `target` → gurumaps.
 - **CSV**: columnas planas nuevas (`highlight`, `observation`, `address`, `category`, `subcategory`, `image_attribution`, `links`) + en internal (`created_at`, `collection`, `personal_notes`, `own_state`).
 - **JSON**: envelope `poi-export-json-v2` aditivo; cada item incluye `layeredContent` (formato más rico).
 - **GeoJSON**: `properties.layeredContent` enriquecido; geometry `[lng,lat]` intacta.
