@@ -55,6 +55,9 @@ vi.mock('@/components/map/subset-fit', () => ({
 vi.mock('@/shared/geography/hierarchy', () => ({
   getHierarchyBreadcrumb: () => '',
 }));
+vi.mock('@/domains/identity/hooks/use-permissions', () => ({
+  useCapability: () => ({ allowed: false, loading: false }),
+}));
 
 // Classifier: id-prefix → rootStatus. d* → D, a* → A, b* → B, c* → C.
 vi.mock('@/domains/content/lib/poi-identity-root-status-client', () => ({

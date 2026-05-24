@@ -55,6 +55,12 @@ vi.mock('@/components/map/subset-fit', () => ({
 }));
 vi.mock('@/shared/geography/hierarchy', () => ({ getHierarchyBreadcrumb: () => '' }));
 
+// PR-ROOT-STATUS-B · default-deny: este test file no concede capabilities,
+// por lo que el botón "Abrir en Geo Maintenance" no debe aparecer.
+vi.mock('@/domains/identity/hooks/use-permissions', () => ({
+  useCapability: () => ({ allowed: false, loading: false }),
+}));
+
 // id-prefix → rootStatus + rings.
 //   a* → A, b* → B, c* → C, dp* → D+partial, dc* → D+chain,
 //   dh* → D+hardError, dn* → D+sin rings.
@@ -336,7 +342,7 @@ describe('HealthRepairPreviewDialog — triage (plan §7)', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('13. contract: NO existe botón "Geo Maintenance" en grupo B', () => {
+  it('13. contract: SIN capability, no aparece botón "Abrir en Geo Maintenance" en grupo B', () => {
     render(
       <HealthRepairPreviewDialog
         open
@@ -346,7 +352,6 @@ describe('HealthRepairPreviewDialog — triage (plan §7)', () => {
       />,
     );
     const group = getGroup('systemDebt');
-    expect(within(group).queryByText(/geo maintenance/i)).toBeNull();
     expect(
       group.querySelector('[data-triage-group-action="geo-maintenance"]'),
     ).toBeNull();

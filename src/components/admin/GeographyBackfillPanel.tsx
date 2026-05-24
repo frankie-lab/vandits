@@ -23,7 +23,7 @@
 // procesando con permisos de service role como hasta ahora.
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { Loader2, Play, Square, Wrench, RotateCcw, Plus, AlertTriangle, Info } from 'lucide-react';
+import { Loader2, Play, Square, Wrench, RotateCcw, Plus, AlertTriangle, Info, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -36,6 +36,12 @@ import type { GeoLocation } from '@/types/location';
 // PR-BACKOFFICE-DEAD-SURFACES-1 H4 — observabilidad por capability (localStorage).
 import { useOperationHistory, type OperationHandle } from './observability/useOperationHistory';
 import { operationKeyForCapability } from './PanelEffectHeader';
+// PR-ROOT-STATUS-B · Handoff scoped desde HealthRepairPreviewDialog.
+import {
+  consumePendingGeoMaintenanceHandoff,
+  subscribeGeoMaintenanceHandoff,
+  type GeoMaintenanceHandoffPayload,
+} from '@/shared/events/geo-maintenance-handoff';
 
 // UI-level mode. "review" colapsa los antiguos reconcile/overwrite; un toggle
 // secundario decide si se fuerza la reescritura.
@@ -166,6 +172,29 @@ export function GeographyBackfillPanel() {
   const [universeLocations, setUniverseLocations] = useState<GeoLocation[]>([]);
   const [loadingUniverse, setLoadingUniverse] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // PR-ROOT-STATUS-B · Handoff scoped (preview-confirm requerido).
+  const [handoff, setHandoff] = useState<GeoMaintenanceHandoffPayload | null>(null);
+  const handoffAppliedAtRef = useRef<number>(0);
+  useEffect(() => {
+    // Drena pending al montar (caso: el evento se despachó antes del mount).
+    const pending = consumePendingGeoMaintenanceHandoff();
+    if (pending) setHandoff(pending);
+    // Suscribe a futuros eventos mientras el panel esté montado.
+    return subscribeGeoMaintenanceHandoff((payload) => setHandoff(payload));
+  }, []);
+  // Aplica el handoff a `selectedIds` cuando llega o cuando cambia el universo.
+  // Tras-reset por user/mode change, vuelve a re-aplicar si el handoff sigue vivo.
+  useEffect(() => {
+    if (!handoff || handoff.locationIds.length === 0) return;
+    if (handoff.emittedAt === handoffAppliedAtRef.current) return;
+    setSelectedIds(new Set(handoff.locationIds));
+    handoffAppliedAtRef.current = handoff.emittedAt;
+  }, [handoff, mode]);
+  const clearHandoff = useCallback(() => {
+    setHandoff(null);
+    setSelectedIds(new Set());
+  }, []);
 
   const healthFilter = useMemo(() => modeToHealthFilter(mode), [mode]);
   const universeTotal = useMemo(() => sumByHealth(summary, healthFilter), [summary, healthFilter]);
@@ -401,6 +430,42 @@ export function GeographyBackfillPanel() {
 
 
       <CanonicalizeOneShotCard />
+
+      {/* PR-ROOT-STATUS-B · Banner de handoff scoped desde Resolver deuda → Grupo B.
+          NO ejecuta backfill: solo preselecciona y exige confirmación humana en
+          el botón "Lanzar sobre selección" (paso 3). */}
+      {handoff && handoff.locationIds.length > 0 && (
+        <section
+          data-testid="geo-maintenance-handoff-banner"
+          data-handoff-source={handoff.source}
+          data-handoff-count={handoff.locationIds.length}
+          className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex items-start gap-3"
+        >
+          <Wrench className="w-4 h-4 mt-0.5 text-amber-600 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+              {handoff.label}
+            </div>
+            <div className="text-xs text-amber-800/80 dark:text-amber-200/80 mt-0.5 leading-snug">
+              Se han preseleccionado <strong className="tabular-nums">{handoff.locationIds.length}</strong>{' '}
+              {handoff.locationIds.length === 1 ? 'punto' : 'puntos'}. Revisa el modo y
+              pulsa <em>Lanzar sobre selección</em> abajo para confirmar y ejecutar el backfill.
+              Nada se ha escrito todavía.
+            </div>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-[11px] shrink-0"
+            onClick={clearHandoff}
+            data-testid="geo-maintenance-handoff-discard"
+          >
+            <X className="w-3 h-3 mr-1" />
+            Descartar
+          </Button>
+        </section>
+      )}
 
       {/* PASO 1 — Modo de normalización (3 tarjetas a ancho completo) */}
       <section className="rounded-lg border bg-muted/10">

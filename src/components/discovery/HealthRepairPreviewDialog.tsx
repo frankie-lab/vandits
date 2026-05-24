@@ -17,7 +17,7 @@
  * `mem://logic/sharing/curated-only-rule`.
  */
 import * as React from 'react';
-import { ChevronDown, ChevronRight, Download, Loader2, MapPin } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download, Loader2, MapPin, Wrench } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -44,6 +44,11 @@ import {
 import { getHierarchyBreadcrumb } from '@/shared/geography/hierarchy';
 import { getPointHealthRings } from '@/domains/content/lib/point-health-rings';
 import { requestSubsetFit } from '@/components/map/subset-fit';
+import { useCapability } from '@/domains/identity/hooks/use-permissions';
+import {
+  dispatchGeoMaintenanceHandoff,
+  navigateToGeoMaintenance,
+} from '@/shared/events/geo-maintenance-handoff';
 import {
   partitionRepairScopeByRootStatus,
   type RepairPartition,
@@ -100,8 +105,8 @@ const GROUP_META: Record<
   },
   systemDebt: {
     title: 'Deuda de sistema (B)',
-    help: 'Falta canon/backfill del lado sistema. Acción masiva canónica llegará en un PR futuro.',
-    recommendation: 'Backfill (futuro)',
+    help: 'Falta canon/backfill del lado sistema. Envía esta selección a Mantenimiento Geográfico — allí se previsualiza y confirma antes de ejecutar.',
+    recommendation: 'Abrir en Geo Maintenance',
     rootBadge: 'B',
   },
   review: {
@@ -166,6 +171,13 @@ export function HealthRepairPreviewDialog({
     () => partitionRepairScopeByRootStatus(scope.locations, filter),
     [scope.locations, filter],
   );
+
+  // PR-ROOT-STATUS-B · Gating del puente a Geo Maintenance.
+  // Requiere AMBAS capabilities: ver el panel destino y poder lanzar el job.
+  // Si falta cualquiera, el botón NO se renderiza (regla dura del contrato).
+  const canViewGeoMaintenance = useCapability('view_geo_maintenance').allowed;
+  const canRunGeoBackfill = useCapability('run_geo_backfill').allowed;
+  const geoMaintenanceHandoffEnabled = canViewGeoMaintenance && canRunGeoBackfill;
 
   const isRepairableFilter = REPAIRABLE.has(filter);
   const repairableCount = partition.repairableIds.length;
@@ -299,6 +311,25 @@ export function HealthRepairPreviewDialog({
     onOpenChange(false);
   };
 
+  /**
+   * Handoff Root Status B → GeographyBackfillPanel.
+   * NO ejecuta backfill: solo despacha evento con IDs y navega al panel
+   * destino, donde el usuario debe confirmar explícitamente.
+   */
+  const handleOpenGeoMaintenance = React.useCallback(
+    (ids: string[], groupTitle: string) => {
+      if (ids.length === 0) return;
+      dispatchGeoMaintenanceHandoff({
+        locationIds: ids,
+        source: 'health-repair-triage',
+        label: `Resolver deuda · ${groupTitle} · ${ids.length} ${ids.length === 1 ? 'punto' : 'puntos'}`,
+      });
+      onOpenChange(false);
+      navigateToGeoMaintenance();
+    },
+    [onOpenChange],
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -384,6 +415,22 @@ export function HealthRepairPreviewDialog({
                       </button>
                     </CollapsibleTrigger>
                     <div className="flex items-center gap-1 shrink-0">
+                      {key === 'systemDebt' &&
+                        geoMaintenanceHandoffEnabled &&
+                        ids.length > 0 && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-[11px]"
+                            onClick={() => handleOpenGeoMaintenance(ids, meta.title)}
+                            data-triage-group-action="geo-maintenance"
+                            title="Abrir estos puntos en Mantenimiento Geográfico (allí se confirma antes de ejecutar)"
+                          >
+                            <Wrench className="w-3 h-3 mr-1" />
+                            Abrir en Geo Maintenance
+                          </Button>
+                        )}
                       <Button
                         type="button"
                         size="sm"
