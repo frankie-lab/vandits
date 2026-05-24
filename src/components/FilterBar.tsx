@@ -518,7 +518,7 @@ export function FilterBar() {
     onSelectAll={handleSelectAllInMode}
     onClearGlobal={clearSelection}
   />
- </div>
+
 
 
   {/* Aviso de filtros restrictivos eliminado: aparecía/desaparecía según umbral y rompía la altura de la fila. */}
