@@ -23,7 +23,7 @@ import type { GeoLocation } from '@/types/location';
 const mockClassify = classifyPoiRootStatusForLocation as unknown as ReturnType<typeof vi.fn>;
 
 function loc(id: string): GeoLocation {
-  return { id, name: id, latitude: 0, longitude: 0 } as GeoLocation;
+  return { id, name: id, latitude: 0, longitude: 0 } as unknown as GeoLocation;
 }
 
 function setRoots(map: Record<string, 'A' | 'B' | 'C' | 'D'>) {
