@@ -603,6 +603,19 @@ export function SelectionActions() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
+
+      <ExportResolverDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        source={{
+          kind: 'selection',
+          label: `Selección actual · ${resolvedLocations.length} ubicaciones`,
+          locations: resolvedLocations,
+          documentName: selectedDocument?.name || 'seleccion',
+        }}
+        initialScope="internal"
+        initialFormat="kml"
+      />
     </div>
   );
 }
