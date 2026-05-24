@@ -50,11 +50,18 @@ export interface RootStatusChipRowProps {
 
 const LETTERS: ReadonlyArray<RootStatusLetter> = ['A', 'B', 'C', 'D'];
 
+const LETTER_LABEL: Record<RootStatusLetter, string> = {
+  A: 'Incompleto',
+  B: 'Falta canon',
+  C: 'Revisar a mano',
+  D: 'Listo para auto',
+};
+
 const LETTER_TITLE: Record<RootStatusLetter, string> = {
-  A: 'A · Incompleto real (falta identidad básica)',
-  B: 'B · Deuda de sistema (falta canon/backfill)',
-  C: 'C · Revisar manualmente (nombre/coords)',
-  D: 'D · Canon completo (elegible reparación auto)',
+  A: 'Incompleto · falta identidad básica (nombre o coordenadas)',
+  B: 'Falta canon · deuda de sistema, pendiente de backfill geográfico',
+  C: 'Revisar a mano · nombre/coords sospechosos, requiere intervención humana',
+  D: 'Listo para auto · canon completo, elegible para reparación automática',
 };
 
 export function RootStatusChipRow({
@@ -103,10 +110,10 @@ export function RootStatusChipRow({
     >
       <span
         className="text-[10px] uppercase tracking-wide text-muted-foreground inline-flex items-center gap-1"
-        title="Root Status A/B/C/D — capa independiente de identidad/responsabilidad"
+        title="Estado de identidad del POI — capa independiente de salud/visibilidad"
       >
         <Shield className="w-3 h-3" />
-        Root
+        Estado
         {scopeLabel && (
           <span className="normal-case text-muted-foreground/70">· {scopeLabel}</span>
         )}
@@ -117,22 +124,25 @@ export function RootStatusChipRow({
       {LETTERS.map((letter) => {
         const isActive = active.includes(letter);
         const count = counts[letter];
+        const label = LETTER_LABEL[letter];
         return (
           <button
             key={letter}
             type="button"
             onClick={() => toggle(letter)}
             className={cn(
-              'h-6 px-1.5 rounded text-[11px] font-medium border tabular-nums transition-colors',
+              'h-6 px-2 rounded text-[11px] font-medium border tabular-nums transition-colors inline-flex items-center gap-1',
               isActive
                 ? 'bg-slate-700 text-slate-50 border-slate-700'
                 : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200',
             )}
             data-testid={`root-status-chip-${letter}`}
+            data-root-letter={letter}
             data-active={isActive}
             title={`${LETTER_TITLE[letter]} (${count})`}
           >
-            {letter} {count}
+            <span>{label}</span>
+            <span className="opacity-70">{count}</span>
           </button>
         );
       })}
