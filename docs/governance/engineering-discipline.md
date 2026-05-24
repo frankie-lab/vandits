@@ -47,6 +47,16 @@ Espejo legible del canon registrado en `mem://governance/engineering-discipline`
 4. Memoria (`mem://`) actualizada si toca canon.
 5. Commit message incluye versión final.
 
+### Gate: rechazable **o corregible**
+
+Un PR que incumple una postcondición **no se mergea como está**, pero el flujo por defecto es **corregir en el mismo PR** (bump faltante, memoria desincronizada, test rojo sin ticket, parity rota). El rechazo definitivo sólo procede si el autor se niega a corregir o el incumplimiento es estructural.
+
+Orden de actuación:
+1. **Diagnóstico** — ¿qué postcondición falla y por qué?
+2. **Corrección en el mismo PR** — bump, sync de memoria, fix de test o ticket de skip.
+3. **Re-verificar las 5 postcondiciones** — todas verdes antes de mergear.
+4. **Rechazo** — sólo si (2) no es posible o el autor lo bloquea.
+
 ---
 
 **Referencia cruzada**:
