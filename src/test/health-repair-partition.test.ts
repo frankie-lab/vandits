@@ -16,6 +16,10 @@ vi.mock('@/domains/content/lib/poi-identity-root-status-client', () => ({
   classifyPoiRootStatusForLocation: vi.fn(),
 }));
 
+vi.mock('@/domains/content/lib/point-health-rings', () => ({
+  getPointHealthRings: vi.fn(() => []),
+}));
+
 import { classifyPoiRootStatusForLocation } from '@/domains/content/lib/poi-identity-root-status-client';
 import { partitionRepairScopeByRootStatus } from '@/components/discovery/health-repair-partition';
 import type { GeoLocation } from '@/types/location';
