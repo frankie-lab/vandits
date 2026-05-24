@@ -24,6 +24,7 @@ import {
   type PoiExportRecord,
   type PoiExportScope,
 } from '@/domains/content/lib/poi-export-record';
+import { buildPoiExportContent } from '@/domains/content/lib/poi-export-content-model';
 
 // Re-export para fácil import desde tests.
 export { CUSTOM_DATA_EXPORT_ALLOWLIST };
@@ -132,6 +133,7 @@ export function mapToPoiExportRecord(
     },
     customData: filterCustomDataForExport(loc.customData),
     exportScope: scope,
+    layeredContent: buildPoiExportContent(loc, { scope }),
   };
 
   if (scope === 'internal') {
