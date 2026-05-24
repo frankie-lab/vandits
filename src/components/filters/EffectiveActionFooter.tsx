@@ -29,6 +29,7 @@ import {
   MoreHorizontal,
   CheckSquare,
   XSquare,
+  Map as MapIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,12 +44,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { DestructiveConfirmDialog } from '@/shared/components/ui/destructive-confirm-dialog';
 import { dispatchGlobalEvent } from '@/lib/global-events';
 import { isPointEnriched } from '@/domains/content/lib/point-visual-state';
+import { partitionRepairScopeByRootStatus } from '@/components/discovery/health-repair-partition';
+import { requestSubsetFit } from '@/components/map/subset-fit';
+import { dispatchGeoMaintenanceHandoff, navigateToGeoMaintenance } from '@/shared/events/geo-maintenance-handoff';
 import type { GeoLocation } from '@/types/location';
 import {
   buildFooterLabel,
   buildExportLabel,
   type FooterMode,
 } from './footer-label';
+
 
 const ENRICH_CONFIRM_THRESHOLD = 25;
 const EXPORT_CONFIRM_THRESHOLD = 250;
