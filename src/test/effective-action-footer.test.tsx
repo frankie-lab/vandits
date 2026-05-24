@@ -85,8 +85,9 @@ describe('EffectiveActionFooter — single primary + dropdown', () => {
       expect(document.querySelector('[data-testid="footer-menu-export"]')).toBeNull();
       const tag = document.querySelector('[data-testid="footer-menu-tag"]')!;
       const recl = document.querySelector('[data-testid="footer-menu-reclassify"]')!;
-      expect(tag.getAttribute('data-disabled') ?? tag.getAttribute('aria-disabled')).toBeTruthy();
-      expect(recl.getAttribute('data-disabled') ?? recl.getAttribute('aria-disabled')).toBeTruthy();
+      expect(tag.hasAttribute('data-disabled') || tag.getAttribute('aria-disabled') === 'true').toBe(true);
+      expect(recl.hasAttribute('data-disabled') || recl.getAttribute('aria-disabled') === 'true').toBe(true);
+
     });
   });
 
