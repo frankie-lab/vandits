@@ -101,19 +101,37 @@ export function serializePoiCsv(
   const rows: string[] = [headers.join(',')];
 
   for (const r of records) {
+    const layered = r.layeredContent as PoiExportContent | undefined;
+    const links = layered
+      ? [
+          ...(layered.provenance.webReference ? [layered.provenance.webReference] : []),
+          ...layered.provenance.sources.filter((s) => /^https?:\/\//i.test(s)),
+        ].join(' | ')
+      : '';
     const row: string[] = [
       escapeCsv(r.id),
       escapeCsv(r.name),
-      escapeCsv(r.content.description ?? ''),
+      escapeCsv(layered?.summary.highlight ?? ''),
+      escapeCsv(layered?.summary.longDescription ?? r.content.description ?? ''),
+      escapeCsv(layered?.summary.observation ?? ''),
       escapeCsv(r.coordinates.latitude),
       escapeCsv(r.coordinates.longitude),
       escapeCsv(r.coordinates.altitude ?? ''),
       escapeCsv(r.geography.continent ?? ''),
-      escapeCsv(r.geography.country ?? ''),
-      escapeCsv(r.geography.region ?? ''),
-      escapeCsv(r.geography.zone ?? ''),
-      escapeCsv(r.content.imageUrl ?? ''),
-      escapeCsv(r.content.tags ? r.content.tags.join(', ') : ''),
+      escapeCsv(layered?.geography.country ?? r.geography.country ?? ''),
+      escapeCsv(layered?.geography.region ?? r.geography.region ?? ''),
+      escapeCsv(layered?.geography.province ?? r.geography.zone ?? ''),
+      escapeCsv(layered?.geography.locality ?? ''),
+      escapeCsv(layered?.geography.address ?? ''),
+      escapeCsv(layered?.classification.category ?? ''),
+      escapeCsv(layered?.classification.subcategory ?? ''),
+      escapeCsv(layered?.media.imageUrl ?? r.content.imageUrl ?? ''),
+      escapeCsv(layered?.media.imageAttribution ?? ''),
+      escapeCsv(
+        layered?.classification.tags?.join(', ') ??
+          (r.content.tags ? r.content.tags.join(', ') : ''),
+      ),
+      escapeCsv(links),
       escapeCsv(r.exportScope),
     ];
 
@@ -123,6 +141,10 @@ export function serializePoiCsv(
         escapeCsv(r.classification?.rootStatus ?? ''),
         escapeCsv(r.enrichmentStatus ?? ''),
         escapeCsv(r.geoHealth ?? ''),
+        escapeCsv(layered?.userContext?.createdAt ?? ''),
+        escapeCsv(layered?.userContext?.collection ?? ''),
+        escapeCsv(layered?.userContext?.personalNotes ?? ''),
+        escapeCsv(layered?.userContext?.ownState ?? ''),
       );
     }
 
