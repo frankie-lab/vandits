@@ -283,8 +283,7 @@ export function ExportResolverBody({
     <div className="space-y-4" data-export-resolver="v1" data-export-source-kind={source.kind}>
       {/* Promesa de propiedad — copy obligatorio */}
       <p className="text-sm text-muted-foreground leading-relaxed" data-export-ownership-copy>
-        Vandits creará una copia portable. Tus ubicaciones seguirán
-        disponibles en Vandits.
+        Vandits creará una copia portable. Tus ubicaciones seguirán disponibles en Vandits.
       </p>
 
       {/* Resumen del origen */}
