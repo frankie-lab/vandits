@@ -660,11 +660,24 @@ export function FilterBar() {
      onClearSelection={clearSelection}
      onResolveDebt={
        activeModeUniverse === 'debt'
-         ? () => openHealthRepairRef.current()
+         ? () => setDebtModalOpen(true)
          : undefined
      }
      onSelectAll={handleSelectAllInMode}
    />
+
+   {/* Modal agregado "Resolver deuda" — montado SIEMPRE que el universo sea
+       `debt`, independientemente de que HealthFilterActionCTA esté montado.
+       Cierra la regresión del wiring (ref noop). */}
+   {activeModeUniverse === 'debt' && (
+     <HealthRepairPreviewDialog
+       open={debtModalOpen}
+       onOpenChange={setDebtModalOpen}
+       filter="debt"
+       scope={debtScope as any}
+       currentUserId={user?.id ?? null}
+     />
+   )}
 
   </div>
   );
