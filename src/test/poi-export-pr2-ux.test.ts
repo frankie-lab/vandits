@@ -125,28 +125,49 @@ describe('PR-EXPORT-2 Fase 3 · pipeline runPoiExport', () => {
 });
 
 describe('PR-EXPORT-2 Fase 3 · boundary UX', () => {
-  it('SelectionActions usa runPoiExport y NO importa serializers ni kml-parser', () => {
+  // PR-EXPORT-3: SelectionActions y ExportPanel delegan en
+  // <ExportResolverDialog>/<ExportResolverBody>. La SoT del pipeline
+  // (runPoiExport / downloadPoiExportBlob / POI_EXPORTERS) vive en
+  // src/domains/content/components/ExportResolver.tsx. El boundary
+  // legacy contra serializers / kml-parser sigue verde.
+  it('ExportResolver es la SoT UI del pipeline canónico', () => {
     const src = fs.readFileSync(
-      path.resolve('src/components/filters/SelectionActions.tsx'),
+      path.resolve('src/domains/content/components/ExportResolver.tsx'),
       'utf8',
     );
     expect(src).toMatch(/runPoiExport/);
     expect(src).toMatch(/downloadPoiExportBlob/);
-    expect(src).not.toMatch(/from\s+['"][^'"]*lib\/exporters['"]/);
+    expect(src).toMatch(/POI_EXPORTERS/);
+    expect(src).toMatch(/geojson/);
+    expect(src).not.toMatch(/from\s+['"][^'"]*lib\/exporters\/poi-/);
     expect(src).not.toMatch(/\bserializePoi(Csv|Kml|Json|GeoJson)\b/);
     expect(src).not.toMatch(/exportToKML\s*\(/);
     expect(src).not.toMatch(/exportToCSV\s*\(/);
     expect(src).not.toMatch(/exportToJSON\s*\(/);
   });
 
-  it('ExportPanel usa runPoiExport, registry y expone geojson', () => {
+  it('SelectionActions delega export en <ExportResolverDialog> y NO usa pipeline directo', () => {
+    const src = fs.readFileSync(
+      path.resolve('src/components/filters/SelectionActions.tsx'),
+      'utf8',
+    );
+    expect(src).toMatch(/ExportResolverDialog/);
+    expect(src).not.toMatch(/from\s+['"][^'"]*lib\/exporters['"]/);
+    expect(src).not.toMatch(/\bserializePoi(Csv|Kml|Json|GeoJson)\b/);
+    expect(src).not.toMatch(/exportToKML\s*\(/);
+    expect(src).not.toMatch(/exportToCSV\s*\(/);
+    expect(src).not.toMatch(/exportToJSON\s*\(/);
+    // PR-EXPORT-3: ningún window.confirm en path de export
+    expect(src).not.toMatch(/window\.confirm/);
+  });
+
+  it('ExportPanel es wrapper inline de <ExportResolverBody>', () => {
     const src = fs.readFileSync(
       path.resolve('src/domains/content/components/ExportPanel.tsx'),
       'utf8',
     );
-    expect(src).toMatch(/runPoiExport/);
-    expect(src).toMatch(/POI_EXPORTERS/);
-    expect(src).toMatch(/geojson/);
+    expect(src).toMatch(/ExportResolverBody/);
+    expect(src).not.toMatch(/window\.confirm/);
     expect(src).not.toMatch(/exportToKML\s*\(/);
     expect(src).not.toMatch(/exportToCSV\s*\(/);
     expect(src).not.toMatch(/exportToJSON\s*\(/);
