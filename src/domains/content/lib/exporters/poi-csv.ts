@@ -20,6 +20,7 @@ import {
   type PoiExportRecord,
   type PoiExportScope,
 } from '../poi-export-record';
+import type { PoiExportContent } from '../poi-export-content-model';
 
 export interface SerializePoiCsvOptions {
   scope: PoiExportScope;
@@ -29,16 +30,24 @@ export interface SerializePoiCsvOptions {
 const BASE_HEADERS_PUBLIC = [
   'id',
   'name',
+  'highlight',
   'description',
+  'observation',
   'latitude',
   'longitude',
   'altitude',
   'continent',
   'country',
   'region',
-  'zone',
+  'province',
+  'locality',
+  'address',
+  'category',
+  'subcategory',
   'image_url',
+  'image_attribution',
   'tags',
+  'links',
   'export_scope',
 ] as const;
 
@@ -48,6 +57,10 @@ const BASE_HEADERS_INTERNAL = [
   'root_status',
   'enrichment_status',
   'geo_health',
+  'created_at',
+  'collection',
+  'personal_notes',
+  'own_state',
 ] as const;
 
 function escapeCsv(value: unknown): string {
