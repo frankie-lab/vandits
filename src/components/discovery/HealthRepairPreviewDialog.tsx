@@ -203,7 +203,17 @@ export function HealthRepairPreviewDialog({
         data-testid="health-repair-preview-dialog"
         data-repairable-count={repairableCount}
         data-total={partition.total}
+        data-submitting={submitting ? 'true' : 'false'}
+        data-exhausted={exhausted ? 'true' : 'false'}
+        aria-busy={submitting}
       >
+        <div aria-live="polite" className="sr-only" data-testid="health-repair-status">
+          {submitting
+            ? 'Encolando reparación…'
+            : exhausted
+              ? 'Sin acciones disponibles'
+              : ''}
+        </div>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span
