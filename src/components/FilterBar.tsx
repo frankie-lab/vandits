@@ -245,10 +245,14 @@ export function FilterBar() {
     [getAllLocations, documents, user?.id],
   );
 
+  // PR-MAINTAIN-USER-ACTION-1 — el bucket "Con deuda" de la tab Mantener
+  // ahora cuenta SÓLO POIs que requieren intervención del usuario (A+C).
+  // B y D quedan invisibles aquí porque los resuelve el sistema solo.
   const curationBuckets = useMemo(() => ({
-    conDeuda: resolveUniverseBase('debt', allLocationsForUniverseSource).length,
+    conDeuda: resolveUniverseBase('user-action', allLocationsForUniverseSource).length,
     sinEnriquecer: resolveUniverseBase('unenriched', allLocationsForUniverseSource).length,
   }), [allLocationsForUniverseSource]);
+
 
   // PR-FILTER-ROOTSTATUS-2.2 §C — el desglose A/B/C/D vive ahora en una fila
   // compacta (`RootStatusChipRow`) sobre el árbol, en TODOS los universos
@@ -352,10 +356,14 @@ export function FilterBar() {
 
   // Universo activo (SoT del plan §1). Mantener→Con deuda = 'debt';
   // Mantener→Sin enriquecer = 'unenriched'; resto = 'all'.
+  // PR-MAINTAIN-USER-ACTION-1 — Mantener>Con deuda usa el universo
+  // `user-action` (sólo POIs A+C, los que requieren tu intervención).
+  // Sin enriquecer mantiene su universo. Resto = 'all'.
   const activeModeUniverse: ActiveModeUniverse =
     panelMode === 'maintain'
-      ? (maintainTab === 'debt' ? 'debt' : 'unenriched')
+      ? (maintainTab === 'debt' ? 'user-action' : 'unenriched')
       : 'all';
+
 
   // SoT del universo activo: misma fuente que `curationBuckets` y que los
   // 4 árboles vía UniverseBaseProvider. Garantiza
@@ -478,7 +486,7 @@ export function FilterBar() {
 
   // Cerrar subpanel al salir del universo debt (cambio de modo/tab).
   useEffect(() => {
-    if (activeModeUniverse !== 'debt' && debtPanelOpen) {
+    if (activeModeUniverse !== 'user-action' && debtPanelOpen) {
       setDebtPanelOpen(false);
     }
   }, [activeModeUniverse, debtPanelOpen]);
@@ -602,9 +610,10 @@ export function FilterBar() {
       <TabsList className="grid grid-cols-2 w-full h-8 p-1">
         <TabsTrigger value="debt" className="text-xs gap-1.5">
           <AlertCircle className="w-3 h-3 text-amber-600" />
-          Con deuda
+          Requieren revisión
           <span className="tabular-nums text-muted-foreground">{COUNT_FORMATTER.format(curationBuckets.conDeuda)}</span>
         </TabsTrigger>
+
         <TabsTrigger value="unenriched" className="text-xs gap-1.5">
           <CircleDashed className="w-3 h-3" />
           Sin enriquecer
