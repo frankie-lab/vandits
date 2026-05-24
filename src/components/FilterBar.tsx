@@ -68,56 +68,81 @@ import { toast } from 'sonner';
 const COUNT_FORMATTER = new Intl.NumberFormat('es-ES');
 
 /**
- * PR-MAINTAIN-FOOTER-2: canon "fila de contadores arriba".
- * Renderiza el Switch select-all/clear + un badge inline con el contador de
- * selección local del panel "Con deuda" (DebtSelectionContext) y un enlace
- * "Limpiar". El Switch limpia AMBAS selecciones (global + deuda).
+ * PR-MAINTAIN-FOOTER-2 (revisado): fila de contadores canónica única.
+ * - X = selección efectiva (global ∪ local del panel "Con deuda").
+ * - T = universeBase del modo activo.
+ * - Switch ON ⇒ deseleccionar todo (global + deuda). Switch OFF + hay subset
+ *   accionable ⇒ seleccionar todo el subset del modo.
+ * NO renderiza badges extra ni contadores duplicados.
  */
-function TopCounterSelectionControls({
-  hasUserSelection,
+function TopCounterRow({
+  T,
+  Tm,
+  Ts,
+  globalX,
+  globalXm,
+  globalXs,
+  universeLabel,
   canSelect,
   onSelectAll,
   onClearGlobal,
 }: {
-  hasUserSelection: boolean;
+  T: number;
+  Tm: number;
+  Ts: number;
+  globalX: number;
+  globalXm: number;
+  globalXs: number;
+  universeLabel: string | null;
   canSelect: boolean;
   onSelectAll: () => void;
   onClearGlobal: () => void;
 }) {
   const debtSel = useDebtSelection();
   const debtCount = debtSel?.size ?? 0;
-  const switchOn = hasUserSelection || debtCount > 0;
-  const disabled = !switchOn && !canSelect;
+  // Selección efectiva: si hay selección local de deuda, manda; si no, la global.
+  const X = debtCount > 0 ? debtCount : globalX;
+  const Xm = debtCount > 0 ? 0 : globalXm; // breakdown sólo aplica a global
+  const Xs = debtCount > 0 ? 0 : globalXs;
+  const hasSelection = X > 0;
+  const disabled = !hasSelection && !canSelect;
   return (
-    <div className="flex items-center gap-2">
-      {debtCount > 0 && (
-        <div
-          className="flex items-center gap-2 text-xs"
-          data-debt-selection-bar="1"
-          data-debt-selection-count={debtCount}
-        >
-          <span className="font-medium tabular-nums text-primary">
-            {debtCount} sel.
+    <div className="flex items-center justify-between">
+      <div className="flex flex-col">
+        <div className="flex items-center gap-2">
+          <span className="text-lg font-semibold leading-none tabular-nums">
+            <span className="text-primary">{COUNT_FORMATTER.format(X)}</span>
+            <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(T)}</span>
           </span>
-          <button
-            type="button"
-            onClick={debtSel?.clear}
-            className="underline text-primary/80 hover:text-primary"
-            data-debt-selection-clear="1"
-          >
-            Limpiar
-          </button>
+          <span className="text-sm text-muted-foreground leading-none">
+            seleccionados{universeLabel ? ` (${universeLabel})` : ''}
+          </span>
         </div>
-      )}
+        {debtCount === 0 && (
+          <div className="text-xs mt-1 leading-tight">
+            <span className="font-semibold tabular-nums">
+              <span className="text-primary">{COUNT_FORMATTER.format(Xm)}</span>
+              <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(Tm)}</span>
+            </span>{' '}
+            <span className="text-emerald-600 font-medium">Míos</span>
+            {' · '}
+            <span className="font-semibold tabular-nums">
+              <span className="text-primary">{COUNT_FORMATTER.format(Xs)}</span>
+              <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(Ts)}</span>
+            </span>{' '}
+            <span className="text-sky-600 font-medium">Seguidos</span>
+          </div>
+        )}
+      </div>
       <label
         className={cn(
           'flex items-center h-7 px-2 cursor-pointer',
           disabled && 'opacity-50 cursor-not-allowed'
         )}
-        title={switchOn ? 'Deseleccionar todo' : 'Seleccionar todo el subconjunto activo'}
+        title={hasSelection ? 'Deseleccionar todo' : 'Seleccionar todo el subconjunto activo'}
       >
         <Switch
-          checked={switchOn}
+          checked={hasSelection}
           disabled={disabled}
           onCheckedChange={(checked) => {
             if (checked) {
@@ -132,6 +157,7 @@ function TopCounterSelectionControls({
     </div>
   );
 }
+
 
 
 export function FilterBar() {
