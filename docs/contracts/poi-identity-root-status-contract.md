@@ -122,38 +122,68 @@ Incumplir cualquier punto → PR rechazable o corregible (regla NASA-grade, ver
 
 - No toca `computePoiMaturity` ni el orden POI-0..10.
 - No toca marker fill ni health rings.
-- No crea columna en `locations` (ver §9, follow-up).
 - No re-enrich automático.
-- No migra datos.
 - No introduce gates de visibilidad ni de export (export sigue regido por
   `evaluatePoiExport`).
 - No cambia RLS.
 
-## 9. Follow-up planeado: persistencia (PR-IDENTITY-ROOT-PERSIST-1)
+## 9. Persistencia (ACTIVE desde v1.5.0, PR-IDENTITY-ROOT-PERSIST-1)
 
-Pendiente de aprobación explícita. Cuando se materialice:
+Columnas derivadas en `public.locations`:
 
 ```sql
-ALTER TABLE locations
-  ADD COLUMN identity_root_status text
-  CHECK (identity_root_status IN ('A','B','C','D'));
+identity_root_status text  CHECK (… IN ('A','B','C','D'))
+identity_skip_reason text  -- enum SkipReason, NULL sólo para D elegible
+```
 
-ALTER TABLE locations
-  ADD COLUMN identity_skip_reason text;  -- enum SkipReason
+Trigger `zzz1_locations_set_identity_root_status` BEFORE INSERT OR UPDATE,
+recomputa SÓLO si cambia uno de estos 12 campos: `name`, `latitude`,
+`longitude`, `country_code`, `country_id`, `geo_health`, `enrichment_status`,
+`enriched_data`, `is_approved`, `deleted_at`, `custom_data`, `owner_user_id`.
+Prefijo `zzz1_` garantiza orden alfabético DESPUÉS de
+`zzz_locations_set_geo_health`, así `NEW.geo_health` ya está actualizado al
+clasificar.
 
+Función SQL canónica: `public._compute_identity_root_status(public.locations)`
+(IMMUTABLE). Mirror estricto del orden de decisión §4 — cualquier cambio toca
+las 3 implementaciones (Deno + cliente + SQL) en el mismo PR.
+
+Canon ISO2 SQL: `public._is_canon_country_iso2(text)`. Lista hardcoded de 49
+países. PARITY con `supabase/functions/_shared/territorial-canon.ts`. Drift
+detectado por contract test futuro (PR-IDENTITY-ROOT-PERSIST-2).
+
+Índice parcial para la cola pendiente:
+```sql
 CREATE INDEX locations_root_pending_idx
-  ON locations (identity_root_status)
+  ON locations (identity_root_status, owner_user_id)
   WHERE identity_root_status IN ('A','B','C');
 ```
 
-- Trigger `recompute_identity_root` en INSERT/UPDATE de campos relevantes
-  (`name`, `latitude`, `longitude`, `country_code`, `country_id`, `geo_health`,
-  `enrichment_status`, `enriched_data`, `is_approved`, `deleted_at`,
-  `metadata`).
-- Backfill one-shot con paginación 1k.
-- Cliente sigue calculando en runtime como fallback (no se quita); columna es
-  optimización para queries server-side e índice de cola.
-- Requiere flight readiness review (trigger sobre `locations` = sistema crítico).
+Distribución backfill v1.5.0 (5.100 POIs activos):
+- D already_enriched: 3.419
+- D fixture: 368
+- D elegible (skip_reason NULL): 1.205
+- D unresolved_flag: 2
+- B canon_gap: 89
+- B root_b_unresolved: 10
+- C: 6
+- A invalid_coordinates: 1
+
+**Cliente NO se quita**: sigue calculando en runtime como fallback / source-of-truth
+operacional. La columna persistida es optimización para queries server-side e
+índice de cola.
+
+**Rollback** (sin pérdida de datos, columnas derivadas):
+```sql
+DROP TRIGGER  zzz1_locations_set_identity_root_status ON public.locations;
+DROP FUNCTION public.locations_set_identity_root_status();
+DROP FUNCTION public._compute_identity_root_status(public.locations);
+DROP FUNCTION public._is_canon_country_iso2(text);
+DROP INDEX    public.locations_root_pending_idx;
+ALTER TABLE   public.locations DROP COLUMN identity_skip_reason;
+ALTER TABLE   public.locations DROP COLUMN identity_root_status;
+```
+
 
 ## 10. Referencias
 
