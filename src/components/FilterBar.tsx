@@ -486,7 +486,7 @@ export function FilterBar() {
 
   // Cerrar subpanel al salir del universo debt (cambio de modo/tab).
   useEffect(() => {
-    if (activeModeUniverse !== 'debt' && debtPanelOpen) {
+    if (activeModeUniverse !== 'user-action' && debtPanelOpen) {
       setDebtPanelOpen(false);
     }
   }, [activeModeUniverse, debtPanelOpen]);
