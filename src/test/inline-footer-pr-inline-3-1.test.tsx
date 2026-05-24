@@ -11,8 +11,30 @@
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent, screen } from '@testing-library/react';
+import { render, fireEvent, screen, act } from '@testing-library/react';
 import type { GeoLocation } from '@/types/location';
+
+// Polyfills jsdom para Radix DropdownMenu (pointer capture + scrollIntoView).
+beforeEach(() => {
+  if (!(Element.prototype as any).hasPointerCapture) {
+    (Element.prototype as any).hasPointerCapture = () => false;
+    (Element.prototype as any).releasePointerCapture = () => {};
+    (Element.prototype as any).setPointerCapture = () => {};
+  }
+  if (!(Element.prototype as any).scrollIntoView) {
+    (Element.prototype as any).scrollIntoView = () => {};
+  }
+});
+
+function openMenu() {
+  const trigger = document.querySelector('[data-testid="footer-more-actions"]') as HTMLButtonElement;
+  expect(trigger).toBeTruthy();
+  act(() => {
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: 'Enter', code: 'Enter' });
+  });
+}
+
 
 // ──────────── Mocks ────────────
 const rpcMock = vi.fn();
