@@ -106,7 +106,7 @@ const GROUP_META: Record<
   },
   systemDebt: {
     title: 'Deuda de sistema (B)',
-    help: 'Falta canon/backfill del lado sistema. Acción masiva canónica llegará desde Geo Maintenance.',
+    help: 'Falta canon/backfill del lado sistema. Acción masiva canónica llegará en un PR futuro.',
     recommendation: 'Backfill (futuro)',
     rootBadge: 'B',
   },
