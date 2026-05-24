@@ -627,24 +627,9 @@ export function FilterBar() {
    <>
     {panelMode === 'maintain' && (
       <div className="space-y-1.5 mt-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-            Acción sobre {universeLabel ?? 'subconjunto'}
-            <span className="ml-1 normal-case tabular-nums text-muted-foreground/70">
-              ({COUNT_FORMATTER.format(effectiveActionSet.length)})
-            </span>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSelectAllInMode}
-            disabled={effectiveActionSet.length === 0 && selectedLocations.size === 0}
-            className="h-6 px-2 text-[11px] gap-1"
-          >
-            <CheckSquare className="w-3 h-3" />
-            Seleccionar todo
-          </Button>
-        </div>
+        {/* Header "Acción sobre … + Seleccionar todo" eliminado (PR-MAINTAIN-FOOTER-2):
+            duplicaba el contador X/T y el Switch de la fila superior canónica. */}
+
         {maintainTab === 'debt' ? (
           <HealthFilterActionCTA
             healthFilter={filters.healthFilter ?? null}
