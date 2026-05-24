@@ -677,6 +677,7 @@ export function FilterBar() {
     <DebtSelectionStatusBar />
    </>
   </>
+  </>
   )}
 
 
