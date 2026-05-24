@@ -5,6 +5,7 @@ import { getPointHealthRings } from '@/domains/content/lib/point-health-rings';
 import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
 import { getLocationOwnerUserId } from '@/domains/content/lib/location-owner';
 import { resolvePoiSource } from '@/domains/content/lib/poi-source';
+import { classifyPoiRootStatusForLocation } from '@/domains/content/lib/poi-identity-root-status-client';
 
 /**
  * Matcher ÚNICO para filtros de exploración/navegación sobre un punto.
@@ -199,6 +200,14 @@ export function matchesLocationFilters(
   if (includeHealth && filters.healthFilter) {
     const rings = getPointHealthRings(loc);
     if (!rings.includes(filters.healthFilter)) return false;
+  }
+
+  // Eje "Root Status A/B/C/D" (PR-FILTER-ROOTSTATUS-2). Multi-select.
+  // Delegación 100% en `classifyPoiRootStatusForLocation` (espejo Deno).
+  // Ortogonal a health/visual/POI-N — no muta nada del marker.
+  if (filters.rootStatus && filters.rootStatus.length > 0) {
+    const rs = classifyPoiRootStatusForLocation(loc).rootStatus;
+    if (!filters.rootStatus.includes(rs)) return false;
   }
 
   return true;

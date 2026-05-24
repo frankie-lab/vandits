@@ -1,0 +1,115 @@
+{
+  "_doc": "Fixtures compartidas para el contract test de paridad entre el clasificador Deno (`supabase/functions/_shared/poi-identity-root-status.ts`) y el espejo cliente (`src/domains/content/lib/poi-identity-root-status-client.ts`). Cualquier divergencia debe romper CI. Ver `docs/audits/search-filter-root-status-filter-plan.md` §5.1.",
+  "cases": [
+    {
+      "name": "A · deleted_at presente",
+      "row": { "id": "x1", "name": "Sagrada Família", "latitude": 41.4, "longitude": 2.17, "country_code": "ES", "country_id": "es-id", "geo_health": "ok", "is_approved": true, "deleted_at": "2026-01-01T00:00:00Z" },
+      "expected": { "root": "A", "eligibleForAutoEnrich": false, "skipReason": "deleted" }
+    },
+    {
+      "name": "A · is_approved=false",
+      "row": { "id": "x2", "name": "Foo", "latitude": 41.4, "longitude": 2.17, "country_code": "ES", "country_id": "es-id", "geo_health": "ok", "is_approved": false },
+      "expected": { "root": "A", "eligibleForAutoEnrich": false, "skipReason": "not_approved" }
+    },
+    {
+      "name": "D fixture · owner sandbox",
+      "row": { "id": "x3", "name": "Foo", "latitude": 41.4, "longitude": 2.17, "country_code": "ES", "country_id": "es-id", "geo_health": "ok", "is_approved": true, "owner_user_id": "f04b3b95-7308-4b74-b3c7-7e819767c5fb" },
+      "expected": { "root": "D", "eligibleForAutoEnrich": false, "skipReason": "fixture" }
+    },
+    {
+      "name": "D fixture · metadata.synthetic",
+      "row": { "id": "x4", "name": "Foo", "latitude": 41.4, "longitude": 2.17, "country_code": "ES", "country_id": "es-id", "geo_health": "ok", "is_approved": true, "metadata": { "synthetic": true } },
+      "expected": { "root": "D", "eligibleForAutoEnrich": false, "skipReason": "fixture" }
+    },
+    {
+      "name": "D fixture · id e2e",
+      "row": { "id": "e2e-foo", "name": "Foo", "latitude": 41.4, "longitude": 2.17, "country_code": "ES", "country_id": "es-id", "geo_health": "ok", "is_approved": true },
+      "expected": { "root": "D", "eligibleForAutoEnrich": false, "skipReason": "fixture" }
+    },
+    {
+      "name": "D fixture · beta-chain name",
+      "row": { "id": "x5", "name": "beta-chain-001", "latitude": 41.4, "longitude": 2.17, "country_code": "ES", "country_id": "es-id", "geo_health": "ok", "is_approved": true },
+      "expected": { "root": "D", "eligibleForAutoEnrich": false, "skipReason": "fixture" }
+    },
+    {
+      "name": "D · under_review",
+      "row": { "id": "x6", "name": "Foo", "latitude": 41.4, "longitude": 2.17, "country_code": "ES", "country_id": "es-id", "geo_health": "ok", "is_approved": true, "metadata": { "under_review": true } },
+      "expected": { "root": "D", "eligibleForAutoEnrich": false, "skipReason": "under_review" }
+    },
+    {
+      "name": "D · enrichment in_progress",
+      "row": { "id": "x7", "name": "Foo", "latitude": 41.4, "longitude": 2.17, "country_code": "ES", "country_id": "es-id", "geo_health": "ok", "is_approved": true, "enrichment_status": "in_progress" },
+      "expected": { "root": "D", "eligibleForAutoEnrich": false, "skipReason": "in_progress" }
+    },
+    {
+      "name": "D · enrichment unresolved",
+      "row": { "id": "x8", "name": "Foo", "latitude": 41.4, "longitude": 2.17, "country_code": "ES", "country_id": "es-id", "geo_health": "ok", "is_approved": true, "enrichment_status": "unresolved" },
+      "expected": { "root": "D", "eligibleForAutoEnrich": false, "skipReason": "unresolved_flag" }
+    },
+    {
+      "name": "A · coord null_island",
+      "row": { "id": "x9", "name": "Foo", "latitude": 0, "longitude": 0, "country_code": "ES", "country_id": "es-id", "geo_health": "ok", "is_approved": true },
+      "expected": { "root": "A", "eligibleForAutoEnrich": false, "skipReason": "invalid_coordinates" }
+    },
+    {
+      "name": "A · coord out_of_range",
+      "row": { "id": "x10", "name": "Foo", "latitude": 200, "longitude": 2.17, "country_code": "ES", "country_id": "es-id", "geo_health": "ok", "is_approved": true },
+      "expected": { "root": "A", "eligibleForAutoEnrich": false, "skipReason": "invalid_coordinates" }
+    },
+    {
+      "name": "A · name vacío",
+      "row": { "id": "x11", "name": "   ", "latitude": 41.4, "longitude": 2.17, "country_code": "ES", "country_id": "es-id", "geo_health": "ok", "is_approved": true },
+      "expected": { "root": "A", "eligibleForAutoEnrich": false, "skipReason": "root_a_missing_identity" }
+    },
+    {
+      "name": "C · geo_health=broken",
+      "row": { "id": "x12", "name": "Foo", "latitude": 41.4, "longitude": 2.17, "country_code": "ES", "country_id": "es-id", "geo_health": "broken", "is_approved": true },
+      "expected": { "root": "C", "eligibleForAutoEnrich": false, "skipReason": "root_c_incoherent_identity" }
+    },
+    {
+      "name": "C · geo_health=stale_name",
+      "row": { "id": "x13", "name": "Foo", "latitude": 41.4, "longitude": 2.17, "country_code": "ES", "country_id": "es-id", "geo_health": "stale_name", "is_approved": true },
+      "expected": { "root": "C", "eligibleForAutoEnrich": false, "skipReason": "root_c_incoherent_identity" }
+    },
+    {
+      "name": "C · geo_health=empty",
+      "row": { "id": "x14", "name": "Foo", "latitude": 41.4, "longitude": 2.17, "country_code": "ES", "country_id": "es-id", "geo_health": "empty", "is_approved": true },
+      "expected": { "root": "C", "eligibleForAutoEnrich": false, "skipReason": "root_c_incoherent_identity" }
+    },
+    {
+      "name": "C · geo_health=hardError",
+      "row": { "id": "x15", "name": "Foo", "latitude": 41.4, "longitude": 2.17, "country_code": "ES", "country_id": "es-id", "geo_health": "hardError", "is_approved": true },
+      "expected": { "root": "C", "eligibleForAutoEnrich": false, "skipReason": "geo_hard_error" }
+    },
+    {
+      "name": "B · canon_gap (country fuera de canon)",
+      "row": { "id": "x16", "name": "Foo", "latitude": 35.0, "longitude": 139.0, "country_code": "JP", "country_id": "jp-id", "geo_health": "ok", "is_approved": true },
+      "expected": { "root": "B", "eligibleForAutoEnrich": false, "skipReason": "canon_gap" }
+    },
+    {
+      "name": "B · canon_gap (country_code null)",
+      "row": { "id": "x17", "name": "Foo", "latitude": 41.4, "longitude": 2.17, "country_code": null, "country_id": "es-id", "geo_health": "ok", "is_approved": true },
+      "expected": { "root": "B", "eligibleForAutoEnrich": false, "skipReason": "canon_gap" }
+    },
+    {
+      "name": "B · geo_health=partial",
+      "row": { "id": "x18", "name": "Foo", "latitude": 41.4, "longitude": 2.17, "country_code": "ES", "country_id": "es-id", "geo_health": "partial", "is_approved": true },
+      "expected": { "root": "B", "eligibleForAutoEnrich": false, "skipReason": "root_b_unresolved" }
+    },
+    {
+      "name": "B · country_id null",
+      "row": { "id": "x19", "name": "Foo", "latitude": 41.4, "longitude": 2.17, "country_code": "ES", "country_id": null, "geo_health": "ok", "is_approved": true },
+      "expected": { "root": "B", "eligibleForAutoEnrich": false, "skipReason": "root_b_unresolved" }
+    },
+    {
+      "name": "D · already enriched (no candidate)",
+      "row": { "id": "x20", "name": "Foo", "latitude": 41.4, "longitude": 2.17, "country_code": "ES", "country_id": "es-id", "geo_health": "ok", "is_approved": true, "enriched_data": { "descripcion": "Texto largo de descripción IA." } },
+      "expected": { "root": "D", "eligibleForAutoEnrich": false, "skipReason": "already_enriched" }
+    },
+    {
+      "name": "D · elegible para auto-enrich",
+      "row": { "id": "x21", "name": "Foo", "latitude": 41.4, "longitude": 2.17, "country_code": "ES", "country_id": "es-id", "geo_health": "ok", "is_approved": true },
+      "expected": { "root": "D", "eligibleForAutoEnrich": true }
+    }
+  ]
+}

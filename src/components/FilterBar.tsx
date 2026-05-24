@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { dispatchGlobalEvent } from '@/lib/global-events';
-import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, Trash2, Loader2, HeartPulse, CheckSquare, AlertCircle, CircleDashed } from 'lucide-react';
+import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, Trash2, Loader2, HeartPulse, CheckSquare, AlertCircle, CircleDashed, Shield } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { AppEmptyState } from '@/shared/components/ui';
 import { PanelModeTabs, type PanelMode } from './discovery/PanelModeTabs';
@@ -42,6 +42,7 @@ import {
   getActiveFilterChips,
   type FilterAxis,
 } from '@/domains/content/lib/filter-presets';
+import { classifyPoiRootStatusForLocation } from '@/domains/content/lib/poi-identity-root-status-client';
 import { CLASSIFICATION_TREE } from './filters/ClassificationTree';
 import { loadLocationsFromDatabase } from '@/domains/content';
 import { HealthFilterActionCTA } from './discovery/HealthFilterActionCTA';
@@ -150,6 +151,19 @@ export function FilterBar() {
     conDeuda: resolveUniverseBase('debt', allLocationsForUniverseSource).length,
     sinEnriquecer: resolveUniverseBase('unenriched', allLocationsForUniverseSource).length,
   }), [allLocationsForUniverseSource]);
+
+  // PR-FILTER-ROOTSTATUS-2 §6.2 — desglose A/B/C/D del universo "debt".
+  // Counts derivados del MISMO universeBase('debt') que el subtab, no de
+  // `effectiveActionSet` (evita doble filtrado). Invariante I2:
+  // A+B+C+D ≡ subtab `Con deuda`.
+  const debtRootStatusCounts = useMemo(() => {
+    const counts: Record<'A' | 'B' | 'C' | 'D', number> = { A: 0, B: 0, C: 0, D: 0 };
+    const universe = resolveUniverseBase('debt', allLocationsForUniverseSource);
+    for (const loc of universe as any[]) {
+      counts[classifyPoiRootStatusForLocation(loc).rootStatus] += 1;
+    }
+    return counts;
+  }, [allLocationsForUniverseSource]);
 
   // PR-4A.1 — Auto-fit del mapa cuando arranca una selección masiva (0 → N).
   // Internamente debounced 250ms y con guard "solo el primer fit".
@@ -431,6 +445,7 @@ export function FilterBar() {
             classification: 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200',
             search: 'bg-muted text-muted-foreground hover:bg-muted/80',
             health: 'bg-pink-100 text-pink-700 hover:bg-pink-200',
+            rootStatus: 'bg-slate-200 text-slate-700 hover:bg-slate-300',
           };
           const IconByAxis: Record<FilterAxis, typeof MapPin> = {
             geography: MapPin,
@@ -439,6 +454,7 @@ export function FilterBar() {
             classification: Layers,
             search: Search,
             health: HeartPulse,
+            rootStatus: Shield,
           };
           const Icon = IconByAxis[chip.axis];
           return (
@@ -488,6 +504,45 @@ export function FilterBar() {
           <span className="tabular-nums text-muted-foreground">{COUNT_FORMATTER.format(curationBuckets.sinEnriquecer)}</span>
         </TabsTrigger>
       </TabsList>
+      {maintainTab === 'debt' && (
+        <div
+          className="flex items-center gap-1.5 mt-1.5 flex-wrap"
+          data-testid="root-status-breakdown-debt"
+        >
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Root</span>
+          {(['A', 'B', 'C', 'D'] as const).map((letter) => {
+            const active = (filters.rootStatus ?? []).includes(letter);
+            const count = debtRootStatusCounts[letter];
+            return (
+              <button
+                key={letter}
+                type="button"
+                onClick={() => {
+                  const current = filters.rootStatus ?? [];
+                  const next = active
+                    ? current.filter((x) => x !== letter)
+                    : [...current, letter];
+                  const updated = { ...filters };
+                  if (next.length === 0) delete (updated as Record<string, unknown>).rootStatus;
+                  else updated.rootStatus = next;
+                  setFilters(updated);
+                }}
+                className={cn(
+                  'h-6 px-1.5 rounded text-[11px] font-medium border tabular-nums transition-colors',
+                  active
+                    ? 'bg-slate-700 text-slate-50 border-slate-700'
+                    : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200',
+                )}
+                data-testid={`root-status-chip-${letter}`}
+                data-active={active}
+                title={`Root ${letter} (${count})`}
+              >
+                {letter} {count}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </Tabs>
   )}
 

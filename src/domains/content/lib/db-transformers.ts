@@ -51,6 +51,13 @@ export function dbLocationToGeoLocation(loc: any): GeoLocation {
     ownerUserId: loc.owner_user_id ?? null,
     isApproved: loc.is_approved ?? false,
     externalRefs: (loc.external_refs as GeoLocation['externalRefs']) || undefined,
+    // PR-FILTER-ROOTSTATUS-2 — pass-through para el clasificador Root Status.
+    // Cuando la vista no los expone, el clasificador cae a la rama
+    // conservadora Deno (normalmente B).
+    countryCode: loc.country_code ?? null,
+    countryId: loc.country_id ?? null,
+    regionId: loc.region_id ?? null,
+    metadata: (loc.metadata as Record<string, unknown>) ?? null,
     // Fase 3.1 canon v3 — preservar señales geo crudas del DB para que
     // `computePoiMaturity` pueda graduar POI-4+. Antes se perdían en el
     // mapping (todos los enriched caían en POI-3 por ausencia de raw_geocode).
