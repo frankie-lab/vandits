@@ -27,7 +27,7 @@ import * as React from 'react';
 import { Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { classifyPoiRootStatusForLocation } from '@/domains/content/lib/poi-identity-root-status-client';
-import type { FilterCriteria } from '@/domains/content/lib/filter-presets';
+import type { FilterCriteria } from '@/types/location';
 
 export type RootStatusLetter = 'A' | 'B' | 'C' | 'D';
 
