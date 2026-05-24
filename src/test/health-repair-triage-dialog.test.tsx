@@ -209,12 +209,11 @@ describe('HealthRepairPreviewDialog — triage (plan §7)', () => {
           scope={scope(FULL_IDS)}
         />,
       );
-      fireEvent.click(screen.getByTestId('health-repair-export-menu'));
-      const item = document.querySelector(
+      const btn = document.querySelector(
         '[data-triage-export-target="non-repairable"]',
       ) as HTMLElement;
-      expect(item).toBeTruthy();
-      fireEvent.click(item);
+      expect(btn).toBeTruthy();
+      fireEvent.click(btn);
       expect(events).toHaveLength(1);
       const ids = (events[0].detail as { locations: GeoLocation[] }).locations.map(
         (l) => l.id,
@@ -223,7 +222,7 @@ describe('HealthRepairPreviewDialog — triage (plan §7)', () => {
       expect(ids).not.toContain('dp1');
       expect(ids).not.toContain('dp2');
     } finally {
-      (events as any).dispose();
+      (events as unknown as { dispose: () => void }).dispose();
     }
   });
 
@@ -238,18 +237,17 @@ describe('HealthRepairPreviewDialog — triage (plan §7)', () => {
           scope={scope(FULL_IDS)}
         />,
       );
-      fireEvent.click(screen.getByTestId('health-repair-export-menu'));
-      const item = document.querySelector(
+      const btn = document.querySelector(
         '[data-triage-export-target="all"]',
       ) as HTMLElement;
-      fireEvent.click(item);
+      fireEvent.click(btn);
       expect(events).toHaveLength(1);
       const ids = (events[0].detail as { locations: GeoLocation[] }).locations.map(
         (l) => l.id,
       );
       expect(ids.sort()).toEqual([...FULL_IDS].sort());
     } finally {
-      (events as any).dispose();
+      (events as unknown as { dispose: () => void }).dispose();
     }
   });
 
