@@ -65,12 +65,24 @@ export interface RootStatusChipRowProps {
 /** Orden canónico de las pestañas (extender aquí si aparece un 5º estado). */
 const LETTERS: ReadonlyArray<RootStatusLetter> = ['A', 'B', 'C', 'D'];
 
-/** Label corto mostrado en la pestaña. Optimizado para no truncar a ≥320px. */
+/**
+ * Label corto mostrado en la pestaña. Optimizado para no truncar a ≥320px.
+ *
+ * IMPORTANTE: estas etiquetas describen el **tipo de deuda / vía de
+ * resolución**, NO si el POI está "terminado". En el universo "Con deuda"
+ * los 4 estados son particiones de deuda:
+ *   - A "Incompleto"  → falta identidad básica (deuda dura, no reparable).
+ *   - B "Falta canon" → deuda de sistema, pendiente de backfill geográfico.
+ *   - C "Revisar"     → deuda que requiere intervención humana.
+ *   - D "Auto"        → deuda elegible para reparación automática.
+ * Por eso D NO se llama "Listo": "Listo" sugeriría ausencia de deuda y
+ * confundiría al usuario dentro de "Con deuda".
+ */
 const LETTER_LABEL: Record<RootStatusLetter, string> = {
   A: 'Incompleto',
   B: 'Falta canon',
   C: 'Revisar',
-  D: 'Listo',
+  D: 'Auto',
 };
 
 /** Descripción larga (tooltip nativo) con la semántica completa del estado. */
@@ -78,7 +90,7 @@ const LETTER_TITLE: Record<RootStatusLetter, string> = {
   A: 'Incompleto · falta identidad básica (nombre o coordenadas)',
   B: 'Falta canon · deuda de sistema, pendiente de backfill geográfico',
   C: 'Revisar a mano · nombre/coords sospechosos, requiere intervención humana',
-  D: 'Listo para auto · canon completo, elegible para reparación automática',
+  D: 'Auto · canon de identidad completo, deuda elegible para reparación automática',
 };
 
 export function RootStatusChipRow({
