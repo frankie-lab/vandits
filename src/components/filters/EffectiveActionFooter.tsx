@@ -463,6 +463,46 @@ export function EffectiveActionFooter({
               Reclasificar
             </DropdownMenuItem>
 
+            {(showFocusInMapInMenu ||
+              showGeoMaintenanceInMenu ||
+              showExportNonRepairableInMenu) && <DropdownMenuSeparator />}
+            {showFocusInMapInMenu && (
+              <DropdownMenuItem
+                onSelect={(e) => { e.preventDefault(); onFocusInMap(); }}
+                data-action="footer-focus-map"
+                data-testid="footer-menu-focus-map"
+                disabled={disabled}
+              >
+                <MapIcon className="w-3.5 h-3.5 mr-2" />
+                Abrir en mapa
+              </DropdownMenuItem>
+            )}
+            {showGeoMaintenanceInMenu && (
+              <DropdownMenuItem
+                onSelect={(e) => { e.preventDefault(); onGeoMaintenanceSubgroup(); }}
+                data-action="footer-geo-maintenance-b"
+                data-testid="footer-menu-geo-maintenance-b"
+                disabled={disabled}
+              >
+                <Wrench className="w-3.5 h-3.5 mr-2" />
+                Geo Maintenance subgrupo B
+                <span className="ml-auto tabular-nums text-muted-foreground">({systemDebtIds.length})</span>
+              </DropdownMenuItem>
+            )}
+            {showExportNonRepairableInMenu && (
+              <DropdownMenuItem
+                onSelect={(e) => { e.preventDefault(); doExportNonRepairable(); }}
+                data-action="footer-export-non-repairable"
+                data-testid="footer-menu-export-non-repairable"
+                disabled={disabled || busy !== null}
+              >
+                <Download className="w-3.5 h-3.5 mr-2" />
+                Exportar no reparables
+                <span className="ml-auto tabular-nums text-muted-foreground">({nonRepairableLocations.length})</span>
+              </DropdownMenuItem>
+            )}
+
+
             {(onSelectAll || hasUserSelection) && <DropdownMenuSeparator />}
             {onSelectAll && (
               <DropdownMenuItem
