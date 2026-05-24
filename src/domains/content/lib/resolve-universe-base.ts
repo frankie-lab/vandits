@@ -17,8 +17,9 @@
 import type { GeoLocation } from '@/types/location';
 import { getPointHealthRings } from '@/domains/content/lib/point-health-rings';
 import { isPointEnriched } from '@/domains/content/lib/point-visual-state';
+import { classifyPoiRootStatusForLocation } from '@/domains/content/lib/poi-identity-root-status-client';
 
-export type ActiveModeUniverse = 'all' | 'debt' | 'unenriched';
+export type ActiveModeUniverse = 'all' | 'debt' | 'unenriched' | 'user-action';
 
 export function isLocationInDebtUniverse(loc: GeoLocation): boolean {
   const rings = getPointHealthRings(loc);
@@ -41,6 +42,33 @@ export function isLocationInUnenrichedUniverse(loc: GeoLocation): boolean {
   return true;
 }
 
+/**
+ * PR-MAINTAIN-USER-ACTION-1 — Helper canónico.
+ *
+ * "POI que requiere intervención del usuario" = tiene deuda objetiva
+ * (mismo criterio que `isLocationInDebtUniverse`) Y su Root Status de
+ * identidad ∈ {A, C}:
+ *   - A (Incompleto)  → falta nombre o coordenadas. Sólo el usuario puede
+ *                       completarlo (catálogo, foto, edición manual).
+ *   - C (Revisar)     → nombre/coordenadas sospechosos. Requiere juicio
+ *                       humano para confirmar o corregir.
+ *
+ * Se EXCLUYEN explícitamente:
+ *   - B (Falta canon) → backfill geográfico automático del sistema.
+ *   - D (Auto)        → reparación automática vía `enqueue_health_repair`.
+ *
+ * Regla de producto: el panel "Mantener" es la **cola de trabajo del
+ * usuario**. Todo lo que el sistema puede resolver solo NO debe aparecer
+ * aquí; corre en background y se reporta en la consola admin. Esto evita
+ * que el usuario sienta que tiene deuda que en realidad no requiere su
+ * tiempo.
+ */
+export function isLocationRequiringUserAction(loc: GeoLocation): boolean {
+  if (!isLocationInDebtUniverse(loc)) return false;
+  const { rootStatus } = classifyPoiRootStatusForLocation(loc as never);
+  return rootStatus === 'A' || rootStatus === 'C';
+}
+
 export function resolveUniverseBase(
   mode: ActiveModeUniverse,
   locations: GeoLocation[],
@@ -48,6 +76,7 @@ export function resolveUniverseBase(
   if (mode === 'all') return locations;
   if (mode === 'debt') return locations.filter(isLocationInDebtUniverse);
   if (mode === 'unenriched') return locations.filter(isLocationInUnenrichedUniverse);
+  if (mode === 'user-action') return locations.filter(isLocationRequiringUserAction);
   return locations;
 }
 
@@ -55,5 +84,6 @@ export function resolveUniverseBase(
 export function getUniverseBaseLabel(mode: ActiveModeUniverse): string | null {
   if (mode === 'debt') return 'con deuda';
   if (mode === 'unenriched') return 'sin enriquecer';
+  if (mode === 'user-action') return 'requieren tu revisión';
   return null;
 }
