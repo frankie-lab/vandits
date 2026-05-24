@@ -200,7 +200,7 @@ export function UserMenu({
  
   // Check if user can access admin features
  const canAccessAdmin = hasPermission('manage_users') || isAdmin() || isMaster();
- const canManageCriteria = hasPermission('manage_criteria') || isAdmin() || isMaster();
+ const canManageCriteria = hasPermission('manage_editorial_criteria') || isAdmin() || isMaster();
  const canRunEnrichment = hasPermission('run_global_enrichment') || isAdmin() || isMaster();
  
  const handleToggleSounds = (e: React.MouseEvent) => {

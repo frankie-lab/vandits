@@ -61,8 +61,8 @@ export function usePermissions() {
  const roles = (rolesData || []).map(r => r.role as AppRole);
 
       // Si no tiene roles, asignar 'user' por defecto
- if (roles.length === 0) {
- setState({ roles: ['user'], permissions: [], loading: false, error: null });
+  if (roles.length === 0) {
+ setState({ roles: [], permissions: [], loading: false, error: null });
  return;
  }
 

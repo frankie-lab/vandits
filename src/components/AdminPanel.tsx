@@ -59,8 +59,6 @@ const ROLE_LABELS: Record<AppRole, string> = {
  admin: 'Administrador',
  moderator: 'Moderador',
  editor: 'Editor',
- supervisor: 'Supervisor',
- user: 'Usuario',
 };
 
 const ROLE_COLORS: Record<AppRole, string> = {
@@ -68,37 +66,55 @@ const ROLE_COLORS: Record<AppRole, string> = {
  admin: 'bg-red-500',
  moderator: 'bg-orange-500',
  editor: 'bg-blue-500',
- supervisor: 'bg-cyan-500',
- user: 'bg-muted-foreground',
 };
 
 const PERMISSION_LABELS: Record<AppPermission, string> = {
  manage_users: 'Gestionar usuarios',
- manage_criteria: 'Gestionar criterios',
+ manage_editorial_criteria: 'Gestionar criterios editoriales',
  run_global_enrichment: 'Enriquecimiento global',
- view_all_locations: 'Ver todas las ubicaciones',
- edit_all_locations: 'Editar ubicaciones',
  delete_any_location: 'Eliminar ubicaciones',
- manage_documents: 'Gestionar documentos',
- view_analytics: 'Ver estadísticas',
  moderate_content: 'Moderar contenido',
- upload_files: 'Subir archivos masivos',
- add_locations: 'Añadir ubicaciones',
+ manage_permissions: 'Gestionar permisos',
+ manage_marker_config: 'Configurar markers',
+ manage_route_engine: 'Configurar motor de rutas',
+ manage_icon_library: 'Gestionar librería de iconos',
+ manage_enrichment_config: 'Configurar enriquecimiento',
+ view_audit_log: 'Ver auditoría',
+ manage_data_sources: 'Gestionar fuentes de datos',
+ run_image_recovery: 'Recuperar imágenes',
+ inspect_design_system: 'Inspeccionar design system',
+ purge_user: 'Purgar usuarios',
+ open_back_office: 'Acceder a BackOffice',
+ assign_master: 'Asignar rol Master',
+ run_internal_tooling: 'Herramientas internas',
+ view_geo_maintenance: 'Ver mantenimiento geo',
+ run_geo_backfill: 'Ejecutar geo backfill',
+ run_geo_canonicalize: 'Ejecutar geo canonicalize',
 };
 
-const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'supervisor', 'user'];
+const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor'];
 const ALL_PERMISSIONS: AppPermission[] = [
  'manage_users',
- 'manage_criteria',
+ 'manage_editorial_criteria',
  'run_global_enrichment',
- 'view_all_locations',
- 'edit_all_locations',
  'delete_any_location',
- 'manage_documents',
- 'view_analytics',
  'moderate_content',
- 'upload_files',
- 'add_locations',
+ 'manage_permissions',
+ 'manage_marker_config',
+ 'manage_route_engine',
+ 'manage_icon_library',
+ 'manage_enrichment_config',
+ 'view_audit_log',
+ 'manage_data_sources',
+ 'run_image_recovery',
+ 'inspect_design_system',
+ 'purge_user',
+ 'open_back_office',
+ 'assign_master',
+ 'run_internal_tooling',
+ 'view_geo_maintenance',
+ 'run_geo_backfill',
+ 'run_geo_canonicalize',
 ];
 
 export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
@@ -405,7 +421,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  <div className="text-sm text-muted-foreground truncate">@{user.username}</div>
  </div>
  <div className="flex items-center gap-2 flex-wrap justify-end">
- {ALL_ROLES.filter(r => r !== 'user').map(role => {
+ {ALL_ROLES.map(role => {
  const hasRole = user.roles.includes(role);
  const isSaving = savingRole === `${user.id}-${role}`;
  return (
@@ -434,7 +450,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   <div className="flex-1 overflow-hidden min-h-0 flex flex-col p-4">
  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-8">
  <div className="space-y-4 pr-4">
- {ALL_ROLES.filter(r => r !== 'user').map(role => {
+ {ALL_ROLES.map(role => {
  const isExpanded = expandedRoles.has(role);
  return (
  <div key={role} className="border rounded-lg overflow-hidden">
