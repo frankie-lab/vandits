@@ -52,7 +52,7 @@ import { useSelectionFitOnStart } from './discovery/use-selection-fit-on-start';
 import { useHealthFilterFit } from './discovery/use-health-filter-fit';
 import { RootStatusChipRow } from './discovery/RootStatusChipRow';
 import { UniverseBaseProvider } from './filters/UniverseBaseContext';
-import { DebtSelectionProvider } from './filters/DebtSelectionContext';
+import { DebtSelectionProvider, useDebtSelection } from './filters/DebtSelectionContext';
 import { DebtSelectionStatusBar } from './filters/DebtSelectionStatusBar';
 import {
   resolveUniverseBase,
