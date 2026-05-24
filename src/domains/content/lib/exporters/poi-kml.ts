@@ -19,6 +19,8 @@ import {
   type PoiExportRecord,
   type PoiExportScope,
 } from '../poi-export-record';
+import type { PoiExportContent } from '../poi-export-content-model';
+import { buildKmlDescriptionHtml } from './kml-description-html';
 
 export type KmlExportTarget = 'general' | 'mymaps' | 'gurumaps';
 
@@ -70,8 +72,23 @@ function renderExtendedData(r: PoiExportRecord): string {
     .join('');
 }
 
-function renderPlacemark(r: PoiExportRecord): string {
-  const desc = r.content.description ? escapeXml(r.content.description) : '';
+function renderPlacemark(
+  r: PoiExportRecord,
+  options: { target?: KmlExportTarget; generatedAt?: string },
+): string {
+  // PR-EXPORT-5 — prefiere modelo por capas si está presente. CDATA para
+  // que parsers KML (GuruMaps/Google My Maps) traten el body como HTML.
+  const layered = r.layeredContent as PoiExportContent | undefined;
+  let descBlock = '';
+  if (layered) {
+    const html = buildKmlDescriptionHtml(layered, {
+      target: options.target,
+      generatedAt: options.generatedAt,
+    });
+    descBlock = `<description><![CDATA[${html}]]></description>`;
+  } else if (r.content.description) {
+    descBlock = `<description>${escapeXml(r.content.description)}</description>`;
+  }
   const altPart =
     typeof r.coordinates.altitude === 'number'
       ? `,${r.coordinates.altitude}`
@@ -79,7 +96,7 @@ function renderPlacemark(r: PoiExportRecord): string {
   return `
   <Placemark>
     <name>${escapeXml(r.name)}</name>
-    ${desc ? `<description>${desc}</description>` : ''}
+    ${descBlock}
     <ExtendedData>${renderExtendedData(r)}</ExtendedData>
     <Point>
       <coordinates>${r.coordinates.longitude},${r.coordinates.latitude}${altPart}</coordinates>
@@ -99,7 +116,10 @@ export function serializePoiKml(
   const docName = collection?.name ?? documentName;
   const docDesc = collection?.description;
 
-  const placemarks = records.map(renderPlacemark).join('\n');
+  const target = options.target;
+  const placemarks = records
+    .map((r) => renderPlacemark(r, { target }))
+    .join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">

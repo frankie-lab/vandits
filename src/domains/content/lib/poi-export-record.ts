@@ -92,6 +92,15 @@ export interface PoiExportRecord {
   customData?: Record<string, string>;
   /** Scope con el que se generó el registro. */
   exportScope: PoiExportScope;
+  /**
+   * PR-EXPORT-5 — Modelo de contenido por capas, scope-aware. Adición
+   * retro-compatible: los serializers lo prefieren si está presente,
+   * y caen a los campos legacy si no. Construido por
+   * `mapToPoiExportRecord` vía `buildPoiExportContent`.
+   * Tipo `unknown` aquí para evitar ciclo de import con el content model;
+   * los consumers casteán a `PoiExportContent`.
+   */
+  layeredContent?: unknown;
 }
 
 /**

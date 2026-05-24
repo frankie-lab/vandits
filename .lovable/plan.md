@@ -1,128 +1,128 @@
-# PR-EXPORT-4 — Semántica "Mis datos" vs "Compartible"
 
-## 1. Auditoría (causa exacta de los 279)
+# PR-EXPORT-5 — Export Content Model & Popup Parity
 
-Revisión del pipeline ya en repo:
+Objetivo: que el archivo exportado (especialmente KML/GuruMaps) refleje la ficha real del popup Vandits, no un pin pobre. Centralizar QUÉ datos salen en un único modelo por capas, scope-aware y format-aware. Sin tocar elegibilidad, RLS, thresholds, ExportResolver UX, jobs ni GPX.
 
-- `evaluatePoiExport(loc, 'internal', ctx)` en `src/domains/content/lib/poi-export-eligibility.ts` SÓLO excluye por:
-  - `invalid-coordinates` (lat/lng no finitos)
-  - `not-owner` (`getLocationOwnerUserId(loc) !== currentUserId`)
-- NO aplica `not-enriched`, `not-shareable`, `editorial-only-1b`, `curation-level-below-9` en internal.
-- `partitionForExport` → `previewPoiExport` → `runPoiExport` respetan esa regla.
+## Alcance
 
-Conclusión técnica del 3614 → 3335 eligibles / 279 excluidos en scope "Mis datos":
+In: contenido del payload exportado (mapper + serializers KML/CSV/JSON/GeoJSON) + paridad popup→export + tests + docs.
+Out: RLS, `evaluatePoiExport`, thresholds, UI del Resolver, jobs background, GPX, share canon.
 
-- Los 279 caen casi con seguridad como `not-owner` (POIs de usuarios seguidos visibles en la selección) y/o un residual con `invalid-coordinates`.
-- La lógica de elegibilidad es CORRECTA. El bug es de UX/copy: el resolver los etiqueta genéricamente como "No incluidos" en la tarjeta resumen, lo que en "Mis datos" se lee como si Vandits retuviera POIs propios.
+## Diseño
 
-Como condición de cierre, el resolver debe **reportar en vivo** ese desglose por razón (ya lo calcula en `exclusionGroups`) y el caso 3614 debe verse como "279 pertenecen a otras personas", no como "No incluidos".
+### 1. Capa única de construcción de contenido
 
-## 2. Cambios (sólo UX en `ExportResolver.tsx`)
-
-Fichero único: `src/domains/content/components/ExportResolver.tsx`.
-
-### 2.1 Copy y etiquetas por scope
-
-Introducir un objeto `SCOPE_COPY` con dos perfiles:
-
-- `internal` (Mis datos):
-  - Header summary: "Tus ubicaciones", "Exportables", "No exportables por error técnico"
-  - Ownership line: "Vandits creará una copia. Tus ubicaciones seguirán aquí."
-  - Sin "No incluidos" genérico.
-- `public` (Compartible):
-  - Header summary: "Total candidatos", "Compartibles", "No compartibles públicamente"
-  - Ownership line: mantiene copy actual.
-
-### 2.2 Reclasificación visual de exclusiones por scope
-
-En internal:
-
-- `not-owner` se muestra **separado** del bloque de errores técnicos, con su propia línea destacada:
-  - "N pertenecen a otras personas — no se exportan en Mis datos"
-  - No cuenta en el contador "No exportables por error técnico".
-- "Errores técnicos" agrupa SÓLO `invalid-coordinates` (y cualquier futuro fallo técnico real). Si hay 0, no se muestra la fila.
-- Resto de razones (`not-enriched`, `not-shareable`, etc.) NO pueden aparecer en internal — si aparecen, es bug del partition; se muestran bajo "Errores técnicos" como defensa.
-
-En public:
-
-- Mantiene el desglose actual con `REASON_HUMAN`, ya alineado con la copy pedida ("No compartibles públicamente", "Aún sin ficha", "Pertenece a otra persona", etc.).
-- Refinar labels:
-  - `not-enriched` → "Aún sin ficha"
-  - `not-shareable` → "No listo para compartir"
-  - `curation-level-below-9` → "Aún en proceso de curación"
-  - `editorial-only-1b` → "Sólo material editorial"
-  - `not-owner` → "Pertenece a otra persona"
-
-### 2.3 Contadores derivados separados
-
-Sustituir el `excludedCount` plano por contadores calculados por scope:
+Nuevo módulo `src/domains/content/lib/poi-export-content-model.ts`:
 
 ```ts
-const foreignCount = preview.excluded.filter(e => e.reason === 'not-owner').length;
-const technicalCount = preview.excluded.filter(e => e.reason === 'invalid-coordinates').length;
-const publicNotEligibleCount = preview.excluded.filter(e => e.reason !== 'not-owner').length;
+buildPoiExportContent(loc: GeoLocation, { scope, format, target }): PoiExportContent
 ```
 
-Render según scope. Atributos data-* nuevos:
-- `data-export-foreign-count`
-- `data-export-technical-count`
-- `data-export-public-excluded-count`
+Devuelve un objeto plano y semántico organizado por **capas**, consumido por todos los serializers (no duplican lógica):
 
-Se mantiene `data-export-eligible-count` y `data-export-total-count`.
+- A. `identity` — id, slug?, name, primaryCategory
+- B. `summary` — highlight (`enriched_data.punto_destacado`), shortDescription, longDescription (`enriched_data.descripcion`), observation (`enriched_data.observacion`)
+- C. `geography` — country, region, province, locality, sublocality, address (`direccion_postal`), containmentPath?
+- D. `media` — imageUrl, imageAttribution (`imagen_fuente`), sourceUrl
+- E. `classification` — category, subcategory, tags (IA + personales + geo), taxonomyLabel, curationLevel (sólo si útil)
+- F. `userContext` — **internal only** — createdAt, collection/list, personalNotes, ownState
+- G. `provenance` — fuentes públicas, web_referencia, wikidata/wikipedia/OSM si existen, canonical Vandits URL si existe
+- H. `internal/forbidden` — NUNCA: ownerUserId, RLS flags, debug, raw provider dump, secrets, caches, runtime internals
 
-### 2.4 Scope visual ↔ scope real
+Reglas duras (defensa en profundidad además del DTO actual):
+- `scope === 'public'`: F omitido, notas privadas excluidas, imagen sólo URL pública validada (reutiliza heurística existente en mapper).
+- `scope === 'internal'`: incluye F + máximo contexto útil del dueño.
+- Capa H jamás escrita, garantizado por construcción + grep test.
 
-Garantizar que `previewPoiExport`, `runPoiExport` y los counters usen el MISMO `scope` del state. Auditar que no hay invocación residual con scope hardcoded en este fichero (ya está OK; añadir test estático).
+### 2. Matriz formato × capa
 
-### 2.5 Sin cambios en
+Tabla canónica en código (`EXPORT_FORMAT_MATRIX`) y espejo en docs:
 
-- `poi-export-eligibility.ts`
-- `poi-export-pipeline.ts`
-- `kml-parser` legacy
-- Serializers / DTO
-- Thresholds / RLS / share contract
-- `EffectiveActionFooter` ni `SelectionActions` (sólo consumen el resolver)
+| layer        | KML | CSV | JSON | GeoJSON |
+|--------------|-----|-----|------|---------|
+| A identity   | ✓   | ✓   | ✓    | ✓       |
+| B summary    | HTML render | longDesc plana | full | full |
+| C geography  | HTML + ExtendedData | columnas | full | properties |
+| D media      | `<img>` en desc HTML | URL plana | full | URL |
+| E classif.   | tags ExtendedData | columnas | full | properties |
+| F userCtx    | internal only, ExtendedData | internal cols | internal | internal |
+| G provenance | enlaces en desc HTML | columna `links` | full | properties.links |
+| H forbidden  | NO  | NO  | NO   | NO      |
 
-## 3. Tests (nuevo fichero `src/test/pr-export-4-internal-semantics.test.ts`)
+GPX y Vandits-package documentados como backlog (PR-EXPORT-7 / PR-EXPORT-10), no implementados aquí.
 
-Tests sobre `evaluatePoiExport` + `partitionForExport` (lógica) y grep sobre `ExportResolver.tsx` (copy/contadores):
+### 3. KML / GuruMaps target
 
-1. Owned imported (sin enriched) → eligible en internal.
-2. Owned pending/empty con coords válidas → eligible en internal.
-3. Owned private / followers-only → eligible en internal.
-4. Owned POI-3/POI-5 → eligible en internal.
-5. Not-owned POI → NO eligible en internal (razón `not-owner`).
-6. Public scope sigue excluyendo `not-enriched`, `not-shareable`, `curation-level-below-9`, `editorial-only-1b`.
-7. Contadores: para [3335 owned válidos, 279 followed] internal eligibleCount=3335, foreignCount=279, technicalCount=0; public puede dar otro número distinto.
-8. Grep estático en `ExportResolver.tsx`:
-   - No contiene la cadena `"No incluidos"` fuera del bloque scope=public.
-   - Contiene `"Tus ubicaciones"`, `"Exportables"`, `"pertenecen a otras personas"`.
-   - El preview se invoca con el `scope` del state (no literal).
+Builder `buildKmlDescriptionHtml(content, { target })`:
+- HTML mínimo y compatible (GuruMaps acepta subset reducido: `<p>`, `<b>`, `<i>`, `<img>`, `<a>`, `<br/>`).
+- Orden: imagen → highlight → longDescription → ubicación (`localidad · región · país`) → categoría + tags → observación → enlaces → footer "Generado por Vandits · {fecha ISO}".
+- Sanitización XML existente (`escapeXml`) sobre cada nodo de texto.
+- Nada de JSON crudo, nada de campos internos, sin atributos que GuruMaps descarte.
+- ExtendedData mantiene los campos estructurados (ya existente) para apps que los lean.
 
-También extender `pr-export-3-resolver-ux.test.ts` para mantener los asserts previos.
+### 4. Serializers — cambios mínimos
 
-## 4. Reporte de cierre
+Todos pasan a consumir `PoiExportContent` (vía mapper → content model). Hoy ya consumen `PoiExportRecord`; se añade un paso intermedio común sin romper el DTO.
 
-Al finalizar, dejar en `docs/audits/pr-export-4-semantics-audit.md` un resumen con:
+- `poi-kml.ts`: sustituye `description` plano por `buildKmlDescriptionHtml`. ExtendedData enriquecida con capas C/E/G.
+- `poi-csv.ts`: añade columnas `highlight`, `observation`, `address`, `category`, `subcategory`, `links` (join `|`), e `internal_*` sólo en scope internal. Mantiene flatten estricto.
+- `poi-json.ts`: el envelope incluye `content` estructurado por capas (BREAKING menor sobre `poi-export-json-v2`; se mantiene la versión, se documenta como ampliación retro-compatible aditiva).
+- `poi-geojson.ts`: `properties` recibe el content model serializado plano (no anida `coordinates`).
 
-- Causa de los 279: clasificación `not-owner` vs `invalid-coordinates` por evaluación en vivo (texto explicativo + lectura del partition).
-- Conteos internal vs public para el caso 3614.
-- Confirmación de tests verdes y de que "Mis datos" no aplica reglas públicas.
+### 5. Mapper
 
-## 5. Versionado y memoria
+`poi-export-mapper.ts` queda como **único** lector de `GeoLocation` y delega en `buildPoiExportContent`. `PoiExportRecord` se mantiene como shape histórico y se extiende aditivamente con `content` por capas. Sin cambios en `evaluatePoiExport`.
 
-- Bump patch → `v1.5.6` vía `scripts/release/bump-version.ts`.
-- Actualizar `docs/releases/version-history.md` con entrada PR-EXPORT-4.
-- Actualizar `mem/logic/export/poi-export-canon.md` añadiendo apartado "PR-EXPORT-4 — internal ≠ public en UX/contadores" sin redefinir helpers.
-- Si procede, breve nota en el índice de memoria principal.
+### 6. Paridad Popup → Export (Torre de Hércules)
 
-## Detalles técnicos clave
+- Nueva fixture `src/test/fixtures/poi-torre-hercules-export.ts` con un POI enriquecido completo (imagen, highlight, longDesc, observación, jerarquía, tags, rating, fuentes).
+- Tabla de paridad en `docs/audits/pr-export-5-popup-parity-torre-hercules.md` con columnas `popup_field | source_path | visible_in_popup | current_export | target_export | format_support | decision`.
 
-- `ExportResolverBody` ya tiene `preview.excluded` con razones; sólo reagrupamos por scope.
-- `currentUserId` viene de `useAuth`; el `internalDisabled` actual sigue válido.
-- Sin cambios en el flujo de descarga ni en `useExportTracking`.
-- Render guards: cuando scope=internal y `not-owner > 0`, mostrar fila destacada (no en rojo) con copy "N pertenecen a otras personas — no se exportan en Mis datos. Cambia a Compartible para verlas tratadas como POIs de terceros." (Compartible las descartará igual por `not-owner`, pero al menos contextualiza.)
+### 7. Tests (`src/test/pr-export-5-*`)
 
-## Out of scope (no tocar en este PR)
+- `pr-export-5-content-model.test.ts` — capas A–G presentes/omitidas según scope; H jamás presente.
+- `pr-export-5-kml-popup-parity.test.ts` — KML internal de Torre Hércules contiene: longDesc, highlight, ubicación territorial, observación, `<img>` con URL pública, enlaces; KML public excluye notas privadas; ningún output contiene `ownerUserId` ni claves de capa H.
+- `pr-export-5-csv-flat.test.ts` — columnas planas, sin HTML largo salvo `description`.
+- `pr-export-5-geojson-geometry.test.ts` — `geometry` válida + `properties` limpias.
+- `pr-export-5-json-richest.test.ts` — JSON es estrictamente superset de CSV/KML/GeoJSON en información estructurada.
+- `pr-export-5-gurumaps-html.test.ts` — el HTML KML sólo usa tags whitelisted; no contiene `<script>`, `<style>`, atributos `on*`, ni JSON crudo.
+- Grep test reutilizado: ningún serializer importa `GeoLocation` ni emite claves de capa H.
 
-RLS, serializers, DTO, formatos, thresholds, share contract, layout general del resolver, jobs background, GPX, export history persistente, server-side export.
+### 8. Docs + memoria + versión
+
+- `docs/contracts/poi-export-content-model.md` (nuevo, canon del modelo por capas + matriz).
+- Actualizar `docs/contracts/poi-export-canon.md` §5 con la matriz por capa y referenciar el nuevo contrato.
+- Actualizar `mem/logic/export/poi-export-canon.md` con la regla dura "serializers consumen `buildPoiExportContent`, no datos sueltos; capa H forbidden".
+- Bump a `v1.5.7` con entrada en `docs/releases/version-history.md` + README.
+
+## Postcondiciones (engineering discipline)
+
+- Tests verdes (suite export completa).
+- `APP_VERSION` bumped y `version-parity.test.ts` verde.
+- Memoria + contrato sincronizados en el mismo PR.
+- Sin tocar archivos fuera de export/serializers/tests/docs.
+
+## Archivos previstos
+
+Creados:
+- `src/domains/content/lib/poi-export-content-model.ts`
+- `src/domains/content/lib/exporters/kml-description-html.ts`
+- `src/test/fixtures/poi-torre-hercules-export.ts`
+- `src/test/pr-export-5-content-model.test.ts`
+- `src/test/pr-export-5-kml-popup-parity.test.ts`
+- `src/test/pr-export-5-csv-flat.test.ts`
+- `src/test/pr-export-5-geojson-geometry.test.ts`
+- `src/test/pr-export-5-json-richest.test.ts`
+- `src/test/pr-export-5-gurumaps-html.test.ts`
+- `docs/contracts/poi-export-content-model.md`
+- `docs/audits/pr-export-5-popup-parity-torre-hercules.md`
+
+Editados:
+- `src/domains/content/lib/poi-export-mapper.ts` (delega en content model)
+- `src/domains/content/lib/exporters/poi-kml.ts` (description HTML + ExtendedData enriquecida)
+- `src/domains/content/lib/exporters/poi-csv.ts` (nuevas columnas)
+- `src/domains/content/lib/exporters/poi-json.ts` (envelope con `content`)
+- `src/domains/content/lib/exporters/poi-geojson.ts` (properties enriquecidas)
+- `src/domains/content/lib/poi-export-record.ts` (extensión aditiva con `content` por capas)
+- `docs/contracts/poi-export-canon.md`, `mem/logic/export/poi-export-canon.md`
+- `package.json`, `src/lib/app-version.ts`, `docs/releases/version-history.md`, `README.md` (bump)
