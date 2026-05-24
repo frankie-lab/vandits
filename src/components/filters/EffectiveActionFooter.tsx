@@ -1,13 +1,18 @@
 /**
  * EffectiveActionFooter — footer sticky de acciones para el panel Buscar y Filtrar.
  *
- * Contrato (PR — single primary + "Más acciones"):
+ * Contrato (PR-MAINTAIN-FOOTER-1 — single primary + "Más acciones"):
  *   Layout: `[Primary] [Más acciones ▾]` (sin grid de 2 columnas).
  *   Una sola acción principal visible por modo:
  *     - all        → Exportar
- *     - debt       → Resolver deuda (callback `onResolveDebt`)
+ *     - debt       → Resolver (SIEMPRE, nunca Exportar). Si count===1 abre
+ *                    popup canónico del POI (lovable:open-poi-popup). Si
+ *                    count>1 o sin selección, abre HealthRepairPreviewDialog
+ *                    vía onResolveDebt para procesar lo posible y dejar
+ *                    residual para resolución manual.
  *     - unenriched → Enriquecer IA
  *   El resto siempre vive dentro del DropdownMenu "Más acciones".
+ *   En `debt`, "Exportar" SOLO existe como item del menú (escape hatch), nunca primary.
  *
  *   Estado vacío (count===0): primary disabled, "Más acciones" disabled,
  *   texto "No hay POIs en este subconjunto".
@@ -16,6 +21,8 @@
  *     - Exportar  > 250 → token "EXPORTAR"
  *     - Enriquecer > 25 → token "ENRIQUECER"
  *     - Eliminar siempre → token "ELIMINAR" (solo con userSelection)
+ *
+ *   Ver mem://ui/discovery/maintain-footer-resolve-canon
  */
 import React, { useMemo, useState } from 'react';
 import {
