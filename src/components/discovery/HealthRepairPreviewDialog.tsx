@@ -81,7 +81,7 @@ const REPAIRABLE: ReadonlySet<RepairFilterMode> = new Set<RepairFilterMode>([
 ]);
 
 const GROUP_META: Record<
-  Exclude<keyof RepairPartition, 'repairableIds' | 'total'>,
+  Exclude<keyof RepairPartition, 'repairableIds' | 'repairablePartialIds' | 'repairableChainIds' | 'total'>,
   { title: string; help: string }
 > = {
   repairable: {
@@ -109,7 +109,12 @@ const GROUP_META: Record<
 export interface HealthRepairPreviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  filter: HealthFilter;
+  /**
+   * `'debt'` = modo agregado (Mantener → Con deuda). El partitioner intersecta
+   * D con rings reales (partial|chain) y `handleConfirm` dispara una RPC por
+   * bucket (`_action='partial'` y/o `_action='chain'`).
+   */
+  filter: RepairFilterMode;
   scope: HealthScopeResult;
   /** Mantenido por compat — ya no se usa para distinguir reparable vs lectura. */
   currentUserId?: string | null;
@@ -141,8 +146,7 @@ export function HealthRepairPreviewDialog({
     setExhausted(false);
   }, [filter, scope.mode, scope.total]);
 
-  // Auto-focus mapa al subconjunto del preview (preserva total, no sólo
-  // repairables — el usuario sigue viendo el universo del scope).
+  // Auto-focus mapa al subconjunto del preview.
   const idsKey = scope.ids.join('|');
   React.useEffect(() => {
     if (!open) return;
@@ -159,21 +163,47 @@ export function HealthRepairPreviewDialog({
     if (!isRepairableFilter || partition.repairableIds.length === 0) return;
     setSubmitting(true);
     try {
-      // Sólo pasamos `repairableIds` (D ∩ {partial,chain}). A/B/C/nonRepairable
-      // NUNCA llegan al RPC. Filtrado defensivo server-side sigue intacto.
-      const { data, error } = await supabase.rpc('enqueue_health_repair', {
-        _action: filter,
-        _scope_mode: scope.mode,
-        _location_ids: partition.repairableIds,
-      });
-      if (error) throw error;
-      const row = Array.isArray(data) ? data[0] : data;
-      const enq = row?.enqueued_count ?? 0;
-      if (enq > 0) {
-        if (row?.job_id) {
-          await useGeocodingJobStore.getState().attachToJob(row.job_id);
+      // En modo `'debt'`: una RPC por bucket real (partial/chain). En modos
+      // puntuales: una sola RPC con `_action: filter`. Siempre
+      // `_location_ids ⊆ D ∩ {partial,chain}`. Si la primera RPC falla,
+      // cortamos: no se dispara la segunda y el modal queda actionable.
+      type CallSpec = { action: 'partial' | 'chain'; ids: string[] };
+      const calls: CallSpec[] = [];
+      if (filter === 'debt') {
+        if (partition.repairablePartialIds.length > 0) {
+          calls.push({ action: 'partial', ids: partition.repairablePartialIds });
         }
-        toast.success(`Encolados ${enq} ${enq === 1 ? 'punto' : 'puntos'} para reparación`);
+        if (partition.repairableChainIds.length > 0) {
+          calls.push({ action: 'chain', ids: partition.repairableChainIds });
+        }
+      } else {
+        calls.push({
+          action: filter as 'partial' | 'chain',
+          ids: partition.repairableIds,
+        });
+      }
+
+      let totalEnqueued = 0;
+      let firstJobId: string | null = null;
+
+      for (const call of calls) {
+        const { data, error } = await supabase.rpc('enqueue_health_repair', {
+          _action: call.action,
+          _scope_mode: scope.mode,
+          _location_ids: call.ids,
+        });
+        if (error) throw error;
+        const row = Array.isArray(data) ? data[0] : data;
+        const enq = row?.enqueued_count ?? 0;
+        totalEnqueued += enq;
+        if (!firstJobId && row?.job_id) firstJobId = row.job_id;
+      }
+
+      if (totalEnqueued > 0) {
+        if (firstJobId) {
+          await useGeocodingJobStore.getState().attachToJob(firstJobId);
+        }
+        toast.success(`Encolados ${totalEnqueued} ${totalEnqueued === 1 ? 'punto' : 'puntos'} para reparación`);
         onOpenChange(false);
       } else {
         toast.info('Sin puntos elegibles ahora mismo. Acción auditada.');
@@ -187,7 +217,15 @@ export function HealthRepairPreviewDialog({
     } finally {
       setSubmitting(false);
     }
-  }, [filter, partition.repairableIds, scope.mode, onOpenChange, isRepairableFilter]);
+  }, [
+    filter,
+    partition.repairableIds,
+    partition.repairablePartialIds,
+    partition.repairableChainIds,
+    scope.mode,
+    onOpenChange,
+    isRepairableFilter,
+  ]);
 
   // Botón confirm copy contract.
   let confirmLabel: string;
