@@ -195,8 +195,11 @@ export function SelectionActions() {
   };
 
   // ---- 2. Exportar selección → delega 100% en <ExportResolverDialog> ----
-  // (Toda la lógica de pipeline, scope, formato, tamaño y tracking vive
-  //  en ExportResolver. PR-EXPORT-3 elimina el window.confirm agresivo.)
+  // Toda la lógica de pipeline, scope, formato, tamaño y tracking vive
+  // en ExportResolver. PR-EXPORT-3 sustituye el flujo legacy por una
+  // UX amable, sin diálogos de confirmación nativos del navegador.
+
+
 
 
 
