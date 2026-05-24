@@ -359,13 +359,13 @@ export function FilterBar() {
      <div className="text-xs mt-1 leading-tight">
        <span className="font-semibold tabular-nums">
          <span className="text-primary">{COUNT_FORMATTER.format(ownershipRatios.Xm)}</span>
-         <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(ownershipRatios.T)}</span>
+         <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(ownershipRatios.Tm)}</span>
        </span>{' '}
        <span className="text-emerald-600 font-medium">Míos</span>
        {' · '}
        <span className="font-semibold tabular-nums">
          <span className="text-primary">{COUNT_FORMATTER.format(ownershipRatios.Xs)}</span>
-         <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(stats.total)}</span>
+         <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(ownershipRatios.Ts)}</span>
        </span>{' '}
        <span className="text-sky-600 font-medium">Seguidos</span>
      </div>
