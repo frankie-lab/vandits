@@ -1,15 +1,26 @@
-# VANDITS v1.3.8
+# VANDITS v1.4.5
+
+<!--
+  ┌──────────────────────────────────────────────────────────────┐
+  │ VERSION SoT: src/lib/app-version.ts (APP_VERSION).           │
+  │ The title above, the badge below, and the top changelog      │
+  │ entry MUST match APP_VERSION exactly. CI parity test:        │
+  │ `src/test/version-parity.test.ts`. Use                       │
+  │ `bun scripts/release/bump-version.ts <patch|minor|major>`    │
+  │ to roll a release — never edit by hand.                      │
+  └──────────────────────────────────────────────────────────────┘
+-->
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.3.8-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.4.5-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
 
 **Gestor de ubicaciones geográficas con enriquecimiento IA**
 
-[Demo](#) · [Documentación](./VANDITS-v2.0-DOCUMENTATION.md) · [Changelog](#changelog)
+[Documentación](./docs/) · [Histórico completo de versiones](./docs/releases/version-history.md) · [Política de versionado](./docs/versioning.md)
 
 </div>
 
