@@ -356,10 +356,14 @@ export function FilterBar() {
 
   // Universo activo (SoT del plan §1). Mantener→Con deuda = 'debt';
   // Mantener→Sin enriquecer = 'unenriched'; resto = 'all'.
+  // PR-MAINTAIN-USER-ACTION-1 — Mantener>Con deuda usa el universo
+  // `user-action` (sólo POIs A+C, los que requieren tu intervención).
+  // Sin enriquecer mantiene su universo. Resto = 'all'.
   const activeModeUniverse: ActiveModeUniverse =
     panelMode === 'maintain'
-      ? (maintainTab === 'debt' ? 'debt' : 'unenriched')
+      ? (maintainTab === 'debt' ? 'user-action' : 'unenriched')
       : 'all';
+
 
   // SoT del universo activo: misma fuente que `curationBuckets` y que los
   // 4 árboles vía UniverseBaseProvider. Garantiza
