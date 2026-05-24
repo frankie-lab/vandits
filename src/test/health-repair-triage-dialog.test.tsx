@@ -342,7 +342,7 @@ describe('HealthRepairPreviewDialog — triage (plan §7)', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('13. contract: NO existe botón "Geo Maintenance" en grupo B', () => {
+  it('13. contract: SIN capability, no aparece botón "Abrir en Geo Maintenance" en grupo B', () => {
     render(
       <HealthRepairPreviewDialog
         open
