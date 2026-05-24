@@ -133,7 +133,7 @@ export function serializePoiKml(
 
   const target = options.target;
   const placemarks = records
-    .map((r) => renderPlacemark(r, { target }))
+    .map((r) => renderPlacemark(r, { target, scope }))
     .join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
