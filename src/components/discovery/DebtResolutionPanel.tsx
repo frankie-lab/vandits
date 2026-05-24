@@ -161,7 +161,7 @@ export function DebtResolutionPanel({
       if (ids.length === 0) return;
       dispatchGeoMaintenanceHandoff({
         locationIds: ids,
-        source: 'debt-sidepanel',
+        source: 'health-repair-triage',
         label: `Resolver deuda · ${groupTitle} · ${ids.length} ${
           ids.length === 1 ? 'punto' : 'puntos'
         }`,
