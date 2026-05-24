@@ -37,6 +37,10 @@ import {
 } from '@/domains/discovery/lib/health-filter-scope';
 import { getHierarchyBreadcrumb } from '@/shared/geography/hierarchy';
 import { requestSubsetFit } from '@/components/map/subset-fit';
+import {
+  partitionRepairScopeByRootStatus,
+  type RepairPartition,
+} from './health-repair-partition';
 
 const FILTER_TITLES: Record<HealthFilter, string> = {
   partial:   'Rellenar huecos',
@@ -53,16 +57,42 @@ const FILTER_CSS_VAR: Record<HealthFilter, string> = {
 };
 
 const FILTER_HELP: Record<HealthFilter, string> = {
-  partial:   'Estos puntos tienen niveles administrativos incompletos. La reparación masiva intentará rellenar los huecos vía geocoding.',
-  chain:     'Estos puntos tienen la cadena administrativa rota o desactualizada. La reparación masiva re-resolverá los FKs desde sus coordenadas.',
-  hardError: 'Estos puntos fallaron por error técnico (timeout, sin créditos, red). La acción de reintento llegará en un próximo PR.',
-  review:    'Estos puntos requieren revisión manual (incoherencia nombre/coords, sin verificar). Abre cada uno desde el mapa o desde la lista para resolverlo individualmente.',
+  partial:   'Reparación masiva sólo procesa POIs con identidad D (canon completo). A/B/C requieren resolución por su grupo (ver desglose abajo).',
+  chain:     'Reparación masiva sólo procesa POIs con identidad D (canon completo). A/B/C requieren resolución por su grupo (ver desglose abajo).',
+  hardError: 'Estos puntos fallaron por error técnico (timeout, sin créditos, red). La acción de reintento llegará en un próximo PR. La reparación masiva NO los encola.',
+  review:    'Estos puntos requieren revisión manual. Abre cada uno desde el mapa para resolverlo individualmente. La reparación masiva NO los encola.',
 };
 
-const PREVIEW_LIMIT = 10;
+const PREVIEW_LIMIT = 5;
 
 /** Sólo estos dos disparan escritura en BD. */
 const REPAIRABLE: ReadonlySet<HealthFilter> = new Set<HealthFilter>(['partial', 'chain']);
+
+const GROUP_META: Record<
+  Exclude<keyof RepairPartition, 'repairableIds' | 'total'>,
+  { title: string; help: string }
+> = {
+  repairable: {
+    title: 'Reparables automáticamente',
+    help: 'Identidad D + deuda partial/chain. Se encolan en `enqueue_health_repair`.',
+  },
+  systemDebt: {
+    title: 'Deuda de sistema (B)',
+    help: 'Falta canon/backfill del lado sistema. Resuelve desde el panel Geo Maintenance (Backfill).',
+  },
+  review: {
+    title: 'Revisión (C)',
+    help: 'Nombre/coords incoherente. Abre cada POI individualmente desde el mapa.',
+  },
+  identityIncomplete: {
+    title: 'Incompleto real (A)',
+    help: 'Falta identidad básica (nombre o coords). Completa identidad antes de cualquier reparación.',
+  },
+  nonRepairableByType: {
+    title: 'No reparables por tipo',
+    help: 'Identidad D pero deuda activa es hardError/review — flujo per-POI.',
+  },
+};
 
 export interface HealthRepairPreviewDialogProps {
   open: boolean;
