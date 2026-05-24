@@ -1,74 +1,104 @@
-## Objetivo
 
-Eliminar la asimetría visual y semántica entre el contador "sin selección" y "con selección" del `FilterBar`. Las dos vistas hablan del mismo universo de POIs y deben usar el mismo formato y vocabulario.
+# Plan NASA-grade para Versionado
 
-## Estado actual (problema)
+## Diagnóstico
 
-```
-Sin selección:   4739 de 5095 ubicaciones
-                 4739 catálogo · 0 mesa
+Hay **5 lugares** donde aparece la versión, y **3 están divergentes**:
 
-Con selección:   1 / 4739 seleccionado
-                 1 / 4739 Míos · 0 / 0 Seguidos
-```
-
-Tres incoherencias:
-- Formato distinto: `X de Y` vs `X / Y`.
-- Vocabularios distintos: `catálogo / mesa` vs `Míos / Seguidos`.
-- Denominador del bucket "Seguidos" siempre era `0` porque usaba `bucketStats.followedTotal` calculado sobre el subset filtrado.
-
-## Estado objetivo
-
-Formato único en ambas vistas: `X / Y etiqueta`.
-
-```
-Sin selección:   0 / 4739 seleccionados
-                 0 / 4739 Míos · 0 / 5095 Seguidos
-
-Con selección:   4247 / 4739 seleccionados
-                 4247 / 4739 Míos · 0 / 5095 Seguidos
-```
-
-### Definición de cada par X/Y
-
-| Bucket | X (numerador) | Y (denominador) |
+| Sitio | Valor actual | Estado |
 |---|---|---|
-| Seleccionados | `selectedCount` | `filteredCount` (universo filtrado del usuario, p. ej. 4739) |
-| Míos | `ownershipRatios.Xm` | `filteredCount` (mismo universo filtrado) |
-| Seguidos | `ownershipRatios.Xs` | `stats.total` (universo absoluto del usuario, p. ej. 5095) |
+| `package.json` → `version` | `1.4.4` | OK (SoT de release) |
+| `src/lib/app-version.ts` → `APP_VERSION` | `1.4.4` | OK (SoT de runtime) |
+| `docs/releases/version-history.md` | hasta `1.4.4` | OK (histórico oficial) |
+| `src/lib/version.ts` → `changelog` (string hardcodeado) | corta en `v1.1.1` | **DIVERGENTE** |
+| `README.md` (sección changelog) | corta en `v1.2.8`, mezcla cronológica | **DIVERGENTE** |
+| `VANDITS-v2.0-DOCUMENTATION.md` | `v2.0` (legacy aspiracional) | **HUÉRFANO** |
 
-Reglas:
-- Cuando `selectedCount === 0`, numerador = 0 (no cambia el formato).
-- Etiquetas siempre `seleccionados` (plural, también con 1 y con 0; el plural en castellano no rompe nada y mantiene consistencia).
-- El denominador de "Seguidos" usa `stats.total` (total absoluto del universo del usuario, lo que hoy se muestra como "de 5095 ubicaciones"). Eso explica por qué `Seguidos` puede ser `0 / 5095` aunque "Míos" sea `4247 / 4739`: ejes ortogonales (origen vs propiedad).
-- Mismo tamaño tipográfico para X e Y. Color numerador = `text-primary`. Color denominador = `text-muted-foreground`. Etiquetas (`seleccionados` / `Míos` / `Seguidos`) en sus colores actuales.
+Causa raíz del "Claude lee 1.1.1": un agente externo que clona el repo abre `src/lib/version.ts` (nombre prometedor) o el primer `## v…` que ve en README y obtiene una versión fósil.
 
-### Lo que se elimina
+Además: **no existe tag `v1.4.4` en GitHub** y no hay guard en CI que detecte divergencia (la política ya está escrita en `docs/versioning.md` y `docs/contracts/release-versioning-policy.md`, pero no se enforce).
 
-- La rama "sin selección" con `4739 de 5095 ubicaciones` desaparece.
-- El desglose `catálogo · mesa · seguidos` desaparece de esta línea (sigue existiendo en otros sitios del producto si los hubiera; no se tocan).
+## Principio rector
 
-## Archivos a modificar
+> **Una sola fuente de verdad de versión: `src/lib/app-version.ts`.**
+> Todo lo demás se deriva o se valida contra ella por CI.
+> Divergencia = build rojo. Sin excepción.
 
-- `src/components/FilterBar.tsx` — colapsar las dos ramas (`selectedCount > 0` / `else`) en una sola estructura, con numeradores que valgan 0 cuando no haya selección. Líneas afectadas aproximadas: 234-285.
-- `src/test/selection-counter-ratios.test.ts` — añadir asserts del estado "sin selección" (numeradores en 0, denominadores correctos) y confirmar que `Seguidos` usa `stats.total` como denominador, no `bucketStats.followedTotal`.
+## Cambios
+
+### 1. Colapsar el SoT runtime (un único fichero)
+
+- Borrar la duplicación en `src/lib/version.ts`: eliminar el campo `changelog` hardcodeado (es la fuente del "v1.1.1"). El changelog vive **únicamente** en `docs/releases/version-history.md`.
+- `version.ts` queda como re-export delgado de `app-version.ts` + metadata estática (nombre, build date). Sin literales de versión.
+- Documentar en cabecera del fichero: "SoT = `app-version.ts`. No editar `APP_VERSION` aquí."
+
+### 2. Reescribir el changelog del README
+
+- Reemplazar la sección changelog del README por un **bloque generado**: solo las últimas 5 versiones, en orden cronológico inverso estricto, extraídas de `docs/releases/version-history.md`.
+- Bajo el bloque, un enlace "Histórico completo → `docs/releases/version-history.md`".
+- Reordenar correctamente (hoy v1.1.1 aparece entre v1.2.0 y v1.1.0, lo cual es un bug semántico).
+
+### 3. Sincronizar `docs/releases/version-history.md`
+
+- Verificar que la última entrada coincide con `APP_VERSION`. Hoy = 1.4.4 ✓.
+- Añadir tabla resumen al inicio con `current = 1.4.4`, `previous_stable = 1.4.3`, fecha, tag git esperado.
+
+### 4. Archivar el fichero huérfano
+
+- Mover `VANDITS-v2.0-DOCUMENTATION.md` a `docs/_archive/` con una nota: "documento aspiracional v2.0, no refleja release actual".
+
+### 5. Guard de CI: parity test
+
+Añadir `src/test/version-parity.test.ts` (vitest, sin secrets, corre en `unit.yml`) que verifica:
+
+1. `APP_VERSION` (de `app-version.ts`) === `package.json.version`.
+2. Última entrada de `docs/releases/version-history.md` (parseada por regex `^\|\s*(\d+\.\d+\.\d+)\s*\|`) === `APP_VERSION`.
+3. Última entrada `### v…` del README === `APP_VERSION`.
+4. El semver es válido (`/^\d+\.\d+\.\d+(-[\w.]+)?$/`).
+5. `src/lib/version.ts` no contiene literales `v\d+\.\d+\.\d+` (anti-regresión del campo `changelog`).
+
+Cualquier divergencia → test rojo → build rojo. Mensaje del test explica qué fichero actualizar.
+
+### 6. Script de release (one-shot, idempotente)
+
+`scripts/release/bump-version.ts`:
+
+```text
+bun scripts/release/bump-version.ts patch "PR-XYZ — descripción corta"
+```
+
+Acciones:
+1. Lee `APP_VERSION` actual, calcula nueva según `patch|minor|major`.
+2. Escribe la nueva versión en `package.json` y `src/lib/app-version.ts` atómicamente.
+3. Añade entrada a `docs/releases/version-history.md` con timestamp UTC.
+4. Añade `### vX.Y.Z` al README (al inicio del bloque changelog).
+5. Imprime el comando git tag para que el operador lo ejecute manualmente: `git tag vX.Y.Z && git push --tags`.
+
+Esto cierra el bucle: **el operador nunca toca versiones a mano**.
+
+### 7. Tag git de la versión actual
+
+Acción manual del usuario tras el merge: `git tag v1.4.4 -m "Current stable" && git push origin v1.4.4`. Lo documento al final, no lo puedo hacer yo desde aquí.
+
+### 8. Documentar el nuevo flujo
+
+Actualizar `docs/versioning.md` sección "Fuentes de verdad" para reflejar el SoT único + el script + el parity test. Eliminar la mención a editar `changelog` en `version.ts`.
 
 ## Detalles técnicos
 
-- `filteredCount`: ya disponible en FilterBar; es el subset filtrado del universo del usuario.
-- `stats.total`: viene de `useEnrichedStats()`; es el universo absoluto (la fuente del 5095).
-- `ownershipRatios.{Xm,Xs}`: ya calculados sobre el universo independiente de selección (PR previo). No se tocan.
-- No se cambia `getFilteredLocations()`, ni el cálculo de selección, ni `bucketStats`, ni `ExportPanel`, ni PR-EXPORT-2.
-- Sin cambios de schema, datos, backend, ni bump.
+- El parity test del README parsea solo los `### v…` (h3). El script de release inserta siempre en formato `### vX.Y.Z (YYYY-MM-DD)\n- línea\n\n`.
+- El parser de `version-history.md` busca la tabla `| version | date | status | ...` y toma la fila con `status` que contenga `current` o, en su defecto, la fila con versión más alta por orden semver.
+- Ningún cambio en runtime, schema, RBAC, popups, mapa, edge functions. Solo metadata + tests + docs + script.
+- `VANDITS-v2.0-DOCUMENTATION.md` no se borra (puede tener valor histórico) — se archiva en `docs/_archive/` con nota.
 
-## Verificación
+## Impacto de versión
 
-1. `selection-counter-ratios.test.ts` debe seguir en 21/21 PASS más los asserts añadidos del estado sin selección.
-2. Inspección visual en `/` con y sin selección: los tres ratios deben renderizarse con mismo tamaño y formato `X / Y etiqueta`.
-3. Comprobar que al seleccionar/deseleccionar todo, sólo cambian los numeradores, nunca los denominadores ni las etiquetas.
+`bump:patch` → `1.4.4 → 1.4.5`, etiquetado **"versioning hardening — parity test + single SoT"**.
 
-## Fuera de alcance
+## Postcondición verificable
 
-- Renombrar "catálogo / mesa" en otros lugares del producto.
-- Tocar `getBucketStats`, `getFilteredLocations`, ExportPanel, PR-EXPORT-2.
-- Cualquier cambio en la línea de "Filtros activos" inferior (línea 315).
+- `npm test` rojo si alguien toca `APP_VERSION` sin sincronizar README + version-history.
+- `npm test` rojo si alguien reintroduce un literal `v1.x.y` en `src/lib/version.ts`.
+- Cualquier agente externo (Claude, Copilot, humano) que clone el repo y abra `src/lib/app-version.ts`, `package.json` o el README ve la **misma versión**.
+- Existe tag `v1.4.5` en GitHub.
+
