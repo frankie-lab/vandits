@@ -409,13 +409,7 @@ export function FilterBar() {
   </div>
  </div>
 
-  {/* Warning when filters are very restrictive — secundario, no compite con la selección */}
-  {filterReductionWarning && (
-  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground px-2 py-1">
-  <AlertTriangle className="w-3 h-3 shrink-0 text-amber-500/70" />
-  <span>Filtros activos: mostrando {Math.round(filteredCount/stats.total*100)}% del total</span>
-  </div>
-  )}
+  {/* Aviso de filtros restrictivos eliminado: aparecía/desaparecía según umbral y rompía la altura de la fila. */}
 
   {/* (Aviso "hidden by draft" eliminado — ver comentario al inicio del componente) */}
 
