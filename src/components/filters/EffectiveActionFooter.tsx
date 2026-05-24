@@ -18,7 +18,10 @@
  *   texto "No hay POIs en este subconjunto".
  *
  *   Confirmaciones tipadas:
- *     - Exportar  > 250 → token "EXPORTAR"
+ *     - Exportar  → NUNCA. Export delega 100% en `<ExportResolver>`
+ *                   (PR-EXPORT-3). El footer sólo abre el resolver vía
+ *                   evento `lovable:open-export-panel`. Sin typed-token,
+ *                   sin threshold local, sin lenguaje destructivo.
  *     - Enriquecer > 25 → token "ENRIQUECER"
  *     - Eliminar siempre → token "ELIMINAR" (solo con userSelection)
  *
@@ -63,7 +66,8 @@ import {
 
 
 const ENRICH_CONFIRM_THRESHOLD = 25;
-const EXPORT_CONFIRM_THRESHOLD = 250;
+// PR-EXPORT-3: NO existe threshold local para export. El sizing canon
+// (warn 5k / block 10k) lo aplica `<ExportResolver>` con UX amable.
 
 export interface EffectiveActionFooterProps {
   mode: FooterMode;
@@ -100,7 +104,6 @@ export function EffectiveActionFooter({
 
   const [busy, setBusy] = useState<null | 'export' | 'enrich' | 'delete'>(null);
   const [confirmEnrich, setConfirmEnrich] = useState(false);
-  const [confirmExport, setConfirmExport] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const enrichable = useMemo(
@@ -111,6 +114,10 @@ export function EffectiveActionFooter({
   const disabled = count === 0;
 
   // ---- Exportar ----
+  // PR-EXPORT-3: pulsar "Exportar" abre directamente el Export Resolver,
+  // sin diálogo destructivo intermedio ni typed-token. El resolver
+  // muestra resumen, alcance, formatos y aplica los thresholds canónicos
+  // (warn 5k / block 10k) con UX amable.
   const doExport = () => {
     if (count === 0) {
       toast.error('No hay POIs para exportar');
@@ -120,7 +127,9 @@ export function EffectiveActionFooter({
     try {
       window.dispatchEvent(
         new CustomEvent('lovable:open-export-panel', {
-          detail: { locations, label: exportLabel, scope: 'public' },
+          // Sin `scope` explícito: el resolver inicia en "Mis datos"
+          // (internal) y permite al usuario alternar a "Compartible".
+          detail: { locations, label: exportLabel },
         }),
       );
     } finally {
@@ -129,7 +138,6 @@ export function EffectiveActionFooter({
   };
   const onExportClick = () => {
     if (disabled) return;
-    if (count > EXPORT_CONFIRM_THRESHOLD) { setConfirmExport(true); return; }
     doExport();
   };
 
@@ -271,7 +279,6 @@ export function EffectiveActionFooter({
         detail: {
           locations: nonRepairableLocations,
           label: `${exportLabel} · no reparables`,
-          scope: 'public',
         },
       }),
     );
