@@ -282,16 +282,20 @@ export function FilterBar() {
   // effectiveActionSet (plan §1, ajuste obligatorio):
   //   userSelection no vacía → universeBase ∩ treeSelection ∩ userSelection
   //   userSelection vacía    → universeBase ∩ treeSelection
-  // PARTIMOS de universeBase (no de filteredLocations) y aplicamos los ejes
-  // del árbol vía matchesLocationFilters con includeHealth=false (el universo
-  // ya codifica deuda/no-enriquecido; no debe re-aplicarse).
+  // PR-INLINE-3: `treeFilteredBase` se expone aparte para que el footer pueda
+  // intersectar con la selección LOCAL del panel "Con deuda" (debt selection),
+  // que es aislada de `selectedLocations` global.
+  const treeFilteredBase = useMemo(
+    () =>
+      universeBaseLocations.filter((l) =>
+        matchesLocationFilters(l as any, filters, { includeHealth: false }),
+      ),
+    [universeBaseLocations, filters],
+  );
   const effectiveActionSet = useMemo(() => {
-    const treeFiltered = universeBaseLocations.filter((l) =>
-      matchesLocationFilters(l as any, filters, { includeHealth: false }),
-    );
-    if (selectedLocations.size === 0) return treeFiltered;
-    return treeFiltered.filter((l) => selectedLocations.has(l.id));
-  }, [universeBaseLocations, filters, selectedLocations]);
+    if (selectedLocations.size === 0) return treeFilteredBase;
+    return treeFilteredBase.filter((l) => selectedLocations.has(l.id));
+  }, [treeFilteredBase, selectedLocations]);
 
   // Universo del contador superior: refleja universeBase activo (plan §5).
   const universeForCounter = useMemo(
