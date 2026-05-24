@@ -284,6 +284,21 @@ export function EffectiveActionFooter({
     );
   };
 
+  // ---- Resolver singular (count===1): abre popup canónico del POI ----
+  const onResolveSingle = () => {
+    if (count !== 1) return;
+    const loc = locations[0];
+    if (!loc) return;
+    // 1) Fit del subset (1 POI) para garantizar que está en viewport.
+    requestSubsetFit([loc.id], { mode: 'always', reason: 'maintain-resolve-single' });
+    // 2) Abrir popup canónico del POI. Listener en LocationMap.
+    window.dispatchEvent(
+      new CustomEvent('lovable:open-poi-popup', {
+        detail: { locationId: loc.id, source: 'maintain-resolve-single' },
+      }),
+    );
+  };
+
   // ---- Primary por modo ----
   type Primary = {
     label: string;
@@ -296,38 +311,24 @@ export function EffectiveActionFooter({
   };
   const primary: Primary = (() => {
     if (mode === 'debt') {
-      // Caso 1: hay reparables → Reparar N (abre modal de confirmación).
-      if (repairableCount > 0) {
-        return {
-          label: 'Reparar',
-          icon: Wrench,
-          onClick: () => onResolveDebt?.(),
-          disabled: disabled || !onResolveDebt,
-          dataAction: 'footer-primary-resolve-debt',
-          testid: 'footer-primary-resolve-debt',
-          count: repairableCount,
-        };
-      }
-      // Caso 2: 0 reparables + todo B + capability → Geo Maintenance.
-      if (allAreSystemDebt && canHandoffGeoMaintenance) {
-        return {
-          label: 'Geo Maintenance',
-          icon: Wrench,
-          onClick: onGeoMaintenancePrimary,
-          disabled: disabled,
-          dataAction: 'footer-primary-geo-maintenance',
-          testid: 'footer-primary-geo-maintenance',
-          count: systemDebtIds.length,
-        };
-      }
-      // Caso 3: 0 reparables resto → Exportar.
+      // PR-MAINTAIN-FOOTER-1: en Mantener · Con deuda el primary es SIEMPRE
+      // "Resolver", nunca "Exportar". Comportamiento por selección:
+      //   - 1 POI         → abre popup canónico del POI (resolución manual in-place).
+      //   - ≥2 POIs / 0   → abre HealthRepairPreviewDialog (procesa lo posible
+      //                     + residual para uno-a-uno).
+      const isSingle = count === 1;
       return {
-        label: 'Exportar',
-        icon: Download,
-        onClick: onExportClick,
-        disabled: disabled || busy !== null,
-        dataAction: 'footer-primary-export',
-        testid: 'footer-primary-export',
+        label: 'Resolver',
+        icon: Wrench,
+        onClick: isSingle ? onResolveSingle : () => onResolveDebt?.(),
+        disabled: disabled || (!isSingle && !onResolveDebt),
+        dataAction: isSingle
+          ? 'footer-primary-resolve-single'
+          : 'footer-primary-resolve-debt',
+        testid: isSingle
+          ? 'footer-primary-resolve-single'
+          : 'footer-primary-resolve-debt',
+        count,
       };
     }
     if (mode === 'unenriched') {
@@ -352,25 +353,27 @@ export function EffectiveActionFooter({
   })();
   const PrimaryIcon = primary.icon;
 
-  // ---- Hint debt sin reparables ----
+  // ---- Hint debt: contextualiza qué hará "Resolver" según composición ----
   const debtNoRepairablesHint = (() => {
-    if (mode !== 'debt' || repairableCount > 0 || disabled) return null;
-    // Si el primary YA es una acción positiva (Geo Maintenance), no hace
-    // falta el hint negativo.
-    if (primary.testid === 'footer-primary-geo-maintenance') return null;
-    const hasAlternatives = canHandoffGeoMaintenance;
-    return hasAlternatives
-      ? 'No hay POIs reparables automáticamente en este subconjunto.'
-      : 'No hay reparación automática disponible.';
+    if (mode !== 'debt' || disabled) return null;
+    if (count === 1) {
+      return 'Se abrirá el POI para resolver manualmente.';
+    }
+    if (repairableCount === 0) {
+      return `${count} POIs requieren intervención manual. "Resolver" abrirá el flujo uno-a-uno.`;
+    }
+    if (repairableCount === count) return null;
+    const manual = count - repairableCount;
+    return `${repairableCount} reparables automáticamente · ${manual} requieren intervención manual.`;
   })();
 
   const showEnrichInMenu = mode === 'all' && enrichCount > 0;
-  const showExportInMenu = mode !== 'all' && primary.testid !== 'footer-primary-export';
+  // PR-MAINTAIN-FOOTER-1: en debt, "Exportar" SIEMPRE como escape hatch en menú.
+  const showExportInMenu =
+    mode === 'debt' || (mode !== 'all' && primary.testid !== 'footer-primary-export');
   const showDebtExtras = mode === 'debt' && repairableCount === 0 && !disabled;
   const showGeoMaintenanceInMenu =
-    showDebtExtras &&
-    canHandoffGeoMaintenance &&
-    primary.testid !== 'footer-primary-geo-maintenance';
+    mode === 'debt' && canHandoffGeoMaintenance && !disabled;
   const showFocusInMapInMenu = showDebtExtras;
   const showExportNonRepairableInMenu =
     showDebtExtras && nonRepairableLocations.length > 0;
