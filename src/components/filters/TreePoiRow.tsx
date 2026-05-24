@@ -24,6 +24,8 @@ import { getPointHealthRings } from '@/domains/content/lib/point-health-rings';
 import { getHierarchyBreadcrumb } from '@/shared/geography/hierarchy';
 import { requestSubsetFit } from '@/components/map/subset-fit';
 import { useLocationsStore } from '@/domains/content';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useDebtSelection } from '@/components/filters/DebtSelectionContext';
 
 const ROOT_STATUS_CLASS: Record<'A' | 'B' | 'C' | 'D', string> = {
   A: 'bg-slate-200 text-slate-700',
@@ -52,6 +54,8 @@ export function TreePoiRow({ loc, indentPx = 24 }: TreePoiRowProps) {
   );
   const rings = React.useMemo(() => getPointHealthRings(loc), [loc]);
   const breadcrumb = React.useMemo(() => getHierarchyBreadcrumb(loc), [loc]);
+  const sel = useDebtSelection();
+  const isSelected = sel?.isSelected(loc.id) ?? false;
 
   const handleRowClick = React.useCallback(() => {
     useLocationsStore.getState().setFocusedLocation(loc.id);
@@ -88,7 +92,18 @@ export function TreePoiRow({ loc, indentPx = 24 }: TreePoiRowProps) {
       data-tree-poi-row="1"
       data-tree-poi-id={loc.id}
       data-tree-poi-root-status={rootStatus}
+      data-tree-poi-selected={isSelected ? '1' : '0'}
     >
+      {sel && (
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={() => sel.toggle(loc.id)}
+          onClick={(e) => e.stopPropagation()}
+          className="h-3.5 w-3.5 shrink-0"
+          aria-label={`Seleccionar ${loc.name || 'POI'}`}
+          data-tree-poi-checkbox="1"
+        />
+      )}
       <span
         className={cn(
           'inline-flex items-center justify-center text-[9px] font-bold rounded px-1 min-w-[14px] h-[14px] shrink-0',
