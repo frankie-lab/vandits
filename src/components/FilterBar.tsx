@@ -9,7 +9,7 @@ import { useLocationsStore } from '@/domains/content';
 import { useFilteredLocations, useFilteredUniverseIgnoringSelection, useEnrichedStats } from '@/domains/content/hooks/use-filtered-locations';
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
 import { getBucketStats } from '@/domains/content/lib/location-bucket';
-import { useAuth } from '@/domains/identity';
+import { useAuth, useCapability } from '@/domains/identity';
 // matchesLocationFilters import removed — was only used by the deleted hiddenByDraft notice
 import { supabase } from '@/integrations/supabase/client';
 
