@@ -558,7 +558,28 @@ export function FilterBar() {
       </div>
     )}
 
+    {/* PR-FILTER-ROOTSTATUS-2.2 §C — fila compacta A/B/C/D sobre el árbol.
+        Disponible en TODOS los universos. Scope = universeBase, o
+        universeBase ∩ selection si hay selección activa. */}
+    <RootStatusChipRow
+      scopeLocations={
+        selectedLocations.size === 0
+          ? (universeBaseLocations as unknown[])
+          : (universeBaseLocations as any[]).filter((l) => selectedLocations.has(l.id))
+      }
+      filters={filters}
+      setFilters={setFilters}
+      scopeLabel={
+        panelMode === 'maintain'
+          ? (maintainTab === 'debt' ? 'Con deuda' : 'Sin enriquecer')
+          : 'Explorar'
+      }
+      selectionActive={selectedLocations.size > 0}
+      testId={`root-status-chip-row-${panelMode === 'maintain' ? maintainTab : 'explore'}`}
+    />
+
     <Tabs value={treeTab} onValueChange={(v) => setTreeTab(v as TreeTab)} className="w-full mt-2">
+
       <TabsList className="grid w-full grid-cols-4 h-9">
         {(() => {
           const hasAxis = (axis: FilterAxis) => activeChips.some((c) => c.axis === axis);
