@@ -415,6 +415,22 @@ export function HealthRepairPreviewDialog({
                       </button>
                     </CollapsibleTrigger>
                     <div className="flex items-center gap-1 shrink-0">
+                      {key === 'systemDebt' &&
+                        geoMaintenanceHandoffEnabled &&
+                        ids.length > 0 && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-[11px]"
+                            onClick={() => handleOpenGeoMaintenance(ids, meta.title)}
+                            data-triage-group-action="geo-maintenance"
+                            title="Abrir estos puntos en Mantenimiento Geográfico (allí se confirma antes de ejecutar)"
+                          >
+                            <Wrench className="w-3 h-3 mr-1" />
+                            Abrir en Geo Maintenance
+                          </Button>
+                        )}
                       <Button
                         type="button"
                         size="sm"
