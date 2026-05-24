@@ -583,16 +583,10 @@ export function EffectiveActionFooter({
         onConfirm={async () => { await doEnrich(); setConfirmEnrich(false); }}
       />
 
-      <DestructiveConfirmDialog
-        open={confirmExport}
-        onOpenChange={setConfirmExport}
-        title="Confirmar exportación grande"
-        description={`Vas a abrir el panel de exportación con ${count} POIs (más de ${EXPORT_CONFIRM_THRESHOLD}).`}
-        token="EXPORTAR"
-        confirmLabel="Continuar"
-        inputHelper={'Escribe "EXPORTAR" para confirmar:'}
-        onConfirm={() => { doExport(); setConfirmExport(false); }}
-      />
+      {/* PR-EXPORT-3: NO existe DestructiveConfirmDialog para export.
+          El flujo de exportación vive 100% en `<ExportResolver>`. */}
+
+
 
       <DestructiveConfirmDialog
         open={confirmDelete}
