@@ -29,7 +29,7 @@ Serializers:
 
 Matriz canónica `EXPORT_FORMAT_MATRIX` en el módulo + espejo en doc.
 
-Fixture canon Torre de Hércules: `src/test/fixtures/poi-torre-hercules-export.ts`.
-Contract test: `src/test/pr-export-5-content-model.test.ts` (12 tests).
+Fixtures canon: Torre de Hércules (`src/test/fixtures/poi-torre-hercules-export.ts`) + Mazinger Z (`src/test/fixtures/poi-mazinger-z-export.ts`, PR-EXPORT-6).
+Contract tests: `src/test/pr-export-5-content-model.test.ts` (12 tests) + `src/test/pr-export-6-gurumaps-renderer.test.ts` (13 tests).
 
-Fuera de alcance PR-EXPORT-5: RLS, `evaluatePoiExport`, thresholds, ExportResolver UX, jobs, GPX, share canon.
+Fuera de alcance PR-EXPORT-5/6: RLS, `evaluatePoiExport`, thresholds, ExportResolver UX, jobs, GPX, share canon, CSV/JSON/GeoJSON serializers.
