@@ -25,12 +25,6 @@ import {
   Eye,
   EyeOff,
   FolderInput,
-  FileCode,
-  FileSpreadsheet,
-  FileJson,
-  Globe2,
-  Map as MapIcon,
-  Mountain,
   Plus,
   X,
 } from 'lucide-react';
@@ -66,33 +60,14 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLocationsStore } from '@/domains/content';
-import { useAuth } from '@/domains/identity';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-// NOTE: serializers ya no se importan aquí — pipeline canónico abajo.
-import {
-  EXPORT_EXCLUSION_LABEL,
-} from '@/domains/content/lib/poi-export-eligibility';
-import {
-  runPoiExport,
-  downloadPoiExportBlob,
-  type PoiExportOrigin,
-} from '@/domains/content/lib/poi-export-pipeline';
-import {
-  PoiExportSizeError,
-  POI_EXPORT_SIZE_THRESHOLDS,
-  type PoiExportFormat,
-  type PoiExportScope,
-} from '@/domains/content/lib/poi-export-record';
-import { useExportTracking } from '@/hooks/use-export-tracking';
+import { ExportResolverDialog } from '@/domains/content/components/ExportResolver';
 import {
   GeoLocation,
   PLACE_TYPE_LABELS,
   PlaceType,
 } from '@/types/location';
-
-type ExportTarget = 'mymaps' | 'gurumaps' | 'general';
-const SELECTION_ORIGIN: PoiExportOrigin = 'selection';
 
 const PLACE_TYPES = Object.keys(PLACE_TYPE_LABELS) as PlaceType[];
 
@@ -133,10 +108,7 @@ export function SelectionActions() {
   const [isWorking, setIsWorking] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [tagPopoverOpen, setTagPopoverOpen] = useState(false);
-  const [exportScope, setExportScope] = useState<PoiExportScope>('public');
-  const { recordExport } = useExportTracking();
-  const { user } = useAuth();
-  const currentUserId = user?.id ?? null;
+  const [exportOpen, setExportOpen] = useState(false);
 
   if (count === 0) return null;
 
@@ -222,87 +194,14 @@ export function SelectionActions() {
     }
   };
 
-  // ---- 2. Exportar selección (PR-EXPORT-2 pipeline canónico) ----
-  const handleExport = (format: PoiExportFormat, target: ExportTarget = 'general') => {
-    if (resolvedLocations.length === 0) {
-      toast.error('No hay puntos para exportar');
-      return;
-    }
-    const docName = selectedDocument?.name || 'seleccion';
-    const ctx = { currentUserId };
+  // ---- 2. Exportar selección → delega 100% en <ExportResolverDialog> ----
+  // Toda la lógica de pipeline, scope, formato, tamaño y tracking vive
+  // en ExportResolver. PR-EXPORT-3 sustituye el flujo legacy por una
+  // UX amable, sin diálogos de confirmación nativos del navegador.
 
-    const exec = (confirmedOverWarn: boolean) =>
-      runPoiExport(
-        {
-          locations: resolvedLocations,
-          format,
-          scope: exportScope,
-          ctx,
-          documentName: docName,
-          target: format === 'kml' ? target : undefined,
-          origin: SELECTION_ORIGIN,
-        },
-        { confirmedOverWarn },
-      );
 
-    try {
-      let outcome = exec(false);
 
-      if (outcome.kind === 'no-eligible') {
-        const summary = outcome.partition.excluded
-          .slice(0, 3)
-          .map((e) => EXPORT_EXCLUSION_LABEL[e.reason])
-          .join(' · ');
-        toast.error(
-          exportScope === 'public'
-            ? `Ningún punto seleccionado es compartible. ${summary}`
-            : `Ningún punto exportable en modo interno (requiere ser del usuario actual). ${summary}`,
-        );
-        return;
-      }
-      if (outcome.kind === 'warn-pending') {
-        const ok = window.confirm(
-          `Vas a exportar ${outcome.partition.eligibleCount} POIs (más de ${POI_EXPORT_SIZE_THRESHOLDS.warn}).\nEl archivo puede ser muy grande. ¿Continuar?`,
-        );
-        if (!ok) {
-          toast.message('Exportación cancelada');
-          return;
-        }
-        outcome = exec(true);
-        if (outcome.kind !== 'ok') {
-          toast.error('No se pudo ejecutar la exportación');
-          return;
-        }
-      }
 
-      downloadPoiExportBlob(outcome);
-      recordExport(format, target, outcome.exportedIds, {
-        scope: exportScope,
-        origin: SELECTION_ORIGIN,
-        excludedCount: outcome.excludedCount,
-        success: true,
-      });
-      const excludedNote =
-        outcome.excludedCount > 0 ? ` (${outcome.excludedCount} excluidos)` : '';
-      toast.success(
-        `Exportados ${outcome.eligibleCount} puntos en ${format.toUpperCase()}${excludedNote}`,
-      );
-    } catch (err) {
-      if (err instanceof PoiExportSizeError) {
-        toast.error(
-          `Export bloqueado: ${err.verdict.count} POIs supera el límite de ${err.verdict.thresholds.block}`,
-        );
-      } else {
-        console.error('Export error:', err);
-        toast.error('Error al exportar');
-      }
-      recordExport(format, target, [], {
-        scope: exportScope,
-        origin: SELECTION_ORIGIN,
-        success: false,
-      });
-    }
-  };
 
   // ---- 3. Etiquetar (añadir / quitar tag) ----
   const applyTag = async (tag: string, mode: 'add' | 'remove') => {
@@ -506,69 +405,18 @@ export function SelectionActions() {
           Enriquecer IA
         </Button>
 
-        {/* Exportar */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isWorking}
-              className="h-8 text-xs justify-start gap-1.5"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Exportar
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-64">
-            <DropdownMenuLabel className="text-xs">Alcance</DropdownMenuLabel>
-            <div className="px-2 pb-2 flex gap-1">
-              <Button
-                size="sm"
-                variant={exportScope === 'public' ? 'default' : 'outline'}
-                className="h-7 text-xs flex-1"
-                onClick={(e) => { e.preventDefault(); setExportScope('public'); }}
-              >
-                Público
-              </Button>
-              <Button
-                size="sm"
-                variant={exportScope === 'internal' ? 'default' : 'outline'}
-                className="h-7 text-xs flex-1"
-                onClick={(e) => { e.preventDefault(); setExportScope('internal'); }}
-              >
-                Interno
-              </Button>
-            </div>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs">Para aplicación</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => handleExport('kml', 'mymaps')}>
-              <MapIcon className="w-4 h-4 mr-2 text-blue-500" />
-              Google My Maps (KML)
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('kml', 'gurumaps')}>
-              <Mountain className="w-4 h-4 mr-2 text-emerald-500" />
-              Guru Maps (KML)
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs">Formatos</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => handleExport('kml')}>
-              <FileCode className="w-4 h-4 mr-2" />
-              KML
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('csv')}>
-              <FileSpreadsheet className="w-4 h-4 mr-2" />
-              CSV
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('json')} data-export-format="json">
-              <FileJson className="w-4 h-4 mr-2" />
-              JSON
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('geojson')} data-export-format="geojson">
-              <Globe2 className="w-4 h-4 mr-2" />
-              GeoJSON
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Exportar — abre Export Resolver (PR-EXPORT-3) */}
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={isWorking}
+          onClick={() => setExportOpen(true)}
+          className="h-8 text-xs justify-start gap-1.5"
+          data-selection-export-trigger
+        >
+          <Download className="w-3.5 h-3.5" />
+          Exportar
+        </Button>
 
         {/* Etiquetar */}
         <Popover open={tagPopoverOpen} onOpenChange={setTagPopoverOpen}>
@@ -758,6 +606,19 @@ export function SelectionActions() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
+
+      <ExportResolverDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        source={{
+          kind: 'selection',
+          label: `Selección actual · ${resolvedLocations.length} ubicaciones`,
+          locations: resolvedLocations,
+          documentName: selectedDocument?.name || 'seleccion',
+        }}
+        initialScope="internal"
+        initialFormat="kml"
+      />
     </div>
   );
 }
