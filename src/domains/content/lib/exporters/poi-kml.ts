@@ -19,6 +19,8 @@ import {
   type PoiExportRecord,
   type PoiExportScope,
 } from '../poi-export-record';
+import type { PoiExportContent } from '../poi-export-content-model';
+import { buildKmlDescriptionHtml } from './kml-description-html';
 
 export type KmlExportTarget = 'general' | 'mymaps' | 'gurumaps';
 
