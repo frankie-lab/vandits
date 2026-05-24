@@ -648,25 +648,27 @@ export function FilterBar() {
       </div>
     )}
 
-    {/* PR-FILTER-ROOTSTATUS-2.2 §C — fila compacta A/B/C/D sobre el árbol.
-        Disponible en TODOS los universos. Scope = universeBase, o
-        universeBase ∩ selection si hay selección activa. */}
-    <RootStatusChipRow
-      scopeLocations={
-        selectedLocations.size === 0
-          ? (universeBaseLocations as unknown[])
-          : (universeBaseLocations as any[]).filter((l) => selectedLocations.has(l.id))
-      }
-      filters={filters}
-      setFilters={setFilters}
-      scopeLabel={
-        panelMode === 'maintain'
-          ? (maintainTab === 'debt' ? 'Con deuda' : 'Sin enriquecer')
-          : 'Explorar'
-      }
-      selectionActive={selectedLocations.size > 0}
-      testId={`root-status-chip-row-${panelMode === 'maintain' ? maintainTab : 'explore'}`}
-    />
+    {/* PR-FILTER-ROOTSTATUS-DEMOTE-1 — La fila compacta A/B/C/D
+        (`RootStatusChipRow`) se retira de la UI. Análisis:
+        - El objetivo de este panel en modo Mantener es "resolver deuda
+          en batch" (footer = Resolver). La partición A/B/C/D era
+          taxonomía interna del canon de identidad y NO mapea a
+          acciones del usuario:
+            · A (Incompleto) no es resoluble desde aquí.
+            · B (Falta canon) la resuelve un job de sistema.
+            · C (Revisar) requiere abrir POI a POI, no batch.
+            · D (Auto) es lo único que el botón Resolver ataca.
+          El desglose útil "auto vs manual" YA está en el footer
+          ("N reparables automáticamente · M requieren intervención
+          manual"). El row era redundante + confuso (label "Listo"/
+          "Auto" sobre POIs que SÍ tienen deuda).
+        - En Explorar y Sin enriquecer tampoco aportaba: ninguno
+          opera por bucket A/B/C/D.
+        El componente `RootStatusChipRow` y el filtro `rootStatus`
+        permanecen disponibles para herramientas internas/tests; sólo
+        se retira el render aquí. Reintroducir requiere un objetivo
+        accionable por bucket. */}
+
 
     <Tabs value={treeTab} onValueChange={(v) => setTreeTab(v as TreeTab)} className="w-full mt-2">
 
