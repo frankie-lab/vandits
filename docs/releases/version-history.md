@@ -67,7 +67,8 @@ publicados; algunas son hitos **reconstructed** para fijar memoria histórica.
   1.3.17       T2A-wire-regional-exceptions-edge — enforcement server-side `regionHasNoProvincia` en `resolve-admin-area` + cliente `resolveAllFks` consume `meta.region_iso_code`  (stable)
   1.3.18       P0 World Canon Coverage (ola 1) — TERRITORIAL_CANON 39→49  (stable)
   1.3.19       PR-EXPORT-2 — exportación canónica POI (CSV/KML/JSON v2/GeoJSON) basada en PoiExportRecord  (stable)
-  1.4.0        Discovery: árbol unificado + Root Status A/B/C/D + footer contextual + triage Resolver deuda + counts unificados  ← versión actual (stable / current)
+  1.4.0        Discovery: árbol unificado + Root Status A/B/C/D + footer contextual + triage Resolver deuda + counts unificados  (stable)
+  1.4.1        Root Status B → Geo Maintenance scoped (bridge UX/operativo, sin escritura desde modal)  ← versión actual (stable / current)
 
 
 2.x — Futuro
