@@ -152,10 +152,13 @@ export function FilterBar() {
     sinEnriquecer: resolveUniverseBase('unenriched', allLocationsForUniverseSource).length,
   }), [allLocationsForUniverseSource]);
 
-  // PR-FILTER-ROOTSTATUS-2 §6.2 — desglose A/B/C/D del universo "debt".
-  // Counts derivados del MISMO universeBase('debt') que el subtab, no de
-  // `effectiveActionSet` (evita doble filtrado). Invariante I2:
-  // A+B+C+D ≡ subtab `Con deuda`.
+  // PR-FILTER-ROOTSTATUS-2.2 §C — el desglose A/B/C/D vive ahora en una fila
+  // compacta (`RootStatusChipRow`) sobre el árbol, en TODOS los universos
+  // (Explorar / Con deuda / Sin enriquecer / + Selección). Los counts se
+  // calculan dentro del row a partir del scope que recibe (`universeBase`
+  // o `universeBase ∩ selection`). Mantenemos `debtRootStatusCounts` como
+  // alias para no romper invariante I2 (A+B+C+D ≡ subtab Con deuda) en
+  // tests/diagnóstico, derivado del MISMO universeBase('debt').
   const debtRootStatusCounts = useMemo(() => {
     const counts: Record<'A' | 'B' | 'C' | 'D', number> = { A: 0, B: 0, C: 0, D: 0 };
     const universe = resolveUniverseBase('debt', allLocationsForUniverseSource);
