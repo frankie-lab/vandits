@@ -83,10 +83,13 @@ export function EffectiveActionFooter({
   onClearSelection,
   onResolveDebt,
   onSelectAll,
+  canViewGeoMaintenance = false,
+  canRunGeoBackfill = false,
 }: EffectiveActionFooterProps) {
   const count = locations.length;
   const label = buildFooterLabel({ mode, count, hasUserSelection, scopeLabel });
   const exportLabel = buildExportLabel({ mode, hasUserSelection, scopeLabel });
+
 
   const [busy, setBusy] = useState<null | 'export' | 'enrich' | 'delete'>(null);
   const [confirmEnrich, setConfirmEnrich] = useState(false);
