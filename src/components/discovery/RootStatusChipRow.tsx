@@ -129,10 +129,10 @@ export function RootStatusChipRow({
         )}
       </div>
 
-      {/* Segmented tabs — single line, no wrap, no scroll */}
+      {/* Segmented tabs — single line, no wrap, clip on overflow */}
       <div
         role="tablist"
-        className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shrink-0"
+        className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 min-w-0 flex-1 overflow-hidden"
       >
         {visibleLetters.map((letter, idx) => {
           const isActive = active.includes(letter);
@@ -146,7 +146,7 @@ export function RootStatusChipRow({
               type="button"
               onClick={() => toggle(letter)}
               className={cn(
-                'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors whitespace-nowrap',
+                'inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-colors min-w-0',
                 idx > 0 && 'ml-0.5',
                 isActive
                   ? 'bg-slate-900 text-white'
@@ -157,10 +157,10 @@ export function RootStatusChipRow({
               data-active={isActive}
               title={LETTER_TITLE[letter]}
             >
-              <span>{label}</span>
+              <span className="truncate">{label}</span>
               <span
                 className={cn(
-                  'inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded text-[10px] font-semibold tabular-nums',
+                  'shrink-0 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded text-[10px] font-semibold tabular-nums',
                   isActive
                     ? 'bg-white/20 text-white'
                     : 'bg-slate-100 text-slate-500',
@@ -172,6 +172,7 @@ export function RootStatusChipRow({
           );
         })}
       </div>
+
     </div>
   );
 
