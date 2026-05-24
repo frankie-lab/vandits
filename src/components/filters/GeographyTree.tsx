@@ -393,6 +393,10 @@ export function GeographyTree() {
  const pathKey = node.path.join('/');
  const isExpanded = expandedNodes.has(pathKey);
  const hasChildren = node.children.length > 0;
+ // PR-INLINE-1: leaves (sin children) con POIs se vuelven expandibles SÓLO
+ // en universo `debt`, para mostrar filas POI inline.
+ const showInlinePois = inlinePoisEnabled && !hasChildren && node.ids.length > 0;
+ const isExpandable = hasChildren || showInlinePois;
  const selected = isSelected(node);
  const inPath = isInPath(node);
  const isFiltered = hasNonGeoFilters && node.count < node.totalCount;
@@ -412,7 +416,7 @@ export function GeographyTree() {
  )}
  style={{ paddingLeft: `${depth * 12 + 8}px` }}
  >
- {hasChildren ? (
+ {isExpandable ? (
  <button
  onClick={(e) => {
  e.stopPropagation();
@@ -491,6 +495,25 @@ export function GeographyTree() {
  {node.children.map(child => renderNode(child, depth + 1))}
  </div>
  )}
+ {isExpanded && showInlinePois && (
+   <div
+     className="w-full min-w-0 max-w-full overflow-hidden"
+     data-tree-poi-group={pathKey}
+     data-tree-poi-group-count={node.ids.length}
+   >
+     {node.ids.map((id) => {
+       const loc = locationsById.get(id);
+       if (!loc) return null;
+       return (
+         <TreePoiRow
+           key={id}
+           loc={loc}
+           indentPx={(depth + 1) * 12 + 8}
+         />
+       );
+     })}
+   </div>
+ )}
  </div>
  );
  };
@@ -505,6 +528,7 @@ export function GeographyTree() {
  filters.localidad,
  filters.sublocalidad,
  ].filter(Boolean);
+
 
  if (allLocations.length === 0) {
  return (
