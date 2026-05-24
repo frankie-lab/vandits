@@ -551,6 +551,16 @@ export function EffectiveActionFooter({
         </div>
       )}
 
+      {debtNoRepairablesHint && (
+        <div
+          className="text-[11px] text-muted-foreground/80 italic"
+          data-testid="footer-debt-no-repairables-hint"
+        >
+          {debtNoRepairablesHint}
+        </div>
+      )}
+
+
       <DestructiveConfirmDialog
         open={confirmEnrich}
         onOpenChange={setConfirmEnrich}
