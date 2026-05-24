@@ -326,39 +326,72 @@ export function ExportResolverBody({
 
   return (
     <div className="space-y-4" data-export-resolver="v1" data-export-source-kind={source.kind}>
-      {/* Promesa de propiedad — copy obligatorio */}
+      {/* Promesa de propiedad — copy por scope (PR-EXPORT-4) */}
       <p className="text-sm text-muted-foreground leading-relaxed" data-export-ownership-copy>
-        Vandits creará una copia portable. Tus ubicaciones seguirán disponibles en Vandits.
+        {scopeCopy.ownership}
       </p>
 
       {/* Resumen del origen */}
       <div
         className="rounded-lg border border-border bg-muted/40 p-3 space-y-2 text-sm"
         data-export-summary
+        data-export-summary-scope={scope}
       >
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">Origen</span>
           <span className="font-medium">{source.label}</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Total candidatos</span>
+          <span className="text-muted-foreground">{scopeCopy.totalLabel}</span>
           <span className="font-medium" data-export-total-count>
             {preview.totalCount.toLocaleString()}
           </span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Elegibles</span>
+          <span className="text-muted-foreground">{scopeCopy.eligibleLabel}</span>
           <span className="font-medium text-emerald-600 dark:text-emerald-400" data-export-eligible-count>
             {preview.eligibleCount.toLocaleString()}
           </span>
         </div>
-        {preview.excludedCount > 0 && (
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">No incluidos</span>
-            <span className="font-medium" data-export-excluded-count>
-              {preview.excludedCount.toLocaleString()}
-            </span>
-          </div>
+        {scope === 'internal' ? (
+          <>
+            {foreignCount > 0 && (
+              <div
+                className="flex items-start justify-between gap-3 rounded border border-border/60 bg-background/40 px-2 py-1.5"
+                data-export-foreign-row
+              >
+                <div className="text-xs text-muted-foreground leading-snug">
+                  <span className="font-medium text-foreground">
+                    {foreignCount.toLocaleString()}
+                  </span>{' '}
+                  {SCOPE_COPY.internal.foreignLabel}
+                  <div className="text-[11px] mt-0.5 opacity-80">
+                    {SCOPE_COPY.internal.foreignHint}
+                  </div>
+                </div>
+                <span className="sr-only" data-export-foreign-count>
+                  {foreignCount}
+                </span>
+              </div>
+            )}
+            {technicalCount > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">{SCOPE_COPY.internal.technicalLabel}</span>
+                <span className="font-medium" data-export-technical-count>
+                  {technicalCount.toLocaleString()}
+                </span>
+              </div>
+            )}
+          </>
+        ) : (
+          preview.excludedCount > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">{SCOPE_COPY.public.excludedLabel}</span>
+              <span className="font-medium" data-export-public-excluded-count>
+                {preview.excludedCount.toLocaleString()}
+              </span>
+            </div>
+          )
         )}
         {preview.eligibleCount > 0 && (
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
@@ -367,6 +400,7 @@ export function ExportResolverBody({
           </div>
         )}
       </div>
+
 
       {/* Scope */}
       <div className="space-y-2">
