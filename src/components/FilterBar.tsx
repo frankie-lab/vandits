@@ -48,6 +48,7 @@ import { loadLocationsFromDatabase } from '@/domains/content';
 import { HealthFilterActionCTA } from './discovery/HealthFilterActionCTA';
 import { useSelectionFitOnStart } from './discovery/use-selection-fit-on-start';
 import { useHealthFilterFit } from './discovery/use-health-filter-fit';
+import { RootStatusChipRow } from './discovery/RootStatusChipRow';
 import { UniverseBaseProvider } from './filters/UniverseBaseContext';
 import {
   resolveUniverseBase,
