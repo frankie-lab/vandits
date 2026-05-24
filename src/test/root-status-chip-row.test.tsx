@@ -26,11 +26,11 @@ function loc(id: string) {
 }
 
 function setRoots(map: Record<string, 'A' | 'B' | 'C' | 'D'>) {
-  mockClassify.mockImplementation((l: { id: string }) => ({
-    rootStatus: map[l.id] ?? 'D',
-    eligibleForAutoEnrich: (map[l.id] ?? 'D') === 'D',
-    reason: 'test',
-  }));
+  mockClassify.mockImplementation((l?: { id?: string }) => {
+    const key = l?.id ?? '';
+    const root = map[key] ?? 'D';
+    return { rootStatus: root, eligibleForAutoEnrich: root === 'D', reason: 'test' };
+  });
 }
 
 beforeEach(() => mockClassify.mockReset());
