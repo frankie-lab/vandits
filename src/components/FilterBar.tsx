@@ -46,6 +46,7 @@ import { classifyPoiRootStatusForLocation } from '@/domains/content/lib/poi-iden
 import { CLASSIFICATION_TREE } from './filters/ClassificationTree';
 import { loadLocationsFromDatabase } from '@/domains/content';
 import { HealthFilterActionCTA } from './discovery/HealthFilterActionCTA';
+import { HealthRepairPreviewDialog } from './discovery/HealthRepairPreviewDialog';
 import { useSelectionFitOnStart } from './discovery/use-selection-fit-on-start';
 import { useHealthFilterFit } from './discovery/use-health-filter-fit';
 import { RootStatusChipRow } from './discovery/RootStatusChipRow';
@@ -356,12 +357,31 @@ export function FilterBar() {
 
   const hasUserSelection = selectedLocations.size > 0;
 
-  // Opener registrado por HealthFilterActionCTA — permite al footer abrir el
-  // HealthRepairPreviewDialog vía callback directo (sin window.dispatchEvent).
+  // Opener registrado por HealthFilterActionCTA — sólo se usa cuando hay un
+  // `filters.healthFilter` puntual activo (partial/chain/hardError/review).
+  // El modal AGREGADO de "Resolver deuda" (universo debt) NO depende de este
+  // ref: lo abre `FilterBar` directamente via `debtModalOpen` + dialog
+  // montado abajo. Esto cierra la regresión donde `HealthFilterActionCTA`
+  // retornaba `null` por `!healthFilter` y el botón "Resolver deuda" del
+  // footer quedaba como noop.
   const openHealthRepairRef = useRef<() => void>(() => {});
   const registerHealthRepairOpen = useCallback((open: () => void) => {
     openHealthRepairRef.current = open;
   }, []);
+
+  // Estado local del modal agregado "Resolver deuda" (universo debt).
+  const [debtModalOpen, setDebtModalOpen] = useState(false);
+
+  // Scope agregado para el modal: se construye desde `effectiveActionSet`
+  // (universeBase ∩ treeSelection [∩ userSelection]). `mode='selection'` si
+  // hay selección manual, `mode='filtered'` en caso contrario.
+  const debtScope = useMemo(() => ({
+    ids: effectiveActionSet.map((l) => l.id),
+    total: effectiveActionSet.length,
+    mode: (hasUserSelection ? 'selection' : 'filtered') as 'selection' | 'filtered',
+    locations: effectiveActionSet,
+  }), [effectiveActionSet, hasUserSelection]);
+
 
 
 
@@ -641,11 +661,24 @@ export function FilterBar() {
      onClearSelection={clearSelection}
      onResolveDebt={
        activeModeUniverse === 'debt'
-         ? () => openHealthRepairRef.current()
+         ? () => setDebtModalOpen(true)
          : undefined
      }
      onSelectAll={handleSelectAllInMode}
    />
+
+   {/* Modal agregado "Resolver deuda" — montado SIEMPRE que el universo sea
+       `debt`, independientemente de que HealthFilterActionCTA esté montado.
+       Cierra la regresión del wiring (ref noop). */}
+   {activeModeUniverse === 'debt' && (
+     <HealthRepairPreviewDialog
+       open={debtModalOpen}
+       onOpenChange={setDebtModalOpen}
+       filter="debt"
+       scope={debtScope as any}
+       currentUserId={user?.id ?? null}
+     />
+   )}
 
   </div>
   );
