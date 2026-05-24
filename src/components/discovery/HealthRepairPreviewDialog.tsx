@@ -172,6 +172,13 @@ export function HealthRepairPreviewDialog({
     [scope.locations, filter],
   );
 
+  // PR-ROOT-STATUS-B · Gating del puente a Geo Maintenance.
+  // Requiere AMBAS capabilities: ver el panel destino y poder lanzar el job.
+  // Si falta cualquiera, el botón NO se renderiza (regla dura del contrato).
+  const canViewGeoMaintenance = useCapability('view_geo_maintenance').allowed;
+  const canRunGeoBackfill = useCapability('run_geo_backfill').allowed;
+  const geoMaintenanceHandoffEnabled = canViewGeoMaintenance && canRunGeoBackfill;
+
   const isRepairableFilter = REPAIRABLE.has(filter);
   const repairableCount = partition.repairableIds.length;
 
