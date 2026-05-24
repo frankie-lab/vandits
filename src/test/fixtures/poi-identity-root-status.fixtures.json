@@ -82,8 +82,9 @@
       "expected": { "root": "C", "eligibleForAutoEnrich": false, "skipReason": "geo_hard_error" }
     },
     {
+      "_note": "XX es un código ISO-3166-1 alpha-2 no asignado, garantizado fuera de TERRITORIAL_CANON tanto en cliente como en Deno. JP no sirve aquí porque sí está en canon.",
       "name": "B · canon_gap (country fuera de canon)",
-      "row": { "id": "x16", "name": "Foo", "latitude": 35.0, "longitude": 139.0, "country_code": "JP", "country_id": "jp-id", "geo_health": "ok", "is_approved": true },
+      "row": { "id": "x16", "name": "Foo", "latitude": 35.0, "longitude": 139.0, "country_code": "XX", "country_id": "xx-id", "geo_health": "ok", "is_approved": true },
       "expected": { "root": "B", "eligibleForAutoEnrich": false, "skipReason": "canon_gap" }
     },
     {
