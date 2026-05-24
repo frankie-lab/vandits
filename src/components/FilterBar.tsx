@@ -508,45 +508,10 @@ export function FilterBar() {
           <span className="tabular-nums text-muted-foreground">{COUNT_FORMATTER.format(curationBuckets.sinEnriquecer)}</span>
         </TabsTrigger>
       </TabsList>
-      {maintainTab === 'debt' && (
-        <div
-          className="flex items-center gap-1.5 mt-1.5 flex-wrap"
-          data-testid="root-status-breakdown-debt"
-        >
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Root</span>
-          {(['A', 'B', 'C', 'D'] as const).map((letter) => {
-            const active = (filters.rootStatus ?? []).includes(letter);
-            const count = debtRootStatusCounts[letter];
-            return (
-              <button
-                key={letter}
-                type="button"
-                onClick={() => {
-                  const current = filters.rootStatus ?? [];
-                  const next = active
-                    ? current.filter((x) => x !== letter)
-                    : [...current, letter];
-                  const updated = { ...filters };
-                  if (next.length === 0) delete (updated as Record<string, unknown>).rootStatus;
-                  else updated.rootStatus = next;
-                  setFilters(updated);
-                }}
-                className={cn(
-                  'h-6 px-1.5 rounded text-[11px] font-medium border tabular-nums transition-colors',
-                  active
-                    ? 'bg-slate-700 text-slate-50 border-slate-700'
-                    : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200',
-                )}
-                data-testid={`root-status-chip-${letter}`}
-                data-active={active}
-                title={`Root ${letter} (${count})`}
-              >
-                {letter} {count}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {/* PR-FILTER-ROOTSTATUS-2.2 §C — el desglose A/B/C/D ya NO vive aquí
+          dentro del subtab debt; ahora se renderiza como `RootStatusChipRow`
+          generalizado sobre el árbol (debajo), disponible en Explorar, Con
+          deuda, Sin enriquecer y cuando hay selección activa. */}
     </Tabs>
   )}
 
