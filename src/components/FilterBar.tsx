@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { dispatchGlobalEvent } from '@/lib/global-events';
 import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, Trash2, Loader2, HeartPulse, CheckSquare, AlertCircle, CircleDashed } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
@@ -323,6 +323,14 @@ export function FilterBar() {
 
   const hasUserSelection = selectedLocations.size > 0;
 
+  // Opener registrado por HealthFilterActionCTA — permite al footer abrir el
+  // HealthRepairPreviewDialog vía callback directo (sin window.dispatchEvent).
+  const openHealthRepairRef = useRef<() => void>(() => {});
+  const registerHealthRepairOpen = useCallback((open: () => void) => {
+    openHealthRepairRef.current = open;
+  }, []);
+
+
 
 
 
@@ -497,7 +505,9 @@ export function FilterBar() {
             healthFilter={filters.healthFilter ?? null}
             filteredLocations={effectiveActionSet as any}
             selectedLocationIds={selectedLocations}
+            registerOpen={registerHealthRepairOpen}
           />
+
         ) : (
           <div className="text-xs text-muted-foreground px-1 py-2">
             {effectiveActionSet.length > 0
@@ -568,7 +578,14 @@ export function FilterBar() {
      hasUserSelection={hasUserSelection}
      scopeLabel={scopeLabel}
      onClearSelection={clearSelection}
+     onResolveDebt={
+       activeModeUniverse === 'debt'
+         ? () => openHealthRepairRef.current()
+         : undefined
+     }
+     onSelectAll={handleSelectAllInMode}
    />
+
   </div>
   );
 }
