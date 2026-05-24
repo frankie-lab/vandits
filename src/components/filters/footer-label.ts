@@ -63,6 +63,12 @@ export function buildExportLabel({
 }: Omit<BuildFooterLabelParams, 'count'>): string {
   if (hasUserSelection) return 'Selección actual';
   const base =
-    mode === 'debt' ? 'Con deuda' : mode === 'unenriched' ? 'Sin enriquecer' : 'Explorar';
+    mode === 'debt'
+      ? 'Con deuda'
+      : mode === 'unenriched'
+        ? 'Sin enriquecer'
+        : mode === 'user-action'
+          ? 'Requieren revisión'
+          : 'Explorar';
   return scopeLabel ? `${base} · ${scopeLabel}` : base;
 }
