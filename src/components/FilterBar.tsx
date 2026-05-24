@@ -437,17 +437,6 @@ export function FilterBar() {
      </div>
    </div>
    <div className="flex items-center gap-1">
-   {hasActiveChips && (
-  <Button
-  variant="outline"
-  size="sm"
-  onClick={clearAllFilters}
-  className="h-7 px-2 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
-  >
-  <RotateCcw className="w-3 h-3" />
-  Quitar filtros
-  </Button>
-  )}
   <label
   className={cn(
   "flex items-center h-7 px-2 cursor-pointer",
