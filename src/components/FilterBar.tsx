@@ -377,28 +377,39 @@ export function FilterBar() {
        <span className="text-sky-600 font-medium">Seguidos</span>
      </div>
    </div>
-  <div className="flex items-center gap-1">
-  {hasActiveChips && (
- <Button
- variant="outline"
- size="sm"
- onClick={clearAllFilters}
- className="h-7 px-2 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
- >
- <RotateCcw className="w-3 h-3" />
- Quitar filtros
- </Button>
- )}
- <Button
- variant="ghost"
- size="sm"
- onClick={refreshData}
- disabled={isRefreshing}
- className="h-7 px-2"
- >
- <RefreshCw className={cn("w-3.5 h-3.5", isRefreshing && "animate-spin")} />
- </Button>
- </div>
+   <div className="flex items-center gap-1">
+   {hasActiveChips && (
+  <Button
+  variant="outline"
+  size="sm"
+  onClick={clearAllFilters}
+  className="h-7 px-2 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
+  >
+  <RotateCcw className="w-3 h-3" />
+  Quitar filtros
+  </Button>
+  )}
+  <Button
+  variant="ghost"
+  size="sm"
+  onClick={hasUserSelection ? clearSelection : handleSelectAllInMode}
+  disabled={!hasUserSelection && effectiveActionSet.length === 0}
+  className="h-7 px-2 text-xs gap-1"
+  title={hasUserSelection ? 'Deseleccionar todo' : 'Seleccionar todo el subconjunto activo'}
+  >
+  <CheckSquare className="w-3.5 h-3.5" />
+  {hasUserSelection ? 'Deseleccionar' : 'Seleccionar todo'}
+  </Button>
+  <Button
+  variant="ghost"
+  size="sm"
+  onClick={refreshData}
+  disabled={isRefreshing}
+  className="h-7 px-2"
+  >
+  <RefreshCw className={cn("w-3.5 h-3.5", isRefreshing && "animate-spin")} />
+  </Button>
+  </div>
  </div>
 
   {/* Warning when filters are very restrictive — secundario, no compite con la selección */}
