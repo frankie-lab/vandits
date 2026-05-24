@@ -12,7 +12,7 @@
  *
  * Con `scopeLabel` se sufija " en {scopeLabel}".
  */
-export type FooterMode = 'all' | 'debt' | 'unenriched';
+export type FooterMode = 'all' | 'debt' | 'unenriched' | 'user-action';
 
 export interface BuildFooterLabelParams {
   mode: FooterMode;
