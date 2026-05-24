@@ -402,69 +402,18 @@ export function SelectionActions() {
           Enriquecer IA
         </Button>
 
-        {/* Exportar */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isWorking}
-              className="h-8 text-xs justify-start gap-1.5"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Exportar
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-64">
-            <DropdownMenuLabel className="text-xs">Alcance</DropdownMenuLabel>
-            <div className="px-2 pb-2 flex gap-1">
-              <Button
-                size="sm"
-                variant={exportScope === 'public' ? 'default' : 'outline'}
-                className="h-7 text-xs flex-1"
-                onClick={(e) => { e.preventDefault(); setExportScope('public'); }}
-              >
-                Público
-              </Button>
-              <Button
-                size="sm"
-                variant={exportScope === 'internal' ? 'default' : 'outline'}
-                className="h-7 text-xs flex-1"
-                onClick={(e) => { e.preventDefault(); setExportScope('internal'); }}
-              >
-                Interno
-              </Button>
-            </div>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs">Para aplicación</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => handleExport('kml', 'mymaps')}>
-              <MapIcon className="w-4 h-4 mr-2 text-blue-500" />
-              Google My Maps (KML)
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('kml', 'gurumaps')}>
-              <Mountain className="w-4 h-4 mr-2 text-emerald-500" />
-              Guru Maps (KML)
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs">Formatos</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => handleExport('kml')}>
-              <FileCode className="w-4 h-4 mr-2" />
-              KML
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('csv')}>
-              <FileSpreadsheet className="w-4 h-4 mr-2" />
-              CSV
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('json')} data-export-format="json">
-              <FileJson className="w-4 h-4 mr-2" />
-              JSON
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('geojson')} data-export-format="geojson">
-              <Globe2 className="w-4 h-4 mr-2" />
-              GeoJSON
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Exportar — abre Export Resolver (PR-EXPORT-3) */}
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={isWorking}
+          onClick={() => setExportOpen(true)}
+          className="h-8 text-xs justify-start gap-1.5"
+          data-selection-export-trigger
+        >
+          <Download className="w-3.5 h-3.5" />
+          Exportar
+        </Button>
 
         {/* Etiquetar */}
         <Popover open={tagPopoverOpen} onOpenChange={setTagPopoverOpen}>
