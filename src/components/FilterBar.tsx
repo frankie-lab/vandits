@@ -67,6 +67,73 @@ import { toast } from 'sonner';
 
 const COUNT_FORMATTER = new Intl.NumberFormat('es-ES');
 
+/**
+ * PR-MAINTAIN-FOOTER-2: canon "fila de contadores arriba".
+ * Renderiza el Switch select-all/clear + un badge inline con el contador de
+ * selección local del panel "Con deuda" (DebtSelectionContext) y un enlace
+ * "Limpiar". El Switch limpia AMBAS selecciones (global + deuda).
+ */
+function TopCounterSelectionControls({
+  hasUserSelection,
+  canSelect,
+  onSelectAll,
+  onClearGlobal,
+}: {
+  hasUserSelection: boolean;
+  canSelect: boolean;
+  onSelectAll: () => void;
+  onClearGlobal: () => void;
+}) {
+  const debtSel = useDebtSelection();
+  const debtCount = debtSel?.size ?? 0;
+  const switchOn = hasUserSelection || debtCount > 0;
+  const disabled = !switchOn && !canSelect;
+  return (
+    <div className="flex items-center gap-2">
+      {debtCount > 0 && (
+        <div
+          className="flex items-center gap-2 text-xs"
+          data-debt-selection-bar="1"
+          data-debt-selection-count={debtCount}
+        >
+          <span className="font-medium tabular-nums text-primary">
+            {debtCount} sel.
+          </span>
+          <button
+            type="button"
+            onClick={debtSel?.clear}
+            className="underline text-primary/80 hover:text-primary"
+            data-debt-selection-clear="1"
+          >
+            Limpiar
+          </button>
+        </div>
+      )}
+      <label
+        className={cn(
+          'flex items-center h-7 px-2 cursor-pointer',
+          disabled && 'opacity-50 cursor-not-allowed'
+        )}
+        title={switchOn ? 'Deseleccionar todo' : 'Seleccionar todo el subconjunto activo'}
+      >
+        <Switch
+          checked={switchOn}
+          disabled={disabled}
+          onCheckedChange={(checked) => {
+            if (checked) {
+              onSelectAll();
+            } else {
+              onClearGlobal();
+              debtSel?.clear();
+            }
+          }}
+        />
+      </label>
+    </div>
+  );
+}
+
+
 export function FilterBar() {
   const {
   filters,
@@ -436,24 +503,13 @@ export function FilterBar() {
        <span className="text-sky-600 font-medium">Seguidos</span>
      </div>
    </div>
-   <div className="flex items-center gap-1">
-  <label
-  className={cn(
-  "flex items-center h-7 px-2 cursor-pointer",
-  (!hasUserSelection && effectiveActionSet.length === 0) && "opacity-50 cursor-not-allowed"
-  )}
-  title={hasUserSelection ? 'Deseleccionar todo' : 'Seleccionar todo el subconjunto activo'}
-  >
-  <Switch
-  checked={hasUserSelection}
-  disabled={!hasUserSelection && effectiveActionSet.length === 0}
-  onCheckedChange={(checked) => {
-  if (checked) handleSelectAllInMode();
-  else clearSelection();
-  }}
-  />
-  </label>
-  </div>
+    <TopCounterSelectionControls
+      hasUserSelection={hasUserSelection}
+      canSelect={effectiveActionSet.length > 0}
+      onSelectAll={handleSelectAllInMode}
+      onClearGlobal={clearSelection}
+    />
+
  </div>
 
   {/* Aviso de filtros restrictivos eliminado: aparecía/desaparecía según umbral y rompía la altura de la fila. */}
@@ -663,7 +719,7 @@ export function FilterBar() {
         <PlaceTypeFilter />
       </TabsContent>
     </Tabs>
-    <DebtSelectionStatusBar />
+    {/* DebtSelectionStatusBar movido a la fila superior (PR-MAINTAIN-FOOTER-2) */}
    </>
   </>
   </>
