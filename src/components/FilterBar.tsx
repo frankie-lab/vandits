@@ -389,26 +389,23 @@ export function FilterBar() {
   Quitar filtros
   </Button>
   )}
-  <Button
-  variant="ghost"
-  size="sm"
-  onClick={hasUserSelection ? clearSelection : handleSelectAllInMode}
-  disabled={!hasUserSelection && effectiveActionSet.length === 0}
-  className="h-7 px-2 text-xs gap-1"
+  <label
+  className={cn(
+  "flex items-center gap-2 h-7 px-2 text-xs rounded-md cursor-pointer select-none",
+  (!hasUserSelection && effectiveActionSet.length === 0) && "opacity-50 cursor-not-allowed"
+  )}
   title={hasUserSelection ? 'Deseleccionar todo' : 'Seleccionar todo el subconjunto activo'}
   >
-  <CheckSquare className="w-3.5 h-3.5" />
-  {hasUserSelection ? 'Deseleccionar' : 'Seleccionar todo'}
-  </Button>
-  <Button
-  variant="ghost"
-  size="sm"
-  onClick={refreshData}
-  disabled={isRefreshing}
-  className="h-7 px-2"
-  >
-  <RefreshCw className={cn("w-3.5 h-3.5", isRefreshing && "animate-spin")} />
-  </Button>
+  <Switch
+  checked={hasUserSelection}
+  disabled={!hasUserSelection && effectiveActionSet.length === 0}
+  onCheckedChange={(checked) => {
+  if (checked) handleSelectAllInMode();
+  else clearSelection();
+  }}
+  />
+  <span>{hasUserSelection ? 'Deseleccionar' : 'Seleccionar todo'}</span>
+  </label>
   </div>
  </div>
 
