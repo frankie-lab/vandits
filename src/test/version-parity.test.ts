@@ -65,14 +65,16 @@ describe('version parity (SoT = src/lib/app-version.ts)', () => {
 
   it('docs/releases/version-history.md top 1.x tree row === APP_VERSION', () => {
     const hist = read('docs/releases/version-history.md');
-    // Match every line shaped like "  1.4.5        ..." inside the ASCII tree
-    // and pick the last (highest) one. The script appends new entries at the
-    // bottom of the tree.
-    const rows = [...hist.matchAll(/^\s{2}(\d+\.\d+\.\d+)\s+/gm)];
-    expect(rows.length, 'No version rows found in version-history tree').toBeGreaterThan(0);
+    // Isolate the "1.x" subtree inside the ASCII Árbol general so that
+    // future placeholders like "2.0.0 Reservado para …" never match.
+    const oneXBlock = hist.match(/1\.x[\s\S]*?(?=^2\.x|^```|^---)/m);
+    expect(oneXBlock, 'No 1.x subtree found in version-history').not.toBeNull();
+    const rows = [...oneXBlock![0].matchAll(/^\s{2}(\d+\.\d+\.\d+)\s+/gm)];
+    expect(rows.length, 'No version rows found in 1.x subtree').toBeGreaterThan(0);
     const last = rows[rows.length - 1][1];
     expect(last).toBe(APP_VERSION);
   });
+
 
   it('src/lib/version.ts contains no hardcoded vX.Y.Z literal (anti-regression)', () => {
     const src = read('src/lib/version.ts');
