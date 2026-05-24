@@ -196,7 +196,9 @@ describe('PR-EXPORT-6 · target switching y regresión generic', () => {
     });
     const content = buildPoiExportContent(loc, { scope: 'internal' });
     const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
-    expect(body).not.toContain(']]>');
+    // Toda ocurrencia de ]]> debe ser parte del split seguro ]]]]><![CDATA[>
     expect(body).toContain(']]]]><![CDATA[>');
+    const unsafe = body.replace(/\]\]\]\]><!\[CDATA\[>/g, '');
+    expect(unsafe).not.toContain(']]>');
   });
 });
