@@ -38,13 +38,50 @@ SoT código: `src/domains/content/lib/poi-export-content-model.ts`
 | G provenance | enlaces en desc HTML | `links` join `\|` | full | properties |
 | H forbidden | NO | NO | NO | NO |
 
-## KML / GuruMaps target
+## KML rendering targets (PR-EXPORT-6)
 
-`buildKmlDescriptionHtml` produce `<description>` con `<![CDATA[…]]>` y
-HTML mínimo compatible (whitelist `<p>`, `<b>`, `<i>`, `<img>`, `<a>`,
-`<br/>`). Sin `<script>`, `<style>`, atributos `on*`, ni JSON crudo.
+KML deja de asumir un único renderer. El serializer delega en
+`renderExportDescription(content, { format:'kml', target, scope })`
+(`src/domains/content/lib/exporters/render-export-description.ts`).
 
-Orden canónico:
+Targets canónicos:
+
+| target | renderer | rendererId | uso |
+|--------|----------|-----------|-----|
+| `gurumaps` *(default)* | `buildGuruMapsDescription` | `gurumaps-plain` | GuruMaps móvil — plain-text con `\n\n`, sin tags HTML, emoji separador, truncation por frase, links compactos. |
+| `generic` (alias `general`, `mymaps`) | `buildKmlDescriptionHtml` | `generic-html` | Google Earth / My Maps / parsers tolerantes HTML — whitelist `<p>/<b>/<i>/<img>/<a>/<br/>`. |
+
+Ambos targets envuelven en `<![CDATA[…]]>`. Sanitización de `]]>` en
+`gurumaps` vía split `]]]]><![CDATA[>`. `ExtendedData` estructurada se
+mantiene **siempre** (incluye `image_url` aunque `gurumaps` omita imagen
+del cuerpo).
+
+### Compatibilidad GuruMaps (auditada)
+
+| Soporte | Elementos |
+|---------|-----------|
+| Renderiza bien | texto plano en CDATA, `\n`, unicode/emoji, URLs auto-linkificadas |
+| Parcial / inconsistente | `<br/>`, `<b>`, `<a href>`, `<img>` (offline falla) |
+| Muestra literal / rompe | `<p>`, `<i>`, paredes de texto >800 chars, hashtags densos |
+| Ignora | `<script>`, `<style>`, atributos `on*`, clases CSS |
+
+Conclusión: plain-text first, sin tags. Emoji como separador.
+
+### Orden canónico `gurumaps`
+
+1. `📍 ubicación` (`locality · province · country`, máx 3 niveles)
+2. **highlight** (truncado a 180 chars, frase completa)
+3. **longDescription** (truncado a 220–280 chars)
+4. `🏷 categoría — #tag1…` (máx 5 tags, dedupe con categoría)
+5. `📝 observación` (truncado a 200 chars)
+6. `🔗 Enlaces` — máx 3, label corto (`Wikipedia`/`Web oficial`/`UNESCO`/`Más info`), hostname display + URL completa en línea propia
+7. `— Vandits · YYYY-MM-DD`
+
+Soft cap 900 chars, hard cap 1200 chars. Si excede: recortar `longDesc`
+→ eliminar `classification` → eliminar `longDesc` → truncar global.
+
+### Orden canónico `generic`
+
 1. `<img>` principal (si `media.imageUrl`)
 2. highlight en cursiva
 3. longDescription (split por `\n\n` → `<p>`)
@@ -54,7 +91,7 @@ Orden canónico:
 7. fuentes (web + sources http(s))
 8. footer `Generado por Vandits · {ISO}`
 
-ExtendedData estructurada se mantiene para apps que la lean.
+
 
 ## Scope rules (recordatorio)
 
