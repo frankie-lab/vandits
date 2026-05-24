@@ -245,10 +245,14 @@ export function FilterBar() {
     [getAllLocations, documents, user?.id],
   );
 
+  // PR-MAINTAIN-USER-ACTION-1 — el bucket "Con deuda" de la tab Mantener
+  // ahora cuenta SÓLO POIs que requieren intervención del usuario (A+C).
+  // B y D quedan invisibles aquí porque los resuelve el sistema solo.
   const curationBuckets = useMemo(() => ({
-    conDeuda: resolveUniverseBase('debt', allLocationsForUniverseSource).length,
+    conDeuda: resolveUniverseBase('user-action', allLocationsForUniverseSource).length,
     sinEnriquecer: resolveUniverseBase('unenriched', allLocationsForUniverseSource).length,
   }), [allLocationsForUniverseSource]);
+
 
   // PR-FILTER-ROOTSTATUS-2.2 §C — el desglose A/B/C/D vive ahora en una fila
   // compacta (`RootStatusChipRow`) sobre el árbol, en TODOS los universos
