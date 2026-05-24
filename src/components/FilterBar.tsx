@@ -73,9 +73,7 @@ export function FilterBar() {
   } = useLocationsStore();
 
   const getAllLocations = useLocationsStore(s => s.getAllLocations);
-  const getVisibleUniverseLocations = useLocationsStore(s => s.getVisibleUniverseLocations);
   const documents = useLocationsStore(s => s.documents);
-  const detachedVisibleLocations = useLocationsStore(s => s.detachedVisibleLocations);
   
   const filteredLocations = useFilteredLocations();
   // Universo visible/autorizado SIN recortar por selección. Es la base canónica
@@ -132,15 +130,23 @@ export function FilterBar() {
   // Counts de los chips de subtab (Con deuda / Sin enriquecer) se calculan
   // con `resolveUniverseBase` sobre la misma fuente que alimenta el árbol.
   // Ver docs/audits/search-filter-maintain-tree-universe-counts-unification-postflight.md.
+  //
+  // PR-COUNTS-1: la fuente canónica para contadores de catálogo (header,
+  // subtabs, ownershipRatios, árbol) es `catalogVisibleUniverse` —
+  // `myCatalog + followedCatalog` aprobados. Coincide con la base del top
+  // bar (`getBucketStats(getAllLocations(), uid).catalogTotal`) y cierra el
+  // gap 5095 vs 5100. Ver `docs/contracts/poi-counts-canon.md` §3.A.
+  // Importante: NO usar `getVisibleUniverseLocations()` aquí (ese es el
+  // universo de mapa, fuente B, e incluye detached/no-aprobados).
   const allLocationsForUniverseSource = useMemo(
-    () => getVisibleUniverseLocations(),
+    () => getVisibleCatalogUniverse(getAllLocations() as any, user?.id ?? null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [getVisibleUniverseLocations, documents, detachedVisibleLocations],
+    [getAllLocations, documents, user?.id],
   );
 
   const curationBuckets = useMemo(() => ({
-    conDeuda: resolveUniverseBase('debt', allLocationsForUniverseSource).length,
-    sinEnriquecer: resolveUniverseBase('unenriched', allLocationsForUniverseSource).length,
+    conDeuda: resolveUniverseBase('debt', allLocationsForUniverseSource as any).length,
+    sinEnriquecer: resolveUniverseBase('unenriched', allLocationsForUniverseSource as any).length,
   }), [allLocationsForUniverseSource]);
 
   // PR-4A.1 — Auto-fit del mapa cuando arranca una selección masiva (0 → N).
