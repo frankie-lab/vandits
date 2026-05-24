@@ -12,17 +12,27 @@ export interface UserProfile {
   updated_at: string;
 }
 
-export type AppRole = 'master' | 'admin' | 'moderator' | 'editor' | 'supervisor' | 'user';
+export type AppRole = 'master' | 'admin' | 'moderator' | 'editor';
 
 export type AppPermission =
   | 'manage_users'
-  | 'manage_criteria'
+  | 'manage_editorial_criteria'
   | 'run_global_enrichment'
-  | 'view_all_locations'
-  | 'edit_all_locations'
   | 'delete_any_location'
-  | 'manage_documents'
-  | 'view_analytics'
   | 'moderate_content'
-  | 'upload_files'
-  | 'add_locations';
+  | 'manage_permissions'
+  | 'manage_marker_config'
+  | 'manage_route_engine'
+  | 'manage_icon_library'
+  | 'manage_enrichment_config'
+  | 'view_audit_log'
+  | 'manage_data_sources'
+  | 'run_image_recovery'
+  | 'inspect_design_system'
+  | 'purge_user'
+  | 'open_back_office'
+  | 'assign_master'
+  | 'run_internal_tooling'
+  | 'view_geo_maintenance'
+  | 'run_geo_backfill'
+  | 'run_geo_canonicalize';
