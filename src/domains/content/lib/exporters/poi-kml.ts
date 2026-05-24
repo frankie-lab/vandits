@@ -79,20 +79,28 @@ function renderExtendedData(r: PoiExportRecord): string {
     .join('');
 }
 
+function resolveRenderTarget(target: KmlExportTarget | undefined): ExportRenderTarget {
+  if (target === 'generic' || target === 'general' || target === 'mymaps') return 'generic';
+  // Default + 'gurumaps' → gurumaps (caso real de uso hoy).
+  return 'gurumaps';
+}
+
 function renderPlacemark(
   r: PoiExportRecord,
-  options: { target?: KmlExportTarget; generatedAt?: string },
+  options: { target?: KmlExportTarget; scope: PoiExportScope; generatedAt?: string },
 ): string {
-  // PR-EXPORT-5 — prefiere modelo por capas si está presente. CDATA para
-  // que parsers KML (GuruMaps/Google My Maps) traten el body como HTML.
+  // PR-EXPORT-6 — delega rendering al dispatcher target-aware. El content
+  // model (PR-EXPORT-5) sigue siendo SoT; sólo cambia la presentación.
   const layered = r.layeredContent as PoiExportContent | undefined;
   let descBlock = '';
   if (layered) {
-    const html = buildKmlDescriptionHtml(layered, {
-      target: options.target,
+    const rendered = renderExportDescription(layered, {
+      format: 'kml',
+      target: resolveRenderTarget(options.target),
+      scope: options.scope,
       generatedAt: options.generatedAt,
     });
-    descBlock = `<description><![CDATA[${html}]]></description>`;
+    descBlock = `<description><![CDATA[${rendered.body}]]></description>`;
   } else if (r.content.description) {
     descBlock = `<description>${escapeXml(r.content.description)}</description>`;
   }
