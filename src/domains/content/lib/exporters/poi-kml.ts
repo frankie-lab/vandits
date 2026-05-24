@@ -20,9 +20,16 @@ import {
   type PoiExportScope,
 } from '../poi-export-record';
 import type { PoiExportContent } from '../poi-export-content-model';
-import { buildKmlDescriptionHtml } from './kml-description-html';
+import {
+  renderExportDescription,
+  type ExportRenderTarget,
+} from './render-export-description';
 
-export type KmlExportTarget = 'general' | 'mymaps' | 'gurumaps';
+/**
+ * PR-EXPORT-6 — Targets canónicos de rendering KML.
+ * `general` se mapea a `generic` (HTML whitelisted). Default = `gurumaps`.
+ */
+export type KmlExportTarget = ExportRenderTarget | 'general' | 'mymaps';
 
 export interface SerializePoiKmlOptions {
   scope: PoiExportScope;
@@ -72,20 +79,28 @@ function renderExtendedData(r: PoiExportRecord): string {
     .join('');
 }
 
+function resolveRenderTarget(target: KmlExportTarget | undefined): ExportRenderTarget {
+  if (target === 'generic' || target === 'general' || target === 'mymaps') return 'generic';
+  // Default + 'gurumaps' → gurumaps (caso real de uso hoy).
+  return 'gurumaps';
+}
+
 function renderPlacemark(
   r: PoiExportRecord,
-  options: { target?: KmlExportTarget; generatedAt?: string },
+  options: { target?: KmlExportTarget; scope: PoiExportScope; generatedAt?: string },
 ): string {
-  // PR-EXPORT-5 — prefiere modelo por capas si está presente. CDATA para
-  // que parsers KML (GuruMaps/Google My Maps) traten el body como HTML.
+  // PR-EXPORT-6 — delega rendering al dispatcher target-aware. El content
+  // model (PR-EXPORT-5) sigue siendo SoT; sólo cambia la presentación.
   const layered = r.layeredContent as PoiExportContent | undefined;
   let descBlock = '';
   if (layered) {
-    const html = buildKmlDescriptionHtml(layered, {
-      target: options.target,
+    const rendered = renderExportDescription(layered, {
+      format: 'kml',
+      target: resolveRenderTarget(options.target),
+      scope: options.scope,
       generatedAt: options.generatedAt,
     });
-    descBlock = `<description><![CDATA[${html}]]></description>`;
+    descBlock = `<description><![CDATA[${rendered.body}]]></description>`;
   } else if (r.content.description) {
     descBlock = `<description>${escapeXml(r.content.description)}</description>`;
   }
@@ -118,7 +133,7 @@ export function serializePoiKml(
 
   const target = options.target;
   const placemarks = records
-    .map((r) => renderPlacemark(r, { target }))
+    .map((r) => renderPlacemark(r, { target, scope }))
     .join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>

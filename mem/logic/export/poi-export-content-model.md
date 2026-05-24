@@ -1,6 +1,6 @@
 ---
-name: POI export content model (PR-EXPORT-5)
-description: Modelo por capas A–H scope-aware/format-aware. Serializers consumen buildPoiExportContent; capa H forbidden.
+name: POI export content model (PR-EXPORT-5/6)
+description: Modelo por capas A–H scope-aware/format-aware + renderer KML target-aware (gurumaps default | generic HTML).
 type: feature
 ---
 
@@ -19,14 +19,17 @@ Pipeline:
 `GeoLocation → mapToPoiExportRecord (adjunta layeredContent vía buildPoiExportContent) → serializers prefieren layeredContent`.
 
 Serializers:
-- **KML**: `<description>` con `<![CDATA[…]]>` HTML construido por `buildKmlDescriptionHtml`. Whitelist `<p>/<b>/<i>/<img>/<a>/<br/>`. Orden: imagen → highlight → longDescription → ubicación territorial → categoría+tags → observación → fuentes → footer "Generado por Vandits · {ISO}". ExtendedData estructurada se mantiene.
+- **KML (PR-EXPORT-6)**: serializer delega en `renderExportDescription(content, { format:'kml', target, scope })` (`src/domains/content/lib/exporters/render-export-description.ts`). Targets canónicos:
+  - `gurumaps` *(DEFAULT)* → `buildGuruMapsDescription` (plain-text móvil-first, `\n\n` entre bloques, sin tags HTML, emoji separador `📍🏷📝🔗`, truncation por frase, máx 5 tags / 3 links, soft 900 / hard 1200 chars, footer `— Vandits · YYYY-MM-DD`, sanitización `]]>` via split `]]]]><![CDATA[>`). Imagen OMITIDA del cuerpo (GuruMaps no la renderiza fiable) pero presente en `<ExtendedData><Data name="image_url">`.
+  - `generic` (alias `general`/`mymaps`) → `buildKmlDescriptionHtml` (HTML whitelist `<p>/<b>/<i>/<img>/<a>/<br/>`, footer `Generado por Vandits · {ISO}`).
+  Ambos envuelven en `<![CDATA[…]]>`. Llamadas legacy sin `target` → gurumaps.
 - **CSV**: columnas planas nuevas (`highlight`, `observation`, `address`, `category`, `subcategory`, `image_attribution`, `links`) + en internal (`created_at`, `collection`, `personal_notes`, `own_state`).
 - **JSON**: envelope `poi-export-json-v2` aditivo; cada item incluye `layeredContent` (formato más rico).
 - **GeoJSON**: `properties.layeredContent` enriquecido; geometry `[lng,lat]` intacta.
 
 Matriz canónica `EXPORT_FORMAT_MATRIX` en el módulo + espejo en doc.
 
-Fixture canon Torre de Hércules: `src/test/fixtures/poi-torre-hercules-export.ts`.
-Contract test: `src/test/pr-export-5-content-model.test.ts` (12 tests).
+Fixtures canon: Torre de Hércules (`src/test/fixtures/poi-torre-hercules-export.ts`) + Mazinger Z (`src/test/fixtures/poi-mazinger-z-export.ts`, PR-EXPORT-6).
+Contract tests: `src/test/pr-export-5-content-model.test.ts` (12 tests) + `src/test/pr-export-6-gurumaps-renderer.test.ts` (13 tests).
 
-Fuera de alcance PR-EXPORT-5: RLS, `evaluatePoiExport`, thresholds, ExportResolver UX, jobs, GPX, share canon.
+Fuera de alcance PR-EXPORT-5/6: RLS, `evaluatePoiExport`, thresholds, ExportResolver UX, jobs, GPX, share canon, CSV/JSON/GeoJSON serializers.

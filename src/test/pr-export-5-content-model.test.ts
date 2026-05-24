@@ -76,12 +76,15 @@ describe('PR-EXPORT-5 · content model layers', () => {
 });
 
 describe('PR-EXPORT-5 · KML popup parity (Torre de Hércules)', () => {
-  it('KML internal contiene longDescription, highlight, ubicación territorial, observación e imagen', () => {
+  // PR-EXPORT-6: default KML target = 'gurumaps' (plain-text móvil-first).
+  // Para validar el renderer HTML clásico, pasamos `target: 'generic'`.
+  it('KML internal (generic target) contiene longDescription, highlight, ubicación, observación e imagen HTML', () => {
     const loc = makeTorreHerculesFixture();
     const rec = mapToPoiExportRecord(loc, 'internal');
     const kml = serializePoiKml([rec], {
       scope: 'internal',
       documentName: 'Test',
+      target: 'generic',
     });
     expect(kml).toContain('Patrimonio de la Humanidad');
     expect(kml).toContain('Único faro romano');
