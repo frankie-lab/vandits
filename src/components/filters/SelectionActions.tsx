@@ -108,10 +108,7 @@ export function SelectionActions() {
   const [isWorking, setIsWorking] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [tagPopoverOpen, setTagPopoverOpen] = useState(false);
-  const [exportScope, setExportScope] = useState<PoiExportScope>('public');
-  const { recordExport } = useExportTracking();
-  const { user } = useAuth();
-  const currentUserId = user?.id ?? null;
+  const [exportOpen, setExportOpen] = useState(false);
 
   if (count === 0) return null;
 
