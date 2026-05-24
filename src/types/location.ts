@@ -336,6 +336,16 @@ export interface GeoLocation {
       apple?: { url?: string; verifiedAt?: string };
     };
   };
+  /**
+   * Pass-through opcional de columnas crudas usadas por el clasificador
+   * Root Status A/B/C/D (`classifyPoiRootStatusForLocation`). Si no están
+   * presentes, el clasificador cae a la rama conservadora Deno.
+   * Ver `docs/audits/search-filter-root-status-filter-plan.md` §5.1.
+   */
+  countryCode?: string | null;
+  countryId?: string | null;
+  regionId?: string | null;
+  metadata?: Record<string, unknown> | null;
  createdAt: Date;
  updatedAt: Date;
 }
@@ -382,6 +392,15 @@ export type VisualStateFilter = 'enriched' | 'imported' | 'empty';
  */
 export type HealthFilter = 'partial' | 'chain' | 'review' | 'hardError';
 
+/**
+ * Eje "Root Status" (identidad / responsabilidad operativa).
+ * A=incompleto real (usuario), B=falta canon/backfill (sistema),
+ * C=incoherente (revisión), D=coherente (apto auto-enrich).
+ * Multi-select. Ortogonal a POI-N y a health rings.
+ * Ver `docs/audits/search-filter-root-status-filter-plan.md`.
+ */
+export type RootStatusFilter = 'A' | 'B' | 'C' | 'D';
+
 export type FilterCriteria = {
   allPointsHidden?: boolean; // Kill switch: when true, getFilteredLocations returns []
   continent?: string;
@@ -410,7 +429,13 @@ export type FilterCriteria = {
   visualState?: VisualStateFilter;
   // Eje "Salud operativa" canónico (Health Rings v2). Single-select.
   // Delega en `getPointHealthRings(loc)`; ver `mem://logic/discovery/health-filter-axis`.
-  healthFilter?: HealthFilter;
+   healthFilter?: HealthFilter;
+   /**
+    * Eje "Root Status" (PR-FILTER-ROOTSTATUS-2). Multi-select A/B/C/D.
+    * Derivado en cliente vía `classifyPoiRootStatusForLocation`. No muta
+    * marker palette ni health rings ni POI-N.
+    */
+   rootStatus?: RootStatusFilter[];
   // Filtro de propietario
  ownershipFilter?: OwnershipFilter;
   // Filtro de visita
