@@ -113,21 +113,8 @@ export function RootStatusChipRow({
       data-scope-total={total}
       data-selection-active={selectionActive ? 'true' : 'false'}
     >
-      {/* Scope label — inline, single line */}
-      <div
-        className="flex items-center gap-1.5 shrink-0"
-        title="Estado de identidad del POI — capa independiente de salud/visibilidad"
-      >
-        <Shield className="w-3.5 h-3.5 text-slate-400" />
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">
-          Estado
-        </span>
-        {(scopeLabel || selectionActive) && (
-          <span className="text-[10px] font-medium text-slate-400 whitespace-nowrap">
-            · {scopeLabel}{selectionActive ? ' · sel' : ''}
-          </span>
-        )}
-      </div>
+
+
 
       {/* Segmented tabs — single line, no wrap, clip on overflow */}
       <div
