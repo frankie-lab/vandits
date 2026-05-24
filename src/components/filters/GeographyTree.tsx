@@ -134,6 +134,16 @@ export function GeographyTree() {
   // Universo base activo (Explorar=all / Mantener→Con deuda / Sin enriquecer).
   // Si no hay UniverseBaseProvider, cae a `getAllLocations()` (comportamiento legacy).
   const allLocations = useScopedLocations(getAllLocations());
+  const universeCtx = useUniverseBase();
+  // PR-INLINE-1: solo en `Mantener → Con deuda` activamos POI rows inline
+  // bajo nodos hoja del árbol. En el resto de modos, comportamiento legacy.
+  const inlinePoisEnabled = universeCtx?.mode === 'debt';
+  const locationsById = useMemo(() => {
+    const map = new Map<string, typeof allLocations[number]>();
+    for (const l of allLocations) map.set(l.id, l);
+    return map;
+  }, [allLocations]);
+
 
   const totalUnclassified = useMemo(
     () => allLocations.filter((l) => {
