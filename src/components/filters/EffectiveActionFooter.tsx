@@ -64,11 +64,16 @@ export interface EffectiveActionFooterProps {
   hasUserSelection: boolean;
   scopeLabel?: string | null;
   onClearSelection: () => void;
-  /** Callback para abrir HealthRepairPreviewDialog. Solo aplica en mode='debt'. */
+  /** Callback para abrir HealthRepairPreviewDialog. Solo aplica en mode='debt'
+   *  Y SOLO se invoca si repairableCount > 0 (PR-INLINE-3.1). */
   onResolveDebt?: () => void;
   /** Callback "Seleccionar todo" del modo activo. */
   onSelectAll?: () => void;
+  /** PR-INLINE-3.1: capabilities para Geo Maintenance handoff (boolean para tests). */
+  canViewGeoMaintenance?: boolean;
+  canRunGeoBackfill?: boolean;
 }
+
 
 export function EffectiveActionFooter({
   mode,
