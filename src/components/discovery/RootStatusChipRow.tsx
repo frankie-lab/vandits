@@ -50,11 +50,18 @@ export interface RootStatusChipRowProps {
 
 const LETTERS: ReadonlyArray<RootStatusLetter> = ['A', 'B', 'C', 'D'];
 
+const LETTER_LABEL: Record<RootStatusLetter, string> = {
+  A: 'Incompleto',
+  B: 'Falta canon',
+  C: 'Revisar a mano',
+  D: 'Listo para auto',
+};
+
 const LETTER_TITLE: Record<RootStatusLetter, string> = {
-  A: 'A · Incompleto real (falta identidad básica)',
-  B: 'B · Deuda de sistema (falta canon/backfill)',
-  C: 'C · Revisar manualmente (nombre/coords)',
-  D: 'D · Canon completo (elegible reparación auto)',
+  A: 'Incompleto · falta identidad básica (nombre o coordenadas)',
+  B: 'Falta canon · deuda de sistema, pendiente de backfill geográfico',
+  C: 'Revisar a mano · nombre/coords sospechosos, requiere intervención humana',
+  D: 'Listo para auto · canon completo, elegible para reparación automática',
 };
 
 export function RootStatusChipRow({
