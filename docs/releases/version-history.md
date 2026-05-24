@@ -71,7 +71,8 @@ publicados; algunas son hitos **reconstructed** para fijar memoria histórica.
   1.4.1        Root Status B → Geo Maintenance scoped (bridge UX/operativo, sin escritura desde modal)  (stable)
   1.4.2        DebtResolutionPanel Fase 1 — subvista lateral "Resolver deuda" en Buscar y Filtrar; modal queda como fallback/confirmación  (stable)
   1.4.3        Mantener → Con deuda opera inline; "Resolver deuda" abre directamente modal de confirmación (DebtResolutionPanel fuera del flujo principal); footer respeta selección local debt
-  1.4.4        PR-INLINE-3.1 — footer de "Con deuda" ya NO abre HealthRepairPreviewDialog cuando repairableCount=0; primary cambia a Geo Maintenance (B + capability) o Exportar; alternativas (Abrir en mapa vía requestSubsetFit, Geo Maintenance subgrupo B, Exportar no reparables) en "Más acciones"  ← versión actual (stable / current)
+  1.4.4        PR-INLINE-3.1 — footer de "Con deuda" ya NO abre HealthRepairPreviewDialog cuando repairableCount=0; primary cambia a Geo Maintenance (B + capability) o Exportar; alternativas (Abrir en mapa vía requestSubsetFit, Geo Maintenance subgrupo B, Exportar no reparables) en "Más acciones"  (stable)
+  1.4.5        Versioning hardening — SoT única (`src/lib/app-version.ts`), parity test en CI, script `scripts/release/bump-version.ts`, eliminación del campo `changelog` hardcodeado en `src/lib/version.ts`, archivado del doc legacy `VANDITS-v2.0-DOCUMENTATION.md`  ← versión actual (stable / current)
 
 
 
