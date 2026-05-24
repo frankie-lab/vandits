@@ -570,6 +570,7 @@ const popupResizeObserversRef = useRef<Map<L.Popup, ResizeObserver>>(new Map());
        window.removeEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
         window.removeEventListener('map-fly-to', handleFlyTo);
         window.removeEventListener('itinerary-focus', handleItineraryFocus);
+        window.removeEventListener('lovable:open-poi-popup', handleOpenPoiPopup);
   };
   }, [mapCenterConfig]);
 
