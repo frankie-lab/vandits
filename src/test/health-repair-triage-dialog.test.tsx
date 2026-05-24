@@ -164,39 +164,39 @@ describe('HealthRepairPreviewDialog — triage (plan §7)', () => {
     }
   });
 
-  it.each([
-    ['systemDebt', 'b1', 'B'],
-    ['review', 'c1', 'C'],
-    ['identityIncomplete', 'a1', 'A'],
-  ] as const)(
-    '4-6. Exportar grupo %s dispara open-export-panel sólo con %s y scope=internal',
-    (groupKey, expectedId) => {
-      const events = exportEvents();
-      try {
-        render(
-          <HealthRepairPreviewDialog
-            open
-            onOpenChange={vi.fn()}
-            filter="debt"
-            scope={scope(FULL_IDS)}
-          />,
-        );
-        const group = getGroup(groupKey);
-        const exportBtn = within(group).getByText('Exportar').closest('button')!;
-        fireEvent.click(exportBtn);
-        expect(events).toHaveLength(1);
-        const detail = events[0].detail as {
-          locations: GeoLocation[];
-          scope: string;
-        };
-        expect(detail.scope).toBe('internal');
-        expect(detail.locations.map((l) => l.id)).toEqual([expectedId]);
-        expect(rpcMock).not.toHaveBeenCalled();
-      } finally {
-        (events as any).dispose();
-      }
-    },
-  );
+  function expectExportGroup(groupKey: string, expectedId: string) {
+    const events = exportEvents();
+    try {
+      render(
+        <HealthRepairPreviewDialog
+          open
+          onOpenChange={vi.fn()}
+          filter="debt"
+          scope={scope(FULL_IDS)}
+        />,
+      );
+      const group = getGroup(groupKey);
+      const exportBtn = within(group).getByText('Exportar').closest('button')!;
+      fireEvent.click(exportBtn);
+      expect(events).toHaveLength(1);
+      const detail = events[0].detail as { locations: GeoLocation[]; scope: string };
+      expect(detail.scope).toBe('internal');
+      expect(detail.locations.map((l) => l.id)).toEqual([expectedId]);
+      expect(rpcMock).not.toHaveBeenCalled();
+    } finally {
+      (events as unknown as { dispose: () => void }).dispose();
+    }
+  }
+
+  it('4. Exportar grupo B dispara open-export-panel sólo con B', () => {
+    expectExportGroup('systemDebt', 'b1');
+  });
+  it('5. Exportar grupo C dispara open-export-panel sólo con C', () => {
+    expectExportGroup('review', 'c1');
+  });
+  it('6. Exportar grupo A dispara open-export-panel sólo con A', () => {
+    expectExportGroup('identityIncomplete', 'a1');
+  });
 
   it('7. Exportar no reparables excluye los reparables', () => {
     const events = exportEvents();
