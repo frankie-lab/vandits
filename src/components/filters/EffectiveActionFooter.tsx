@@ -244,12 +244,6 @@ export function EffectiveActionFooter({
       `Mantener · Subgrupo B · ${systemDebtIds.length} puntos`,
     );
   };
-  const onGeoMaintenanceSubgroup = () => {
-    doGeoMaintenance(
-      systemDebtIds,
-      `Mantener · Subgrupo B · ${systemDebtIds.length} puntos`,
-    );
-  };
 
   // ---- Abrir en mapa (helper canónico requestSubsetFit) ----
   const onFocusInMap = () => {
