@@ -23,7 +23,7 @@
 // procesando con permisos de service role como hasta ahora.
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { Loader2, Play, Square, Wrench, RotateCcw, Plus, AlertTriangle, Info } from 'lucide-react';
+import { Loader2, Play, Square, Wrench, RotateCcw, Plus, AlertTriangle, Info, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -36,6 +36,12 @@ import type { GeoLocation } from '@/types/location';
 // PR-BACKOFFICE-DEAD-SURFACES-1 H4 — observabilidad por capability (localStorage).
 import { useOperationHistory, type OperationHandle } from './observability/useOperationHistory';
 import { operationKeyForCapability } from './PanelEffectHeader';
+// PR-ROOT-STATUS-B · Handoff scoped desde HealthRepairPreviewDialog.
+import {
+  consumePendingGeoMaintenanceHandoff,
+  subscribeGeoMaintenanceHandoff,
+  type GeoMaintenanceHandoffPayload,
+} from '@/shared/events/geo-maintenance-handoff';
 
 // UI-level mode. "review" colapsa los antiguos reconcile/overwrite; un toggle
 // secundario decide si se fuerza la reescritura.
