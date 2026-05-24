@@ -21,6 +21,18 @@ vi.mock('sonner', () => ({
 }));
 vi.mock('@/lib/global-events', () => ({ dispatchGlobalEvent: vi.fn() }));
 
+// Polyfills jsdom para Radix DropdownMenu (pointer capture + scrollIntoView).
+beforeEach(() => {
+  if (!(Element.prototype as any).hasPointerCapture) {
+    (Element.prototype as any).hasPointerCapture = () => false;
+    (Element.prototype as any).releasePointerCapture = () => {};
+    (Element.prototype as any).setPointerCapture = () => {};
+  }
+  if (!(Element.prototype as any).scrollIntoView) {
+    (Element.prototype as any).scrollIntoView = () => {};
+  }
+});
+
 function makeLoc(id: string, enriched = false): GeoLocation {
   return {
     id, name: `POI ${id}`, documentId: 'doc-1',
@@ -38,8 +50,13 @@ const baseProps = {
 function openMenu() {
   const trigger = document.querySelector('[data-testid="footer-more-actions"]') as HTMLButtonElement;
   expect(trigger).toBeTruthy();
-  act(() => { fireEvent.pointerDown(trigger, { button: 0 }); fireEvent.click(trigger); });
+  act(() => {
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+    fireEvent.pointerUp(trigger, { button: 0 });
+    fireEvent.click(trigger);
+  });
 }
+
 
 describe('EffectiveActionFooter — single primary + dropdown', () => {
   beforeEach(() => { vi.clearAllMocks(); });
