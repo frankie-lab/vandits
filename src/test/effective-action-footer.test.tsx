@@ -51,11 +51,11 @@ function openMenu() {
   const trigger = document.querySelector('[data-testid="footer-more-actions"]') as HTMLButtonElement;
   expect(trigger).toBeTruthy();
   act(() => {
-    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
-    fireEvent.pointerUp(trigger, { button: 0 });
-    fireEvent.click(trigger);
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: 'Enter', code: 'Enter' });
   });
 }
+
 
 
 describe('EffectiveActionFooter — single primary + dropdown', () => {
