@@ -476,43 +476,33 @@ export function HealthRepairPreviewDialog({
           </div>
         )}
 
-        <DialogFooter className="gap-2 sm:gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={submitting || partition.total === 0}
-                data-testid="health-repair-export-menu"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Exportar
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                disabled={partition.total === 0}
-                onSelect={closeAfter(() =>
-                  dispatchExport(scope.locations, 'Resolver deuda · Todo el scope'),
-                )}
-                data-triage-export-target="all"
-              >
-                Exportar todo el scope ({partition.total})
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={nonRepairableLocations.length === 0}
-                onSelect={closeAfter(() =>
-                  dispatchExport(
-                    nonRepairableLocations,
-                    'Resolver deuda · No reparables',
-                  ),
-                )}
-                data-triage-export-target="non-repairable"
-              >
-                Exportar no reparables ({nonRepairableLocations.length})
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <DialogFooter className="flex-wrap gap-2 sm:gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={submitting || partition.total === 0}
+            onClick={closeAfter(() =>
+              dispatchExport(scope.locations, 'Resolver deuda · Todo el scope'),
+            )}
+            data-triage-export-target="all"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Exportar todo ({partition.total})
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={submitting || nonRepairableLocations.length === 0}
+            onClick={closeAfter(() =>
+              dispatchExport(nonRepairableLocations, 'Resolver deuda · No reparables'),
+            )}
+            data-triage-export-target="non-repairable"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Exportar no reparables ({nonRepairableLocations.length})
+          </Button>
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
