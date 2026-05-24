@@ -48,6 +48,7 @@ import { loadLocationsFromDatabase } from '@/domains/content';
 import { HealthFilterActionCTA } from './discovery/HealthFilterActionCTA';
 import { useSelectionFitOnStart } from './discovery/use-selection-fit-on-start';
 import { useHealthFilterFit } from './discovery/use-health-filter-fit';
+import { RootStatusChipRow } from './discovery/RootStatusChipRow';
 import { UniverseBaseProvider } from './filters/UniverseBaseContext';
 import {
   resolveUniverseBase,
@@ -152,10 +153,13 @@ export function FilterBar() {
     sinEnriquecer: resolveUniverseBase('unenriched', allLocationsForUniverseSource).length,
   }), [allLocationsForUniverseSource]);
 
-  // PR-FILTER-ROOTSTATUS-2 §6.2 — desglose A/B/C/D del universo "debt".
-  // Counts derivados del MISMO universeBase('debt') que el subtab, no de
-  // `effectiveActionSet` (evita doble filtrado). Invariante I2:
-  // A+B+C+D ≡ subtab `Con deuda`.
+  // PR-FILTER-ROOTSTATUS-2.2 §C — el desglose A/B/C/D vive ahora en una fila
+  // compacta (`RootStatusChipRow`) sobre el árbol, en TODOS los universos
+  // (Explorar / Con deuda / Sin enriquecer / + Selección). Los counts se
+  // calculan dentro del row a partir del scope que recibe (`universeBase`
+  // o `universeBase ∩ selection`). Mantenemos `debtRootStatusCounts` como
+  // alias para no romper invariante I2 (A+B+C+D ≡ subtab Con deuda) en
+  // tests/diagnóstico, derivado del MISMO universeBase('debt').
   const debtRootStatusCounts = useMemo(() => {
     const counts: Record<'A' | 'B' | 'C' | 'D', number> = { A: 0, B: 0, C: 0, D: 0 };
     const universe = resolveUniverseBase('debt', allLocationsForUniverseSource);
@@ -504,45 +508,10 @@ export function FilterBar() {
           <span className="tabular-nums text-muted-foreground">{COUNT_FORMATTER.format(curationBuckets.sinEnriquecer)}</span>
         </TabsTrigger>
       </TabsList>
-      {maintainTab === 'debt' && (
-        <div
-          className="flex items-center gap-1.5 mt-1.5 flex-wrap"
-          data-testid="root-status-breakdown-debt"
-        >
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Root</span>
-          {(['A', 'B', 'C', 'D'] as const).map((letter) => {
-            const active = (filters.rootStatus ?? []).includes(letter);
-            const count = debtRootStatusCounts[letter];
-            return (
-              <button
-                key={letter}
-                type="button"
-                onClick={() => {
-                  const current = filters.rootStatus ?? [];
-                  const next = active
-                    ? current.filter((x) => x !== letter)
-                    : [...current, letter];
-                  const updated = { ...filters };
-                  if (next.length === 0) delete (updated as Record<string, unknown>).rootStatus;
-                  else updated.rootStatus = next;
-                  setFilters(updated);
-                }}
-                className={cn(
-                  'h-6 px-1.5 rounded text-[11px] font-medium border tabular-nums transition-colors',
-                  active
-                    ? 'bg-slate-700 text-slate-50 border-slate-700'
-                    : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200',
-                )}
-                data-testid={`root-status-chip-${letter}`}
-                data-active={active}
-                title={`Root ${letter} (${count})`}
-              >
-                {letter} {count}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {/* PR-FILTER-ROOTSTATUS-2.2 §C — el desglose A/B/C/D ya NO vive aquí
+          dentro del subtab debt; ahora se renderiza como `RootStatusChipRow`
+          generalizado sobre el árbol (debajo), disponible en Explorar, Con
+          deuda, Sin enriquecer y cuando hay selección activa. */}
     </Tabs>
   )}
 
@@ -589,7 +558,28 @@ export function FilterBar() {
       </div>
     )}
 
+    {/* PR-FILTER-ROOTSTATUS-2.2 §C — fila compacta A/B/C/D sobre el árbol.
+        Disponible en TODOS los universos. Scope = universeBase, o
+        universeBase ∩ selection si hay selección activa. */}
+    <RootStatusChipRow
+      scopeLocations={
+        selectedLocations.size === 0
+          ? (universeBaseLocations as unknown[])
+          : (universeBaseLocations as any[]).filter((l) => selectedLocations.has(l.id))
+      }
+      filters={filters}
+      setFilters={setFilters}
+      scopeLabel={
+        panelMode === 'maintain'
+          ? (maintainTab === 'debt' ? 'Con deuda' : 'Sin enriquecer')
+          : 'Explorar'
+      }
+      selectionActive={selectedLocations.size > 0}
+      testId={`root-status-chip-row-${panelMode === 'maintain' ? maintainTab : 'explore'}`}
+    />
+
     <Tabs value={treeTab} onValueChange={(v) => setTreeTab(v as TreeTab)} className="w-full mt-2">
+
       <TabsList className="grid w-full grid-cols-4 h-9">
         {(() => {
           const hasAxis = (axis: FilterAxis) => activeChips.some((c) => c.axis === axis);
