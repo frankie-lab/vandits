@@ -40,33 +40,45 @@ import { requestSubsetFit } from '@/components/map/subset-fit';
 import {
   partitionRepairScopeByRootStatus,
   type RepairPartition,
+  type RepairFilterMode,
 } from './health-repair-partition';
 
-const FILTER_TITLES: Record<HealthFilter, string> = {
+const FILTER_TITLES: Record<RepairFilterMode, string> = {
   partial:   'Rellenar huecos',
   chain:     'Reparar cadenas',
   hardError: 'Reintentar',
   review:    'Revisar manualmente',
+  debt:      'Resolver deuda',
 };
 
-const FILTER_CSS_VAR: Record<HealthFilter, string> = {
+const FILTER_CSS_VAR: Record<RepairFilterMode, string> = {
   partial:   '--poi-health-partial',
   chain:     '--poi-health-chain',
   hardError: '--poi-health-hard-error',
   review:    '--poi-health-review',
+  // Modo agregado: acento neutro usando el token de partial.
+  debt:      '--poi-health-partial',
 };
 
-const FILTER_HELP: Record<HealthFilter, string> = {
+const FILTER_HELP: Record<RepairFilterMode, string> = {
   partial:   'Reparación masiva sólo procesa POIs con identidad D (canon completo). A/B/C requieren resolución por su grupo (ver desglose abajo).',
   chain:     'Reparación masiva sólo procesa POIs con identidad D (canon completo). A/B/C requieren resolución por su grupo (ver desglose abajo).',
   hardError: 'Estos puntos fallaron por error técnico (timeout, sin créditos, red). La acción de reintento llegará en un próximo PR. La reparación masiva NO los encola.',
   review:    'Estos puntos requieren revisión manual. Abre cada uno desde el mapa para resolverlo individualmente. La reparación masiva NO los encola.',
+  debt:      'Vista agregada del subconjunto activo. La reparación automática sólo procesa POIs con identidad D y ring partial o chain. A/B/C, hardError y review se muestran para contexto y se resuelven por su flujo específico.',
 };
 
 const PREVIEW_LIMIT = 5;
 
-/** Sólo estos dos disparan escritura en BD. */
-const REPAIRABLE: ReadonlySet<HealthFilter> = new Set<HealthFilter>(['partial', 'chain']);
+/**
+ * Filtros que pueden disparar escritura en BD. En modo agregado `'debt'`
+ * el partitioner ya intersecta D con rings reales partial/chain.
+ */
+const REPAIRABLE: ReadonlySet<RepairFilterMode> = new Set<RepairFilterMode>([
+  'partial',
+  'chain',
+  'debt',
+]);
 
 const GROUP_META: Record<
   Exclude<keyof RepairPartition, 'repairableIds' | 'total'>,
