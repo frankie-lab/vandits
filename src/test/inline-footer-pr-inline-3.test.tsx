@@ -49,6 +49,15 @@ vi.mock('@/domains/content/lib/poi-identity-root-status-client', () => ({
     return { rootStatus: root, eligibleForAutoEnrich: root === 'D', reason: 'test' };
   },
 }));
+// PR-INLINE-3.1: este test requiere que los D del fixture tengan ring
+// 'partial' para que el primary del footer siga siendo "Reparar" (= legacy
+// "Resolver deuda"). Sin esto, partitionRepairScopeByRootStatus(...,'debt')
+// devolvería repairableIds=[] y el primary cambiaría a Exportar.
+vi.mock('@/domains/content/lib/point-health-rings', () => ({
+  getPointHealthRings: (l: { id: string }) =>
+    l.id.startsWith('d') ? ['partial'] : [],
+}));
+
 
 import { EffectiveActionFooter } from '@/components/filters/EffectiveActionFooter';
 import { HealthRepairPreviewDialog } from '@/components/discovery/HealthRepairPreviewDialog';
