@@ -392,7 +392,7 @@ export function FilterBar() {
   )}
   <label
   className={cn(
-  "flex items-center gap-2 h-7 px-2 text-xs rounded-md cursor-pointer select-none",
+  "flex items-center h-7 px-2 cursor-pointer",
   (!hasUserSelection && effectiveActionSet.length === 0) && "opacity-50 cursor-not-allowed"
   )}
   title={hasUserSelection ? 'Deseleccionar todo' : 'Seleccionar todo el subconjunto activo'}
@@ -405,7 +405,6 @@ export function FilterBar() {
   else clearSelection();
   }}
   />
-  <span>{hasUserSelection ? 'Deseleccionar' : 'Seleccionar todo'}</span>
   </label>
   </div>
  </div>
