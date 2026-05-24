@@ -70,7 +70,9 @@ publicados; algunas son hitos **reconstructed** para fijar memoria histórica.
   1.4.0        Discovery: árbol unificado + Root Status A/B/C/D + footer contextual + triage Resolver deuda + counts unificados  (stable)
   1.4.1        Root Status B → Geo Maintenance scoped (bridge UX/operativo, sin escritura desde modal)  (stable)
   1.4.2        DebtResolutionPanel Fase 1 — subvista lateral "Resolver deuda" en Buscar y Filtrar; modal queda como fallback/confirmación  (stable)
-  1.4.3        Mantener → Con deuda opera inline; "Resolver deuda" abre directamente modal de confirmación (DebtResolutionPanel fuera del flujo principal); footer respeta selección local debt  ← versión actual (stable / current)
+  1.4.3        Mantener → Con deuda opera inline; "Resolver deuda" abre directamente modal de confirmación (DebtResolutionPanel fuera del flujo principal); footer respeta selección local debt
+  1.4.4        PR-INLINE-3.1 — footer de "Con deuda" ya NO abre HealthRepairPreviewDialog cuando repairableCount=0; primary cambia a Geo Maintenance (B + capability) o Exportar; alternativas (Abrir en mapa vía requestSubsetFit, Geo Maintenance subgrupo B, Exportar no reparables) en "Más acciones"  ← versión actual (stable / current)
+
 
 
 2.x — Futuro
