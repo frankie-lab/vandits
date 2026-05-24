@@ -97,17 +97,51 @@ export interface ExportResolverProps {
 }
 
 // --------------------------------------------------------------------
-// Copy canon (sin lenguaje destructivo)
+// Copy canon (sin lenguaje destructivo) — PR-EXPORT-4 scope-aware
 // --------------------------------------------------------------------
 
-const REASON_HUMAN: Record<ExportExclusionReason, string> = {
+/**
+ * PR-EXPORT-4: copy y contadores SON DISTINTOS por scope.
+ *
+ *  - 'internal' (Mis datos): exporta TODO POI propio con coords válidas.
+ *    Las únicas razones legítimas son `invalid-coordinates` y
+ *    `not-owner`. Cualquier otra razón sería un bug del partition; se
+ *    muestra defensivamente bajo "Errores técnicos".
+ *    Prohibido leer "No incluidos" como si Vandits retuviese POIs
+ *    propios — los `not-owner` se separan en su propia fila y los
+ *    técnicos en otra.
+ *
+ *  - 'public' (Compartible): se mantiene el desglose completo por
+ *    razón pública.
+ */
+const REASON_HUMAN_PUBLIC: Record<ExportExclusionReason, string> = {
   'invalid-coordinates': 'Coordenadas inválidas',
   'not-owner': 'Pertenece a otra persona',
-  'not-enriched': 'Aún sin ficha enriquecida',
-  'editorial-only-1b': 'Sólo material editorial, todavía no compartible',
-  'not-shareable': 'Aún no está listo para compartir',
+  'not-enriched': 'Aún sin ficha',
+  'editorial-only-1b': 'Sólo material editorial',
+  'not-shareable': 'No listo para compartir',
   'curation-level-below-9': 'Aún en proceso de curación',
 };
+
+const SCOPE_COPY = {
+  internal: {
+    ownership:
+      'Vandits creará una copia. Tus ubicaciones seguirán aquí.',
+    totalLabel: 'Tus ubicaciones',
+    eligibleLabel: 'Exportables',
+    technicalLabel: 'No exportables por error técnico',
+    foreignLabel: 'pertenecen a otras personas',
+    foreignHint:
+      'No se exportan en Mis datos. Cambia a Compartible para tratarlas como POIs de terceros.',
+  },
+  public: {
+    ownership:
+      'Vandits creará una copia portable. Tus ubicaciones seguirán disponibles en Vandits.',
+    totalLabel: 'Total candidatos',
+    eligibleLabel: 'Compartibles',
+    excludedLabel: 'No compartibles públicamente',
+  },
+} as const;
 
 const FORMAT_META: Record<
   PoiExportFormat,
@@ -201,6 +235,17 @@ export function ExportResolverBody({
     return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
   }, [preview.excluded]);
 
+  // PR-EXPORT-4: contadores derivados por scope.
+  const foreignCount = useMemo(
+    () => preview.excluded.filter((e) => e.reason === 'not-owner').length,
+    [preview.excluded],
+  );
+  const technicalCount = useMemo(
+    () => preview.excluded.filter((e) => e.reason !== 'not-owner').length,
+    [preview.excluded],
+  );
+  const scopeCopy = scope === 'internal' ? SCOPE_COPY.internal : SCOPE_COPY.public;
+
   const internalDisabled = scope === 'internal' && !currentUserId;
   const sizeLevel = preview.sizeVerdict.level;
   const isLarge = sizeLevel === 'warn';
@@ -281,39 +326,72 @@ export function ExportResolverBody({
 
   return (
     <div className="space-y-4" data-export-resolver="v1" data-export-source-kind={source.kind}>
-      {/* Promesa de propiedad — copy obligatorio */}
+      {/* Promesa de propiedad — copy por scope (PR-EXPORT-4) */}
       <p className="text-sm text-muted-foreground leading-relaxed" data-export-ownership-copy>
-        Vandits creará una copia portable. Tus ubicaciones seguirán disponibles en Vandits.
+        {scopeCopy.ownership}
       </p>
 
       {/* Resumen del origen */}
       <div
         className="rounded-lg border border-border bg-muted/40 p-3 space-y-2 text-sm"
         data-export-summary
+        data-export-summary-scope={scope}
       >
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">Origen</span>
           <span className="font-medium">{source.label}</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Total candidatos</span>
+          <span className="text-muted-foreground">{scopeCopy.totalLabel}</span>
           <span className="font-medium" data-export-total-count>
             {preview.totalCount.toLocaleString()}
           </span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Elegibles</span>
+          <span className="text-muted-foreground">{scopeCopy.eligibleLabel}</span>
           <span className="font-medium text-emerald-600 dark:text-emerald-400" data-export-eligible-count>
             {preview.eligibleCount.toLocaleString()}
           </span>
         </div>
-        {preview.excludedCount > 0 && (
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">No incluidos</span>
-            <span className="font-medium" data-export-excluded-count>
-              {preview.excludedCount.toLocaleString()}
-            </span>
-          </div>
+        {scope === 'internal' ? (
+          <>
+            {foreignCount > 0 && (
+              <div
+                className="flex items-start justify-between gap-3 rounded border border-border/60 bg-background/40 px-2 py-1.5"
+                data-export-foreign-row
+              >
+                <div className="text-xs text-muted-foreground leading-snug">
+                  <span className="font-medium text-foreground">
+                    {foreignCount.toLocaleString()}
+                  </span>{' '}
+                  {SCOPE_COPY.internal.foreignLabel}
+                  <div className="text-[11px] mt-0.5 opacity-80">
+                    {SCOPE_COPY.internal.foreignHint}
+                  </div>
+                </div>
+                <span className="sr-only" data-export-foreign-count>
+                  {foreignCount}
+                </span>
+              </div>
+            )}
+            {technicalCount > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">{SCOPE_COPY.internal.technicalLabel}</span>
+                <span className="font-medium" data-export-technical-count>
+                  {technicalCount.toLocaleString()}
+                </span>
+              </div>
+            )}
+          </>
+        ) : (
+          preview.excludedCount > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">{SCOPE_COPY.public.excludedLabel}</span>
+              <span className="font-medium" data-export-public-excluded-count>
+                {preview.excludedCount.toLocaleString()}
+              </span>
+            </div>
+          )
         )}
         {preview.eligibleCount > 0 && (
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
@@ -322,6 +400,7 @@ export function ExportResolverBody({
           </div>
         )}
       </div>
+
 
       {/* Scope */}
       <div className="space-y-2">
@@ -429,15 +508,18 @@ export function ExportResolverBody({
         )}
       </div>
 
-      {/* Razones de exclusión (colapsado por defecto) */}
-      {exclusionGroups.length > 0 && (
+      {/* Razones de exclusión — SÓLO en scope=public (PR-EXPORT-4).
+          En internal no aplica: "Mis datos" sólo distingue propios
+          válidos / no propios / errores técnicos, que ya viven en el
+          resumen de arriba. */}
+      {scope === 'public' && exclusionGroups.length > 0 && (
         <div className="space-y-2" data-export-exclusion-details>
           <button
             type="button"
             onClick={() => setShowExclusionDetails((v) => !v)}
             className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
           >
-            {showExclusionDetails ? 'Ocultar detalles' : 'Ver detalles de no incluidos'}
+            {showExclusionDetails ? 'Ocultar detalles' : 'Ver razones de exclusión'}
           </button>
           {showExclusionDetails && (
             <ul className="text-xs space-y-1 pl-1" data-export-exclusion-list>
@@ -447,7 +529,7 @@ export function ExportResolverBody({
                   className="flex items-center justify-between rounded border border-border/50 px-2 py-1.5"
                   data-export-exclusion-reason={reason}
                 >
-                  <span className="text-muted-foreground">{REASON_HUMAN[reason]}</span>
+                  <span className="text-muted-foreground">{REASON_HUMAN_PUBLIC[reason]}</span>
                   <Badge variant="outline" className="text-[10px]">
                     {n}
                   </Badge>
@@ -457,6 +539,7 @@ export function ExportResolverBody({
           )}
         </div>
       )}
+
 
       {/* Aviso de tamaño grande (5k–10k) — calmado, sin typed-token */}
       {isLarge && !isBlocked && (
