@@ -162,6 +162,7 @@ export function RootStatusChipRow({
           );
         })}
       </div>
-
+    </div>
   );
+
 }
