@@ -17,7 +17,7 @@
  * `mem://logic/sharing/curated-only-rule`.
  */
 import * as React from 'react';
-import { ChevronDown, ChevronRight, Download, Loader2, MapPin } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download, Loader2, MapPin, Wrench } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -44,6 +44,11 @@ import {
 import { getHierarchyBreadcrumb } from '@/shared/geography/hierarchy';
 import { getPointHealthRings } from '@/domains/content/lib/point-health-rings';
 import { requestSubsetFit } from '@/components/map/subset-fit';
+import { useCapability } from '@/domains/identity/hooks/use-permissions';
+import {
+  dispatchGeoMaintenanceHandoff,
+  navigateToGeoMaintenance,
+} from '@/shared/events/geo-maintenance-handoff';
 import {
   partitionRepairScopeByRootStatus,
   type RepairPartition,
