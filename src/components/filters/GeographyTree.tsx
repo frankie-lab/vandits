@@ -139,6 +139,7 @@ export function GeographyTree() {
   // PR-INLINE-1: solo en `Mantener → Con deuda` activamos POI rows inline
   // bajo nodos hoja del árbol. En el resto de modos, comportamiento legacy.
   const inlinePoisEnabled = universeCtx?.mode === 'debt';
+  const debtSel = useDebtSelection();
   const locationsById = useMemo(() => {
     const map = new Map<string, typeof allLocations[number]>();
     for (const l of allLocations) map.set(l.id, l);
@@ -402,50 +403,68 @@ export function GeographyTree() {
  const inPath = isInPath(node);
  const isFiltered = hasNonGeoFilters && node.count < node.totalCount;
 
- const ids = node.ids;
- const selectedInBranch = ids.reduce((acc, id) => acc + (selectedLocations.has(id) ? 1 : 0), 0);
- const allSelected = ids.length > 0 && selectedInBranch === ids.length;
- const someSelected = selectedInBranch > 0 && !allSelected;
+	const ids = node.ids;
+	// PR-INLINE-2: en modo `debt` con DebtSelectionProvider activo, el checkbox
+	// del nodo opera la selección LOCAL aislada (no toca `selectedLocations`
+	// global). En cualquier otro modo: comportamiento legacy global.
+	const useLocalSel = inlinePoisEnabled && !!debtSel;
+	let allSelected: boolean;
+	let someSelected: boolean;
+	if (useLocalSel && debtSel) {
+		const gs = debtSel.groupState(ids);
+		allSelected = gs === 'all';
+		someSelected = gs === 'partial';
+	} else {
+		const selectedInBranch = ids.reduce((acc, id) => acc + (selectedLocations.has(id) ? 1 : 0), 0);
+		allSelected = ids.length > 0 && selectedInBranch === ids.length;
+		someSelected = selectedInBranch > 0 && !allSelected;
+	}
 
- return (
- <div key={pathKey} className="w-full min-w-0 max-w-full overflow-hidden">
- <div
-  className={cn(
- "flex items-center gap-1.5 py-1.5 px-2 pr-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors w-full min-w-0 max-w-full box-border overflow-hidden",
- selected && "bg-primary/10 text-primary font-medium ring-1 ring-primary/30",
- inPath && !selected && "text-primary/80"
- )}
- style={{ paddingLeft: `${depth * 12 + 8}px` }}
- >
- {isExpandable ? (
- <button
- onClick={(e) => {
- e.stopPropagation();
- toggleExpand(pathKey);
- }}
- className="p-0.5 hover:bg-muted rounded shrink-0"
- >
- {isExpanded ? (
- <ChevronDown className="w-3 h-3 text-muted-foreground" />
- ) : (
- <ChevronRight className="w-3 h-3 text-muted-foreground" />
- )}
- </button>
- ) : (
- <span className="w-4" />
- )}
+	return (
+		<div key={pathKey} className="w-full min-w-0 max-w-full overflow-hidden">
+			<div
+				className={cn(
+					"flex items-center gap-1.5 py-1.5 px-2 pr-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors w-full min-w-0 max-w-full box-border overflow-hidden",
+					selected && "bg-primary/10 text-primary font-medium ring-1 ring-primary/30",
+					inPath && !selected && "text-primary/80"
+				)}
+				style={{ paddingLeft: `${depth * 12 + 8}px` }}
+			>
+				{isExpandable ? (
+					<button
+						onClick={(e) => {
+							e.stopPropagation();
+							toggleExpand(pathKey);
+						}}
+						className="p-0.5 hover:bg-muted rounded shrink-0"
+					>
+						{isExpanded ? (
+							<ChevronDown className="w-3 h-3 text-muted-foreground" />
+						) : (
+							<ChevronRight className="w-3 h-3 text-muted-foreground" />
+						)}
+					</button>
+				) : (
+					<span className="w-4" />
+				)}
 
- {ids.length > 0 && (
- <Checkbox
- checked={allSelected ? true : someSelected ? 'indeterminate' : false}
-   onCheckedChange={(v) => {
-   toggleGeoBranchSelection(ids, !!v);
-   }}
- onClick={(e) => e.stopPropagation()}
- className="h-3.5 w-3.5 shrink-0"
- aria-label={`Seleccionar ${node.name}`}
- />
- )}
+				{ids.length > 0 && (
+					<Checkbox
+						checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+						onCheckedChange={(v) => {
+							if (useLocalSel && debtSel) {
+								// Tri-state local: all → deselect all; none/partial → select all visibles.
+								debtSel.toggleGroup(ids);
+							} else {
+								toggleGeoBranchSelection(ids, !!v);
+							}
+						}}
+						onClick={(e) => e.stopPropagation()}
+						className="h-3.5 w-3.5 shrink-0"
+						aria-label={`Seleccionar ${node.name}`}
+						data-tree-group-checkbox={useLocalSel ? 'local' : 'global'}
+					/>
+				)}
 
  
   <button
