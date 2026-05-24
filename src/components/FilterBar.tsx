@@ -773,6 +773,10 @@ function DebtAwareFooter({
     [activeSet, hasUserSelection],
   );
 
+  // PR-INLINE-3.1 — capabilities para Geo Maintenance handoff desde footer.
+  const canViewGeoMaintenance = useCapability('view_geo_maintenance').allowed;
+  const canRunGeoBackfill = useCapability('run_geo_backfill').allowed;
+
   return (
     <>
       <EffectiveActionFooter
@@ -785,13 +789,17 @@ function DebtAwareFooter({
           mode === 'debt'
             ? () => {
                 // PR-INLINE-3: abre SOLO el modal de confirmación.
-                // NO abrir DebtResolutionPanel — sacado del flujo principal.
+                // PR-INLINE-3.1: el footer solo invoca onResolveDebt si
+                // repairableCount > 0 — no se abre modal sin reparables.
                 setDebtModalOpen(true);
               }
             : undefined
         }
         onSelectAll={handleSelectAllInMode}
+        canViewGeoMaintenance={canViewGeoMaintenance}
+        canRunGeoBackfill={canRunGeoBackfill}
       />
+
 
       {mode === 'debt' && (
         <HealthRepairPreviewDialog
