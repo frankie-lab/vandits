@@ -1,12 +1,14 @@
 # POI Identity Root Status — Contract (A/B/C/D)
 
-Status: **ACTIVE — runtime materializado** (desde v1.4.6, PR-IDENTITY-ROOT-DOC-1).
+Status: **ACTIVE — runtime + persistencia materializados** (desde v1.5.0,
+PR-IDENTITY-ROOT-PERSIST-1).
 
 Histórico: nació como DRAFT conceptual; entre v1.3.x y v1.4.5 se materializó
-end-to-end (Deno SoT + cliente espejo + fixtures + parity test + filtro UI +
-partición de reparación). Este documento ya **NO es aspiracional**: refleja el
-canon vivo. La única pieza pendiente es la persistencia en columna
-`locations.identity_root_status` (ver §9).
+end-to-end en runtime (Deno SoT + cliente espejo + fixtures + parity test +
+filtro UI + partición de reparación). En **v1.5.0** se añadió la persistencia
+en `locations.identity_root_status` + `identity_skip_reason` con trigger
+recompute y backfill completo (ver §9).
+
 
 ## 1. Purpose
 
