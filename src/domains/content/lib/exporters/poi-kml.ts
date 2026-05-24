@@ -20,9 +20,16 @@ import {
   type PoiExportScope,
 } from '../poi-export-record';
 import type { PoiExportContent } from '../poi-export-content-model';
-import { buildKmlDescriptionHtml } from './kml-description-html';
+import {
+  renderExportDescription,
+  type ExportRenderTarget,
+} from './render-export-description';
 
-export type KmlExportTarget = 'general' | 'mymaps' | 'gurumaps';
+/**
+ * PR-EXPORT-6 — Targets canónicos de rendering KML.
+ * `general` se mapea a `generic` (HTML whitelisted). Default = `gurumaps`.
+ */
+export type KmlExportTarget = ExportRenderTarget | 'general' | 'mymaps';
 
 export interface SerializePoiKmlOptions {
   scope: PoiExportScope;
