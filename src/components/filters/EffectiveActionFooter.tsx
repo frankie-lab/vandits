@@ -1,25 +1,21 @@
 /**
  * EffectiveActionFooter — footer sticky de acciones para el panel Buscar y Filtrar.
  *
- * Plan: docs/audits/search-filter-maintain-tree-universe-plan.md §5/§6.
- * Aparece en los 4 modos (Explorar / Mantener→Con deuda / Mantener→Sin enriquecer /
- * Seleccionar). Opera SIEMPRE sobre `effectiveActionSet` (recibido como `locations`).
+ * Contrato (PR — single primary + "Más acciones"):
+ *   Layout: `[Primary] [Más acciones ▾]` (sin grid de 2 columnas).
+ *   Una sola acción principal visible por modo:
+ *     - all        → Exportar
+ *     - debt       → Resolver deuda (callback `onResolveDebt`)
+ *     - unenriched → Enriquecer IA
+ *   El resto siempre vive dentro del DropdownMenu "Más acciones".
  *
- * Ajuste de alcance:
- *   - NO refactoriza `SelectionActions` a hook. Reusa la edge `batch-enrich`
- *     localmente para Enriquecer (mismo contrato que `SelectionActions`).
- *   - Para "Resolver deuda" delega visualmente en el `HealthFilterActionCTA`
- *     que se renderiza arriba (en modo debt).
- *   - Etiquetar/Reclasificar se posponen explícitamente (botones disabled con
- *     tooltip) — quedan disponibles desde `SelectionActions` con userSelection.
+ *   Estado vacío (count===0): primary disabled, "Más acciones" disabled,
+ *   texto "No hay POIs en este subconjunto".
  *
- * Exporta abriendo `ExportPanel` vía evento `lovable:open-export-panel`
- * (ya cableado en `src/pages/Index.tsx`) con `source.locations = effectiveActionSet`.
- *
- * Confirmaciones tipadas (`DestructiveConfirmDialog`):
- *   - Exportar  > 250 → token "EXPORTAR"
- *   - Enriquecer > 25 → token "ENRIQUECER"
- *   - Eliminar siempre → token "ELIMINAR" (solo con userSelection)
+ *   Confirmaciones tipadas:
+ *     - Exportar  > 250 → token "EXPORTAR"
+ *     - Enriquecer > 25 → token "ENRIQUECER"
+ *     - Eliminar siempre → token "ELIMINAR" (solo con userSelection)
  */
 import React, { useMemo, useState } from 'react';
 import {
@@ -29,9 +25,19 @@ import {
   Tag as TagIcon,
   Layers,
   Loader2,
-  HeartPulse,
+  Wrench,
+  MoreHorizontal,
+  CheckSquare,
+  XSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { DestructiveConfirmDialog } from '@/shared/components/ui/destructive-confirm-dialog';
@@ -53,6 +59,10 @@ export interface EffectiveActionFooterProps {
   hasUserSelection: boolean;
   scopeLabel?: string | null;
   onClearSelection: () => void;
+  /** Callback para abrir HealthRepairPreviewDialog. Solo aplica en mode='debt'. */
+  onResolveDebt?: () => void;
+  /** Callback "Seleccionar todo" del modo activo. */
+  onSelectAll?: () => void;
 }
 
 export function EffectiveActionFooter({
@@ -61,6 +71,8 @@ export function EffectiveActionFooter({
   hasUserSelection,
   scopeLabel,
   onClearSelection,
+  onResolveDebt,
+  onSelectAll,
 }: EffectiveActionFooterProps) {
   const count = locations.length;
   const label = buildFooterLabel({ mode, count, hasUserSelection, scopeLabel });
@@ -71,20 +83,14 @@ export function EffectiveActionFooter({
   const [confirmExport, setConfirmExport] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Enriquecibles (no enriquecidos) dentro del subset activo.
   const enrichable = useMemo(
     () => locations.filter((l) => !isPointEnriched(l as any)),
     [locations],
   );
-
-  // Mostrar Enriquecer solo en modos all/unenriched.
-  const showEnrich = mode !== 'debt' && enrichable.length > 0;
-  // Mostrar Eliminar solo si hay userSelection explícita.
-  const showDelete = hasUserSelection && count > 0;
-
+  const enrichCount = enrichable.length;
   const disabled = count === 0;
 
-  // ---- Exportar: dispatcha el bridge global `lovable:open-export-panel`. ----
+  // ---- Exportar ----
   const doExport = () => {
     if (count === 0) {
       toast.error('No hay POIs para exportar');
@@ -94,35 +100,27 @@ export function EffectiveActionFooter({
     try {
       window.dispatchEvent(
         new CustomEvent('lovable:open-export-panel', {
-          detail: {
-            locations,
-            label: exportLabel,
-            scope: 'public',
-          },
+          detail: { locations, label: exportLabel, scope: 'public' },
         }),
       );
     } finally {
       setBusy(null);
     }
   };
-
   const onExportClick = () => {
     if (disabled) return;
-    if (count > EXPORT_CONFIRM_THRESHOLD) {
-      setConfirmExport(true);
-      return;
-    }
+    if (count > EXPORT_CONFIRM_THRESHOLD) { setConfirmExport(true); return; }
     doExport();
   };
 
-  // ---- Enriquecer IA: invoca `batch-enrich` agrupando por documentId. ----
+  // ---- Enriquecer IA ----
   const doEnrich = async () => {
-    if (enrichable.length === 0) {
+    if (enrichCount === 0) {
       toast.info('No hay POIs por enriquecer en el subconjunto activo');
       return;
     }
     setBusy('enrich');
-    const toastId = toast.loading(`Enriqueciendo ${enrichable.length} ubicaciones con IA...`);
+    const toastId = toast.loading(`Enriqueciendo ${enrichCount} ubicaciones con IA...`);
     try {
       const byDoc = new Map<string, string[]>();
       for (const loc of enrichable) {
@@ -141,33 +139,20 @@ export function EffectiveActionFooter({
         const { data, error } = await supabase.functions.invoke('batch-enrich', {
           body: { action: 'start', documentId, locationIds },
         });
-        if (error) {
-          errors.push(error.message || 'Error desconocido');
-          continue;
-        }
-        if (data?.error) {
-          errors.push(data.error);
-          continue;
-        }
+        if (error) { errors.push(error.message || 'Error'); continue; }
+        if (data?.error) { errors.push(data.error); continue; }
         if (data?.jobId) {
           jobIds.push(data.jobId);
-          window.dispatchEvent(
-            new CustomEvent('enrichment-started', { detail: { jobId: data.jobId } }),
-          );
+          window.dispatchEvent(new CustomEvent('enrichment-started', { detail: { jobId: data.jobId } }));
         }
       }
       if (jobIds.length === 0) {
         toast.error(errors[0] || 'Error al iniciar enriquecimiento', { id: toastId });
       } else if (errors.length > 0) {
-        toast.warning(
-          `Iniciados ${jobIds.length} jobs · ${errors.length} fallidos: ${errors[0]}`,
-          { id: toastId },
-        );
+        toast.warning(`Iniciados ${jobIds.length} jobs · ${errors.length} fallidos`, { id: toastId });
       } else {
         toast.success(
-          jobIds.length === 1
-            ? 'Enriquecimiento iniciado en segundo plano'
-            : `Iniciados ${jobIds.length} jobs de enriquecimiento`,
+          jobIds.length === 1 ? 'Enriquecimiento iniciado en segundo plano' : `Iniciados ${jobIds.length} jobs`,
           { id: toastId },
         );
       }
@@ -178,17 +163,13 @@ export function EffectiveActionFooter({
       setBusy(null);
     }
   };
-
   const onEnrichClick = () => {
-    if (enrichable.length === 0) return;
-    if (enrichable.length > ENRICH_CONFIRM_THRESHOLD) {
-      setConfirmEnrich(true);
-      return;
-    }
+    if (enrichCount === 0) return;
+    if (enrichCount > ENRICH_CONFIRM_THRESHOLD) { setConfirmEnrich(true); return; }
     void doEnrich();
   };
 
-  // ---- Eliminar (papelera) — solo con userSelection. ----
+  // ---- Eliminar ----
   const doDelete = async () => {
     if (!hasUserSelection || count === 0) return;
     setBusy('delete');
@@ -212,6 +193,53 @@ export function EffectiveActionFooter({
     }
   };
 
+  // ---- Primary por modo ----
+  type Primary = {
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    onClick: () => void;
+    disabled: boolean;
+    dataAction: string;
+    testid: string;
+    count?: number;
+  };
+  const primary: Primary = (() => {
+    if (mode === 'debt') {
+      return {
+        label: 'Resolver deuda',
+        icon: Wrench,
+        onClick: () => onResolveDebt?.(),
+        disabled: disabled || !onResolveDebt,
+        dataAction: 'footer-primary-resolve-debt',
+        testid: 'footer-primary-resolve-debt',
+      };
+    }
+    if (mode === 'unenriched') {
+      return {
+        label: 'Enriquecer IA',
+        icon: Sparkles,
+        onClick: onEnrichClick,
+        disabled: disabled || enrichCount === 0 || busy !== null,
+        dataAction: 'footer-primary-enrich',
+        testid: 'footer-primary-enrich',
+        count: enrichCount,
+      };
+    }
+    return {
+      label: 'Exportar',
+      icon: Download,
+      onClick: onExportClick,
+      disabled: disabled || busy !== null,
+      dataAction: 'footer-primary-export',
+      testid: 'footer-primary-export',
+    };
+  })();
+  const PrimaryIcon = primary.icon;
+
+  const showEnrichInMenu = mode === 'all' && enrichCount > 0;
+  const showExportInMenu = mode !== 'all';
+  const moreDisabled = disabled;
+
   return (
     <div
       data-effective-action-footer
@@ -229,103 +257,139 @@ export function EffectiveActionFooter({
         {busy && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
       </div>
 
-      <div className="grid grid-cols-2 gap-1.5">
+      <div className="flex items-center gap-1.5">
         <Button
           variant="default"
           size="sm"
-          className="h-8 text-xs gap-1.5"
-          onClick={onExportClick}
-          disabled={disabled || busy !== null}
-          data-action="footer-export"
+          className="h-8 text-xs gap-1.5 flex-1 min-w-0"
+          onClick={primary.onClick}
+          disabled={primary.disabled}
+          data-action={primary.dataAction}
+          data-testid={primary.testid}
         >
-          <Download className="w-3.5 h-3.5" />
-          Exportar
+          <PrimaryIcon className="w-3.5 h-3.5" />
+          <span className="truncate">{primary.label}</span>
+          {typeof primary.count === 'number' && (
+            <span className="tabular-nums text-primary-foreground/80">({primary.count})</span>
+          )}
         </Button>
 
-        {showEnrich && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs gap-1.5"
-            onClick={onEnrichClick}
-            disabled={busy !== null}
-            data-action="footer-enrich"
-            title={`Enriquecer ${enrichable.length} POIs sin descripción IA`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            Enriquecer IA
-            <span className="tabular-nums text-muted-foreground">({enrichable.length})</span>
-          </Button>
-        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs gap-1.5 shrink-0"
+              disabled={moreDisabled}
+              data-action="footer-more-actions"
+              data-testid="footer-more-actions"
+              aria-label="Más acciones"
+            >
+              <MoreHorizontal className="w-3.5 h-3.5" />
+              Más acciones
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            {showExportInMenu && (
+              <DropdownMenuItem
+                onSelect={(e) => { e.preventDefault(); onExportClick(); }}
+                data-action="footer-export"
+                data-testid="footer-menu-export"
+                disabled={disabled || busy !== null}
+              >
+                <Download className="w-3.5 h-3.5 mr-2" />
+                Exportar
+              </DropdownMenuItem>
+            )}
+            {showEnrichInMenu && (
+              <DropdownMenuItem
+                onSelect={(e) => { e.preventDefault(); onEnrichClick(); }}
+                data-action="footer-enrich"
+                data-testid="footer-menu-enrich"
+                disabled={busy !== null}
+              >
+                <Sparkles className="w-3.5 h-3.5 mr-2" />
+                Enriquecer IA
+                <span className="ml-auto tabular-nums text-muted-foreground">({enrichCount})</span>
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              disabled
+              data-action="footer-tag-disabled"
+              data-testid="footer-menu-tag"
+              title="Próximamente"
+            >
+              <TagIcon className="w-3.5 h-3.5 mr-2" />
+              Etiquetar
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled
+              data-action="footer-reclassify-disabled"
+              data-testid="footer-menu-reclassify"
+              title="Próximamente"
+            >
+              <Layers className="w-3.5 h-3.5 mr-2" />
+              Reclasificar
+            </DropdownMenuItem>
 
-        {mode === 'debt' && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs gap-1.5"
-            disabled
-            data-action="footer-debt-hint"
-            title="Las acciones de deuda se ejecutan desde el CTA superior"
-          >
-            <HeartPulse className="w-3.5 h-3.5" />
-            Resolver deuda (arriba)
-          </Button>
-        )}
+            {(onSelectAll || hasUserSelection) && <DropdownMenuSeparator />}
+            {onSelectAll && (
+              <DropdownMenuItem
+                onSelect={(e) => { e.preventDefault(); onSelectAll(); }}
+                data-action="footer-select-all"
+                data-testid="footer-menu-select-all"
+                disabled={disabled}
+              >
+                <CheckSquare className="w-3.5 h-3.5 mr-2" />
+                Seleccionar todo
+              </DropdownMenuItem>
+            )}
+            {hasUserSelection && (
+              <DropdownMenuItem
+                onSelect={(e) => { e.preventDefault(); onClearSelection(); }}
+                data-action="footer-clear-selection"
+                data-testid="footer-menu-clear-selection"
+              >
+                <XSquare className="w-3.5 h-3.5 mr-2" />
+                Limpiar selección
+              </DropdownMenuItem>
+            )}
 
-        {/* Etiquetar / Reclasificar — pospuestos en este PR.
-            Permanecen disponibles en `SelectionActions` cuando hay selección manual. */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 text-xs gap-1.5"
-          disabled
-          data-action="footer-tag-disabled"
-          title="Disponible próximamente desde el footer. Usa la selección manual para etiquetar."
-        >
-          <TagIcon className="w-3.5 h-3.5" />
-          Etiquetar
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 text-xs gap-1.5"
-          disabled
-          data-action="footer-reclassify-disabled"
-          title="Disponible próximamente desde el footer. Usa la selección manual para reclasificar."
-        >
-          <Layers className="w-3.5 h-3.5" />
-          Reclasificar
-        </Button>
-
-        {showDelete && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs gap-1.5 col-span-2 border-destructive/40 text-destructive hover:bg-destructive/10"
-            onClick={() => setConfirmDelete(true)}
-            disabled={busy !== null}
-            data-action="footer-delete"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            Eliminar selección ({count})
-          </Button>
-        )}
+            {hasUserSelection && count > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={(e) => { e.preventDefault(); setConfirmDelete(true); }}
+                  data-action="footer-delete"
+                  data-testid="footer-menu-delete"
+                  className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                  disabled={busy !== null}
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-2" />
+                  Eliminar selección ({count})
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      {/* Confirmaciones tipadas */}
+      {disabled && (
+        <div className="text-[11px] text-muted-foreground/80 italic">
+          No hay POIs en este subconjunto
+        </div>
+      )}
+
       <DestructiveConfirmDialog
         open={confirmEnrich}
         onOpenChange={setConfirmEnrich}
         title="Confirmar enriquecimiento masivo"
-        description={`Vas a enriquecer ${enrichable.length} POIs con IA. Esta acción es costosa y consume cuota.`}
+        description={`Vas a enriquecer ${enrichCount} POIs con IA. Esta acción es costosa y consume cuota.`}
         token="ENRIQUECER"
         confirmLabel="Enriquecer"
         inputHelper={'Escribe "ENRIQUECER" para confirmar:'}
         busy={busy === 'enrich'}
-        onConfirm={async () => {
-          await doEnrich();
-          setConfirmEnrich(false);
-        }}
+        onConfirm={async () => { await doEnrich(); setConfirmEnrich(false); }}
       />
 
       <DestructiveConfirmDialog
@@ -336,10 +400,7 @@ export function EffectiveActionFooter({
         token="EXPORTAR"
         confirmLabel="Continuar"
         inputHelper={'Escribe "EXPORTAR" para confirmar:'}
-        onConfirm={() => {
-          doExport();
-          setConfirmExport(false);
-        }}
+        onConfirm={() => { doExport(); setConfirmExport(false); }}
       />
 
       <DestructiveConfirmDialog
@@ -351,10 +412,7 @@ export function EffectiveActionFooter({
         confirmLabel="Eliminar"
         inputHelper={'Escribe "ELIMINAR" para confirmar:'}
         busy={busy === 'delete'}
-        onConfirm={async () => {
-          await doDelete();
-          setConfirmDelete(false);
-        }}
+        onConfirm={async () => { await doDelete(); setConfirmDelete(false); }}
       />
     </div>
   );
