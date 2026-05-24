@@ -465,6 +465,15 @@ export function FilterBar() {
 
  </div>
 
+  {debtPanelOpen ? (
+    <DebtResolutionPanel
+      scope={debtScope as any}
+      currentUserId={user?.id ?? null}
+      onBack={() => setDebtPanelOpen(false)}
+      onOpenRepairConfirm={() => setDebtModalOpen(true)}
+    />
+  ) : (
+  <>
   {/* Active filters summary - chips data-driven (todos los ejes) */}
   {hasActiveChips && (
     <div className="bg-muted/50 rounded-lg p-2 space-y-1.5">
@@ -656,6 +665,8 @@ export function FilterBar() {
       </TabsContent>
     </Tabs>
   </UniverseBaseProvider>
+  </>
+  )}
 
 
 
@@ -664,7 +675,8 @@ export function FilterBar() {
 
    {/* Footer fijo de acciones (effectiveActionSet). Aparece en los 4 modos:
        Explorar, Mantener→Con deuda, Mantener→Sin enriquecer, Seleccionar.
-       Ver docs/audits/search-filter-maintain-tree-universe-plan.md §5/§6. */}
+       Oculto mientras DebtResolutionPanel está activo (evita doble CTA). */}
+   {!debtPanelOpen && (
    <EffectiveActionFooter
      mode={activeModeUniverse}
      locations={effectiveActionSet as any}
