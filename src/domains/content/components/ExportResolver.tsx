@@ -97,17 +97,51 @@ export interface ExportResolverProps {
 }
 
 // --------------------------------------------------------------------
-// Copy canon (sin lenguaje destructivo)
+// Copy canon (sin lenguaje destructivo) — PR-EXPORT-4 scope-aware
 // --------------------------------------------------------------------
 
-const REASON_HUMAN: Record<ExportExclusionReason, string> = {
+/**
+ * PR-EXPORT-4: copy y contadores SON DISTINTOS por scope.
+ *
+ *  - 'internal' (Mis datos): exporta TODO POI propio con coords válidas.
+ *    Las únicas razones legítimas son `invalid-coordinates` y
+ *    `not-owner`. Cualquier otra razón sería un bug del partition; se
+ *    muestra defensivamente bajo "Errores técnicos".
+ *    Prohibido leer "No incluidos" como si Vandits retuviese POIs
+ *    propios — los `not-owner` se separan en su propia fila y los
+ *    técnicos en otra.
+ *
+ *  - 'public' (Compartible): se mantiene el desglose completo por
+ *    razón pública.
+ */
+const REASON_HUMAN_PUBLIC: Record<ExportExclusionReason, string> = {
   'invalid-coordinates': 'Coordenadas inválidas',
   'not-owner': 'Pertenece a otra persona',
-  'not-enriched': 'Aún sin ficha enriquecida',
-  'editorial-only-1b': 'Sólo material editorial, todavía no compartible',
-  'not-shareable': 'Aún no está listo para compartir',
+  'not-enriched': 'Aún sin ficha',
+  'editorial-only-1b': 'Sólo material editorial',
+  'not-shareable': 'No listo para compartir',
   'curation-level-below-9': 'Aún en proceso de curación',
 };
+
+const SCOPE_COPY = {
+  internal: {
+    ownership:
+      'Vandits creará una copia. Tus ubicaciones seguirán aquí.',
+    totalLabel: 'Tus ubicaciones',
+    eligibleLabel: 'Exportables',
+    technicalLabel: 'No exportables por error técnico',
+    foreignLabel: 'pertenecen a otras personas',
+    foreignHint:
+      'No se exportan en Mis datos. Cambia a Compartible para tratarlas como POIs de terceros.',
+  },
+  public: {
+    ownership:
+      'Vandits creará una copia portable. Tus ubicaciones seguirán disponibles en Vandits.',
+    totalLabel: 'Total candidatos',
+    eligibleLabel: 'Compartibles',
+    excludedLabel: 'No compartibles públicamente',
+  },
+} as const;
 
 const FORMAT_META: Record<
   PoiExportFormat,
