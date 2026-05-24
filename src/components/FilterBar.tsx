@@ -52,7 +52,7 @@ import { useSelectionFitOnStart } from './discovery/use-selection-fit-on-start';
 import { useHealthFilterFit } from './discovery/use-health-filter-fit';
 import { RootStatusChipRow } from './discovery/RootStatusChipRow';
 import { UniverseBaseProvider } from './filters/UniverseBaseContext';
-import { DebtSelectionProvider } from './filters/DebtSelectionContext';
+import { DebtSelectionProvider, useDebtSelection } from './filters/DebtSelectionContext';
 import { DebtSelectionStatusBar } from './filters/DebtSelectionStatusBar';
 import {
   resolveUniverseBase,
@@ -282,16 +282,20 @@ export function FilterBar() {
   // effectiveActionSet (plan §1, ajuste obligatorio):
   //   userSelection no vacía → universeBase ∩ treeSelection ∩ userSelection
   //   userSelection vacía    → universeBase ∩ treeSelection
-  // PARTIMOS de universeBase (no de filteredLocations) y aplicamos los ejes
-  // del árbol vía matchesLocationFilters con includeHealth=false (el universo
-  // ya codifica deuda/no-enriquecido; no debe re-aplicarse).
+  // PR-INLINE-3: `treeFilteredBase` se expone aparte para que el footer pueda
+  // intersectar con la selección LOCAL del panel "Con deuda" (debt selection),
+  // que es aislada de `selectedLocations` global.
+  const treeFilteredBase = useMemo(
+    () =>
+      universeBaseLocations.filter((l) =>
+        matchesLocationFilters(l as any, filters, { includeHealth: false }),
+      ),
+    [universeBaseLocations, filters],
+  );
   const effectiveActionSet = useMemo(() => {
-    const treeFiltered = universeBaseLocations.filter((l) =>
-      matchesLocationFilters(l as any, filters, { includeHealth: false }),
-    );
-    if (selectedLocations.size === 0) return treeFiltered;
-    return treeFiltered.filter((l) => selectedLocations.has(l.id));
-  }, [universeBaseLocations, filters, selectedLocations]);
+    if (selectedLocations.size === 0) return treeFilteredBase;
+    return treeFilteredBase.filter((l) => selectedLocations.has(l.id));
+  }, [treeFilteredBase, selectedLocations]);
 
   // Universo del contador superior: refleja universeBase activo (plan §5).
   const universeForCounter = useMemo(
@@ -402,6 +406,8 @@ export function FilterBar() {
 
 
   return (
+  <UniverseBaseProvider mode={activeModeUniverse} allLocations={allLocationsForUniverse}>
+  <DebtSelectionProvider>
   <div className="flex flex-col h-full min-h-0">
    <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1 pb-2">
     {/* Stats bar with prominent filter summary */}
@@ -560,10 +566,11 @@ export function FilterBar() {
 
   {/* === Árbol unificado Geo / Tipo / Tags / Legacy ===
       Plan §3: las tres vistas (Explorar, Con deuda, Sin enriquecer) usan la
-      MISMA estructura. UniverseBaseProvider recorta el universo base que ven
-      los 4 árboles (vía useScopedLocations). Tab activa persiste entre modos. */}
-  <UniverseBaseProvider mode={activeModeUniverse} allLocations={allLocationsForUniverse}>
-   <DebtSelectionProvider>
+      MISMA estructura. UniverseBaseProvider/DebtSelectionProvider se elevaron
+      al outer wrapper (PR-INLINE-3) para que el footer pueda leer la
+      selección local del panel debt. */}
+  <>
+   <>
     {panelMode === 'maintain' && (
       <div className="space-y-1.5 mt-2">
         <div className="flex items-center justify-between gap-2">
@@ -668,8 +675,8 @@ export function FilterBar() {
       </TabsContent>
     </Tabs>
     <DebtSelectionStatusBar />
-   </DebtSelectionProvider>
-  </UniverseBaseProvider>
+   </>
+  </>
   </>
   )}
 
@@ -678,38 +685,137 @@ export function FilterBar() {
 
    </div>
 
-   {/* Footer fijo de acciones (effectiveActionSet). Aparece en los 4 modos:
-       Explorar, Mantener→Con deuda, Mantener→Sin enriquecer, Seleccionar.
-       Oculto mientras DebtResolutionPanel está activo (evita doble CTA). */}
+   {/* Footer fijo de acciones (PR-INLINE-3): wrapper que conoce la selección
+       local del panel "Con deuda" y la usa para recalcular activeSet sin
+       contaminar `selectedLocations` global. El primary "Resolver deuda" abre
+       el modal de confirmación HealthRepairPreviewDialog directamente — NO
+       abre la pantalla secundaria DebtResolutionPanel (sacada del flujo). */}
    {!debtPanelOpen && (
-   <EffectiveActionFooter
-     mode={activeModeUniverse}
-     locations={effectiveActionSet as any}
-     hasUserSelection={hasUserSelection}
-     scopeLabel={scopeLabel}
-     onClearSelection={clearSelection}
-     onResolveDebt={
-       activeModeUniverse === 'debt'
-         ? () => setDebtPanelOpen(true)
-         : undefined
-     }
-     onSelectAll={handleSelectAllInMode}
-   />
-   )}
-
-   {/* Modal agregado "Resolver deuda" — montado SIEMPRE que el universo sea
-       `debt`, independientemente de que HealthFilterActionCTA esté montado.
-       Cierra la regresión del wiring (ref noop). */}
-   {activeModeUniverse === 'debt' && (
-     <HealthRepairPreviewDialog
-       open={debtModalOpen}
-       onOpenChange={setDebtModalOpen}
-       filter="debt"
-       scope={debtScope as any}
+     <DebtAwareFooter
+       mode={activeModeUniverse}
+       treeFilteredBase={treeFilteredBase as any}
+       globalSelectedLocations={selectedLocations}
+       hasGlobalSelection={hasUserSelection}
+       scopeLabel={scopeLabel}
+       clearGlobalSelection={clearSelection}
+       handleSelectAllInMode={handleSelectAllInMode}
+       debtModalOpen={debtModalOpen}
+       setDebtModalOpen={setDebtModalOpen}
        currentUserId={user?.id ?? null}
      />
    )}
 
   </div>
+  </DebtSelectionProvider>
+  </UniverseBaseProvider>
   );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * DebtAwareFooter (PR-INLINE-3)
+ * Renderiza EffectiveActionFooter + HealthRepairPreviewDialog leyendo la
+ * selección LOCAL del panel debt. Si el usuario tiene checkboxes inline
+ * marcados (mode='debt'), el footer opera sobre ese subconjunto. Fuera de
+ * debt, cae a la selección global (selectedLocations).
+ * ───────────────────────────────────────────────────────────────────────── */
+function DebtAwareFooter({
+  mode,
+  treeFilteredBase,
+  globalSelectedLocations,
+  hasGlobalSelection,
+  scopeLabel,
+  clearGlobalSelection,
+  handleSelectAllInMode,
+  debtModalOpen,
+  setDebtModalOpen,
+  currentUserId,
+}: {
+  mode: ActiveModeUniverse;
+  treeFilteredBase: any[];
+  globalSelectedLocations: Set<string>;
+  hasGlobalSelection: boolean;
+  scopeLabel: string | null;
+  clearGlobalSelection: () => void;
+  handleSelectAllInMode: () => void;
+  debtModalOpen: boolean;
+  setDebtModalOpen: (open: boolean) => void;
+  currentUserId: string | null;
+}) {
+  const debtSel = useDebtSelectionFromCtx();
+  const debtSelectionSize = mode === 'debt' ? (debtSel?.size ?? 0) : 0;
+
+  const activeSet = useMemo(() => {
+    if (mode === 'debt' && debtSelectionSize > 0 && debtSel) {
+      return treeFilteredBase.filter((l) => debtSel.isSelected(l.id));
+    }
+    if (globalSelectedLocations.size === 0) return treeFilteredBase;
+    return treeFilteredBase.filter((l) => globalSelectedLocations.has(l.id));
+  }, [mode, debtSelectionSize, debtSel, treeFilteredBase, globalSelectedLocations]);
+
+  const hasUserSelection =
+    mode === 'debt' ? debtSelectionSize > 0 : hasGlobalSelection;
+
+  const onClearSelection = useCallback(() => {
+    if (mode === 'debt' && debtSelectionSize > 0 && debtSel) {
+      debtSel.clear();
+      return;
+    }
+    clearGlobalSelection();
+  }, [mode, debtSelectionSize, debtSel, clearGlobalSelection]);
+
+  const scope = useMemo(
+    () => ({
+      ids: activeSet.map((l: any) => l.id),
+      total: activeSet.length,
+      mode: (hasUserSelection ? 'selection' : 'filtered') as 'selection' | 'filtered',
+      locations: activeSet,
+    }),
+    [activeSet, hasUserSelection],
+  );
+
+  return (
+    <>
+      <EffectiveActionFooter
+        mode={mode}
+        locations={activeSet as any}
+        hasUserSelection={hasUserSelection}
+        scopeLabel={scopeLabel}
+        onClearSelection={onClearSelection}
+        onResolveDebt={
+          mode === 'debt'
+            ? () => {
+                // PR-INLINE-3: abre SOLO el modal de confirmación.
+                // NO abrir DebtResolutionPanel — sacado del flujo principal.
+                setDebtModalOpen(true);
+              }
+            : undefined
+        }
+        onSelectAll={handleSelectAllInMode}
+      />
+
+      {mode === 'debt' && (
+        <HealthRepairPreviewDialog
+          open={debtModalOpen}
+          onOpenChange={(open) => {
+            setDebtModalOpen(open);
+            // Tras confirmar (modal cierra), limpiar selección local debt.
+            if (!open && debtSelectionSize > 0 && debtSel) {
+              // No limpiamos automáticamente: la confirmación de éxito vive
+              // dentro del modal y el usuario puede querer iterar. Sólo el
+              // botón "Limpiar selección" o cambio de modo invalida.
+            }
+          }}
+          filter="debt"
+          scope={scope as any}
+          currentUserId={currentUserId}
+        />
+      )}
+    </>
+  );
+}
+
+// Helper local: evita romper si el provider no está montado (defensa en
+// profundidad — DebtSelectionProvider DEBE estar montado por el wrapper).
+function useDebtSelectionFromCtx() {
+  return useDebtSelection();
 }
