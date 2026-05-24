@@ -610,9 +610,10 @@ export function FilterBar() {
       <TabsList className="grid grid-cols-2 w-full h-8 p-1">
         <TabsTrigger value="debt" className="text-xs gap-1.5">
           <AlertCircle className="w-3 h-3 text-amber-600" />
-          Con deuda
+          Requieren revisión
           <span className="tabular-nums text-muted-foreground">{COUNT_FORMATTER.format(curationBuckets.conDeuda)}</span>
         </TabsTrigger>
+
         <TabsTrigger value="unenriched" className="text-xs gap-1.5">
           <CircleDashed className="w-3 h-3" />
           Sin enriquecer
