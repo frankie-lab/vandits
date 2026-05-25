@@ -71,12 +71,18 @@ interface DocumentsPanelProps {
   headerLabel?: string;
   /** Subtexto opcional bajo el header. */
   headerSubtitle?: string;
+  /** Empty state override — título (PR-IMPORT-UX-4-FIX). */
+  emptyTitle?: string;
+  /** Empty state override — pista bajo el título (PR-IMPORT-UX-4-FIX). */
+  emptyHint?: string;
 }
 
 export function DocumentsPanel({
   sourceFilter,
   headerLabel,
   headerSubtitle,
+  emptyTitle,
+  emptyHint,
 }: DocumentsPanelProps = {}) {
   const { user } = useAuth();
   const [docs, setDocs] = useState<DocInfo[]>([]);
@@ -421,8 +427,10 @@ export function DocumentsPanel({
         ) : docs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground">
             <FolderOpen className="w-10 h-10 opacity-30" />
-            <p className="text-sm">No hay documentos importados</p>
-            <p className="text-xs">Sube un archivo KML, GPX o GeoJSON para empezar</p>
+            <p className="text-sm">{emptyTitle ?? 'No hay documentos importados'}</p>
+            <p className="text-xs">
+              {emptyHint ?? 'Formatos soportados: KML · KMZ · GPX · GeoJSON · CSV.'}
+            </p>
           </div>
         ) : (
           <div className="divide-y min-w-0">

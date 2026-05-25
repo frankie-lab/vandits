@@ -1,31 +1,33 @@
 /**
- * ImportedContentPanel — Panel "Fuentes de importación" (PR-IMPORT-UX-4).
+ * ImportedContentPanel — Panel "Fuentes de importación".
  *
- * Estructura canónica:
+ * Estructura canónica (PR-IMPORT-UX-4-FIX):
  *   - 3 pestañas principales: Archivos · Web · Imágenes.
- *   - Bajo cada pestaña, sub-toggle binario Acción / Histórico (default = Acción).
- *   - Footer canónico (`PanelFooter`) con la CTA REAL de la vista:
- *       Vista Acción   → CTA elevada desde el componente hijo
- *                        vía `hidePrimaryCta` + `onPrimaryStateChange`.
- *       Vista Histórico→ CTA secundaria única "Nueva importación".
+ *   - Bajo cada pestaña, una sola vista activa (acción O histórico) — NO sub-toggle.
+ *   - Footer canónico (`PanelFooter`) con UNA CTA real específica por fuente:
+ *       Vista Acción    → CTA elevada del hijo (Subir / Importar web / Auditar fotos)
+ *                          + link secundario "Ver histórico".
+ *       Vista Histórico → CTA específica de retorno por fuente:
+ *                          archivos → "Subir archivo"
+ *                          web      → "Nueva web"
+ *                          imagenes → "Auditar imágenes"
  *
- * Reglas duras (PR-IMPORT-UX-4):
+ * Reglas duras:
  *   - Footer SIEMPRE contiene la acción principal real (no decorativo).
  *   - Una sola CTA primaria por footer.
- *   - Sub-toggle = segmented control compacto (NO segundo nivel de tabs grandes).
+ *   - NO segmented control acción/histórico.
  *   - Default Vista Acción al abrir/cambiar de tab.
- *   - Sin duplicación de CTAs: los botones inline equivalentes dentro de los
- *     hijos se ocultan vía `hidePrimaryCta`.
+ *   - `source_type` filtros: KMZ↔kml (enum no tiene 'kmz'); web → ['web_import'];
+ *     imágenes hoy no tiene enum dedicado (sin filtro → empty state explícito).
  *
  * Ver: mem://logic/import/import-canon · docs/contracts/import-canon.md §8.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { FolderOpen, FileText, Globe, Image as ImageIcon, Loader2, Plus } from 'lucide-react';
+import { FolderOpen, FileText, Globe, Image as ImageIcon, Loader2, History } from 'lucide-react';
 import { PanelShell, PanelFooter } from '@/shared/components/ui/panel';
 import { PanelTabs } from '@/shared/components/ui/panel/PanelTabs';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
 import { FileUploadZone, DocumentsPanel } from '@/domains/content/components';
 import { WebImportPanel } from '@/domains/content/components/WebImportPanel';
 import { OneDrivePhotosPanel } from '@/components/OneDrivePhotosPanel';
@@ -38,9 +40,33 @@ export type ImportedContentTab = 'upload' | 'web' | 'onedrive' | 'documents';
 type SourceTab = 'archivos' | 'web' | 'imagenes';
 type SubView = 'action' | 'history';
 
-const FILE_SOURCE_TYPES = ['kml', 'kmz', 'gpx', 'geojson', 'csv'];
-const WEB_SOURCE_TYPES = ['web_import', 'scrape', 'atlas-obscura'];
-const IMAGE_SOURCE_TYPES = ['onedrive', 'photo'];
+// Filtros canónicos por `documents.source_type` (enum real:
+// kml | gpx | geojson | csv | manual | web_import). KMZ se persiste como 'kml'.
+const FILE_SOURCE_TYPES = ['kml', 'gpx', 'geojson', 'csv'];
+const WEB_SOURCE_TYPES = ['web_import'];
+// Imágenes: el enum no tiene 'onedrive'/'photo'. Hoy histórico vacío por diseño.
+const IMAGE_SOURCE_TYPES: string[] = [];
+
+const RETURN_TO_ACTION_LABELS: Record<SourceTab, string> = {
+  archivos: 'Subir archivo',
+  web: 'Nueva web',
+  imagenes: 'Auditar imágenes',
+};
+
+const HISTORY_EMPTY_COPY: Record<SourceTab, { title: string; hint: string }> = {
+  archivos: {
+    title: 'No hay archivos importados todavía',
+    hint: 'Formatos soportados: KML · KMZ · GPX · GeoJSON · CSV.',
+  },
+  web: {
+    title: 'No hay webs importadas todavía',
+    hint: 'Importa una URL desde la vista de acción.',
+  },
+  imagenes: {
+    title: 'No hay imágenes importadas todavía',
+    hint: 'Audita tu OneDrive desde la vista de acción.',
+  },
+};
 
 interface ImportedContentPanelProps {
   isOpen: boolean;
@@ -69,48 +95,6 @@ function sourceToLegacy(tab: SourceTab): ImportedContentTab {
       return 'upload';
   }
 }
-
-interface SubToggleProps {
-  value: SubView;
-  onChange: (next: SubView) => void;
-  actionLabel: string;
-  historyLabel: string;
-}
-
-function SubToggle({ value, onChange, actionLabel, historyLabel }: SubToggleProps) {
-  return (
-    <div
-      role="tablist"
-      data-import-subtoggle
-      className="inline-flex items-center gap-0.5 rounded-lg border bg-muted/40 p-0.5"
-    >
-      {([['action', actionLabel], ['history', historyLabel]] as const).map(([key, label]) => (
-        <button
-          key={key}
-          type="button"
-          role="tab"
-          aria-selected={value === key}
-          data-import-subview={key}
-          onClick={() => onChange(key)}
-          className={cn(
-            'px-3 h-7 rounded-md text-[11px] font-medium transition-colors',
-            value === key
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-const SUBTOGGLE_LABELS: Record<SourceTab, { action: string; history: string }> = {
-  archivos: { action: 'Subir archivos', history: 'Histórico de archivos' },
-  web:      { action: 'Seleccionar web', history: 'Jobs recientes' },
-  imagenes: { action: 'Subir imágenes', history: 'Histórico de imágenes' },
-};
 
 export function ImportedContentPanel({
   isOpen,
@@ -177,7 +161,7 @@ export function ImportedContentPanel({
         data-import-sources="v4"
       >
         <PanelTabs value={tab} onValueChange={handleTabChange}>
-          <div className="shrink-0 px-[var(--panel-padding-x)] pt-[var(--panel-padding-y)] pb-2">
+          <div className="shrink-0 px-[var(--panel-padding-x)] pt-[var(--panel-padding-y)] pb-3">
             <PanelTabs.Group label="Fuentes">
               <PanelTabs.Trigger
                 value="archivos"
@@ -203,16 +187,6 @@ export function ImportedContentPanel({
             </PanelTabs.Group>
           </div>
 
-          {/* Sub-toggle Acción/Histórico — un solo control compartido por la tab activa */}
-          <div className="shrink-0 px-[var(--panel-padding-x)] pb-3 flex items-center justify-between gap-2">
-            <SubToggle
-              value={currentSub}
-              onChange={setSub}
-              actionLabel={SUBTOGGLE_LABELS[tab].action}
-              historyLabel={SUBTOGGLE_LABELS[tab].history}
-            />
-          </div>
-
           {/* ARCHIVOS */}
           <PanelTabs.Content
             value="archivos"
@@ -234,6 +208,8 @@ export function ImportedContentPanel({
                     sourceFilter={FILE_SOURCE_TYPES}
                     headerLabel="Histórico de archivos"
                     headerSubtitle="KML · KMZ · GPX · GeoJSON · CSV importados. Pulsa un archivo para abrirlo o gestionarlo."
+                    emptyTitle={HISTORY_EMPTY_COPY.archivos.title}
+                    emptyHint={HISTORY_EMPTY_COPY.archivos.hint}
                   />
                 </div>
               )}
@@ -264,7 +240,9 @@ export function ImportedContentPanel({
                     <DocumentsPanel
                       sourceFilter={WEB_SOURCE_TYPES}
                       headerLabel="Histórico de webs importadas"
-                      headerSubtitle="Documentos creados desde URL (Atlas Obscura, scrape, etc.)."
+                      headerSubtitle="Documentos creados desde URL."
+                      emptyTitle={HISTORY_EMPTY_COPY.web.title}
+                      emptyHint={HISTORY_EMPTY_COPY.web.hint}
                     />
                   </div>
                 </div>
@@ -302,7 +280,9 @@ export function ImportedContentPanel({
                   <DocumentsPanel
                     sourceFilter={IMAGE_SOURCE_TYPES}
                     headerLabel="Histórico de imágenes"
-                    headerSubtitle="Documentos creados desde fotos con GPS (OneDrive)."
+                    headerSubtitle="Imágenes procesadas desde OneDrive."
+                    emptyTitle={HISTORY_EMPTY_COPY.imagenes.title}
+                    emptyHint={HISTORY_EMPTY_COPY.imagenes.hint}
                   />
                 </div>
               )}
@@ -310,43 +290,53 @@ export function ImportedContentPanel({
           </PanelTabs.Content>
         </PanelTabs>
 
-        {/* PanelFooter canónico — CTA real elevada desde el componente hijo
-            (Acción) o CTA secundaria "Nueva importación" (Histórico). */}
+        {/* PanelFooter canónico — Acción: CTA real elevada + link "Ver histórico".
+            Histórico: CTA específica de retorno por fuente. */}
         <PanelFooter>
           {currentSub === 'action' ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="w-full">
-                  <Button
-                    type="button"
-                    onClick={currentCta.submit}
-                    disabled={!currentCta.canSubmit}
-                    className="w-full h-11"
-                    data-import-primary-cta={tab}
-                  >
-                    {currentCta.isProcessing && (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    )}
-                    {currentCta.label || 'Cargando…'}
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              {!currentCta.canSubmit && currentCta.disabledReason && (
-                <TooltipContent side="top" className="text-xs">
-                  {currentCta.disabledReason}
-                </TooltipContent>
-              )}
-            </Tooltip>
+            <div className="w-full flex flex-col gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="w-full">
+                    <Button
+                      type="button"
+                      onClick={currentCta.submit}
+                      disabled={!currentCta.canSubmit}
+                      className="w-full h-11"
+                      data-import-primary-cta={tab}
+                    >
+                      {currentCta.isProcessing && (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      )}
+                      {currentCta.label || 'Cargando…'}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!currentCta.canSubmit && currentCta.disabledReason && (
+                  <TooltipContent side="top" className="text-xs">
+                    {currentCta.disabledReason}
+                  </TooltipContent>
+                )}
+              </Tooltip>
+              <button
+                type="button"
+                onClick={() => setSub('history')}
+                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 inline-flex items-center justify-center gap-1 mx-auto"
+                data-import-secondary-cta="history-link"
+                data-import-secondary-cta-tab={tab}
+              >
+                <History className="w-3 h-3" />
+                Ver histórico
+              </button>
+            </div>
           ) : (
             <Button
               type="button"
-              variant="outline"
               onClick={() => setSub('action')}
               className="w-full h-11"
-              data-import-secondary-cta={tab}
+              data-import-return-to-action={tab}
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Nueva importación
+              {RETURN_TO_ACTION_LABELS[tab]}
             </Button>
           )}
         </PanelFooter>

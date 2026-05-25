@@ -160,68 +160,89 @@ describe('PR-IMPORT-UX-3 · panel "Fuentes de importación" (3 tabs)', () => {
   });
 });
 
-describe('PR-IMPORT-UX-4 · sub-toggle + PanelFooter con CTA real', () => {
+describe('PR-IMPORT-UX-4-FIX · acción única + footer uniforme por fuente', () => {
   beforeEach(() => cleanup());
 
-  const SUBTOGGLE_LABELS: Record<string, { action: string; history: string }> = {
-    archivos: { action: 'Subir archivos', history: 'Histórico de archivos' },
-    web:      { action: 'Seleccionar web', history: 'Jobs recientes' },
-    imagenes: { action: 'Subir imágenes', history: 'Histórico de imágenes' },
-  };
+  const TABS: Array<{ tab: 'archivos' | 'web' | 'imagenes'; defaultTab: 'upload' | 'web' | 'onedrive'; returnLabel: string }> = [
+    { tab: 'archivos', defaultTab: 'upload',   returnLabel: 'Subir archivo' },
+    { tab: 'web',      defaultTab: 'web',      returnLabel: 'Nueva web' },
+    { tab: 'imagenes', defaultTab: 'onedrive', returnLabel: 'Auditar imágenes' },
+  ];
 
-  for (const [tab, labels] of Object.entries(SUBTOGGLE_LABELS)) {
-    it(`tab ${tab}: sub-toggle existe con labels exactos "${labels.action}" / "${labels.history}"`, () => {
-      renderPanel(tab === 'archivos' ? 'upload' : tab === 'web' ? 'web' : 'onedrive');
-      const subtoggle = document.querySelector('[data-import-subtoggle]');
-      expect(subtoggle).toBeTruthy();
-      const text = subtoggle!.textContent ?? '';
-      expect(text).toContain(labels.action);
-      expect(text).toContain(labels.history);
-    });
+  it('NO existe sub-toggle binario [data-import-subtoggle]', () => {
+    for (const t of TABS) {
+      cleanup();
+      renderPanel(t.defaultTab);
+      expect(document.querySelector('[data-import-subtoggle]')).toBeNull();
+      expect(document.querySelector('[data-import-subview]')).toBeNull();
+    }
+  });
 
-    it(`tab ${tab}: vista Acción monta PanelFooter con UN CTA real data-import-primary-cta="${tab}"`, () => {
-      renderPanel(tab === 'archivos' ? 'upload' : tab === 'web' ? 'web' : 'onedrive');
-      const ctas = document.querySelectorAll(`[data-import-primary-cta="${tab}"]`);
+  for (const t of TABS) {
+    it(`tab ${t.tab}: vista acción muestra CTA primaria + link "Ver histórico"`, () => {
+      renderPanel(t.defaultTab);
+      // Una sola CTA primaria por footer.
+      const ctas = document.querySelectorAll(`[data-import-primary-cta="${t.tab}"]`);
       expect(ctas.length).toBe(1);
-      // No debe convivir con secondary-cta de su mismo tab.
-      expect(document.querySelector(`[data-import-secondary-cta="${tab}"]`)).toBeNull();
+      // Link secundario "Ver histórico" presente y único en footer.
+      const histLinks = document.querySelectorAll('[data-import-secondary-cta="history-link"]');
+      expect(histLinks.length).toBe(1);
+      expect((histLinks[0].textContent ?? '')).toMatch(/Ver hist[óo]rico/);
+      // CTA de retorno NO existe en vista acción.
+      expect(document.querySelector(`[data-import-return-to-action="${t.tab}"]`)).toBeNull();
     });
 
-    it(`tab ${tab}: cambiar a Histórico oculta la CTA primaria y muestra "Nueva importación"`, () => {
-      renderPanel(tab === 'archivos' ? 'upload' : tab === 'web' ? 'web' : 'onedrive');
-      const historyBtn = Array.from(
-        document.querySelectorAll('[data-import-subtoggle] [data-import-subview="history"]'),
-      )[0] as HTMLButtonElement | undefined;
-      expect(historyBtn).toBeTruthy();
-      fireEvent.click(historyBtn!);
-      expect(document.querySelector(`[data-import-primary-cta="${tab}"]`)).toBeNull();
-      const secondary = document.querySelector(`[data-import-secondary-cta="${tab}"]`);
-      expect(secondary).toBeTruthy();
-      expect((secondary!.textContent ?? '')).toMatch(/Nueva importaci[óo]n/);
+    it(`tab ${t.tab}: histórico muestra CTA específica de retorno "${t.returnLabel}"`, () => {
+      renderPanel(t.defaultTab);
+      const link = document.querySelector('[data-import-secondary-cta="history-link"]') as HTMLButtonElement | null;
+      expect(link).toBeTruthy();
+      fireEvent.click(link!);
+      // CTA primaria de acción desaparece, CTA de retorno aparece con label específico.
+      expect(document.querySelector(`[data-import-primary-cta="${t.tab}"]`)).toBeNull();
+      const ret = document.querySelector(`[data-import-return-to-action="${t.tab}"]`);
+      expect(ret).toBeTruthy();
+      expect((ret!.textContent ?? '').trim()).toBe(t.returnLabel);
+      // Nunca "Nueva importación" genérico.
+      expect(document.body.textContent ?? '').not.toMatch(/Nueva importaci[óo]n/);
     });
   }
 
-  it('no existe CTA primaria duplicada inline dentro del cuerpo de Acción (solo la del PanelFooter)', () => {
+  it('no existe CTA primaria duplicada inline dentro del cuerpo (solo en PanelFooter)', () => {
     renderPanel('upload');
-    // Solo debe haber UNA CTA primaria por tab activa, y debe colgar del PanelFooter.
-    const ctas = document.querySelectorAll('[data-import-primary-cta]');
-    expect(ctas.length).toBe(1);
-    // El CTA real vive en el footer (el padre lo monta), nunca dentro del scroll del hijo.
     const body = document.querySelector('[data-import-source-content="archivos"]');
     expect(body?.querySelector('[data-import-primary-cta]')).toBeNull();
+    expect(document.querySelectorAll('[data-import-primary-cta]').length).toBe(1);
   });
 
-  it('CTA con disabledReason expone tooltip (Imágenes: placeholder PR-IMPORT-ONEDRIVE-CREATE-POI)', () => {
-    renderPanel('onedrive');
-    const cta = document.querySelector('[data-import-primary-cta="imagenes"]') as HTMLButtonElement;
-    expect(cta).toBeTruthy();
-    // En estado inicial, OneDrive expone "Auditar fotos" (canSubmit=true) o un disabled con tooltip.
-    // El contrato exige que si está disabled, exista trigger de tooltip envolvente.
-    if (cta.disabled) {
-      const trigger = cta.closest('[data-state]') ?? cta.parentElement;
-      expect(trigger).toBeTruthy();
-    } else {
-      expect(cta.disabled).toBe(false);
+  it('FileUploadZone (vista acción archivos): dropzone aparece DESPUÉS de condiciones', () => {
+    renderPanel('upload');
+    const body = document.querySelector('[data-import-source-content="archivos"]') as HTMLElement;
+    const html = body.innerHTML;
+    const idxConfirma = html.indexOf('Antes de subir');
+    const idxDropzone = html.indexOf('data-import-dropzone="files"');
+    expect(idxConfirma).toBeGreaterThan(-1);
+    expect(idxDropzone).toBeGreaterThan(-1);
+    expect(idxConfirma).toBeLessThan(idxDropzone);
+  });
+
+  it('histórico de archivos: empty state lista los 5 formatos (KML, KMZ, GPX, GeoJSON, CSV)', () => {
+    renderPanel('upload');
+    const link = document.querySelector('[data-import-secondary-cta="history-link"]') as HTMLButtonElement;
+    fireEvent.click(link);
+    const hist = document.querySelector('[data-import-history="archivos"]');
+    const text = hist?.textContent ?? '';
+    for (const fmt of ['KML', 'KMZ', 'GPX', 'GeoJSON', 'CSV']) {
+      expect(text).toContain(fmt);
     }
+    expect(text).toMatch(/No hay archivos importados todav[ií]a/);
+  });
+
+  it('histórico de imágenes: empty state explícito "No hay imágenes importadas todavía"', () => {
+    renderPanel('onedrive');
+    const link = document.querySelector('[data-import-secondary-cta="history-link"]') as HTMLButtonElement;
+    fireEvent.click(link);
+    const hist = document.querySelector('[data-import-history="imagenes"]');
+    expect((hist?.textContent ?? '')).toMatch(/No hay im[áa]genes importadas todav[ií]a/);
   });
 });
+
