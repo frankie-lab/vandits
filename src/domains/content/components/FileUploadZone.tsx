@@ -450,7 +450,19 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
 
  return (
   <>
-   <div className="w-full max-w-lg mx-auto">
+   <div className="w-full max-w-lg mx-auto space-y-4">
+    <ImportSurfaceShell
+     surfaceId="file"
+     icon={<FileText className="w-5 h-5" />}
+     title="Importar desde fichero"
+     subtitle="Formatos soportados: KML · KMZ · GPX · GeoJSON · CSV."
+     notice={
+      !canUpload ? (
+       <span>Confirma las dos condiciones de abajo para poder subir archivos.</span>
+      ) : null
+     }
+     source={null}
+    />
     <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
      {/* Drop zone */}
      <label
