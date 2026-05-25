@@ -21,6 +21,7 @@ import { DesignSystemThemeProvider } from "@/design-system/runtime/theme-provide
 import { EditModeBar } from "@/components/admin/design-system/EditModeBar";
 import { SourceFilterBridge } from "@/components/poi/SourceFilterBridge";
 import { CameraFitQaGate } from "@/components/debug/CameraFitQaGate";
+import { AuthedErrorBoundary } from "@/shared/debug/AuthedErrorBoundary";
 
 
 
@@ -53,7 +54,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
  return <Navigate to="/auth" replace />;
  }
  
- return <>{children}</>;
+  return <AuthedErrorBoundary>{children}</AuthedErrorBoundary>;
 }
 
 const App = () => (
