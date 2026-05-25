@@ -1,149 +1,125 @@
 
-# PR-IMPORT-UX-1 — Unificar hub de importación
+# PR-IMPORT-UX-2 — Import Wizard / Flow Unificado
 
-Solo UX, copy y estructura del panel `ImportedContentPanel` y sus hijos. **No** se tocan parsers, scrapers, schema, RLS, edge functions ni lógica de import.
+Sustituir el panel de tabs por un **asistente de importación** con un selector inicial de 3 vías y un flujo guiado común. Sólo UI/UX; no se tocan parsers, scrapers, edge functions, schema ni RLS.
 
-## 1. Auditoría previa — `docs/audits/import-ux-operability.md`
+## 1. Objetivo
 
-Tabla `surface | tab | acción visible | acción real | escribe datos | fake/no-op | estado | recomendación` cubriendo:
+Al abrir `Contenido`, el usuario debe entender en 5 segundos qué puede importar (archivo / web / fotos), qué hace cada vía y cuál es el siguiente paso. Las tres vías comparten gramática y se sienten como un único importador.
 
-- `ImportedContentPanel` (hub)
-- `FileUploadZone`
-- `WebImportPanel` + `BackgroundScrapeJobs (ScrapeJobsList)`
-- `OneDrivePhotosPanel` (sub-tabs Índice/Explorar/Validar)
-- `OneDrivePhotoBrowser` (legacy, sólo usado en `LocationPhotoMenu`)
-- `OneDriveVisitValidator`
-- `UploadPreviewDialog` (verificar si está vivo; hoy `FileUploadZone` usa `ImportSummaryDialog` y `processImportedDocument`, no preview previo)
-- `ImportSummaryDialog`
-- `DocumentsPanel` (biblioteca)
-- `import.service`
-
-Hallazgos esperados que ya emergen del código:
-
-- **OneDrive › Validar** (`OneDriveVisitValidator`): no importa POIs, marca `custom_data.visited=true` en locations ya existentes. Por canon §3 esto es **enriquecimiento/personal state**, no importación. → mover fuera del hub o degradar a "avanzado".
-- **OneDrive › Explorar**: explorador genérico de carpetas/fotos sin acción de creación de POI. Es diagnóstico. → degradar a "Avanzado" o ocultar.
-- **OneDrive › Índice**: única acción real es `Auditar fotos de OneDrive` (escanea EXIF). **No existe acción "crear POI desde foto"** — gap canónico (canon §2.2 dice "permite crear ubicaciones desde ellas"). Marcar como **deuda explícita** (no se implementa en este PR; queda anotado para `PR-IMPORT-ONEDRIVE-CREATE-POI`).
-- **FileUploadZone**: `UploadPreviewDialog` (706 líneas) parece huérfano del flujo actual (post import-first). Verificar referencias y o bien reactivarlo como "preview real antes de guardar" (fuera de alcance: requiere lógica) o eliminar/ocultar y declararlo legacy.
-- **FileUploadZone › Condiciones**: dos checkboxes obligatorios con copy semilegal punitivo. Reescribir copy humano.
-- **WebImportPanel**: ya unifica probar+inmediato+background. Sin fake. Mantener.
-- **`BackgroundScrapeJobs` › Pausar/Reanudar/Preset**: acciones reales. Falta acción "abrir documento resultado" cuando `document_id` existe (hoy el listener `document:open-workspace` está pero no hay botón). → añadir botón "Ver resultado" condicional.
-- **DocumentsPanel**: es híbrido (historial + documentos vivos consultables). Decisión documentada: **mantener como "Documentos importados"** dentro de un nuevo grupo `Biblioteca`, sin renombrar.
-
-## 2. Rediseño estructural — `ImportedContentPanel`
-
-Grupos visuales del `PanelTabs.Header` (sin Radix añadidos):
+## 2. Arquitectura del flujo
 
 ```text
-Importar:
-  - Archivos
-  - Web
-  - OneDrive · fotos
-
-Biblioteca:
-  - Documentos importados
+ImportedContentPanel (PanelShell, width = library wide)
+│
+├── view: "hub"        ← pantalla inicial (selector 3 cards)
+├── view: "wizard"     ← flujo guiado por vía elegida
+│      steps: source → preview → destination → import → result
+└── view: "library"    ← Documentos importados (historial, secundario)
 ```
 
-Cambios mínimos:
+Estado local: `{ view, channel?: 'file'|'web'|'onedrive', step }`. Sin router. Botón `Volver` siempre visible en wizard.
 
-- Renombrar grupo `Fuentes` → `Importar` (verbo, no sustantivo).
-- Renombrar trigger `OneDrive` → `OneDrive · fotos` para reforzar el alcance canónico (sólo fotos).
-- Orden canónico: Archivos → Web → OneDrive (coincide con el canon §2.1/2.2/2.3).
+## 3. Hub inicial (vista por defecto)
 
-## 3. Modelo visual único por vía
+Tres `ImportChannelCard` grandes (no tabs). Cada card:
 
-Cada una de las 3 vías comparte la misma columna conceptual (A→F del enunciado). Esto se materializa con un **componente de presentación compartido nuevo** `ImportSurfaceShell` (sólo UI, sin lógica):
+- icono grande + título (`Importar desde fichero` / `Importar desde la web` / `Importar fotos desde OneDrive`)
+- **Qué acepta**: chips concretos (KML/KMZ/GPX/GeoJSON/CSV · URL Atlas Obscura, KML remoto · fotos con GPS en OneDrive)
+- **Qué crea**: una frase (POIs en tu catálogo · POIs scrapeados · POIs desde fotos georreferenciadas)
+- **Cuándo usarlo**: una frase humana
+- CTA primaria: `Empezar`
 
-```text
-A. Qué vas a importar    → <SurfaceHeader title subtitle icon />
-B. De dónde viene        → input/dropzone (slot 'source')
-C. Qué se va a crear     → resumen de visibilidad + colección (slot 'target')
-D. Preview/revisión      → slot 'preview' (opcional)
-E. Estado/historial      → slot 'history' (opcional)
-F. Acción principal      → <SurfaceFooter primaryAction />
-```
+Debajo, sección secundaria colapsable `Biblioteca` con link `Ver documentos importados (N)` que cambia a `view='library'`. NO compite visualmente con las 3 cards.
 
-`FileUploadZone`, `WebImportPanel` y `OneDrivePhotosPanel` se envuelven en `ImportSurfaceShell` sin reescribir su lógica interna. Tres pantallas reconocibles como hermanas.
+Nuevo componente: `src/shared/components/import/ImportHub.tsx` + `ImportChannelCard.tsx`.
 
-### 3.1 Archivos
+## 4. Wizard común
 
-- Header: "Importar desde fichero" + "Formatos: KML · KMZ · GPX · GeoJSON · CSV".
-- Condiciones: reescribir copy humano. Mientras bloqueen, mostrar banner explicativo arriba: "Confirma estas condiciones para poder subir archivos." No tratarlas como muro legal.
-- Sin cambios en `handleFile`, `processImportedDocument`, `setPendingCollection`.
+`ImportWizardShell` con stepper horizontal (`1 Fuente · 2 Revisión · 3 Destino · 4 Importar · 5 Resultado`). Mismo header (icono + título de la vía), mismo footer sticky con `Atrás` / `Siguiente` / CTA primaria. Cuerpo central con un único slot por paso.
 
-### 3.2 Web
+Nuevo componente: `src/shared/components/import/ImportWizardShell.tsx` (header + stepper + body + footer). Reemplaza visualmente al actual `ImportSurfaceShell` para las 3 vías; el shell antiguo se conserva como fallback hasta limpieza.
 
-- Header: "Importar desde web" + "Pega una URL (Atlas Obscura, listados o páginas con coordenadas)."
-- Mantener flujo actual probar→inmediato/background.
-- Bajo "Jobs recientes" añadir botón "Ver resultado" cuando `j.document_id` existe (emite el evento ya soportado `document:open-workspace`). No añadir botones que no tengan handler.
+### 4.1 Archivos
+- **Paso 1 Fuente**: explicación humana + dropzone grande. Sin condiciones bloqueantes ni selector de colección al entrar.
+- **Paso 2 Revisión**: preview del parseo (conteo de POIs/tracks, sample de nombres, warnings dedupe).
+- **Paso 3 Destino**: aquí (y sólo aquí) aparecen colección destino + condiciones (checkbox de aceptación).
+- **Paso 4 Importar**: progreso.
+- **Paso 5 Resultado**: N POIs creados, link a documento, botón `Importar otro`.
 
-### 3.3 OneDrive · fotos
+Refactor de `FileUploadZone` para exponer fases (`pickFile` / `parsed` / `destination` / `running` / `done`) consumibles por el wizard. La lógica de parser/persistencia NO cambia.
 
-- Header: "Importar fotos desde OneDrive" + "Detecta fotos con GPS y permite crear ubicaciones desde ellas."
-- Sub-tabs honestos:
-  - **Fotos con GPS** (renombrado desde `Índice`): única acción real hoy. CTA principal sticky `Auditar fotos de OneDrive`. Lista con thumbnail · nombre · fecha · coords · acción `Ver en mapa` (ya existente vía `photo-focus`).
-  - **Explorar carpetas** y **Validar visitas** se mueven a un acordeón inferior `Avanzado` dentro del mismo tab Fotos, **plegado por defecto**, con badge `Diagnóstico`. Esto evita borrar funcionalidad real pero deja de mezclarlas con "importar".
-- Si en QA se decide ocultarlas del todo, se hace con un flag local en el componente; sin tocar `OneDriveVisitValidator`/`OneDrivePhotoBrowser`.
-- Documentar en el audit que **falta** la acción "Crear POI desde foto" — deuda `PR-IMPORT-ONEDRIVE-CREATE-POI`.
+### 4.2 Web
+- **Paso 1 Fuente**: input URL grande + ejemplos (Atlas Obscura, KML remoto). Sin lista de jobs visible.
+- **Paso 2 Revisión**: si sync → resultado scrape; si background → preview de la cola que se va a encolar.
+- **Paso 3 Destino**: modo (sync / background con preset slow/normal/fast), `max_items`.
+- **Paso 4 Importar**: lanzamiento + estado job.
+- **Paso 5 Resultado**: link `Ver resultado` (document_id) cuando done.
+- **Historial secundario**: `BackgroundScrapeJobs` se renderiza colapsado al final del wizard como "Jobs recientes", no como contenido principal. También accesible desde el hub vía `Ver jobs en curso (N)` cuando hay activos.
 
-## 4. Biblioteca — Documentos importados
+### 4.3 OneDrive · fotos
+- **Paso 1 Fuente**: pantalla explicativa con copy claro ("Detectamos fotos con GPS en tu OneDrive para crear ubicaciones") + CTA `Auditar fotos`. Sin árbol técnico inicial.
+- **Paso 2 Revisión**: resultado de `scan-onedrive-geo` (N fotos con GPS, sample, agrupación por carpeta).
+- **Paso 3 Destino**: visibilidad/colección destino (placeholder hasta `PR-IMPORT-ONEDRIVE-CREATE-POI`; CTA `Importar` queda `disabled` con tooltip "Próximamente: creación de POIs desde fotos. Por ahora la auditoría es informativa." — declarado honestamente, no botón fake).
+- **Paso 4/5**: mismo placeholder honesto.
+- **Avanzado · diagnóstico**: `Explorar` (browser OneDrive) y `Validar` (`OneDriveVisitValidator`) se mueven a un acordeón "Herramientas avanzadas" al pie del wizard, plegado por defecto. NO son la primera experiencia.
 
-- Mantener `DocumentsPanel` tal cual, bajo grupo `Biblioteca`.
-- Header local: "Documentos importados" + "Resultado de tus importaciones. Aquí gestionas lo ya subido."
-- Sin tocar lógica; sólo copy del título/subtítulo.
+## 5. Biblioteca (historial)
 
-## 5. Limpieza fake/no-op
+`view='library'` muestra `DocumentsPanel` sin compartir espacio con el hub. Subtítulo actual se conserva. Acceso sólo desde el link secundario del hub y desde un breadcrumb `← Volver a Importar`.
 
-- Si `UploadPreviewDialog.tsx` resulta no estar referenciado en el árbol vivo, **no se elimina** en este PR (es lógica fuera de alcance), pero se documenta en el audit con recomendación `legacy → eliminar en PR-IMPORT-CLEANUP`.
-- Cualquier botón sin handler real detectado en la auditoría se oculta (no se borra el componente).
+## 6. Componentes nuevos / tocados
 
-## 6. Tests — `src/test/import-hub-ux.test.ts`
+Nuevos (todos en `src/shared/components/import/`):
+- `ImportHub.tsx` — selector inicial.
+- `ImportChannelCard.tsx` — card grande de vía.
+- `ImportWizardShell.tsx` — shell con stepper + footer sticky.
+- `ImportStepper.tsx` — indicador de pasos.
+- `wizards/FileImportWizard.tsx` — orquestador 5 pasos archivos.
+- `wizards/WebImportWizard.tsx` — orquestador 5 pasos web.
+- `wizards/OneDriveImportWizard.tsx` — orquestador 5 pasos fotos.
 
-Render del `ImportedContentPanel` con cada `defaultTab` y aserciones DOM:
+Tocados (UI only):
+- `src/components/ImportedContentPanel.tsx` — pasa de `PanelTabs` a router de vistas (`hub | wizard | library`). Mantiene `defaultTab` por compat traduciéndolo a vista/canal.
+- `src/domains/content/components/FileUploadZone.tsx` — extrae fases consumibles; conserva API legacy.
+- `src/domains/content/components/WebImportPanel.tsx` — se divide en `WebImportForm` (URL + opciones) + `BackgroundScrapeJobs` reubicado al pie.
+- `src/components/OneDrivePhotosPanel.tsx` — descompuesto: `OneDriveAuditStep` (canónico) + acordeón `Avanzado` con `OneDriveExplorer` + `OneDriveVisitValidator`.
 
-- Existen exactamente 3 triggers bajo el grupo `Importar` con labels `Archivos`, `Web`, `OneDrive · fotos`.
-- Tab `Archivos` muestra los chips `KML`, `KMZ`, `GPX`, `GeoJSON`, `CSV`.
-- Tab `OneDrive · fotos` contiene los términos `GPS` y `fotos`.
-- Tab `Web` contiene los términos `URL` y `Atlas Obscura`.
-- Ninguna trigger/heading dentro del hub contiene los términos `enriquecer`, `enriquecimiento`, `backfill`, `recovery`, `canonicalize` (asegura separación de canon §3).
-- Existe trigger `Documentos importados` bajo el grupo `Biblioteca`.
+Lógica de negocio (parsers, edges, dedupe, lifecycle) NO se toca.
 
-(Tests sólo de UI; mockear `useAuth`, `supabase`, stores con stubs mínimos.)
+## 7. Contract tests
 
-## 7. Documentación + memoria
+Actualizar `src/test/import-hub-ux.test.tsx`:
+- Hub renderiza 3 cards canónicas con título + "Qué acepta" + "Qué crea" + CTA `Empezar`.
+- No hay tabs como navegación principal (no `role="tablist"` en el hub).
+- Tras click en una card aparece el stepper con 5 pasos.
+- `Documentos importados` accesible sólo vía link secundario.
+- Ningún paso del wizard menciona `enriquecer/backfill/recovery/canonicalize`.
+- OneDrive wizard expone CTA "Auditar fotos" como primera acción y declara explícitamente la limitación de creación de POIs (no botón fake).
 
-- `docs/audits/import-ux-operability.md` — nueva tabla + hallazgos.
-- `docs/contracts/import-canon.md` §5 — añadir nota sobre wording UI (`Importar` como verbo, `OneDrive · fotos` explícito, gap `crear POI desde foto`).
-- `mem://logic/import/import-canon` — añadir referencia al PR y a `import-hub-ux.test.ts` como contract test del hub.
-- Bump patch via `scripts/release/bump-version.ts` + entrada en `docs/releases/version-history.md`.
+Nuevo test: `src/test/import-wizard-flow.test.tsx` (smoke por vía: hub → step 1 → step 2 visible).
 
-## 8. Fuera de alcance (explícito)
+## 8. Documentación y memoria
 
-- Implementar "Crear POI desde foto OneDrive" (deuda separada).
-- Reactivar/eliminar `UploadPreviewDialog` (deuda separada).
-- Eliminar `OneDriveVisitValidator`/`OneDrivePhotoBrowser` (sólo se degradan visualmente).
-- Cualquier cambio en `import.service`, `parseGeoFile`, `processImportedDocument`, `scrape-*`, `browse-onedrive`, schema, RLS.
+- `docs/contracts/import-canon.md` §8: añadir entrada PR-IMPORT-UX-2 con el nuevo modelo hub+wizard y marcar el panel-tabs como sustituido.
+- `mem://logic/import/import-canon`: actualizar sección "Hub UX canónico" describiendo hub (3 cards) + wizard 5 pasos + biblioteca secundaria + acordeón avanzado OneDrive.
+- `mem://index.md`: ajustar la línea correspondiente a import canon si cambia wording.
+- `docs/audits/import-ux-operability.md`: cerrar gaps "Explorar/Validar primera experiencia" y "Jobs como contenido principal"; reabrir como deuda sólo `PR-IMPORT-ONEDRIVE-CREATE-POI`.
 
-## 9. Detalles técnicos
+## 9. Versionado
 
-Archivos tocados:
+Bump minor: **v1.5.16 → v1.6.0** (cambio de modelo de navegación del hub, no sólo copy). Atómico vía `scripts/release/bump-version.ts`. Entrada en `docs/releases/version-history.md`.
 
-- **Nuevo**: `src/shared/components/import/ImportSurfaceShell.tsx` (presentación; ~80 líneas, sólo slots A–F + CTA).
-- **Editados (copy + envoltorio + header sin lógica)**:
-  - `src/components/ImportedContentPanel.tsx` — rename grupo, rename trigger OneDrive, orden Archivos→Web→OneDrive.
-  - `src/domains/content/components/FileUploadZone.tsx` — header `ImportSurfaceShell`, copy condiciones, banner cuando `!canUpload`.
-  - `src/domains/content/components/WebImportPanel.tsx` — header `ImportSurfaceShell`, copy claro, botón `Ver resultado` en `ScrapeJobsList`.
-  - `src/domains/content/components/BackgroundScrapeJobs.tsx` — botón `Ver resultado` condicional a `document_id`.
-  - `src/components/OneDrivePhotosPanel.tsx` — rename tab `Índice`→`Fotos con GPS`, acordeón `Avanzado` que envuelve sub-tabs `Explorar`/`Validar`, copy del header.
-  - `src/domains/content/components/DocumentsPanel.tsx` — sólo header/subtítulo.
-- **Nuevo**: `src/test/import-hub-ux.test.ts`.
-- **Nuevo**: `docs/audits/import-ux-operability.md`.
-- **Edit**: `docs/contracts/import-canon.md`, `mem://logic/import/import-canon`, `package.json`, `src/lib/app-version.ts`, `docs/releases/version-history.md`, `README.md`.
+## 10. Fuera de alcance (deuda explícita, NO abrir)
 
-Postcondiciones (engineering-discipline):
+- `PR-IMPORT-ONEDRIVE-CREATE-POI` — creación real de POIs desde fotos GPS.
+- `PR-PERSONAL-STATE-FROM-PHOTOS` — sacar `OneDriveVisitValidator` del hub.
+- `PR-IMPORT-CLEANUP` — borrar `UploadPreviewDialog` legacy.
+- Cambios en parsers, scrapers, schema, RLS, edge functions, lifecycle.
 
-- Tests verdes (nuevo contract test + existentes).
-- `APP_VERSION` bumped patch.
-- Memoria sync (`mem://logic/import/import-canon` + actualización del entry en `index.md` si cambia wording de la regla — probablemente no, sólo se añade referencia).
-- Sin cambios en schema/RLS/edges → no requiere `cloud_status` ni migración.
+## 11. Postcondición (gate de cierre)
 
-Resultado: el usuario abre Contenido y ve **3 cajas hermanas de importación** (fichero, web, OneDrive fotos) y **1 biblioteca** (documentos importados). Cada caja comunica qué hace, qué crea y cuál es la acción real. Lo que hoy es diagnóstico (Explorar/Validar de OneDrive) queda visible pero claramente etiquetado, sin pretender ser importación.
+- Tests verdes (hub-ux + wizard-flow).
+- `version-parity` verde, `APP_VERSION = 1.6.0`.
+- Memoria + canon doc sincronizados en el mismo PR.
+- QA visual manual: abrir `Contenido` → ver hub con 3 cards → entrar en cada vía → ver stepper + paso 1 honesto (sin condiciones bloqueantes, sin jobs como protagonistas, sin árbol técnico).
