@@ -6,6 +6,7 @@ import { useLocationsStore } from '@/domains/content/store/locations-store';
 import { toast } from 'sonner';
 import { dbLocationToGeoLocation, fetchAllLocationsPaginated } from '../lib/db-transformers';
 import { startLoading, updateLoading, endLoading } from '@/shared/loading';
+import { bootMark, bootMeasure, bootSummary } from '@/shared/perf/boot-perf';
 
 export type SyncPhase = 'idle' | 'own' | 'social' | 'done';
 
