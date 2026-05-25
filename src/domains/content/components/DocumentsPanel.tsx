@@ -163,7 +163,7 @@ export function DocumentsPanel({
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, sourceFilter]);
 
   useEffect(() => {
     fetchDocs();
