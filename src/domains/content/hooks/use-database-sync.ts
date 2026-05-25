@@ -153,8 +153,15 @@ export function useDatabaseSync(userId?: string | null) {
       const ownLocCount = ownKmlDocs.reduce((acc, d) => acc + d.locations.length, 0);
 
       setDetachedVisibleLocations(detachedVisibleLocations);
+      bootMark('catalog:mapped', {
+        own: ownKmlDocs.length,
+        social: otherKmlDocs.length,
+        detached: detachedVisibleLocations.length,
+        ownLocations: ownLocCount,
+      });
 
       applyCatalogSnapshot(ownKmlDocs, { ownerScope: 'mine', currentUserId: currentUserId ?? null });
+      bootMark('catalog:apply:mine');
 
       if (ownDocs.length > 0) {
         console.log(`[useDatabaseSync] Own data loaded: ${ownDocs.length} docs, ${ownLocCount} locations`);
@@ -162,13 +169,18 @@ export function useDatabaseSync(userId?: string | null) {
 
       // Mapa ya tiene contenido renderizable → cerramos cualquier bloqueo.
       ensureEndLoading();
+      bootMark('map:interactive');
 
       setSyncPhase('social');
       await new Promise(resolve => setTimeout(resolve, 0));
 
       applyCatalogSnapshot(otherKmlDocs, { ownerScope: 'social', currentUserId: currentUserId ?? null });
+      bootMark('catalog:apply:social');
 
       setSyncPhase('done');
+      bootMark('boot:complete');
+      bootMeasure('boot:total', 'boot:start', 'boot:complete');
+      bootSummary();
       // Load summary is shown in the welcome card on the map (no toast to avoid duplication)
     } catch (error: any) {
       console.error('Error loading from database:', error);
