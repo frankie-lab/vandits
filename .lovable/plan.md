@@ -1,50 +1,70 @@
-No es planificación nueva — es el gate de aprobación para salir de plan mode y ejecutar la reaplicación. Al aprobar, paso a build mode y ejecuto los pasos en orden, sin reabrir decisiones de diseño.
+# PR-IMPORT-DISCOVERY-1 — Auditoría de medios de importación
 
-## Estado de partida (verificado)
+Solo lectura. No se toca schema, RLS, scrapers, edge functions ni UI. Único deliverable: `docs/audits/import-discovery.md`.
 
-- `origin/main` = `a4e0294d` · v1.4.4 · `poi-kml.ts` usa `<description>{texto plano}</description>`, no existen `gurumaps-description.ts` / `render-export-description.ts` / `kml-description-html.ts` / `poi-export-content-model.ts`, no existe `ExportResolver` scope-aware, no existen tests PR-EXPORT-4/5/6.
-- Branch de trabajo Lovable (`edit/edt-db7ff5c8…`) = `3a94c613` · v1.5.8 · todos los archivos PR-EXPORT-4/5/6 presentes y coherentes entre sí.
-- La branch de edición es exactamente el delta consolidado que `main` necesita.
+## Alcance ya localizado (no exhaustivo, base de exploración)
 
-## Estrategia
+UI / handlers candidatos:
+- `src/components/ImportedContentPanel.tsx` (hub Archivos · Web · OneDrive · Documentos)
+- `src/domains/content/components/FileUploadZone.tsx`
+- `src/domains/content/components/WebImportPanel.tsx`
+- `src/domains/content/components/BackgroundScrapeJobs.tsx`
+- `src/domains/content/components/UploadPreviewDialog.tsx`
+- `src/domains/content/components/ImportSummaryDialog.tsx`
+- `src/components/OneDrivePhotosPanel.tsx`, `OneDrivePhotoBrowser.tsx`
+- `src/components/LocationMap.tsx` (creación manual desde mapa)
 
-Reaplicar **el contenido del working tree actual** como un único PR consolidado sobre `main`. No reescribo PR-EXPORT-4/5/6 desde cero — replico exactamente el estado ya validado en la branch de edición, garantizando que `main` queda funcionalmente idéntica a v1.5.8.
+Parsers:
+- `src/lib/{kml,kmz,gpx,geojson,csv,geo-file}-parser.ts`
+- `src/lib/parsers/{networklink,shared}.ts`
+- `src/domains/content/lib/parsers.ts` (barrel)
 
-## Pasos de ejecución (build mode)
+Services / writes:
+- `src/services/import.service.ts`
+- `src/domains/v2/dual-write-import.ts`
+- `src/repositories/{waypoint,document-v2,document-track,user-place,place,collection}.repository.ts`
 
-1. **Inventario delta `main` ↔ working tree** (`git diff --name-status origin/main…HEAD` filtrado por dominios export, content-model, tests, docs, memoria, versionado). Output: lista cerrada de archivos nuevos + modificados. Sin sorpresas fuera de export/versión.
-2. **Verificar que el working tree compila y pasa tests** antes de promover:
-   - `bunx vitest run src/test/pr-export-4-internal-semantics src/test/pr-export-5-content-model src/test/pr-export-6-gurumaps-renderer src/test/version-parity`
-   - Si rojo → diagnóstico forense (código vs canon vs deuda), arreglo en mismo PR, no `.skip`.
-3. **Promoción a main**: la branch de edición Lovable ES lo que se publica. Confirmo con `git log origin/main..HEAD --oneline` y dejo el merge real a tu acción "Publish/Update" en la UI Lovable — yo no tengo permiso de mover refs de `main` desde el sandbox.
-4. **Pruebas de aceptación del KML**:
-   - Generar KML real con fixtures `makeTorreHerculesFixture` y `poi-mazinger-z-export` vía `serializePoiKml(records, { scope: 'internal', documentName: 'qa', target: 'gurumaps' })`.
-   - Asserts: el `<description>` contiene `<![CDATA[`, no contiene `<p>`/`<br/>`/`<b>`, contiene separadores `📍`/`🏷`/`🔗` y footer `— Vandits · YYYY-MM-DD`.
-   - Guardar el KML resultante en `/mnt/documents/qa-pr-export-6-torre-hercules.kml` + `qa-pr-export-6-mazinger-z.kml` como evidencia descargable.
-5. **Verificación de paridad de canon**:
-   - `poi-kml.ts` importa `renderExportDescription` (grep).
-   - `gurumaps-description.ts` y `render-export-description.ts` existen.
-   - `APP_VERSION === '1.5.8'`, `package.json.version === '1.5.8'`, README + `version-history.md` alineados.
-   - `version-parity.test.ts` verde.
-6. **Reporte final** con: SHAs antes/después, lista de archivos del delta, conteo de tests verdes, snippet del KML generado (primeros 40 líneas), confirmación de los 4 puntos del checklist del usuario.
+Edge functions de ingesta:
+- `supabase/functions/scrape-atlas-obscura/index.ts` (sync)
+- `supabase/functions/scrape-enqueue/index.ts` + `scrape-tick/index.ts` (queue/cron, tabla `scrape_jobs`)
+- `supabase/functions/fetch-remote-kml/index.ts`
+- `supabase/functions/browse-onedrive/index.ts`, `scan-onedrive-geo/index.ts`
+- `supabase/functions/backfill-scraped-locations/index.ts`
 
-## Postcondiciones (engineering-discipline)
+Tablas escritas (a verificar caso por caso): `documents`, `document_tracks`, `locations`, `waypoints`, `places`, `user_places`, `collections`, `collection_items`, `scrape_jobs`, `enrichment_jobs`.
 
-- Tests verdes (o `.skip` con `// TODO PR-XXX` + issue) — no aplica skip aquí, todo debe pasar.
-- `version-parity.test.ts` verde.
-- `APP_VERSION` ya bumpeado a 1.5.8 (no requiere re-bump).
-- Memoria sync: `mem/logic/export/poi-export-content-model.md` ya actualizada en branch.
-- `docs/releases/version-history.md` ya tiene 1.5.5/1.5.6/1.5.7/1.5.8 en branch.
-- Si algo de lo anterior falla → corrijo en este mismo PR antes de cerrar.
+## Plan de trabajo
 
-## Fuera de alcance
+### 1. Barrido completo de surfaces
+- `rg` por triggers de importación (botones, handlers, llamadas a parsers/edge fns).
+- Cruzar con menú y rutas para detectar surfaces ocultas/legacy/desconectadas.
+- Clasificar cada una: `active | partial | hidden | disconnected | legacy | dead`.
 
-- Reescribir PR-EXPORT-4/5/6 con otro diseño.
-- Tocar `share-vs-export-contract`, eligibility public/internal, RLS, GPX, jobs, thresholds, DTO core, ExportResolver layout.
-- Renombrar capabilities o tocar RBAC.
+### 2. Trazabilidad por flujo
+Para cada surface, seguir: **UI → handler → parser/scraper → mapper → DB write → POI**. Marcar dónde se rompe la cadena.
 
-## Limitación honesta
+### 3. Foco web import
+Documentar exhaustivamente `WebImportPanel` + `scrape-atlas-obscura` + `scrape-enqueue`/`scrape-tick` + `fetch-remote-kml`:
+URL aceptada, provider, presets, campos extraídos (JSON-LD), mapping → POI, validación, dedupe, ownership, errores, límites, queue model, provenance/source URL.
 
-No puedo hacer el merge físico `edit/edt-…` → `main` desde el sandbox: no tengo permisos sobre el ref `main` del remote. Tras la ejecución, **`main` quedará idéntica en contenido al working tree** y la promoción del ref se cierra cuando hagas "Publish" en la UI Lovable (que es lo que efectivamente actualiza el deploy y, según el flujo configurado, también `main`). Entregaré evidencia verificable de que el contenido es el correcto; el botón final es tuyo.
+### 4. Modelo de datos importado
+Tabla campo×surface: nombre, coords, dirección, descripción, imagen, tags, source URL, external_refs, enriched_data, ownership, visibility, jerarquía geo, collection.
 
-Aprueba este plan para que pase a build mode y ejecute los 6 pasos.
+### 5. Calidad y seguridad
+URLs inválidas, scraping fallido, sanitización HTML, dedupe, coords ausentes, imports masivos, rate limits, provider terms, provenance, rollback, preview pre-creación.
+
+### 6. UX por surface
+preview / edición previa / errores humanos / qué se va a crear / duplicados / cancelar.
+
+### 7. Entregable
+`docs/audits/import-discovery.md` con:
+- Tabla maestra `surface | ruta | entrada | parser | edge/RPC | tablas | ownership | dedupe | status`
+- Sección dedicada web import
+- Huecos y riesgos
+- Recomendación: mantener / eliminar / consolidar (sin ejecutar)
+
+### 8. Fuera de alcance
+Schema, RLS, scrapers, edge functions, UI. Cero cambios.
+
+## Próximo paso
+Aprobar → entro en build mode solo para crear el `.md` de auditoría.
