@@ -253,7 +253,7 @@ export function OneDrivePhotosPanel() {
       <div className="shrink-0 px-[var(--panel-padding-x)] pt-[var(--panel-padding-y)] pb-3">
         <PanelTabs.Group>
           <PanelTabs.Trigger value="index" icon={<Database className="w-3.5 h-3.5" />}>
-            Índice
+            Fotos con GPS
           </PanelTabs.Trigger>
           <PanelTabs.Trigger value="browse" icon={<ImageIcon className="w-3.5 h-3.5" />}>
             Explorar

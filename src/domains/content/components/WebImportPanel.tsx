@@ -30,6 +30,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ScrapeJobsList, PRESET_LABEL, PRESET_LEGEND, type Preset } from './BackgroundScrapeJobs';
+import { ImportSurfaceShell } from '@/shared/components/import/ImportSurfaceShell';
 
 type ScrapedPlace = {
   url: string;
@@ -330,20 +331,13 @@ export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
   return (
     <>
       <div className="w-full max-w-lg mx-auto space-y-4">
+        <ImportSurfaceShell
+          surfaceId="web"
+          icon={<Globe className="w-5 h-5" />}
+          title="Importar desde web"
+          subtitle="Pega una URL (Atlas Obscura, listados o páginas compatibles con coordenadas). Pruébala y elige cómo procesarla."
+        />
         <div className="bg-card rounded-2xl border shadow-sm p-5 space-y-4">
-          {/* Header */}
-          <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
-              <Globe className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold">Importar desde web</p>
-              <p className="text-xs text-muted-foreground leading-snug">
-                Pega una URL (Atlas Obscura, listados o cualquier página con coordenadas).
-                Pruébala y elige cómo procesarla.
-              </p>
-            </div>
-          </div>
 
           {/* URL */}
           <div className="space-y-1.5">

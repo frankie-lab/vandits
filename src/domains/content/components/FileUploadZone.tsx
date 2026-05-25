@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { Upload, FileUp, Globe2, CheckCircle, Eye, Users, Lock, ExternalLink, Sparkles } from 'lucide-react';
+import { Upload, FileUp, Globe2, CheckCircle, Eye, Users, Lock, ExternalLink, Sparkles, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { parseGeoFile, SUPPORTED_FORMATS, getFormatFromFileName } from '@/lib/geo-file-parser';
 import { useLocationsStore } from '@/domains/content';
@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { KMLDocument, GeoLocation, LocationVisibility } from '@/types/location';
 import { ImportSummaryDialog } from './ImportSummaryDialog';
 import { CollectionPicker } from './CollectionPicker';
+import { ImportSurfaceShell } from '@/shared/components/import/ImportSurfaceShell';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/domains/identity';
@@ -449,7 +450,19 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
 
  return (
   <>
-   <div className="w-full max-w-lg mx-auto">
+   <div className="w-full max-w-lg mx-auto space-y-4">
+    <ImportSurfaceShell
+     surfaceId="file"
+     icon={<FileText className="w-5 h-5" />}
+     title="Importar desde fichero"
+     subtitle="Formatos soportados: KML · KMZ · GPX · GeoJSON · CSV."
+     notice={
+      !canUpload ? (
+       <span>Confirma las dos condiciones de abajo para poder subir archivos.</span>
+      ) : null
+     }
+     source={undefined}
+    />
     <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
      {/* Drop zone */}
      <label
@@ -602,7 +615,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
             </Link>
            </div>
            <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
-            Confirmo que no contiene datos sensibles o personales de terceros.
+            Confirmo que el archivo no incluye datos sensibles ni personales de terceros.
            </p>
           </div>
          </label>
