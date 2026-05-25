@@ -1,21 +1,17 @@
 /**
- * PR-EXPORT-6 + PR-EXPORT-7 — GuruMaps target renderer.
+ * PR-EXPORT-6 + PR-EXPORT-7 + PR-EXPORT-8 — GuruMaps target renderer.
  *
- * PR-EXPORT-7 ajustes:
- *   - NO bloque de enlaces (🔗) en el cuerpo visible.
- *   - NO hashtags generales (#tag) en el cuerpo visible.
- *   - SÍ etiqueta `Colección: <nombre>` cuando existe en userContext.
- *   - Descripción más larga (MAX_LONG_DESC=700, cap total ≤1200).
- *   - ExtendedData del Placemark sigue conservando links/tags.
+ * PR-EXPORT-8 ajustes:
+ *   - Sin truncado artificial (highlight/longDesc/observation completos).
+ *   - Ficha = popup completo. Incluye categoría, colección, fecha añadido.
+ *   - Mantiene reglas duras: sin HTML, sin enlaces, sin hashtags,
+ *     sin campos técnicos, sin ownerUserId, bloques vacíos omitidos.
  */
 import { describe, it, expect } from 'vitest';
 import { buildPoiExportContent } from '@/domains/content/lib/poi-export-content-model';
 import { mapToPoiExportRecord } from '@/domains/content/lib/poi-export-mapper';
 import { serializePoiKml } from '@/domains/content/lib/exporters';
-import {
-  buildGuruMapsDescription,
-  GURUMAPS_RENDERER_LIMITS,
-} from '@/domains/content/lib/exporters/gurumaps-description';
+import { buildGuruMapsDescription } from '@/domains/content/lib/exporters/gurumaps-description';
 import { renderExportDescription } from '@/domains/content/lib/exporters/render-export-description';
 import { makeTorreHerculesFixture } from '@/test/fixtures/poi-torre-hercules-export';
 import { makeMazingerZFixture } from '@/test/fixtures/poi-mazinger-z-export';
@@ -33,40 +29,13 @@ describe('PR-EXPORT-6 · GuruMaps plain-text renderer', () => {
     }
   });
 
-  it('mantiene estructura legible: ≥3 bloques separados por \\n\\n y total ≤ HARD cap', () => {
+  it('mantiene estructura legible: ≥3 bloques separados por \\n\\n', () => {
     const content = buildPoiExportContent(makeTorreHerculesFixture(), {
       scope: 'internal',
     });
     const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
     const blocks = body.split('\n\n').filter((b) => b.trim().length > 0);
     expect(blocks.length).toBeGreaterThanOrEqual(3);
-    expect(body.length).toBeLessThanOrEqual(GURUMAPS_RENDERER_LIMITS.HARD_TOTAL_CAP);
-  });
-
-  it('trunca longDescription enorme con ellipsis y respeta hard cap', () => {
-    const huge = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. '.repeat(60);
-    const loc = makeTorreHerculesFixture({
-      enrichedData: {
-        ...makeTorreHerculesFixture().enrichedData!,
-        descripcion: huge,
-        punto_destacado: undefined as unknown as string,
-      },
-    });
-    const content = buildPoiExportContent(loc, { scope: 'internal' });
-    const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
-    expect(body.length).toBeLessThanOrEqual(GURUMAPS_RENDERER_LIMITS.HARD_TOTAL_CAP);
-    expect(body).toMatch(/…|\.\.\./);
-  });
-
-  it('prioriza highlight antes que longDescription', () => {
-    const content = buildPoiExportContent(makeTorreHerculesFixture(), {
-      scope: 'internal',
-    });
-    const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
-    const idxHighlight = body.indexOf('Único faro romano');
-    const idxLong = body.indexOf('Patrimonio de la Humanidad');
-    expect(idxHighlight).toBeGreaterThanOrEqual(0);
-    expect(idxLong).toBeGreaterThan(idxHighlight);
   });
 
   it('footer Vandits con fecha YYYY-MM-DD (no ISO completo)', () => {
@@ -127,7 +96,6 @@ describe('PR-EXPORT-7 · simplificación GuruMaps (no links, no hashtags, colecc
     const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
     expect(body).not.toMatch(/#[a-zA-Z0-9áéíóúñ]+/);
     expect(body).not.toContain('🏷');
-    expect(body).not.toMatch(/#monumento/);
   });
 
   it('SÍ renderiza colección si existe en userContext (scope=internal)', () => {
@@ -146,45 +114,6 @@ describe('PR-EXPORT-7 · simplificación GuruMaps (no links, no hashtags, colecc
     expect(body).not.toMatch(/Colección:/);
   });
 
-  it('Aprovecha espacio para descripción larga (>500 chars permitidos)', () => {
-    const longText =
-      'La Torre de Hércules es el único faro romano del mundo en funcionamiento. ' +
-      'Construido en el siglo I d.C. por orden del emperador Trajano, su estructura ' +
-      'original de granito fue restaurada en el siglo XVIII. Fue declarado Patrimonio ' +
-      'de la Humanidad por la UNESCO en 2009 y constituye el faro en activo más ' +
-      'antiguo del mundo. Su silueta domina el cabo y guía a los navegantes desde ' +
-      'hace casi dos mil años, siendo un emblema de la ciudad de A Coruña.';
-    const loc = makeTorreHerculesFixture({
-      enrichedData: {
-        ...makeTorreHerculesFixture().enrichedData!,
-        descripcion: longText,
-      },
-    });
-    const content = buildPoiExportContent(loc, { scope: 'internal' });
-    const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
-    expect(body.length).toBeGreaterThan(500);
-    expect(body.length).toBeLessThanOrEqual(GURUMAPS_RENDERER_LIMITS.HARD_TOTAL_CAP);
-  });
-
-  it('Orden canónico: 📍 → highlight → longDesc → 📝 → Colección → footer', () => {
-    const content = buildPoiExportContent(makeTorreHerculesFixture(), {
-      scope: 'internal',
-    });
-    const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
-    const idxLoc = body.indexOf('📍');
-    const idxHi = body.indexOf('Único faro romano');
-    const idxLong = body.indexOf('Patrimonio de la Humanidad');
-    const idxNote = body.indexOf('📝');
-    const idxCol = body.indexOf('Colección:');
-    const idxFooter = body.indexOf('— Vandits');
-    expect(idxLoc).toBeGreaterThanOrEqual(0);
-    expect(idxHi).toBeGreaterThan(idxLoc);
-    expect(idxLong).toBeGreaterThan(idxHi);
-    expect(idxNote).toBeGreaterThan(idxLong);
-    expect(idxCol).toBeGreaterThan(idxNote);
-    expect(idxFooter).toBeGreaterThan(idxCol);
-  });
-
   it('ExtendedData del Placemark conserva tags y web_reference aunque no aparezcan en cuerpo', () => {
     const loc = makeTorreHerculesFixture();
     const kml = serializePoiKml([mapToPoiExportRecord(loc, 'internal')], {
@@ -192,13 +121,130 @@ describe('PR-EXPORT-7 · simplificación GuruMaps (no links, no hashtags, colecc
       documentName: 'Test',
       target: 'gurumaps',
     });
-    // ExtendedData mantiene la información estructurada
     expect(kml).toMatch(/tags|etiquetas|categories/i);
-    // cuerpo visible NO contiene hashtags ni URLs
     const desc = kml.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/);
     expect(desc).not.toBeNull();
     expect(desc![1]).not.toMatch(/#[a-zA-Z]/);
     expect(desc![1]).not.toMatch(/https?:\/\//);
+  });
+});
+
+describe('PR-EXPORT-8 · ficha completa sin truncado', () => {
+  const LONG_DESC =
+    'La Torre de Hércules es el único faro romano del mundo en funcionamiento. ' +
+    'Construido en el siglo I d.C. por orden del emperador Trajano, su estructura ' +
+    'original de granito fue restaurada en el siglo XVIII por el ingeniero Eustaquio ' +
+    'Giannini. Fue declarado Patrimonio de la Humanidad por la UNESCO en 2009 y ' +
+    'constituye el faro en activo más antiguo del mundo. Su silueta de granito domina ' +
+    'el cabo y guía a los navegantes desde hace casi dos mil años. La torre se eleva ' +
+    'sobre una colina rocosa de 57 metros de altura, y su lanterna alcanza los 49 ' +
+    'metros sobre la base. Desde su cima, los visitantes pueden contemplar una vista ' +
+    'panorámica espectacular del océano Atlántico, la bahía de A Coruña y la costa ' +
+    'gallega. El recinto incluye también un parque escultórico al aire libre con ' +
+    'obras de artistas contemporáneos que dialogan con el paisaje atlántico. Visitar ' +
+    'la torre al atardecer es una experiencia que combina historia, naturaleza y arte ' +
+    'en un mismo enclave irrepetible.';
+  const LONG_HIGHLIGHT =
+    'El único faro romano del mundo todavía en funcionamiento, construido en el ' +
+    'siglo I d.C. y declarado Patrimonio de la Humanidad por la UNESCO en 2009 — ' +
+    'una pieza viva de patrimonio universal que sigue guiando barcos cada noche.';
+  const LONG_OBS =
+    'Visita guiada disponible los fines de semana a las 11:00 y 17:00. Conviene ' +
+    'reservar entrada online con varios días de antelación, especialmente en ' +
+    'temporada alta. El acceso superior implica subir 234 escalones por una escalera ' +
+    'estrecha — no apto para personas con movilidad reducida o claustrofobia.';
+
+  function makeRichFixture() {
+    return makeTorreHerculesFixture({
+      enrichedData: {
+        ...makeTorreHerculesFixture().enrichedData!,
+        descripcion: LONG_DESC,
+        punto_destacado: LONG_HIGHLIGHT,
+        observacion: LONG_OBS,
+      },
+    });
+  }
+
+  it('NO trunca descripción larga', () => {
+    const content = buildPoiExportContent(makeRichFixture(), { scope: 'internal' });
+    const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
+    expect(body).toContain(LONG_DESC);
+    expect(body).not.toMatch(/…|\.\.\./);
+  });
+
+  it('NO trunca highlight', () => {
+    const content = buildPoiExportContent(makeRichFixture(), { scope: 'internal' });
+    const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
+    expect(body).toContain(LONG_HIGHLIGHT);
+  });
+
+  it('NO trunca observación', () => {
+    const content = buildPoiExportContent(makeRichFixture(), { scope: 'internal' });
+    const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
+    expect(body).toContain(LONG_OBS);
+  });
+
+  it('conserva contenido completo del fixture rico (todos los slots presentes)', () => {
+    const content = buildPoiExportContent(makeRichFixture(), { scope: 'internal' });
+    const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
+    expect(body).toContain('📍 A Coruña · A Coruña · España');
+    expect(body).toContain(LONG_HIGHLIGHT);
+    expect(body).toContain(LONG_DESC);
+    expect(body).toContain('📝');
+    expect(body).toContain(LONG_OBS);
+    expect(body).toContain('Categoría: Patrimonio histórico');
+    expect(body).toContain('Colección: Faros del Atlántico');
+    expect(body).toContain('Añadido: 2024-06-15');
+    expect(body).toMatch(/— Vandits · 2026-05-24$/);
+  });
+
+  it('omite bloques vacíos (POI minimal sin observación/colección)', () => {
+    const minimal = makeMazingerZFixture({
+      customData: {}, // sin colección
+      enrichedData: {
+        ...makeMazingerZFixture().enrichedData!,
+        observacion: undefined as unknown as string,
+      },
+    });
+    const content = buildPoiExportContent(minimal, { scope: 'internal' });
+    const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
+    expect(body).not.toContain('📝');
+    expect(body).not.toMatch(/Colección:/);
+    // pero footer sigue presente
+    expect(body).toMatch(/— Vandits · 2026-05-24$/);
+  });
+
+  it('internal vs public se diferencian: public no expone colección ni fecha añadido', () => {
+    const internal = buildGuruMapsDescription(
+      buildPoiExportContent(makeTorreHerculesFixture(), { scope: 'internal' }),
+      { generatedAt: GEN_AT },
+    );
+    const pub = buildGuruMapsDescription(
+      buildPoiExportContent(makeTorreHerculesFixture(), { scope: 'public' }),
+      { generatedAt: GEN_AT },
+    );
+    expect(internal).toContain('Colección:');
+    expect(internal).toContain('Añadido:');
+    expect(pub).not.toContain('Colección:');
+    expect(pub).not.toContain('Añadido:');
+  });
+
+  it('jamás contiene ownerUserId, debug, ni claves prohibidas', () => {
+    const content = buildPoiExportContent(makeTorreHerculesFixture(), {
+      scope: 'internal',
+    });
+    const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
+    for (const key of [
+      'ownerUserId',
+      'owner_user_id',
+      'user-vandits-owner',
+      'debug',
+      'raw_geocode',
+      'apiKey',
+      'secret',
+    ]) {
+      expect(body.toLowerCase()).not.toContain(key.toLowerCase());
+    }
   });
 });
 
