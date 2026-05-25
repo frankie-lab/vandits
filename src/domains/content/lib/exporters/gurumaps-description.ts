@@ -1,14 +1,21 @@
 /**
- * PR-EXPORT-6 — GuruMaps target renderer.
+ * PR-EXPORT-6 + PR-EXPORT-7 — GuruMaps target renderer.
  *
  * Produce plain-text descriptions optimizadas para la app móvil GuruMaps,
  * que renderiza inconsistente los tags HTML. Reglas:
  *   - Sin tags HTML (<p>, <br/>, <b>, <i>, <a>, <img>).
  *   - Bloques cortos separados por línea en blanco (`\n\n`).
- *   - Emoji literales como separador visual (📍 🏷 📝 🔗).
+ *   - Emoji literales como separador visual (📍 📝 📚).
  *   - Truncation por frases con ellipsis "…".
- *   - URLs en línea propia → GuruMaps las auto-linkifica.
+ *   - PR-EXPORT-7: NO bloque de enlaces (🔗) ni hashtags generales (#tag).
+ *     Si existe `userContext.collection`, se renderiza como `Colección: <nombre>`
+ *     (única etiqueta contextual permitida en el cuerpo visible).
  *   - Imagen omitida (GuruMaps no la renderiza fiable; va en ExtendedData).
+ *   - Links/tags se mantienen en ExtendedData del Placemark, no en cuerpo.
+ *
+ * Orden canónico (PR-EXPORT-7):
+ *   📍 Ubicación → highlight → descripción larga →
+ *   📝 nota/observación → Colección: <X> → footer Vandits.
  *
  * Ver `docs/contracts/poi-export-content-model.md` § Rendering targets.
  */
@@ -20,12 +27,11 @@ export interface BuildGuruMapsDescriptionOptions {
   generatedAt?: string;
 }
 
-const MAX_HIGHLIGHT = 180;
-const MAX_LONG_DESC = 280;
-const MAX_OBSERVATION = 200;
-const MAX_TAGS = 5;
-const MAX_LINKS = 3;
-const SOFT_TOTAL_CAP = 900;
+// PR-EXPORT-7: límites más holgados para ficha más rica.
+const MAX_HIGHLIGHT = 240;
+const MAX_LONG_DESC = 700;
+const MAX_OBSERVATION = 240;
+const SOFT_TOTAL_CAP = 1100;
 const HARD_TOTAL_CAP = 1200;
 
 function truncateAtSentence(text: string, max: number): string {
@@ -33,7 +39,6 @@ function truncateAtSentence(text: string, max: number): string {
   const clean = text.trim();
   if (clean.length <= max) return clean;
   const slice = clean.slice(0, max);
-  // Buscar último cierre de frase
   const sentenceEnd = Math.max(
     slice.lastIndexOf('.'),
     slice.lastIndexOf('!'),
@@ -49,31 +54,6 @@ function truncateAtSentence(text: string, max: number): string {
   return slice.trim() + '…';
 }
 
-function compactUrl(url: string, maxLen = 60): string {
-  if (!url) return '';
-  if (url.length <= maxLen) return url;
-  try {
-    const u = new URL(url);
-    return u.host;
-  } catch {
-    return url.slice(0, maxLen) + '…';
-  }
-}
-
-function labelForLink(url: string, isWebReference: boolean): string {
-  if (isWebReference) return 'Web oficial';
-  try {
-    const host = new URL(url).host.toLowerCase();
-    if (host.includes('wikipedia')) return 'Wikipedia';
-    if (host.includes('wikidata')) return 'Wikidata';
-    if (host.includes('unesco')) return 'UNESCO';
-    if (host.includes('openstreetmap') || host === 'osm.org') return 'OpenStreetMap';
-  } catch {
-    /* noop */
-  }
-  return 'Más info';
-}
-
 function joinTerritorial(content: PoiExportContent): string | undefined {
   const g = content.geography;
   const parts = [g.locality, g.province, g.country].filter(
@@ -83,10 +63,14 @@ function joinTerritorial(content: PoiExportContent): string | undefined {
 }
 
 interface Block {
-  key: 'territorial' | 'highlight' | 'longDesc' | 'classification' | 'observation' | 'links' | 'footer';
+  key:
+    | 'territorial'
+    | 'highlight'
+    | 'longDesc'
+    | 'observation'
+    | 'collection'
+    | 'footer';
   text: string;
-  /** Prioridad de retención (mayor = se conserva). */
-  priority: number;
 }
 
 function buildBlocks(
@@ -94,83 +78,46 @@ function buildBlocks(
   generatedAt: string,
 ): Block[] {
   const blocks: Block[] = [];
-  const { summary, classification, provenance } = content;
+  const { summary, userContext } = content;
 
   const territorial = joinTerritorial(content);
   if (territorial) {
-    blocks.push({ key: 'territorial', text: `📍 ${territorial}`, priority: 90 });
+    blocks.push({ key: 'territorial', text: `📍 ${territorial}` });
   }
 
   if (summary.highlight) {
     blocks.push({
       key: 'highlight',
       text: truncateAtSentence(summary.highlight, MAX_HIGHLIGHT),
-      priority: 100,
     });
   }
 
-  // longDescription sólo si no eclipsa el highlight; en este renderer
-  // siempre lo incluimos truncado, pero recortamos primero si hace falta.
   if (summary.longDescription) {
-    const useMax = summary.highlight ? Math.min(MAX_LONG_DESC, 220) : MAX_LONG_DESC;
-    const truncated = truncateAtSentence(summary.longDescription, useMax);
-    if (truncated && truncated !== blocks.find((b) => b.key === 'highlight')?.text) {
-      blocks.push({ key: 'longDesc', text: truncated, priority: 70 });
+    const truncated = truncateAtSentence(summary.longDescription, MAX_LONG_DESC);
+    const highlightText = blocks.find((b) => b.key === 'highlight')?.text;
+    if (truncated && truncated !== highlightText) {
+      blocks.push({ key: 'longDesc', text: truncated });
     }
-  }
-
-  const tags = (classification.tags ?? [])
-    .filter((t) => {
-      if (!classification.category) return true;
-      return t.toLowerCase() !== classification.category.toLowerCase();
-    })
-    .slice(0, MAX_TAGS)
-    .map((t) => `#${t}`);
-  if (classification.category || tags.length > 0) {
-    const left = classification.category ?? '';
-    const right = tags.join(' ');
-    const line = [left, right].filter(Boolean).join(' — ');
-    blocks.push({ key: 'classification', text: `🏷 ${line}`, priority: 60 });
   }
 
   if (summary.observation) {
     blocks.push({
       key: 'observation',
       text: `📝 ${truncateAtSentence(summary.observation, MAX_OBSERVATION)}`,
-      priority: 80,
     });
   }
 
-  // Links
-  const linkLines: string[] = [];
-  const seenUrls = new Set<string>();
-  if (provenance.webReference) {
-    const url = provenance.webReference;
-    seenUrls.add(url);
-    linkLines.push(`${labelForLink(url, true)}: ${compactUrl(url)}\n${url}`);
-  }
-  for (const src of provenance.sources) {
-    if (linkLines.length >= MAX_LINKS) break;
-    if (!/^https?:\/\//i.test(src)) continue;
-    if (seenUrls.has(src)) continue;
-    seenUrls.add(src);
-    linkLines.push(`${labelForLink(src, false)}: ${compactUrl(src)}\n${src}`);
-  }
-  if (linkLines.length > 0) {
+  // PR-EXPORT-7: única etiqueta contextual permitida — nombre de colección.
+  // Sólo presente en scope=internal (userContext es internal-only).
+  if (userContext?.collection) {
     blocks.push({
-      key: 'links',
-      text: `🔗 Enlaces\n${linkLines.join('\n')}`,
-      priority: 50,
+      key: 'collection',
+      text: `Colección: ${userContext.collection.trim()}`,
     });
   }
 
-  // Footer mínimo — sólo fecha YYYY-MM-DD
   const date = generatedAt.slice(0, 10);
-  blocks.push({
-    key: 'footer',
-    text: `— Vandits · ${date}`,
-    priority: 10,
-  });
+  blocks.push({ key: 'footer', text: `— Vandits · ${date}` });
 
   return blocks;
 }
@@ -183,11 +130,10 @@ function enforceLengthCap(blocks: Block[]): Block[] {
   let out = blocks.slice();
   if (joinBlocks(out).length <= SOFT_TOTAL_CAP) return out;
 
-  // Estrategia: recortar longDesc primero, luego eliminar classification,
-  // luego eliminar longDesc completo. Nunca tocar highlight/territorial/footer.
+  // Recortar longDesc progresivamente. Nunca tocar territorial/highlight/footer.
   const longIdx = out.findIndex((b) => b.key === 'longDesc');
   if (longIdx >= 0) {
-    const target = Math.max(120, MAX_LONG_DESC - 100);
+    const target = Math.max(280, MAX_LONG_DESC - 200);
     out[longIdx] = {
       ...out[longIdx],
       text: truncateAtSentence(out[longIdx].text, target),
@@ -196,21 +142,16 @@ function enforceLengthCap(blocks: Block[]): Block[] {
   }
 
   if (joinBlocks(out).length > HARD_TOTAL_CAP) {
-    out = out.filter((b) => b.key !== 'classification');
+    out = out.filter((b) => b.key !== 'observation');
   }
   if (joinBlocks(out).length > HARD_TOTAL_CAP) {
     out = out.filter((b) => b.key !== 'longDesc');
   }
   if (joinBlocks(out).length > HARD_TOTAL_CAP) {
-    // último recurso: truncar el body completo
     const joined = joinBlocks(out);
     return [
-      {
-        key: 'highlight',
-        text: truncateAtSentence(joined, HARD_TOTAL_CAP - 40),
-        priority: 100,
-      },
-      out[out.length - 1], // footer
+      { key: 'highlight', text: truncateAtSentence(joined, HARD_TOTAL_CAP - 40) },
+      out[out.length - 1],
     ];
   }
   return out;
@@ -234,8 +175,6 @@ export const GURUMAPS_RENDERER_LIMITS = {
   MAX_HIGHLIGHT,
   MAX_LONG_DESC,
   MAX_OBSERVATION,
-  MAX_TAGS,
-  MAX_LINKS,
   SOFT_TOTAL_CAP,
   HARD_TOTAL_CAP,
 } as const;
