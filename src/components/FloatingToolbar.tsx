@@ -2,6 +2,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useCoalescedRealtimeTick } from '@/components/map/use-coalesced-realtime-tick';
 import { dispatchGlobalEvent } from '@/lib/global-events';
+import { awaitMapInteractive } from '@/shared/boot/boot-gate';
+import { createConcurrencyPool } from '@/shared/boot/concurrency-pool';
+import { bootMark } from '@/shared/perf/boot-perf';
 import { motion } from 'framer-motion';
 import { 
  Filter, 
