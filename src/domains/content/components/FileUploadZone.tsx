@@ -528,129 +528,90 @@ export function FileUploadZone({
      </div>
     )}
     <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
-     {/* Drop zone */}
-     <label
-      className={`
-       relative flex flex-col items-center justify-center w-full min-h-[180px] cursor-pointer
-       transition-all duration-300 ease-out group border-b
-       ${isDragging
-        ? 'bg-primary/5'
-        : isProcessing
-         ? 'bg-muted/30 pointer-events-none opacity-60'
-         : canUpload
-          ? 'bg-muted/10 hover:bg-primary/5'
-          : 'bg-muted/20 opacity-50 pointer-events-none'
-       }
-      `}
-      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-      onDragLeave={() => setIsDragging(false)}
-      onDrop={handleDrop}
-     >
-      <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileInput} disabled={isProcessing || !canUpload} />
-
-      <motion.div
-       animate={isDragging ? { scale: 1.05, y: -3 } : { scale: 1, y: 0 }}
-       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-       className="flex flex-col items-center gap-2.5 py-6"
-      >
-       <div className={`
-        p-3.5 rounded-2xl transition-all duration-300
-        ${isDragging
-         ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
-         : 'bg-accent/60 text-accent-foreground group-hover:bg-primary/10 group-hover:text-primary'
-        }
-       `}>
-         {isProcessing ? (
-          <div className="relative">
-           <Globe2 className="w-7 h-7 animate-spin" />
-           <div className="absolute inset-0 animate-ping opacity-30"><Globe2 className="w-7 h-7" /></div>
-          </div>
-         ) : isDragging ? (
-          <FileUp className="w-7 h-7" />
-         ) : (
-          <Upload className="w-7 h-7" />
-         )}
-        </div>
-
-        <div className="text-center space-y-1">
-         <p className="text-sm font-semibold text-foreground">
-          {isProcessing ? 'Cargando y analizando archivo...' : isDragging ? 'Suelta aquí' : canUpload ? 'Arrastra tu archivo aquí' : 'Acepta las condiciones primero'}
-         </p>
-         {isProcessing && <p className="text-xs text-muted-foreground animate-pulse">Detectando formato y extrayendo puntos</p>}
-        {canUpload && !isProcessing && !isDragging && (
-         <p className="text-xs text-muted-foreground">
-          o <span className="text-primary font-medium">haz clic para seleccionar</span>
-         </p>
-        )}
-       </div>
-
-       <div className="flex items-center gap-1.5">
-        {SUPPORTED_FORMATS.map(format => (
-         <Tooltip key={format.id}>
-          <TooltipTrigger asChild>
-           <span className="px-2 py-0.5 rounded-md bg-muted text-muted-foreground text-[10px] font-medium cursor-default">
-            {format.name}
-           </span>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">
-           <p>{format.description} — {format.platforms.join(', ')}</p>
-          </TooltipContent>
-         </Tooltip>
-        ))}
-        <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 ml-1">
-         <Sparkles className="w-2.5 h-2.5" /> Auto
-        </span>
-       </div>
-      </motion.div>
-
-      {isDragging && (
-       <motion.div
-        className="absolute inset-0 border-2 border-dashed border-primary rounded-t-2xl pointer-events-none"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: [0.4, 1, 0.4] }}
-        transition={{ duration: 1.5, repeat: Infinity }}
-       />
-      )}
-     </label>
-
-     {/* Settings */}
+     {/* Settings (PR-IMPORT-UX-4-FIX) — orden lógico:
+         1) Condiciones (desbloquean el dropzone)
+         2) Visibilidad
+         3) Colección destino
+         Después: dropzone (al final, listo para usarse). */}
      <div className="px-5 py-4 space-y-4">
-      {/* Visibility */}
-      {false ? null : (
+       {/* Conditions — primero, porque su aceptación desbloquea el dropzone */}
        <div className="space-y-1.5">
-        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Visibilidad</Label>
-        <RadioGroup
-         value={uploadConditions.visibility}
-         onValueChange={(value) => setUploadConditions(prev => ({ ...prev, visibility: value as LocationVisibility }))}
-         className="grid grid-cols-3 gap-1.5"
-        >
-         {VISIBILITY_OPTIONS.map(option => (
-          <label
-           key={option.value}
-           className={`
-            relative flex flex-col items-center gap-1 p-2.5 rounded-xl border cursor-pointer transition-all text-center
-            ${uploadConditions.visibility === option.value
-             ? 'border-primary bg-primary/5 shadow-sm shadow-primary/10'
-             : 'border-border hover:border-primary/30 hover:bg-muted/30'
-            }
-           `}
-          >
-           <RadioGroupItem value={option.value} id={option.value} className="sr-only" />
-           <div className={`p-1 rounded-lg transition-colors ${uploadConditions.visibility === option.value ? 'text-primary' : 'text-muted-foreground'}`}>
-            {option.icon}
+         <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Antes de subir, confirma</Label>
+         <div className="grid grid-cols-1 gap-2">
+          <label className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${uploadConditions.acceptTerms ? 'border-primary/30 bg-primary/5' : 'border-border hover:bg-muted/30'}`}>
+           <Checkbox
+            checked={uploadConditions.acceptTerms}
+            onCheckedChange={(checked) => setUploadConditions(prev => ({ ...prev, acceptTerms: checked === true }))}
+            className="mt-0.5"
+           />
+           <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+             <span className="text-xs font-medium">Términos de uso</span>
+             <Link to="/terms" target="_blank" className="text-[10px] text-primary hover:underline flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+              Leer <ExternalLink className="w-2.5 h-2.5" />
+             </Link>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
+             Confirmo que el archivo no incluye datos sensibles ni personales de terceros.
+            </p>
            </div>
-           <span className="text-[11px] font-semibold leading-none">{option.label}</span>
-           <span className="text-[9px] text-muted-foreground leading-tight">{option.description}</span>
-           {uploadConditions.visibility === option.value && (
-            <motion.div layoutId="vis-indicator" className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
-             <CheckCircle className="w-2.5 h-2.5" />
-            </motion.div>
-           )}
           </label>
-         ))}
-         </RadioGroup>
+
+          <label className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${uploadConditions.acceptDuplicatePolicy ? 'border-primary/30 bg-primary/5' : 'border-border hover:bg-muted/30'}`}>
+           <Checkbox
+            checked={uploadConditions.acceptDuplicatePolicy}
+            onCheckedChange={(checked) => setUploadConditions(prev => ({ ...prev, acceptDuplicatePolicy: checked === true }))}
+            className="mt-0.5"
+           />
+           <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+             <span className="text-xs font-medium">Política de duplicados</span>
+             <Link to="/duplicate-policy" target="_blank" className="text-[10px] text-primary hover:underline flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+              Leer <ExternalLink className="w-2.5 h-2.5" />
+             </Link>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
+             Los duplicados se omitirán y se conservarán las versiones enriquecidas.
+            </p>
+           </div>
+          </label>
+         </div>
         </div>
-       )}
+
+       {/* Visibility */}
+       <div className="space-y-1.5">
+         <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Visibilidad</Label>
+         <RadioGroup
+          value={uploadConditions.visibility}
+          onValueChange={(value) => setUploadConditions(prev => ({ ...prev, visibility: value as LocationVisibility }))}
+          className="grid grid-cols-3 gap-1.5"
+         >
+          {VISIBILITY_OPTIONS.map(option => (
+           <label
+            key={option.value}
+            className={`
+             relative flex flex-col items-center gap-1 p-2.5 rounded-xl border cursor-pointer transition-all text-center
+             ${uploadConditions.visibility === option.value
+              ? 'border-primary bg-primary/5 shadow-sm shadow-primary/10'
+              : 'border-border hover:border-primary/30 hover:bg-muted/30'
+             }
+            `}
+           >
+            <RadioGroupItem value={option.value} id={option.value} className="sr-only" />
+            <div className={`p-1 rounded-lg transition-colors ${uploadConditions.visibility === option.value ? 'text-primary' : 'text-muted-foreground'}`}>
+             {option.icon}
+            </div>
+            <span className="text-[11px] font-semibold leading-none">{option.label}</span>
+            <span className="text-[9px] text-muted-foreground leading-tight">{option.description}</span>
+            {uploadConditions.visibility === option.value && (
+             <motion.div layoutId="vis-indicator" className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+              <CheckCircle className="w-2.5 h-2.5" />
+             </motion.div>
+            )}
+           </label>
+          ))}
+          </RadioGroup>
+         </div>
 
        {/* Collection picker (transversal) */}
        <CollectionPicker
@@ -660,53 +621,96 @@ export function FileUploadZone({
          newName={newCollectionName}
          onNewNameChange={setNewCollectionName}
        />
+      </div>
 
-       {/* Conditions */}
-      <div className="space-y-1.5">
-        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Condiciones</Label>
-        <div className="grid grid-cols-1 gap-2">
-         <label className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${uploadConditions.acceptTerms ? 'border-primary/30 bg-primary/5' : 'border-border hover:bg-muted/30'}`}>
-          <Checkbox
-           checked={uploadConditions.acceptTerms}
-           onCheckedChange={(checked) => setUploadConditions(prev => ({ ...prev, acceptTerms: checked === true }))}
-           className="mt-0.5"
-          />
-          <div className="flex-1 min-w-0">
-           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-medium">Términos de uso</span>
-            <Link to="/terms" target="_blank" className="text-[10px] text-primary hover:underline flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-             Leer <ExternalLink className="w-2.5 h-2.5" />
-            </Link>
-           </div>
-           <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
-            Confirmo que el archivo no incluye datos sensibles ni personales de terceros.
-           </p>
-          </div>
-         </label>
+      {/* Drop zone — al final: una vez confirmadas las condiciones y elegido destino */}
+      <label
+       data-import-dropzone="files"
+       className={`
+        relative flex flex-col items-center justify-center w-full min-h-[180px] cursor-pointer
+        transition-all duration-300 ease-out group border-t
+        ${isDragging
+         ? 'bg-primary/5'
+         : isProcessing
+          ? 'bg-muted/30 pointer-events-none opacity-60'
+          : canUpload
+           ? 'bg-muted/10 hover:bg-primary/5'
+           : 'bg-muted/20 opacity-50 pointer-events-none'
+        }
+       `}
+       onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+       onDragLeave={() => setIsDragging(false)}
+       onDrop={handleDrop}
+      >
+       <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileInput} disabled={isProcessing || !canUpload} />
 
-         <label className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${uploadConditions.acceptDuplicatePolicy ? 'border-primary/30 bg-primary/5' : 'border-border hover:bg-muted/30'}`}>
-          <Checkbox
-           checked={uploadConditions.acceptDuplicatePolicy}
-           onCheckedChange={(checked) => setUploadConditions(prev => ({ ...prev, acceptDuplicatePolicy: checked === true }))}
-           className="mt-0.5"
-          />
-          <div className="flex-1 min-w-0">
-           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-medium">Política de duplicados</span>
-            <Link to="/duplicate-policy" target="_blank" className="text-[10px] text-primary hover:underline flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-             Leer <ExternalLink className="w-2.5 h-2.5" />
-            </Link>
+       <motion.div
+        animate={isDragging ? { scale: 1.05, y: -3 } : { scale: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+        className="flex flex-col items-center gap-2.5 py-6"
+       >
+        <div className={`
+         p-3.5 rounded-2xl transition-all duration-300
+         ${isDragging
+          ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
+          : 'bg-accent/60 text-accent-foreground group-hover:bg-primary/10 group-hover:text-primary'
+         }
+        `}>
+          {isProcessing ? (
+           <div className="relative">
+            <Globe2 className="w-7 h-7 animate-spin" />
+            <div className="absolute inset-0 animate-ping opacity-30"><Globe2 className="w-7 h-7" /></div>
            </div>
-           <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
-            Los duplicados se omitirán y se conservarán las versiones enriquecidas.
-           </p>
-          </div>
-         </label>
+          ) : isDragging ? (
+           <FileUp className="w-7 h-7" />
+          ) : (
+           <Upload className="w-7 h-7" />
+          )}
+         </div>
+
+         <div className="text-center space-y-1">
+          <p className="text-sm font-semibold text-foreground">
+           {isProcessing ? 'Cargando y analizando archivo...' : isDragging ? 'Suelta aquí' : canUpload ? 'Arrastra tu archivo aquí' : 'Confirma las condiciones de arriba primero'}
+          </p>
+          {isProcessing && <p className="text-xs text-muted-foreground animate-pulse">Detectando formato y extrayendo puntos</p>}
+         {canUpload && !isProcessing && !isDragging && (
+          <p className="text-xs text-muted-foreground">
+           o <span className="text-primary font-medium">haz clic para seleccionar</span>
+          </p>
+         )}
         </div>
-       </div>
+
+        <div className="flex items-center gap-1.5">
+         {SUPPORTED_FORMATS.map(format => (
+          <Tooltip key={format.id}>
+           <TooltipTrigger asChild>
+            <span className="px-2 py-0.5 rounded-md bg-muted text-muted-foreground text-[10px] font-medium cursor-default">
+             {format.name}
+            </span>
+           </TooltipTrigger>
+           <TooltipContent side="bottom" className="text-xs">
+            <p>{format.description} — {format.platforms.join(', ')}</p>
+           </TooltipContent>
+          </Tooltip>
+         ))}
+         <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 ml-1">
+          <Sparkles className="w-2.5 h-2.5" /> Auto
+         </span>
+        </div>
+       </motion.div>
+
+       {isDragging && (
+        <motion.div
+         className="absolute inset-0 border-2 border-dashed border-primary rounded-b-2xl pointer-events-none"
+         initial={{ opacity: 0 }}
+         animate={{ opacity: [0.4, 1, 0.4] }}
+         transition={{ duration: 1.5, repeat: Infinity }}
+        />
+       )}
+      </label>
      </div>
     </div>
-   </div>
+
 
     <ImportSummaryDialog
      open={showSummary}

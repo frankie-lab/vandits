@@ -1,118 +1,94 @@
-## PR-IMPORT-UX-4 — Sub-toggle por fuente + CTA real en footer
+## PR-IMPORT-UX-4-FIX — Plan
 
-### 1. Estructura
+### Alcance
+Sólo UI/orquestación de `ImportedContentPanel` + reorden interno de `FileUploadZone` + empty state de `DocumentsPanel` + tests + memoria. **No tocar** parsers, scrapers, edge functions, schema, RLS, lógica de import, ni creación de POIs desde fotos.
 
-`ImportedContentPanel` mantiene las 3 tabs principales (Archivos / Web / Imágenes). Bajo cada tab, un sub-toggle binario (segmented control compacto, no `PanelTabs.Trigger` grande) entre **acción** e **histórico**. Default = acción. Estado por tab independiente.
+---
 
-| Tab        | Vista Acción           | Vista Histórico       |
-|------------|------------------------|------------------------|
-| Archivos   | Subir archivos         | Histórico de archivos  |
-| Web        | Seleccionar web        | Jobs recientes         |
-| Imágenes   | Subir imágenes         | Histórico de imágenes  |
+### Hallazgos previos (auditoría, ya hecha)
 
-### 2. Layout fijo por vista
+- **DB `documents.source_type`** (enum real): `kml | gpx | geojson | csv | manual | web_import`. NO existe `kmz` (KMZ se persiste como `kml` — confirmado en `FileUploadZone.tsx:417`). NO existe `scrape` ni `atlas-obscura` ni `onedrive` ni `photo`.
+- **Conteo actual en prod**: `kml=8`, `web_import=6`, `manual=4`, `NULL=4`.
+- **Bug de filtros**:
+  - `WEB_SOURCE_TYPES = ['web_import','scrape','atlas-obscura']` — los dos últimos NUNCA existen → ruido sin efecto, pero el canon debe quedar `['web_import']`.
+  - `IMAGE_SOURCE_TYPES = ['onedrive','photo']` — NINGUNO existe en enum → histórico imágenes SIEMPRE vacío.
+  - `FILE_SOURCE_TYPES` actual es correcto funcionalmente (KMZ → kml), pero conviene documentarlo.
+- **Empty state** de `DocumentsPanel.tsx:425`: "Sube un archivo KML, GPX o GeoJSON" — omite KMZ y CSV, y es genérico (no sabe que está en histórico).
 
-```
-PanelShell
-├── Tabs principales (Archivos | Web | Imágenes)
-├── Sub-toggle (Acción | Histórico)
-├── Body (scrollable) — contenido de la vista activa
-└── PanelFooter (sticky) — CTA real
-```
+---
 
-### 3. CTA real en PanelFooter (no decorativo)
+### Cambios
 
-**Vista Acción**:
-- **Archivos**: `Subir archivo` / `Importar archivo` (deshabilitado hasta `canUpload && fileSelected`). Si no hay archivo elegido, abre el file picker (delegar a un input oculto expuesto por `FileUploadZone`). Si ya hay archivo pendiente, lanza `handleFile`. Tooltip explica por qué está disabled (faltan condiciones, no hay archivo).
-- **Web**: dos modos según estado real:
-  - Si NO hay `preview` y URL es válida → CTA = `Probar`.
-  - Si hay `preview` (Atlas) o sourceKind=generic → CTA = `Importar web` (ejecuta `handleExecute` = `handleImportNow` o `handleEnqueue` según `mode`).
-  - Label dinámica: `Probar` | `Importar web` | `Encolar job`. Spinner cuando `phase !== 'idle'`.
-- **Imágenes**: dos modos según estado real:
-  - Si `indexPhotos.length === 0` o usuario explícitamente quiere reescanear → CTA = `Auditar fotos de OneDrive` (ya existe, se levanta tal cual).
-  - Si hay índice y selección de fotos → CTA = `Importar imágenes` (placeholder cableado al evento real; si la lógica de creación de POIs aún no existe — backlog `PR-IMPORT-ONEDRIVE-CREATE-POI` — el botón queda visible pero disabled con tooltip "Pendiente de PR-IMPORT-ONEDRIVE-CREATE-POI"). **Importante**: NO añadimos lógica nueva; sólo expongo el slot y deshabilito.
+#### 1. `src/components/ImportedContentPanel.tsx` — sub-toggle → acción única + footer uniforme
 
-**Vista Histórico**:
-- Footer canónico con CTA secundaria única: `Nueva importación` → conmuta el sub-toggle de esa tab a `acción`.
+- **Eliminar `SubToggle`** (segmented control) y su render entre las tabs y el contenido. `subView` por fuente se mantiene como estado, pero no hay control visual binario.
+- **Footer rediseñado** (`PanelFooter`):
+  - **Vista `action`**: CTA primaria real elevada (igual que hoy vía `currentCta`) + debajo un **link/botón secundario** "Ver histórico" que llama `setSub('history')`.
+  - **Vista `history`**: CTA primaria **específica por fuente** (no genérica "Nueva importación") que vuelve a `action`:
+    - `archivos` → "Subir archivo"
+    - `web` → "Nueva web"
+    - `imagenes` → "Auditar imágenes"
+  - Labels en constante `RETURN_TO_ACTION_LABELS: Record<SourceTab,string>`.
+- Eliminar texto "Nueva importación" y el icono `Plus` genérico.
+- Mantener `data-import-primary-cta={tab}` en vista acción; añadir `data-import-secondary-cta="history-link"` para el link "Ver histórico"; añadir `data-import-return-to-action={tab}` para el botón de retorno en vista histórico.
 
-### 4. No duplicar CTAs
+#### 2. `src/domains/content/components/FileUploadZone.tsx` — reorden vertical lógico
 
-Una vez levantados al footer, ELIMINAR/OCULTAR los botones inline equivalentes dentro del body:
-- `FileUploadZone`: hoy el dropzone tiene su propio botón implícito (click→file input). El dropzone permanece como zona de drop visual, pero el botón explícito "Subir" del body (si lo hubiera) se oculta vía nueva prop `hidePrimaryCta` (default `false`). El footer dispara el file picker mediante una ref expuesta.
-- `WebImportPanel`: el botón `Probar` actual (línea 374-385) y los botones de ejecución de modo (`Importar ahora` / `Encolar job`) se ocultan vía `hidePrimaryCta`. El footer recibe handlers (`onTest`, `onExecute`) y el estado computado (`phase`, `canTest`, `canExecute`, `executeLabel`).
-- `OneDrivePhotosPanel`: ya tiene `PanelFooter` propio con "Auditar". Se elimina ese `PanelFooter` interno y se eleva al panel padre vía prop `renderFooter` / callback `onAudit` + `auditing` state expuesto.
+Orden actual: dropzone → visibilidad → colección → condiciones. Orden nuevo (no-wizard, hidePrimaryCta):
 
-### 5. Mecanismo de elevación (controlado, sin tocar lógica)
+1. **Notice / requisitos** (banner si `!canUpload`).
+2. **Condiciones** (Términos + Política duplicados) — bloque actual movido **arriba**.
+3. **Visibilidad**.
+4. **Colección destino** (`CollectionPicker`).
+5. **Dropzone** (al final, listo para usarse una vez todo verde).
+6. Footer (lo provee el padre): "Subir archivo / Importar archivo" — ya cubierto por `onPrimaryStateChange`.
 
-Patrón uniforme — **render-prop / imperative handle**:
+Mover el bloque `{/* Drop zone */}` (label que envuelve input file + motion.div) DESPUÉS del bloque `Settings` (visibility/collection/conditions), y dentro de `Settings` reordenar: Condiciones → Visibilidad → Colección. Cambiar copy del dropzone deshabilitado a "Antes de subir, confirma las condiciones de arriba" (hoy dice "abajo").
 
-```ts
-// FileUploadZone
-interface FileUploadZoneProps {
-  hidePrimaryCta?: boolean;
-  onPrimaryStateChange?: (state: {
-    canSubmit: boolean;
-    hasFile: boolean;
-    isProcessing: boolean;
-    submit: () => void;        // triggers file picker OR handleFile
-    disabledReason?: string;
-  }) => void;
-}
-```
+#### 3. `ImportedContentPanel.tsx` — corregir filtros `source_type`
 
-Idéntico contrato para `WebImportPanel` y `OneDrivePhotosPanel`. El padre (`ImportedContentPanel`) guarda el último estado emitido por cada hijo y renderiza el footer:
+- `FILE_SOURCE_TYPES = ['kml','gpx','geojson','csv']` (quitar `'kmz'`; el enum no lo tiene, KMZ se guarda como `kml`). Añadir comentario explicando que KMZ↔kml.
+- `WEB_SOURCE_TYPES = ['web_import']` (quitar `'scrape'`, `'atlas-obscura'` — nunca se persisten).
+- `IMAGE_SOURCE_TYPES`: el enum no tiene tipo para imágenes/OneDrive. Histórico de imágenes hoy es inviable filtrando por `source_type`. **Decisión**: mostrar el mismo `DocumentsPanel` con `sourceFilter={[]}` + un header explícito + un `emptyOverride` claro: "No hay imágenes importadas todavía". (Si más adelante se añade enum `onedrive`, basta cambiar el filtro.) NO se toca el pipeline de import de imágenes.
 
-```tsx
-<PanelFooter>
-  <Button onClick={state.submit} disabled={!state.canSubmit}>
-    {state.label}
-  </Button>
-</PanelFooter>
-```
+#### 4. `DocumentsPanel.tsx` — empty state parametrizable
 
-Esto NO cambia:
-- parsers (`parseGeoFile`, `scrape-atlas-obscura`, `scan-onedrive-geo`),
-- scrapers / edge functions,
-- schema / RLS,
-- lógica de import (`saveDocumentToDatabase`, `processImportedDocument`, `handleImportNow`, `handleEnqueue`, `runAudit`).
+- Añadir prop opcional `emptyTitle?: string` y `emptyHint?: string`.
+- `ImportedContentPanel` pasa:
+  - archivos → "No hay archivos importados todavía" / "Formatos soportados: KML · KMZ · GPX · GeoJSON · CSV".
+  - web → "No hay webs importadas todavía" / "Importa una URL desde la vista de acción".
+  - imagenes → "No hay imágenes importadas todavía" / "Audita tu OneDrive desde la vista de acción".
+- Si `emptyTitle`/`emptyHint` no se pasan, mantener copy actual (compat).
 
-Sólo añade un canal de notificación de estado + exposición del callback de submit. Toda la lógica interna sigue viviendo dentro de cada panel hijo.
+#### 5. Tests — `src/test/import-hub-ux.test.tsx`
 
-### 6. Vistas histórico
+Actualizar (y añadir donde falte) asserts:
+- NO existe `[data-import-subtoggle]` ni `role="tab"` con `data-import-subview`.
+- En vista acción: existe `[data-import-primary-cta=<tab>]` y un link `[data-import-secondary-cta="history-link"]` con texto "Ver histórico".
+- En vista histórico: existe `[data-import-return-to-action=<tab>]` con label específico ("Subir archivo" / "Nueva web" / "Auditar imágenes"); NO existe el texto "Nueva importación".
+- En `FileUploadZone` (action archivos): los bloques aparecen en orden Condiciones → Visibilidad → Colección → Dropzone (verificable por orden DOM).
+- Filtro histórico archivos pasa exactamente `['kml','gpx','geojson','csv']` (snapshot del prop `sourceFilter`).
+- Empty state archivos contiene los 5 formatos (KML, KMZ, GPX, GeoJSON, CSV).
+- Empty state imágenes contiene "No hay imágenes importadas todavía".
 
-- **Archivos**: `DocumentsPanel` con `sourceFilter=['kml','kmz','gpx','geojson','csv']` (ya cableado).
-- **Web**: `DocumentsPanel` con `sourceFilter=['web_import','scrape']` (filtro UI, sin cambiar API). Más debajo, `ScrapeJobsList` (ya existe en `BackgroundScrapeJobs`) en sección colapsable "Jobs en curso".
-- **Imágenes**: `DocumentsPanel` con `sourceFilter=['onedrive','photo']`. Si está vacío, `PanelEmptyState` con CTA contextual al footer.
+#### 6. Documentación / memoria
 
-### 7. Cambios concretos
+- `docs/contracts/import-canon.md` §8: reescribir bloque sub-toggle y footer; documentar que la fuente decide su CTA de retorno (no hay copy genérico); documentar la equivalencia KMZ↔kml en `source_type` y los filtros canónicos por fuente.
+- `mem://logic/import/import-canon`: actualizar resumen.
+- `docs/releases/version-history.md`: nueva entrada PR-IMPORT-UX-4-FIX.
+- Bump `APP_VERSION` patch (1.6.x → 1.6.x+1) vía `scripts/release/bump-version.ts`.
 
-1. `src/components/ImportedContentPanel.tsx` — añadir `subView` state por tab, sub-toggle UI, slots de footer cableados a los estados emitidos por hijos.
-2. `src/domains/content/components/FileUploadZone.tsx` — añadir `hidePrimaryCta` + `onPrimaryStateChange`; extraer el `submit` interno como callback memoizado expuesto vía el callback.
-3. `src/domains/content/components/WebImportPanel.tsx` — mismo contrato; ocultar `Probar` inline + bloque "Importar ahora / Encolar" cuando `hidePrimaryCta`; calcular `label` dinámico según `phase`/`preview`/`mode`.
-4. `src/components/OneDrivePhotosPanel.tsx` — mismo contrato; eliminar `PanelFooter` interno del tab `index` cuando `hidePrimaryCta`; calcular `label` y `disabled` desde `auditing`.
-5. `src/domains/content/components/DocumentsPanel.tsx` — sin cambios de API (ya acepta `sourceFilter`); nuevos call sites en Web e Imágenes.
-6. `src/shared/components/ui/panel/PanelFooter.tsx` — sin cambios.
-7. **Tests** (`src/test/import-hub-ux.test.tsx`):
-   - Cada tab tiene sub-toggle con labels exactos.
-   - Vista Acción de cada tab tiene `PanelFooter` con CTA real (no "Ver histórico").
-   - No hay CTA duplicada (assert: el botón inline original NO está en DOM cuando `hidePrimaryCta`).
-   - Vista Histórico tiene CTA "Nueva importación".
-   - Smoke: ningún import de `parseGeoFile`/`scrape-atlas-obscura`/`scan-onedrive-geo` se ha modificado (snapshot de exports).
-8. Bump `APP_VERSION` → `v1.6.2`; entrada en `docs/releases/version-history.md`.
-9. Actualizar `mem/logic/import/import-canon.md` + `docs/contracts/import-canon.md` §8 con PR-IMPORT-UX-4 (sub-toggle + CTA real en footer).
-10. Mantener backlog explícito: `PR-IMPORT-ONEDRIVE-CREATE-POI`, `PR-IMPORT-CLEANUP` (legacy `wizardMode` props).
+---
 
-### 8. Reglas duras
+### Fuera de alcance (explícito)
+- Parsers, scrapers, edge functions, schema/migrations, RLS.
+- Añadir enum `onedrive`/`photo` a `document_source_type` (requiere migración + cambios en pipeline → otro PR).
+- Crear POIs desde fotos.
+- Cambios funcionales en `WebImportPanel`, `OneDrivePhotosPanel`, `ScrapeJobsList`.
 
-- Footer SIEMPRE tiene la acción principal real de la vista. Nada decorativo.
-- Una sola CTA por footer.
-- Si el CTA está disabled, tooltip OBLIGATORIO explicando el motivo (canon `selector-interaction-contract` aplicado).
-- Sub-toggle = segmented control compacto, NO segundo nivel de tabs grandes.
-- Default siempre Vista Acción.
-- Sin emojis; iconos Lucide.
-
-### 9. Fuera de alcance
-
-- Crear POIs desde fotos OneDrive (backlog `PR-IMPORT-ONEDRIVE-CREATE-POI`). El botón "Importar imágenes" del footer queda visible pero deshabilitado con tooltip mientras tanto.
-- Limpieza de `wizardMode` props (backlog `PR-IMPORT-CLEANUP`).
-- Cambios de parsers, scrapers, edge functions, schema, RLS.
+### Postcondición (gate NASA)
+- Tests verdes (o `.skip` con TODO PR-XXX).
+- `version-parity.test.ts` verde.
+- `APP_VERSION` bumped en `src/lib/app-version.ts`.
+- Memoria + `import-canon.md` sincronizados en el mismo PR.
+- Hard-refresh autenticado sigue verde (no se modifica boot ni stores persistidos).
