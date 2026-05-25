@@ -160,52 +160,73 @@ describe('PR-IMPORT-UX-3 · panel "Fuentes de importación" (3 tabs)', () => {
   });
 });
 
-describe('PR-IMPORT-UX-4-FIX · acción única + footer uniforme por fuente', () => {
+describe('PR-IMPORT-UX-4-FIX rev2 · fila 2 contextual + footer sin navegación', () => {
   beforeEach(() => cleanup());
 
-  const TABS: Array<{ tab: 'archivos' | 'web' | 'imagenes'; defaultTab: 'upload' | 'web' | 'onedrive'; returnLabel: string }> = [
-    { tab: 'archivos', defaultTab: 'upload',   returnLabel: 'Subir archivo' },
-    { tab: 'web',      defaultTab: 'web',      returnLabel: 'Nueva web' },
-    { tab: 'imagenes', defaultTab: 'onedrive', returnLabel: 'Auditar imágenes' },
+  type T = { tab: 'archivos' | 'web' | 'imagenes'; defaultTab: 'upload' | 'web' | 'onedrive';
+             actionLabel: string; historyLabel: string; returnLabel: string };
+  const TABS: T[] = [
+    { tab: 'archivos', defaultTab: 'upload',   actionLabel: 'Subir archivos',  historyLabel: 'Histórico de archivos',  returnLabel: 'Subir archivo' },
+    { tab: 'web',      defaultTab: 'web',      actionLabel: 'Seleccionar web', historyLabel: 'Jobs recientes',         returnLabel: 'Nueva web' },
+    { tab: 'imagenes', defaultTab: 'onedrive', actionLabel: 'Subir imágenes',  historyLabel: 'Histórico de imágenes',  returnLabel: 'Subir imágenes' },
   ];
 
-  it('NO existe sub-toggle binario [data-import-subtoggle]', () => {
+  it('el footer NUNCA contiene "Ver histórico" ni navegación secundaria', () => {
+    for (const t of TABS) {
+      cleanup();
+      renderPanel(t.defaultTab);
+      expect(document.querySelector('[data-import-secondary-cta]')).toBeNull();
+      expect(document.body.textContent ?? '').not.toMatch(/Ver hist[óo]rico/);
+    }
+  });
+
+  for (const t of TABS) {
+    it(`tab ${t.tab}: fila 2 existe debajo de fila 1 con labels "${t.actionLabel}" / "${t.historyLabel}"`, () => {
+      renderPanel(t.defaultTab);
+      const row2 = document.querySelector(`[data-import-subview-control="${t.tab}"]`);
+      expect(row2).toBeTruthy();
+      const triggers = row2!.querySelectorAll('[data-import-subview-trigger]');
+      expect(triggers.length).toBe(2);
+      expect((triggers[0].textContent ?? '').trim()).toBe(t.actionLabel);
+      expect((triggers[1].textContent ?? '').trim()).toBe(t.historyLabel);
+      // Fila 2 vive DENTRO del content de la pestaña activa (debajo de fila 1).
+      const content = document.querySelector(`[data-import-source-content="${t.tab}"]`);
+      expect(content?.contains(row2!)).toBe(true);
+    });
+
+    it(`tab ${t.tab}: vista acción → footer = CTA primaria única (sin link de histórico)`, () => {
+      renderPanel(t.defaultTab);
+      const ctas = document.querySelectorAll(`[data-import-primary-cta="${t.tab}"]`);
+      expect(ctas.length).toBe(1);
+      expect(document.querySelector(`[data-import-return-to-action="${t.tab}"]`)).toBeNull();
+      expect(document.querySelector('[data-import-secondary-cta]')).toBeNull();
+    });
+
+    it(`tab ${t.tab}: cambio a histórico se hace en fila 2; footer = "${t.returnLabel}"`, () => {
+      renderPanel(t.defaultTab);
+      const histTrigger = document.querySelector(
+        `[data-import-subview-source="${t.tab}"][data-import-subview-trigger="history"]`,
+      ) as HTMLButtonElement;
+      expect(histTrigger).toBeTruthy();
+      fireEvent.click(histTrigger);
+      // Footer ahora muestra CTA de retorno con label exacto, y desaparece la primaria.
+      expect(document.querySelector(`[data-import-primary-cta="${t.tab}"]`)).toBeNull();
+      const ret = document.querySelector(`[data-import-return-to-action="${t.tab}"]`);
+      expect(ret).toBeTruthy();
+      expect((ret!.textContent ?? '').trim()).toBe(t.returnLabel);
+      expect(document.body.textContent ?? '').not.toMatch(/Nueva importaci[óo]n/);
+    });
+  }
+
+  it('NO existe sub-toggle legacy ni navegación secundaria de footer', () => {
     for (const t of TABS) {
       cleanup();
       renderPanel(t.defaultTab);
       expect(document.querySelector('[data-import-subtoggle]')).toBeNull();
       expect(document.querySelector('[data-import-subview]')).toBeNull();
+      expect(document.querySelector('[data-import-secondary-cta]')).toBeNull();
     }
   });
-
-  for (const t of TABS) {
-    it(`tab ${t.tab}: vista acción muestra CTA primaria + link "Ver histórico"`, () => {
-      renderPanel(t.defaultTab);
-      // Una sola CTA primaria por footer.
-      const ctas = document.querySelectorAll(`[data-import-primary-cta="${t.tab}"]`);
-      expect(ctas.length).toBe(1);
-      // Link secundario "Ver histórico" presente y único en footer.
-      const histLinks = document.querySelectorAll('[data-import-secondary-cta="history-link"]');
-      expect(histLinks.length).toBe(1);
-      expect((histLinks[0].textContent ?? '')).toMatch(/Ver hist[óo]rico/);
-      // CTA de retorno NO existe en vista acción.
-      expect(document.querySelector(`[data-import-return-to-action="${t.tab}"]`)).toBeNull();
-    });
-
-    it(`tab ${t.tab}: histórico muestra CTA específica de retorno "${t.returnLabel}"`, () => {
-      renderPanel(t.defaultTab);
-      const link = document.querySelector('[data-import-secondary-cta="history-link"]') as HTMLButtonElement | null;
-      expect(link).toBeTruthy();
-      fireEvent.click(link!);
-      // CTA primaria de acción desaparece, CTA de retorno aparece con label específico.
-      expect(document.querySelector(`[data-import-primary-cta="${t.tab}"]`)).toBeNull();
-      const ret = document.querySelector(`[data-import-return-to-action="${t.tab}"]`);
-      expect(ret).toBeTruthy();
-      expect((ret!.textContent ?? '').trim()).toBe(t.returnLabel);
-      // Nunca "Nueva importación" genérico.
-      expect(document.body.textContent ?? '').not.toMatch(/Nueva importaci[óo]n/);
-    });
-  }
 
   it('no existe CTA primaria duplicada inline dentro del cuerpo (solo en PanelFooter)', () => {
     renderPanel('upload');
@@ -227,8 +248,10 @@ describe('PR-IMPORT-UX-4-FIX · acción única + footer uniforme por fuente', ()
 
   it('histórico de archivos: empty state lista los 5 formatos (KML, KMZ, GPX, GeoJSON, CSV)', () => {
     renderPanel('upload');
-    const link = document.querySelector('[data-import-secondary-cta="history-link"]') as HTMLButtonElement;
-    fireEvent.click(link);
+    const histTrigger = document.querySelector(
+      '[data-import-subview-source="archivos"][data-import-subview-trigger="history"]',
+    ) as HTMLButtonElement;
+    fireEvent.click(histTrigger);
     const hist = document.querySelector('[data-import-history="archivos"]');
     const text = hist?.textContent ?? '';
     for (const fmt of ['KML', 'KMZ', 'GPX', 'GeoJSON', 'CSV']) {
@@ -239,8 +262,10 @@ describe('PR-IMPORT-UX-4-FIX · acción única + footer uniforme por fuente', ()
 
   it('histórico de imágenes: empty state explícito "No hay imágenes importadas todavía"', () => {
     renderPanel('onedrive');
-    const link = document.querySelector('[data-import-secondary-cta="history-link"]') as HTMLButtonElement;
-    fireEvent.click(link);
+    const histTrigger = document.querySelector(
+      '[data-import-subview-source="imagenes"][data-import-subview-trigger="history"]',
+    ) as HTMLButtonElement;
+    fireEvent.click(histTrigger);
     const hist = document.querySelector('[data-import-history="imagenes"]');
     expect((hist?.textContent ?? '')).toMatch(/No hay im[áa]genes importadas todav[ií]a/);
   });
