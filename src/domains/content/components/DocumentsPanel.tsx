@@ -364,20 +364,25 @@ export function DocumentsPanel({
           <p className="text-xs text-muted-foreground">Borrando ubicaciones, rutas y datos asociados</p>
         </div>
       )}
-      {/* Summary header — PR-IMPORT-UX-1 closure: marcado explícitamente como Biblioteca, NO vía de importación. */}
+      {/* Summary header — contextual library used inside each "Fuentes de importación" tab.
+          headerLabel/headerSubtitle let the parent (e.g. Archivos/Web) override
+          the legacy "biblioteca global" copy. */}
       <div className="px-4 py-3 border-b bg-muted/30 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <FolderOpen className="w-4 h-4" />
-            <span>{docs.length} documento{docs.length !== 1 ? 's' : ''}</span>
+            <span>
+              {headerLabel ?? `${docs.length} documento${docs.length !== 1 ? 's' : ''}`}
+            </span>
           </div>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={fetchDocs} disabled={loading}>
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
-        <p className="text-[11px] text-muted-foreground/80 leading-snug">
-          Biblioteca · historial operativo de documentos ya importados. No es una vía de importación: para añadir contenido nuevo usa <span className="font-medium">Archivos</span>, <span className="font-medium">Web</span> u <span className="font-medium">OneDrive · fotos</span>.
-        </p>
+        {headerSubtitle && (
+          <p className="text-[11px] text-muted-foreground/80 leading-snug">{headerSubtitle}</p>
+        )}
+
         <div className="flex gap-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <MapPin className="w-3 h-3" />
