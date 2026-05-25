@@ -249,12 +249,20 @@ export function OneDrivePhotosPanel() {
         if (next === 'browse' && folders.length === 0 && photos.length === 0) loadContents(null);
       }}
     >
-      {/* Sub-tabs canónicos */}
-      <div className="shrink-0 px-[var(--panel-padding-x)] pt-[var(--panel-padding-y)] pb-3">
-        <PanelTabs.Group>
+      {/*
+        Sub-tabs canónicos — PR-IMPORT-UX-1 closure:
+        Grupo "Importar" = única vía de importación real (canon §2.2).
+        Grupo "Avanzado · diagnóstico" = exploración y validación,
+        explícitamente FUERA de la vía principal de importación.
+        Ver docs/contracts/import-canon.md §2.2 y audits/import-ux-operability.md §2.1.
+      */}
+      <div className="shrink-0 px-[var(--panel-padding-x)] pt-[var(--panel-padding-y)] pb-3 space-y-3">
+        <PanelTabs.Group label="Importar">
           <PanelTabs.Trigger value="index" icon={<Database className="w-3.5 h-3.5" />}>
             Fotos con GPS
           </PanelTabs.Trigger>
+        </PanelTabs.Group>
+        <PanelTabs.Group label="Avanzado · diagnóstico">
           <PanelTabs.Trigger value="browse" icon={<ImageIcon className="w-3.5 h-3.5" />}>
             Explorar
           </PanelTabs.Trigger>

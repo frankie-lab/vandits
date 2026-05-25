@@ -9,21 +9,29 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { MemoryRouter } from 'react-router-dom';
 
-vi.mock('@/integrations/supabase/client', () => ({
-  supabase: {
-    from: () => ({
-      select: () => ({
-        eq: () => ({ order: () => ({ limit: () => Promise.resolve({ data: [] }) }) }),
-        order: () => ({ ascending: () => Promise.resolve({ data: [] }) }),
-      }),
-    }),
-    functions: { invoke: () => Promise.resolve({ data: null, error: null }) },
-    channel: () => ({ on: () => ({ subscribe: () => ({}) }) }),
-    removeChannel: () => undefined,
-    storage: { from: () => ({ remove: () => Promise.resolve({}) }) },
-  },
-}));
+vi.mock('@/integrations/supabase/client', () => {
+  const builder: any = {
+    select: () => builder,
+    eq: () => builder,
+    order: () => builder,
+    limit: () => Promise.resolve({ data: [], error: null }),
+    ascending: () => Promise.resolve({ data: [], error: null }),
+    then: (resolve: any) => Promise.resolve({ data: [], error: null }).then(resolve),
+  };
+  return {
+    supabase: {
+      from: () => builder,
+      functions: { invoke: () => Promise.resolve({ data: null, error: null }) },
+      channel: () => ({ on: () => ({ subscribe: () => ({}) }) }),
+      removeChannel: () => undefined,
+      storage: { from: () => ({ remove: () => Promise.resolve({}) }) },
+      auth: { getUser: () => Promise.resolve({ data: { user: { id: 'u-test' } } }) },
+    },
+  };
+});
 
 vi.mock('@/domains/identity', () => ({
   useAuth: () => ({ user: { id: 'u-test' } }),
@@ -45,11 +53,15 @@ const FORBIDDEN = ['enriquecer', 'enriquecimiento', 'backfill', 'recovery', 'can
 
 function renderHub(tab: 'upload' | 'web' | 'onedrive' | 'documents') {
   render(
-    <ImportedContentPanel
-      isOpen={true}
-      onClose={() => {}}
-      defaultTab={tab}
-    />,
+    <MemoryRouter>
+      <TooltipProvider>
+        <ImportedContentPanel
+          isOpen={true}
+          onClose={() => {}}
+          defaultTab={tab}
+        />
+      </TooltipProvider>
+    </MemoryRouter>,
   );
 }
 
