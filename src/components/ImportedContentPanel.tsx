@@ -59,7 +59,7 @@ export function ImportedContentPanel({
           activo es único.
         */}
         <PanelTabs.Header>
-          <PanelTabs.Group label="Fuentes">
+          <PanelTabs.Group label="Importar">
             <PanelTabs.Trigger value="upload" icon={<Upload className="w-3.5 h-3.5" />}>
               Archivos
             </PanelTabs.Trigger>
@@ -67,7 +67,7 @@ export function ImportedContentPanel({
               Web
             </PanelTabs.Trigger>
             <PanelTabs.Trigger value="onedrive" icon={<Cloud className="w-3.5 h-3.5" />}>
-              OneDrive
+              OneDrive · fotos
             </PanelTabs.Trigger>
           </PanelTabs.Group>
 
