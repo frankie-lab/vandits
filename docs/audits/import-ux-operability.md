@@ -1,13 +1,16 @@
-# Import UX Operability Audit — PR-IMPORT-UX-1
+# Import UX Operability Audit — PR-IMPORT-UX-1 / PR-IMPORT-UX-2
 
-> Fecha: 2026-05-25 · PR: PR-IMPORT-UX-1
+> Fecha: 2026-05-25 · PRs: PR-IMPORT-UX-1 (v1.5.16) + PR-IMPORT-UX-2 (v1.6.0)
 > Canon de referencia: `docs/contracts/import-canon.md`
 >
-> Esta auditoría evalúa la **operabilidad real** de cada superficie
-> visible bajo el hub `Contenido` (`ImportedContentPanel`) y la mapea al
-> canon de importación (§2.1 fichero · §2.2 OneDrive fotos · §2.3 web).
-> Se identifican botones/tabs/cards que (1) escriben datos reales, (2)
-> son diagnóstico, (3) son legacy o (4) son fake/no-op.
+> **Nota PR-IMPORT-UX-2**: el hub ya NO es un `PanelTabs`. Las
+> superficies listadas abajo siguen existiendo (la lógica no cambia),
+> pero ahora se montan con `wizardMode={true}` dentro de
+> `ImportWizardShell` (stepper 5 pasos) y se accede desde 3 cards en
+> `ImportHub`. Los hallazgos de operabilidad siguen vigentes; los
+> hallazgos puramente estructurales (tabs, headers duplicados) quedan
+> resueltos por el wizard. Ver `docs/contracts/import-canon.md` §8.
+
 
 ## 1. Tabla de superficies
 
