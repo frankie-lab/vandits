@@ -371,13 +371,7 @@ export function ImportedContentPanel({
                 </>
               ) : (
                 <div data-import-history="imagenes" className="flex-1 min-h-0 overflow-y-auto">
-                  <DocumentsPanel
-                    sourceFilter={IMAGE_SOURCE_TYPES}
-                    headerLabel="Histórico de imágenes"
-                    headerSubtitle="Imágenes procesadas desde OneDrive."
-                    emptyTitle={HISTORY_EMPTY_COPY.imagenes.title}
-                    emptyHint={HISTORY_EMPTY_COPY.imagenes.hint}
-                  />
+                  <OneDrivePhotoHistoryPanel />
                 </div>
               )}
             </div>
