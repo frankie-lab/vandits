@@ -46,16 +46,17 @@ Cualquier otro flujo (alta manual, enriquecimiento, backfill, recovery, canonica
 
 ## Contract test
 
-`src/test/import-hub-ux.test.tsx` (11/11 verde) asegura:
+`src/test/import-hub-ux.test.tsx` asegura (PR-IMPORT-UX-3 + PR-IMPORT-UX-4):
 - Panel titulado "Fuentes de importación".
 - Exactamente 3 tabs `data-import-source-tab`: `archivos` · `web` · `imagenes`.
 - Tabs principales NO contienen `OneDrive`, `Biblioteca`, `Documentos`.
-- Archivos lista formatos KML/KMZ/GPX/GeoJSON/CSV y muestra `data-import-history="archivos"`.
+- Archivos lista formatos KML/KMZ/GPX/GeoJSON/CSV y muestra `data-import-history="archivos"` en modo histórico.
 - Web menciona URL/Atlas.
 - Imágenes menciona OneDrive + GPS + imágenes/fotos.
 - `defaultTab='documents'` cae en `archivos`.
 - Tabs no mencionan `enriquecer/enriquecimiento/backfill/recovery/canonicalize`.
 - NO existen ya `data-import-hub`, `data-import-stepper`, `data-import-channel-card`, `data-import-wizard` (cero rastro del wizard PR-IMPORT-UX-2).
+- **PR-IMPORT-UX-4**: sub-toggle `data-import-subtoggle` presente con labels exactos por tab; `PanelFooter` siempre renderiza UN `data-import-primary-cta={tab}` en Acción y UN `data-import-secondary-cta={tab}` "Nueva importación" en Histórico; CTA real con `disabledReason` activa `<Tooltip>`; sin CTA inline duplicada dentro del cuerpo cuando el footer la tomó.
 
 ## Backlog explícito (NO abrir sin PR dedicado)
 
