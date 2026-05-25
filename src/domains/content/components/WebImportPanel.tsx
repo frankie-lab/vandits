@@ -330,13 +330,27 @@ export function WebImportPanel({ onComplete, wizardMode = false }: { onComplete?
 
   return (
     <>
-      <div className="w-full max-w-lg mx-auto space-y-4">
-        <ImportSurfaceShell
-          surfaceId="web"
-          icon={<Globe className="w-5 h-5" />}
-          title="Importar desde web"
-          subtitle="Pega una URL (Atlas Obscura, listados o páginas compatibles con coordenadas). Pruébala y elige cómo procesarla."
-        />
+      <div className={`w-full ${wizardMode ? 'max-w-2xl mx-auto px-[var(--panel-padding-x)] py-5' : 'max-w-lg mx-auto'} space-y-4`}>
+        {!wizardMode && (
+          <ImportSurfaceShell
+            surfaceId="web"
+            icon={<Globe className="w-5 h-5" />}
+            title="Importar desde web"
+            subtitle="Pega una URL (Atlas Obscura, listados o páginas compatibles con coordenadas). Pruébala y elige cómo procesarla."
+          />
+        )}
+        {wizardMode && (
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Paso 1 · Pega la URL
+            </p>
+            <p className="text-sm text-foreground/90 leading-snug">
+              Funciona con páginas de Atlas Obscura (ficha o listado) y con
+              cualquier KML/NetworkLink remoto. Pulsa <strong>Probar</strong>
+              {' '}para ver una muestra antes de importar.
+            </p>
+          </div>
+        )}
         <div className="bg-card rounded-2xl border shadow-sm p-5 space-y-4">
 
           {/* URL */}
