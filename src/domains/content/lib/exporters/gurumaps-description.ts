@@ -1,21 +1,28 @@
 /**
- * PR-EXPORT-6 + PR-EXPORT-7 — GuruMaps target renderer.
+ * PR-EXPORT-6 + PR-EXPORT-7 + PR-EXPORT-8 — GuruMaps target renderer.
  *
- * Produce plain-text descriptions optimizadas para la app móvil GuruMaps,
- * que renderiza inconsistente los tags HTML. Reglas:
- *   - Sin tags HTML (<p>, <br/>, <b>, <i>, <a>, <img>).
+ * PR-EXPORT-8: ficha completa del popup, sin truncado artificial.
+ *   - Eliminados límites MAX_HIGHLIGHT / MAX_LONG_DESC / MAX_OBSERVATION
+ *     / SOFT_TOTAL_CAP / HARD_TOTAL_CAP.
+ *   - Texto íntegro tal como aparece en el popup Vandits.
+ *   - Mantiene reglas duras: sin HTML, sin enlaces, sin hashtags,
+ *     sin campos técnicos, sin debug, sin ownerUserId.
+ *
+ * Orden canónico (PR-EXPORT-8):
+ *   📍 Ubicación
+ *   Frase destacada (highlight) completa
+ *   Descripción larga completa
+ *   📝 Nota / observación completa
+ *   Categoría: <category>            (si existe)
+ *   Colección: <nombre>              (si internal + collection)
+ *   Añadido: <YYYY-MM-DD>            (si internal + createdAt)
+ *   — Vandits · YYYY-MM-DD           (footer)
+ *
+ * Reglas de limpieza preservadas:
+ *   - Sin tags HTML.
  *   - Bloques cortos separados por línea en blanco (`\n\n`).
- *   - Emoji literales como separador visual (📍 📝 📚).
- *   - Truncation por frases con ellipsis "…".
- *   - PR-EXPORT-7: NO bloque de enlaces (🔗) ni hashtags generales (#tag).
- *     Si existe `userContext.collection`, se renderiza como `Colección: <nombre>`
- *     (única etiqueta contextual permitida en el cuerpo visible).
- *   - Imagen omitida (GuruMaps no la renderiza fiable; va en ExtendedData).
- *   - Links/tags se mantienen en ExtendedData del Placemark, no en cuerpo.
- *
- * Orden canónico (PR-EXPORT-7):
- *   📍 Ubicación → highlight → descripción larga →
- *   📝 nota/observación → Colección: <X> → footer Vandits.
+ *   - Sanitización CDATA (`]]>` → split seguro).
+ *   - Bloques vacíos se omiten.
  *
  * Ver `docs/contracts/poi-export-content-model.md` § Rendering targets.
  */
@@ -27,38 +34,13 @@ export interface BuildGuruMapsDescriptionOptions {
   generatedAt?: string;
 }
 
-// PR-EXPORT-7: límites más holgados para ficha más rica.
-const MAX_HIGHLIGHT = 240;
-const MAX_LONG_DESC = 700;
-const MAX_OBSERVATION = 240;
-const SOFT_TOTAL_CAP = 1100;
-const HARD_TOTAL_CAP = 1200;
-
-function truncateAtSentence(text: string, max: number): string {
-  if (!text) return '';
-  const clean = text.trim();
-  if (clean.length <= max) return clean;
-  const slice = clean.slice(0, max);
-  const sentenceEnd = Math.max(
-    slice.lastIndexOf('.'),
-    slice.lastIndexOf('!'),
-    slice.lastIndexOf('?'),
-  );
-  if (sentenceEnd >= Math.floor(max * 0.5)) {
-    return slice.slice(0, sentenceEnd + 1).trim() + ' …';
-  }
-  const space = slice.lastIndexOf(' ');
-  if (space >= Math.floor(max * 0.5)) {
-    return slice.slice(0, space).trim() + '…';
-  }
-  return slice.trim() + '…';
+function nonEmpty(s: unknown): s is string {
+  return typeof s === 'string' && s.trim().length > 0;
 }
 
 function joinTerritorial(content: PoiExportContent): string | undefined {
   const g = content.geography;
-  const parts = [g.locality, g.province, g.country].filter(
-    (s): s is string => typeof s === 'string' && s.length > 0,
-  );
+  const parts = [g.locality, g.province, g.country].filter(nonEmpty);
   return parts.length > 0 ? parts.join(' · ') : undefined;
 }
 
@@ -68,9 +50,17 @@ interface Block {
     | 'highlight'
     | 'longDesc'
     | 'observation'
+    | 'category'
     | 'collection'
+    | 'addedAt'
     | 'footer';
   text: string;
+}
+
+function isoToDate(iso: string): string {
+  // Acepta ISO-8601; devuelve YYYY-MM-DD. Si falla, devuelve el original.
+  const m = iso.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : iso;
 }
 
 function buildBlocks(
@@ -78,42 +68,53 @@ function buildBlocks(
   generatedAt: string,
 ): Block[] {
   const blocks: Block[] = [];
-  const { summary, userContext } = content;
+  const { summary, classification, userContext } = content;
 
   const territorial = joinTerritorial(content);
   if (territorial) {
     blocks.push({ key: 'territorial', text: `📍 ${territorial}` });
   }
 
-  if (summary.highlight) {
-    blocks.push({
-      key: 'highlight',
-      text: truncateAtSentence(summary.highlight, MAX_HIGHLIGHT),
-    });
+  if (nonEmpty(summary.highlight)) {
+    blocks.push({ key: 'highlight', text: summary.highlight.trim() });
   }
 
-  if (summary.longDescription) {
-    const truncated = truncateAtSentence(summary.longDescription, MAX_LONG_DESC);
+  if (nonEmpty(summary.longDescription)) {
+    const text = summary.longDescription.trim();
     const highlightText = blocks.find((b) => b.key === 'highlight')?.text;
-    if (truncated && truncated !== highlightText) {
-      blocks.push({ key: 'longDesc', text: truncated });
+    if (text && text !== highlightText) {
+      blocks.push({ key: 'longDesc', text });
     }
   }
 
-  if (summary.observation) {
+  if (nonEmpty(summary.observation)) {
     blocks.push({
       key: 'observation',
-      text: `📝 ${truncateAtSentence(summary.observation, MAX_OBSERVATION)}`,
+      text: `📝 ${summary.observation.trim()}`,
     });
   }
 
-  // PR-EXPORT-7: única etiqueta contextual permitida — nombre de colección.
-  // Sólo presente en scope=internal (userContext es internal-only).
-  if (userContext?.collection) {
+  if (nonEmpty(classification.category)) {
     blocks.push({
-      key: 'collection',
-      text: `Colección: ${userContext.collection.trim()}`,
+      key: 'category',
+      text: `Categoría: ${classification.category.trim()}`,
     });
+  }
+
+  // userContext sólo existe en scope=internal. PR-EXPORT-7+8: contexto privado.
+  if (userContext) {
+    if (nonEmpty(userContext.collection)) {
+      blocks.push({
+        key: 'collection',
+        text: `Colección: ${userContext.collection.trim()}`,
+      });
+    }
+    if (nonEmpty(userContext.createdAt)) {
+      blocks.push({
+        key: 'addedAt',
+        text: `Añadido: ${isoToDate(userContext.createdAt)}`,
+      });
+    }
   }
 
   const date = generatedAt.slice(0, 10);
@@ -126,37 +127,6 @@ function joinBlocks(blocks: Block[]): string {
   return blocks.map((b) => b.text).join('\n\n');
 }
 
-function enforceLengthCap(blocks: Block[]): Block[] {
-  let out = blocks.slice();
-  if (joinBlocks(out).length <= SOFT_TOTAL_CAP) return out;
-
-  // Recortar longDesc progresivamente. Nunca tocar territorial/highlight/footer.
-  const longIdx = out.findIndex((b) => b.key === 'longDesc');
-  if (longIdx >= 0) {
-    const target = Math.max(280, MAX_LONG_DESC - 200);
-    out[longIdx] = {
-      ...out[longIdx],
-      text: truncateAtSentence(out[longIdx].text, target),
-    };
-    if (joinBlocks(out).length <= HARD_TOTAL_CAP) return out;
-  }
-
-  if (joinBlocks(out).length > HARD_TOTAL_CAP) {
-    out = out.filter((b) => b.key !== 'observation');
-  }
-  if (joinBlocks(out).length > HARD_TOTAL_CAP) {
-    out = out.filter((b) => b.key !== 'longDesc');
-  }
-  if (joinBlocks(out).length > HARD_TOTAL_CAP) {
-    const joined = joinBlocks(out);
-    return [
-      { key: 'highlight', text: truncateAtSentence(joined, HARD_TOTAL_CAP - 40) },
-      out[out.length - 1],
-    ];
-  }
-  return out;
-}
-
 /** Sanitiza secuencia `]]>` que rompería CDATA. */
 function sanitizeForCdata(s: string): string {
   return s.replace(/]]>/g, ']]]]><![CDATA[>');
@@ -167,14 +137,12 @@ export function buildGuruMapsDescription(
   options: BuildGuruMapsDescriptionOptions = {},
 ): string {
   const generatedAt = options.generatedAt ?? new Date().toISOString();
-  const blocks = enforceLengthCap(buildBlocks(content, generatedAt));
+  const blocks = buildBlocks(content, generatedAt);
   return sanitizeForCdata(joinBlocks(blocks));
 }
 
-export const GURUMAPS_RENDERER_LIMITS = {
-  MAX_HIGHLIGHT,
-  MAX_LONG_DESC,
-  MAX_OBSERVATION,
-  SOFT_TOTAL_CAP,
-  HARD_TOTAL_CAP,
-} as const;
+/**
+ * PR-EXPORT-8: límites históricos eliminados. Se mantiene el export para
+ * compatibilidad de imports antiguos (vacío). NO añadir nuevos límites.
+ */
+export const GURUMAPS_RENDERER_LIMITS = {} as const;
