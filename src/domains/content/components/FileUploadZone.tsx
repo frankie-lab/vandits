@@ -502,7 +502,7 @@ export function FileUploadZone({
     'w-full space-y-4',
     wizardMode ? 'max-w-2xl mx-auto px-[var(--panel-padding-x)] py-5' : 'max-w-lg mx-auto',
    )}>
-    {!wizardMode && (
+    {!wizardMode && !hidePrimaryCta && (
      <ImportSurfaceShell
       surfaceId="file"
       icon={<FileText className="w-5 h-5" />}
