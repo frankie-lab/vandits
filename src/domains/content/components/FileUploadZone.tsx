@@ -1,4 +1,5 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import type { ImportPrimaryCtaState } from '@/shared/components/import/import-primary-cta';
 import { Upload, FileUp, Globe2, CheckCircle, Eye, Users, Lock, ExternalLink, Sparkles, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { parseGeoFile, SUPPORTED_FORMATS, getFormatFromFileName } from '@/lib/geo-file-parser';
@@ -27,14 +28,22 @@ interface FileUploadZoneProps {
  curatorId?: string;
  curatorName?: string;
  /**
-  * PR-IMPORT-UX-2: cuando este componente se monta dentro de
-  * `ImportWizardShell`, el shell ya provee header/título y el wizard ordena
-  * las condiciones DESPUÉS de elegir archivo. Con `wizardMode={true}`
-  * omitimos el `ImportSurfaceShell` interno (evita doble header) y
-  * desplazamos las condiciones bajo el dropzone en un bloque colapsable,
-  * para que la primera pantalla no parezca un formulario bloqueado.
+  * PR-IMPORT-UX-2 (legacy): wizard shell mode. Mantener mientras no se
+  * cierre el backlog `PR-IMPORT-CLEANUP`.
   */
  wizardMode?: boolean;
+ /**
+  * PR-IMPORT-UX-4: oculta el header `ImportSurfaceShell` interno y deja
+  * que el padre renderice la CTA primaria en `PanelFooter`. El dropzone
+  * sigue siendo plenamente funcional (click/drag continúan disparando
+  * la selección de archivo).
+  */
+ hidePrimaryCta?: boolean;
+ /**
+  * PR-IMPORT-UX-4: callback canónico para elevar el estado de la CTA
+  * primaria al padre. Ver `mem://logic/import/import-canon` §PR-IMPORT-UX-4.
+  */
+ onPrimaryStateChange?: (state: ImportPrimaryCtaState) => void;
 }
 
 interface UploadConditions {
@@ -49,7 +58,14 @@ const VISIBILITY_OPTIONS: { value: LocationVisibility; label: string; descriptio
  { value: 'private', label: 'Privado', description: 'Solo tú', icon: <Lock className="w-4 h-4" /> },
 ];
 
-export function FileUploadZone({ onUploadComplete, curatorId, curatorName, wizardMode = false }: FileUploadZoneProps) {
+export function FileUploadZone({
+  onUploadComplete,
+  curatorId,
+  curatorName,
+  wizardMode = false,
+  hidePrimaryCta = false,
+  onPrimaryStateChange,
+}: FileUploadZoneProps) {
  const addDocument = useLocationsStore(state => state.addDocument);
  const addPendingDuplicates = useLocationsStore(state => state.addPendingDuplicates);
  const { user } = useAuth();
@@ -70,6 +86,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName, wizar
   } | null>(null);
   const [showSummary, setShowSummary] = useState(false);
   const rawFileRef = useRef<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [collectionId, setCollectionId] = useState<string>('');
   const [newCollectionName, setNewCollectionName] = useState<string>('');
 
@@ -310,6 +327,28 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName, wizar
  const isCuratorMode = !!curatorId;
  const canUpload = uploadConditions.acceptTerms && uploadConditions.acceptDuplicatePolicy;
 
+  // ── PR-IMPORT-UX-4: emitir estado de CTA primaria al padre ──
+  const openFilePicker = useCallback(() => {
+    if (isProcessing || !canUpload) return;
+    fileInputRef.current?.click();
+  }, [isProcessing, canUpload]);
+
+  useEffect(() => {
+    if (!onPrimaryStateChange) return;
+    const disabledReason = !canUpload
+      ? 'Acepta los términos y la política de duplicados.'
+      : isProcessing
+        ? 'Procesando archivo…'
+        : undefined;
+    onPrimaryStateChange({
+      label: isProcessing ? 'Procesando…' : 'Subir archivo',
+      submit: openFilePicker,
+      canSubmit: canUpload && !isProcessing,
+      isProcessing,
+      disabledReason,
+    });
+  }, [canUpload, isProcessing, openFilePicker, onPrimaryStateChange]);
+
  // ── File handling ──
   const handleFile = useCallback(async (file: File) => {
    if (!canUpload) {
@@ -463,7 +502,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName, wizar
     'w-full space-y-4',
     wizardMode ? 'max-w-2xl mx-auto px-[var(--panel-padding-x)] py-5' : 'max-w-lg mx-auto',
    )}>
-    {!wizardMode && (
+    {!wizardMode && !hidePrimaryCta && (
      <ImportSurfaceShell
       surfaceId="file"
       icon={<FileText className="w-5 h-5" />}
@@ -507,7 +546,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName, wizar
       onDragLeave={() => setIsDragging(false)}
       onDrop={handleDrop}
      >
-      <input type="file" className="hidden" onChange={handleFileInput} disabled={isProcessing || !canUpload} />
+      <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileInput} disabled={isProcessing || !canUpload} />
 
       <motion.div
        animate={isDragging ? { scale: 1.05, y: -3 } : { scale: 1, y: 0 }}

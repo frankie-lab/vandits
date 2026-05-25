@@ -16,6 +16,7 @@
  * o renderizar este componente con `padding-x` y dejar que controle scroll.
  */
 import { useState, useEffect, useCallback } from 'react';
+import type { ImportPrimaryCtaState } from '@/shared/components/import/import-primary-cta';
 import {
   Cloud,
   FolderOpen,
@@ -91,7 +92,19 @@ interface BreadcrumbItem {
   name: string;
 }
 
-export function OneDrivePhotosPanel({ wizardMode = false }: { wizardMode?: boolean } = {}) {
+export interface OneDrivePhotosPanelProps {
+  wizardMode?: boolean;
+  /** PR-IMPORT-UX-4: oculta el `PanelFooter` interno (CTA elevada al padre). */
+  hidePrimaryCta?: boolean;
+  /** PR-IMPORT-UX-4: emite el estado de la CTA primaria al padre. */
+  onPrimaryStateChange?: (state: ImportPrimaryCtaState) => void;
+}
+
+export function OneDrivePhotosPanel({
+  wizardMode = false,
+  hidePrimaryCta = false,
+  onPrimaryStateChange,
+}: OneDrivePhotosPanelProps = {}) {
   const [activeTab, setActiveTab] = useState<'index' | 'browse' | 'validate'>('index');
 
   // Index state
@@ -162,6 +175,29 @@ export function OneDrivePhotosPanel({ wizardMode = false }: { wizardMode?: boole
   useEffect(() => {
     loadIndex();
   }, [loadIndex]);
+
+  // PR-IMPORT-UX-4: emitir estado de CTA primaria al padre.
+  useEffect(() => {
+    if (!onPrimaryStateChange) return;
+    const hasIndex = indexPhotos.length > 0;
+    if (hasIndex) {
+      onPrimaryStateChange({
+        label: 'Importar imágenes',
+        submit: () => { /* PR-IMPORT-ONEDRIVE-CREATE-POI pendiente */ },
+        canSubmit: false,
+        isProcessing: false,
+        disabledReason: 'Disponible cuando se entregue PR-IMPORT-ONEDRIVE-CREATE-POI.',
+      });
+    } else {
+      onPrimaryStateChange({
+        label: auditing ? 'Auditando…' : 'Auditar fotos de OneDrive',
+        submit: runAudit,
+        canSubmit: !auditing,
+        isProcessing: auditing,
+        disabledReason: auditing ? 'Auditoría en curso…' : undefined,
+      });
+    }
+  }, [onPrimaryStateChange, indexPhotos.length, auditing, runAudit]);
 
   const loadContents = useCallback(async (folderId: string | null) => {
     setLoading(true);
@@ -383,26 +419,29 @@ export function OneDrivePhotosPanel({ wizardMode = false }: { wizardMode?: boole
           )}
         </div>
 
-        {/* CTA primaria sticky */}
-        <PanelFooter>
-          <Button
-            onClick={runAudit}
-            disabled={auditing}
-            className="w-full h-11"
-          >
-            {auditing ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                {auditProgress || 'Auditando...'}
-              </>
-            ) : (
-              <>
-                <Search className="w-4 h-4 mr-2" />
-                Auditar fotos de OneDrive
-              </>
-            )}
-          </Button>
-        </PanelFooter>
+        {/* CTA primaria sticky. PR-IMPORT-UX-4: oculta cuando el padre
+            renderiza la CTA en su propio PanelFooter. */}
+        {!hidePrimaryCta && (
+          <PanelFooter>
+            <Button
+              onClick={runAudit}
+              disabled={auditing}
+              className="w-full h-11"
+            >
+              {auditing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  {auditProgress || 'Auditando...'}
+                </>
+              ) : (
+                <>
+                  <Search className="w-4 h-4 mr-2" />
+                  Auditar fotos de OneDrive
+                </>
+              )}
+            </Button>
+          </PanelFooter>
+        )}
       </PanelTabs.Content>
 
       {/* BROWSE TAB */}

@@ -10,6 +10,7 @@
  * Reemplaza al sistema de pestañas Inmediato/Background.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ImportPrimaryCtaState } from '@/shared/components/import/import-primary-cta';
 import {
   Globe, Sparkles, Link2, Loader2, FlaskConical, MapPin, AlertCircle,
   Eye, Users, Lock, Zap, Clock,
@@ -128,7 +129,22 @@ function buildSyntheticDocument(payload: {
   };
 }
 
-export function WebImportPanel({ onComplete, wizardMode = false }: { onComplete?: () => void; wizardMode?: boolean }) {
+export interface WebImportPanelProps {
+  onComplete?: () => void;
+  /** PR-IMPORT-UX-2 legacy. Backlog `PR-IMPORT-CLEANUP`. */
+  wizardMode?: boolean;
+  /** PR-IMPORT-UX-4: oculta header `ImportSurfaceShell` y CTA inline (Probar/Ejecutar). */
+  hidePrimaryCta?: boolean;
+  /** PR-IMPORT-UX-4: emite el estado de la CTA primaria al padre. */
+  onPrimaryStateChange?: (state: ImportPrimaryCtaState) => void;
+}
+
+export function WebImportPanel({
+  onComplete,
+  wizardMode = false,
+  hidePrimaryCta = false,
+  onPrimaryStateChange,
+}: WebImportPanelProps) {
   const { user } = useAuth();
   const addDocument = useLocationsStore((s) => s.addDocument);
 
@@ -328,10 +344,71 @@ export function WebImportPanel({ onComplete, wizardMode = false }: { onComplete?
 
   const modeNowDisabled = !preview || sourceKind === 'generic';
 
+  // ── PR-IMPORT-UX-4: emitir estado de CTA primaria al padre ──
+  const primarySubmit = useCallback(() => {
+    // Fase Probar (Atlas sin preview todavía) → handleTest.
+    if (isAtlas && !preview) return handleTest();
+    // Resto: ejecución real (Importar ahora o Encolar background).
+    return handleExecute();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAtlas, preview, handleTest, mode]);
+
+  useEffect(() => {
+    if (!onPrimaryStateChange) return;
+    const isWorkingNow = phase !== 'idle';
+    const trimmedUrl = url.trim();
+
+    let label = 'Probar';
+    let canSubmit = false;
+    let disabledReason: string | undefined;
+
+    if (phase === 'testing') {
+      label = 'Probando…';
+    } else if (phase === 'saving') {
+      label = 'Guardando…';
+    } else if (phase === 'enqueueing') {
+      label = 'Encolando…';
+    } else if (!trimmedUrl || sourceKind === 'empty') {
+      label = 'Probar';
+      disabledReason = 'Pega una URL primero.';
+    } else if (sourceKind === 'invalid') {
+      label = 'Probar';
+      disabledReason = 'URL inválida.';
+    } else if (isAtlas && !preview) {
+      label = 'Probar';
+      canSubmit = true;
+    } else if (mode === 'now') {
+      label = `Importar web (${finalCount})`;
+      canSubmit = !modeNowDisabled && finalCount > 0;
+      if (!canSubmit) {
+        disabledReason = finalCount === 0
+          ? 'No hay puntos nuevos para importar.'
+          : 'Pulsa Probar para cargar muestra antes de importar.';
+      }
+    } else {
+      // background
+      label = 'Encolar en background';
+      canSubmit = !!trimmedUrl;
+      if (!canSubmit) disabledReason = 'Pega una URL primero.';
+    }
+
+    onPrimaryStateChange({
+      label,
+      submit: primarySubmit,
+      canSubmit: canSubmit && !isWorkingNow,
+      isProcessing: isWorkingNow,
+      disabledReason: isWorkingNow ? 'Operación en curso…' : disabledReason,
+    });
+  }, [
+    onPrimaryStateChange, primarySubmit, phase, url, sourceKind, isAtlas,
+    preview, mode, finalCount, modeNowDisabled,
+  ]);
+
+
   return (
     <>
       <div className={`w-full ${wizardMode ? 'max-w-2xl mx-auto px-[var(--panel-padding-x)] py-5' : 'max-w-lg mx-auto'} space-y-4`}>
-        {!wizardMode && (
+        {!wizardMode && !hidePrimaryCta && (
           <ImportSurfaceShell
             surfaceId="web"
             icon={<Globe className="w-5 h-5" />}
@@ -371,18 +448,20 @@ export function WebImportPanel({ onComplete, wizardMode = false }: { onComplete?
                   disabled={isWorking}
                 />
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleTest}
-                disabled={isWorking || !canTest}
-                className="h-11 shrink-0"
-              >
-                {phase === 'testing'
-                  ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                  : <FlaskConical className="w-4 h-4 mr-1.5" />}
-                Probar
-              </Button>
+              {!hidePrimaryCta && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleTest}
+                  disabled={isWorking || !canTest}
+                  className="h-11 shrink-0"
+                >
+                  {phase === 'testing'
+                    ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                    : <FlaskConical className="w-4 h-4 mr-1.5" />}
+                  Probar
+                </Button>
+              )}
             </div>
             {sourceBadge && (
               <Badge variant={sourceBadge.tone} className="text-[10px] mt-1">{sourceBadge.label}</Badge>
@@ -575,53 +654,63 @@ export function WebImportPanel({ onComplete, wizardMode = false }: { onComplete?
                 )}
               </div>
 
-              {/* Ejecutar */}
-              <Button
-                onClick={handleExecute}
-                disabled={
-                  isWorking ||
-                  (mode === 'now' && (modeNowDisabled || finalCount === 0)) ||
-                  (mode === 'background' && !url.trim())
-                }
-                className="w-full h-11"
-              >
-                {phase === 'saving' || phase === 'enqueueing' ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    {phase === 'saving' ? 'Guardando…' : 'Encolando…'}</>
-                ) : mode === 'now' ? (
-                  <><Zap className="w-4 h-4 mr-2" />Importar {finalCount} {finalCount === 1 ? 'punto' : 'puntos'}</>
-                ) : (
-                  <><Clock className="w-4 h-4 mr-2" />Encolar en background</>
-                )}
-              </Button>
+              {/* PR-IMPORT-UX-4: CTA real elevada a PanelFooter del padre.
+                  El bloque inline se mantiene como fallback cuando el panel
+                  se monta fuera de `ImportedContentPanel` (modo standalone). */}
+              {!hidePrimaryCta && (
+                <>
+                  <Button
+                    onClick={handleExecute}
+                    disabled={
+                      isWorking ||
+                      (mode === 'now' && (modeNowDisabled || finalCount === 0)) ||
+                      (mode === 'background' && !url.trim())
+                    }
+                    className="w-full h-11"
+                  >
+                    {phase === 'saving' || phase === 'enqueueing' ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        {phase === 'saving' ? 'Guardando…' : 'Encolando…'}</>
+                    ) : mode === 'now' ? (
+                      <><Zap className="w-4 h-4 mr-2" />Importar {finalCount} {finalCount === 1 ? 'punto' : 'puntos'}</>
+                    ) : (
+                      <><Clock className="w-4 h-4 mr-2" />Encolar en background</>
+                    )}
+                  </Button>
 
-              {!preview && isAtlas && mode === 'now' && (
-                <p className="text-[10px] text-muted-foreground leading-relaxed">
-                  Pulsa Probar para traer los primeros {PREVIEW_SIZE} puntos antes de importar.
-                </p>
+                  {!preview && isAtlas && mode === 'now' && (
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      Pulsa Probar para traer los primeros {PREVIEW_SIZE} puntos antes de importar.
+                    </p>
+                  )}
+                </>
               )}
             </>
           )}
         </div>
 
-        {/* Lista de jobs en curso. En wizardMode, colapsada como historial secundario. */}
-        {wizardMode ? (
-          <details className="rounded-xl border bg-muted/20 group">
-            <summary className="cursor-pointer list-none px-4 py-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center justify-between">
-              <span>Jobs recientes (historial)</span>
-              <span className="text-[10px] text-muted-foreground/70 group-open:hidden">
-                Mostrar
-              </span>
-              <span className="text-[10px] text-muted-foreground/70 hidden group-open:inline">
-                Ocultar
-              </span>
-            </summary>
-            <div className="px-3 pb-3">
-              <ScrapeJobsList />
-            </div>
-          </details>
-        ) : (
-          <ScrapeJobsList />
+        {/* Lista de jobs en curso. PR-IMPORT-UX-4: cuando `hidePrimaryCta`
+            está activo, el padre renderiza el histórico/jobs en su propia
+            sub-vista (Histórico). En modo standalone se mantiene visible. */}
+        {!hidePrimaryCta && (
+          wizardMode ? (
+            <details className="rounded-xl border bg-muted/20 group">
+              <summary className="cursor-pointer list-none px-4 py-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center justify-between">
+                <span>Jobs recientes (historial)</span>
+                <span className="text-[10px] text-muted-foreground/70 group-open:hidden">
+                  Mostrar
+                </span>
+                <span className="text-[10px] text-muted-foreground/70 hidden group-open:inline">
+                  Ocultar
+                </span>
+              </summary>
+              <div className="px-3 pb-3">
+                <ScrapeJobsList />
+              </div>
+            </details>
+          ) : (
+            <ScrapeJobsList />
+          )
         )}
       </div>
 
