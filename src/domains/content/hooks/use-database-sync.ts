@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { dbLocationToGeoLocation, fetchAllLocationsPaginated } from '../lib/db-transformers';
 import { startLoading, updateLoading, endLoading } from '@/shared/loading';
 import { bootMark, bootMeasure, bootSummary } from '@/shared/perf/boot-perf';
+import { notifyMapInteractive, notifyBootComplete } from '@/shared/boot/boot-gate';
 
 export type SyncPhase = 'idle' | 'own' | 'social' | 'done';
 
@@ -170,17 +171,25 @@ export function useDatabaseSync(userId?: string | null) {
       // Mapa ya tiene contenido renderizable → cerramos cualquier bloqueo.
       ensureEndLoading();
       bootMark('map:interactive');
+      // PR-BOOT-PERF-1: liberar consumidores secundarios (pollers diferidos)
+      // SOLO ahora, no antes. Antes de este punto cualquier fan-out hacia
+      // edge functions compite con la paginación del catálogo.
+      notifyMapInteractive();
 
       setSyncPhase('social');
+      bootMark('social:apply:scheduled');
       await new Promise(resolve => setTimeout(resolve, 0));
 
+      bootMark('social:apply:start', { docs: otherKmlDocs.length });
       applyCatalogSnapshot(otherKmlDocs, { ownerScope: 'social', currentUserId: currentUserId ?? null });
+      bootMark('social:apply:end');
       bootMark('catalog:apply:social');
 
       setSyncPhase('done');
       bootMark('boot:complete');
       bootMeasure('boot:total', 'boot:start', 'boot:complete');
       bootSummary();
+      notifyBootComplete();
       // Load summary is shown in the welcome card on the map (no toast to avoid duplication)
     } catch (error: any) {
       console.error('Error loading from database:', error);
