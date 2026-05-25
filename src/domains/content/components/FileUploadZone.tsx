@@ -26,6 +26,15 @@ interface FileUploadZoneProps {
  onUploadComplete?: () => void;
  curatorId?: string;
  curatorName?: string;
+ /**
+  * PR-IMPORT-UX-2: cuando este componente se monta dentro de
+  * `ImportWizardShell`, el shell ya provee header/título y el wizard ordena
+  * las condiciones DESPUÉS de elegir archivo. Con `wizardMode={true}`
+  * omitimos el `ImportSurfaceShell` interno (evita doble header) y
+  * desplazamos las condiciones bajo el dropzone en un bloque colapsable,
+  * para que la primera pantalla no parezca un formulario bloqueado.
+  */
+ wizardMode?: boolean;
 }
 
 interface UploadConditions {
