@@ -2,6 +2,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useCoalescedRealtimeTick } from '@/components/map/use-coalesced-realtime-tick';
 import { dispatchGlobalEvent } from '@/lib/global-events';
+import { awaitMapInteractive } from '@/shared/boot/boot-gate';
+import { createConcurrencyPool } from '@/shared/boot/concurrency-pool';
+import { bootMark } from '@/shared/perf/boot-perf';
 import { motion } from 'framer-motion';
 import { 
  Filter, 
@@ -354,6 +357,11 @@ export function FloatingToolbar({
     forceUpdate((v) => v + 1);
   }, { delayMs: 500 });
 
+  // PR-BOOT-PERF-1: límite defensivo (≤4 in-flight) sobre el fan-out de
+  // getActive. Aunque difiramos el primer poll a `map:interactive`, una vez
+  // arranque NO debe lanzar 22+ POSTs paralelos contra `batch-enrich`.
+  const enrichPoolRef = React.useRef(createConcurrencyPool(4));
+
   // Fetch active job status (search across all imported documents)
  const fetchJobStatus = useCallback(async () => {
  if (documents.length === 0) {
@@ -362,13 +370,16 @@ export function FloatingToolbar({
  }
 
  try {
+ const pool = enrichPoolRef.current;
  const settled = await Promise.allSettled(
- documents.map(async (doc) => {
+ documents.map((doc) =>
+ pool.run(async () => {
  const res = await supabase.functions.invoke('batch-enrich', {
  body: { action: 'getActive', documentId: doc.id },
  });
  return { docId: doc.id, ...res };
- })
+ }),
+ )
  );
 
  const jobs = settled
@@ -393,13 +404,27 @@ export function FloatingToolbar({
  }
  }, [documents]);
 
-  // Poll for job status
+  // Poll for job status — DEFERRED until map is interactive + idle.
+  // PR-BOOT-PERF-1: el poll previo arrancaba a t≈0.9s con 22 POSTs por
+  // ciclo (1 por documento) y saturaba el pool HTTP/2 contra Supabase,
+  // bloqueando las páginas del catálogo. Ahora espera al boot-gate.
  useEffect(() => {
  if (documents.length === 0) return;
 
+ let cancelled = false;
+ let interval: number | null = null;
+
+ awaitMapInteractive({ idle: true }).then(() => {
+ if (cancelled) return;
+ bootMark('enrichment:storm:scheduled', { docs: documents.length });
  fetchJobStatus();
- const interval = setInterval(fetchJobStatus, 2000);
- return () => clearInterval(interval);
+ interval = window.setInterval(fetchJobStatus, 2000);
+ });
+
+ return () => {
+ cancelled = true;
+ if (interval != null) window.clearInterval(interval);
+ };
  }, [documents.length, fetchJobStatus]);
 
   const allLocations = getAllLocations();

@@ -19,6 +19,7 @@ import { useLocationsStore, loadLocationsFromDatabase } from '@/domains/content'
 import { toast } from 'sonner';
 import { countErrorBuckets } from '@/domains/content/lib/enrichment-error-kind';
 import { LaneRow, type LaneSegment, type LaneMetric } from './LaneRow';
+import { awaitMapInteractive } from '@/shared/boot/boot-gate';
 
 interface EnrichmentJob {
   id: string;
@@ -194,9 +195,17 @@ export function EnrichmentLane({ onActiveChange }: EnrichmentLaneProps) {
   }, [refreshLocations, scheduleRefreshLocations]);
 
   useEffect(() => {
-    fetchJobStatus();
-    const interval = setInterval(fetchJobStatus, 2000);
-    return () => clearInterval(interval);
+    let cancelled = false;
+    let interval: number | null = null;
+    awaitMapInteractive({ idle: true }).then(() => {
+      if (cancelled) return;
+      fetchJobStatus();
+      interval = window.setInterval(fetchJobStatus, 2000);
+    });
+    return () => {
+      cancelled = true;
+      if (interval != null) window.clearInterval(interval);
+    };
   }, [fetchJobStatus]);
 
   const broadcastAction = async (action: 'pause' | 'resume' | 'cancel') => {
