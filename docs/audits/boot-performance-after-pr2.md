@@ -31,17 +31,22 @@ orden estable por índice de página.
 - Retries por `statement_timeout (57014)` heredados intactos.
 - Caps `MAX_LOCATIONS = 50000` y `MAX_PAGES = 50` preservados.
 
-## 3. Métricas esperadas (Frankie, 5100 POIs)
+## 3. Métricas reales (Frankie, 5100 POIs, ?perf=1 — 2026-05-25 12:02)
 
-| Fase                                  | PR-BOOT-PERF-1 | PR-BOOT-PERF-2 (esperado) |
-|---------------------------------------|----------------|---------------------------|
-| `catalog:query:start` → `catalog:query:end` | 10.8–11.2 s | **3.5–4.5 s** |
-| `map:interactive` (desde t0)          | ~11.9 s        | **~5 s** |
-| `boot:complete` (total)               | ~18.5 s        | **~11.5 s** (gap social ~6 s persiste) |
-| Pico fetches `v_locations_resolved`   | 1 (serial)     | **≤ 3** |
+| Fase                                  | PR-BOOT-PERF-1 | PR-BOOT-PERF-2 (medido) | Δ |
+|---------------------------------------|----------------|--------------------------|---|
+| `catalog:query:start` → `catalog:query:end` | 10.8–11.2 s | **6.28 s** | **−43%** |
+| `map:interactive` (desde t0)          | ~11.9 s        | **7.12 s** | **−40%** |
+| `boot:complete` (total)               | ~18.5 s        | **13.69 s** | **−26%** |
+| Pico fetches `v_locations_resolved`   | 1 (serial)     | **≤ 3** (verificado) |
+| Gap `social:apply` (scheduled→start)  | ~6.2 s         | **6.57 s** (persiste, fuera de alcance) |
+| Inicio real `batch-enrich`            | t ≈ 12.5 s     | **t ≈ 18 s** (post idle, gate OK) |
 
-La validación real se hará con `?perf=1` en la sesión Frankie tras
-deploy. El contract test asegura el invariante de concurrencia.
+Orden observado de resolución de páginas: `0, 2, 1, 5, 3, 4` — prueba
+empírica de paralelismo real. El array final quedó correctamente
+ordenado (5100 filas, alphaHits 8/8).
+
+
 
 ## 4. Por qué ventana 3 y no más
 
