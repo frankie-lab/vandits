@@ -143,32 +143,46 @@ Solo documentación + memoria.
 
 ## 8. Histórico
 
-- 2026-05 — Canon creado tras PR-IMPORT-DISCOVERY-1 (audit de medios
-  de importación). Ratifica los tres medios exclusivos y separa
-  explícitamente alta manual / enriquecimiento / mantenimiento.
-- 2026-05-25 — **PR-IMPORT-UX-1 CERRADO** (v1.5.16). Hub `Contenido`
-  alineado con canon §2:
-  - `ImportedContentPanel`: grupo `Importar` (Archivos · Web ·
-    OneDrive · fotos) separado del grupo `Biblioteca` (Documentos
-    importados).
-  - `OneDrivePhotosPanel`: sub-tabs reorganizados en dos grupos —
-    `Importar` (Fotos con GPS, única vía canónica §2.2) y `Avanzado ·
-    diagnóstico` (Explorar, Validar). `Validar` permanece accesible
-    pero **etiquetado fuera de canon** (estado personal / §3).
-  - `DocumentsPanel`: subtítulo explícito *"Biblioteca · historial
-    operativo. No es una vía de importación"*.
-  - `BackgroundScrapeJobs`: botón "Ver resultado" para jobs `done`
-    con `document_id`.
-  - `FileUploadZone`: copy humano + chips de formato (KML/KMZ/GPX/
-    GeoJSON/CSV).
-  - Contract test: `src/test/import-hub-ux.test.tsx`.
-  - Auditoría completa: `docs/audits/import-ux-operability.md`.
+- 2026-05 — Canon creado tras PR-IMPORT-DISCOVERY-1.
+- 2026-05-25 — **PR-IMPORT-UX-1 CERRADO** (v1.5.16). Reorganización
+  de labels y grupos en `ImportedContentPanel` (versión tabs):
+  grupo `Importar` (Archivos · Web · OneDrive · fotos) separado de
+  `Biblioteca` (Documentos importados). `OneDrivePhotosPanel` con
+  sub-tabs `Importar` / `Avanzado · diagnóstico`. `DocumentsPanel`
+  con subtítulo de biblioteca. `BackgroundScrapeJobs` con botón
+  "Ver resultado". `FileUploadZone` con copy humano + chips.
+  Contract test inicial + auditoría `import-ux-operability.md`.
+- 2026-05-25 — **PR-IMPORT-UX-2 CERRADO** (v1.6.0). Rediseño real
+  del hub: tabs → **wizard guiado**. Supera la UX de PR-IMPORT-UX-1
+  (que sólo reorganizaba labels).
+  - `ImportedContentPanel` deja de ser `PanelTabs` y pasa a **router
+    de vistas** (`hub` · `wizard` · `library`).
+  - `ImportHub` (`src/shared/components/import/ImportHub.tsx`):
+    landing con 3 `ImportChannelCard` (`file` · `web` · `onedrive`),
+    cada una con título, "Qué acepta" (chips), "Qué crea", "Cuándo
+    usarlo" y CTA `Empezar`. Link secundario `Documentos importados`.
+  - `ImportWizardShell` (`src/shared/components/import/ImportWizardShell.tsx`):
+    header (icono + título + back-to-hub) + stepper canónico de
+    5 pasos: `Fuente · Revisión · Destino · Importar · Resultado`.
+  - Cada vía monta su panel existente con `wizardMode={true}` (sin
+    doble header, jobs colapsados, sub-tabs diagnóstico ocultos).
+    Lógica de import sin cambios.
+  - `DocumentsPanel` queda en `view='library'` accesible sólo por
+    link secundario del hub, con breadcrumb `← Importar`.
+  - Contract test (`import-hub-ux.test.tsx`, 8/8 verde): ausencia
+    de `role="tablist"` en hub, presencia de `data-import-channel-card`
+    para los 3 canales, stepper de 5 pasos en wizard, biblioteca
+    sólo vía `data-import-library-link="v2"`.
+  - Reglas duras: prohibidas tabs pequeñas como navegación principal,
+    3 UX distintas por canal, diagnóstico como feature principal,
+    botones fake.
+  - Memoria sincronizada: `mem://logic/import/import-canon`.
 
 ### 8.1 Backlog explícito (NO abrir sin PR dedicado)
 
 | ID                                  | Alcance                                                                 |
 | ----------------------------------- | ----------------------------------------------------------------------- |
-| `PR-IMPORT-ONEDRIVE-CREATE-POI`     | Implementar acción canónica §2.2: crear/incorporar POIs desde fotos con GPS indexadas (schema/edge/flow nuevos). |
+| `PR-IMPORT-ONEDRIVE-CREATE-POI`     | Implementar acción canónica §2.2: crear/incorporar POIs desde fotos con GPS indexadas (schema/edge/flow nuevos). El wizard OneDrive hoy llega hasta `Auditar fotos`; los pasos `Destino/Importar/Resultado` quedan placeholder hasta este PR. |
 | `PR-PERSONAL-STATE-FROM-PHOTOS`     | Extraer `OneDriveVisitValidator` a panel propio fuera del hub de importación (canon §3 — es estado personal). |
 | `PR-IMPORT-CLEANUP`                 | Eliminar `UploadPreviewDialog` legacy (706 líneas, huérfano post import-first) y su re-export en `domains/content/components/index.ts`. |
 
