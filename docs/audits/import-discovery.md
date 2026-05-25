@@ -3,6 +3,14 @@
 > Auditoría de medios de importación / ingesta. Solo lectura. Sin cambios en
 > schema, RLS, scrapers, edge functions ni UI. Snapshot tomado contra `main`
 > en fecha de `APP_VERSION` activa.
+>
+> **Canon ratificado (PR-IMPORT-CANON-1)**: ver
+> [`../contracts/import-canon.md`](../contracts/import-canon.md) y
+> `mem://logic/import/import-canon`. "Importación" en Vandits =
+> exclusivamente **fichero** (KML/KMZ/GPX/GeoJSON/CSV) + **OneDrive
+> fotos** + **web scrape**. Toda superficie listada abajo que no encaje
+> en esos tres medios pertenece a **alta manual**, **enriquecimiento**,
+> **backfill**, **recovery** o **canonicalize** (ver canon §3).
 
 Convenciones de status:
 
