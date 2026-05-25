@@ -323,6 +323,10 @@ async function getEnabledSearchSources(): Promise<Set<SourceCode>> {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
+
   try {
     const body = (await req.json()) as Body;
     const term = (body?.term ?? '').trim();
