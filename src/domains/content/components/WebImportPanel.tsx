@@ -689,24 +689,28 @@ export function WebImportPanel({
           )}
         </div>
 
-        {/* Lista de jobs en curso. En wizardMode, colapsada como historial secundario. */}
-        {wizardMode ? (
-          <details className="rounded-xl border bg-muted/20 group">
-            <summary className="cursor-pointer list-none px-4 py-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center justify-between">
-              <span>Jobs recientes (historial)</span>
-              <span className="text-[10px] text-muted-foreground/70 group-open:hidden">
-                Mostrar
-              </span>
-              <span className="text-[10px] text-muted-foreground/70 hidden group-open:inline">
-                Ocultar
-              </span>
-            </summary>
-            <div className="px-3 pb-3">
-              <ScrapeJobsList />
-            </div>
-          </details>
-        ) : (
-          <ScrapeJobsList />
+        {/* Lista de jobs en curso. PR-IMPORT-UX-4: cuando `hidePrimaryCta`
+            está activo, el padre renderiza el histórico/jobs en su propia
+            sub-vista (Histórico). En modo standalone se mantiene visible. */}
+        {!hidePrimaryCta && (
+          wizardMode ? (
+            <details className="rounded-xl border bg-muted/20 group">
+              <summary className="cursor-pointer list-none px-4 py-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center justify-between">
+                <span>Jobs recientes (historial)</span>
+                <span className="text-[10px] text-muted-foreground/70 group-open:hidden">
+                  Mostrar
+                </span>
+                <span className="text-[10px] text-muted-foreground/70 hidden group-open:inline">
+                  Ocultar
+                </span>
+              </summary>
+              <div className="px-3 pb-3">
+                <ScrapeJobsList />
+              </div>
+            </details>
+          ) : (
+            <ScrapeJobsList />
+          )
         )}
       </div>
 
