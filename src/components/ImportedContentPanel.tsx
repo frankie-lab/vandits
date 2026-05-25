@@ -1,70 +1,74 @@
 /**
- * ImportedContentPanel — Panel "Contenido".
+ * ImportedContentPanel — Panel "Fuentes de importación" (PR-IMPORT-UX-3).
  *
- * PR-IMPORT-UX-2: rediseño real del hub. Ya NO es un PanelTabs con cuatro
- * pestañas. Es un router de vistas:
+ * Reemplaza el rediseño wizard de PR-IMPORT-UX-2 (rechazado por el usuario
+ * por no ofrecer fuentes claras ni histórico contextual). Vuelve al modelo
+ * canónico de TRES pestañas operativas alineadas con `docs/contracts/import-canon.md`:
  *
- *   view = 'hub'    → ImportHub (3 cards canónicas + biblioteca secundaria)
- *   view = 'wizard' → ImportWizardShell con la vía elegida (file | web | onedrive)
- *   view = 'library'→ DocumentsPanel (historial operativo, no es importación)
+ *   1. Archivos   → FileUploadZone + histórico de archivos importados
+ *   2. Web        → WebImportPanel + histórico de jobs/webs procesadas
+ *   3. Imágenes   → OneDrivePhotosPanel (provider OneDrive) + índice GPS
  *
- * Las tres vías de importación se sienten como un único asistente porque
- * comparten el shell (header, back-to-hub, stepper). La biblioteca queda
- * fuera del flujo principal.
+ * Reglas duras (PR-IMPORT-UX-3):
+ *   - Título del panel: "Fuentes de importación" (NO "Contenido").
+ *   - Tabs principales exactas: Archivos · Web · Imágenes. Sin más.
+ *   - "OneDrive · fotos" NO es tab principal: OneDrive es proveedor
+ *     dentro de Imágenes.
+ *   - "Biblioteca / Documentos importados" NO compite como tab principal;
+ *     vive contextual dentro de Archivos (DocumentsPanel filtrado).
+ *   - No hub de cards. No wizard. No stepper de 5 pasos.
  *
- * Compat: `defaultTab` se mapea al estado nuevo:
- *   upload/web/onedrive → view='wizard' con su channel.
- *   documents           → view='library'.
+ * Compat con menú existente (`defaultTab`):
+ *   upload    → archivos
+ *   web       → web
+ *   onedrive  → imagenes
+ *   documents → archivos (el histórico vive ahí)
  *
  * Ver:
- *   - docs/contracts/import-canon.md §5
  *   - mem://logic/import/import-canon
- *   - docs/audits/import-ux-operability.md
+ *   - docs/contracts/import-canon.md §8 (PR-IMPORT-UX-3)
  */
 import { useState, useEffect } from 'react';
-import { FolderOpen, ArrowLeft, FileText, Globe, Cloud } from 'lucide-react';
+import { FolderOpen, FileText, Globe, Image as ImageIcon } from 'lucide-react';
 import { PanelShell } from '@/shared/components/ui/panel';
-import { Button } from '@/components/ui/button';
+import { PanelTabs } from '@/shared/components/ui/panel/PanelTabs';
 import { FileUploadZone, DocumentsPanel } from '@/domains/content/components';
 import { WebImportPanel } from '@/domains/content/components/WebImportPanel';
 import { OneDrivePhotosPanel } from '@/components/OneDrivePhotosPanel';
-import { ImportHub, type ImportChannelId } from '@/shared/components/import/ImportHub';
-import { ImportWizardShell } from '@/shared/components/import/ImportWizardShell';
 
 export type ImportedContentTab = 'upload' | 'web' | 'onedrive' | 'documents';
+
+/** Canon interno: 3 fuentes. */
+type SourceTab = 'archivos' | 'web' | 'imagenes';
+
+const FILE_SOURCE_TYPES = ['kml', 'kmz', 'gpx', 'geojson', 'csv'];
 
 interface ImportedContentPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  /**
-   * Compat con el menú existente: si se pasa una pestaña explícita,
-   * entramos directamente al wizard de esa vía o a la biblioteca.
-   * Sin valor, abre el hub.
-   */
   defaultTab?: ImportedContentTab;
   onTabChange?: (tab: ImportedContentTab) => void;
 }
 
-type View = { kind: 'hub' } | { kind: 'wizard'; channel: ImportChannelId } | { kind: 'library' };
-
-function tabToView(tab: ImportedContentTab | undefined): View {
+function legacyToSource(tab: ImportedContentTab | undefined): SourceTab {
   switch (tab) {
-    case 'upload': return { kind: 'wizard', channel: 'file' };
-    case 'web': return { kind: 'wizard', channel: 'web' };
-    case 'onedrive': return { kind: 'wizard', channel: 'onedrive' };
-    case 'documents': return { kind: 'library' };
-    default: return { kind: 'hub' };
+    case 'web': return 'web';
+    case 'onedrive': return 'imagenes';
+    case 'upload':
+    case 'documents':
+    default:
+      return 'archivos';
   }
 }
 
-function viewToTab(view: View): ImportedContentTab {
-  if (view.kind === 'library') return 'documents';
-  if (view.kind === 'wizard') {
-    if (view.channel === 'file') return 'upload';
-    if (view.channel === 'web') return 'web';
-    return 'onedrive';
+function sourceToLegacy(tab: SourceTab): ImportedContentTab {
+  switch (tab) {
+    case 'web': return 'web';
+    case 'imagenes': return 'onedrive';
+    case 'archivos':
+    default:
+      return 'upload';
   }
-  return 'upload'; // hub default — caller no debería depender de esto
 }
 
 export function ImportedContentPanel({
@@ -73,99 +77,113 @@ export function ImportedContentPanel({
   defaultTab,
   onTabChange,
 }: ImportedContentPanelProps) {
-  const [view, setView] = useState<View>(() => tabToView(defaultTab));
+  const [tab, setTab] = useState<SourceTab>(() => legacyToSource(defaultTab));
 
-  // Sincronizar cuando el padre cambia defaultTab.
   useEffect(() => {
-    setView(tabToView(defaultTab));
+    setTab(legacyToSource(defaultTab));
   }, [defaultTab]);
 
-  const goHub = () => {
-    setView({ kind: 'hub' });
-  };
-
-  const goWizard = (channel: ImportChannelId) => {
-    setView({ kind: 'wizard', channel });
-    onTabChange?.(viewToTab({ kind: 'wizard', channel }));
-  };
-
-  const goLibrary = () => {
-    setView({ kind: 'library' });
-    onTabChange?.('documents');
+  const handleChange = (next: string) => {
+    const t = next as SourceTab;
+    setTab(t);
+    onTabChange?.(sourceToLegacy(t));
   };
 
   return (
     <PanelShell
-      title="Contenido"
+      title="Fuentes de importación"
       icon={<FolderOpen className="w-4 h-4 text-primary" />}
       isOpen={isOpen}
       onClose={onClose}
       variant="library"
       position="right"
     >
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        {view.kind === 'hub' && (
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            <ImportHub onSelectChannel={goWizard} onOpenLibrary={goLibrary} />
-          </div>
-        )}
-
-        {view.kind === 'wizard' && view.channel === 'file' && (
-          <ImportWizardShell
-            channelId="file"
-            icon={<FileText className="w-5 h-5" />}
-            title="Importar desde fichero"
-            subtitle="KML · KMZ · GPX · GeoJSON · CSV. Te guiamos paso a paso."
-            onBackToHub={goHub}
-          >
-            <FileUploadZone onUploadComplete={onClose} wizardMode />
-          </ImportWizardShell>
-        )}
-
-        {view.kind === 'wizard' && view.channel === 'web' && (
-          <ImportWizardShell
-            channelId="web"
-            icon={<Globe className="w-5 h-5" />}
-            title="Importar desde la web"
-            subtitle="Atlas Obscura · KML remoto · NetworkLink. Inmediato o en background."
-            onBackToHub={goHub}
-          >
-            <WebImportPanel onComplete={onClose} wizardMode />
-          </ImportWizardShell>
-        )}
-
-        {view.kind === 'wizard' && view.channel === 'onedrive' && (
-          <ImportWizardShell
-            channelId="onedrive"
-            icon={<Cloud className="w-5 h-5" />}
-            title="Importar fotos desde OneDrive"
-            subtitle="Detectamos fotos con GPS para crear ubicaciones."
-            onBackToHub={goHub}
-          >
-            <OneDrivePhotosPanel wizardMode />
-          </ImportWizardShell>
-        )}
-
-        {view.kind === 'library' && (
-          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-            <div className="shrink-0 px-[var(--panel-padding-x)] pt-4 pb-2 border-b">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={goHub}
-                className="h-7 -ml-2 text-muted-foreground hover:text-foreground"
-                data-import-back-to-hub
+      <div
+        className="flex-1 min-h-0 flex flex-col overflow-hidden"
+        data-import-sources="v3"
+      >
+        <PanelTabs value={tab} onValueChange={handleChange}>
+          <div className="shrink-0 px-[var(--panel-padding-x)] pt-[var(--panel-padding-y)] pb-3">
+            <PanelTabs.Group label="Fuentes">
+              <PanelTabs.Trigger
+                value="archivos"
+                icon={<FileText className="w-3.5 h-3.5" />}
+                data-import-source-tab="archivos"
               >
-                <ArrowLeft className="w-3.5 h-3.5 mr-1" />
-                Importar
-              </Button>
-            </div>
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <DocumentsPanel />
-            </div>
+                Archivos
+              </PanelTabs.Trigger>
+              <PanelTabs.Trigger
+                value="web"
+                icon={<Globe className="w-3.5 h-3.5" />}
+                data-import-source-tab="web"
+              >
+                Web
+              </PanelTabs.Trigger>
+              <PanelTabs.Trigger
+                value="imagenes"
+                icon={<ImageIcon className="w-3.5 h-3.5" />}
+                data-import-source-tab="imagenes"
+              >
+                Imágenes
+              </PanelTabs.Trigger>
+            </PanelTabs.Group>
           </div>
-        )}
+
+          {/* ARCHIVOS */}
+          <PanelTabs.Content
+            value="archivos"
+            className="flex-1 min-h-0 m-0 flex flex-col data-[state=inactive]:hidden"
+            data-import-source-content="archivos"
+          >
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="px-[var(--panel-padding-x)] pt-2 pb-4">
+                <FileUploadZone onUploadComplete={onClose} />
+              </div>
+              <div className="border-t" data-import-history="archivos">
+                <DocumentsPanel
+                  sourceFilter={FILE_SOURCE_TYPES}
+                  headerLabel="Archivos importados anteriormente"
+                  headerSubtitle="Histórico de KML · KMZ · GPX · GeoJSON · CSV ya importados. Pulsa un archivo para abrirlo o gestionarlo."
+                />
+              </div>
+            </div>
+          </PanelTabs.Content>
+
+          {/* WEB */}
+          <PanelTabs.Content
+            value="web"
+            className="flex-1 min-h-0 m-0 flex flex-col data-[state=inactive]:hidden"
+            data-import-source-content="web"
+          >
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="px-[var(--panel-padding-x)] pt-2 pb-4">
+                <WebImportPanel onComplete={onClose} />
+              </div>
+            </div>
+          </PanelTabs.Content>
+
+          {/* IMÁGENES */}
+          <PanelTabs.Content
+            value="imagenes"
+            className="flex-1 min-h-0 m-0 flex flex-col data-[state=inactive]:hidden"
+            data-import-source-content="imagenes"
+          >
+            <div className="flex-1 min-h-0 flex flex-col">
+              <div className="shrink-0 px-[var(--panel-padding-x)] pt-2 pb-2 space-y-1">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Proveedor · OneDrive
+                </p>
+                <p className="text-xs text-muted-foreground leading-snug">
+                  Detecta imágenes con coordenadas GPS (EXIF) en tu OneDrive para
+                  relacionarlas con ubicaciones o visitas.
+                </p>
+              </div>
+              <div className="flex-1 min-h-0 flex flex-col">
+                <OneDrivePhotosPanel />
+              </div>
+            </div>
+          </PanelTabs.Content>
+        </PanelTabs>
       </div>
     </PanelShell>
   );
