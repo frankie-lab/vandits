@@ -16,6 +16,7 @@
  * o renderizar este componente con `padding-x` y dejar que controle scroll.
  */
 import { useState, useEffect, useCallback } from 'react';
+import type { ImportPrimaryCtaState } from '@/shared/components/import/import-primary-cta';
 import {
   Cloud,
   FolderOpen,
@@ -91,7 +92,19 @@ interface BreadcrumbItem {
   name: string;
 }
 
-export function OneDrivePhotosPanel({ wizardMode = false }: { wizardMode?: boolean } = {}) {
+export interface OneDrivePhotosPanelProps {
+  wizardMode?: boolean;
+  /** PR-IMPORT-UX-4: oculta el `PanelFooter` interno (CTA elevada al padre). */
+  hidePrimaryCta?: boolean;
+  /** PR-IMPORT-UX-4: emite el estado de la CTA primaria al padre. */
+  onPrimaryStateChange?: (state: ImportPrimaryCtaState) => void;
+}
+
+export function OneDrivePhotosPanel({
+  wizardMode = false,
+  hidePrimaryCta = false,
+  onPrimaryStateChange,
+}: OneDrivePhotosPanelProps = {}) {
   const [activeTab, setActiveTab] = useState<'index' | 'browse' | 'validate'>('index');
 
   // Index state
