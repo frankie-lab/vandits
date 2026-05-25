@@ -1,4 +1,4 @@
-# VANDITS v1.5.13
+# VANDITS v1.5.14
 
 <!--
   ┌──────────────────────────────────────────────────────────────┐
@@ -13,7 +13,7 @@
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.5.13-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.5.14-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -104,6 +104,9 @@ Ver [`docs/`](./docs/) para documentación técnica completa.
 > versiones más recientes, sincronizado por
 > `scripts/release/bump-version.ts` y verificado por
 > `src/test/version-parity.test.ts`.
+
+### v1.5.14 (2026-05-25)
+- PR-BOOT-PERF-2: concurrent catalog pagination (window 3) + contract test
 
 ### v1.5.13 (2026-05-25)
 - PR-BOOT-PERF-1 closure: after-PR1 dossier + boot-gate contract test
