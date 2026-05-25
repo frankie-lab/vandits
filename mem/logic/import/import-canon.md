@@ -1,6 +1,6 @@
 ---
-name: Import canon (PR-IMPORT-CANON-1 + PR-IMPORT-UX-1)
-description: Define qué es importación en Vandits (3 medios) y la UX canónica del hub Contenido tras el cierre de PR-IMPORT-UX-1.
+name: Import canon (PR-IMPORT-CANON-1 + PR-IMPORT-UX-1 + PR-IMPORT-UX-2)
+description: Define qué es importación en Vandits (3 medios) y la UX canónica del hub Contenido como wizard guiado (3 cards + 5 pasos) tras PR-IMPORT-UX-2.
 type: feature
 ---
 
