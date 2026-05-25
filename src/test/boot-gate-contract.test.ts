@@ -52,7 +52,8 @@ describe('boot-gate contract (PR-BOOT-PERF-1)', () => {
     expect(resolved).toBe(false);
 
     notifyMapInteractive();
-    await Promise.resolve();
+    // Flush a few microtask ticks for the .then chain.
+    for (let i = 0; i < 5; i++) await Promise.resolve();
     expect(resolved).toBe(true);
   });
 
