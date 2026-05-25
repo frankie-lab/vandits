@@ -419,26 +419,29 @@ export function OneDrivePhotosPanel({
           )}
         </div>
 
-        {/* CTA primaria sticky */}
-        <PanelFooter>
-          <Button
-            onClick={runAudit}
-            disabled={auditing}
-            className="w-full h-11"
-          >
-            {auditing ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                {auditProgress || 'Auditando...'}
-              </>
-            ) : (
-              <>
-                <Search className="w-4 h-4 mr-2" />
-                Auditar fotos de OneDrive
-              </>
-            )}
-          </Button>
-        </PanelFooter>
+        {/* CTA primaria sticky. PR-IMPORT-UX-4: oculta cuando el padre
+            renderiza la CTA en su propio PanelFooter. */}
+        {!hidePrimaryCta && (
+          <PanelFooter>
+            <Button
+              onClick={runAudit}
+              disabled={auditing}
+              className="w-full h-11"
+            >
+              {auditing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  {auditProgress || 'Auditando...'}
+                </>
+              ) : (
+                <>
+                  <Search className="w-4 h-4 mr-2" />
+                  Auditar fotos de OneDrive
+                </>
+              )}
+            </Button>
+          </PanelFooter>
+        )}
       </PanelTabs.Content>
 
       {/* BROWSE TAB */}
