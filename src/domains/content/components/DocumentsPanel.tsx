@@ -97,6 +97,15 @@ export function DocumentsPanel({
 
   const fetchDocs = useCallback(async () => {
     if (!user) return;
+    // PR-IMPORT-UX-5 defense-in-depth: si el call site pasa `sourceFilter`
+    // explícitamente vacío, NUNCA caer a "sin filtro" (mostraría todos los
+    // docs del usuario). El bug original mostraba `web_import` dentro del
+    // histórico de imágenes por esta razón. Lista vacía = lista vacía.
+    if (sourceFilter && sourceFilter.length === 0) {
+      setDocs([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       let query = supabase
