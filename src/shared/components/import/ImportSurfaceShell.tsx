@@ -29,8 +29,8 @@ export interface ImportSurfaceShellProps {
   subtitle: ReactNode;
   /** Aviso/banner opcional renderizado bajo el header (e.g. condiciones bloqueantes). */
   notice?: ReactNode;
-  /** Slot B: input/dropzone/explorador — siempre presente. */
-  source: ReactNode;
+  /** Slot B: input/dropzone/explorador. Opcional cuando el shell se usa sólo como header. */
+  source?: ReactNode;
   /** Slot C: destino (visibilidad, colección, etc.). */
   target?: ReactNode;
   /** Slot D: preview de lo que se va a guardar. */
