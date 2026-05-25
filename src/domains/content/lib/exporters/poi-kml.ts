@@ -19,8 +19,17 @@ import {
   type PoiExportRecord,
   type PoiExportScope,
 } from '../poi-export-record';
+import type { PoiExportContent } from '../poi-export-content-model';
+import {
+  renderExportDescription,
+  type ExportRenderTarget,
+} from './render-export-description';
 
-export type KmlExportTarget = 'general' | 'mymaps' | 'gurumaps';
+/**
+ * PR-EXPORT-6 — Targets canónicos de rendering KML.
+ * `general` se mapea a `generic` (HTML whitelisted). Default = `gurumaps`.
+ */
+export type KmlExportTarget = ExportRenderTarget | 'general' | 'mymaps';
 
 export interface SerializePoiKmlOptions {
   scope: PoiExportScope;
@@ -70,8 +79,31 @@ function renderExtendedData(r: PoiExportRecord): string {
     .join('');
 }
 
-function renderPlacemark(r: PoiExportRecord): string {
-  const desc = r.content.description ? escapeXml(r.content.description) : '';
+function resolveRenderTarget(target: KmlExportTarget | undefined): ExportRenderTarget {
+  if (target === 'generic' || target === 'general' || target === 'mymaps') return 'generic';
+  // Default + 'gurumaps' → gurumaps (caso real de uso hoy).
+  return 'gurumaps';
+}
+
+function renderPlacemark(
+  r: PoiExportRecord,
+  options: { target?: KmlExportTarget; scope: PoiExportScope; generatedAt?: string },
+): string {
+  // PR-EXPORT-6 — delega rendering al dispatcher target-aware. El content
+  // model (PR-EXPORT-5) sigue siendo SoT; sólo cambia la presentación.
+  const layered = r.layeredContent as PoiExportContent | undefined;
+  let descBlock = '';
+  if (layered) {
+    const rendered = renderExportDescription(layered, {
+      format: 'kml',
+      target: resolveRenderTarget(options.target),
+      scope: options.scope,
+      generatedAt: options.generatedAt,
+    });
+    descBlock = `<description><![CDATA[${rendered.body}]]></description>`;
+  } else if (r.content.description) {
+    descBlock = `<description>${escapeXml(r.content.description)}</description>`;
+  }
   const altPart =
     typeof r.coordinates.altitude === 'number'
       ? `,${r.coordinates.altitude}`
@@ -79,7 +111,7 @@ function renderPlacemark(r: PoiExportRecord): string {
   return `
   <Placemark>
     <name>${escapeXml(r.name)}</name>
-    ${desc ? `<description>${desc}</description>` : ''}
+    ${descBlock}
     <ExtendedData>${renderExtendedData(r)}</ExtendedData>
     <Point>
       <coordinates>${r.coordinates.longitude},${r.coordinates.latitude}${altPart}</coordinates>
@@ -99,7 +131,10 @@ export function serializePoiKml(
   const docName = collection?.name ?? documentName;
   const docDesc = collection?.description;
 
-  const placemarks = records.map(renderPlacemark).join('\n');
+  const target = options.target;
+  const placemarks = records
+    .map((r) => renderPlacemark(r, { target, scope }))
+    .join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">

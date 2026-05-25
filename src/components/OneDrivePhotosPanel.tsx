@@ -16,6 +16,7 @@
  * o renderizar este componente con `padding-x` y dejar que controle scroll.
  */
 import { useState, useEffect, useCallback } from 'react';
+import type { ImportPrimaryCtaState } from '@/shared/components/import/import-primary-cta';
 import {
   Cloud,
   FolderOpen,
@@ -91,7 +92,19 @@ interface BreadcrumbItem {
   name: string;
 }
 
-export function OneDrivePhotosPanel() {
+export interface OneDrivePhotosPanelProps {
+  wizardMode?: boolean;
+  /** PR-IMPORT-UX-4: oculta el `PanelFooter` interno (CTA elevada al padre). */
+  hidePrimaryCta?: boolean;
+  /** PR-IMPORT-UX-4: emite el estado de la CTA primaria al padre. */
+  onPrimaryStateChange?: (state: ImportPrimaryCtaState) => void;
+}
+
+export function OneDrivePhotosPanel({
+  wizardMode = false,
+  hidePrimaryCta = false,
+  onPrimaryStateChange,
+}: OneDrivePhotosPanelProps = {}) {
   const [activeTab, setActiveTab] = useState<'index' | 'browse' | 'validate'>('index');
 
   // Index state
@@ -162,6 +175,29 @@ export function OneDrivePhotosPanel() {
   useEffect(() => {
     loadIndex();
   }, [loadIndex]);
+
+  // PR-IMPORT-UX-4: emitir estado de CTA primaria al padre.
+  useEffect(() => {
+    if (!onPrimaryStateChange) return;
+    const hasIndex = indexPhotos.length > 0;
+    if (hasIndex) {
+      onPrimaryStateChange({
+        label: 'Importar imágenes',
+        submit: () => { /* PR-IMPORT-ONEDRIVE-CREATE-POI pendiente */ },
+        canSubmit: false,
+        isProcessing: false,
+        disabledReason: 'Disponible cuando se entregue PR-IMPORT-ONEDRIVE-CREATE-POI.',
+      });
+    } else {
+      onPrimaryStateChange({
+        label: auditing ? 'Auditando…' : 'Auditar fotos de OneDrive',
+        submit: runAudit,
+        canSubmit: !auditing,
+        isProcessing: auditing,
+        disabledReason: auditing ? 'Auditoría en curso…' : undefined,
+      });
+    }
+  }, [onPrimaryStateChange, indexPhotos.length, auditing, runAudit]);
 
   const loadContents = useCallback(async (folderId: string | null) => {
     setLoading(true);
@@ -249,19 +285,45 @@ export function OneDrivePhotosPanel() {
         if (next === 'browse' && folders.length === 0 && photos.length === 0) loadContents(null);
       }}
     >
-      {/* Sub-tabs canónicos */}
-      <div className="shrink-0 px-[var(--panel-padding-x)] pt-[var(--panel-padding-y)] pb-3">
-        <PanelTabs.Group>
-          <PanelTabs.Trigger value="index" icon={<Database className="w-3.5 h-3.5" />}>
-            Índice
-          </PanelTabs.Trigger>
-          <PanelTabs.Trigger value="browse" icon={<ImageIcon className="w-3.5 h-3.5" />}>
-            Explorar
-          </PanelTabs.Trigger>
-          <PanelTabs.Trigger value="validate" icon={<Scan className="w-3.5 h-3.5" />}>
-            Validar
-          </PanelTabs.Trigger>
-        </PanelTabs.Group>
+      {/*
+        Sub-tabs canónicos — PR-IMPORT-UX-1 + PR-IMPORT-UX-2:
+        Grupo "Importar" = única vía de importación real (canon §2.2).
+        Grupo "Avanzado · diagnóstico" = exploración y validación,
+        explícitamente FUERA de la vía principal de importación.
+        En `wizardMode` (cuando el panel se monta dentro de
+        `ImportWizardShell`), Explorar/Validar quedan plegados en un
+        acordeón al pie y NO son la primera experiencia visible.
+        Ver docs/contracts/import-canon.md §2.2 y audits/import-ux-operability.md §2.1.
+      */}
+      <div className="shrink-0 px-[var(--panel-padding-x)] pt-[var(--panel-padding-y)] pb-3 space-y-3">
+        {wizardMode && (
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Paso 1 · Audita tus fotos
+            </p>
+            <p className="text-sm text-foreground/90 leading-snug">
+              Escanearemos tu OneDrive para detectar fotos con coordenadas GPS
+              (EXIF). El resultado es un índice listo para crear POIs.
+            </p>
+          </div>
+        )}
+        {!wizardMode && (
+          <>
+            <PanelTabs.Group label="Importar">
+              <PanelTabs.Trigger value="index" icon={<Database className="w-3.5 h-3.5" />}>
+                Fotos con GPS
+              </PanelTabs.Trigger>
+            </PanelTabs.Group>
+            <PanelTabs.Group label="Avanzado · diagnóstico">
+              <PanelTabs.Trigger value="browse" icon={<ImageIcon className="w-3.5 h-3.5" />}>
+                Explorar
+              </PanelTabs.Trigger>
+              <PanelTabs.Trigger value="validate" icon={<Scan className="w-3.5 h-3.5" />}>
+                Validar
+              </PanelTabs.Trigger>
+            </PanelTabs.Group>
+          </>
+        )}
       </div>
 
       {/* INDEX TAB */}
@@ -357,26 +419,29 @@ export function OneDrivePhotosPanel() {
           )}
         </div>
 
-        {/* CTA primaria sticky */}
-        <PanelFooter>
-          <Button
-            onClick={runAudit}
-            disabled={auditing}
-            className="w-full h-11"
-          >
-            {auditing ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                {auditProgress || 'Auditando...'}
-              </>
-            ) : (
-              <>
-                <Search className="w-4 h-4 mr-2" />
-                Auditar fotos de OneDrive
-              </>
-            )}
-          </Button>
-        </PanelFooter>
+        {/* CTA primaria sticky. PR-IMPORT-UX-4: oculta cuando el padre
+            renderiza la CTA en su propio PanelFooter. */}
+        {!hidePrimaryCta && (
+          <PanelFooter>
+            <Button
+              onClick={runAudit}
+              disabled={auditing}
+              className="w-full h-11"
+            >
+              {auditing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  {auditProgress || 'Auditando...'}
+                </>
+              ) : (
+                <>
+                  <Search className="w-4 h-4 mr-2" />
+                  Auditar fotos de OneDrive
+                </>
+              )}
+            </Button>
+          </PanelFooter>
+        )}
       </PanelTabs.Content>
 
       {/* BROWSE TAB */}

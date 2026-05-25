@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content';
 import { loadLocationsFromDatabase } from '@/domains/content';
+import { awaitMapInteractive } from '@/shared/boot/boot-gate';
 
 interface EnrichmentJob {
  id: string;
@@ -71,19 +72,23 @@ export function EnrichmentProgressIndicator() {
  }
  }, [selectedDocument, activeJob?.status, refreshLocations]);
 
-  // Poll for job status
+  // Poll for job status — DEFERRED until map is interactive (PR-BOOT-PERF-1).
  useEffect(() => {
  if (!selectedDocument) return;
 
-    // Initial fetch
- fetchJobStatus();
+ let cancelled = false;
+ let interval: number | null = null;
 
-    // Poll every 2 seconds
- const interval = setInterval(() => {
+ awaitMapInteractive({ idle: true }).then(() => {
+ if (cancelled) return;
  fetchJobStatus();
- }, 2000);
+ interval = window.setInterval(() => { fetchJobStatus(); }, 2000);
+ });
 
- return () => clearInterval(interval);
+ return () => {
+ cancelled = true;
+ if (interval != null) window.clearInterval(interval);
+ };
  }, [selectedDocument?.id]);
 
   // Dismiss completed notification

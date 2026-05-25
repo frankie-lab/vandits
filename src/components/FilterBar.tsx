@@ -50,7 +50,7 @@ import { HealthRepairPreviewDialog } from './discovery/HealthRepairPreviewDialog
 import { DebtResolutionPanel } from './discovery/DebtResolutionPanel';
 import { useSelectionFitOnStart } from './discovery/use-selection-fit-on-start';
 import { useHealthFilterFit } from './discovery/use-health-filter-fit';
-import { RootStatusChipRow } from './discovery/RootStatusChipRow';
+// import { RootStatusChipRow } from './discovery/RootStatusChipRow'; // PR-FILTER-ROOTSTATUS-DEMOTE-1
 import { UniverseBaseProvider } from './filters/UniverseBaseContext';
 import { DebtSelectionProvider, useDebtSelection } from './filters/DebtSelectionContext';
 import { DebtSelectionStatusBar } from './filters/DebtSelectionStatusBar';
@@ -66,6 +66,99 @@ import { toast } from 'sonner';
 
 
 const COUNT_FORMATTER = new Intl.NumberFormat('es-ES');
+
+/**
+ * PR-MAINTAIN-FOOTER-2 (revisado): fila de contadores canónica única.
+ * - X = selección efectiva (global ∪ local del panel "Con deuda").
+ * - T = universeBase del modo activo.
+ * - Switch ON ⇒ deseleccionar todo (global + deuda). Switch OFF + hay subset
+ *   accionable ⇒ seleccionar todo el subset del modo.
+ * NO renderiza badges extra ni contadores duplicados.
+ */
+function TopCounterRow({
+  T,
+  Tm,
+  Ts,
+  globalX,
+  globalXm,
+  globalXs,
+  universeLabel,
+  canSelect,
+  onSelectAll,
+  onClearGlobal,
+}: {
+  T: number;
+  Tm: number;
+  Ts: number;
+  globalX: number;
+  globalXm: number;
+  globalXs: number;
+  universeLabel: string | null;
+  canSelect: boolean;
+  onSelectAll: () => void;
+  onClearGlobal: () => void;
+}) {
+  const debtSel = useDebtSelection();
+  const debtCount = debtSel?.size ?? 0;
+  // Selección efectiva: si hay selección local de deuda, manda; si no, la global.
+  const X = debtCount > 0 ? debtCount : globalX;
+  const Xm = debtCount > 0 ? 0 : globalXm; // breakdown sólo aplica a global
+  const Xs = debtCount > 0 ? 0 : globalXs;
+  const hasSelection = X > 0;
+  const disabled = !hasSelection && !canSelect;
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex flex-col">
+        <div className="flex items-center gap-2">
+          <span className="text-lg font-semibold leading-none tabular-nums">
+            <span className="text-primary">{COUNT_FORMATTER.format(X)}</span>
+            <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(T)}</span>
+          </span>
+          <span className="text-sm text-muted-foreground leading-none">
+            seleccionados{universeLabel ? ` (${universeLabel})` : ''}
+          </span>
+        </div>
+        {debtCount === 0 && (
+          <div className="text-xs mt-1 leading-tight">
+            <span className="font-semibold tabular-nums">
+              <span className="text-primary">{COUNT_FORMATTER.format(Xm)}</span>
+              <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(Tm)}</span>
+            </span>{' '}
+            <span className="text-emerald-600 font-medium">Míos</span>
+            {' · '}
+            <span className="font-semibold tabular-nums">
+              <span className="text-primary">{COUNT_FORMATTER.format(Xs)}</span>
+              <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(Ts)}</span>
+            </span>{' '}
+            <span className="text-sky-600 font-medium">Seguidos</span>
+          </div>
+        )}
+      </div>
+      <label
+        className={cn(
+          'flex items-center h-7 px-2 cursor-pointer',
+          disabled && 'opacity-50 cursor-not-allowed'
+        )}
+        title={hasSelection ? 'Deseleccionar todo' : 'Seleccionar todo el subconjunto activo'}
+      >
+        <Switch
+          checked={hasSelection}
+          disabled={disabled}
+          onCheckedChange={(checked) => {
+            if (checked) {
+              onSelectAll();
+            } else {
+              onClearGlobal();
+              debtSel?.clear();
+            }
+          }}
+        />
+      </label>
+    </div>
+  );
+}
+
+
 
 export function FilterBar() {
   const {
@@ -152,10 +245,14 @@ export function FilterBar() {
     [getAllLocations, documents, user?.id],
   );
 
+  // PR-MAINTAIN-USER-ACTION-1 — el bucket "Con deuda" de la tab Mantener
+  // ahora cuenta SÓLO POIs que requieren intervención del usuario (A+C).
+  // B y D quedan invisibles aquí porque los resuelve el sistema solo.
   const curationBuckets = useMemo(() => ({
-    conDeuda: resolveUniverseBase('debt', allLocationsForUniverseSource).length,
+    conDeuda: resolveUniverseBase('user-action', allLocationsForUniverseSource).length,
     sinEnriquecer: resolveUniverseBase('unenriched', allLocationsForUniverseSource).length,
   }), [allLocationsForUniverseSource]);
+
 
   // PR-FILTER-ROOTSTATUS-2.2 §C — el desglose A/B/C/D vive ahora en una fila
   // compacta (`RootStatusChipRow`) sobre el árbol, en TODOS los universos
@@ -259,10 +356,14 @@ export function FilterBar() {
 
   // Universo activo (SoT del plan §1). Mantener→Con deuda = 'debt';
   // Mantener→Sin enriquecer = 'unenriched'; resto = 'all'.
+  // PR-MAINTAIN-USER-ACTION-1 — Mantener>Con deuda usa el universo
+  // `user-action` (sólo POIs A+C, los que requieren tu intervención).
+  // Sin enriquecer mantiene su universo. Resto = 'all'.
   const activeModeUniverse: ActiveModeUniverse =
     panelMode === 'maintain'
-      ? (maintainTab === 'debt' ? 'debt' : 'unenriched')
+      ? (maintainTab === 'debt' ? 'user-action' : 'unenriched')
       : 'all';
+
 
   // SoT del universo activo: misma fuente que `curationBuckets` y que los
   // 4 árboles vía UniverseBaseProvider. Garantiza
@@ -385,7 +486,7 @@ export function FilterBar() {
 
   // Cerrar subpanel al salir del universo debt (cambio de modo/tab).
   useEffect(() => {
-    if (activeModeUniverse !== 'debt' && debtPanelOpen) {
+    if (activeModeUniverse !== 'user-action' && debtPanelOpen) {
       setDebtPanelOpen(false);
     }
   }, [activeModeUniverse, debtPanelOpen]);
@@ -412,60 +513,21 @@ export function FilterBar() {
    <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1 pb-2">
     {/* Stats bar with prominent filter summary */}
     <div className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg p-3 space-y-2">
-  {/* Result count - formato unificado X / Y etiqueta en ambos estados */}
-   <div className="flex items-center justify-between">
-   <div className="flex flex-col">
-     <div className="flex items-center gap-2">
-       <span className="text-lg font-semibold leading-none tabular-nums">
-         <span className="text-primary">{COUNT_FORMATTER.format(ownershipRatios.X)}</span>
-         <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(ownershipRatios.T)}</span>
-       </span>
-       <span className="text-sm text-muted-foreground leading-none">seleccionados{universeLabel ? ` (${universeLabel})` : ''}</span>
-     </div>
-     <div className="text-xs mt-1 leading-tight">
-       <span className="font-semibold tabular-nums">
-         <span className="text-primary">{COUNT_FORMATTER.format(ownershipRatios.Xm)}</span>
-         <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(ownershipRatios.Tm)}</span>
-       </span>{' '}
-       <span className="text-emerald-600 font-medium">Míos</span>
-       {' · '}
-       <span className="font-semibold tabular-nums">
-         <span className="text-primary">{COUNT_FORMATTER.format(ownershipRatios.Xs)}</span>
-         <span className="text-muted-foreground"> / {COUNT_FORMATTER.format(ownershipRatios.Ts)}</span>
-       </span>{' '}
-       <span className="text-sky-600 font-medium">Seguidos</span>
-     </div>
-   </div>
-   <div className="flex items-center gap-1">
-   {hasActiveChips && (
-  <Button
-  variant="outline"
-  size="sm"
-  onClick={clearAllFilters}
-  className="h-7 px-2 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
-  >
-  <RotateCcw className="w-3 h-3" />
-  Quitar filtros
-  </Button>
-  )}
-  <label
-  className={cn(
-  "flex items-center h-7 px-2 cursor-pointer",
-  (!hasUserSelection && effectiveActionSet.length === 0) && "opacity-50 cursor-not-allowed"
-  )}
-  title={hasUserSelection ? 'Deseleccionar todo' : 'Seleccionar todo el subconjunto activo'}
-  >
-  <Switch
-  checked={hasUserSelection}
-  disabled={!hasUserSelection && effectiveActionSet.length === 0}
-  onCheckedChange={(checked) => {
-  if (checked) handleSelectAllInMode();
-  else clearSelection();
-  }}
+  {/* Fila de contadores canónica única (PR-MAINTAIN-FOOTER-2) */}
+  <TopCounterRow
+    T={ownershipRatios.T}
+    Tm={ownershipRatios.Tm}
+    Ts={ownershipRatios.Ts}
+    globalX={ownershipRatios.X}
+    globalXm={ownershipRatios.Xm}
+    globalXs={ownershipRatios.Xs}
+    universeLabel={universeLabel}
+    canSelect={effectiveActionSet.length > 0}
+    onSelectAll={handleSelectAllInMode}
+    onClearGlobal={clearSelection}
   />
-  </label>
-  </div>
- </div>
+
+
 
   {/* Aviso de filtros restrictivos eliminado: aparecía/desaparecía según umbral y rompía la altura de la fila. */}
 
@@ -548,9 +610,10 @@ export function FilterBar() {
       <TabsList className="grid grid-cols-2 w-full h-8 p-1">
         <TabsTrigger value="debt" className="text-xs gap-1.5">
           <AlertCircle className="w-3 h-3 text-amber-600" />
-          Con deuda
+          Requieren revisión
           <span className="tabular-nums text-muted-foreground">{COUNT_FORMATTER.format(curationBuckets.conDeuda)}</span>
         </TabsTrigger>
+
         <TabsTrigger value="unenriched" className="text-xs gap-1.5">
           <CircleDashed className="w-3 h-3" />
           Sin enriquecer
@@ -573,24 +636,9 @@ export function FilterBar() {
    <>
     {panelMode === 'maintain' && (
       <div className="space-y-1.5 mt-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-            Acción sobre {universeLabel ?? 'subconjunto'}
-            <span className="ml-1 normal-case tabular-nums text-muted-foreground/70">
-              ({COUNT_FORMATTER.format(effectiveActionSet.length)})
-            </span>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSelectAllInMode}
-            disabled={effectiveActionSet.length === 0 && selectedLocations.size === 0}
-            className="h-6 px-2 text-[11px] gap-1"
-          >
-            <CheckSquare className="w-3 h-3" />
-            Seleccionar todo
-          </Button>
-        </div>
+        {/* Header "Acción sobre … + Seleccionar todo" eliminado (PR-MAINTAIN-FOOTER-2):
+            duplicaba el contador X/T y el Switch de la fila superior canónica. */}
+
         {maintainTab === 'debt' ? (
           <HealthFilterActionCTA
             healthFilter={filters.healthFilter ?? null}
@@ -609,25 +657,27 @@ export function FilterBar() {
       </div>
     )}
 
-    {/* PR-FILTER-ROOTSTATUS-2.2 §C — fila compacta A/B/C/D sobre el árbol.
-        Disponible en TODOS los universos. Scope = universeBase, o
-        universeBase ∩ selection si hay selección activa. */}
-    <RootStatusChipRow
-      scopeLocations={
-        selectedLocations.size === 0
-          ? (universeBaseLocations as unknown[])
-          : (universeBaseLocations as any[]).filter((l) => selectedLocations.has(l.id))
-      }
-      filters={filters}
-      setFilters={setFilters}
-      scopeLabel={
-        panelMode === 'maintain'
-          ? (maintainTab === 'debt' ? 'Con deuda' : 'Sin enriquecer')
-          : 'Explorar'
-      }
-      selectionActive={selectedLocations.size > 0}
-      testId={`root-status-chip-row-${panelMode === 'maintain' ? maintainTab : 'explore'}`}
-    />
+    {/* PR-FILTER-ROOTSTATUS-DEMOTE-1 — La fila compacta A/B/C/D
+        (`RootStatusChipRow`) se retira de la UI. Análisis:
+        - El objetivo de este panel en modo Mantener es "resolver deuda
+          en batch" (footer = Resolver). La partición A/B/C/D era
+          taxonomía interna del canon de identidad y NO mapea a
+          acciones del usuario:
+            · A (Incompleto) no es resoluble desde aquí.
+            · B (Falta canon) la resuelve un job de sistema.
+            · C (Revisar) requiere abrir POI a POI, no batch.
+            · D (Auto) es lo único que el botón Resolver ataca.
+          El desglose útil "auto vs manual" YA está en el footer
+          ("N reparables automáticamente · M requieren intervención
+          manual"). El row era redundante + confuso (label "Listo"/
+          "Auto" sobre POIs que SÍ tienen deuda).
+        - En Explorar y Sin enriquecer tampoco aportaba: ninguno
+          opera por bucket A/B/C/D.
+        El componente `RootStatusChipRow` y el filtro `rootStatus`
+        permanecen disponibles para herramientas internas/tests; sólo
+        se retira el render aquí. Reintroducir requiere un objetivo
+        accionable por bucket. */}
+
 
     <Tabs value={treeTab} onValueChange={(v) => setTreeTab(v as TreeTab)} className="w-full mt-2">
 
@@ -674,7 +724,7 @@ export function FilterBar() {
         <PlaceTypeFilter />
       </TabsContent>
     </Tabs>
-    <DebtSelectionStatusBar />
+    {/* DebtSelectionStatusBar movido a la fila superior (PR-MAINTAIN-FOOTER-2) */}
    </>
   </>
   </>

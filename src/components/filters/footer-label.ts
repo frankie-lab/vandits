@@ -12,7 +12,7 @@
  *
  * Con `scopeLabel` se sufija " en {scopeLabel}".
  */
-export type FooterMode = 'all' | 'debt' | 'unenriched';
+export type FooterMode = 'all' | 'debt' | 'unenriched' | 'user-action';
 
 export interface BuildFooterLabelParams {
   mode: FooterMode;
@@ -40,6 +40,8 @@ export function buildFooterLabel({
       return `Acciones sobre ${n} POIs con deuda${scope}`;
     case 'unenriched':
       return `Acciones sobre ${n} POIs sin enriquecer${scope}`;
+    case 'user-action':
+      return `${n} POIs requieren tu revisión${scope}`;
     case 'all':
     default:
       return `Acciones sobre ${n} POIs${scope}`;
@@ -61,6 +63,12 @@ export function buildExportLabel({
 }: Omit<BuildFooterLabelParams, 'count'>): string {
   if (hasUserSelection) return 'Selección actual';
   const base =
-    mode === 'debt' ? 'Con deuda' : mode === 'unenriched' ? 'Sin enriquecer' : 'Explorar';
+    mode === 'debt'
+      ? 'Con deuda'
+      : mode === 'unenriched'
+        ? 'Sin enriquecer'
+        : mode === 'user-action'
+          ? 'Requieren revisión'
+          : 'Explorar';
   return scopeLabel ? `${base} · ${scopeLabel}` : base;
 }

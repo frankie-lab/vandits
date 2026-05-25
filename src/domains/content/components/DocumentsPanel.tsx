@@ -57,7 +57,33 @@ interface DocInfo {
 /** Event dispatched when user clicks "Ver en mapa" on a document */
 export const DOCUMENT_VIEW_EVENT = 'document:view-on-map';
 
-export function DocumentsPanel() {
+interface DocumentsPanelProps {
+  /**
+   * Filtro UI por `source_type`. Si se pasa, sólo se listan documentos
+   * cuyo `source_type` esté en este array. Sin valor → muestra todos
+   * (comportamiento legacy).
+   *
+   * Usado por `ImportedContentPanel` para mostrar el histórico de cada
+   * pestaña de fuente (Archivos / Web / Imágenes).
+   */
+  sourceFilter?: string[];
+  /** Texto opcional del header (override del legacy "N documentos"). */
+  headerLabel?: string;
+  /** Subtexto opcional bajo el header. */
+  headerSubtitle?: string;
+  /** Empty state override — título (PR-IMPORT-UX-4-FIX). */
+  emptyTitle?: string;
+  /** Empty state override — pista bajo el título (PR-IMPORT-UX-4-FIX). */
+  emptyHint?: string;
+}
+
+export function DocumentsPanel({
+  sourceFilter,
+  headerLabel,
+  headerSubtitle,
+  emptyTitle,
+  emptyHint,
+}: DocumentsPanelProps = {}) {
   const { user } = useAuth();
   const [docs, setDocs] = useState<DocInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,13 +97,26 @@ export function DocumentsPanel() {
 
   const fetchDocs = useCallback(async () => {
     if (!user) return;
+    // PR-IMPORT-UX-5 defense-in-depth: si el call site pasa `sourceFilter`
+    // explícitamente vacío, NUNCA caer a "sin filtro" (mostraría todos los
+    // docs del usuario). El bug original mostraba `web_import` dentro del
+    // histórico de imágenes por esta razón. Lista vacía = lista vacía.
+    if (sourceFilter && sourceFilter.length === 0) {
+      setDocs([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const { data: rawDocs, error } = await supabase
+      let query = supabase
         .from('documents')
-        .select('id, name, original_filename, original_file_path, created_at, status')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .select('id, name, original_filename, original_file_path, created_at, status, source_type')
+        .eq('user_id', user.id);
+      if (sourceFilter && sourceFilter.length > 0) {
+        query = query.in('source_type', sourceFilter as any);
+      }
+      const { data: rawDocs, error } = await query.order('created_at', { ascending: false });
+
 
       if (error) throw error;
 
@@ -139,7 +178,7 @@ export function DocumentsPanel() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, sourceFilter]);
 
   useEffect(() => {
     fetchDocs();
@@ -340,17 +379,25 @@ export function DocumentsPanel() {
           <p className="text-xs text-muted-foreground">Borrando ubicaciones, rutas y datos asociados</p>
         </div>
       )}
-      {/* Summary header */}
+      {/* Summary header — contextual library used inside each "Fuentes de importación" tab.
+          headerLabel/headerSubtitle let the parent (e.g. Archivos/Web) override
+          the legacy "biblioteca global" copy. */}
       <div className="px-4 py-3 border-b bg-muted/30 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <FolderOpen className="w-4 h-4" />
-            <span>{docs.length} documento{docs.length !== 1 ? 's' : ''}</span>
+            <span>
+              {headerLabel ?? `${docs.length} documento${docs.length !== 1 ? 's' : ''}`}
+            </span>
           </div>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={fetchDocs} disabled={loading}>
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
+        {headerSubtitle && (
+          <p className="text-[11px] text-muted-foreground/80 leading-snug">{headerSubtitle}</p>
+        )}
+
         <div className="flex gap-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <MapPin className="w-3 h-3" />
@@ -389,8 +436,10 @@ export function DocumentsPanel() {
         ) : docs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground">
             <FolderOpen className="w-10 h-10 opacity-30" />
-            <p className="text-sm">No hay documentos importados</p>
-            <p className="text-xs">Sube un archivo KML, GPX o GeoJSON para empezar</p>
+            <p className="text-sm">{emptyTitle ?? 'No hay documentos importados'}</p>
+            <p className="text-xs">
+              {emptyHint ?? 'Formatos soportados: KML · KMZ · GPX · GeoJSON · CSV.'}
+            </p>
           </div>
         ) : (
           <div className="divide-y min-w-0">

@@ -1,21 +1,31 @@
 /**
  * EffectiveActionFooter — footer sticky de acciones para el panel Buscar y Filtrar.
  *
- * Contrato (PR — single primary + "Más acciones"):
+ * Contrato (PR-MAINTAIN-FOOTER-1 — single primary + "Más acciones"):
  *   Layout: `[Primary] [Más acciones ▾]` (sin grid de 2 columnas).
  *   Una sola acción principal visible por modo:
  *     - all        → Exportar
- *     - debt       → Resolver deuda (callback `onResolveDebt`)
+ *     - debt       → Resolver (SIEMPRE, nunca Exportar). Si count===1 abre
+ *                    popup canónico del POI (lovable:open-poi-popup). Si
+ *                    count>1 o sin selección, abre HealthRepairPreviewDialog
+ *                    vía onResolveDebt para procesar lo posible y dejar
+ *                    residual para resolución manual.
  *     - unenriched → Enriquecer IA
  *   El resto siempre vive dentro del DropdownMenu "Más acciones".
+ *   En `debt`, "Exportar" SOLO existe como item del menú (escape hatch), nunca primary.
  *
  *   Estado vacío (count===0): primary disabled, "Más acciones" disabled,
  *   texto "No hay POIs en este subconjunto".
  *
  *   Confirmaciones tipadas:
- *     - Exportar  > 250 → token "EXPORTAR"
+ *     - Exportar  → NUNCA. Export delega 100% en `<ExportResolver>`
+ *                   (PR-EXPORT-3). El footer sólo abre el resolver vía
+ *                   evento `lovable:open-export-panel`. Sin typed-token,
+ *                   sin threshold local, sin lenguaje destructivo.
  *     - Enriquecer > 25 → token "ENRIQUECER"
  *     - Eliminar siempre → token "ELIMINAR" (solo con userSelection)
+ *
+ *   Ver mem://ui/discovery/maintain-footer-resolve-canon
  */
 import React, { useMemo, useState } from 'react';
 import {
@@ -56,7 +66,8 @@ import {
 
 
 const ENRICH_CONFIRM_THRESHOLD = 25;
-const EXPORT_CONFIRM_THRESHOLD = 250;
+// PR-EXPORT-3: NO existe threshold local para export. El sizing canon
+// (warn 5k / block 10k) lo aplica `<ExportResolver>` con UX amable.
 
 export interface EffectiveActionFooterProps {
   mode: FooterMode;
@@ -93,7 +104,6 @@ export function EffectiveActionFooter({
 
   const [busy, setBusy] = useState<null | 'export' | 'enrich' | 'delete'>(null);
   const [confirmEnrich, setConfirmEnrich] = useState(false);
-  const [confirmExport, setConfirmExport] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const enrichable = useMemo(
@@ -104,6 +114,10 @@ export function EffectiveActionFooter({
   const disabled = count === 0;
 
   // ---- Exportar ----
+  // PR-EXPORT-3: pulsar "Exportar" abre directamente el Export Resolver,
+  // sin diálogo destructivo intermedio ni typed-token. El resolver
+  // muestra resumen, alcance, formatos y aplica los thresholds canónicos
+  // (warn 5k / block 10k) con UX amable.
   const doExport = () => {
     if (count === 0) {
       toast.error('No hay POIs para exportar');
@@ -113,7 +127,9 @@ export function EffectiveActionFooter({
     try {
       window.dispatchEvent(
         new CustomEvent('lovable:open-export-panel', {
-          detail: { locations, label: exportLabel, scope: 'public' },
+          // Sin `scope` explícito: el resolver inicia en "Mis datos"
+          // (internal) y permite al usuario alternar a "Compartible".
+          detail: { locations, label: exportLabel },
         }),
       );
     } finally {
@@ -122,7 +138,6 @@ export function EffectiveActionFooter({
   };
   const onExportClick = () => {
     if (disabled) return;
-    if (count > EXPORT_CONFIRM_THRESHOLD) { setConfirmExport(true); return; }
     doExport();
   };
 
@@ -216,10 +231,9 @@ export function EffectiveActionFooter({
     () => (debtPartition ? debtPartition.systemDebt.map((l) => l.id) : []),
     [debtPartition],
   );
-  const allAreSystemDebt =
-    mode === 'debt' && count > 0 && systemDebtIds.length === count;
-
   // ---- Geo Maintenance handoff (B + capability) ----
+  // PR-MAINTAIN-FOOTER-1: ya no compite por primary; sólo aparece en "Más
+  // acciones" como handoff opcional cuando hay subgrupo B + capability.
   const canHandoffGeoMaintenance =
     canViewGeoMaintenance && canRunGeoBackfill && systemDebtIds.length > 0;
 
@@ -231,12 +245,6 @@ export function EffectiveActionFooter({
       label,
     });
     navigateToGeoMaintenance();
-  };
-  const onGeoMaintenancePrimary = () => {
-    doGeoMaintenance(
-      systemDebtIds,
-      `Mantener · Grupo B · ${systemDebtIds.length} puntos`,
-    );
   };
   const onGeoMaintenanceSubgroup = () => {
     doGeoMaintenance(
@@ -271,8 +279,22 @@ export function EffectiveActionFooter({
         detail: {
           locations: nonRepairableLocations,
           label: `${exportLabel} · no reparables`,
-          scope: 'public',
         },
+      }),
+    );
+  };
+
+  // ---- Resolver singular (count===1): abre popup canónico del POI ----
+  const onResolveSingle = () => {
+    if (count !== 1) return;
+    const loc = locations[0];
+    if (!loc) return;
+    // 1) Fit del subset (1 POI) para garantizar que está en viewport.
+    requestSubsetFit([loc.id], { mode: 'always', reason: 'maintain-resolve-single' });
+    // 2) Abrir popup canónico del POI. Listener en LocationMap.
+    window.dispatchEvent(
+      new CustomEvent('lovable:open-poi-popup', {
+        detail: { locationId: loc.id, source: 'maintain-resolve-single' },
       }),
     );
   };
@@ -289,38 +311,24 @@ export function EffectiveActionFooter({
   };
   const primary: Primary = (() => {
     if (mode === 'debt') {
-      // Caso 1: hay reparables → Reparar N (abre modal de confirmación).
-      if (repairableCount > 0) {
-        return {
-          label: 'Reparar',
-          icon: Wrench,
-          onClick: () => onResolveDebt?.(),
-          disabled: disabled || !onResolveDebt,
-          dataAction: 'footer-primary-resolve-debt',
-          testid: 'footer-primary-resolve-debt',
-          count: repairableCount,
-        };
-      }
-      // Caso 2: 0 reparables + todo B + capability → Geo Maintenance.
-      if (allAreSystemDebt && canHandoffGeoMaintenance) {
-        return {
-          label: 'Geo Maintenance',
-          icon: Wrench,
-          onClick: onGeoMaintenancePrimary,
-          disabled: disabled,
-          dataAction: 'footer-primary-geo-maintenance',
-          testid: 'footer-primary-geo-maintenance',
-          count: systemDebtIds.length,
-        };
-      }
-      // Caso 3: 0 reparables resto → Exportar.
+      // PR-MAINTAIN-FOOTER-1: en Mantener · Con deuda el primary es SIEMPRE
+      // "Resolver", nunca "Exportar". Comportamiento por selección:
+      //   - 1 POI         → abre popup canónico del POI (resolución manual in-place).
+      //   - ≥2 POIs / 0   → abre HealthRepairPreviewDialog (procesa lo posible
+      //                     + residual para uno-a-uno).
+      const isSingle = count === 1;
       return {
-        label: 'Exportar',
-        icon: Download,
-        onClick: onExportClick,
-        disabled: disabled || busy !== null,
-        dataAction: 'footer-primary-export',
-        testid: 'footer-primary-export',
+        label: 'Resolver',
+        icon: Wrench,
+        onClick: isSingle ? onResolveSingle : () => onResolveDebt?.(),
+        disabled: disabled || (!isSingle && !onResolveDebt),
+        dataAction: isSingle
+          ? 'footer-primary-resolve-single'
+          : 'footer-primary-resolve-debt',
+        testid: isSingle
+          ? 'footer-primary-resolve-single'
+          : 'footer-primary-resolve-debt',
+        count,
       };
     }
     if (mode === 'unenriched') {
@@ -345,25 +353,27 @@ export function EffectiveActionFooter({
   })();
   const PrimaryIcon = primary.icon;
 
-  // ---- Hint debt sin reparables ----
+  // ---- Hint debt: contextualiza qué hará "Resolver" según composición ----
   const debtNoRepairablesHint = (() => {
-    if (mode !== 'debt' || repairableCount > 0 || disabled) return null;
-    // Si el primary YA es una acción positiva (Geo Maintenance), no hace
-    // falta el hint negativo.
-    if (primary.testid === 'footer-primary-geo-maintenance') return null;
-    const hasAlternatives = canHandoffGeoMaintenance;
-    return hasAlternatives
-      ? 'No hay POIs reparables automáticamente en este subconjunto.'
-      : 'No hay reparación automática disponible.';
+    if (mode !== 'debt' || disabled) return null;
+    if (count === 1) {
+      return 'Se abrirá el POI para resolver manualmente.';
+    }
+    if (repairableCount === 0) {
+      return `${count} POIs requieren intervención manual. "Resolver" abrirá el flujo uno-a-uno.`;
+    }
+    if (repairableCount === count) return null;
+    const manual = count - repairableCount;
+    return `${repairableCount} reparables automáticamente · ${manual} requieren intervención manual.`;
   })();
 
   const showEnrichInMenu = mode === 'all' && enrichCount > 0;
-  const showExportInMenu = mode !== 'all' && primary.testid !== 'footer-primary-export';
+  // PR-MAINTAIN-FOOTER-1: en debt, "Exportar" SIEMPRE como escape hatch en menú.
+  const showExportInMenu =
+    mode === 'debt' || (mode !== 'all' && primary.testid !== 'footer-primary-export');
   const showDebtExtras = mode === 'debt' && repairableCount === 0 && !disabled;
   const showGeoMaintenanceInMenu =
-    showDebtExtras &&
-    canHandoffGeoMaintenance &&
-    primary.testid !== 'footer-primary-geo-maintenance';
+    mode === 'debt' && canHandoffGeoMaintenance && !disabled;
   const showFocusInMapInMenu = showDebtExtras;
   const showExportNonRepairableInMenu =
     showDebtExtras && nonRepairableLocations.length > 0;
@@ -573,16 +583,10 @@ export function EffectiveActionFooter({
         onConfirm={async () => { await doEnrich(); setConfirmEnrich(false); }}
       />
 
-      <DestructiveConfirmDialog
-        open={confirmExport}
-        onOpenChange={setConfirmExport}
-        title="Confirmar exportación grande"
-        description={`Vas a abrir el panel de exportación con ${count} POIs (más de ${EXPORT_CONFIRM_THRESHOLD}).`}
-        token="EXPORTAR"
-        confirmLabel="Continuar"
-        inputHelper={'Escribe "EXPORTAR" para confirmar:'}
-        onConfirm={() => { doExport(); setConfirmExport(false); }}
-      />
+      {/* PR-EXPORT-3: NO existe DestructiveConfirmDialog para export.
+          El flujo de exportación vive 100% en `<ExportResolver>`. */}
+
+
 
       <DestructiveConfirmDialog
         open={confirmDelete}

@@ -19,6 +19,7 @@ import { useLocationsStore, loadLocationsFromDatabase } from '@/domains/content'
 import { toast } from 'sonner';
 import { countErrorBuckets } from '@/domains/content/lib/enrichment-error-kind';
 import { LaneRow, type LaneSegment, type LaneMetric } from './LaneRow';
+import { awaitMapInteractive } from '@/shared/boot/boot-gate';
 
 interface EnrichmentJob {
   id: string;
@@ -138,6 +139,15 @@ export function EnrichmentLane({ onActiveChange }: EnrichmentLaneProps) {
     [],
   );
 
+  // SOT del estado activo en ref — evita que cada `setActiveJob` recree
+  // `fetchJobStatus` y por consiguiente el `setInterval` (lo que disparaba
+  // un poll inmediato en cada render → tormenta de ~5 req/s sobre
+  // enrichment_jobs y saturación HTTP/2 contra v_locations_resolved).
+  const activeJobRef = useRef<EnrichmentSession | null>(null);
+  useEffect(() => {
+    activeJobRef.current = activeJob;
+  }, [activeJob]);
+
   const fetchJobStatus = useCallback(async () => {
     try {
       const { data: activeJobs, error } = await supabase
@@ -157,13 +167,14 @@ export function EnrichmentLane({ onActiveChange }: EnrichmentLaneProps) {
           scheduleRefreshLocations();
         }
       } else {
-        if (activeJob && activeJob.status !== 'completed') {
+        const prev = activeJobRef.current;
+        if (prev && prev.status !== 'completed') {
           const { data: recentDone } = await supabase
             .from('enrichment_jobs')
             .select('*')
             .eq('status', 'completed')
             .order('updated_at', { ascending: false })
-            .limit(activeJob.jobIds.length);
+            .limit(prev.jobIds.length);
           if (recentDone && recentDone.length > 0) {
             const finished = aggregateJobs(recentDone as EnrichmentJob[])!;
             finished.status = 'completed';
@@ -181,12 +192,20 @@ export function EnrichmentLane({ onActiveChange }: EnrichmentLaneProps) {
     } catch (err) {
       console.error('Error fetching job status:', err);
     }
-  }, [activeJob, refreshLocations, scheduleRefreshLocations]);
+  }, [refreshLocations, scheduleRefreshLocations]);
 
   useEffect(() => {
-    fetchJobStatus();
-    const interval = setInterval(fetchJobStatus, 2000);
-    return () => clearInterval(interval);
+    let cancelled = false;
+    let interval: number | null = null;
+    awaitMapInteractive({ idle: true }).then(() => {
+      if (cancelled) return;
+      fetchJobStatus();
+      interval = window.setInterval(fetchJobStatus, 2000);
+    });
+    return () => {
+      cancelled = true;
+      if (interval != null) window.clearInterval(interval);
+    };
   }, [fetchJobStatus]);
 
   const broadcastAction = async (action: 'pause' | 'resume' | 'cancel') => {

@@ -1,10 +1,16 @@
 // Domain: Content — DB ↔ GeoLocation transformers and paginated fetch
 import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation, EnrichedLocationData } from '@/types/location';
+import { createConcurrencyPool } from '@/shared/boot/concurrency-pool';
 
 const PAGE_SIZE = 1000;
 const MAX_LOCATIONS = 50000;
 const MAX_PAGES = 50;
+// PR-BOOT-PERF-2 — ventana de concurrencia para la paginación del catálogo.
+// Justificación: 3 mantiene el pool HTTP/2 cómodo (margen para auth/profiles/
+// otros fetchs paralelos) y elimina el wait serial entre páginas. Subir a 6+
+// volvía a saturar en la corrida de Frankie.
+export const CATALOG_PAGE_CONCURRENCY = 3;
 
 export function dbLocationToGeoLocation(loc: any): GeoLocation {
   const baseCustomData = (loc.custom_data as Record<string, string>) || {};
@@ -161,36 +167,97 @@ export async function fetchAllLocationsPaginated(
   let lastTo = 0;
   let capReached = false;
 
-  while (hasMore && allLocations.length < MAX_LOCATIONS && page < MAX_PAGES) {
-    const from = page * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
-    lastFrom = from;
-    lastTo = to;
+  if (total != null && total > 0) {
+    // PR-BOOT-PERF-2 — Camino concurrente: total conocido ⇒ plan estático
+    // de páginas y ventana de concurrencia CATALOG_PAGE_CONCURRENCY.
+    // Orden estable: los resultados se colocan por índice de página,
+    // independientemente del orden de llegada.
+    const plannedPages = Math.min(
+      MAX_PAGES,
+      Math.ceil(total / PAGE_SIZE),
+    );
+    const pages: Array<{ idx: number; from: number; to: number }> = [];
+    for (let i = 0; i < plannedPages; i++) {
+      const from = i * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      pages.push({ idx: i, from, to });
+    }
+    lastFrom = pages[pages.length - 1].from;
+    lastTo = pages[pages.length - 1].to;
 
-    const data = await fetchPageWithRetry(from, to);
-    const returned = data?.length ?? 0;
-    // [TEMP DEBUG] paginator log
-    console.log(`[paginator] page=${page} from=${from} to=${to} returned=${returned}`);
-    if (data) {
-      for (const r of data) {
-        if (!r?.id) continue;
-        if (ALPHA_SET.has(r.id)) alphaHits.add(r.id);
-        if (BETA_SET.has(r.id)) betaHits.add(r.id);
+    const pool = createConcurrencyPool(CATALOG_PAGE_CONCURRENCY);
+    const results: any[][] = new Array(pages.length);
+    let completed = 0;
+    let cumulative = 0;
+
+    await Promise.all(
+      pages.map((p) => pool.run(async () => {
+        const data = await fetchPageWithRetry(p.from, p.to);
+        const rows = data ?? [];
+        results[p.idx] = rows;
+        // [TEMP DEBUG] paginator log (concurrente)
+        console.log(`[paginator] (par) page=${p.idx} from=${p.from} to=${p.to} returned=${rows.length}`);
+        for (const r of rows) {
+          if (!r?.id) continue;
+          if (ALPHA_SET.has(r.id)) alphaHits.add(r.id);
+          if (BETA_SET.has(r.id)) betaHits.add(r.id);
+        }
+        completed++;
+        cumulative += rows.length;
+        if (onPage) onPage(cumulative, total);
+      })),
+    );
+
+    // Reensamblar en orden de página (resultado estable).
+    for (const chunk of results) {
+      if (!chunk || chunk.length === 0) continue;
+      allLocations.push(...chunk);
+      if (allLocations.length >= MAX_LOCATIONS) {
+        capReached = true;
+        break;
+      }
+    }
+    page = completed;
+    if (allLocations.length >= MAX_LOCATIONS || plannedPages >= MAX_PAGES) {
+      capReached = capReached || plannedPages >= MAX_PAGES;
+    }
+  } else {
+    // Camino secuencial — usado en reloads silenciosos sin HEAD count o
+    // cuando el HEAD count falló. Mismo comportamiento histórico (probe
+    // hasta página vacía).
+    while (hasMore && allLocations.length < MAX_LOCATIONS && page < MAX_PAGES) {
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      lastFrom = from;
+      lastTo = to;
+
+      const data = await fetchPageWithRetry(from, to);
+      const returned = data?.length ?? 0;
+      // [TEMP DEBUG] paginator log
+      console.log(`[paginator] page=${page} from=${from} to=${to} returned=${returned}`);
+      if (data) {
+        for (const r of data) {
+          if (!r?.id) continue;
+          if (ALPHA_SET.has(r.id)) alphaHits.add(r.id);
+          if (BETA_SET.has(r.id)) betaHits.add(r.id);
+        }
+      }
+
+      if (returned === 0) {
+        hasMore = false;
+      } else {
+        allLocations.push(...(data as any[]));
+        page++;
+        if (onPage) onPage(allLocations.length, total);
       }
     }
 
-    if (returned === 0) {
-      // Verdadero fin del dataset (con security_invoker, páginas parciales son legítimas).
-      hasMore = false;
-    } else {
-      allLocations.push(...(data as any[]));
-      page++;
-      if (onPage) onPage(allLocations.length, total);
+    if (page >= MAX_PAGES || allLocations.length >= MAX_LOCATIONS) {
+      capReached = true;
     }
   }
 
-  if (page >= MAX_PAGES || allLocations.length >= MAX_LOCATIONS) {
-    capReached = true;
+  if (capReached) {
     console.warn('[paginator] CAP reached', {
       pages: page,
       total: allLocations.length,

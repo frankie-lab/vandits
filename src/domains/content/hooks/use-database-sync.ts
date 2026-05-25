@@ -6,6 +6,8 @@ import { useLocationsStore } from '@/domains/content/store/locations-store';
 import { toast } from 'sonner';
 import { dbLocationToGeoLocation, fetchAllLocationsPaginated } from '../lib/db-transformers';
 import { startLoading, updateLoading, endLoading } from '@/shared/loading';
+import { bootMark, bootMeasure, bootSummary } from '@/shared/perf/boot-perf';
+import { notifyMapInteractive, notifyBootComplete } from '@/shared/boot/boot-gate';
 
 export type SyncPhase = 'idle' | 'own' | 'social' | 'done';
 
@@ -39,6 +41,7 @@ export function useDatabaseSync(userId?: string | null) {
       loadingActive = true;
     }
     try {
+      bootMark('boot:start', { silent, blocking });
       console.log('[useDatabaseSync] Starting parallel load...');
       setSyncPhase('own');
 
@@ -47,6 +50,7 @@ export function useDatabaseSync(userId?: string | null) {
       if (currentUserId) {
         useLocationsStore.getState().setCurrentUserId(currentUserId);
       }
+      bootMark('auth:ready', { uid: currentUserId ?? null });
 
       const { data: dbDocs, error: docsError } = await supabase
         .from('documents')
@@ -54,6 +58,7 @@ export function useDatabaseSync(userId?: string | null) {
         .order('created_at', { ascending: false });
 
       if (docsError) throw docsError;
+      bootMark('documents:loaded', { count: dbDocs?.length ?? 0 });
 
       if (!dbDocs || dbDocs.length === 0) {
         console.log('[useDatabaseSync] No documents found, clearing state');
@@ -67,16 +72,19 @@ export function useDatabaseSync(userId?: string | null) {
 
       const ownerIds = [...new Set(dbDocs.map(d => d.user_id).filter(Boolean))] as string[];
       const profilesMap = await fetchProfiles(ownerIds);
+      bootMark('profiles:loaded', { count: profilesMap.size });
 
       console.log('[useDatabaseSync] Fetching locations...');
+      bootMark('catalog:query:start');
       const dbLocations = await fetchAllLocationsPaginated({
         withCount: !silent,
-        onPage: silent
-          ? undefined
-          : (loaded, total) => {
-              updateLoading('db-sync', loaded, total ?? undefined);
-            },
+        onPage: (loaded, total) => {
+          bootMark('catalog:chunk', { loaded, total });
+          if (!silent) updateLoading('db-sync', loaded, total ?? undefined);
+        },
       });
+      bootMark('catalog:query:end', { count: dbLocations.length });
+      bootMeasure('catalog:query', 'catalog:query:start', 'catalog:query:end', { count: dbLocations.length });
       console.log('[useDatabaseSync] Locations fetched:', dbLocations.length);
 
       // [TEMP DEBUG] expose a lite snapshot for the user-filter funnel.
@@ -146,8 +154,15 @@ export function useDatabaseSync(userId?: string | null) {
       const ownLocCount = ownKmlDocs.reduce((acc, d) => acc + d.locations.length, 0);
 
       setDetachedVisibleLocations(detachedVisibleLocations);
+      bootMark('catalog:mapped', {
+        own: ownKmlDocs.length,
+        social: otherKmlDocs.length,
+        detached: detachedVisibleLocations.length,
+        ownLocations: ownLocCount,
+      });
 
       applyCatalogSnapshot(ownKmlDocs, { ownerScope: 'mine', currentUserId: currentUserId ?? null });
+      bootMark('catalog:apply:mine');
 
       if (ownDocs.length > 0) {
         console.log(`[useDatabaseSync] Own data loaded: ${ownDocs.length} docs, ${ownLocCount} locations`);
@@ -155,13 +170,26 @@ export function useDatabaseSync(userId?: string | null) {
 
       // Mapa ya tiene contenido renderizable → cerramos cualquier bloqueo.
       ensureEndLoading();
+      bootMark('map:interactive');
+      // PR-BOOT-PERF-1: liberar consumidores secundarios (pollers diferidos)
+      // SOLO ahora, no antes. Antes de este punto cualquier fan-out hacia
+      // edge functions compite con la paginación del catálogo.
+      notifyMapInteractive();
 
       setSyncPhase('social');
+      bootMark('social:apply:scheduled');
       await new Promise(resolve => setTimeout(resolve, 0));
 
+      bootMark('social:apply:start', { docs: otherKmlDocs.length });
       applyCatalogSnapshot(otherKmlDocs, { ownerScope: 'social', currentUserId: currentUserId ?? null });
+      bootMark('social:apply:end');
+      bootMark('catalog:apply:social');
 
       setSyncPhase('done');
+      bootMark('boot:complete');
+      bootMeasure('boot:total', 'boot:start', 'boot:complete');
+      bootSummary();
+      notifyBootComplete();
       // Load summary is shown in the welcome card on the map (no toast to avoid duplication)
     } catch (error: any) {
       console.error('Error loading from database:', error);

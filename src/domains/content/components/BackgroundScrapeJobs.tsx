@@ -3,7 +3,7 @@
  * El formulario de encolado vive ahora dentro de WebImportPanel (panel unificado).
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Play, Pause, Gauge } from 'lucide-react';
+import { Play, Pause, Gauge, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/domains/identity';
 import { Button } from '@/components/ui/button';
@@ -216,6 +216,18 @@ export function ScrapeJobsList() {
               </span>
 
               <div className="flex items-center gap-1">
+                {j.document_id && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-[10px] gap-1"
+                    onClick={() => openDoc(j.document_id)}
+                    title="Abrir documento resultado"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Ver resultado
+                  </Button>
+                )}
                 {isActive && j.status === 'running' && (
                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => updateStatus(j.id, 'paused')} title="Pausar">
                     <Pause className="w-3.5 h-3.5" />
