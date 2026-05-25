@@ -1,33 +1,34 @@
 /**
  * ImportedContentPanel — Panel "Fuentes de importación".
  *
- * Estructura canónica (PR-IMPORT-UX-4-FIX):
- *   - 3 pestañas principales: Archivos · Web · Imágenes.
- *   - Bajo cada pestaña, una sola vista activa (acción O histórico) — NO sub-toggle.
- *   - Footer canónico (`PanelFooter`) con UNA CTA real específica por fuente:
- *       Vista Acción    → CTA elevada del hijo (Subir / Importar web / Auditar fotos)
- *                          + link secundario "Ver histórico".
- *       Vista Histórico → CTA específica de retorno por fuente:
- *                          archivos → "Subir archivo"
- *                          web      → "Nueva web"
- *                          imagenes → "Auditar imágenes"
+ * Estructura canónica (PR-IMPORT-UX-4-FIX rev2):
+ *   - Fila 1: 3 pestañas principales (Archivos · Web · Imágenes).
+ *   - Fila 2: segmented control contextual INMEDIATAMENTE debajo de fila 1,
+ *     dentro de la pestaña activa. Cambia entre vista "acción" e "histórico"
+ *     de esa fuente. Labels exactos por fuente:
+ *        archivos → Subir archivos     | Histórico de archivos
+ *        web      → Seleccionar web    | Jobs recientes
+ *        imagenes → Subir imágenes     | Histórico de imágenes
+ *   - Footer: SOLO la acción principal de la vista activa. NO navegación.
+ *        action  → CTA primaria elevada del hijo
+ *        history → CTA de retorno específica (vuelve a vista acción)
  *
  * Reglas duras:
- *   - Footer SIEMPRE contiene la acción principal real (no decorativo).
+ *   - El cambio de modo (acción/histórico) vive en la fila 2, NUNCA en el footer.
+ *   - El footer NUNCA contiene "Ver histórico" ni navegación secundaria.
  *   - Una sola CTA primaria por footer.
- *   - NO segmented control acción/histórico.
- *   - Default Vista Acción al abrir/cambiar de tab.
  *   - `source_type` filtros: KMZ↔kml (enum no tiene 'kmz'); web → ['web_import'];
  *     imágenes hoy no tiene enum dedicado (sin filtro → empty state explícito).
  *
  * Ver: mem://logic/import/import-canon · docs/contracts/import-canon.md §8.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { FolderOpen, FileText, Globe, Image as ImageIcon, Loader2, History } from 'lucide-react';
+import { FolderOpen, FileText, Globe, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { PanelShell, PanelFooter } from '@/shared/components/ui/panel';
 import { PanelTabs } from '@/shared/components/ui/panel/PanelTabs';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { FileUploadZone, DocumentsPanel } from '@/domains/content/components';
 import { WebImportPanel } from '@/domains/content/components/WebImportPanel';
 import { OneDrivePhotosPanel } from '@/components/OneDrivePhotosPanel';
@@ -47,10 +48,18 @@ const WEB_SOURCE_TYPES = ['web_import'];
 // Imágenes: el enum no tiene 'onedrive'/'photo'. Hoy histórico vacío por diseño.
 const IMAGE_SOURCE_TYPES: string[] = [];
 
+// Labels exactos del segmented control (fila 2) por fuente.
+const SUBVIEW_LABELS: Record<SourceTab, Record<SubView, string>> = {
+  archivos: { action: 'Subir archivos', history: 'Histórico de archivos' },
+  web:      { action: 'Seleccionar web', history: 'Jobs recientes' },
+  imagenes: { action: 'Subir imágenes', history: 'Histórico de imágenes' },
+};
+
+// Label exacto de la CTA de retorno (footer en vista histórico) por fuente.
 const RETURN_TO_ACTION_LABELS: Record<SourceTab, string> = {
   archivos: 'Subir archivo',
   web: 'Nueva web',
-  imagenes: 'Auditar imágenes',
+  imagenes: 'Subir imágenes',
 };
 
 const HISTORY_EMPTY_COPY: Record<SourceTab, { title: string; hint: string }> = {
@@ -96,6 +105,70 @@ function sourceToLegacy(tab: SourceTab): ImportedContentTab {
   }
 }
 
+/**
+ * Fila 2 — segmented control contextual dentro de la pestaña activa.
+ * Vive entre la fila de fuentes y el contenido. NO es navegación de footer.
+ */
+function SubViewSwitcher({
+  source,
+  value,
+  onChange,
+}: {
+  source: SourceTab;
+  value: SubView;
+  onChange: (next: SubView) => void;
+}) {
+  const labels = SUBVIEW_LABELS[source];
+  const triggerClass = (active: boolean) =>
+    cn(
+      'inline-flex items-center justify-center whitespace-nowrap',
+      'rounded-[calc(var(--panel-tabs-radius)-4px)] px-3 text-xs font-medium',
+      'h-[calc(var(--panel-tabs-h)-8px)]',
+      'transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+      active
+        ? 'bg-background text-foreground shadow-sm'
+        : 'text-muted-foreground hover:text-foreground',
+    );
+  return (
+    <div
+      className="shrink-0 px-[var(--panel-padding-x)] pb-3"
+      data-import-subview-row={source}
+    >
+      <div
+        role="tablist"
+        aria-label={`Modo de ${source}`}
+        className="grid grid-cols-2 w-full bg-muted/60 p-1 rounded-[var(--panel-tabs-radius)]"
+        data-import-subview-control={source}
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={value === 'action'}
+          className={triggerClass(value === 'action')}
+          onClick={() => onChange('action')}
+          data-import-subview-trigger="action"
+          data-import-subview-source={source}
+          data-state={value === 'action' ? 'active' : 'inactive'}
+        >
+          {labels.action}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={value === 'history'}
+          className={triggerClass(value === 'history')}
+          onClick={() => onChange('history')}
+          data-import-subview-trigger="history"
+          data-import-subview-source={source}
+          data-state={value === 'history' ? 'active' : 'inactive'}
+        >
+          {labels.history}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function ImportedContentPanel({
   isOpen,
   onClose,
@@ -124,8 +197,11 @@ export function ImportedContentPanel({
     onTabChange?.(sourceToLegacy(t));
   };
 
-  const setSub = (next: SubView) =>
-    setSubView((prev) => ({ ...prev, [tab]: next }));
+  const setSub = useCallback(
+    (source: SourceTab, next: SubView) =>
+      setSubView((prev) => (prev[source] === next ? prev : { ...prev, [source]: next })),
+    [],
+  );
 
   const makeStateHandler = useCallback(
     (key: SourceTab) => (state: ImportPrimaryCtaState) => {
@@ -161,6 +237,7 @@ export function ImportedContentPanel({
         data-import-sources="v4"
       >
         <PanelTabs value={tab} onValueChange={handleTabChange}>
+          {/* Fila 1 — fuentes principales */}
           <div className="shrink-0 px-[var(--panel-padding-x)] pt-[var(--panel-padding-y)] pb-3">
             <PanelTabs.Group label="Fuentes">
               <PanelTabs.Trigger
@@ -193,6 +270,12 @@ export function ImportedContentPanel({
             className="flex-1 min-h-0 m-0 flex flex-col data-[state=inactive]:hidden"
             data-import-source-content="archivos"
           >
+            {/* Fila 2 contextual */}
+            <SubViewSwitcher
+              source="archivos"
+              value={subView.archivos}
+              onChange={(v) => setSub('archivos', v)}
+            />
             <div className="flex-1 min-h-0 overflow-y-auto">
               {subView.archivos === 'action' ? (
                 <div className="px-[var(--panel-padding-x)] pt-2 pb-4">
@@ -222,6 +305,11 @@ export function ImportedContentPanel({
             className="flex-1 min-h-0 m-0 flex flex-col data-[state=inactive]:hidden"
             data-import-source-content="web"
           >
+            <SubViewSwitcher
+              source="web"
+              value={subView.web}
+              onChange={(v) => setSub('web', v)}
+            />
             <div className="flex-1 min-h-0 overflow-y-auto">
               {subView.web === 'action' ? (
                 <div className="px-[var(--panel-padding-x)] pt-2 pb-4">
@@ -256,6 +344,11 @@ export function ImportedContentPanel({
             className="flex-1 min-h-0 m-0 flex flex-col data-[state=inactive]:hidden"
             data-import-source-content="imagenes"
           >
+            <SubViewSwitcher
+              source="imagenes"
+              value={subView.imagenes}
+              onChange={(v) => setSub('imagenes', v)}
+            />
             <div className="flex-1 min-h-0 flex flex-col">
               {subView.imagenes === 'action' ? (
                 <>
@@ -290,49 +383,37 @@ export function ImportedContentPanel({
           </PanelTabs.Content>
         </PanelTabs>
 
-        {/* PanelFooter canónico — Acción: CTA real elevada + link "Ver histórico".
-            Histórico: CTA específica de retorno por fuente. */}
+        {/* PanelFooter canónico — SÓLO la acción principal de la vista activa.
+            NO navegación. NO "Ver histórico". El cambio de modo vive en la fila 2. */}
         <PanelFooter>
           {currentSub === 'action' ? (
-            <div className="w-full flex flex-col gap-2">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="w-full">
-                    <Button
-                      type="button"
-                      onClick={currentCta.submit}
-                      disabled={!currentCta.canSubmit}
-                      className="w-full h-11"
-                      data-import-primary-cta={tab}
-                    >
-                      {currentCta.isProcessing && (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      )}
-                      {currentCta.label || 'Cargando…'}
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                {!currentCta.canSubmit && currentCta.disabledReason && (
-                  <TooltipContent side="top" className="text-xs">
-                    {currentCta.disabledReason}
-                  </TooltipContent>
-                )}
-              </Tooltip>
-              <button
-                type="button"
-                onClick={() => setSub('history')}
-                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 inline-flex items-center justify-center gap-1 mx-auto"
-                data-import-secondary-cta="history-link"
-                data-import-secondary-cta-tab={tab}
-              >
-                <History className="w-3 h-3" />
-                Ver histórico
-              </button>
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="w-full">
+                  <Button
+                    type="button"
+                    onClick={currentCta.submit}
+                    disabled={!currentCta.canSubmit}
+                    className="w-full h-11"
+                    data-import-primary-cta={tab}
+                  >
+                    {currentCta.isProcessing && (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    )}
+                    {currentCta.label || 'Cargando…'}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!currentCta.canSubmit && currentCta.disabledReason && (
+                <TooltipContent side="top" className="text-xs">
+                  {currentCta.disabledReason}
+                </TooltipContent>
+              )}
+            </Tooltip>
           ) : (
             <Button
               type="button"
-              onClick={() => setSub('action')}
+              onClick={() => setSub(tab, 'action')}
               className="w-full h-11"
               data-import-return-to-action={tab}
             >
