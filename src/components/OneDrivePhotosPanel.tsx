@@ -91,7 +91,7 @@ interface BreadcrumbItem {
   name: string;
 }
 
-export function OneDrivePhotosPanel() {
+export function OneDrivePhotosPanel({ wizardMode = false }: { wizardMode?: boolean } = {}) {
   const [activeTab, setActiveTab] = useState<'index' | 'browse' | 'validate'>('index');
 
   // Index state
