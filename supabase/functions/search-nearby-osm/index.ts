@@ -158,6 +158,10 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
+
   try {
     const { latitude, longitude, radiusMeters = 500, limit = 40 } = await req.json();
 
