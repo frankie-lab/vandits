@@ -10,6 +10,7 @@
  * Reemplaza al sistema de pestañas Inmediato/Background.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ImportPrimaryCtaState } from '@/shared/components/import/import-primary-cta';
 import {
   Globe, Sparkles, Link2, Loader2, FlaskConical, MapPin, AlertCircle,
   Eye, Users, Lock, Zap, Clock,
@@ -128,7 +129,22 @@ function buildSyntheticDocument(payload: {
   };
 }
 
-export function WebImportPanel({ onComplete, wizardMode = false }: { onComplete?: () => void; wizardMode?: boolean }) {
+export interface WebImportPanelProps {
+  onComplete?: () => void;
+  /** PR-IMPORT-UX-2 legacy. Backlog `PR-IMPORT-CLEANUP`. */
+  wizardMode?: boolean;
+  /** PR-IMPORT-UX-4: oculta header `ImportSurfaceShell` y CTA inline (Probar/Ejecutar). */
+  hidePrimaryCta?: boolean;
+  /** PR-IMPORT-UX-4: emite el estado de la CTA primaria al padre. */
+  onPrimaryStateChange?: (state: ImportPrimaryCtaState) => void;
+}
+
+export function WebImportPanel({
+  onComplete,
+  wizardMode = false,
+  hidePrimaryCta = false,
+  onPrimaryStateChange,
+}: WebImportPanelProps) {
   const { user } = useAuth();
   const addDocument = useLocationsStore((s) => s.addDocument);
 
@@ -331,7 +347,7 @@ export function WebImportPanel({ onComplete, wizardMode = false }: { onComplete?
   return (
     <>
       <div className={`w-full ${wizardMode ? 'max-w-2xl mx-auto px-[var(--panel-padding-x)] py-5' : 'max-w-lg mx-auto'} space-y-4`}>
-        {!wizardMode && (
+        {!wizardMode && !hidePrimaryCta && (
           <ImportSurfaceShell
             surfaceId="web"
             icon={<Globe className="w-5 h-5" />}
