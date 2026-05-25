@@ -289,36 +289,6 @@ export type Database = {
           },
         ]
       }
-      admin_areas_name_backup_2026_05_11: {
-        Row: {
-          backup_at: string | null
-          depth: number | null
-          id: string | null
-          iso_code: string | null
-          name: string | null
-          name_lang: string | null
-          parent_id: string | null
-        }
-        Insert: {
-          backup_at?: string | null
-          depth?: number | null
-          id?: string | null
-          iso_code?: string | null
-          name?: string | null
-          name_lang?: string | null
-          parent_id?: string | null
-        }
-        Update: {
-          backup_at?: string | null
-          depth?: number | null
-          id?: string | null
-          iso_code?: string | null
-          name?: string | null
-          name_lang?: string | null
-          parent_id?: string | null
-        }
-        Relationships: []
-      }
       airports: {
         Row: {
           continent: string | null
