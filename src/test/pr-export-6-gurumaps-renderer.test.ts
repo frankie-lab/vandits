@@ -1,10 +1,12 @@
 /**
- * PR-EXPORT-6 — GuruMaps target renderer.
+ * PR-EXPORT-6 + PR-EXPORT-7 — GuruMaps target renderer.
  *
- * Verifica que el renderer plain-text móvil-first produce fichas legibles
- * en GuruMaps: sin tags HTML, bloques cortos, truncation por frase,
- * links compactados, footer mínimo. Verifica también que el target
- * 'generic' sigue produciendo HTML whitelisted (regresión PR-EXPORT-5).
+ * PR-EXPORT-7 ajustes:
+ *   - NO bloque de enlaces (🔗) en el cuerpo visible.
+ *   - NO hashtags generales (#tag) en el cuerpo visible.
+ *   - SÍ etiqueta `Colección: <nombre>` cuando existe en userContext.
+ *   - Descripción más larga (MAX_LONG_DESC=700, cap total ≤1200).
+ *   - ExtendedData del Placemark sigue conservando links/tags.
  */
 import { describe, it, expect } from 'vitest';
 import { buildPoiExportContent } from '@/domains/content/lib/poi-export-content-model';
@@ -41,7 +43,7 @@ describe('PR-EXPORT-6 · GuruMaps plain-text renderer', () => {
     expect(body.length).toBeLessThanOrEqual(GURUMAPS_RENDERER_LIMITS.HARD_TOTAL_CAP);
   });
 
-  it('trunca longDescription >2000 chars con ellipsis y respeta hard cap', () => {
+  it('trunca longDescription enorme con ellipsis y respeta hard cap', () => {
     const huge = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. '.repeat(60);
     const loc = makeTorreHerculesFixture({
       enrichedData: {
@@ -67,43 +69,6 @@ describe('PR-EXPORT-6 · GuruMaps plain-text renderer', () => {
     expect(idxLong).toBeGreaterThan(idxHighlight);
   });
 
-  it('compacta links: máximo MAX_LINKS visibles aunque haya más fuentes', () => {
-    const base = makeTorreHerculesFixture();
-    const loc = makeTorreHerculesFixture({
-      enrichedData: {
-        ...base.enrichedData!,
-        fuentes: [
-          'https://es.wikipedia.org/wiki/Torre_de_Hércules',
-          'https://whc.unesco.org/en/list/1312',
-          'https://example.com/a',
-          'https://example.com/b',
-          'https://example.com/c',
-          'https://example.com/d',
-        ],
-      },
-    });
-    const content = buildPoiExportContent(loc, { scope: 'internal' });
-    const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
-    const urlMatches = body.match(/https?:\/\/[^\s]+/g) ?? [];
-    // webReference (1) + sources (hasta MAX_LINKS-1) → máx MAX_LINKS URLs distintas
-    const unique = new Set(urlMatches);
-    expect(unique.size).toBeLessThanOrEqual(GURUMAPS_RENDERER_LIMITS.MAX_LINKS);
-  });
-
-  it('compacta tags: máximo MAX_TAGS con prefijo #', () => {
-    const base = makeTorreHerculesFixture();
-    const loc = makeTorreHerculesFixture({
-      enrichedData: {
-        ...base.enrichedData!,
-        etiquetas: Array.from({ length: 20 }, (_, i) => `tag${i}`),
-      },
-    });
-    const content = buildPoiExportContent(loc, { scope: 'internal' });
-    const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
-    const tagMatches = body.match(/#[a-zA-Z0-9áéíóúñ]+/g) ?? [];
-    expect(tagMatches.length).toBeLessThanOrEqual(GURUMAPS_RENDERER_LIMITS.MAX_TAGS);
-  });
-
   it('footer Vandits con fecha YYYY-MM-DD (no ISO completo)', () => {
     const content = buildPoiExportContent(makeMazingerZFixture(), { scope: 'internal' });
     const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
@@ -111,15 +76,13 @@ describe('PR-EXPORT-6 · GuruMaps plain-text renderer', () => {
     expect(body).not.toContain('T00:00:00');
   });
 
-  it('emoji literales presentes como separador visual', () => {
+  it('emoji literales presentes como separador visual (📍 y 📝 si hay observación)', () => {
     const content = buildPoiExportContent(makeTorreHerculesFixture(), {
       scope: 'internal',
     });
     const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
     expect(body).toContain('📍');
-    expect(body).toContain('🏷');
     expect(body).toContain('📝');
-    expect(body).toContain('🔗');
   });
 
   it('omite imagen del cuerpo pero mantiene image_url en ExtendedData del Placemark', () => {
@@ -130,13 +93,112 @@ describe('PR-EXPORT-6 · GuruMaps plain-text renderer', () => {
       documentName: 'Test',
       target: 'gurumaps',
     });
-    // body description NO debe contener la URL de imagen
     const desc = kml.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/);
     expect(desc).not.toBeNull();
     expect(desc![1]).not.toContain('upload.wikimedia.org');
-    // pero ExtendedData sí
     expect(kml).toContain('image_url');
     expect(kml).toContain('upload.wikimedia.org');
+  });
+});
+
+describe('PR-EXPORT-7 · simplificación GuruMaps (no links, no hashtags, colección)', () => {
+  it('NO renderiza bloque 🔗 Enlaces en el cuerpo visible', () => {
+    const content = buildPoiExportContent(makeTorreHerculesFixture(), {
+      scope: 'internal',
+    });
+    const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
+    expect(body).not.toContain('🔗');
+    expect(body).not.toMatch(/Enlaces/i);
+    expect(body).not.toMatch(/Wikipedia/i);
+    expect(body).not.toMatch(/Web oficial/i);
+    expect(body).not.toMatch(/Más info/i);
+    expect(body).not.toMatch(/https?:\/\//);
+  });
+
+  it('NO renderiza hashtags generales en el cuerpo visible', () => {
+    const base = makeTorreHerculesFixture();
+    const loc = makeTorreHerculesFixture({
+      enrichedData: {
+        ...base.enrichedData!,
+        etiquetas: ['monumento', 'historia', 'mirador', 'cultura', 'turismo'],
+      },
+    });
+    const content = buildPoiExportContent(loc, { scope: 'internal' });
+    const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
+    expect(body).not.toMatch(/#[a-zA-Z0-9áéíóúñ]+/);
+    expect(body).not.toContain('🏷');
+    expect(body).not.toMatch(/#monumento/);
+  });
+
+  it('SÍ renderiza colección si existe en userContext (scope=internal)', () => {
+    const content = buildPoiExportContent(makeTorreHerculesFixture(), {
+      scope: 'internal',
+    });
+    const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
+    expect(body).toContain('Colección: Faros del Atlántico');
+  });
+
+  it('NO renderiza colección en scope=public (userContext omitido)', () => {
+    const content = buildPoiExportContent(makeTorreHerculesFixture(), {
+      scope: 'public',
+    });
+    const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
+    expect(body).not.toMatch(/Colección:/);
+  });
+
+  it('Aprovecha espacio para descripción larga (>500 chars permitidos)', () => {
+    const longText =
+      'La Torre de Hércules es el único faro romano del mundo en funcionamiento. ' +
+      'Construido en el siglo I d.C. por orden del emperador Trajano, su estructura ' +
+      'original de granito fue restaurada en el siglo XVIII. Fue declarado Patrimonio ' +
+      'de la Humanidad por la UNESCO en 2009 y constituye el faro en activo más ' +
+      'antiguo del mundo. Su silueta domina el cabo y guía a los navegantes desde ' +
+      'hace casi dos mil años, siendo un emblema de la ciudad de A Coruña.';
+    const loc = makeTorreHerculesFixture({
+      enrichedData: {
+        ...makeTorreHerculesFixture().enrichedData!,
+        descripcion: longText,
+      },
+    });
+    const content = buildPoiExportContent(loc, { scope: 'internal' });
+    const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
+    expect(body.length).toBeGreaterThan(500);
+    expect(body.length).toBeLessThanOrEqual(GURUMAPS_RENDERER_LIMITS.HARD_TOTAL_CAP);
+  });
+
+  it('Orden canónico: 📍 → highlight → longDesc → 📝 → Colección → footer', () => {
+    const content = buildPoiExportContent(makeTorreHerculesFixture(), {
+      scope: 'internal',
+    });
+    const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
+    const idxLoc = body.indexOf('📍');
+    const idxHi = body.indexOf('Único faro romano');
+    const idxLong = body.indexOf('Patrimonio de la Humanidad');
+    const idxNote = body.indexOf('📝');
+    const idxCol = body.indexOf('Colección:');
+    const idxFooter = body.indexOf('— Vandits');
+    expect(idxLoc).toBeGreaterThanOrEqual(0);
+    expect(idxHi).toBeGreaterThan(idxLoc);
+    expect(idxLong).toBeGreaterThan(idxHi);
+    expect(idxNote).toBeGreaterThan(idxLong);
+    expect(idxCol).toBeGreaterThan(idxNote);
+    expect(idxFooter).toBeGreaterThan(idxCol);
+  });
+
+  it('ExtendedData del Placemark conserva tags y web_reference aunque no aparezcan en cuerpo', () => {
+    const loc = makeTorreHerculesFixture();
+    const kml = serializePoiKml([mapToPoiExportRecord(loc, 'internal')], {
+      scope: 'internal',
+      documentName: 'Test',
+      target: 'gurumaps',
+    });
+    // ExtendedData mantiene la información estructurada
+    expect(kml).toMatch(/tags|etiquetas|categories/i);
+    // cuerpo visible NO contiene hashtags ni URLs
+    const desc = kml.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/);
+    expect(desc).not.toBeNull();
+    expect(desc![1]).not.toMatch(/#[a-zA-Z]/);
+    expect(desc![1]).not.toMatch(/https?:\/\//);
   });
 });
 
@@ -196,7 +258,6 @@ describe('PR-EXPORT-6 · target switching y regresión generic', () => {
     });
     const content = buildPoiExportContent(loc, { scope: 'internal' });
     const body = buildGuruMapsDescription(content, { generatedAt: GEN_AT });
-    // Toda ocurrencia de ]]> debe ser parte del split seguro ]]]]><![CDATA[>
     expect(body).toContain(']]]]><![CDATA[>');
     const unsafe = body.replace(/\]\]\]\]><!\[CDATA\[>/g, '');
     expect(unsafe).not.toContain(']]>');
