@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { Upload, FileUp, Globe2, CheckCircle, Eye, Users, Lock, ExternalLink, Sparkles } from 'lucide-react';
+import { Upload, FileUp, Globe2, CheckCircle, Eye, Users, Lock, ExternalLink, Sparkles, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { parseGeoFile, SUPPORTED_FORMATS, getFormatFromFileName } from '@/lib/geo-file-parser';
 import { useLocationsStore } from '@/domains/content';
@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { KMLDocument, GeoLocation, LocationVisibility } from '@/types/location';
 import { ImportSummaryDialog } from './ImportSummaryDialog';
 import { CollectionPicker } from './CollectionPicker';
+import { ImportSurfaceShell } from '@/shared/components/import/ImportSurfaceShell';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/domains/identity';
