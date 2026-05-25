@@ -1,4 +1,5 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import type { ImportPrimaryCtaState } from '@/shared/components/import/import-primary-cta';
 import { Upload, FileUp, Globe2, CheckCircle, Eye, Users, Lock, ExternalLink, Sparkles, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { parseGeoFile, SUPPORTED_FORMATS, getFormatFromFileName } from '@/lib/geo-file-parser';
@@ -27,14 +28,22 @@ interface FileUploadZoneProps {
  curatorId?: string;
  curatorName?: string;
  /**
-  * PR-IMPORT-UX-2: cuando este componente se monta dentro de
-  * `ImportWizardShell`, el shell ya provee header/título y el wizard ordena
-  * las condiciones DESPUÉS de elegir archivo. Con `wizardMode={true}`
-  * omitimos el `ImportSurfaceShell` interno (evita doble header) y
-  * desplazamos las condiciones bajo el dropzone en un bloque colapsable,
-  * para que la primera pantalla no parezca un formulario bloqueado.
+  * PR-IMPORT-UX-2 (legacy): wizard shell mode. Mantener mientras no se
+  * cierre el backlog `PR-IMPORT-CLEANUP`.
   */
  wizardMode?: boolean;
+ /**
+  * PR-IMPORT-UX-4: oculta el header `ImportSurfaceShell` interno y deja
+  * que el padre renderice la CTA primaria en `PanelFooter`. El dropzone
+  * sigue siendo plenamente funcional (click/drag continúan disparando
+  * la selección de archivo).
+  */
+ hidePrimaryCta?: boolean;
+ /**
+  * PR-IMPORT-UX-4: callback canónico para elevar el estado de la CTA
+  * primaria al padre. Ver `mem://logic/import/import-canon` §PR-IMPORT-UX-4.
+  */
+ onPrimaryStateChange?: (state: ImportPrimaryCtaState) => void;
 }
 
 interface UploadConditions {
@@ -49,7 +58,14 @@ const VISIBILITY_OPTIONS: { value: LocationVisibility; label: string; descriptio
  { value: 'private', label: 'Privado', description: 'Solo tú', icon: <Lock className="w-4 h-4" /> },
 ];
 
-export function FileUploadZone({ onUploadComplete, curatorId, curatorName, wizardMode = false }: FileUploadZoneProps) {
+export function FileUploadZone({
+  onUploadComplete,
+  curatorId,
+  curatorName,
+  wizardMode = false,
+  hidePrimaryCta = false,
+  onPrimaryStateChange,
+}: FileUploadZoneProps) {
  const addDocument = useLocationsStore(state => state.addDocument);
  const addPendingDuplicates = useLocationsStore(state => state.addPendingDuplicates);
  const { user } = useAuth();
@@ -70,6 +86,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName, wizar
   } | null>(null);
   const [showSummary, setShowSummary] = useState(false);
   const rawFileRef = useRef<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [collectionId, setCollectionId] = useState<string>('');
   const [newCollectionName, setNewCollectionName] = useState<string>('');
 
