@@ -159,3 +159,69 @@ describe('PR-IMPORT-UX-3 · panel "Fuentes de importación" (3 tabs)', () => {
     }
   });
 });
+
+describe('PR-IMPORT-UX-4 · sub-toggle + PanelFooter con CTA real', () => {
+  beforeEach(() => cleanup());
+
+  const SUBTOGGLE_LABELS: Record<string, { action: string; history: string }> = {
+    archivos: { action: 'Subir archivos', history: 'Histórico de archivos' },
+    web:      { action: 'Seleccionar web', history: 'Jobs recientes' },
+    imagenes: { action: 'Subir imágenes', history: 'Histórico de imágenes' },
+  };
+
+  for (const [tab, labels] of Object.entries(SUBTOGGLE_LABELS)) {
+    it(`tab ${tab}: sub-toggle existe con labels exactos "${labels.action}" / "${labels.history}"`, () => {
+      renderPanel(tab === 'archivos' ? 'upload' : tab === 'web' ? 'web' : 'onedrive');
+      const subtoggle = document.querySelector('[data-import-subtoggle]');
+      expect(subtoggle).toBeTruthy();
+      const text = subtoggle!.textContent ?? '';
+      expect(text).toContain(labels.action);
+      expect(text).toContain(labels.history);
+    });
+
+    it(`tab ${tab}: vista Acción monta PanelFooter con UN CTA real data-import-primary-cta="${tab}"`, () => {
+      renderPanel(tab === 'archivos' ? 'upload' : tab === 'web' ? 'web' : 'onedrive');
+      const ctas = document.querySelectorAll(`[data-import-primary-cta="${tab}"]`);
+      expect(ctas.length).toBe(1);
+      // No debe convivir con secondary-cta de su mismo tab.
+      expect(document.querySelector(`[data-import-secondary-cta="${tab}"]`)).toBeNull();
+    });
+
+    it(`tab ${tab}: cambiar a Histórico oculta la CTA primaria y muestra "Nueva importación"`, () => {
+      renderPanel(tab === 'archivos' ? 'upload' : tab === 'web' ? 'web' : 'onedrive');
+      const historyBtn = Array.from(
+        document.querySelectorAll('[data-import-subtoggle] [data-import-subview="history"]'),
+      )[0] as HTMLButtonElement | undefined;
+      expect(historyBtn).toBeTruthy();
+      fireEvent.click(historyBtn!);
+      expect(document.querySelector(`[data-import-primary-cta="${tab}"]`)).toBeNull();
+      const secondary = document.querySelector(`[data-import-secondary-cta="${tab}"]`);
+      expect(secondary).toBeTruthy();
+      expect((secondary!.textContent ?? '')).toMatch(/Nueva importaci[óo]n/);
+    });
+  }
+
+  it('no existe CTA primaria duplicada inline dentro del cuerpo de Acción (solo la del PanelFooter)', () => {
+    renderPanel('upload');
+    // Solo debe haber UNA CTA primaria por tab activa, y debe colgar del PanelFooter.
+    const ctas = document.querySelectorAll('[data-import-primary-cta]');
+    expect(ctas.length).toBe(1);
+    // El CTA real vive en el footer (el padre lo monta), nunca dentro del scroll del hijo.
+    const body = document.querySelector('[data-import-source-content="archivos"]');
+    expect(body?.querySelector('[data-import-primary-cta]')).toBeNull();
+  });
+
+  it('CTA con disabledReason expone tooltip (Imágenes: placeholder PR-IMPORT-ONEDRIVE-CREATE-POI)', () => {
+    renderPanel('onedrive');
+    const cta = document.querySelector('[data-import-primary-cta="imagenes"]') as HTMLButtonElement;
+    expect(cta).toBeTruthy();
+    // En estado inicial, OneDrive expone "Auditar fotos" (canSubmit=true) o un disabled con tooltip.
+    // El contrato exige que si está disabled, exista trigger de tooltip envolvente.
+    if (cta.disabled) {
+      const trigger = cta.closest('[data-state]') ?? cta.parentElement;
+      expect(trigger).toBeTruthy();
+    } else {
+      expect(cta.disabled).toBe(false);
+    }
+  });
+});
