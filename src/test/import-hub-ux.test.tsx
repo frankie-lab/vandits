@@ -53,13 +53,15 @@ const FORBIDDEN = ['enriquecer', 'enriquecimiento', 'backfill', 'recovery', 'can
 
 function renderHub(tab: 'upload' | 'web' | 'onedrive' | 'documents') {
   render(
-    <TooltipProvider>
-      <ImportedContentPanel
-        isOpen={true}
-        onClose={() => {}}
-        defaultTab={tab}
-      />
-    </TooltipProvider>,
+    <MemoryRouter>
+      <TooltipProvider>
+        <ImportedContentPanel
+          isOpen={true}
+          onClose={() => {}}
+          defaultTab={tab}
+        />
+      </TooltipProvider>
+    </MemoryRouter>,
   );
 }
 
