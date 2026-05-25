@@ -10,6 +10,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('@/integrations/supabase/client', () => {
   const builder: any = {
