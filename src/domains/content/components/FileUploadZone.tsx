@@ -327,6 +327,28 @@ export function FileUploadZone({
  const isCuratorMode = !!curatorId;
  const canUpload = uploadConditions.acceptTerms && uploadConditions.acceptDuplicatePolicy;
 
+  // ── PR-IMPORT-UX-4: emitir estado de CTA primaria al padre ──
+  const openFilePicker = useCallback(() => {
+    if (isProcessing || !canUpload) return;
+    fileInputRef.current?.click();
+  }, [isProcessing, canUpload]);
+
+  useEffect(() => {
+    if (!onPrimaryStateChange) return;
+    const disabledReason = !canUpload
+      ? 'Acepta los términos y la política de duplicados.'
+      : isProcessing
+        ? 'Procesando archivo…'
+        : undefined;
+    onPrimaryStateChange({
+      label: isProcessing ? 'Procesando…' : 'Subir archivo',
+      submit: openFilePicker,
+      canSubmit: canUpload && !isProcessing,
+      isProcessing,
+      disabledReason,
+    });
+  }, [canUpload, isProcessing, openFilePicker, onPrimaryStateChange]);
+
  // ── File handling ──
   const handleFile = useCallback(async (file: File) => {
    if (!canUpload) {
@@ -524,7 +546,7 @@ export function FileUploadZone({
       onDragLeave={() => setIsDragging(false)}
       onDrop={handleDrop}
      >
-      <input type="file" className="hidden" onChange={handleFileInput} disabled={isProcessing || !canUpload} />
+      <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileInput} disabled={isProcessing || !canUpload} />
 
       <motion.div
        animate={isDragging ? { scale: 1.05, y: -3 } : { scale: 1, y: 0 }}
