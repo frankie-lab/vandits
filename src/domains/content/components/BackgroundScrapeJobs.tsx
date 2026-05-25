@@ -3,7 +3,7 @@
  * El formulario de encolado vive ahora dentro de WebImportPanel (panel unificado).
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Play, Pause, Gauge } from 'lucide-react';
+import { Play, Pause, Gauge, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/domains/identity';
 import { Button } from '@/components/ui/button';
