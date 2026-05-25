@@ -459,19 +459,35 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName, wizar
 
  return (
   <>
-   <div className="w-full max-w-lg mx-auto space-y-4">
-    <ImportSurfaceShell
-     surfaceId="file"
-     icon={<FileText className="w-5 h-5" />}
-     title="Importar desde fichero"
-     subtitle="Formatos soportados: KML · KMZ · GPX · GeoJSON · CSV."
-     notice={
-      !canUpload ? (
-       <span>Confirma las dos condiciones de abajo para poder subir archivos.</span>
-      ) : null
-     }
-     source={undefined}
-    />
+   <div className={cn(
+    'w-full space-y-4',
+    wizardMode ? 'max-w-2xl mx-auto px-[var(--panel-padding-x)] py-5' : 'max-w-lg mx-auto',
+   )}>
+    {!wizardMode && (
+     <ImportSurfaceShell
+      surfaceId="file"
+      icon={<FileText className="w-5 h-5" />}
+      title="Importar desde fichero"
+      subtitle="Formatos soportados: KML · KMZ · GPX · GeoJSON · CSV."
+      notice={
+       !canUpload ? (
+        <span>Confirma las dos condiciones de abajo para poder subir archivos.</span>
+       ) : null
+      }
+      source={undefined}
+     />
+    )}
+    {wizardMode && (
+     <div className="space-y-1">
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+       Paso 1 · Elige tu archivo
+      </p>
+      <p className="text-sm text-foreground/90 leading-snug">
+       Arrastra el fichero o haz clic para seleccionarlo. Tras analizarlo,
+       te pediremos confirmar condiciones y elegir destino.
+      </p>
+     </div>
+    )}
     <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
      {/* Drop zone */}
      <label
