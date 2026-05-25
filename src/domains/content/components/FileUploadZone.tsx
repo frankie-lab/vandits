@@ -49,7 +49,7 @@ const VISIBILITY_OPTIONS: { value: LocationVisibility; label: string; descriptio
  { value: 'private', label: 'Privado', description: 'Solo tú', icon: <Lock className="w-4 h-4" /> },
 ];
 
-export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: FileUploadZoneProps) {
+export function FileUploadZone({ onUploadComplete, curatorId, curatorName, wizardMode = false }: FileUploadZoneProps) {
  const addDocument = useLocationsStore(state => state.addDocument);
  const addPendingDuplicates = useLocationsStore(state => state.addPendingDuplicates);
  const { user } = useAuth();
