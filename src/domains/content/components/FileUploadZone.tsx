@@ -615,7 +615,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
             </Link>
            </div>
            <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
-            Confirmo que no contiene datos sensibles o personales de terceros.
+            Confirmo que el archivo no incluye datos sensibles ni personales de terceros.
            </p>
           </div>
          </label>
