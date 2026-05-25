@@ -14,6 +14,8 @@
  * Ver mem://logic/enrichment/village-catalogs-fallback
  */
 
+import { requireAuth } from '../_shared/auth.ts';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -320,6 +322,10 @@ async function getEnabledSearchSources(): Promise<Set<SourceCode>> {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
 
   try {
     const body = (await req.json()) as Body;
