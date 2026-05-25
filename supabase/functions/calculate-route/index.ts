@@ -43,6 +43,10 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
+
   try {
     const apiKey = Deno.env.get('OPENROUTESERVICE_API_KEY');
     if (!apiKey) throw new Error('OPENROUTESERVICE_API_KEY not configured');
