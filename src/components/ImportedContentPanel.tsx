@@ -63,7 +63,7 @@ const RETURN_TO_ACTION_LABELS: Record<SourceTab, string> = {
   imagenes: 'Subir imágenes',
 };
 
-const HISTORY_EMPTY_COPY: Record<SourceTab, { title: string; hint: string }> = {
+const HISTORY_EMPTY_COPY: Record<'archivos' | 'web', { title: string; hint: string }> = {
   archivos: {
     title: 'No hay archivos importados todavía',
     hint: 'Formatos soportados: KML · KMZ · GPX · GeoJSON · CSV.',
@@ -71,10 +71,6 @@ const HISTORY_EMPTY_COPY: Record<SourceTab, { title: string; hint: string }> = {
   web: {
     title: 'No hay webs importadas todavía',
     hint: 'Importa una URL desde la vista de acción.',
-  },
-  imagenes: {
-    title: 'No hay imágenes importadas todavía',
-    hint: 'Audita tu OneDrive desde la vista de acción.',
   },
 };
 
