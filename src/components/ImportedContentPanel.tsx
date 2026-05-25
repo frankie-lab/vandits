@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils';
 import { FileUploadZone, DocumentsPanel } from '@/domains/content/components';
 import { WebImportPanel } from '@/domains/content/components/WebImportPanel';
 import { OneDrivePhotosPanel } from '@/components/OneDrivePhotosPanel';
+import { OneDrivePhotoHistoryPanel } from '@/components/OneDrivePhotoHistoryPanel';
 import { ScrapeJobsList } from '@/domains/content/components/BackgroundScrapeJobs';
 import type { ImportPrimaryCtaState } from '@/shared/components/import/import-primary-cta';
 import { EMPTY_PRIMARY_CTA } from '@/shared/components/import/import-primary-cta';
@@ -45,8 +46,8 @@ type SubView = 'action' | 'history';
 // kml | gpx | geojson | csv | manual | web_import). KMZ se persiste como 'kml'.
 const FILE_SOURCE_TYPES = ['kml', 'gpx', 'geojson', 'csv'];
 const WEB_SOURCE_TYPES = ['web_import'];
-// Imágenes: el enum no tiene 'onedrive'/'photo'. Hoy histórico vacío por diseño.
-const IMAGE_SOURCE_TYPES: string[] = [];
+// Imágenes: NO usa `documents` (OneDrive no escribe ahí). El histórico
+// se sirve desde `OneDrivePhotoHistoryPanel` leyendo `onedrive_photo_index`.
 
 // Labels exactos del segmented control (fila 2) por fuente.
 const SUBVIEW_LABELS: Record<SourceTab, Record<SubView, string>> = {
