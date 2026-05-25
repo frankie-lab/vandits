@@ -128,7 +128,7 @@ function buildSyntheticDocument(payload: {
   };
 }
 
-export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
+export function WebImportPanel({ onComplete, wizardMode = false }: { onComplete?: () => void; wizardMode?: boolean }) {
   const { user } = useAuth();
   const addDocument = useLocationsStore((s) => s.addDocument);
 
