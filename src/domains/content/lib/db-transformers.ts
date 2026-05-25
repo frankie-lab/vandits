@@ -1,10 +1,16 @@
 // Domain: Content — DB ↔ GeoLocation transformers and paginated fetch
 import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation, EnrichedLocationData } from '@/types/location';
+import { createConcurrencyPool } from '@/shared/boot/concurrency-pool';
 
 const PAGE_SIZE = 1000;
 const MAX_LOCATIONS = 50000;
 const MAX_PAGES = 50;
+// PR-BOOT-PERF-2 — ventana de concurrencia para la paginación del catálogo.
+// Justificación: 3 mantiene el pool HTTP/2 cómodo (margen para auth/profiles/
+// otros fetchs paralelos) y elimina el wait serial entre páginas. Subir a 6+
+// volvía a saturar en la corrida de Frankie.
+export const CATALOG_PAGE_CONCURRENCY = 3;
 
 export function dbLocationToGeoLocation(loc: any): GeoLocation {
   const baseCustomData = (loc.custom_data as Record<string, string>) || {};
