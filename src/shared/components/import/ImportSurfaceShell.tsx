@@ -81,7 +81,7 @@ export function ImportSurfaceShell({
         </div>
       )}
 
-      <div data-import-slot="source">{source}</div>
+      {source !== undefined && source !== null && <div data-import-slot="source">{source}</div>}
 
       {target && <div data-import-slot="target">{target}</div>}
 
