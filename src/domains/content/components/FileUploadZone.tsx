@@ -461,7 +461,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
        <span>Confirma las dos condiciones de abajo para poder subir archivos.</span>
       ) : null
      }
-     source={null}
+     source={undefined}
     />
     <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
      {/* Drop zone */}
