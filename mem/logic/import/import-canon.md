@@ -1,6 +1,6 @@
 ---
-name: Import canon (PR-IMPORT-CANON-1 + PR-IMPORT-UX-1 + PR-IMPORT-UX-3)
-description: Define qué es importación en Vandits (3 medios) y la UX canónica del panel "Fuentes de importación" como 3 tabs operativas con histórico contextual (PR-IMPORT-UX-3 reemplaza el wizard de PR-IMPORT-UX-2, rechazado).
+name: Import canon (PR-IMPORT-CANON-1 + PR-IMPORT-UX-1 + PR-IMPORT-UX-3 + PR-IMPORT-UX-4)
+description: Define qué es importación en Vandits (3 medios) y la UX canónica del panel "Fuentes de importación" como 3 tabs operativas + sub-toggle Acción/Histórico + PanelFooter con CTA real elevada desde el hijo (PR-IMPORT-UX-4).
 type: feature
 ---
 
