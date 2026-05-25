@@ -19,5 +19,5 @@
 // in `docs/releases/version-history.md`.
 // =============================================================
 
-export const APP_VERSION = '1.5.10';
+export const APP_VERSION = '1.5.11';
 export const APP_VERSION_LABEL = `v${APP_VERSION}`;

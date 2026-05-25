@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { List, User, Compass, Shield, MapPin, Tag, Layers, SlidersHorizontal } from 'lucide-react';
 import { PreferencesPage } from '@/shared/preferences/components/PreferencesPage';
 import { ExportPanel } from '@/domains/content/components';
@@ -248,7 +248,7 @@ const Index = () => {
     );
   }
 
-  if (!user) return null;
+  if (!user) return <Navigate to="/auth" replace />;
 
   const dc = discoveryControlsRef.current;
 

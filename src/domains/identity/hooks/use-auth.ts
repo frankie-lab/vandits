@@ -16,14 +16,35 @@ export interface UserProfile {
  updated_at: string;
 }
 
-export function useAuth() {
- const [user, setUser] = useState<User | null>(null);
- const [session, setSession] = useState<Session | null>(null);
- const [profile, setProfile] = useState<UserProfile | null>(null);
- const [loading, setLoading] = useState(true);
+interface AuthSnapshot {
+ user: User | null;
+ session: Session | null;
+ profile: UserProfile | null;
+ loading: boolean;
+}
 
-   // Fetch user profile
- const fetchProfile = useCallback(async (userId: string) => {
+const INITIAL_AUTH_SNAPSHOT: AuthSnapshot = {
+ user: null,
+ session: null,
+ profile: null,
+ loading: true,
+};
+
+let authSnapshot: AuthSnapshot = INITIAL_AUTH_SNAPSHOT;
+let authInitialized = false;
+let activeProfileRequestId = 0;
+const listeners = new Set<(snapshot: AuthSnapshot) => void>();
+
+function emitAuthSnapshot() {
+ for (const listener of listeners) listener(authSnapshot);
+}
+
+function setAuthSnapshot(partial: Partial<AuthSnapshot>) {
+ authSnapshot = { ...authSnapshot, ...partial };
+ emitAuthSnapshot();
+}
+
+async function fetchProfileRecord(userId: string): Promise<UserProfile | null> {
  try {
  const { data, error } = await supabase
  .from('profiles')
@@ -36,70 +57,93 @@ export function useAuth() {
  return null;
  }
 
- // PR-POI-SOURCE-6: registrar viewer en el username registry para
- // que `#frankie` aparezca en hashtags de origen.
  registerUsername(data?.id, data?.username ?? data?.display_name);
-
  return data as UserProfile;
  } catch (error) {
  console.error('Error in fetchProfile:', error);
  return null;
  }
+}
+
+async function refreshSharedProfile(userId: string) {
+ const requestId = ++activeProfileRequestId;
+ const profile = await fetchProfileRecord(userId);
+ if (authSnapshot.user?.id !== userId || requestId !== activeProfileRequestId) return null;
+ setAuthSnapshot({ profile });
+ return profile;
+}
+
+async function applySession(session: Session | null) {
+ const user = session?.user ?? null;
+ activeProfileRequestId += 1;
+ setAuthSnapshot({ session, user, loading: false, profile: user ? authSnapshot.profile : null });
+
+ if (!user) {
+ setAuthSnapshot({ profile: null });
+ return;
+ }
+
+ setTimeout(() => {
+ void refreshSharedProfile(user.id);
+ }, 0);
+}
+
+function ensureAuthInitialized() {
+ if (authInitialized) return;
+ authInitialized = true;
+
+ const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+ void applySession(session);
+ });
+
+ supabase.auth.getSession()
+ .then(({ data: { session } }) => applySession(session))
+ .catch((error) => {
+ console.error('Error getting session:', error);
+ setAuthSnapshot({ user: null, session: null, profile: null, loading: false });
+ });
+
+ if (typeof window !== 'undefined') {
+ window.addEventListener('beforeunload', () => {
+ subscription.unsubscribe();
+ }, { once: true });
+ }
+}
+
+export function useAuth() {
+ const [state, setState] = useState<AuthSnapshot>(authSnapshot);
+
+ const fetchProfile = useCallback(async (userId: string) => {
+ return refreshSharedProfile(userId);
  }, []);
 
  useEffect(() => {
-    // Set up auth state listener FIRST
- const { data: { subscription } } = supabase.auth.onAuthStateChange(
- (event, session) => {
- setSession(session);
- setUser(session?.user ?? null);
- 
-        // Defer profile fetch with setTimeout to avoid deadlock
- if (session?.user) {
- setTimeout(() => {
- fetchProfile(session.user.id).then(setProfile);
- }, 0);
- } else {
- setProfile(null);
- }
- 
- setLoading(false);
- }
- );
+ ensureAuthInitialized();
+ const listener = (snapshot: AuthSnapshot) => setState(snapshot);
+ listeners.add(listener);
+ listener(authSnapshot);
+ return () => {
+ listeners.delete(listener);
+ };
+ }, []);
 
-    // THEN check for existing session
- supabase.auth.getSession().then(({ data: { session } }) => {
- setSession(session);
- setUser(session?.user ?? null);
- 
- if (session?.user) {
- fetchProfile(session.user.id).then(setProfile);
- }
- 
- setLoading(false);
- });
-
- return () => subscription.unsubscribe();
- }, [fetchProfile]);
-
-  // Sync profile across multiple useAuth() hook instances (UserMenu, dialogs, etc.)
  useEffect(() => {
+ if (typeof window === 'undefined') return;
  const handler = (e: Event) => {
  const detail = (e as CustomEvent<{ userId?: string }>).detail;
  if (!detail?.userId) return;
-
- if (detail.userId === user?.id) {
- fetchProfile(detail.userId).then(setProfile);
+ if (detail.userId === authSnapshot.user?.id) {
+ void refreshSharedProfile(detail.userId);
  }
  };
 
  window.addEventListener('lovable:profile-updated', handler);
  return () => window.removeEventListener('lovable:profile-updated', handler);
- }, [user?.id, fetchProfile]);
+ }, []);
 
  const signUp = async (email: string, password: string, username?: string) => {
  const redirectUrl = `${window.location.origin}/`;
- 
+
  const { data, error } = await supabase.auth.signUp({
  email,
  password,
@@ -139,7 +183,6 @@ export function useAuth() {
  return { error };
  }
 
-    // Welcome message shown via the welcome card on the map (no toast to avoid duplication)
  return { data, error: null };
  };
 
@@ -165,17 +208,16 @@ export function useAuth() {
  toast.error('Error al cerrar sesión');
  return { error };
  }
- 
- setUser(null);
- setSession(null);
- setProfile(null);
+
+ activeProfileRequestId += 1;
+ setAuthSnapshot({ user: null, session: null, profile: null, loading: false });
  toast.success('Sesión cerrada');
  return { error: null };
  };
 
  const resetPassword = async (email: string) => {
  const redirectUrl = `${window.location.origin}/auth?mode=reset`;
- 
+
  const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
  redirectTo: redirectUrl,
  });
@@ -204,12 +246,12 @@ export function useAuth() {
  };
 
  const updateProfile = async (updates: Partial<UserProfile>) => {
- if (!user) return { error: new Error('No user logged in') };
+ if (!state.user) return { error: new Error('No user logged in') };
 
  const { data, error } = await supabase
  .from('profiles')
  .update(updates)
- .eq('id', user.id)
+ .eq('id', state.user.id)
  .select()
  .single();
 
@@ -219,12 +261,11 @@ export function useAuth() {
  }
 
  const nextProfile = data as UserProfile;
- setProfile(nextProfile);
+ setAuthSnapshot({ profile: nextProfile });
 
-    // Notify other parts of the app (which may have their own useAuth instance)
  if (typeof window !== 'undefined') {
  window.dispatchEvent(
- new CustomEvent('lovable:profile-updated', { detail: { userId: user.id } })
+ new CustomEvent('lovable:profile-updated', { detail: { userId: state.user.id } })
  );
  }
 
@@ -233,10 +274,10 @@ export function useAuth() {
  };
 
  return {
- user,
- session,
- profile,
- loading,
+ user: state.user,
+ session: state.session,
+ profile: state.profile,
+ loading: state.loading,
  signUp,
  signIn,
  signInWithGoogle,
@@ -244,6 +285,6 @@ export function useAuth() {
  updateProfile,
  resetPassword,
  updatePassword,
- refreshProfile: () => user && fetchProfile(user.id).then(setProfile),
+ refreshProfile: () => state.user && fetchProfile(state.user.id),
  };
 }
