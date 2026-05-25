@@ -448,18 +448,20 @@ export function WebImportPanel({
                   disabled={isWorking}
                 />
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleTest}
-                disabled={isWorking || !canTest}
-                className="h-11 shrink-0"
-              >
-                {phase === 'testing'
-                  ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                  : <FlaskConical className="w-4 h-4 mr-1.5" />}
-                Probar
-              </Button>
+              {!hidePrimaryCta && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleTest}
+                  disabled={isWorking || !canTest}
+                  className="h-11 shrink-0"
+                >
+                  {phase === 'testing'
+                    ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                    : <FlaskConical className="w-4 h-4 mr-1.5" />}
+                  Probar
+                </Button>
+              )}
             </div>
             {sourceBadge && (
               <Badge variant={sourceBadge.tone} className="text-[10px] mt-1">{sourceBadge.label}</Badge>
@@ -652,30 +654,36 @@ export function WebImportPanel({
                 )}
               </div>
 
-              {/* Ejecutar */}
-              <Button
-                onClick={handleExecute}
-                disabled={
-                  isWorking ||
-                  (mode === 'now' && (modeNowDisabled || finalCount === 0)) ||
-                  (mode === 'background' && !url.trim())
-                }
-                className="w-full h-11"
-              >
-                {phase === 'saving' || phase === 'enqueueing' ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    {phase === 'saving' ? 'Guardando…' : 'Encolando…'}</>
-                ) : mode === 'now' ? (
-                  <><Zap className="w-4 h-4 mr-2" />Importar {finalCount} {finalCount === 1 ? 'punto' : 'puntos'}</>
-                ) : (
-                  <><Clock className="w-4 h-4 mr-2" />Encolar en background</>
-                )}
-              </Button>
+              {/* PR-IMPORT-UX-4: CTA real elevada a PanelFooter del padre.
+                  El bloque inline se mantiene como fallback cuando el panel
+                  se monta fuera de `ImportedContentPanel` (modo standalone). */}
+              {!hidePrimaryCta && (
+                <>
+                  <Button
+                    onClick={handleExecute}
+                    disabled={
+                      isWorking ||
+                      (mode === 'now' && (modeNowDisabled || finalCount === 0)) ||
+                      (mode === 'background' && !url.trim())
+                    }
+                    className="w-full h-11"
+                  >
+                    {phase === 'saving' || phase === 'enqueueing' ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        {phase === 'saving' ? 'Guardando…' : 'Encolando…'}</>
+                    ) : mode === 'now' ? (
+                      <><Zap className="w-4 h-4 mr-2" />Importar {finalCount} {finalCount === 1 ? 'punto' : 'puntos'}</>
+                    ) : (
+                      <><Clock className="w-4 h-4 mr-2" />Encolar en background</>
+                    )}
+                  </Button>
 
-              {!preview && isAtlas && mode === 'now' && (
-                <p className="text-[10px] text-muted-foreground leading-relaxed">
-                  Pulsa Probar para traer los primeros {PREVIEW_SIZE} puntos antes de importar.
-                </p>
+                  {!preview && isAtlas && mode === 'now' && (
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      Pulsa Probar para traer los primeros {PREVIEW_SIZE} puntos antes de importar.
+                    </p>
+                  )}
+                </>
               )}
             </>
           )}
