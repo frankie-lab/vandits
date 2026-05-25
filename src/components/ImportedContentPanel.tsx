@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils';
 import { FileUploadZone, DocumentsPanel } from '@/domains/content/components';
 import { WebImportPanel } from '@/domains/content/components/WebImportPanel';
 import { OneDrivePhotosPanel } from '@/components/OneDrivePhotosPanel';
+import { OneDrivePhotoHistoryPanel } from '@/components/OneDrivePhotoHistoryPanel';
 import { ScrapeJobsList } from '@/domains/content/components/BackgroundScrapeJobs';
 import type { ImportPrimaryCtaState } from '@/shared/components/import/import-primary-cta';
 import { EMPTY_PRIMARY_CTA } from '@/shared/components/import/import-primary-cta';
@@ -45,8 +46,8 @@ type SubView = 'action' | 'history';
 // kml | gpx | geojson | csv | manual | web_import). KMZ se persiste como 'kml'.
 const FILE_SOURCE_TYPES = ['kml', 'gpx', 'geojson', 'csv'];
 const WEB_SOURCE_TYPES = ['web_import'];
-// Imágenes: el enum no tiene 'onedrive'/'photo'. Hoy histórico vacío por diseño.
-const IMAGE_SOURCE_TYPES: string[] = [];
+// Imágenes: NO usa `documents` (OneDrive no escribe ahí). El histórico
+// se sirve desde `OneDrivePhotoHistoryPanel` leyendo `onedrive_photo_index`.
 
 // Labels exactos del segmented control (fila 2) por fuente.
 const SUBVIEW_LABELS: Record<SourceTab, Record<SubView, string>> = {
@@ -62,7 +63,7 @@ const RETURN_TO_ACTION_LABELS: Record<SourceTab, string> = {
   imagenes: 'Subir imágenes',
 };
 
-const HISTORY_EMPTY_COPY: Record<SourceTab, { title: string; hint: string }> = {
+const HISTORY_EMPTY_COPY: Record<'archivos' | 'web', { title: string; hint: string }> = {
   archivos: {
     title: 'No hay archivos importados todavía',
     hint: 'Formatos soportados: KML · KMZ · GPX · GeoJSON · CSV.',
@@ -70,10 +71,6 @@ const HISTORY_EMPTY_COPY: Record<SourceTab, { title: string; hint: string }> = {
   web: {
     title: 'No hay webs importadas todavía',
     hint: 'Importa una URL desde la vista de acción.',
-  },
-  imagenes: {
-    title: 'No hay imágenes importadas todavía',
-    hint: 'Audita tu OneDrive desde la vista de acción.',
   },
 };
 
@@ -370,13 +367,7 @@ export function ImportedContentPanel({
                 </>
               ) : (
                 <div data-import-history="imagenes" className="flex-1 min-h-0 overflow-y-auto">
-                  <DocumentsPanel
-                    sourceFilter={IMAGE_SOURCE_TYPES}
-                    headerLabel="Histórico de imágenes"
-                    headerSubtitle="Imágenes procesadas desde OneDrive."
-                    emptyTitle={HISTORY_EMPTY_COPY.imagenes.title}
-                    emptyHint={HISTORY_EMPTY_COPY.imagenes.hint}
-                  />
+                  <OneDrivePhotoHistoryPanel />
                 </div>
               )}
             </div>

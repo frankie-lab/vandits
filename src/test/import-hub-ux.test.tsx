@@ -260,14 +260,18 @@ describe('PR-IMPORT-UX-4-FIX rev2 · fila 2 contextual + footer sin navegación'
     expect(text).toMatch(/No hay archivos importados todav[ií]a/);
   });
 
-  it('histórico de imágenes: empty state explícito "No hay imágenes importadas todavía"', () => {
+  it('histórico de imágenes: usa OneDrivePhotoHistoryPanel (NO DocumentsPanel fantasma)', () => {
     renderPanel('onedrive');
     const histTrigger = document.querySelector(
       '[data-import-subview-source="imagenes"][data-import-subview-trigger="history"]',
     ) as HTMLButtonElement;
     fireEvent.click(histTrigger);
     const hist = document.querySelector('[data-import-history="imagenes"]');
-    expect((hist?.textContent ?? '')).toMatch(/No hay im[áa]genes importadas todav[ií]a/);
+    expect(hist).toBeTruthy();
+    // Debe montar el panel real de OneDrive scans, no el DocumentsPanel.
+    expect(hist!.querySelector('[data-onedrive-history]')).toBeTruthy();
+    // Texto del header del nuevo panel.
+    expect((hist!.textContent ?? '')).toMatch(/Escaneos de OneDrive/);
   });
 });
 
