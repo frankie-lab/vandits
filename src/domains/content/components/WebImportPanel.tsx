@@ -344,6 +344,67 @@ export function WebImportPanel({
 
   const modeNowDisabled = !preview || sourceKind === 'generic';
 
+  // ── PR-IMPORT-UX-4: emitir estado de CTA primaria al padre ──
+  const primarySubmit = useCallback(() => {
+    // Fase Probar (Atlas sin preview todavía) → handleTest.
+    if (isAtlas && !preview) return handleTest();
+    // Resto: ejecución real (Importar ahora o Encolar background).
+    return handleExecute();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAtlas, preview, handleTest, mode]);
+
+  useEffect(() => {
+    if (!onPrimaryStateChange) return;
+    const isWorkingNow = phase !== 'idle';
+    const trimmedUrl = url.trim();
+
+    let label = 'Probar';
+    let canSubmit = false;
+    let disabledReason: string | undefined;
+
+    if (phase === 'testing') {
+      label = 'Probando…';
+    } else if (phase === 'saving') {
+      label = 'Guardando…';
+    } else if (phase === 'enqueueing') {
+      label = 'Encolando…';
+    } else if (!trimmedUrl || sourceKind === 'empty') {
+      label = 'Probar';
+      disabledReason = 'Pega una URL primero.';
+    } else if (sourceKind === 'invalid') {
+      label = 'Probar';
+      disabledReason = 'URL inválida.';
+    } else if (isAtlas && !preview) {
+      label = 'Probar';
+      canSubmit = true;
+    } else if (mode === 'now') {
+      label = `Importar web (${finalCount})`;
+      canSubmit = !modeNowDisabled && finalCount > 0;
+      if (!canSubmit) {
+        disabledReason = finalCount === 0
+          ? 'No hay puntos nuevos para importar.'
+          : 'Pulsa Probar para cargar muestra antes de importar.';
+      }
+    } else {
+      // background
+      label = 'Encolar en background';
+      canSubmit = !!trimmedUrl;
+      if (!canSubmit) disabledReason = 'Pega una URL primero.';
+    }
+
+    onPrimaryStateChange({
+      label,
+      submit: primarySubmit,
+      canSubmit: canSubmit && !isWorkingNow,
+      isProcessing: isWorkingNow,
+      disabledReason: isWorkingNow ? 'Operación en curso…' : disabledReason,
+    });
+  }, [
+    onPrimaryStateChange, primarySubmit, phase, url, sourceKind, isAtlas,
+    preview, mode, finalCount, modeNowDisabled,
+  ]);
+
+
   return (
     <>
       <div className={`w-full ${wizardMode ? 'max-w-2xl mx-auto px-[var(--panel-padding-x)] py-5' : 'max-w-lg mx-auto'} space-y-4`}>
