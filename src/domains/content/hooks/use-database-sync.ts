@@ -40,6 +40,7 @@ export function useDatabaseSync(userId?: string | null) {
       loadingActive = true;
     }
     try {
+      bootMark('boot:start', { silent, blocking });
       console.log('[useDatabaseSync] Starting parallel load...');
       setSyncPhase('own');
 
@@ -48,6 +49,7 @@ export function useDatabaseSync(userId?: string | null) {
       if (currentUserId) {
         useLocationsStore.getState().setCurrentUserId(currentUserId);
       }
+      bootMark('auth:ready', { uid: currentUserId ?? null });
 
       const { data: dbDocs, error: docsError } = await supabase
         .from('documents')
@@ -55,6 +57,7 @@ export function useDatabaseSync(userId?: string | null) {
         .order('created_at', { ascending: false });
 
       if (docsError) throw docsError;
+      bootMark('documents:loaded', { count: dbDocs?.length ?? 0 });
 
       if (!dbDocs || dbDocs.length === 0) {
         console.log('[useDatabaseSync] No documents found, clearing state');
@@ -68,16 +71,19 @@ export function useDatabaseSync(userId?: string | null) {
 
       const ownerIds = [...new Set(dbDocs.map(d => d.user_id).filter(Boolean))] as string[];
       const profilesMap = await fetchProfiles(ownerIds);
+      bootMark('profiles:loaded', { count: profilesMap.size });
 
       console.log('[useDatabaseSync] Fetching locations...');
+      bootMark('catalog:query:start');
       const dbLocations = await fetchAllLocationsPaginated({
         withCount: !silent,
-        onPage: silent
-          ? undefined
-          : (loaded, total) => {
-              updateLoading('db-sync', loaded, total ?? undefined);
-            },
+        onPage: (loaded, total) => {
+          bootMark('catalog:chunk', { loaded, total });
+          if (!silent) updateLoading('db-sync', loaded, total ?? undefined);
+        },
       });
+      bootMark('catalog:query:end', { count: dbLocations.length });
+      bootMeasure('catalog:query', 'catalog:query:start', 'catalog:query:end', { count: dbLocations.length });
       console.log('[useDatabaseSync] Locations fetched:', dbLocations.length);
 
       // [TEMP DEBUG] expose a lite snapshot for the user-filter funnel.
