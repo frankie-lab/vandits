@@ -1,4 +1,4 @@
-# VANDITS v1.5.16
+# VANDITS v1.6.0
 
 <!--
   ┌──────────────────────────────────────────────────────────────┐
@@ -13,7 +13,7 @@
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.5.16-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.6.0-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
@@ -104,6 +104,9 @@ Ver [`docs/`](./docs/) para documentación técnica completa.
 > versiones más recientes, sincronizado por
 > `scripts/release/bump-version.ts` y verificado por
 > `src/test/version-parity.test.ts`.
+
+### v1.6.0 (2026-05-25)
+- PR-IMPORT-UX-2 — hub Contenido rediseñado como wizard guiado (3 cards + 5 pasos)
 
 ### v1.5.16 (2026-05-25)
 - PR-IMPORT-UX-1 closure: OneDrive sub-tabs split into Importar/Avanzado, DocumentsPanel marked as Biblioteca, import canon docs + memory synchronized, backlog explicit

@@ -1,6 +1,6 @@
 ---
-name: Import canon (PR-IMPORT-CANON-1 + PR-IMPORT-UX-1)
-description: Define qué es importación en Vandits (3 medios) y la UX canónica del hub Contenido tras el cierre de PR-IMPORT-UX-1.
+name: Import canon (PR-IMPORT-CANON-1 + PR-IMPORT-UX-1 + PR-IMPORT-UX-2)
+description: Define qué es importación en Vandits (3 medios) y la UX canónica del hub Contenido como wizard guiado (3 cards + 5 pasos) tras PR-IMPORT-UX-2.
 type: feature
 ---
 
@@ -16,27 +16,27 @@ En Vandits, **"importación"** significa **exclusivamente** uno de estos tres me
 
 Cualquier otro flujo que produzca o modifique POIs (alta manual, enriquecimiento, backfill, recovery, canonicalize) **NO es importación** y NO puede mezclarse con el hub. Ver `docs/contracts/import-canon.md` §3.
 
-## Hub UX canónico (PR-IMPORT-UX-1)
+## Hub UX canónico (PR-IMPORT-UX-2)
 
-`ImportedContentPanel` (`src/components/ImportedContentPanel.tsx`) agrupa tabs en dos secciones rotuladas:
+`ImportedContentPanel` (`src/components/ImportedContentPanel.tsx`) ya NO es un `PanelTabs`. Es un **router de vistas**:
 
-- **Importar**: `Archivos` → `Web` → `OneDrive · fotos` (orden fijo).
-- **Biblioteca**: `Documentos importados` (`DocumentsPanel`) — historial operativo, **NO** vía de importación. El propio panel muestra subtítulo explícito que lo declara.
-
-`OneDrivePhotosPanel` parte sub-tabs en dos grupos:
-
-- **Importar**: `Fotos con GPS` (única vía canónica §2.2).
-- **Avanzado · diagnóstico**: `Explorar` (navegador OneDrive, read-only) + `Validar` (`OneDriveVisitValidator`, marca `visited=true` — fuera de canon §3, conservado temporalmente hasta `PR-PERSONAL-STATE-FROM-PHOTOS`).
+- `view='hub'` → `ImportHub` (`src/shared/components/import/ImportHub.tsx`) renderiza 3 cards canónicas (`ImportChannelCard`): `file` · `web` · `onedrive`. Cada card declara título, qué acepta (chips), qué crea, cuándo usarlo, CTA `Empezar`. Debajo, link secundario `Documentos importados` que abre la biblioteca. **Prohibido** usar tabs como navegación principal en el hub.
+- `view='wizard'` → `ImportWizardShell` (`src/shared/components/import/ImportWizardShell.tsx`) con header (icono + título + back-to-hub) + stepper de 5 pasos canónicos: `Fuente · Revisión · Destino · Importar · Resultado`. Cada vía monta su componente en `wizardMode={true}`:
+  - **File** (`FileUploadZone wizardMode`): dropzone primero, sin doble header.
+  - **Web** (`WebImportPanel wizardMode`): URL + Probar primero; `ScrapeJobsList` colapsado como historial secundario.
+  - **OneDrive** (`OneDrivePhotosPanel wizardMode`): copy explicativo + CTA Auditar primero; sub-tabs `Explorar`/`Validar` ocultos (acordeón diagnóstico futuro).
+- `view='library'` → `DocumentsPanel` con breadcrumb `← Importar`. Historial operativo, **NO** vía de importación.
 
 ## Contract test
 
 `src/test/import-hub-ux.test.tsx` asegura:
-- 3 triggers exactos bajo grupo `Importar` con labels canónicos.
-- `Archivos` muestra chips KML/KMZ/GPX/GeoJSON/CSV.
-- `Web` menciona URL + Atlas Obscura.
-- `OneDrive · fotos` menciona fotos + GPS.
-- Ningún header del hub menciona `enriquecer/backfill/recovery/canonicalize`.
-- `Documentos importados` existe bajo grupo `Biblioteca`.
+- Hub renderiza `data-import-channel-card` para `file`/`web`/`onedrive` con título + Qué acepta + Qué crea + Cuándo usarlo + CTA `Empezar`.
+- Hub NO contiene `role="tablist"` como navegación principal.
+- Click en card monta `data-import-wizard=<channel>` con stepper de 5 pasos.
+- Wizard expone `data-import-back-to-hub`.
+- OneDrive wizard menciona Audita + fotos + GPS como primera acción.
+- Biblioteca accesible sólo vía `data-import-library-link="v2"`.
+- Ningún header/stepper/back-button del hub menciona `enriquecer/backfill/recovery/canonicalize`.
 
 ## Backlog explícito (NO abrir sin PR dedicado)
 

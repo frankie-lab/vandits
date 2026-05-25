@@ -1,14 +1,14 @@
 /**
- * Contract test — PR-IMPORT-UX-1 hub de importación
+ * Contract test — PR-IMPORT-UX-2 hub Contenido (hub + wizard).
  *
- * Asegura que `ImportedContentPanel` cumple el canon
- * (`docs/contracts/import-canon.md`): 3 vías canónicas + biblioteca,
- * sin mezclar enriquecimiento / backfill / recovery / canonicalize.
+ * Ya NO es un panel de tabs. Es un router de vistas:
+ *   hub → tres cards canónicas (file / web / onedrive) + link biblioteca
+ *   wizard → shell común con back-to-hub
  *
- * Sólo render UI. Mocks mínimos.
+ * Ver docs/contracts/import-canon.md §5 y mem://logic/import/import-canon.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -51,68 +51,97 @@ import { ImportedContentPanel } from '@/components/ImportedContentPanel';
 
 const FORBIDDEN = ['enriquecer', 'enriquecimiento', 'backfill', 'recovery', 'canonicalize'];
 
-function renderHub(tab: 'upload' | 'web' | 'onedrive' | 'documents') {
-  render(
+function renderPanel(defaultTab?: 'upload' | 'web' | 'onedrive' | 'documents') {
+  return render(
     <MemoryRouter>
       <TooltipProvider>
-        <ImportedContentPanel
-          isOpen={true}
-          onClose={() => {}}
-          defaultTab={tab}
-        />
+        <ImportedContentPanel isOpen={true} onClose={() => {}} defaultTab={defaultTab} />
       </TooltipProvider>
     </MemoryRouter>,
   );
 }
 
-describe('PR-IMPORT-UX-1 · hub Contenido', () => {
+describe('PR-IMPORT-UX-2 · hub Contenido (hub + wizard)', () => {
   beforeEach(() => cleanup());
 
-  it('expone exactamente tres vías de importación con labels canónicos', () => {
-    renderHub('upload');
-    expect(screen.getByText('Importar')).toBeTruthy();
-    expect(screen.getByRole('tab', { name: /Archivos/i })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: /^Web$/i })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: /OneDrive · fotos/i })).toBeTruthy();
+  it('por defecto abre el hub con tres cards canónicas', () => {
+    renderPanel();
+    expect(document.querySelector('[data-import-hub="v2"]')).toBeTruthy();
+    expect(document.querySelector('[data-import-channel-card="file"]')).toBeTruthy();
+    expect(document.querySelector('[data-import-channel-card="web"]')).toBeTruthy();
+    expect(document.querySelector('[data-import-channel-card="onedrive"]')).toBeTruthy();
   });
 
-  it('biblioteca expone Documentos importados', () => {
-    renderHub('documents');
-    expect(screen.getByText('Biblioteca')).toBeTruthy();
-    expect(screen.getByRole('tab', { name: /Documentos importados/i })).toBeTruthy();
+  it('el hub NO usa tabs como navegación principal', () => {
+    renderPanel();
+    const hub = document.querySelector('[data-import-hub="v2"]');
+    expect(hub).toBeTruthy();
+    // Dentro del hub no debe haber role=tablist (es selector de cards).
+    expect(hub!.querySelector('[role="tablist"]')).toBeNull();
   });
 
-  it('tab Archivos anuncia los formatos canónicos (KML/KMZ/GPX/GeoJSON/CSV)', () => {
-    renderHub('upload');
-    const body = document.body.textContent ?? '';
+  it('cada card anuncia título, qué acepta, qué crea, cuándo usarlo y CTA Empezar', () => {
+    renderPanel();
+    const fileCard = document.querySelector('[data-import-channel-card="file"]')!;
+    const text = fileCard.textContent ?? '';
+    expect(text).toMatch(/Importar desde fichero/i);
+    expect(text).toMatch(/Qué acepta/i);
+    expect(text).toMatch(/Qué crea/i);
+    expect(text).toMatch(/Cuándo usarlo/i);
+    expect(text).toMatch(/Empezar/i);
     for (const fmt of ['KML', 'KMZ', 'GPX', 'GeoJSON', 'CSV']) {
-      expect(body).toContain(fmt);
+      expect(text).toContain(fmt);
     }
   });
 
-  it('tab Web menciona URL y Atlas Obscura', () => {
-    renderHub('web');
-    const body = document.body.textContent ?? '';
-    expect(body).toMatch(/URL/i);
-    expect(body).toMatch(/Atlas Obscura/i);
+  it('clic en card abre el wizard correspondiente con stepper de 5 pasos', () => {
+    renderPanel();
+    const card = document.querySelector('[data-import-channel-card="web"]') as HTMLButtonElement;
+    fireEvent.click(card);
+    expect(document.querySelector('[data-import-wizard="web"]')).toBeTruthy();
+    const stepper = document.querySelector('[data-import-stepper="v2"]');
+    expect(stepper).toBeTruthy();
+    expect(stepper!.querySelectorAll('[data-import-step]')).toHaveLength(5);
   });
 
-  it('tab OneDrive · fotos menciona fotos y GPS', () => {
-    renderHub('onedrive');
-    const body = document.body.textContent?.toLowerCase() ?? '';
+  it('wizard expone botón Volver al hub', () => {
+    renderPanel('upload');
+    expect(document.querySelector('[data-import-wizard="file"]')).toBeTruthy();
+    expect(document.querySelector('[data-import-back-to-hub]')).toBeTruthy();
+  });
+
+  it('Documentos importados queda en biblioteca, accesible desde link secundario', () => {
+    renderPanel();
+    const link = document.querySelector('[data-import-library-link="v2"]') as HTMLButtonElement;
+    expect(link).toBeTruthy();
+    fireEvent.click(link);
+    // DocumentsPanel renderizado tras click.
+    expect(document.body.textContent).toMatch(/Documento|Biblioteca|Historial/i);
+  });
+
+  it('OneDrive wizard expone CTA "Auditar" como primera acción', () => {
+    renderPanel('onedrive');
+    expect(document.querySelector('[data-import-wizard="onedrive"]')).toBeTruthy();
+    const body = (document.body.textContent ?? '').toLowerCase();
+    expect(body).toContain('audita');
     expect(body).toContain('foto');
     expect(body).toContain('gps');
   });
 
-  it('ningún heading/trigger del hub menciona enriquecer/backfill/recovery/canonicalize', () => {
-    for (const tab of ['upload', 'web', 'onedrive', 'documents'] as const) {
+  it('ningún paso/header del hub o wizards menciona enriquecer/backfill/recovery/canonicalize', () => {
+    for (const tab of [undefined, 'upload', 'web', 'onedrive'] as const) {
       cleanup();
-      renderHub(tab);
-      const triggers = Array.from(document.querySelectorAll('[role="tab"]'))
+      renderPanel(tab);
+      // Inspeccionar headers/stepper/cards — no el body operacional completo.
+      const scope = [
+        ...Array.from(document.querySelectorAll('[data-import-hub="v2"] h2, [data-import-hub="v2"] h3')),
+        ...Array.from(document.querySelectorAll('[data-import-stepper="v2"]')),
+        ...Array.from(document.querySelectorAll('[data-import-back-to-hub]')),
+      ]
         .map((el) => (el.textContent ?? '').toLowerCase())
         .join(' | ');
       for (const term of FORBIDDEN) {
-        expect(triggers).not.toContain(term);
+        expect(scope).not.toContain(term);
       }
     }
   });

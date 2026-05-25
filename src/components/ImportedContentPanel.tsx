@@ -1,44 +1,99 @@
 /**
- * ImportedContentPanel — Panel unificado de "Contenido importado".
+ * ImportedContentPanel — Panel "Contenido".
  *
- * MIGRADO al sistema de paneles canónico (`shared/components/ui/panel`).
- * Este es el PILOTO de validación de la API de PanelShell + PanelTabs.
+ * PR-IMPORT-UX-2: rediseño real del hub. Ya NO es un PanelTabs con cuatro
+ * pestañas. Es un router de vistas:
  *
- * Estructura conceptual (preservada):
- *   FUENTES   → Archivos · OneDrive
- *   BIBLIOTECA → Documentos importados
+ *   view = 'hub'    → ImportHub (3 cards canónicas + biblioteca secundaria)
+ *   view = 'wizard' → ImportWizardShell con la vía elegida (file | web | onedrive)
+ *   view = 'library'→ DocumentsPanel (historial operativo, no es importación)
  *
- * No reescribe la lógica interna de los componentes hijos.
+ * Las tres vías de importación se sienten como un único asistente porque
+ * comparten el shell (header, back-to-hub, stepper). La biblioteca queda
+ * fuera del flujo principal.
  *
- * Ver: mem://ui/imported-content-panel · mem://ui/panel-system
- *      docs/adr/003-panel-system.md
+ * Compat: `defaultTab` se mapea al estado nuevo:
+ *   upload/web/onedrive → view='wizard' con su channel.
+ *   documents           → view='library'.
+ *
+ * Ver:
+ *   - docs/contracts/import-canon.md §5
+ *   - mem://logic/import/import-canon
+ *   - docs/audits/import-ux-operability.md
  */
-import { FolderOpen, Upload, Cloud, FileStack, Globe } from 'lucide-react';
-import {
-  PanelShell,
-  PanelTabs,
-} from '@/shared/components/ui/panel';
-import { FileUploadZone } from '@/domains/content/components';
-import { DocumentsPanel } from '@/domains/content/components';
+import { useState, useEffect } from 'react';
+import { FolderOpen, ArrowLeft, FileText, Globe, Cloud } from 'lucide-react';
+import { PanelShell } from '@/shared/components/ui/panel';
+import { Button } from '@/components/ui/button';
+import { FileUploadZone, DocumentsPanel } from '@/domains/content/components';
 import { WebImportPanel } from '@/domains/content/components/WebImportPanel';
 import { OneDrivePhotosPanel } from '@/components/OneDrivePhotosPanel';
+import { ImportHub, type ImportChannelId } from '@/shared/components/import/ImportHub';
+import { ImportWizardShell } from '@/shared/components/import/ImportWizardShell';
 
 export type ImportedContentTab = 'upload' | 'web' | 'onedrive' | 'documents';
 
 interface ImportedContentPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  /** Pestaña inicial — preserva el atajo directo desde el menú. */
+  /**
+   * Compat con el menú existente: si se pasa una pestaña explícita,
+   * entramos directamente al wizard de esa vía o a la biblioteca.
+   * Sin valor, abre el hub.
+   */
   defaultTab?: ImportedContentTab;
   onTabChange?: (tab: ImportedContentTab) => void;
+}
+
+type View = { kind: 'hub' } | { kind: 'wizard'; channel: ImportChannelId } | { kind: 'library' };
+
+function tabToView(tab: ImportedContentTab | undefined): View {
+  switch (tab) {
+    case 'upload': return { kind: 'wizard', channel: 'file' };
+    case 'web': return { kind: 'wizard', channel: 'web' };
+    case 'onedrive': return { kind: 'wizard', channel: 'onedrive' };
+    case 'documents': return { kind: 'library' };
+    default: return { kind: 'hub' };
+  }
+}
+
+function viewToTab(view: View): ImportedContentTab {
+  if (view.kind === 'library') return 'documents';
+  if (view.kind === 'wizard') {
+    if (view.channel === 'file') return 'upload';
+    if (view.channel === 'web') return 'web';
+    return 'onedrive';
+  }
+  return 'upload'; // hub default — caller no debería depender de esto
 }
 
 export function ImportedContentPanel({
   isOpen,
   onClose,
-  defaultTab = 'documents',
+  defaultTab,
   onTabChange,
 }: ImportedContentPanelProps) {
+  const [view, setView] = useState<View>(() => tabToView(defaultTab));
+
+  // Sincronizar cuando el padre cambia defaultTab.
+  useEffect(() => {
+    setView(tabToView(defaultTab));
+  }, [defaultTab]);
+
+  const goHub = () => {
+    setView({ kind: 'hub' });
+  };
+
+  const goWizard = (channel: ImportChannelId) => {
+    setView({ kind: 'wizard', channel });
+    onTabChange?.(viewToTab({ kind: 'wizard', channel }));
+  };
+
+  const goLibrary = () => {
+    setView({ kind: 'library' });
+    onTabChange?.('documents');
+  };
+
   return (
     <PanelShell
       title="Contenido"
@@ -48,67 +103,70 @@ export function ImportedContentPanel({
       variant="library"
       position="right"
     >
-      <PanelTabs
-        value={defaultTab}
-        onValueChange={(v) => onTabChange?.(v as ImportedContentTab)}
-      >
-        {/*
-          Header con dos grupos visuales (Fuentes / Biblioteca) compartiendo
-          el mismo Tabs controlado. La accesibilidad de Radix se preserva
-          porque cada grupo renderiza su propio TabsList pero el estado
-          activo es único.
-        */}
-        <PanelTabs.Header>
-          <PanelTabs.Group label="Importar">
-            <PanelTabs.Trigger value="upload" icon={<Upload className="w-3.5 h-3.5" />}>
-              Archivos
-            </PanelTabs.Trigger>
-            <PanelTabs.Trigger value="web" icon={<Globe className="w-3.5 h-3.5" />}>
-              Web
-            </PanelTabs.Trigger>
-            <PanelTabs.Trigger value="onedrive" icon={<Cloud className="w-3.5 h-3.5" />}>
-              OneDrive · fotos
-            </PanelTabs.Trigger>
-          </PanelTabs.Group>
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        {view.kind === 'hub' && (
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <ImportHub onSelectChannel={goWizard} onOpenLibrary={goLibrary} />
+          </div>
+        )}
 
-          <PanelTabs.Group label="Biblioteca">
-            <PanelTabs.Trigger value="documents" icon={<FileStack className="w-3.5 h-3.5" />}>
-              Documentos importados
-            </PanelTabs.Trigger>
-          </PanelTabs.Group>
-        </PanelTabs.Header>
-
-        {/*
-          Body con un único scroll dominante. Cada TabsContent gestiona su
-          propio overflow según sus necesidades (Workflow vs Library).
-        */}
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <PanelTabs.Content
-            value="upload"
-            className="h-full m-0 overflow-y-auto p-[var(--panel-padding-x)]"
+        {view.kind === 'wizard' && view.channel === 'file' && (
+          <ImportWizardShell
+            channelId="file"
+            icon={<FileText className="w-5 h-5" />}
+            title="Importar desde fichero"
+            subtitle="KML · KMZ · GPX · GeoJSON · CSV. Te guiamos paso a paso."
+            onBackToHub={goHub}
           >
-            <FileUploadZone onUploadComplete={onClose} />
-          </PanelTabs.Content>
+            <FileUploadZone onUploadComplete={onClose} wizardMode />
+          </ImportWizardShell>
+        )}
 
-          <PanelTabs.Content
-            value="web"
-            className="h-full m-0 overflow-y-auto p-[var(--panel-padding-x)]"
+        {view.kind === 'wizard' && view.channel === 'web' && (
+          <ImportWizardShell
+            channelId="web"
+            icon={<Globe className="w-5 h-5" />}
+            title="Importar desde la web"
+            subtitle="Atlas Obscura · KML remoto · NetworkLink. Inmediato o en background."
+            onBackToHub={goHub}
           >
-            <WebImportPanel onComplete={onClose} />
-          </PanelTabs.Content>
+            <WebImportPanel onComplete={onClose} wizardMode />
+          </ImportWizardShell>
+        )}
 
-          <PanelTabs.Content
-            value="onedrive"
-            className="h-full m-0 overflow-hidden flex flex-col data-[state=inactive]:hidden"
+        {view.kind === 'wizard' && view.channel === 'onedrive' && (
+          <ImportWizardShell
+            channelId="onedrive"
+            icon={<Cloud className="w-5 h-5" />}
+            title="Importar fotos desde OneDrive"
+            subtitle="Detectamos fotos con GPS para crear ubicaciones."
+            onBackToHub={goHub}
           >
-            <OneDrivePhotosPanel />
-          </PanelTabs.Content>
+            <OneDrivePhotosPanel wizardMode />
+          </ImportWizardShell>
+        )}
 
-          <PanelTabs.Content value="documents" className="h-full m-0 overflow-hidden">
-            <DocumentsPanel />
-          </PanelTabs.Content>
-        </div>
-      </PanelTabs>
+        {view.kind === 'library' && (
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="shrink-0 px-[var(--panel-padding-x)] pt-4 pb-2 border-b">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={goHub}
+                className="h-7 -ml-2 text-muted-foreground hover:text-foreground"
+                data-import-back-to-hub
+              >
+                <ArrowLeft className="w-3.5 h-3.5 mr-1" />
+                Importar
+              </Button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <DocumentsPanel />
+            </div>
+          </div>
+        )}
+      </div>
     </PanelShell>
   );
 }
