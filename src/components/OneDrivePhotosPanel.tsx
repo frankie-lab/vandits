@@ -176,6 +176,29 @@ export function OneDrivePhotosPanel({
     loadIndex();
   }, [loadIndex]);
 
+  // PR-IMPORT-UX-4: emitir estado de CTA primaria al padre.
+  useEffect(() => {
+    if (!onPrimaryStateChange) return;
+    const hasIndex = indexPhotos.length > 0;
+    if (hasIndex) {
+      onPrimaryStateChange({
+        label: 'Importar imágenes',
+        submit: () => { /* PR-IMPORT-ONEDRIVE-CREATE-POI pendiente */ },
+        canSubmit: false,
+        isProcessing: false,
+        disabledReason: 'Disponible cuando se entregue PR-IMPORT-ONEDRIVE-CREATE-POI.',
+      });
+    } else {
+      onPrimaryStateChange({
+        label: auditing ? 'Auditando…' : 'Auditar fotos de OneDrive',
+        submit: runAudit,
+        canSubmit: !auditing,
+        isProcessing: auditing,
+        disabledReason: auditing ? 'Auditoría en curso…' : undefined,
+      });
+    }
+  }, [onPrimaryStateChange, indexPhotos.length, auditing, runAudit]);
+
   const loadContents = useCallback(async (folderId: string | null) => {
     setLoading(true);
     setPhotos([]);
