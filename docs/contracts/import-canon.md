@@ -145,6 +145,43 @@ Solo documentación + memoria.
 
 - 2026-05 — Canon creado tras PR-IMPORT-DISCOVERY-1.
 - 2026-05-25 — **PR-IMPORT-UX-1 CERRADO** (v1.5.16). Reorganización
+  de labels en tabs.
+- 2026-05-25 — **PR-IMPORT-UX-2 RECHAZADO** (wizard de 3 cards + 5
+  pasos). No aprobado por el usuario: ocultaba las fuentes reales y
+  añadía un asistente innecesario. Hub/wizard/channel-card eliminados.
+- 2026-05-25 — **PR-IMPORT-UX-3 CERRADO** (v1.6.1). Modelo definitivo:
+  panel **"Fuentes de importación"** con 3 tabs operativas exactas:
+  - `Archivos` — `FileUploadZone` + histórico contextual
+    (`DocumentsPanel` filtrado por `source_type ∈ {kml,kmz,gpx,
+    geojson,csv}`, header "Archivos importados anteriormente").
+  - `Web` — `WebImportPanel` (incluye `ScrapeJobsList` como
+    histórico de jobs/webs procesadas).
+  - `Imágenes` — bloque "Proveedor · OneDrive" + `OneDrivePhotosPanel`
+    (sub-tabs internos `Importar` / `Avanzado · diagnóstico`).
+  - OneDrive deja de ser tab principal: es proveedor dentro de
+    Imágenes. "Biblioteca / Documentos importados" deja de ser tab
+    principal: vive contextual dentro de Archivos.
+  - `DocumentsPanel` acepta props UI-only `sourceFilter` +
+    `headerLabel` + `headerSubtitle` (sin cambios de lógica).
+  - Hub/Wizard/ChannelCard/Stepper ELIMINADOS del código.
+    `wizardMode` prop queda dead en `FileUploadZone`/`WebImportPanel`/
+    `OneDrivePhotosPanel` hasta `PR-IMPORT-CLEANUP`.
+  - Contract test `import-hub-ux.test.tsx` (11/11): valida 3 tabs,
+    histórico contextual, ausencia total de rastros del wizard.
+  - Reglas duras: no wizard, no stepper, no hub de cards, no
+    biblioteca global como tab principal, OneDrive no como tab raíz.
+  - Memoria sincronizada: `mem://logic/import/import-canon`.
+
+### 8.1 Backlog explícito (NO abrir sin PR dedicado)
+
+| ID                                  | Alcance                                                                 |
+| ----------------------------------- | ----------------------------------------------------------------------- |
+| `PR-IMPORT-ONEDRIVE-CREATE-POI`     | Implementar acción canónica §2.2 (crear/incorporar POIs desde fotos GPS indexadas). |
+| `PR-PERSONAL-STATE-FROM-PHOTOS`     | Extraer `OneDriveVisitValidator` a panel propio fuera del hub. |
+| `PR-IMPORT-CLEANUP`                 | Eliminar `UploadPreviewDialog` legacy + re-export huérfano + retirar prop dead `wizardMode` de los tres paneles de fuente. |
+
+- 2026-05 — Canon creado tras PR-IMPORT-DISCOVERY-1.
+- 2026-05-25 — **PR-IMPORT-UX-1 CERRADO** (v1.5.16). Reorganización
   de labels y grupos en `ImportedContentPanel` (versión tabs):
   grupo `Importar` (Archivos · Web · OneDrive · fotos) separado de
   `Biblioteca` (Documentos importados). `OneDrivePhotosPanel` con
