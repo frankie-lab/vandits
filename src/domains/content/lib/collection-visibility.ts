@@ -70,15 +70,17 @@ async function rebuildCatalogMembership(userId: string) {
   try {
     const all = await collectionService.findByUser(userId);
     const catalog = all.filter(c => c.inCatalog === true);
-    const itemsList = await Promise.all(
-      catalog.map(async c => ({ id: c.id, items: await collectionService.getItems(c.id) }))
-    );
-    for (const { id, items } of itemsList) {
+    // Secuencial a propósito: cada colección catálogo puede tener miles de
+    // items (paginados de 1000 en 1000). Lanzarlas en paralelo asfixia el
+    // multiplex HTTP/2 del cliente y bloquea el fetch de v_locations_resolved
+    // que carga el catálogo del mapa.
+    for (const c of catalog) {
+      const items = await collectionService.getItems(c.id);
       for (const it of items) {
         if (it.itemType !== 'place' && it.itemType !== 'waypoint') continue;
         let set = catalogMembership.get(it.itemId);
         if (!set) { set = new Set(); catalogMembership.set(it.itemId, set); }
-        set.add(id);
+        set.add(c.id);
       }
     }
   } catch (e) {
@@ -283,7 +285,7 @@ async function setupCollectionItemsRealtime(userId: string) {
     const { data } = await (supabase as any)
       .from('collections')
       .select('id')
-      .eq('owner_user_id', userId);
+      .eq('user_id', userId);
     collectionIds = (data ?? []).map((r: any) => r.id);
   } catch (e) {
     console.warn('[collection-visibility] could not preload collection ids', e);
@@ -316,7 +318,7 @@ async function setupCollectionItemsRealtime(userId: string) {
     event: 'INSERT',
     schema: 'public',
     table: 'collections',
-    filter: `owner_user_id=eq.${userId}`,
+    filter: `user_id=eq.${userId}`,
   }, (payload: any) => {
     const cid = payload?.new?.id;
     if (cid && !collectionIds.includes(cid)) collectionIds.push(cid);

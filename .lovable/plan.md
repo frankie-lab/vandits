@@ -1,70 +1,47 @@
-# PR-IMPORT-DISCOVERY-1 — Auditoría de medios de importación
+## Diagnóstico
 
-Solo lectura. No se toca schema, RLS, scrapers, edge functions ni UI. Único deliverable: `docs/audits/import-discovery.md`.
+El catálogo no carga porque dos bugs encadenados bloquean el flujo `useDatabaseSync`:
 
-## Alcance ya localizado (no exhaustivo, base de exploración)
+### 1. Columna inexistente — `collections.owner_user_id`
 
-UI / handlers candidatos:
-- `src/components/ImportedContentPanel.tsx` (hub Archivos · Web · OneDrive · Documentos)
-- `src/domains/content/components/FileUploadZone.tsx`
-- `src/domains/content/components/WebImportPanel.tsx`
-- `src/domains/content/components/BackgroundScrapeJobs.tsx`
-- `src/domains/content/components/UploadPreviewDialog.tsx`
-- `src/domains/content/components/ImportSummaryDialog.tsx`
-- `src/components/OneDrivePhotosPanel.tsx`, `OneDrivePhotoBrowser.tsx`
-- `src/components/LocationMap.tsx` (creación manual desde mapa)
+`src/domains/content/lib/collection-visibility.ts` consulta `.eq('owner_user_id', userId)` sobre `collections` en dos sitios (línea 286 + filtro realtime línea 319). La columna real es `user_id` (la tabla `collections` NO tiene `owner_user_id`).
 
-Parsers:
-- `src/lib/{kml,kmz,gpx,geojson,csv,geo-file}-parser.ts`
-- `src/lib/parsers/{networklink,shared}.ts`
-- `src/domains/content/lib/parsers.ts` (barrel)
+Evidencia: postgres logs muestran repetidamente `column collections.owner_user_id does not exist` durante la sesión actual. Esto deja `collectionIds = []`, rompe el filtro del canal realtime e inutiliza la suscripción a INSERT de `collections`.
 
-Services / writes:
-- `src/services/import.service.ts`
-- `src/domains/v2/dual-write-import.ts`
-- `src/repositories/{waypoint,document-v2,document-track,user-place,place,collection}.repository.ts`
+### 2. Avalancha de `collection_items` que asfixia la red
 
-Edge functions de ingesta:
-- `supabase/functions/scrape-atlas-obscura/index.ts` (sync)
-- `supabase/functions/scrape-enqueue/index.ts` + `scrape-tick/index.ts` (queue/cron, tabla `scrape_jobs`)
-- `supabase/functions/fetch-remote-kml/index.ts`
-- `supabase/functions/browse-onedrive/index.ts`, `scan-onedrive-geo/index.ts`
-- `supabase/functions/backfill-scraped-locations/index.ts`
+`rebuildCatalogMembership` y `loadEntry` cargan **todas las colecciones de catálogo en paralelo**, y cada una pagina por chunks de 1000 items. Hay colecciones con 2448 / 580 / 535 / 397 / 381 items (consulta DB), así que se disparan decenas de GETs concurrentes a `/rest/v1/collection_items`, cada uno respondiendo ~500 KB de JSON.
 
-Tablas escritas (a verificar caso por caso): `documents`, `document_tracks`, `locations`, `waypoints`, `places`, `user_places`, `collections`, `collection_items`, `scrape_jobs`, `enrichment_jobs`.
+Evidencia: la pestaña Network muestra exclusivamente respuestas de `collection_items` (cientos de filas), y **cero requests a `v_locations_resolved`**. La consola registra `[useDatabaseSync] Fetching locations...` pero nunca `Locations fetched: N`. El autodiag `[P-POPUP-7B]` confirma `totalLocations: 0` tras 30 s. El plan SQL del catálogo es rápido (<1 s para 1000 filas), así que el cuello es cliente/red, no Postgres.
 
-## Plan de trabajo
+## Plan de cambios (mínimos, quirúrgicos)
 
-### 1. Barrido completo de surfaces
-- `rg` por triggers de importación (botones, handlers, llamadas a parsers/edge fns).
-- Cruzar con menú y rutas para detectar surfaces ocultas/legacy/desconectadas.
-- Clasificar cada una: `active | partial | hidden | disconnected | legacy | dead`.
+### A) Corregir nombre de columna (`collection-visibility.ts`)
 
-### 2. Trazabilidad por flujo
-Para cada surface, seguir: **UI → handler → parser/scraper → mapper → DB write → POI**. Marcar dónde se rompe la cadena.
+- Línea 286: `.eq('owner_user_id', userId)` → `.eq('user_id', userId)`.
+- Línea 319: `filter: 'owner_user_id=eq.${userId}'` → `filter: 'user_id=eq.${userId}'`.
+- No tocar nada más del módulo (semántica idéntica).
 
-### 3. Foco web import
-Documentar exhaustivamente `WebImportPanel` + `scrape-atlas-obscura` + `scrape-enqueue`/`scrape-tick` + `fetch-remote-kml`:
-URL aceptada, provider, presets, campos extraídos (JSON-LD), mapping → POI, validación, dedupe, ownership, errores, límites, queue model, provenance/source URL.
+### B) Serializar la precarga de membership
 
-### 4. Modelo de datos importado
-Tabla campo×surface: nombre, coords, dirección, descripción, imagen, tags, source URL, external_refs, enriched_data, ownership, visibility, jerarquía geo, collection.
+En `rebuildCatalogMembership` (líneas 68–87):
 
-### 5. Calidad y seguridad
-URLs inválidas, scraping fallido, sanitización HTML, dedupe, coords ausentes, imports masivos, rate limits, provider terms, provenance, rollback, preview pre-creación.
+- Reemplazar `Promise.all(catalog.map(...))` por un bucle secuencial `for...of` que cargue una colección catálogo a la vez vía `collectionService.getItems(c.id)`.
+- Mantener la paginación interna de `getItems` (correcta).
+- Conserva todo el resto del flujo y el `console.warn` de fallback.
 
-### 6. UX por surface
-preview / edición previa / errores humanos / qué se va a crear / duplicados / cancelar.
+Justificación: la precarga es one-shot al arrancar; pasarla a secuencial elimina la asfixia de HTTP/2 sin cambiar la API ni el contrato. El catálogo del usuario suele tener pocas colecciones marcadas `inCatalog=true`, así que el coste latente es marginal y la diferencia frente al estado actual es enorme.
 
-### 7. Entregable
-`docs/audits/import-discovery.md` con:
-- Tabla maestra `surface | ruta | entrada | parser | edge/RPC | tablas | ownership | dedupe | status`
-- Sección dedicada web import
-- Huecos y riesgos
-- Recomendación: mantener / eliminar / consolidar (sin ejecutar)
+### C) Verificación post-fix
 
-### 8. Fuera de alcance
-Schema, RLS, scrapers, edge functions, UI. Cero cambios.
+1. Recargar la preview con sesión `frankie@gmz.wtf`.
+2. En consola debe aparecer `[useDatabaseSync] Locations fetched: ~5100` en pocos segundos.
+3. En Network debe verse al menos un GET a `v_locations_resolved` con `200`.
+4. El autodiag `[P-POPUP-7B]` debe reportar `totalLocations > 0`.
+5. Postgres logs ya no deben emitir el ERROR `collections.owner_user_id does not exist`.
 
-## Próximo paso
-Aprobar → entro en build mode solo para crear el `.md` de auditoría.
+## Fuera de alcance
+
+- Schema, RLS, parsers, scrapers, edge functions, UI.
+- Refactor del módulo `collection-visibility` más allá de los dos fixes.
+- Versionado / memoria / contract tests (cambio puntual de bug, no canon).
