@@ -1,6 +1,6 @@
 ---
-name: Import canon (PR-IMPORT-CANON-1 + PR-IMPORT-UX-1 + PR-IMPORT-UX-3)
-description: Define qué es importación en Vandits (3 medios) y la UX canónica del panel "Fuentes de importación" como 3 tabs operativas con histórico contextual (PR-IMPORT-UX-3 reemplaza el wizard de PR-IMPORT-UX-2, rechazado).
+name: Import canon (PR-IMPORT-CANON-1 + PR-IMPORT-UX-1 + PR-IMPORT-UX-3 + PR-IMPORT-UX-4)
+description: Define qué es importación en Vandits (3 medios) y la UX canónica del panel "Fuentes de importación" como 3 tabs operativas + sub-toggle Acción/Histórico + PanelFooter con CTA real elevada desde el hijo (PR-IMPORT-UX-4).
 type: feature
 ---
 
@@ -16,19 +16,24 @@ En Vandits, **"importación"** significa **exclusivamente** uno de estos tres me
 
 Cualquier otro flujo (alta manual, enriquecimiento, backfill, recovery, canonicalize) **NO es importación** y NO puede mezclarse con el hub. Ver `docs/contracts/import-canon.md` §3.
 
-## Hub UX canónico (PR-IMPORT-UX-3)
+## Hub UX canónico (PR-IMPORT-UX-3 + PR-IMPORT-UX-4)
 
 `ImportedContentPanel` (`src/components/ImportedContentPanel.tsx`):
 
 - **Título del panel = "Fuentes de importación"** (NO "Contenido").
-- **PanelTabs con 3 tabs operativas exactas** (grupo `Fuentes`):
-  - `archivos` — `FileUploadZone` arriba + `DocumentsPanel` filtrado por `source_type ∈ {kml,kmz,gpx,geojson,csv}` como histórico contextual abajo (headerLabel "Archivos importados anteriormente").
-  - `web` — `WebImportPanel` (incluye `ScrapeJobsList` como histórico de jobs/webs).
-  - `imagenes` — bloque "Proveedor · OneDrive" + `OneDrivePhotosPanel` (sub-tabs internos `Importar` / `Avanzado · diagnóstico`).
-- **OneDrive NO es tab principal**: es proveedor dentro de Imágenes.
-- **"Biblioteca / Documentos importados" NO es tab principal**: vive contextual dentro de Archivos vía `DocumentsPanel sourceFilter`.
-- **Prohibido**: hub de cards, wizard, stepper de 5 pasos, navegación tipo asistente.
-- `DocumentsPanel` ahora acepta props UI-only `sourceFilter?: string[]` + `headerLabel?` + `headerSubtitle?` (sin cambios en lógica de fetch/import).
+- **PanelTabs con 3 tabs operativas exactas** (grupo `Fuentes`): `archivos` · `web` · `imagenes`.
+- **Sub-toggle binario Acción/Histórico** debajo de las tabs (segmented control compacto, NO segundo nivel de tabs). Default = `action` por tab. Labels canónicos:
+  - `archivos` → "Subir archivos" / "Histórico de archivos"
+  - `web` → "Seleccionar web" / "Jobs recientes"
+  - `imagenes` → "Subir imágenes" / "Histórico de imágenes"
+- **Vista Acción** monta el componente fuente (`FileUploadZone` / `WebImportPanel` / `OneDrivePhotosPanel`) con `hidePrimaryCta` + `onPrimaryStateChange` → eleva la CTA REAL al `PanelFooter`.
+- **Vista Histórico** monta `DocumentsPanel` filtrado por `sourceFilter` (archivos: KML/KMZ/GPX/GeoJSON/CSV; web: `web_import`/`scrape`/`atlas-obscura`; imágenes: `onedrive`/`photo`). En `web` se añade `ScrapeJobsList` arriba.
+- **`PanelFooter` canónico (REGLA DURA, no decorativo)**:
+  - Acción → único `Button` con `data-import-primary-cta={tab}`, `label`/`onClick`/`disabled` provistos por el hijo vía `ImportPrimaryCtaState`. `disabledReason` se renderiza como `<Tooltip>` cuando `!canSubmit`.
+  - Histórico → único `Button outline` con `data-import-secondary-cta={tab}` "Nueva importación" que vuelve a `action`.
+- **Prohibido**: CTA primaria duplicada inline (los hijos OCULTAN sus botones equivalentes cuando `hidePrimaryCta` está activo); hub de cards, wizard, stepper, navegación tipo asistente.
+- **Contrato CTA**: `src/shared/components/import/import-primary-cta.ts` define `ImportPrimaryCtaState` (`label`, `canSubmit`, `isProcessing`, `submit`, `disabledReason?`). Es el ÚNICO canal por el cual la CTA real llega al footer.
+- `DocumentsPanel` acepta props UI-only `sourceFilter?: string[]` + `headerLabel?` + `headerSubtitle?` (sin cambios de lógica).
 
 ## Compat `defaultTab`
 
@@ -41,16 +46,17 @@ Cualquier otro flujo (alta manual, enriquecimiento, backfill, recovery, canonica
 
 ## Contract test
 
-`src/test/import-hub-ux.test.tsx` (11/11 verde) asegura:
+`src/test/import-hub-ux.test.tsx` asegura (PR-IMPORT-UX-3 + PR-IMPORT-UX-4):
 - Panel titulado "Fuentes de importación".
 - Exactamente 3 tabs `data-import-source-tab`: `archivos` · `web` · `imagenes`.
 - Tabs principales NO contienen `OneDrive`, `Biblioteca`, `Documentos`.
-- Archivos lista formatos KML/KMZ/GPX/GeoJSON/CSV y muestra `data-import-history="archivos"`.
+- Archivos lista formatos KML/KMZ/GPX/GeoJSON/CSV y muestra `data-import-history="archivos"` en modo histórico.
 - Web menciona URL/Atlas.
 - Imágenes menciona OneDrive + GPS + imágenes/fotos.
 - `defaultTab='documents'` cae en `archivos`.
 - Tabs no mencionan `enriquecer/enriquecimiento/backfill/recovery/canonicalize`.
 - NO existen ya `data-import-hub`, `data-import-stepper`, `data-import-channel-card`, `data-import-wizard` (cero rastro del wizard PR-IMPORT-UX-2).
+- **PR-IMPORT-UX-4**: sub-toggle `data-import-subtoggle` presente con labels exactos por tab; `PanelFooter` siempre renderiza UN `data-import-primary-cta={tab}` en Acción y UN `data-import-secondary-cta={tab}` "Nueva importación" en Histórico; CTA real con `disabledReason` activa `<Tooltip>`; sin CTA inline duplicada dentro del cuerpo cuando el footer la tomó.
 
 ## Backlog explícito (NO abrir sin PR dedicado)
 
