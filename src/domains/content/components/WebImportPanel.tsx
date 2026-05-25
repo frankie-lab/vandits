@@ -30,6 +30,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ScrapeJobsList, PRESET_LABEL, PRESET_LEGEND, type Preset } from './BackgroundScrapeJobs';
+import { ImportSurfaceShell } from '@/shared/components/import/ImportSurfaceShell';
 
 type ScrapedPlace = {
   url: string;
