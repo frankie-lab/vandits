@@ -172,6 +172,43 @@ Solo documentación + memoria.
     biblioteca global como tab principal, OneDrive no como tab raíz.
   - Memoria sincronizada: `mem://logic/import/import-canon`.
 
+- 2026-05-25 — **PR-IMPORT-UX-4 CERRADO** (v1.6.2). Sub-toggle + footer
+  canónico con CTA real elevada:
+  - Bajo cada tab principal, **sub-toggle binario Acción / Histórico**
+    (segmented control compacto, `data-import-subtoggle`). Default =
+    `action`. Labels canónicos:
+    - `archivos` → "Subir archivos" / "Histórico de archivos"
+    - `web` → "Seleccionar web" / "Jobs recientes"
+    - `imagenes` → "Subir imágenes" / "Histórico de imágenes"
+  - **`PanelFooter` canónico (NO decorativo)** contiene la acción
+    principal REAL de la vista:
+    - Acción → único `Button` `data-import-primary-cta={tab}` cuyo
+      `label`/`onClick`/`disabled` provienen del componente hijo vía
+      el contrato `ImportPrimaryCtaState` (`label`, `canSubmit`,
+      `isProcessing`, `submit`, `disabledReason?`) en
+      `src/shared/components/import/import-primary-cta.ts`. Se renderiza
+      `<Tooltip>` con `disabledReason` cuando `!canSubmit`.
+    - Histórico → único `Button outline`
+      `data-import-secondary-cta={tab}` "Nueva importación" que vuelve a
+      `action`.
+  - **Sin CTA duplicada inline**: `FileUploadZone`/`WebImportPanel`/
+    `OneDrivePhotosPanel` aceptan `hidePrimaryCta` +
+    `onPrimaryStateChange`; cuando el padre toma control, ocultan/
+    suprimen el botón inline equivalente. La CTA primaria vive
+    SIEMPRE en el footer y SOLO en el footer.
+  - Imágenes: footer expone CTA real "Auditar fotos de OneDrive" /
+    "Importar imágenes" (placeholder disabled con tooltip "Disponible
+    cuando se entregue PR-IMPORT-ONEDRIVE-CREATE-POI"). Sin lógica
+    nueva.
+  - Tests `src/test/import-hub-ux.test.tsx` cubren: sub-toggle por tab
+    con labels exactos, CTA real en `PanelFooter` (Acción), ausencia
+    de CTA duplicada inline, presencia de "Nueva importación" en
+    Histórico, tooltip cuando el CTA está disabled con
+    `disabledReason`.
+  - No tocados: parsers, scrapers, edge functions, schema, RLS,
+    lógica de importación.
+  - Memoria sincronizada: `mem://logic/import/import-canon`.
+
 ### 8.1 Backlog explícito (NO abrir sin PR dedicado)
 
 | ID                                  | Alcance                                                                 |
