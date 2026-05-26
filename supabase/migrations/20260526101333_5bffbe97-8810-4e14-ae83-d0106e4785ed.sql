@@ -1,8 +1,7 @@
 -- PR-SECURITY-EDGE-AUTH-1 (Bloque 2) — fusión de las 2 migraciones de seguridad del sandbox.
+-- Scope: auth/RLS only. DROP TABLE admin_areas_name_backup_2026_05_11 excluido a propósito (cleanup en PR aparte).
 
--- ===== Parte A: data_sources + user_achievements RLS + drop backup =====
-
-DROP TABLE IF EXISTS public.admin_areas_name_backup_2026_05_11;
+-- ===== Parte A: data_sources + user_achievements RLS =====
 
 DROP POLICY IF EXISTS "data_sources select all auth" ON public.data_sources;
 DROP POLICY IF EXISTS "data_sources admin read" ON public.data_sources;
