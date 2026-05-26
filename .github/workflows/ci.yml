@@ -1,0 +1,60 @@
+name: CI
+
+# PR-CI-INFRA-1 — Minimal CI gate for main.
+# Runs on every push/PR targeting main and on pr/* feature branches.
+# Gates: lint + typecheck + vitest (incl. *-parity.test.ts contract tests).
+# Tokens build runs as a prebuild step via npm scripts.
+
+on:
+  push:
+    branches:
+      - main
+      - 'pr/**'
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint (eslint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  typecheck:
+    name: Typecheck (tsc --noEmit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run tokens:build
+      - run: npx tsc --noEmit -p tsconfig.app.json
+
+  test:
+    name: Vitest (unit + parity + contract)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run tokens:build
+      - run: npm test
